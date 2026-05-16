@@ -9,38 +9,128 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
+import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
+import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedVirksomhederRoute =
+  AuthenticatedVirksomhederRouteImport.update({
+    id: '/virksomheder',
+    path: '/virksomheder',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSalgsmulighederRoute =
+  AuthenticatedSalgsmulighederRouteImport.update({
+    id: '/salgsmuligheder',
+    path: '/salgsmuligheder',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedKontaktlisterRoute =
+  AuthenticatedKontaktlisterRouteImport.update({
+    id: '/kontaktlister',
+    path: '/kontaktlister',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
+  '/virksomheder': typeof AuthenticatedVirksomhederRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
+  '/virksomheder': typeof AuthenticatedVirksomhederRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
+  '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/dashboard'
+    | '/kontaktlister'
+    | '/salgsmuligheder'
+    | '/virksomheder'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/dashboard'
+    | '/kontaktlister'
+    | '/salgsmuligheder'
+    | '/virksomheder'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/login'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/kontaktlister'
+    | '/_authenticated/salgsmuligheder'
+    | '/_authenticated/virksomheder'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +138,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/virksomheder': {
+      id: '/_authenticated/virksomheder'
+      path: '/virksomheder'
+      fullPath: '/virksomheder'
+      preLoaderRoute: typeof AuthenticatedVirksomhederRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/salgsmuligheder': {
+      id: '/_authenticated/salgsmuligheder'
+      path: '/salgsmuligheder'
+      fullPath: '/salgsmuligheder'
+      preLoaderRoute: typeof AuthenticatedSalgsmulighederRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/kontaktlister': {
+      id: '/_authenticated/kontaktlister'
+      path: '/kontaktlister'
+      fullPath: '/kontaktlister'
+      preLoaderRoute: typeof AuthenticatedKontaktlisterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
+  AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
+  AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
+  AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
+  AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

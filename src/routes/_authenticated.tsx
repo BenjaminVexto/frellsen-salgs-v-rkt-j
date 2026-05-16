@@ -1,0 +1,171 @@
+import {
+  createFileRoute,
+  Outlet,
+  Link,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  LayoutDashboard,
+  Building2,
+  ListChecks,
+  Target,
+  Upload,
+  BarChart3,
+  Coffee,
+  LogOut,
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export const Route = createFileRoute("/_authenticated")({
+  component: AuthenticatedLayout,
+});
+
+function AuthenticatedLayout() {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const { location } = useRouterState();
+
+  useEffect(() => {
+    if (!auth.loading && !auth.session) {
+      navigate({ to: "/login" });
+    }
+  }, [auth.loading, auth.session, navigate]);
+
+  if (auth.loading || !auth.session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const isAdmin = auth.role === "admin";
+
+  const navItems = [
+    { to: "/dashboard", label: "Mit overblik", icon: LayoutDashboard },
+    { to: "/virksomheder", label: "Virksomheder", icon: Building2 },
+    { to: "/kontaktlister", label: "Kontaktlister", icon: ListChecks },
+    { to: "/salgsmuligheder", label: "Salgsmuligheder", icon: Target },
+  ];
+  const adminItems = [
+    { to: "/admin/import", label: "Import", icon: Upload },
+    { to: "/admin/overblik", label: "Admin-overblik", icon: BarChart3 },
+  ];
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/login" });
+  };
+
+  return (
+    <div className="min-h-screen flex bg-background">
+      <aside className="hidden md:flex w-64 flex-col bg-primary text-primary-foreground">
+        <div className="px-6 py-5 border-b border-primary-foreground/10 flex items-center gap-3">
+          <div className="h-9 w-9 rounded-md bg-primary-foreground/10 flex items-center justify-center">
+            <Coffee className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold leading-tight">Frellsen</div>
+            <div className="text-xs text-primary-foreground/60">Salgsoversigt</div>
+          </div>
+        </div>
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {navItems.map((item) => {
+            const active = location.pathname.startsWith(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                  active
+                    ? "bg-primary-foreground/15 text-primary-foreground"
+                    : "text-primary-foreground/75 hover:bg-primary-foreground/10"
+                }`}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+          {isAdmin && (
+            <>
+              <div className="pt-4 pb-1 px-3 text-xs uppercase tracking-wider text-primary-foreground/40">
+                Admin
+              </div>
+              {adminItems.map((item) => {
+                const active = location.pathname.startsWith(item.to);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                      active
+                        ? "bg-primary-foreground/15 text-primary-foreground"
+                        : "text-primary-foreground/75 hover:bg-primary-foreground/10"
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
+        </nav>
+        <div className="px-4 py-4 border-t border-primary-foreground/10">
+          <div className="text-sm font-medium">{auth.fullName || auth.user?.email}</div>
+          <div className="text-xs text-primary-foreground/60 mb-3">
+            {isAdmin ? "Administrator" : "Sælger"}
+            {auth.region ? ` · ${auth.region}` : ""}
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4 mr-2" /> Log ud
+          </Button>
+        </div>
+      </aside>
+
+      {/* Mobile top bar */}
+      <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between border-b border-primary-foreground/10">
+        <div className="flex items-center gap-2">
+          <Coffee className="h-5 w-5" />
+          <span className="font-semibold text-sm">Frellsen Salgsoversigt</span>
+        </div>
+        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
+          <LogOut className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <main className="flex-1 md:ml-0 pt-14 md:pt-0">
+        <Outlet />
+        {/* Mobile bottom nav */}
+        <nav className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-4 z-20">
+          {navItems.map((item) => {
+            const active = location.pathname.startsWith(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`flex flex-col items-center justify-center py-2 text-[11px] ${
+                  active ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                <item.icon className="h-5 w-5 mb-0.5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </main>
+    </div>
+  );
+}
