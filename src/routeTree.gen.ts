@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
+import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 
 const LoginRoute = LoginRouteImport.update({
@@ -35,6 +36,12 @@ const AuthenticatedVirksomhederRoute =
     path: '/virksomheder',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedKontaktlisterRoute =
+  AuthenticatedKontaktlisterRouteImport.update({
+    id: '/kontaktlister',
+    path: '/kontaktlister',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -45,12 +52,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
 }
 export interface FileRoutesById {
@@ -59,19 +68,21 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/dashboard' | '/virksomheder'
+  fullPaths: '/' | '/login' | '/dashboard' | '/kontaktlister' | '/virksomheder'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/dashboard' | '/virksomheder'
+  to: '/' | '/login' | '/dashboard' | '/kontaktlister' | '/virksomheder'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/login'
     | '/_authenticated/dashboard'
+    | '/_authenticated/kontaktlister'
     | '/_authenticated/virksomheder'
   fileRoutesById: FileRoutesById
 }
@@ -111,6 +122,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVirksomhederRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/kontaktlister': {
+      id: '/_authenticated/kontaktlister'
+      path: '/kontaktlister'
+      fullPath: '/kontaktlister'
+      preLoaderRoute: typeof AuthenticatedKontaktlisterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -123,11 +141,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
 }
 
