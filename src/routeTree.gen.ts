@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
+import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 
@@ -36,6 +37,12 @@ const AuthenticatedVirksomhederRoute =
     path: '/virksomheder',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSalgsmulighederRoute =
+  AuthenticatedSalgsmulighederRouteImport.update({
+    id: '/salgsmuligheder',
+    path: '/salgsmuligheder',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedKontaktlisterRoute =
   AuthenticatedKontaktlisterRouteImport.update({
     id: '/kontaktlister',
@@ -53,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
 }
 export interface FileRoutesByTo {
@@ -60,6 +68,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
 }
 export interface FileRoutesById {
@@ -69,13 +78,26 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/dashboard' | '/kontaktlister' | '/virksomheder'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/dashboard'
+    | '/kontaktlister'
+    | '/salgsmuligheder'
+    | '/virksomheder'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/dashboard' | '/kontaktlister' | '/virksomheder'
+  to:
+    | '/'
+    | '/login'
+    | '/dashboard'
+    | '/kontaktlister'
+    | '/salgsmuligheder'
+    | '/virksomheder'
   id:
     | '__root__'
     | '/'
@@ -83,6 +105,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/dashboard'
     | '/_authenticated/kontaktlister'
+    | '/_authenticated/salgsmuligheder'
     | '/_authenticated/virksomheder'
   fileRoutesById: FileRoutesById
 }
@@ -122,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVirksomhederRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/salgsmuligheder': {
+      id: '/_authenticated/salgsmuligheder'
+      path: '/salgsmuligheder'
+      fullPath: '/salgsmuligheder'
+      preLoaderRoute: typeof AuthenticatedSalgsmulighederRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/kontaktlister': {
       id: '/_authenticated/kontaktlister'
       path: '/kontaktlister'
@@ -142,12 +172,14 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
+  AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
+  AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
 }
 
