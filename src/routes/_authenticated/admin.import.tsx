@@ -243,25 +243,24 @@ function ImportSide() {
     for (let i = 0; i < toImport.length; i++) {
       const p = toImport[i];
       try {
+        const payload: any = { ...stripUndef(p.data) };
         if (p.cvr) {
           const wasDup = p.isDuplicate;
+          payload.cvr = p.cvr;
           const { data, error } = await supabase
             .from("companies")
-            .upsert(
-              { cvr: p.cvr, name: p.data.name as string, ...stripUndef(p.data) },
-              { onConflict: "cvr" },
-            )
+            .upsert(payload, { onConflict: "cvr" })
             .select("id")
             .single();
           if (error) throw error;
           companyIds.push(data.id);
           if (wasDup) updated++; else created++;
         } else {
-          // Uden CVR — opret altid ny med en placeholder
-          const placeholder = `NO-CVR-${Date.now()}-${i}`;
+          payload.cvr = `NO-CVR-${Date.now()}-${i}`;
+          payload.source = "csv_uden_cvr";
           const { data, error } = await supabase
             .from("companies")
-            .insert({ cvr: placeholder, name: p.data.name as string, ...stripUndef(p.data), source: "csv_uden_cvr" })
+            .insert(payload)
             .select("id")
             .single();
           if (error) throw error;
