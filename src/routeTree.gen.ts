@@ -17,6 +17,7 @@ import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_auth
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
+import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -61,6 +62,12 @@ const AuthenticatedVirksomhederIdRoute =
     path: '/virksomheder/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminImportRoute =
+  AuthenticatedAdminImportRouteImport.update({
+    id: '/admin/import',
+    path: '/admin/import',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -69,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/admin/import': typeof AuthenticatedAdminImportRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
 }
 export interface FileRoutesByTo {
@@ -78,6 +86,7 @@ export interface FileRoutesByTo {
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/admin/import': typeof AuthenticatedAdminImportRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
 }
 export interface FileRoutesById {
@@ -89,6 +98,7 @@ export interface FileRoutesById {
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
   '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/kontaktlister'
     | '/salgsmuligheder'
     | '/virksomheder'
+    | '/admin/import'
     | '/virksomheder/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/kontaktlister'
     | '/salgsmuligheder'
     | '/virksomheder'
+    | '/admin/import'
     | '/virksomheder/$id'
   id:
     | '__root__'
@@ -119,6 +131,7 @@ export interface FileRouteTypes {
     | '/_authenticated/kontaktlister'
     | '/_authenticated/salgsmuligheder'
     | '/_authenticated/virksomheder'
+    | '/_authenticated/admin/import'
     | '/_authenticated/virksomheder_/$id'
   fileRoutesById: FileRoutesById
 }
@@ -186,6 +199,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVirksomhederIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/import': {
+      id: '/_authenticated/admin/import'
+      path: '/admin/import'
+      fullPath: '/admin/import'
+      preLoaderRoute: typeof AuthenticatedAdminImportRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -194,6 +214,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
   AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
+  AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRoute
   AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRoute
 }
 
@@ -202,6 +223,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
   AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
+  AuthenticatedAdminImportRoute: AuthenticatedAdminImportRoute,
   AuthenticatedVirksomhederIdRoute: AuthenticatedVirksomhederIdRoute,
 }
 
