@@ -16,6 +16,7 @@ import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authent
 import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -54,6 +55,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedVirksomhederIdRoute =
+  AuthenticatedVirksomhederIdRouteImport.update({
+    id: '/virksomheder_/$id',
+    path: '/virksomheder/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +78,7 @@ export interface FileRoutesByTo {
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +89,7 @@ export interface FileRoutesById {
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -90,6 +100,7 @@ export interface FileRouteTypes {
     | '/kontaktlister'
     | '/salgsmuligheder'
     | '/virksomheder'
+    | '/virksomheder/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -98,6 +109,7 @@ export interface FileRouteTypes {
     | '/kontaktlister'
     | '/salgsmuligheder'
     | '/virksomheder'
+    | '/virksomheder/$id'
   id:
     | '__root__'
     | '/'
@@ -107,6 +119,7 @@ export interface FileRouteTypes {
     | '/_authenticated/kontaktlister'
     | '/_authenticated/salgsmuligheder'
     | '/_authenticated/virksomheder'
+    | '/_authenticated/virksomheder_/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -166,6 +179,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/virksomheder_/$id': {
+      id: '/_authenticated/virksomheder_/$id'
+      path: '/virksomheder/$id'
+      fullPath: '/virksomheder/$id'
+      preLoaderRoute: typeof AuthenticatedVirksomhederIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -174,6 +194,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
   AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
+  AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -181,6 +202,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
   AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
+  AuthenticatedVirksomhederIdRoute: AuthenticatedVirksomhederIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
