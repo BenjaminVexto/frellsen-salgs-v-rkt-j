@@ -1,0 +1,665 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  ArrowLeft,
+  Building2,
+  Phone,
+  Mail,
+  Globe,
+  MapPin,
+  User,
+  CalendarIcon,
+  PlusCircle,
+  FileText,
+  ClipboardList,
+} from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { da } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import type { Database } from "@/integrations/supabase/types";
+
+type ActivityType = Database["public"]["Enums"]["activity_type"];
+type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
+
+export const Route = createFileRoute("/_authenticated/virksomheder_/$id")({
+  component: VirksomhedsKort,
+});
+
+const customerTypeLabel: Record<string, string> = {
+  nyt_emne: "Nyt emne",
+  aktiv_kunde: "Aktiv kunde",
+  sovende_kunde: "Sovende kunde",
+  tidligere_kunde: "Tidligere kunde",
+};
+const customerTypeVariant: Record<string, "default" | "secondary" | "outline"> = {
+  nyt_emne: "outline",
+  aktiv_kunde: "default",
+  sovende_kunde: "secondary",
+  tidligere_kunde: "secondary",
+};
+
+const activityTypes: { value: ActivityType; label: string }[] = [
+  { value: "opkald", label: "Opkald" },
+  { value: "email", label: "Email" },
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "besøg", label: "Besøg" },
+  { value: "møde", label: "Møde" },
+  { value: "teams_møde", label: "Teams-møde" },
+  { value: "tilbud_sendt", label: "Tilbud sendt" },
+  { value: "opfølgning", label: "Opfølgning" },
+  { value: "intern_note", label: "Intern note" },
+];
+
+const assignmentStatuses: { value: AssignmentStatus; label: string }[] = [
+  { value: "ny", label: "Ny" },
+  { value: "skal_kontaktes", label: "Skal kontaktes" },
+  { value: "kontaktet", label: "Kontaktet" },
+  { value: "talt_med", label: "Talt med" },
+  { value: "møde_booket", label: "Møde booket" },
+  { value: "tilbud_sendt", label: "Tilbud sendt" },
+  { value: "ikke_relevant", label: "Ikke relevant" },
+  { value: "senere_emne", label: "Senere emne" },
+  { value: "vundet", label: "Vundet" },
+  { value: "tabt", label: "Tabt" },
+];
+
+const STATUS_REQUIRES_FOLLOWUP: AssignmentStatus[] = [
+  "talt_med",
+  "møde_booket",
+  "tilbud_sendt",
+];
+
+type Company = Database["public"]["Tables"]["companies"]["Row"];
+type Contact = Database["public"]["Tables"]["contacts"]["Row"];
+type Activity = Database["public"]["Tables"]["activities"]["Row"];
+type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"];
+
+function VirksomhedsKort() {
+  const { id } = Route.useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [company, setCompany] = useState<Company | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [opportunityOpen, setOpportunityOpen] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [{ data: c }, { data: ct }, { data: a }, { data: asg }] = await Promise.all([
+      supabase.from("companies").select("*").eq("id", id).maybeSingle(),
+      supabase.from("contacts").select("*").eq("company_id", id).order("is_primary", { ascending: false }),
+      supabase.from("activities").select("*").eq("company_id", id).order("created_at", { ascending: false }),
+      supabase.from("contact_list_assignments").select("*").eq("company_id", id),
+    ]);
+    setCompany(c ?? null);
+    setContacts(ct ?? []);
+    setActivities(a ?? []);
+    setAssignments(asg ?? []);
+    setLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
+    return <div className="p-8 text-sm text-muted-foreground">Indlæser…</div>;
+  }
+  if (!company) {
+    return (
+      <div className="p-8">
+        <p className="text-sm text-muted-foreground mb-4">Virksomhed ikke fundet eller ingen adgang.</p>
+        <Button variant="outline" onClick={() => navigate({ to: "/virksomheder" })}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 md:px-6 py-6 max-w-[1600px] mx-auto pb-24 md:pb-6">
+      <div className="mb-4">
+        <Link
+          to="/virksomheder"
+          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" /> Alle virksomheder
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_300px] gap-6">
+        {/* VENSTRE — Stamdata */}
+        <Card className="p-5 h-fit">
+          <div className="flex items-start justify-between mb-3">
+            <div className="bg-muted rounded-md p-2">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <Badge variant={customerTypeVariant[company.customer_type] ?? "outline"}>
+              {customerTypeLabel[company.customer_type]}
+            </Badge>
+          </div>
+          <h1 className="text-xl font-semibold leading-tight mb-1">{company.name}</h1>
+          <p className="text-xs text-muted-foreground mb-4">CVR {company.cvr}</p>
+
+          <div className="space-y-3 text-sm">
+            {(company.address || company.city) && (
+              <Row icon={<MapPin className="h-4 w-4" />}>
+                {company.address && <div>{company.address}</div>}
+                <div className="text-muted-foreground">
+                  {[company.zip, company.city].filter(Boolean).join(" ")}
+                </div>
+                {company.municipality && (
+                  <div className="text-xs text-muted-foreground">{company.municipality} Kommune</div>
+                )}
+              </Row>
+            )}
+            {company.phone && (
+              <Row icon={<Phone className="h-4 w-4" />}>
+                <a href={`tel:${company.phone}`} className="hover:underline">{company.phone}</a>
+              </Row>
+            )}
+            {company.email && (
+              <Row icon={<Mail className="h-4 w-4" />}>
+                <a href={`mailto:${company.email}`} className="hover:underline break-all">{company.email}</a>
+              </Row>
+            )}
+            {company.website && (
+              <Row icon={<Globe className="h-4 w-4" />}>
+                <a href={company.website.startsWith("http") ? company.website : `https://${company.website}`} target="_blank" rel="noreferrer" className="hover:underline break-all">
+                  {company.website}
+                </a>
+              </Row>
+            )}
+          </div>
+
+          <div className="border-t mt-4 pt-4 space-y-2 text-sm">
+            {company.industry && <KV label="Branche" value={company.industry} />}
+            {company.employees != null && <KV label="Medarbejdere" value={String(company.employees)} />}
+            {company.turnover_12m != null && (
+              <KV label="Omsætning (12 mdr.)" value={`${Number(company.turnover_12m).toLocaleString("da-DK")} kr.`} />
+            )}
+            {company.last_purchase_date && (
+              <KV label="Sidste køb" value={format(new Date(company.last_purchase_date), "d. MMM yyyy", { locale: da })} />
+            )}
+            {company.source && <KV label="Kilde" value={company.source} />}
+          </div>
+        </Card>
+
+        {/* MIDTEN — Aktivitetslog + kontakter */}
+        <div className="space-y-6 min-w-0">
+          <Card className="p-5">
+            <h2 className="font-semibold mb-4 flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" /> Aktivitetslog
+            </h2>
+            {activities.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Ingen aktiviteter endnu.</p>
+            ) : (
+              <div className="space-y-4">
+                {activities.map((a) => (
+                  <div key={a.id} className="border-l-2 border-primary/30 pl-3">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <Badge variant="outline" className="capitalize">
+                        {activityTypes.find((t) => t.value === a.activity_type)?.label ?? a.activity_type}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
+                      </span>
+                    </div>
+                    {a.note && <p className="text-sm whitespace-pre-wrap">{a.note}</p>}
+                    {(a.next_action || a.next_followup_date) && (
+                      <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
+                        <span className="font-medium">Næste: </span>
+                        {a.next_action}
+                        {a.next_followup_date && (
+                          <span className="text-muted-foreground">
+                            {" — "}
+                            {format(new Date(a.next_followup_date), "d. MMM yyyy", { locale: da })}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="font-semibold mb-4 flex items-center gap-2">
+              <User className="h-4 w-4" /> Kontaktpersoner
+            </h2>
+            {contacts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Ingen kontakter registreret.</p>
+            ) : (
+              <ul className="divide-y">
+                {contacts.map((c) => (
+                  <li key={c.id} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{c.name}</span>
+                      {c.is_primary && <Badge variant="secondary" className="text-xs">Primær</Badge>}
+                    </div>
+                    {c.title && <div className="text-xs text-muted-foreground">{c.title}</div>}
+                    <div className="text-sm mt-1 space-x-3">
+                      {c.phone && <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a>}
+                      {c.email && <a href={`mailto:${c.email}`} className="hover:underline">{c.email}</a>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+
+        {/* HØJRE — Handlingspanel */}
+        <Card className="p-5 h-fit lg:sticky lg:top-6">
+          <h2 className="font-semibold mb-4">Handlinger</h2>
+          <div className="space-y-2">
+            <Button className="w-full justify-start" onClick={() => setActivityOpen(true)}>
+              <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
+            </Button>
+            <Button variant="outline" className="w-full justify-start" onClick={() => setOpportunityOpen(true)}>
+              <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
+            </Button>
+            <Button variant="outline" className="w-full justify-start" onClick={() => setQuoteOpen(true)}>
+              <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
+            </Button>
+          </div>
+        </Card>
+      </div>
+
+      <RegistrerAktivitetDialog
+        open={activityOpen}
+        onOpenChange={setActivityOpen}
+        companyId={company.id}
+        userId={user?.id ?? ""}
+        assignments={assignments}
+        onSaved={load}
+      />
+      <OpretSalgsmulighedDialog
+        open={opportunityOpen}
+        onOpenChange={setOpportunityOpen}
+        companyId={company.id}
+        userId={user?.id ?? ""}
+        onSaved={load}
+      />
+      <RegistrerTilbudDialog
+        open={quoteOpen}
+        onOpenChange={setQuoteOpen}
+        companyId={company.id}
+        userId={user?.id ?? ""}
+        onSaved={load}
+      />
+    </div>
+  );
+}
+
+function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-2">
+      <div className="text-muted-foreground mt-0.5">{icon}</div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+function KV({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right">{value}</span>
+    </div>
+  );
+}
+
+function DatoVælger({
+  value,
+  onChange,
+  placeholder = "Vælg dato",
+}: {
+  value?: Date;
+  onChange: (d?: Date) => void;
+  placeholder?: string;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn("w-full justify-start text-left font-normal", !value && "text-muted-foreground")}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {value ? format(value, "d. MMMM yyyy", { locale: da }) : <span>{placeholder}</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={value}
+          onSelect={onChange}
+          initialFocus
+          locale={da}
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function RegistrerAktivitetDialog({
+  open,
+  onOpenChange,
+  companyId,
+  userId,
+  assignments,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  companyId: string;
+  userId: string;
+  assignments: Assignment[];
+  onSaved: () => void;
+}) {
+  const [type, setType] = useState<ActivityType | "">("");
+  const [note, setNote] = useState("");
+  const [nextAction, setNextAction] = useState("");
+  const [nextDate, setNextDate] = useState<Date | undefined>();
+  const [updateStatus, setUpdateStatus] = useState<AssignmentStatus | "">("");
+  const [assignmentId, setAssignmentId] = useState<string>(assignments[0]?.id ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setType("");
+      setNote("");
+      setNextAction("");
+      setNextDate(undefined);
+      setUpdateStatus("");
+      setAssignmentId(assignments[0]?.id ?? "");
+    }
+  }, [open, assignments]);
+
+  const requiresFollowup =
+    updateStatus !== "" && STATUS_REQUIRES_FOLLOWUP.includes(updateStatus as AssignmentStatus);
+
+  async function save() {
+    if (!type) {
+      toast.error("Vælg en aktivitetstype");
+      return;
+    }
+    if (requiresFollowup && (!nextAction.trim() || !nextDate)) {
+      toast.error("Status kræver både næste handling og opfølgningsdato");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("activities").insert({
+      company_id: companyId,
+      created_by: userId,
+      activity_type: type as ActivityType,
+      note: note.trim() || null,
+      next_action: nextAction.trim() || null,
+      next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
+      contact_list_assignment_id: assignmentId || null,
+    });
+    if (error) {
+      toast.error("Kunne ikke gemme aktivitet: " + error.message);
+      setSaving(false);
+      return;
+    }
+    if (updateStatus && assignmentId) {
+      const { error: e2 } = await supabase
+        .from("contact_list_assignments")
+        .update({
+          status: updateStatus as AssignmentStatus,
+          next_action_note: nextAction.trim() || null,
+          next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
+        })
+        .eq("id", assignmentId);
+      if (e2) toast.error("Aktivitet gemt, men status kunne ikke opdateres: " + e2.message);
+    }
+    toast.success("Aktivitet gemt");
+    setSaving(false);
+    onOpenChange(false);
+    onSaved();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Registrér aktivitet</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-1.5 block">Aktivitetstype *</Label>
+            <Select value={type} onValueChange={(v) => setType(v as ActivityType)}>
+              <SelectTrigger><SelectValue placeholder="Vælg type" /></SelectTrigger>
+              <SelectContent>
+                {activityTypes.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="mb-1.5 block">Note</Label>
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Hvad skete der?" />
+          </div>
+          {assignments.length > 0 && (
+            <div>
+              <Label className="mb-1.5 block">Opdater status (valgfri)</Label>
+              <Select value={updateStatus} onValueChange={(v) => setUpdateStatus(v as AssignmentStatus)}>
+                <SelectTrigger><SelectValue placeholder="Ingen ændring" /></SelectTrigger>
+                <SelectContent>
+                  {assignmentStatuses.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div>
+            <Label className="mb-1.5 block">
+              Næste handling {requiresFollowup && <span className="text-destructive">*</span>}
+            </Label>
+            <Input
+              value={nextAction}
+              onChange={(e) => setNextAction(e.target.value)}
+              placeholder="Fx: ring tilbage med tilbud"
+            />
+          </div>
+          <div>
+            <Label className="mb-1.5 block">
+              Næste opfølgningsdato {requiresFollowup && <span className="text-destructive">*</span>}
+            </Label>
+            <DatoVælger value={nextDate} onChange={setNextDate} />
+          </div>
+          {requiresFollowup && (
+            <p className="text-xs text-muted-foreground">
+              Statussen kræver, at både næste handling og opfølgningsdato udfyldes.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Annullér</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Gemmer…" : "Gem aktivitet"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OpretSalgsmulighedDialog({
+  open,
+  onOpenChange,
+  companyId,
+  userId,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  companyId: string;
+  userId: string;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [value, setValue] = useState("");
+  const [closeDate, setCloseDate] = useState<Date | undefined>();
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) { setName(""); setValue(""); setCloseDate(undefined); }
+  }, [open]);
+
+  async function save() {
+    if (!name.trim()) { toast.error("Angiv et navn"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("sales_opportunities").insert({
+      company_id: companyId,
+      assigned_to: userId,
+      name: name.trim(),
+      estimated_value: value ? Number(value) : null,
+      expected_close_date: closeDate ? format(closeDate, "yyyy-MM-dd") : null,
+    });
+    setSaving(false);
+    if (error) { toast.error("Fejl: " + error.message); return; }
+    toast.success("Salgsmulighed oprettet");
+    onOpenChange(false);
+    onSaved();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Opret salgsmulighed</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-1.5 block">Navn *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Fx: Espressomaskine til kantine" />
+          </div>
+          <div>
+            <Label className="mb-1.5 block">Forventet værdi (kr.)</Label>
+            <Input type="number" value={value} onChange={(e) => setValue(e.target.value)} />
+          </div>
+          <div>
+            <Label className="mb-1.5 block">Forventet lukkedato</Label>
+            <DatoVælger value={closeDate} onChange={setCloseDate} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Annullér</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Gemmer…" : "Opret"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RegistrerTilbudDialog({
+  open,
+  onOpenChange,
+  companyId,
+  userId,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  companyId: string;
+  userId: string;
+  onSaved: () => void;
+}) {
+  const [number, setNumber] = useState("");
+  const [value, setValue] = useState("");
+  const [sent, setSent] = useState<Date | undefined>(new Date());
+  const [expiry, setExpiry] = useState<Date | undefined>();
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) { setNumber(""); setValue(""); setSent(new Date()); setExpiry(undefined); setNotes(""); }
+  }, [open]);
+
+  async function save() {
+    setSaving(true);
+    const { error } = await supabase.from("quotes").insert({
+      company_id: companyId,
+      created_by: userId,
+      quote_number: number.trim() || null,
+      estimated_value: value ? Number(value) : null,
+      sent_date: sent ? format(sent, "yyyy-MM-dd") : null,
+      expiry_date: expiry ? format(expiry, "yyyy-MM-dd") : null,
+      notes: notes.trim() || null,
+      status: "sendt",
+    });
+    setSaving(false);
+    if (error) { toast.error("Fejl: " + error.message); return; }
+    toast.success("Tilbud registreret");
+    onOpenChange(false);
+    onSaved();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Registrér tilbud</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-1.5 block">Tilbudsnummer</Label>
+            <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Fx: T-2026-0123" />
+          </div>
+          <div>
+            <Label className="mb-1.5 block">Værdi (kr.)</Label>
+            <Input type="number" value={value} onChange={(e) => setValue(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="mb-1.5 block">Sendt</Label>
+              <DatoVælger value={sent} onChange={setSent} />
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Udløber</Label>
+              <DatoVælger value={expiry} onChange={setExpiry} />
+            </div>
+          </div>
+          <div>
+            <Label className="mb-1.5 block">Noter</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Annullér</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Gemmer…" : "Gem tilbud"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
