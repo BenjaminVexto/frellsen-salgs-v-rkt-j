@@ -369,7 +369,8 @@ function OpretListeDialog({
   const [filterMunicipality, setFilterMunicipality] = useState("");
   const [filterCustomerTypes, setFilterCustomerTypes] = useState<string[]>([]);
   const [filterUnassigned, setFilterUnassigned] = useState(false);
-  const [filterMachine, setFilterMachine] = useState<string>(""); // "", "no", "yes", "unknown"
+  const [filterMachine, setFilterMachine] = useState<string>("");
+  const [filterSector, setFilterSector] = useState<string>(""); // "" | private | public | unknown
   const [minEmployees, setMinEmployees] = useState("");
 
   const [companies, setCompanies] = useState<Company[]>([]); // preview rows (max 500)
