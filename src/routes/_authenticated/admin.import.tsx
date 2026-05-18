@@ -171,6 +171,7 @@ function ImportSide() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{
     created: number; updated: number; skipped: number; failed: number; enriched: number;
+    noCvrCount: number;
     importSource: "visma" | "cvr";
     unmatchedSalespersonNos: string[];
   } | null>(null);
