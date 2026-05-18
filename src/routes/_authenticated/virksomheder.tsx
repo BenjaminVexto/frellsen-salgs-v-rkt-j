@@ -157,7 +157,7 @@ function VirksomhederListe() {
     let query = supabase
       .from("companies")
       .select(
-        "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees",
+        "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public",
       )
       .order("name", { ascending: true })
       .limit(5000);
@@ -165,7 +165,7 @@ function VirksomhederListe() {
       query = supabase
         .from("companies")
         .select(
-          "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees",
+          "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public",
         )
         .in("id", recentIds)
         .order("name");
