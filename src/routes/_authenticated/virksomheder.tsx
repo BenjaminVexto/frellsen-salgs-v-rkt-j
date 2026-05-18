@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/virksomheder")({
 type Row = {
   id: string;
   name: string;
-  cvr: string;
+  cvr: string | null;
   city: string | null;
   customer_type: string;
   sources: string[] | null;
@@ -96,7 +96,7 @@ function VirksomhederListe() {
     return rows.filter((r) => {
       const matchesQ =
         r.name.toLowerCase().includes(q.toLowerCase()) ||
-        r.cvr.includes(q) ||
+        (r.cvr ?? "").includes(q) ||
         (r.city ?? "").toLowerCase().includes(q.toLowerCase());
       if (!matchesQ) return false;
       if (onlyUnassigned && assignedIds.has(r.id)) return false;

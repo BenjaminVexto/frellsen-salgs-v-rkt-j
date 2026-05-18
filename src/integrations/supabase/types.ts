@@ -86,7 +86,7 @@ export type Database = {
           customer_segment_2: string | null
           customer_segment_3: string | null
           customer_type: Database["public"]["Enums"]["customer_type"]
-          cvr: string
+          cvr: string | null
           email: string | null
           employees: number | null
           id: string
@@ -117,7 +117,7 @@ export type Database = {
           customer_segment_2?: string | null
           customer_segment_3?: string | null
           customer_type?: Database["public"]["Enums"]["customer_type"]
-          cvr: string
+          cvr?: string | null
           email?: string | null
           employees?: number | null
           id?: string
@@ -148,7 +148,7 @@ export type Database = {
           customer_segment_2?: string | null
           customer_segment_3?: string | null
           customer_type?: Database["public"]["Enums"]["customer_type"]
-          cvr?: string
+          cvr?: string | null
           email?: string | null
           employees?: number | null
           id?: string

@@ -131,6 +131,7 @@ interface PreparedRow {
   matchedSellerId: string | null;
   isDuplicate: boolean;
   missingCvr: boolean;
+  nameMatchId: string | null;
   hasError: boolean;
   errorMessage?: string;
 }
@@ -160,6 +161,7 @@ function ImportSide() {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [mapping, setMapping] = useState<Partial<Record<SystemField, string>>>({});
   const [existingCvrs, setExistingCvrs] = useState<Set<string>>(new Set());
+  const [existingNameMap, setExistingNameMap] = useState<Map<string, string>>(new Map());
   const [includeMissingCvr, setIncludeMissingCvr] = useState(false);
   const [contactLists, setContactLists] = useState<{ id: string; name: string }[]>([]);
   const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
@@ -169,6 +171,7 @@ function ImportSide() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{
     created: number; updated: number; skipped: number; failed: number; enriched: number;
+    noCvrCount: number;
     importSource: "visma" | "cvr";
     unmatchedSalespersonNos: string[];
   } | null>(null);
@@ -223,9 +226,28 @@ function ImportSide() {
     for (let i = 0; i < unique.length; i += 500) {
       const slice = unique.slice(i, i + 500);
       const { data } = await supabase.from("companies").select("cvr").in("cvr", slice);
-      (data ?? []).forEach((d) => dupSet.add(d.cvr));
+      (data ?? []).forEach((d) => { if (d.cvr) dupSet.add(d.cvr); });
     }
     setExistingCvrs(dupSet);
+
+    // Slå navne op for rækker uden CVR
+    const nameMap = new Map<string, string>();
+    const noCvrNames = rows
+      .filter((r) => !(mapping.cvr ? normCvr(r[mapping.cvr!]) : null))
+      .map((r) => mapping.name ? (r[mapping.name] ?? "").trim() : "")
+      .filter((n) => !!n);
+    const uniqueNames = Array.from(new Set(noCvrNames));
+    for (let i = 0; i < uniqueNames.length; i += 200) {
+      const slice = uniqueNames.slice(i, i + 200);
+      const { data: ndata } = await supabase
+        .from("companies")
+        .select("id, name")
+        .in("name", slice);
+      (ndata ?? []).forEach((d: any) => {
+        if (!nameMap.has(d.name.toLowerCase())) nameMap.set(d.name.toLowerCase(), d.id);
+      });
+    }
+    setExistingNameMap(nameMap);
 
     // Hent sælgernumre → user_id-mapping
     const { data: profs } = await supabase
@@ -297,6 +319,10 @@ function ImportSide() {
       }
       const missingCvr = !cvr;
       const isDuplicate = !!cvr && existingCvrs.has(cvr);
+      const nameMatchId =
+        missingCvr && data.name
+          ? existingNameMap.get(String(data.name).toLowerCase()) ?? null
+          : null;
       const hasError = !data.name;
       return {
         raw: r,
@@ -306,11 +332,12 @@ function ImportSide() {
         matchedSellerId,
         isDuplicate,
         missingCvr,
+        nameMatchId,
         hasError,
         errorMessage: !data.name ? "Mangler navn" : undefined,
       };
     });
-  }, [rows, mapping, existingCvrs, salespersonMap]);
+  }, [rows, mapping, existingCvrs, existingNameMap, salespersonMap]);
 
   const stats = useMemo(() => {
     const newCount = prepared.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
@@ -327,15 +354,48 @@ function ImportSide() {
   async function runImport() {
     setImporting(true);
     setProgress(0);
-    let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0;
+    let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0, noCvrCount = 0;
     const toImport = prepared.filter((p) => {
       if (p.hasError) return false;
       if (p.missingCvr && !includeMissingCvr) return false;
       return true;
     });
+    // Kilden er bestemt af importtypen — IKKE af om rækken matcher en eksisterende virksomhed
     const importSource: "visma" | "cvr" = mapping.visma_id ? "visma" : "cvr";
     const companyIds: string[] = [];
     const sellerByCompany: Record<string, string> = {};
+
+    async function updateExisting(existing: any, incoming: Record<string, any>): Promise<string> {
+      const updatePayload: Record<string, any> = {};
+      // Udfyld tomme felter — Visma-felter overskrives altid med nye værdier
+      const VISMA_OVERWRITE = new Set([
+        "visma_id", "visma_delivery_id", "created_in_visma",
+        "turnover_12m", "last_purchase_date",
+        "customer_segment_1", "customer_segment_2", "customer_segment_3",
+      ]);
+      for (const [k, v] of Object.entries(incoming)) {
+        if (importSource === "visma" && VISMA_OVERWRITE.has(k)) {
+          updatePayload[k] = v;
+          continue;
+        }
+        const cur = (existing as any)[k];
+        if (cur === null || cur === undefined || cur === "") {
+          updatePayload[k] = v;
+        }
+      }
+      const existingSources: string[] = Array.isArray(existing.sources) ? existing.sources : [];
+      const mergedSources = existingSources.includes(importSource)
+        ? existingSources
+        : [...existingSources, importSource];
+      updatePayload.sources = mergedSources;
+      updatePayload.source_updated_at = new Date().toISOString();
+      const { error: upErr } = await supabase
+        .from("companies")
+        .update(updatePayload as any)
+        .eq("id", existing.id);
+      if (upErr) throw upErr;
+      return existing.id;
+    }
 
     for (let i = 0; i < toImport.length; i++) {
       const p = toImport[i];
@@ -344,85 +404,72 @@ function ImportSide() {
         let companyId: string;
 
         if (p.cvr && p.isDuplicate) {
-          // Hent eksisterende — flet kilder, udfyld kun tomme felter
           const { data: existing, error: selErr } = await supabase
-            .from("companies")
-            .select("*")
-            .eq("cvr", p.cvr)
-            .maybeSingle();
+            .from("companies").select("*").eq("cvr", p.cvr).maybeSingle();
           if (selErr) throw selErr;
-          const updatePayload: Record<string, any> = {};
           if (existing) {
-            for (const [k, v] of Object.entries(incoming)) {
-              const cur = (existing as any)[k];
-              if (cur === null || cur === undefined || cur === "") {
-                updatePayload[k] = v;
-              }
-            }
-            const existingSources: string[] = Array.isArray((existing as any).sources)
-              ? (existing as any).sources
-              : [];
-            const mergedSources = existingSources.includes(importSource)
-              ? existingSources
-              : [...existingSources, importSource];
-            updatePayload.sources = mergedSources;
-            updatePayload.source_updated_at = new Date().toISOString();
-            const { error: upErr } = await supabase
-              .from("companies")
-              .update(updatePayload as any)
-              .eq("id", (existing as any).id);
-            if (upErr) throw upErr;
-            companyId = (existing as any).id;
+            companyId = await updateExisting(existing, incoming);
             updated++;
             if (importSource === "cvr") enriched++;
           } else {
-            // Edge case — duplicate flag, men findes ikke længere
             const insertPayload = {
-              ...incoming,
-              cvr: p.cvr,
+              ...incoming, cvr: p.cvr,
               sources: [importSource],
               source_updated_at: new Date().toISOString(),
             };
             const { data, error } = await supabase
-              .from("companies")
-              .insert(insertPayload as any)
-              .select("id")
-              .single();
+              .from("companies").insert(insertPayload as any).select("id").single();
             if (error) throw error;
             companyId = data.id;
             created++;
           }
         } else if (p.cvr) {
           const insertPayload = {
-            ...incoming,
-            cvr: p.cvr,
+            ...incoming, cvr: p.cvr,
             sources: [importSource],
             source_updated_at: new Date().toISOString(),
           };
           const { data, error } = await supabase
-            .from("companies")
-            .insert(insertPayload as any)
-            .select("id")
-            .single();
+            .from("companies").insert(insertPayload as any).select("id").single();
           if (error) throw error;
           companyId = data.id;
           created++;
+        } else if (p.nameMatchId) {
+          // Uden CVR — eksisterende navnematch: opdatér
+          const { data: existing, error: selErr } = await supabase
+            .from("companies").select("*").eq("id", p.nameMatchId).maybeSingle();
+          if (selErr) throw selErr;
+          if (existing) {
+            companyId = await updateExisting(existing, incoming);
+            updated++;
+          } else {
+            const insertPayload = {
+              ...incoming, cvr: null,
+              source: "csv_uden_cvr",
+              sources: [importSource],
+              source_updated_at: new Date().toISOString(),
+            };
+            const { data, error } = await supabase
+              .from("companies").insert(insertPayload as any).select("id").single();
+            if (error) throw error;
+            companyId = data.id;
+            created++;
+          }
+          noCvrCount++;
         } else {
+          // Uden CVR og uden navnematch: opret ny med cvr = NULL
           const insertPayload = {
-            ...incoming,
-            cvr: `NO-CVR-${Date.now()}-${i}`,
+            ...incoming, cvr: null,
             source: "csv_uden_cvr",
             sources: [importSource],
             source_updated_at: new Date().toISOString(),
           };
           const { data, error } = await supabase
-            .from("companies")
-            .insert(insertPayload as any)
-            .select("id")
-            .single();
+            .from("companies").insert(insertPayload as any).select("id").single();
           if (error) throw error;
           companyId = data.id;
           created++;
+          noCvrCount++;
         }
         companyIds.push(companyId);
         if (p.matchedSellerId) sellerByCompany[companyId] = p.matchedSellerId;
@@ -452,7 +499,7 @@ function ImportSide() {
     setImportedIds(companyIds);
     setImportedSellerByCompany(sellerByCompany);
     setResult({
-      created, updated, skipped, failed, enriched,
+      created, updated, skipped, failed, enriched, noCvrCount,
       importSource,
       unmatchedSalespersonNos: stats.unmatchedSalespersonNos,
     });
@@ -821,7 +868,7 @@ function Trin4Import({
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
-  result: { created: number; updated: number; skipped: number; failed: number; enriched: number; importSource: "visma" | "cvr"; unmatchedSalespersonNos: string[] } | null;
+  result: { created: number; updated: number; skipped: number; failed: number; enriched: number; noCvrCount: number; importSource: "visma" | "cvr"; unmatchedSalespersonNos: string[] } | null;
   importedCount: number;
   onBack: () => void;
   onRun: () => void;
@@ -853,6 +900,14 @@ function Trin4Import({
             <div className="text-sm">
               {result.unmatchedSalespersonNos.length} sælgernumre kunne ikke matches — sælgernummer{result.unmatchedSalespersonNos.length === 1 ? "" : "ne"}{" "}
               <span className="font-mono">{result.unmatchedSalespersonNos.join(", ")}</span> findes ikke i systemet. Berørte virksomheder er importeret men markeret som "Ikke tildelt".
+            </div>
+          </Card>
+        )}
+        {result.noCvrCount > 0 && (
+          <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start max-w-md mx-auto mb-6 text-left">
+            <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+            <div className="text-sm">
+              {result.noCvrCount} virksomheder uden CVR-nummer — disse kan ikke garanteres mod dubletter ved fremtidige imports. Vi anbefaler at efterslå CVR manuelt.
             </div>
           </Card>
         )}
