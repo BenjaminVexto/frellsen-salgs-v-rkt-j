@@ -259,24 +259,55 @@ function ImportSide() {
     }
     setExistingCvrs(dupSet);
 
-    // Slå navne op for rækker uden CVR
+    // Slå navne+postnr op for rækker uden CVR/EAN (soft-match)
     const nameMap = new Map<string, string>();
-    const noCvrNames = rows
-      .filter((r) => !(mapping.cvr ? normCvr(r[mapping.cvr!]) : null))
-      .map((r) => mapping.name ? (r[mapping.name] ?? "").trim() : "")
-      .filter((n) => !!n);
-    const uniqueNames = Array.from(new Set(noCvrNames));
+    const nameZipRows = rows.filter(
+      (r) =>
+        !(mapping.cvr ? normCvr(r[mapping.cvr!]) : null) &&
+        !(mapping.ean_number ? normEan(r[mapping.ean_number!]) : null),
+    );
+    const uniqueNames = Array.from(
+      new Set(
+        nameZipRows
+          .map((r) => (mapping.name ? (r[mapping.name] ?? "").trim() : ""))
+          .filter((n) => !!n),
+      ),
+    );
     for (let i = 0; i < uniqueNames.length; i += 200) {
       const slice = uniqueNames.slice(i, i + 200);
       const { data: ndata } = await supabase
         .from("companies")
-        .select("id, name")
+        .select("id, name, zip")
         .in("name", slice);
       (ndata ?? []).forEach((d: any) => {
-        if (!nameMap.has(d.name.toLowerCase())) nameMap.set(d.name.toLowerCase(), d.id);
+        const key = `${(d.name ?? "").toLowerCase()}|${d.zip ?? ""}`;
+        if (!nameMap.has(key)) nameMap.set(key, d.id);
       });
     }
     setExistingNameMap(nameMap);
+
+    // EAN-opslag
+    const eanMap = new Map<string, string>();
+    if (mapping.ean_number) {
+      const eans = Array.from(
+        new Set(
+          rows
+            .map((r) => normEan(r[mapping.ean_number!]))
+            .filter((v): v is string => !!v),
+        ),
+      );
+      for (let i = 0; i < eans.length; i += 500) {
+        const slice = eans.slice(i, i + 500);
+        const { data: edata } = await (supabase as any)
+          .from("companies")
+          .select("id, ean_number")
+          .in("ean_number", slice);
+        (edata ?? []).forEach((d: any) => {
+          if (d.ean_number) eanMap.set(d.ean_number, d.id);
+        });
+      }
+    }
+    setExistingEanMap(eanMap);
 
     // Hent sælgernumre → user_id-mapping
     const { data: profs } = await supabase
