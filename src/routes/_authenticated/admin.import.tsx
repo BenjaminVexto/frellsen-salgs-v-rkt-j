@@ -841,6 +841,8 @@ function Trin5Tildeling({
   setChosenList,
   setChosenSeller,
   importedCount,
+  perRowMatchedCount,
+  hasPerRowMapping,
   assigning,
   onBack,
   onAssign,
@@ -853,16 +855,21 @@ function Trin5Tildeling({
   setChosenList: (v: string) => void;
   setChosenSeller: (v: string) => void;
   importedCount: number;
+  perRowMatchedCount: number;
+  hasPerRowMapping: boolean;
   assigning: boolean;
   onBack: () => void;
   onAssign: () => void;
   onSkip: () => void;
 }) {
+  const sellerDisabled = hasPerRowMapping && perRowMatchedCount === importedCount;
   return (
     <Card className="p-6">
       <h2 className="font-semibold mb-1">Tildel til kontaktliste og sælger</h2>
       <p className="text-sm text-muted-foreground mb-4">
-        {importedCount} importerede virksomheder tildeles den valgte kontaktliste og sælger.
+        {hasPerRowMapping
+          ? `${perRowMatchedCount} af ${importedCount} virksomheder har et matchet sælgernummer fra CSV-filen. Vælg evt. en fallback-sælger for de øvrige.`
+          : `${importedCount} importerede virksomheder tildeles den valgte kontaktliste og sælger.`}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
@@ -881,9 +888,11 @@ function Trin5Tildeling({
           </Select>
         </div>
         <div>
-          <Label className="mb-1.5 block">Sælger</Label>
-          <Select value={chosenSeller} onValueChange={setChosenSeller}>
-            <SelectTrigger><SelectValue placeholder="Vælg sælger" /></SelectTrigger>
+          <Label className="mb-1.5 block">
+            {hasPerRowMapping ? "Fallback-sælger (valgfri)" : "Sælger"}
+          </Label>
+          <Select value={chosenSeller} onValueChange={setChosenSeller} disabled={sellerDisabled}>
+            <SelectTrigger><SelectValue placeholder={sellerDisabled ? "Fra CSV" : "Vælg sælger"} /></SelectTrigger>
             <SelectContent>
               {sellers.length === 0 ? (
                 <SelectItem value="__none" disabled>Ingen sælgere fundet</SelectItem>
@@ -905,7 +914,10 @@ function Trin5Tildeling({
           <Button variant="ghost" onClick={onSkip} disabled={assigning}>
             Spring over
           </Button>
-          <Button onClick={onAssign} disabled={assigning || !chosenList || !chosenSeller}>
+          <Button
+            onClick={onAssign}
+            disabled={assigning || !chosenList || (!hasPerRowMapping && !chosenSeller)}
+          >
             {assigning ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Tildeler…</>
             ) : (
