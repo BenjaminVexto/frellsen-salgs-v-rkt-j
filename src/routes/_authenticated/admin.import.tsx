@@ -350,6 +350,7 @@ function ImportSide() {
   const prepared = useMemo<PreparedRow[]>(() => {
     return rows.map((r) => {
       const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
+      const ean = mapping.ean_number ? normEan(r[mapping.ean_number]) : null;
       const data: PreparedRow["data"] = {};
       for (const f of SYSTEM_FIELDS) {
         if (!COMPANY_DB_FIELDS.has(f.key)) continue;
@@ -363,6 +364,11 @@ function ImportSide() {
         } else if (DATE_FIELDS.has(f.key)) {
           const d = parseDanishDate(v);
           if (d) (data as any)[f.key] = d;
+        } else if (BOOLEAN_FIELDS.has(f.key)) {
+          const b = parseBool(v);
+          if (b !== null) (data as any)[f.key] = b;
+        } else if (f.key === "ean_number") {
+          if (ean) (data as any).ean_number = ean;
         } else {
           (data as any)[f.key] = v;
         }
@@ -378,26 +384,34 @@ function ImportSide() {
         }
       }
       const missingCvr = !cvr;
-      const isDuplicate = !!cvr && existingCvrs.has(cvr);
+      const isPublic = data.is_public === true || !!ean;
+      if (isPublic && data.is_public === undefined) (data as any).is_public = true;
+      const isDuplicate =
+        (!!cvr && existingCvrs.has(cvr)) ||
+        (!!ean && existingEanMap.has(ean));
+      const eanMatchId = ean ? existingEanMap.get(ean) ?? null : null;
       const nameMatchId =
-        missingCvr && data.name
-          ? existingNameMap.get(String(data.name).toLowerCase()) ?? null
+        !cvr && !ean && data.name
+          ? existingNameMap.get(`${String(data.name).toLowerCase()}|${(data.zip as string) ?? ""}`) ?? null
           : null;
       const hasError = !data.name;
       return {
         raw: r,
         cvr,
+        ean,
         data,
         salespersonNo,
         matchedSellerId,
         isDuplicate,
         missingCvr,
+        isPublic,
         nameMatchId,
+        eanMatchId,
         hasError,
         errorMessage: !data.name ? "Mangler navn" : undefined,
       };
     });
-  }, [rows, mapping, existingCvrs, existingNameMap, salespersonMap]);
+  }, [rows, mapping, existingCvrs, existingEanMap, existingNameMap, salespersonMap]);
 
   const stats = useMemo(() => {
     const newCount = prepared.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
