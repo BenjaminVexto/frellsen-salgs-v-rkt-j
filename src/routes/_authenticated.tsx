@@ -16,6 +16,7 @@ import {
   Upload,
   BarChart3,
   Users,
+  History,
   Coffee,
   LogOut,
   Loader2,
@@ -55,6 +56,7 @@ function AuthenticatedLayout() {
   ];
   const adminItems = [
     { to: "/admin/import", label: "Import", icon: Upload },
+    { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
     { to: "/admin/overblik", label: "Admin-overblik", icon: BarChart3 },
   ];

@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useServerFn } from "@tanstack/react-start";
+import { createImportBatch } from "@/lib/admin-companies.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +114,7 @@ function ImportSide() {
   const [result, setResult] = useState<{ created: number; updated: number; skipped: number; failed: number } | null>(null);
   const [importedIds, setImportedIds] = useState<string[]>([]);
   const [assigning, setAssigning] = useState(false);
+  const createBatch = useServerFn(createImportBatch);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -277,6 +280,21 @@ function ImportSide() {
     }
 
     skipped = prepared.length - toImport.length - failed;
+
+    // Opret import-batch og stempl virksomheder
+    if (companyIds.length) {
+      try {
+        await createBatch({
+          data: {
+            filename: file?.name ?? null,
+            company_count: companyIds.length,
+            company_ids: companyIds,
+          },
+        });
+      } catch (e: any) {
+        console.error("Kunne ikke registrere import-batch", e);
+      }
+    }
 
     setImportedIds(companyIds);
     setResult({ created, updated, skipped, failed });

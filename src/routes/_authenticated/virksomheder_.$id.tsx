@@ -16,6 +16,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  getCompanyDeletionStats,
+  adminDeleteCompany,
+} from "@/lib/admin-companies.functions";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -36,6 +51,7 @@ import {
   PlusCircle,
   FileText,
   ClipboardList,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -102,7 +118,8 @@ type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"
 function VirksomhedsKort() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdmin = role === "admin";
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -111,6 +128,41 @@ function VirksomhedsKort() {
   const [activityOpen, setActivityOpen] = useState(false);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteStats, setDeleteStats] = useState<{
+    activities: number;
+    opportunities: number;
+    quotes: number;
+    assignments: number;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const fetchDeleteStats = useServerFn(getCompanyDeletionStats);
+  const deleteCompanyFn = useServerFn(adminDeleteCompany);
+
+  async function openDeleteDialog() {
+    setDeleteStats(null);
+    setDeleteOpen(true);
+    try {
+      const stats = await fetchDeleteStats({ data: { company_id: id } });
+      setDeleteStats(stats);
+    } catch (e: any) {
+      toast.error("Kunne ikke hente statistik: " + e.message);
+    }
+  }
+
+  async function confirmDelete() {
+    setDeleting(true);
+    try {
+      await deleteCompanyFn({ data: { company_id: id } });
+      toast.success("Virksomhed slettet");
+      setDeleteOpen(false);
+      navigate({ to: "/virksomheder" });
+    } catch (e: any) {
+      toast.error("Sletning fejlede: " + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -292,6 +344,17 @@ function VirksomhedsKort() {
             <Button variant="outline" className="w-full justify-start" onClick={() => setQuoteOpen(true)}>
               <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
             </Button>
+            {isAdmin && (
+              <div className="pt-4 mt-2 border-t">
+                <Button
+                  variant="destructive"
+                  className="w-full justify-start"
+                  onClick={openDeleteDialog}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Slet virksomhed
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -318,6 +381,47 @@ function VirksomhedsKort() {
         userId={user?.id ?? ""}
         onSaved={load}
       />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slet virksomhed?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Er du sikker? Dette sletter virksomheden og al tilknyttet data permanent.
+                  Dette kan ikke fortrydes.
+                </p>
+                {deleteStats === null ? (
+                  <p className="text-xs text-muted-foreground">Henter statistik…</p>
+                ) : (
+                  (deleteStats.activities > 0 || deleteStats.opportunities > 0) && (
+                    <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+                      <strong>Advarsel:</strong> Denne virksomhed har{" "}
+                      {deleteStats.activities} aktiviteter og {deleteStats.opportunities}{" "}
+                      salgsmuligheder som også vil blive slettet
+                      {deleteStats.quotes > 0 && <>, samt {deleteStats.quotes} tilbud</>}.
+                    </div>
+                  )
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annullér</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Sletter…" : "Slet permanent"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

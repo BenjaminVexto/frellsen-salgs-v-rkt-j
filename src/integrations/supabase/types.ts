@@ -85,6 +85,8 @@ export type Database = {
           email: string | null
           employees: number | null
           id: string
+          import_batch_date: string | null
+          import_batch_id: string | null
           industry: string | null
           last_purchase_date: string | null
           municipality: string | null
@@ -105,6 +107,8 @@ export type Database = {
           email?: string | null
           employees?: number | null
           id?: string
+          import_batch_date?: string | null
+          import_batch_id?: string | null
           industry?: string | null
           last_purchase_date?: string | null
           municipality?: string | null
@@ -125,6 +129,8 @@ export type Database = {
           email?: string | null
           employees?: number | null
           id?: string
+          import_batch_date?: string | null
+          import_batch_id?: string | null
           industry?: string | null
           last_purchase_date?: string | null
           municipality?: string | null
@@ -136,7 +142,15 @@ export type Database = {
           website?: string | null
           zip?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contact_list_assignments: {
         Row: {
@@ -262,6 +276,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      import_batches: {
+        Row: {
+          company_count: number
+          created_at: string
+          created_by: string
+          filename: string | null
+          id: string
+        }
+        Insert: {
+          company_count?: number
+          created_at?: string
+          created_by: string
+          filename?: string | null
+          id?: string
+        }
+        Update: {
+          company_count?: number
+          created_at?: string
+          created_by?: string
+          filename?: string | null
+          id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
