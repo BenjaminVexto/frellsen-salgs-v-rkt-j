@@ -411,7 +411,7 @@ function normCvr(v: string | undefined | null): string | null {
 }
 
 function Stepper({ step }: { step: number }) {
-  const steps = ["Upload", "Kolonnematch", "Preview", "Importér", "Tildeling"];
+  const steps = ["Upload", "Kolonnematch", "Preview", "Importér", "Tildeling (valgfri)"];
   return (
     <div className="flex items-center gap-2 mb-6 overflow-x-auto">
       {steps.map((label, i) => {
