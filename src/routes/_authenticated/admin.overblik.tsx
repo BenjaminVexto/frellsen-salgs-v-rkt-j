@@ -303,7 +303,11 @@ function AdminOverblikPage() {
 
           {/* Sektion 2: Pipeline-overblik */}
           <section>
-            <h2 className="text-lg font-medium mb-3">Pipeline-overblik</h2>
+            <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+              <h2 className="text-lg font-medium">Pipeline-overblik</h2>
+              <CustomerStatusHelpButton label="Hvad betyder kundestatus?" />
+            </div>
+
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               {Object.entries(pipelinePerStatus).map(([k, v]) => (
