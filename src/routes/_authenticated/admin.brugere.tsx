@@ -349,6 +349,19 @@ function BrugerStyringSide() {
                 placeholder="fx Nordsjælland"
               />
             </div>
+            {createForm.role === "saelger" && (
+              <div>
+                <Label>Sælgernummer</Label>
+                <Input
+                  value={createForm.salesperson_no}
+                  onChange={(e) => setCreateForm({ ...createForm, salesperson_no: e.target.value })}
+                  placeholder="fx 106"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Bruges til auto-tildeling ved CSV-import (kolonnen "Sælgernummer").
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annullér</Button>
