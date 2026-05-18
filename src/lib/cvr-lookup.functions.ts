@@ -168,6 +168,12 @@ const InputSchema = z.discriminatedUnion("type", [
     cvr: z.string().regex(/^\d{8}$/, "CVR skal være 8 cifre"),
   }),
   z.object({
+    type: z.literal("search"),
+    name: z.string().min(2).max(200),
+    location: z.string().min(1).max(100).optional(),
+    size: z.number().int().min(1).max(50).optional(),
+  }),
+  z.object({
     type: z.literal("bulk"),
     filters: z.object({
       municipality: z.string().min(1).max(60).optional(),
@@ -196,6 +202,51 @@ export const cvrLookup = createServerFn({ method: "POST" })
         const hit = json?.hits?.hits?.[0]?._source?.Vrvirksomhed;
         if (!hit) return { success: false, error: "NOT_FOUND" };
         return { success: true, data: mapVirksomhed(hit) };
+      }
+
+      if (data.type === "search") {
+        const must: any[] = [
+          {
+            match: {
+              "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
+                query: data.name,
+                operator: "and",
+                fuzziness: "AUTO",
+              },
+            },
+          },
+          {
+            term: {
+              "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "AKTIV",
+            },
+          },
+        ];
+        const query: any = { bool: { must } };
+        if (data.location && data.location.trim()) {
+          query.bool.filter = [
+            {
+              multi_match: {
+                query: data.location.trim(),
+                fields: [
+                  "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postdistrikt",
+                  "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postnummer",
+                ],
+              },
+            },
+          ];
+        }
+        const payload = {
+          _source: SOURCE_FIELDS,
+          query,
+          size: data.size ?? 10,
+        };
+        const json = await callCvr(payload);
+        const hits = json?.hits?.hits ?? [];
+        const companies: CvrCompany[] = hits
+          .map((h: any) => h?._source?.Vrvirksomhed)
+          .filter(Boolean)
+          .map(mapVirksomhed);
+        return { success: true, data: companies };
       }
 
       // bulk
@@ -235,7 +286,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
       if (f.company_forms && f.company_forms.length) {
         filter.push({
           bool: {
-            should: f.company_forms.map((form) => ({
+            should: f.company_forms.map((form: string) => ({
               term: { "Vrvirksomhed.virksomhedsform.kortBeskrivelse": form },
             })),
             minimum_should_match: 1,
