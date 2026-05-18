@@ -252,6 +252,7 @@ function BrugerStyringSide() {
                 <TableHead>Email</TableHead>
                 <TableHead>Rolle</TableHead>
                 <TableHead>Region</TableHead>
+                <TableHead>Sælgernr.</TableHead>
                 <TableHead>Oprettet</TableHead>
                 <TableHead>Aktiv</TableHead>
                 <TableHead className="text-right">Handlinger</TableHead>
@@ -260,7 +261,7 @@ function BrugerStyringSide() {
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     Ingen brugere fundet
                   </TableCell>
                 </TableRow>
@@ -275,6 +276,7 @@ function BrugerStyringSide() {
                     </Badge>
                   </TableCell>
                   <TableCell>{r.region || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.salesperson_no || "—"}</TableCell>
                   <TableCell>{new Date(r.created_at).toLocaleDateString("da-DK")}</TableCell>
                   <TableCell>
                     <Switch
