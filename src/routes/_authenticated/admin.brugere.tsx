@@ -407,6 +407,16 @@ function BrugerStyringSide() {
                   onChange={(e) => setEditForm({ ...editForm, region: e.target.value })}
                 />
               </div>
+              {editForm.role === "saelger" && (
+                <div>
+                  <Label>Sælgernummer</Label>
+                  <Input
+                    value={editForm.salesperson_no}
+                    onChange={(e) => setEditForm({ ...editForm, salesperson_no: e.target.value })}
+                    placeholder="fx 106"
+                  />
+                </div>
+              )}
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" size="sm" onClick={() => { setEmailValue(editRow.email); setEmailOpen(true); }}>
                   <Mail className="h-4 w-4 mr-1" /> Skift email
