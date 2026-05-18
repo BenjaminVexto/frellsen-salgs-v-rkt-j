@@ -138,7 +138,7 @@ export function CvrBulkSoegningDialog({
               min_employees: minEmp,
               max_employees: maxEmp,
               company_forms: companyForms.length ? companyForms : undefined,
-              status: activeOnly ? "AKTIV" : undefined,
+              status: activeOnly ? "Aktiv" : undefined,
             } as any,
             size: 500,
           } as any,
