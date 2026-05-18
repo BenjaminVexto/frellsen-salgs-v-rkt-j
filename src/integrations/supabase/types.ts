@@ -79,7 +79,12 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
+          contact_person: string | null
           created_at: string
+          created_in_visma: string | null
+          customer_segment_1: string | null
+          customer_segment_2: string | null
+          customer_segment_3: string | null
           customer_type: Database["public"]["Enums"]["customer_type"]
           cvr: string
           email: string | null
@@ -94,6 +99,7 @@ export type Database = {
           phone: string | null
           source: string | null
           turnover_12m: number | null
+          visma_delivery_id: string | null
           visma_id: string | null
           website: string | null
           zip: string | null
@@ -101,7 +107,12 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          contact_person?: string | null
           created_at?: string
+          created_in_visma?: string | null
+          customer_segment_1?: string | null
+          customer_segment_2?: string | null
+          customer_segment_3?: string | null
           customer_type?: Database["public"]["Enums"]["customer_type"]
           cvr: string
           email?: string | null
@@ -116,6 +127,7 @@ export type Database = {
           phone?: string | null
           source?: string | null
           turnover_12m?: number | null
+          visma_delivery_id?: string | null
           visma_id?: string | null
           website?: string | null
           zip?: string | null
@@ -123,7 +135,12 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          contact_person?: string | null
           created_at?: string
+          created_in_visma?: string | null
+          customer_segment_1?: string | null
+          customer_segment_2?: string | null
+          customer_segment_3?: string | null
           customer_type?: Database["public"]["Enums"]["customer_type"]
           cvr?: string
           email?: string | null
@@ -138,6 +155,7 @@ export type Database = {
           phone?: string | null
           source?: string | null
           turnover_12m?: number | null
+          visma_delivery_id?: string | null
           visma_id?: string | null
           website?: string | null
           zip?: string | null
@@ -308,6 +326,7 @@ export type Database = {
           id: string
           is_active: boolean
           region: string | null
+          salesperson_no: string | null
         }
         Insert: {
           created_at?: string
@@ -315,6 +334,7 @@ export type Database = {
           id: string
           is_active?: boolean
           region?: string | null
+          salesperson_no?: string | null
         }
         Update: {
           created_at?: string
@@ -322,6 +342,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           region?: string | null
+          salesperson_no?: string | null
         }
         Relationships: []
       }
