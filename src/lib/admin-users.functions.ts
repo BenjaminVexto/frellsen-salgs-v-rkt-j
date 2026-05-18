@@ -179,7 +179,7 @@ export const adminListUsers = createServerFn({ method: "GET" })
 
     const { data: profiles, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, region, is_active, created_at");
+      .select("id, full_name, region, is_active, created_at, salesperson_no");
     if (profErr) throw new Error(profErr.message);
 
     const { data: roles, error: rolesErr } = await supabaseAdmin
@@ -202,12 +202,13 @@ export const adminListUsers = createServerFn({ method: "GET" })
       }
     }
 
-    return (profiles ?? []).map((p) => ({
+    return (profiles ?? []).map((p: any) => ({
       id: p.id,
       full_name: p.full_name,
       email: emailMap.get(p.id) ?? "",
       role: roleMap.get(p.id) ?? "saelger",
       region: p.region,
+      salesperson_no: p.salesperson_no ?? null,
       is_active: p.is_active,
       created_at: p.created_at,
     }));
