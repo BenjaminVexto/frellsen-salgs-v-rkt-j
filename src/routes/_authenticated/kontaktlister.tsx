@@ -372,9 +372,11 @@ const TABLE_PREVIEW_LIMIT = 500;
 function OpretListeDialog({
   onClose,
   onCreated,
+  preselectedCompanyIds,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  preselectedCompanyIds?: string[] | null;
 }) {
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState("");
