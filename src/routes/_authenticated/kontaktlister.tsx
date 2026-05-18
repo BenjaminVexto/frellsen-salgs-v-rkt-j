@@ -57,6 +57,8 @@ function KontaktlisterOversigt() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [cvrSearchOpen, setCvrSearchOpen] = useState(false);
+  const [preselectedIds, setPreselectedIds] = useState<string[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ListRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
