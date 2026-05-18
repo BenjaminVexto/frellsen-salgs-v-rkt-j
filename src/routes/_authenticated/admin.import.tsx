@@ -729,6 +729,7 @@ function ImportSide() {
           includeMissingCvr={includeMissingCvr}
           importing={importing}
           progress={progress}
+          progressLabel={progressLabel}
           result={result}
           importedCount={importedIds.length}
           onBack={() => setStep(3)}
