@@ -118,6 +118,7 @@ function KontaktlisteDetalje() {
   const [list, setList] = useState<{
     name: string;
     description: string | null;
+    purpose: string | null;
   } | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
