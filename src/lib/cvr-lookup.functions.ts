@@ -205,6 +205,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
       }
 
       if (data.type === "search") {
+        console.log("Search query:", data.name, data.location);
         const must: any[] = [
           {
             match: {
