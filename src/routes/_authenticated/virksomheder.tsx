@@ -18,6 +18,7 @@ type Row = {
   cvr: string;
   city: string | null;
   customer_type: string;
+  sources: string[] | null;
 };
 
 const customerTypeLabel: Record<string, string> = {
