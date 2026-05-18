@@ -259,11 +259,51 @@ function VirksomhedsKort() {
             {company.turnover_12m != null && (
               <KV label="Omsætning (12 mdr.)" value={`${Number(company.turnover_12m).toLocaleString("da-DK")} kr.`} />
             )}
-            {company.last_purchase_date && (
-              <KV label="Sidste køb" value={format(new Date(company.last_purchase_date), "d. MMM yyyy", { locale: da })} />
-            )}
             {company.source && <KV label="Kilde" value={company.source} />}
           </div>
+
+          {((company as any).created_in_visma ||
+            company.last_purchase_date ||
+            (company as any).customer_segment_1 ||
+            (company as any).customer_segment_2 ||
+            (company as any).customer_segment_3 ||
+            company.visma_id ||
+            (company as any).visma_delivery_id ||
+            (company as any).contact_person) && (
+            <div className="border-t mt-4 pt-4 space-y-2 text-sm">
+              <h3 className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                Visma-data
+              </h3>
+              {(company as any).created_in_visma && (
+                <KV
+                  label="Oprettet i Visma"
+                  value={format(new Date((company as any).created_in_visma), "d. MMM yyyy", { locale: da })}
+                />
+              )}
+              {company.last_purchase_date && (
+                <KV
+                  label="Sidste varekøb"
+                  value={format(new Date(company.last_purchase_date), "d. MMM yyyy", { locale: da })}
+                />
+              )}
+              {(company as any).customer_segment_1 && (
+                <KV label="Kundesegment 1" value={(company as any).customer_segment_1} />
+              )}
+              {(company as any).customer_segment_2 && (
+                <KV label="Kundesegment 2" value={(company as any).customer_segment_2} />
+              )}
+              {(company as any).customer_segment_3 && (
+                <KV label="Kundesegment 3" value={(company as any).customer_segment_3} />
+              )}
+              {company.visma_id && <KV label="Visma kundenr." value={company.visma_id} />}
+              {(company as any).visma_delivery_id && (
+                <KV label="Visma lev.nr." value={(company as any).visma_delivery_id} />
+              )}
+              {(company as any).contact_person && (
+                <KV label="Kontaktperson" value={(company as any).contact_person} />
+              )}
+            </div>
+          )}
         </Card>
 
         {/* MIDTEN — Aktivitetslog + kontakter */}
