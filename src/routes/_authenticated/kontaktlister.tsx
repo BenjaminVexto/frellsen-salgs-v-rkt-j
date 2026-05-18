@@ -27,6 +27,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Plus, Search, Users, Trash2 } from "lucide-react";
+import {
+  CustomerStatusBadge,
+  CustomerStatusLegend,
+} from "@/components/customer-status-info";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/kontaktlister")({
