@@ -15,6 +15,7 @@ import {
   Target,
   Upload,
   BarChart3,
+  Users,
   Coffee,
   LogOut,
   Loader2,
