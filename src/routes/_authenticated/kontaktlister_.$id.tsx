@@ -142,6 +142,8 @@ function KontaktlisteDetalje() {
   } | null>(null);
   const [pDate, setPDate] = useState("");
   const [pAction, setPAction] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     setLoading(true);
