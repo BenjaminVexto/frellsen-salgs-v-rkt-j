@@ -24,6 +24,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
         password: z.string().min(8).max(128),
         role: z.enum(["admin", "saelger"]),
         region: z.string().trim().max(120).optional().nullable(),
+        salesperson_no: z.string().trim().max(32).optional().nullable(),
       })
       .parse(input),
   )
@@ -49,6 +50,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
         full_name: data.full_name,
         region: data.region ?? null,
         is_active: true,
+        salesperson_no: data.salesperson_no ?? null,
       })
       .eq("id", uid);
     if (profErr) throw new Error(profErr.message);
@@ -73,6 +75,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
         full_name: z.string().trim().min(1).max(120),
         role: z.enum(["admin", "saelger"]),
         region: z.string().trim().max(120).optional().nullable(),
+        salesperson_no: z.string().trim().max(32).optional().nullable(),
       })
       .parse(input),
   )
@@ -84,6 +87,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       .update({
         full_name: data.full_name,
         region: data.region ?? null,
+        salesperson_no: data.salesperson_no ?? null,
       })
       .eq("id", data.user_id);
     if (profErr) throw new Error(profErr.message);
