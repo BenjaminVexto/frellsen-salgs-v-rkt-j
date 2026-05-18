@@ -230,12 +230,8 @@ function ImportSide() {
     return { newCount, dupCount, missingCount, errorCount };
   }, [prepared]);
 
-  // Trin 4: kør import
+  // Trin 4: kør import (uden tildeling)
   async function runImport() {
-    if (!chosenList || !chosenSeller) {
-      toast.error("Vælg både kontaktliste og sælger");
-      return;
-    }
     setImporting(true);
     setProgress(0);
     let created = 0, updated = 0, skipped = 0, failed = 0;
@@ -280,25 +276,56 @@ function ImportSide() {
       setProgress(Math.round(((i + 1) / toImport.length) * 100));
     }
 
-    // Springer over: rækker uden CVR når includeMissingCvr=false
     skipped = prepared.length - toImport.length - failed;
 
-    // Tildelinger
-    if (companyIds.length) {
-      const assignments = companyIds.map((id) => ({
-        company_id: id,
-        contact_list_id: chosenList,
-        assigned_to: chosenSeller,
-      }));
-      // Indsæt i chunks
-      for (let i = 0; i < assignments.length; i += 200) {
-        await supabase.from("contact_list_assignments").insert(assignments.slice(i, i + 200));
-      }
-    }
-
+    setImportedIds(companyIds);
     setResult({ created, updated, skipped, failed });
     setImporting(false);
     toast.success("Import gennemført");
+  }
+
+  // Trin 5: tildel allerede importerede virksomheder
+  async function runAssignment() {
+    if (!chosenList || !chosenSeller) {
+      toast.error("Vælg både kontaktliste og sælger");
+      return;
+    }
+    if (!importedIds.length) {
+      toast.error("Ingen virksomheder at tildele");
+      return;
+    }
+    setAssigning(true);
+    const assignments = importedIds.map((id) => ({
+      company_id: id,
+      contact_list_id: chosenList,
+      assigned_to: chosenSeller,
+    }));
+    let failed = 0;
+    for (let i = 0; i < assignments.length; i += 200) {
+      const { error } = await supabase
+        .from("contact_list_assignments")
+        .insert(assignments.slice(i, i + 200));
+      if (error) failed++;
+    }
+    setAssigning(false);
+    if (failed) {
+      toast.error("Nogle tildelinger fejlede");
+    } else {
+      toast.success(`${importedIds.length} virksomheder tildelt`);
+    }
+    navigate({ to: "/virksomheder" });
+  }
+
+  function goLater() {
+    if (importedIds.length) {
+      try {
+        sessionStorage.setItem(
+          "recently_imported_ids",
+          JSON.stringify({ ids: importedIds, at: Date.now() }),
+        );
+      } catch {}
+    }
+    navigate({ to: "/virksomheder" });
   }
 
   if (auth.loading || auth.role !== "admin") {
