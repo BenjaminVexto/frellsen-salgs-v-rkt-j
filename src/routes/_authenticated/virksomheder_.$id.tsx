@@ -818,3 +818,52 @@ function RegistrerTilbudDialog({
     </Dialog>
   );
 }
+
+function AddCvrInline({ companyId, onAdded }: { companyId: string; onAdded: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  if (!open) {
+    return (
+      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setOpen(true)}>
+        Tilføj CVR
+      </Button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <Input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, 8))}
+        placeholder="8 cifre"
+        className="h-7 w-28 text-xs"
+      />
+      <Button
+        size="sm"
+        className="h-7 text-xs"
+        disabled={value.length !== 8 || saving}
+        onClick={async () => {
+          setSaving(true);
+          const { error } = await supabase
+            .from("companies")
+            .update({ cvr: value })
+            .eq("id", companyId);
+          setSaving(false);
+          if (error) {
+            toast.error(error.message.includes("unique") ? "CVR findes allerede" : "Kunne ikke gemme CVR");
+            return;
+          }
+          toast.success("CVR tilføjet");
+          onAdded(value);
+          setOpen(false);
+        }}
+      >
+        Gem
+      </Button>
+      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpen(false)}>
+        Annullér
+      </Button>
+    </div>
+  );
+}
