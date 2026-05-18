@@ -51,6 +51,7 @@ type Row = {
   email: string;
   role: "admin" | "saelger";
   region: string | null;
+  salesperson_no: string | null;
   is_active: boolean;
   created_at: string;
 };
@@ -75,6 +76,7 @@ function BrugerStyringSide() {
     password: "",
     role: "saelger" as "admin" | "saelger",
     region: "",
+    salesperson_no: "",
   });
   const [creating, setCreating] = useState(false);
 
@@ -83,6 +85,7 @@ function BrugerStyringSide() {
     full_name: "",
     role: "saelger" as "admin" | "saelger",
     region: "",
+    salesperson_no: "",
   });
   const [saving, setSaving] = useState(false);
 
