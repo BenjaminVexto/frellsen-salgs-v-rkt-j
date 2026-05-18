@@ -59,6 +59,7 @@ type Row = {
   customer_segment_2: string | null;
   last_purchase_date: string | null;
   employees: number | null;
+  is_public: boolean | null;
 };
 
 type Assignment = { company_id: string; assigned_to: string | null };
@@ -68,13 +69,14 @@ type FilterState = {
   sources: string[];
   assignment: "all" | "unassigned" | "assigned" | "specific";
   assignedToUserId: string;
-  machineStatus: string[]; // none | leased | unknown
+  machineStatus: string[];
   city: string;
   municipality: string;
   zipFrom: string;
   zipTo: string;
-  lastPurchase: string[]; // never | 0-3 | 3-6 | 6-12 | 12-18 | 18+
-  employeeRanges: string[]; // lt10 | 10-49 | 50-199 | 200+ | unknown
+  lastPurchase: string[];
+  employeeRanges: string[];
+  sector: "all" | "private" | "public" | "unknown";
 };
 
 const DEFAULT_FILTERS: FilterState = {
@@ -89,6 +91,7 @@ const DEFAULT_FILTERS: FilterState = {
   zipTo: "",
   lastPurchase: [],
   employeeRanges: [],
+  sector: "all",
 };
 
 const customerTypeLabel: Record<string, string> = {
