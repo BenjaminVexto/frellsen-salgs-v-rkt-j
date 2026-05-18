@@ -753,11 +753,11 @@ function Trin4Import({
   onAssignNow,
   onLater,
 }: {
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
-  result: { created: number; updated: number; skipped: number; failed: number } | null;
+  result: { created: number; updated: number; skipped: number; failed: number; unmatchedSalespersonNos: string[] } | null;
   importedCount: number;
   onBack: () => void;
   onRun: () => void;
@@ -778,6 +778,15 @@ function Trin4Import({
           <StatCard label="Sprunget over" value={result.skipped} tone="muted" />
           <StatCard label="Fejl" value={result.failed} tone="destructive" />
         </div>
+        {result.unmatchedSalespersonNos.length > 0 && (
+          <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start max-w-md mx-auto mb-6 text-left">
+            <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+            <div className="text-sm">
+              {result.unmatchedSalespersonNos.length} sælgernumre kunne ikke matches — sælgernummer{result.unmatchedSalespersonNos.length === 1 ? "" : "ne"}{" "}
+              <span className="font-mono">{result.unmatchedSalespersonNos.join(", ")}</span> findes ikke i systemet. Berørte virksomheder er importeret men markeret som "Ikke tildelt".
+            </div>
+          </Card>
+        )}
         <div className="flex flex-col sm:flex-row gap-2 justify-center">
           <Button variant="outline" onClick={onLater}>Gør det senere</Button>
           <Button onClick={onAssignNow} disabled={importedCount === 0}>
