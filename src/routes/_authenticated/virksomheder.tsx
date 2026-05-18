@@ -768,9 +768,8 @@ function VirksomhederListe() {
                           Ikke tildelt
                         </Badge>
                       )}
-                      <Badge variant="secondary">
-                        {customerTypeLabel[r.customer_type] ?? r.customer_type}
-                      </Badge>
+                       <CustomerStatusBadge type={r.customer_type} />
+
                     </div>
                   </Link>
                 </div>
