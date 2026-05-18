@@ -593,7 +593,25 @@ function ImportSide() {
     }
 
     // 3) Eksekvér i batches
-    const upserts = jobs.filter((j) => j.kind === "upsert_cvr") as Extract<Job, { kind: "upsert_cvr" }>[];
+    // Dedupér upserts pr. CVR — Postgres' ON CONFLICT kan ikke ramme samme række
+    // to gange i samme batch, og ét duplikat ville ellers fejle hele chunken.
+    const upsertsRaw = jobs.filter((j) => j.kind === "upsert_cvr") as Extract<Job, { kind: "upsert_cvr" }>[];
+    const upsertsByCvr = new Map<string, Extract<Job, { kind: "upsert_cvr" }>>();
+    let dedupedCvrDuplicates = 0;
+    for (const j of upsertsRaw) {
+      const key = j.payload.cvr as string;
+      if (upsertsByCvr.has(key)) {
+        dedupedCvrDuplicates++;
+        // Behold seneste forekomst (overskriver tidligere) — typisk samme data
+        upsertsByCvr.set(key, j);
+      } else {
+        upsertsByCvr.set(key, j);
+      }
+    }
+    const upserts = Array.from(upsertsByCvr.values());
+    if (dedupedCvrDuplicates > 0) {
+      console.warn(`Dedupliceret ${dedupedCvrDuplicates} dublerede CVR-rækker i upload`);
+    }
     const updates = jobs.filter((j) => j.kind === "update_id") as Extract<Job, { kind: "update_id" }>[];
     const inserts = jobs.filter((j) => j.kind === "insert_no_cvr") as Extract<Job, { kind: "insert_no_cvr" }>[];
 
@@ -622,8 +640,28 @@ function ImportSide() {
         .upsert(payloads as any, { onConflict: "cvr" })
         .select("id, cvr");
       if (error) {
-        failed += slice.length;
-        console.error("Bulk upsert fejl", error);
+        console.error("Bulk upsert fejl", error, { sampleCvrs: payloads.slice(0, 3).map((p: any) => p.cvr) });
+        toast.error(`Batch fejlede (${slice.length} rækker): ${error.message}`);
+        // Fald tilbage til pr-række så vi ikke mister alle 500
+        for (const j of slice) {
+          const { data: one, error: oneErr } = await supabase
+            .from("companies")
+            .upsert(j.payload as any, { onConflict: "cvr" })
+            .select("id, cvr")
+            .maybeSingle();
+          if (oneErr || !one) {
+            failed++;
+            continue;
+          }
+          companyIds.push(one.id);
+          if (j.sellerId) sellerByCompany[one.id] = j.sellerId;
+          if (j.isUpdate) {
+            updated++;
+            if (j.isEnrich) enriched++;
+          } else {
+            created++;
+          }
+        }
       } else {
         const byCvr = new Map((data ?? []).map((r: any) => [r.cvr, r.id]));
         slice.forEach((j) => {
