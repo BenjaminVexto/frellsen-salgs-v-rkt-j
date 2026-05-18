@@ -147,7 +147,7 @@ function KontaktlisteDetalje() {
     const [{ data: listData }, { data: assigns }] = await Promise.all([
       supabase
         .from("contact_lists")
-        .select("name, description")
+        .select("name, description, purpose")
         .eq("id", id)
         .maybeSingle(),
       supabase
