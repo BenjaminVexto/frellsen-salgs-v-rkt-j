@@ -414,6 +414,16 @@ function KontaktlisteDetalje() {
               <span className="text-sm text-muted-foreground whitespace-nowrap">
                 {kontaktet} af {total} kontaktet ({pct}%)
               </span>
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Slet liste
+                </Button>
+              )}
             </div>
           </Card>
 
