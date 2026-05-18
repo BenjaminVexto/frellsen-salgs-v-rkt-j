@@ -286,7 +286,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
       if (f.company_forms && f.company_forms.length) {
         filter.push({
           bool: {
-            should: f.company_forms.map((form) => ({
+            should: f.company_forms.map((form: string) => ({
               term: { "Vrvirksomhed.virksomhedsform.kortBeskrivelse": form },
             })),
             minimum_should_match: 1,
