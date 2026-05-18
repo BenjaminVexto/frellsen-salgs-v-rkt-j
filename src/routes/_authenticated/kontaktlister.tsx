@@ -302,13 +302,26 @@ function KontaktlisterOversigt() {
 
       {createOpen && (
         <OpretListeDialog
-          onClose={() => setCreateOpen(false)}
+          preselectedCompanyIds={preselectedIds}
+          onClose={() => { setCreateOpen(false); setPreselectedIds(null); }}
           onCreated={() => {
             setCreateOpen(false);
+            setPreselectedIds(null);
             load();
           }}
         />
       )}
+
+      <CvrBulkSoegningDialog
+        open={cvrSearchOpen}
+        onOpenChange={setCvrSearchOpen}
+        onImported={(ids) => {
+          setCvrSearchOpen(false);
+          setPreselectedIds(ids);
+          setCreateOpen(true);
+        }}
+      />
+
 
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <DialogContent>
