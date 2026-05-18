@@ -577,11 +577,13 @@ function KontaktlisteDetalje() {
                         <TableCell>{r.company.city ?? "—"}</TableCell>
                         <TableCell>{r.company.employees ?? "—"}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {CUSTOMER_TYPE_LABEL[r.company.customer_type] ??
-                              r.company.customer_type}
-                          </Badge>
+                          <CustomerStatusBadge
+                            type={r.company.customer_type}
+                            variant="outline"
+                            className="text-xs"
+                          />
                         </TableCell>
+
                         <TableCell className="text-sm">{r.seller_name}</TableCell>
                         <TableCell>
                           <Select
