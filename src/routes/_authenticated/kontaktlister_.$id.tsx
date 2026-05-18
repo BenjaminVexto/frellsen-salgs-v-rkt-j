@@ -37,6 +37,7 @@ import {
   ArrowUpDown,
   Loader2,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -141,6 +142,8 @@ function KontaktlisteDetalje() {
   } | null>(null);
   const [pDate, setPDate] = useState("");
   const [pAction, setPAction] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -345,6 +348,31 @@ function KontaktlisteDetalje() {
     }
   };
 
+  const doDelete = async () => {
+    setDeleting(true);
+    const { error: aErr } = await supabase
+      .from("contact_list_assignments")
+      .delete()
+      .eq("contact_list_id", id);
+    if (aErr) {
+      toast.error("Kunne ikke slette tildelinger: " + aErr.message);
+      setDeleting(false);
+      return;
+    }
+    const { error } = await supabase
+      .from("contact_lists")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      setDeleting(false);
+      return;
+    }
+    setDeleting(false);
+    toast.success("Kontaktliste slettet");
+    navigate({ to: "/kontaktlister" });
+  };
+
   return (
     <div className="px-4 md:px-8 py-8 max-w-7xl mx-auto pb-24 md:pb-8">
       <Button
@@ -386,6 +414,16 @@ function KontaktlisteDetalje() {
               <span className="text-sm text-muted-foreground whitespace-nowrap">
                 {kontaktet} af {total} kontaktet ({pct}%)
               </span>
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Slet liste
+                </Button>
+              )}
             </div>
           </Card>
 
@@ -675,6 +713,27 @@ function KontaktlisteDetalje() {
               }}
             >
               Gem
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Slet kontaktliste</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Er du sikker på, at du vil slette listen <strong>{list?.name}</strong>?<br />
+            Alle {total} tildelinger fjernes permanent.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>
+              Annullér
+            </Button>
+            <Button variant="destructive" onClick={doDelete} disabled={deleting}>
+              {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Slet liste
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Search, Users } from "lucide-react";
+import { Loader2, Plus, Search, Users, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/kontaktlister")({
@@ -51,6 +51,8 @@ function KontaktlisterOversigt() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ListRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const isAdmin = auth.role === "admin";
 
@@ -127,6 +129,33 @@ function KontaktlisterOversigt() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error: aErr } = await supabase
+      .from("contact_list_assignments")
+      .delete()
+      .eq("contact_list_id", deleteTarget.id);
+    if (aErr) {
+      toast.error("Kunne ikke slette tildelinger: " + aErr.message);
+      setDeleting(false);
+      return;
+    }
+    const { error } = await supabase
+      .from("contact_lists")
+      .delete()
+      .eq("id", deleteTarget.id);
+    if (error) {
+      toast.error(error.message);
+      setDeleting(false);
+      return;
+    }
+    setRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+    setDeleteTarget(null);
+    setDeleting(false);
+    toast.success("Kontaktliste slettet");
+  };
+
   return (
     <div className="px-4 md:px-8 py-8 max-w-7xl mx-auto pb-24 md:pb-8">
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
@@ -175,6 +204,7 @@ function KontaktlisterOversigt() {
                 <TableHead>Sælgere</TableHead>
                 <TableHead>Oprettet</TableHead>
                 <TableHead>Aktiv</TableHead>
+                {isAdmin && <TableHead className="w-10"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -237,6 +267,18 @@ function KontaktlisterOversigt() {
                         </Badge>
                       )}
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeleteTarget(r)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
@@ -254,6 +296,27 @@ function KontaktlisterOversigt() {
           }}
         />
       )}
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Slet kontaktliste</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Er du sikker på, at du vil slette listen <strong>{deleteTarget?.name}</strong>?<br />
+            Alle {deleteTarget?.total ?? 0} tildelinger fjernes permanent.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
+              Annullér
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Slet liste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
