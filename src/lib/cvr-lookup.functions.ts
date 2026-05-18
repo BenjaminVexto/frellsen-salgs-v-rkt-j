@@ -231,7 +231,6 @@ export const cvrLookup = createServerFn({ method: "POST" })
                         wildcard: {
                           "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
                             value: `*${nameQuery.toLowerCase()}*`,
-                            case_insensitive: true,
                             boost: 1,
                           },
                         },
