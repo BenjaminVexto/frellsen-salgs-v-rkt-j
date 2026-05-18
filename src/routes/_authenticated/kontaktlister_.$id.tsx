@@ -348,6 +348,31 @@ function KontaktlisteDetalje() {
     }
   };
 
+  const doDelete = async () => {
+    setDeleting(true);
+    const { error: aErr } = await supabase
+      .from("contact_list_assignments")
+      .delete()
+      .eq("contact_list_id", id);
+    if (aErr) {
+      toast.error("Kunne ikke slette tildelinger: " + aErr.message);
+      setDeleting(false);
+      return;
+    }
+    const { error } = await supabase
+      .from("contact_lists")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      setDeleting(false);
+      return;
+    }
+    setDeleting(false);
+    toast.success("Kontaktliste slettet");
+    navigate({ to: "/kontaktlister" });
+  };
+
   return (
     <div className="px-4 md:px-8 py-8 max-w-7xl mx-auto pb-24 md:pb-8">
       <Button
