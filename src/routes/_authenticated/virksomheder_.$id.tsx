@@ -290,6 +290,8 @@ function VirksomhedsKort() {
             {company.turnover_12m != null && (
               <KV label="Omsætning (12 mdr.)" value={`${Number(company.turnover_12m).toLocaleString("da-DK")} kr.`} />
             )}
+            {(company as any).ean_number && company.cvr && <KV label="EAN-nummer" value={(company as any).ean_number} />}
+            {(company as any).parent_cvr && company.cvr && <KV label="Overordnet CVR" value={(company as any).parent_cvr} />}
             {company.source && <KV label="Kilde" value={company.source} />}
           </div>
 
