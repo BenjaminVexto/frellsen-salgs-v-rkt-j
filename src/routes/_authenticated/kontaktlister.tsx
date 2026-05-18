@@ -204,6 +204,7 @@ function KontaktlisterOversigt() {
                 <TableHead>Sælgere</TableHead>
                 <TableHead>Oprettet</TableHead>
                 <TableHead>Aktiv</TableHead>
+                {isAdmin && <TableHead className="w-10"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
