@@ -49,7 +49,13 @@ type Batch = {
 type CompanyRow = { id: string; name: string; cvr: string; city: string | null };
 
 type Breakdown = {
-  batch: Batch;
+  batch: {
+    id: string;
+    filename: string | null;
+    created_at: string;
+    created_by: string;
+    company_count: number;
+  };
   untouched: CompanyRow[];
   partial: CompanyRow[];
   active: CompanyRow[];
