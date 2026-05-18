@@ -263,7 +263,7 @@ type Seller = { id: string; full_name: string };
 type Company = {
   id: string;
   name: string;
-  cvr: string;
+  cvr: string | null;
   city: string | null;
   industry: string | null;
   employees: number | null;
