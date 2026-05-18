@@ -821,7 +821,7 @@ function Trin4Import({
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
-  result: { created: number; updated: number; skipped: number; failed: number; unmatchedSalespersonNos: string[] } | null;
+  result: { created: number; updated: number; skipped: number; failed: number; enriched: number; importSource: "visma" | "cvr"; unmatchedSalespersonNos: string[] } | null;
   importedCount: number;
   onBack: () => void;
   onRun: () => void;
@@ -842,6 +842,11 @@ function Trin4Import({
           <StatCard label="Sprunget over" value={result.skipped} tone="muted" />
           <StatCard label="Fejl" value={result.failed} tone="destructive" />
         </div>
+        {result.importSource === "cvr" && result.enriched > 0 && (
+          <p className="text-sm text-muted-foreground mb-4">
+            {result.enriched} virksomheder beriget med CVR-data.
+          </p>
+        )}
         {result.unmatchedSalespersonNos.length > 0 && (
           <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start max-w-md mx-auto mb-6 text-left">
             <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
