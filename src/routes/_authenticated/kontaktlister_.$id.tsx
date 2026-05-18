@@ -157,7 +157,7 @@ function KontaktlisteDetalje() {
         )
         .eq("contact_list_id", id),
     ]);
-    setList(listData);
+    setList(listData as any);
 
     const userIds = Array.from(
       new Set(
