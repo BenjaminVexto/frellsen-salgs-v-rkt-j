@@ -59,6 +59,7 @@ type Row = {
   customer_segment_2: string | null;
   last_purchase_date: string | null;
   employees: number | null;
+  is_public: boolean | null;
 };
 
 type Assignment = { company_id: string; assigned_to: string | null };
@@ -68,13 +69,14 @@ type FilterState = {
   sources: string[];
   assignment: "all" | "unassigned" | "assigned" | "specific";
   assignedToUserId: string;
-  machineStatus: string[]; // none | leased | unknown
+  machineStatus: string[];
   city: string;
   municipality: string;
   zipFrom: string;
   zipTo: string;
-  lastPurchase: string[]; // never | 0-3 | 3-6 | 6-12 | 12-18 | 18+
-  employeeRanges: string[]; // lt10 | 10-49 | 50-199 | 200+ | unknown
+  lastPurchase: string[];
+  employeeRanges: string[];
+  sector: "all" | "private" | "public" | "unknown";
 };
 
 const DEFAULT_FILTERS: FilterState = {
@@ -89,6 +91,7 @@ const DEFAULT_FILTERS: FilterState = {
   zipTo: "",
   lastPurchase: [],
   employeeRanges: [],
+  sector: "all",
 };
 
 const customerTypeLabel: Record<string, string> = {
@@ -154,7 +157,7 @@ function VirksomhederListe() {
     let query = supabase
       .from("companies")
       .select(
-        "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees",
+        "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public",
       )
       .order("name", { ascending: true })
       .limit(5000);
@@ -162,7 +165,7 @@ function VirksomhederListe() {
       query = supabase
         .from("companies")
         .select(
-          "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees",
+          "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public",
         )
         .in("id", recentIds)
         .order("name");
@@ -334,6 +337,13 @@ function VirksomhederListe() {
       if (!matchesLastPurchase(r.last_purchase_date, filters.lastPurchase))
         return false;
       if (!matchesEmployees(r.employees, filters.employeeRanges)) return false;
+      if (filters.sector !== "all") {
+        const pub = r.is_public === true;
+        const hasCvr = !!r.cvr;
+        if (filters.sector === "public" && !pub) return false;
+        if (filters.sector === "private" && (pub || !hasCvr)) return false;
+        if (filters.sector === "unknown" && (pub || hasCvr)) return false;
+      }
       return true;
     });
   }, [rows, q, filters, assignmentMap]);
@@ -362,7 +372,8 @@ function VirksomhederListe() {
       filters.zipFrom !== "" ||
       filters.zipTo !== "" ||
       filters.lastPurchase.length > 0 ||
-      filters.employeeRanges.length > 0
+      filters.employeeRanges.length > 0 ||
+      filters.sector !== "all"
     );
   }, [filters]);
 
@@ -684,6 +695,25 @@ function VirksomhederListe() {
                     setFilters((f) => ({ ...f, employeeRanges: v }))
                   }
                 />
+                <div>
+                  <Label className="text-xs uppercase text-muted-foreground">Sektor</Label>
+                  <Select
+                    value={filters.sector}
+                    onValueChange={(v) =>
+                      setFilters((f) => ({ ...f, sector: v as FilterState["sector"] }))
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alle</SelectItem>
+                      <SelectItem value="private">Private virksomheder</SelectItem>
+                      <SelectItem value="public">Offentlige institutioner</SelectItem>
+                      <SelectItem value="unknown">Ukendt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </Card>
           </CollapsibleContent>
@@ -770,6 +800,11 @@ function VirksomhederListe() {
                           Ikke tildelt
                         </Badge>
                       )}
+                       {r.is_public && (
+                         <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5">
+                           Offentlig
+                         </Badge>
+                       )}
                        <CustomerStatusBadge type={r.customer_type} />
 
                     </div>

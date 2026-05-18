@@ -369,7 +369,8 @@ function OpretListeDialog({
   const [filterMunicipality, setFilterMunicipality] = useState("");
   const [filterCustomerTypes, setFilterCustomerTypes] = useState<string[]>([]);
   const [filterUnassigned, setFilterUnassigned] = useState(false);
-  const [filterMachine, setFilterMachine] = useState<string>(""); // "", "no", "yes", "unknown"
+  const [filterMachine, setFilterMachine] = useState<string>("");
+  const [filterSector, setFilterSector] = useState<string>(""); // "" | private | public | unknown
   const [minEmployees, setMinEmployees] = useState("");
 
   const [companies, setCompanies] = useState<Company[]>([]); // preview rows (max 500)
@@ -422,6 +423,9 @@ function OpretListeDialog({
     else if (filterMachine === "yes")
       qq = qq.ilike("customer_segment_2", "%udlån/leje%");
     else if (filterMachine === "unknown") qq = qq.is("customer_segment_2", null);
+    if (filterSector === "public") qq = qq.eq("is_public", true);
+    else if (filterSector === "private") qq = qq.eq("is_public", false).not("cvr", "is", null);
+    else if (filterSector === "unknown") qq = qq.eq("is_public", false).is("cvr", null);
     return qq;
   };
 
@@ -675,6 +679,16 @@ function OpretListeDialog({
                 <option value="">Maskinstatus: Alle</option>
                 <option value="no">Har IKKE maskine</option>
                 <option value="yes">Har udlån/leje maskine</option>
+                <option value="unknown">Ukendt</option>
+              </select>
+              <select
+                className="border rounded-md px-3 text-sm bg-background"
+                value={filterSector}
+                onChange={(e) => setFilterSector(e.target.value)}
+              >
+                <option value="">Sektor: Alle</option>
+                <option value="private">Private virksomheder</option>
+                <option value="public">Offentlige institutioner</option>
                 <option value="unknown">Ukendt</option>
               </select>
             </div>

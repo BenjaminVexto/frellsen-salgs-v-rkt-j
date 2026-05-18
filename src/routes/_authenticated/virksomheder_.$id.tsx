@@ -228,12 +228,28 @@ function VirksomhedsKort() {
             <h1 className="text-xl font-semibold leading-tight">{company.name}</h1>
           </div>
           <SourceBadges sources={(company as any).sources} />
+          {(company as any).is_public && (
+            <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5 mt-2">
+              Offentlig institution
+            </Badge>
+          )}
           {company.cvr ? (
             <p className="text-xs text-muted-foreground mb-4 mt-1">CVR {company.cvr}</p>
+          ) : (company as any).is_public ? (
+            <div className="mt-2 mb-4 space-y-1 text-xs text-muted-foreground">
+              {(company as any).ean_number && <div>EAN {(company as any).ean_number}</div>}
+              {(company as any).parent_cvr && (
+                <div>Overordnet organisation · CVR {(company as any).parent_cvr}</div>
+              )}
+            </div>
           ) : (
             <div className="flex items-center gap-2 mt-2 mb-4">
-              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/40">Mangler CVR</Badge>
-              <AddCvrInline companyId={company.id} onAdded={(v) => setCompany({ ...company, cvr: v })} />
+              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/40">
+                {(company as any).ean_number ? "Ingen CVR (EAN registreret)" : "Mangler CVR"}
+              </Badge>
+              {!(company as any).ean_number && (
+                <AddCvrInline companyId={company.id} onAdded={(v) => setCompany({ ...company, cvr: v })} />
+              )}
             </div>
           )}
 
@@ -274,6 +290,8 @@ function VirksomhedsKort() {
             {company.turnover_12m != null && (
               <KV label="Omsætning (12 mdr.)" value={`${Number(company.turnover_12m).toLocaleString("da-DK")} kr.`} />
             )}
+            {(company as any).ean_number && company.cvr && <KV label="EAN-nummer" value={(company as any).ean_number} />}
+            {(company as any).parent_cvr && company.cvr && <KV label="Overordnet CVR" value={(company as any).parent_cvr} />}
             {company.source && <KV label="Kilde" value={company.source} />}
           </div>
 

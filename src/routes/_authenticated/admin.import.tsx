@@ -62,7 +62,10 @@ type SystemField =
   | "visma_id"
   | "visma_delivery_id"
   | "contact_person"
-  | "salesperson_no";
+  | "salesperson_no"
+  | "ean_number"
+  | "parent_cvr"
+  | "is_public";
 
 // Felter der gemmes direkte på companies-tabellen
 const COMPANY_DB_FIELDS = new Set<SystemField>([
@@ -71,9 +74,11 @@ const COMPANY_DB_FIELDS = new Set<SystemField>([
   "created_in_visma", "last_purchase_date",
   "customer_segment_1", "customer_segment_2", "customer_segment_3",
   "visma_id", "visma_delivery_id", "contact_person",
+  "ean_number", "parent_cvr", "is_public",
 ]);
 
 const DATE_FIELDS = new Set<SystemField>(["created_in_visma", "last_purchase_date"]);
+const BOOLEAN_FIELDS = new Set<SystemField>(["is_public"]);
 
 const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
   { key: "cvr", label: "CVR" },
@@ -96,6 +101,9 @@ const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
   { key: "visma_delivery_id", label: "Visma leveringsnummer (Lev. kund)" },
   { key: "contact_person", label: "Kontaktperson" },
   { key: "salesperson_no", label: "Sælgernummer" },
+  { key: "ean_number", label: "EAN-nummer" },
+  { key: "parent_cvr", label: "Overordnet CVR (kommunens)" },
+  { key: "is_public", label: "Er offentlig institution (ja/nej)" },
 ];
 
 const AUTO_MATCH: Record<SystemField, string[]> = {
@@ -119,19 +127,38 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   visma_delivery_id: ["visma_leveringsnummer", "lev_kund", "lev_kunde", "leveringsnummer"],
   contact_person: ["kontaktperson", "kontakt", "contact_person"],
   salesperson_no: ["sælger", "saelger", "sælgernummer", "saelgernummer", "salesperson", "sælgernr", "saelgernr"],
+  ean_number: ["ean", "ean_nr", "ean_nummer", "ean_lokationsnummer", "ean_lokation"],
+  parent_cvr: ["overordnet_cvr", "kommune_cvr", "parent_cvr", "moder_cvr"],
+  is_public: ["offentlig", "er_offentlig", "is_public", "offentlig_institution"],
 };
+
+function parseBool(v: string): boolean | null {
+  const s = v.trim().toLowerCase();
+  if (!s) return null;
+  if (["true", "1", "ja", "yes", "y", "j", "x", "sand"].includes(s)) return true;
+  if (["false", "0", "nej", "no", "n", "falsk"].includes(s)) return false;
+  return null;
+}
+function normEan(v: string | undefined | null): string | null {
+  if (!v) return null;
+  const digits = String(v).replace(/\D/g, "");
+  return digits.length >= 8 ? digits : null;
+}
 
 type ParsedRow = Record<string, string>;
 
 interface PreparedRow {
   raw: ParsedRow;
   cvr: string | null;
-  data: Partial<Record<SystemField, string | number | null>>;
+  ean: string | null;
+  data: Partial<Record<SystemField, string | number | boolean | null>>;
   salespersonNo: string | null;
   matchedSellerId: string | null;
   isDuplicate: boolean;
   missingCvr: boolean;
+  isPublic: boolean;
   nameMatchId: string | null;
+  eanMatchId: string | null;
   hasError: boolean;
   errorMessage?: string;
 }
@@ -162,6 +189,7 @@ function ImportSide() {
   const [mapping, setMapping] = useState<Partial<Record<SystemField, string>>>({});
   const [existingCvrs, setExistingCvrs] = useState<Set<string>>(new Set());
   const [existingNameMap, setExistingNameMap] = useState<Map<string, string>>(new Map());
+  const [existingEanMap, setExistingEanMap] = useState<Map<string, string>>(new Map());
   const [includeMissingCvr, setIncludeMissingCvr] = useState(false);
   const [contactLists, setContactLists] = useState<{ id: string; name: string }[]>([]);
   const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
@@ -231,24 +259,55 @@ function ImportSide() {
     }
     setExistingCvrs(dupSet);
 
-    // Slå navne op for rækker uden CVR
+    // Slå navne+postnr op for rækker uden CVR/EAN (soft-match)
     const nameMap = new Map<string, string>();
-    const noCvrNames = rows
-      .filter((r) => !(mapping.cvr ? normCvr(r[mapping.cvr!]) : null))
-      .map((r) => mapping.name ? (r[mapping.name] ?? "").trim() : "")
-      .filter((n) => !!n);
-    const uniqueNames = Array.from(new Set(noCvrNames));
+    const nameZipRows = rows.filter(
+      (r) =>
+        !(mapping.cvr ? normCvr(r[mapping.cvr!]) : null) &&
+        !(mapping.ean_number ? normEan(r[mapping.ean_number!]) : null),
+    );
+    const uniqueNames = Array.from(
+      new Set(
+        nameZipRows
+          .map((r) => (mapping.name ? (r[mapping.name] ?? "").trim() : ""))
+          .filter((n) => !!n),
+      ),
+    );
     for (let i = 0; i < uniqueNames.length; i += 200) {
       const slice = uniqueNames.slice(i, i + 200);
       const { data: ndata } = await supabase
         .from("companies")
-        .select("id, name")
+        .select("id, name, zip")
         .in("name", slice);
       (ndata ?? []).forEach((d: any) => {
-        if (!nameMap.has(d.name.toLowerCase())) nameMap.set(d.name.toLowerCase(), d.id);
+        const key = `${(d.name ?? "").toLowerCase()}|${d.zip ?? ""}`;
+        if (!nameMap.has(key)) nameMap.set(key, d.id);
       });
     }
     setExistingNameMap(nameMap);
+
+    // EAN-opslag
+    const eanMap = new Map<string, string>();
+    if (mapping.ean_number) {
+      const eans = Array.from(
+        new Set(
+          rows
+            .map((r) => normEan(r[mapping.ean_number!]))
+            .filter((v): v is string => !!v),
+        ),
+      );
+      for (let i = 0; i < eans.length; i += 500) {
+        const slice = eans.slice(i, i + 500);
+        const { data: edata } = await (supabase as any)
+          .from("companies")
+          .select("id, ean_number")
+          .in("ean_number", slice);
+        (edata ?? []).forEach((d: any) => {
+          if (d.ean_number) eanMap.set(d.ean_number, d.id);
+        });
+      }
+    }
+    setExistingEanMap(eanMap);
 
     // Hent sælgernumre → user_id-mapping
     const { data: profs } = await supabase
@@ -291,6 +350,7 @@ function ImportSide() {
   const prepared = useMemo<PreparedRow[]>(() => {
     return rows.map((r) => {
       const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
+      const ean = mapping.ean_number ? normEan(r[mapping.ean_number]) : null;
       const data: PreparedRow["data"] = {};
       for (const f of SYSTEM_FIELDS) {
         if (!COMPANY_DB_FIELDS.has(f.key)) continue;
@@ -304,6 +364,11 @@ function ImportSide() {
         } else if (DATE_FIELDS.has(f.key)) {
           const d = parseDanishDate(v);
           if (d) (data as any)[f.key] = d;
+        } else if (BOOLEAN_FIELDS.has(f.key)) {
+          const b = parseBool(v);
+          if (b !== null) (data as any)[f.key] = b;
+        } else if (f.key === "ean_number") {
+          if (ean) (data as any).ean_number = ean;
         } else {
           (data as any)[f.key] = v;
         }
@@ -319,26 +384,34 @@ function ImportSide() {
         }
       }
       const missingCvr = !cvr;
-      const isDuplicate = !!cvr && existingCvrs.has(cvr);
+      const isPublic = data.is_public === true || !!ean;
+      if (isPublic && data.is_public === undefined) (data as any).is_public = true;
+      const isDuplicate =
+        (!!cvr && existingCvrs.has(cvr)) ||
+        (!!ean && existingEanMap.has(ean));
+      const eanMatchId = ean ? existingEanMap.get(ean) ?? null : null;
       const nameMatchId =
-        missingCvr && data.name
-          ? existingNameMap.get(String(data.name).toLowerCase()) ?? null
+        !cvr && !ean && data.name
+          ? existingNameMap.get(`${String(data.name).toLowerCase()}|${(data.zip as string) ?? ""}`) ?? null
           : null;
       const hasError = !data.name;
       return {
         raw: r,
         cvr,
+        ean,
         data,
         salespersonNo,
         matchedSellerId,
         isDuplicate,
         missingCvr,
+        isPublic,
         nameMatchId,
+        eanMatchId,
         hasError,
         errorMessage: !data.name ? "Mangler navn" : undefined,
       };
     });
-  }, [rows, mapping, existingCvrs, existingNameMap, salespersonMap]);
+  }, [rows, mapping, existingCvrs, existingEanMap, existingNameMap, salespersonMap]);
 
   const stats = useMemo(() => {
     const newCount = prepared.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
@@ -363,7 +436,8 @@ function ImportSide() {
     let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0, noCvrCount = 0;
     const toImport = prepared.filter((p) => {
       if (p.hasError) return false;
-      if (p.missingCvr && !includeMissingCvr) return false;
+      // Tillad rækker uden CVR hvis de har EAN, ellers respekter checkbox
+      if (p.missingCvr && !p.ean && !includeMissingCvr) return false;
       return true;
     });
     const importSource: "visma" | "cvr" = mapping.visma_id ? "visma" : "cvr";
@@ -381,8 +455,14 @@ function ImportSide() {
     const cvrsToFetch = Array.from(
       new Set(toImport.map((p) => p.cvr).filter((v): v is string => !!v)),
     );
+    const eanMatchIdSet = new Set(
+      toImport.map((p) => p.eanMatchId).filter((v): v is string => !!v),
+    );
     const nameMatchIds = Array.from(
-      new Set(toImport.map((p) => p.nameMatchId).filter((v): v is string => !!v)),
+      new Set([
+        ...toImport.map((p) => p.nameMatchId).filter((v): v is string => !!v),
+        ...eanMatchIdSet,
+      ]),
     );
 
     const existingByCvr = new Map<string, any>();
@@ -413,7 +493,7 @@ function ImportSide() {
         .select("*")
         .in("id", slice);
       if (error) {
-        toast.error("Kunne ikke hente navnematch: " + error.message);
+        toast.error("Kunne ikke hente eksisterende match: " + error.message);
         setImporting(false);
         return;
       }
@@ -477,6 +557,16 @@ function ImportSide() {
             isNoCvr: false,
           });
         }
+      } else if (p.eanMatchId && existingById.has(p.eanMatchId)) {
+        const existing = existingById.get(p.eanMatchId);
+        const merged = buildMerged(existing, incoming);
+        jobs.push({
+          kind: "update_id",
+          id: existing.id,
+          payload: merged,
+          sellerId: p.matchedSellerId,
+          isNoCvr: !p.cvr,
+        });
       } else if (p.nameMatchId && existingById.has(p.nameMatchId)) {
         const existing = existingById.get(p.nameMatchId);
         const merged = buildMerged(existing, incoming);
@@ -949,6 +1039,10 @@ function Trin3Preview({
                 <TableCell>
                   {p.hasError ? (
                     <Badge variant="destructive">Fejl</Badge>
+                  ) : p.isPublic ? (
+                    <Badge className="bg-primary/15 text-primary border-primary/30" variant="outline">
+                      Offentlig
+                    </Badge>
                   ) : p.missingCvr ? (
                     <Badge variant="outline">Uden CVR</Badge>
                   ) : p.isDuplicate ? (

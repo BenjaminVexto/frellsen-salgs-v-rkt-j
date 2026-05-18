@@ -87,15 +87,21 @@ export type Database = {
           customer_segment_3: string | null
           customer_type: Database["public"]["Enums"]["customer_type"]
           cvr: string | null
+          ean_number: string | null
           email: string | null
           employees: number | null
           id: string
           import_batch_date: string | null
           import_batch_id: string | null
           industry: string | null
+          institution_type:
+            | Database["public"]["Enums"]["institution_type"]
+            | null
+          is_public: boolean
           last_purchase_date: string | null
           municipality: string | null
           name: string
+          parent_cvr: string | null
           phone: string | null
           source: string | null
           source_created_by: string | null
@@ -118,15 +124,21 @@ export type Database = {
           customer_segment_3?: string | null
           customer_type?: Database["public"]["Enums"]["customer_type"]
           cvr?: string | null
+          ean_number?: string | null
           email?: string | null
           employees?: number | null
           id?: string
           import_batch_date?: string | null
           import_batch_id?: string | null
           industry?: string | null
+          institution_type?:
+            | Database["public"]["Enums"]["institution_type"]
+            | null
+          is_public?: boolean
           last_purchase_date?: string | null
           municipality?: string | null
           name: string
+          parent_cvr?: string | null
           phone?: string | null
           source?: string | null
           source_created_by?: string | null
@@ -149,15 +161,21 @@ export type Database = {
           customer_segment_3?: string | null
           customer_type?: Database["public"]["Enums"]["customer_type"]
           cvr?: string | null
+          ean_number?: string | null
           email?: string | null
           employees?: number | null
           id?: string
           import_batch_date?: string | null
           import_batch_id?: string | null
           industry?: string | null
+          institution_type?:
+            | Database["public"]["Enums"]["institution_type"]
+            | null
+          is_public?: boolean
           last_purchase_date?: string | null
           municipality?: string | null
           name?: string
+          parent_cvr?: string | null
           phone?: string | null
           source?: string | null
           source_created_by?: string | null
@@ -563,6 +581,14 @@ export type Database = {
         | "aktiv_kunde"
         | "sovende_kunde"
         | "tidligere_kunde"
+      institution_type:
+        | "børnehave"
+        | "skole"
+        | "plejecenter"
+        | "kommune"
+        | "region"
+        | "stat"
+        | "andet_offentligt"
       opportunity_status:
         | "ny"
         | "behovsafdækning"
@@ -737,6 +763,15 @@ export const Constants = {
         "aktiv_kunde",
         "sovende_kunde",
         "tidligere_kunde",
+      ],
+      institution_type: [
+        "børnehave",
+        "skole",
+        "plejecenter",
+        "kommune",
+        "region",
+        "stat",
+        "andet_offentligt",
       ],
       opportunity_status: [
         "ny",
