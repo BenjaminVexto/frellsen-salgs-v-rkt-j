@@ -241,6 +241,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          purpose: string | null
         }
         Insert: {
           created_at?: string
@@ -249,6 +250,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          purpose?: string | null
         }
         Update: {
           created_at?: string
@@ -257,6 +259,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          purpose?: string | null
         }
         Relationships: []
       }
@@ -303,6 +306,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      filter_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          filter_config: Json
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          filter_config?: Json
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          filter_config?: Json
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       import_batches: {
         Row: {
