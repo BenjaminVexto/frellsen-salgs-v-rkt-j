@@ -170,6 +170,7 @@ const InputSchema = z.discriminatedUnion("type", [
     type: z.literal("search"),
     name: z.string().min(2).max(100),
     location: z.string().max(20).optional(),
+    size: z.number().int().min(1).max(50).optional(),
   }),
   z.object({
     type: z.literal("bulk"),
@@ -264,7 +265,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
             },
           },
           sort: [{ _score: { order: "desc" } }],
-          size: 10,
+          size: data.size ?? 10,
         };
 
         const json = await callCvr(payload);
