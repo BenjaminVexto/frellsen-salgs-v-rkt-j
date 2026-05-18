@@ -59,7 +59,6 @@ function pickLatest<T extends { periode?: { gyldigFra?: string | null; gyldigTil
   arr: T[] | undefined | null,
 ): T | null {
   if (!arr || !arr.length) return null;
-  // Foretræk poster uden gyldigTil (stadig aktive); ellers seneste gyldigFra
   const active = arr.filter((x) => !x?.periode?.gyldigTil);
   const list = active.length ? active : arr;
   return [...list].sort((a, b) => {
@@ -90,7 +89,6 @@ function mapVirksomhed(v: any): CvrCompany {
   const bi2 = pickLatest<any>(v?.bibranche2);
   const bi3 = pickLatest<any>(v?.bibranche3);
 
-  // Antal ansatte: foretræk månedlig, derefter kvartal, derefter år
   const mnd = pickLatest<any>(v?.maanedsbeskaeftigelse);
   const kvt = pickLatest<any>(v?.kvartalsbeskaeftigelse);
   const aar = pickLatest<any>(v?.aarsbeskaeftigelse);
@@ -155,8 +153,6 @@ async function callCvr(payload: unknown): Promise<any> {
     throw err;
   }
   if (!res.ok) {
-    const bodyText = await res.text().catch(() => "");
-    console.log("CVR HTTP error body:", res.status, bodyText);
     const err: any = new Error(`HTTP_ERROR: ${res.status}`);
     err.code = "HTTP_ERROR";
     throw err;
@@ -169,11 +165,11 @@ const InputSchema = z.discriminatedUnion("type", [
     type: z.literal("single"),
     cvr: z.string().regex(/^\d{8}$/, "CVR skal være 8 cifre"),
   }),
+  // SEARCH: søg på navn + valgfri lokation
   z.object({
     type: z.literal("search"),
-    name: z.string().min(2).max(200),
-    location: z.string().min(1).max(100).optional(),
-    size: z.number().int().min(1).max(50).optional(),
+    name: z.string().min(2).max(100),
+    location: z.string().max(20).optional(),
   }),
   z.object({
     type: z.literal("bulk"),
@@ -194,6 +190,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<CvrResponse> => {
     try {
+      // --- SINGLE: opslag på præcist CVR-nummer ---
       if (data.type === "single") {
         const payload = {
           _source: SOURCE_FIELDS,
@@ -206,83 +203,92 @@ export const cvrLookup = createServerFn({ method: "POST" })
         return { success: true, data: mapVirksomhed(hit) };
       }
 
+      // --- SEARCH: søg på navn med valgfri lokation-boost ---
       if (data.type === "search") {
-        console.log("Search query:", data.name, data.location);
-        const must: any[] = [
-          {
+        const nameQuery = data.name;
+        const location = data.location ?? "";
+
+        const payload: any = {
+          _source: SOURCE_FIELDS,
+          query: {
             bool: {
-              should: [
+              must: [
                 {
-                  match: {
-                    "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
-                      query: data.name,
-                      fuzziness: "AUTO",
-                      prefix_length: 2,
-                      boost: 2,
-                    },
+                  bool: {
+                    should: [
+                      {
+                        match: {
+                          "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
+                            query: nameQuery,
+                            fuzziness: "AUTO",
+                            prefix_length: 2,
+                            boost: 2,
+                          },
+                        },
+                      },
+                      {
+                        wildcard: {
+                          "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
+                            value: `*${nameQuery.toLowerCase()}*`,
+                            case_insensitive: true,
+                            boost: 1,
+                          },
+                        },
+                      },
+                    ],
+                    minimum_should_match: 1,
                   },
                 },
                 {
-                  wildcard: {
-                    "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
-                      value: `*${data.name.toLowerCase()}*`,
-                      case_insensitive: true,
-                      boost: 1,
-                    },
+                  match: {
+                    "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv",
                   },
                 },
               ],
-              minimum_should_match: 1,
+              ...(location
+                ? {
+                    should: [
+                      {
+                        multi_match: {
+                          query: location,
+                          fields: [
+                            "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postdistrikt",
+                            "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postnummer",
+                          ],
+                          boost: 3,
+                        },
+                      },
+                    ],
+                  }
+                : {}),
             },
           },
-          {
-            match: {
-              "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv",
-            },
-          },
-        ];
-        const query: any = { bool: { must } };
-        if (data.location && data.location.trim()) {
-          query.bool.should = [
-            {
-              multi_match: {
-                query: data.location.trim(),
-                fields: [
-                  "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postdistrikt",
-                  "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postnummer",
-                ],
-                boost: 3,
-              },
-            },
-          ];
-        }
-        const payload = {
-          _source: SOURCE_FIELDS,
-          query,
           sort: [{ _score: { order: "desc" } }],
-          size: data.size ?? 10,
+          size: 10,
         };
-        console.log("Payload:", JSON.stringify(payload));
+
         const json = await callCvr(payload);
-        console.log("CVR response:", JSON.stringify(json));
         const hits = json?.hits?.hits ?? [];
         const companies: CvrCompany[] = hits
           .map((h: any) => h?._source?.Vrvirksomhed)
           .filter(Boolean)
           .map(mapVirksomhed);
+
         if (!companies.length) {
           return { success: false, error: "NOT_FOUND" };
         }
         return { success: true, data: companies };
       }
 
-      // bulk
+      // --- BULK: filtreret udtræk til kontaktlister ---
       const f = data.filters;
       const must: any[] = [];
       const filter: any[] = [];
 
-      const status = f.status ?? "Aktiv";
-      must.push({ match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": status } });
+      const status = f.status ?? "AKTIV";
+      must.push({
+        match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": status },
+      });
 
       // Kommune
       let kommuneKode: string | null = null;
@@ -313,7 +319,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
       if (f.company_forms && f.company_forms.length) {
         filter.push({
           bool: {
-            should: f.company_forms.map((form: string) => ({
+            should: f.company_forms.map((form) => ({
               term: { "Vrvirksomhed.virksomhedsform.kortBeskrivelse": form },
             })),
             minimum_should_match: 1,
@@ -334,13 +340,12 @@ export const cvrLookup = createServerFn({ method: "POST" })
         .filter(Boolean)
         .map(mapVirksomhed);
 
-      // Filtrér ansatte-interval i kode, da ES-feltet er en interval-kode (ikke et tal)
+      // Filtrér ansatte-interval
       if (f.min_employees != null || f.max_employees != null) {
         const min = f.min_employees ?? 0;
         const max = f.max_employees ?? Number.MAX_SAFE_INTEGER;
         companies = companies.filter((c) => {
           if (!c.employees_interval) return false;
-          // Eksempler: "10_19", "1_4", "100_199", "ANTAL_0" -> 0
           const parts = c.employees_interval.split("_").map((p) => parseInt(p, 10));
           const lo = isNaN(parts[0]) ? null : parts[0];
           const hi = parts.length > 1 && !isNaN(parts[1]) ? parts[1] : lo;
@@ -351,7 +356,9 @@ export const cvrLookup = createServerFn({ method: "POST" })
 
       return { success: true, data: companies };
     } catch (e: any) {
-      const code = e?.code ?? (e?.message?.startsWith("NETWORK_ERROR") ? "NETWORK_ERROR" : "HTTP_ERROR");
+      const code =
+        e?.code ??
+        (e?.message?.startsWith("NETWORK_ERROR") ? "NETWORK_ERROR" : "HTTP_ERROR");
       console.error("cvrLookup error:", e);
       return { success: false, error: code };
     }
