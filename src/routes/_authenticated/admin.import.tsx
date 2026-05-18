@@ -189,6 +189,7 @@ function ImportSide() {
   const [mapping, setMapping] = useState<Partial<Record<SystemField, string>>>({});
   const [existingCvrs, setExistingCvrs] = useState<Set<string>>(new Set());
   const [existingNameMap, setExistingNameMap] = useState<Map<string, string>>(new Map());
+  const [existingEanMap, setExistingEanMap] = useState<Map<string, string>>(new Map());
   const [includeMissingCvr, setIncludeMissingCvr] = useState(false);
   const [contactLists, setContactLists] = useState<{ id: string; name: string }[]>([]);
   const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
