@@ -210,12 +210,29 @@ export const cvrLookup = createServerFn({ method: "POST" })
         console.log("Search query:", data.name, data.location);
         const must: any[] = [
           {
-            match: {
-              "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
-                query: data.name,
-                operator: "and",
-                fuzziness: "AUTO",
-              },
+            bool: {
+              should: [
+                {
+                  match: {
+                    "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
+                      query: data.name,
+                      fuzziness: "AUTO",
+                      prefix_length: 2,
+                      boost: 2,
+                    },
+                  },
+                },
+                {
+                  wildcard: {
+                    "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
+                      value: `*${data.name.toLowerCase()}*`,
+                      case_insensitive: true,
+                      boost: 1,
+                    },
+                  },
+                },
+              ],
+              minimum_should_match: 1,
             },
           },
           {
@@ -226,7 +243,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
         ];
         const query: any = { bool: { must } };
         if (data.location && data.location.trim()) {
-          query.bool.filter = [
+          query.bool.should = [
             {
               multi_match: {
                 query: data.location.trim(),
@@ -234,6 +251,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
                   "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postdistrikt",
                   "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postnummer",
                 ],
+                boost: 3,
               },
             },
           ];
@@ -241,6 +259,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
         const payload = {
           _source: SOURCE_FIELDS,
           query,
+          sort: [{ _score: { order: "desc" } }],
           size: data.size ?? 10,
         };
         console.log("Payload:", JSON.stringify(payload));
