@@ -129,6 +129,33 @@ function KontaktlisterOversigt() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error: aErr } = await supabase
+      .from("contact_list_assignments")
+      .delete()
+      .eq("contact_list_id", deleteTarget.id);
+    if (aErr) {
+      toast.error("Kunne ikke slette tildelinger: " + aErr.message);
+      setDeleting(false);
+      return;
+    }
+    const { error } = await supabase
+      .from("contact_lists")
+      .delete()
+      .eq("id", deleteTarget.id);
+    if (error) {
+      toast.error(error.message);
+      setDeleting(false);
+      return;
+    }
+    setRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+    setDeleteTarget(null);
+    setDeleting(false);
+    toast.success("Kontaktliste slettet");
+  };
+
   return (
     <div className="px-4 md:px-8 py-8 max-w-7xl mx-auto pb-24 md:pb-8">
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
