@@ -168,18 +168,22 @@ function ImportSide() {
 
   // Trin 4 → 5: hent lister og sælgere
   async function gotoAssignment() {
-    const [{ data: lists }, { data: users }] = await Promise.all([
+    const [{ data: lists }, { data: roles }] = await Promise.all([
       supabase.from("contact_lists").select("id,name").eq("is_active", true).order("name"),
-      supabase
-        .from("user_roles")
-        .select("user_id, profiles!inner(id, full_name)")
-        .eq("role", "saelger"),
+      supabase.from("user_roles").select("user_id").eq("role", "saelger"),
     ]);
     setContactLists(lists ?? []);
-    const sellersFlat = (users ?? []).map((u: any) => ({
-      id: u.profiles.id,
-      full_name: u.profiles.full_name || "(uden navn)",
-    }));
+    const ids = (roles ?? []).map((r: any) => r.user_id);
+    let sellersFlat: { id: string; full_name: string }[] = [];
+    if (ids.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name, is_active")
+        .in("id", ids);
+      sellersFlat = (profs ?? [])
+        .filter((p: any) => p.is_active !== false)
+        .map((p: any) => ({ id: p.id, full_name: p.full_name || "(uden navn)" }));
+    }
     setSellers(sellersFlat);
     setStep(5);
   }
