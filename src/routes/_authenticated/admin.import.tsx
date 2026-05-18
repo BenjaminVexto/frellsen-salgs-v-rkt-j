@@ -168,7 +168,8 @@ function ImportSide() {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{
-    created: number; updated: number; skipped: number; failed: number;
+    created: number; updated: number; skipped: number; failed: number; enriched: number;
+    importSource: "visma" | "cvr";
     unmatchedSalespersonNos: string[];
   } | null>(null);
   const [importedIds, setImportedIds] = useState<string[]>([]);
