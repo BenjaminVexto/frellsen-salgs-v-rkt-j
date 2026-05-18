@@ -369,7 +369,7 @@ function ImportSide() {
             updatePayload.source_updated_at = new Date().toISOString();
             const { error: upErr } = await supabase
               .from("companies")
-              .update(updatePayload)
+              .update(updatePayload as any)
               .eq("id", (existing as any).id);
             if (upErr) throw upErr;
             companyId = (existing as any).id;
@@ -385,7 +385,7 @@ function ImportSide() {
             };
             const { data, error } = await supabase
               .from("companies")
-              .insert(insertPayload)
+              .insert(insertPayload as any)
               .select("id")
               .single();
             if (error) throw error;
@@ -401,7 +401,7 @@ function ImportSide() {
           };
           const { data, error } = await supabase
             .from("companies")
-            .insert(insertPayload)
+            .insert(insertPayload as any)
             .select("id")
             .single();
           if (error) throw error;
@@ -417,7 +417,7 @@ function ImportSide() {
           };
           const { data, error } = await supabase
             .from("companies")
-            .insert(insertPayload)
+            .insert(insertPayload as any)
             .select("id")
             .single();
           if (error) throw error;
