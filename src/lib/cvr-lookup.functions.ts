@@ -278,12 +278,12 @@ export const cvrLookup = createServerFn({ method: "POST" })
       const must: any[] = [];
       const filter: any[] = [];
 
-      const statusValues = f.status ? [f.status] : ["Aktiv", "NORMAL"];
       must.push({
         bool: {
-          should: statusValues.map((s) => ({
-            match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": s },
-          })),
+          should: [
+            { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv" } },
+            { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "NORMAL" } },
+          ],
           minimum_should_match: 1,
         },
       });
