@@ -604,14 +604,12 @@ function Trin2Mapping({
     <Card className="p-6">
       <h2 className="font-semibold mb-1">Match kolonner</h2>
       <p className="text-sm text-muted-foreground mb-5">
-        Vælg hvilken CSV-kolonne der svarer til hvert systemfelt. CVR og Navn er påkrævet.
+        Vælg hvilken CSV-kolonne der svarer til hvert systemfelt. Alle felter er valgfrie — vælg "Tom / spring over" hvis kolonnen ikke findes i din fil.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {SYSTEM_FIELDS.map((f) => (
           <div key={f.key}>
-            <Label className="mb-1.5 block">
-              {f.label} {f.required && <span className="text-destructive">*</span>}
-            </Label>
+            <Label className="mb-1.5 block">{f.label}</Label>
             <Select
               value={mapping[f.key] ?? "__none"}
               onValueChange={(v) =>
@@ -619,10 +617,10 @@ function Trin2Mapping({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Vælg kolonne" />
+                <SelectValue placeholder="Tom / spring over" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none">— Ingen —</SelectItem>
+                <SelectItem value="__none">Tom / spring over</SelectItem>
                 {headers.map((h) => (
                   <SelectItem key={h} value={h}>
                     {h}
