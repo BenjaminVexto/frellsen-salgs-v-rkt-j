@@ -155,6 +155,8 @@ async function callCvr(payload: unknown): Promise<any> {
     throw err;
   }
   if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    console.log("CVR HTTP error body:", res.status, bodyText);
     const err: any = new Error(`HTTP_ERROR: ${res.status}`);
     err.code = "HTTP_ERROR";
     throw err;
@@ -205,6 +207,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
       }
 
       if (data.type === "search") {
+        console.log("Search query:", data.name, data.location);
         const must: any[] = [
           {
             match: {
@@ -216,8 +219,8 @@ export const cvrLookup = createServerFn({ method: "POST" })
             },
           },
           {
-            term: {
-              "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "AKTIV",
+            match: {
+              "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv",
             },
           },
         ];
@@ -240,7 +243,9 @@ export const cvrLookup = createServerFn({ method: "POST" })
           query,
           size: data.size ?? 10,
         };
+        console.log("Payload:", JSON.stringify(payload));
         const json = await callCvr(payload);
+        console.log("CVR response:", JSON.stringify(json));
         const hits = json?.hits?.hits ?? [];
         const companies: CvrCompany[] = hits
           .map((h: any) => h?._source?.Vrvirksomhed)
@@ -254,8 +259,8 @@ export const cvrLookup = createServerFn({ method: "POST" })
       const must: any[] = [];
       const filter: any[] = [];
 
-      const status = f.status ?? "AKTIV";
-      must.push({ term: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": status } });
+      const status = f.status ?? "Aktiv";
+      must.push({ match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": status } });
 
       // Kommune
       let kommuneKode: string | null = null;
