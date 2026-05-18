@@ -800,6 +800,11 @@ function VirksomhederListe() {
                           Ikke tildelt
                         </Badge>
                       )}
+                       {r.is_public && (
+                         <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5">
+                           Offentlig
+                         </Badge>
+                       )}
                        <CustomerStatusBadge type={r.customer_type} />
 
                     </div>
