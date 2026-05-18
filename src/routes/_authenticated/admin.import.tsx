@@ -455,8 +455,14 @@ function ImportSide() {
     const cvrsToFetch = Array.from(
       new Set(toImport.map((p) => p.cvr).filter((v): v is string => !!v)),
     );
+    const eanMatchIdSet = new Set(
+      toImport.map((p) => p.eanMatchId).filter((v): v is string => !!v),
+    );
     const nameMatchIds = Array.from(
-      new Set(toImport.map((p) => p.nameMatchId).filter((v): v is string => !!v)),
+      new Set([
+        ...toImport.map((p) => p.nameMatchId).filter((v): v is string => !!v),
+        ...eanMatchIdSet,
+      ]),
     );
 
     const existingByCvr = new Map<string, any>();
@@ -487,7 +493,7 @@ function ImportSide() {
         .select("*")
         .in("id", slice);
       if (error) {
-        toast.error("Kunne ikke hente navnematch: " + error.message);
+        toast.error("Kunne ikke hente eksisterende match: " + error.message);
         setImporting(false);
         return;
       }
