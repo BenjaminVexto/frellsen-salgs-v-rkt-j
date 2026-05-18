@@ -244,20 +244,45 @@ export const cvrLookup = createServerFn({ method: "POST" })
                     "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv",
                   },
                 },
+                {
+                  bool: {
+                    must_not: [
+                      {
+                        terms: {
+                          "Vrvirksomhed.virksomhedsform.virksomhedsformkode": [10, 20],
+                        },
+                      },
+                    ],
+                  },
+                },
               ],
               ...(location
                 ? {
                     should: [
-                      {
-                        multi_match: {
-                          query: location,
-                          fields: [
-                            "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postdistrikt",
-                            "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postnummer",
-                          ],
-                          boost: 3,
-                        },
-                      },
+                      ...(/^[\d]+$/.test(location)
+                        ? [
+                            {
+                              term: {
+                                "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postnummer": parseInt(
+                                  location,
+                                  10,
+                                ),
+                              },
+                            },
+                          ]
+                        : []),
+                      ...(!/^[\d]+$/.test(location)
+                        ? [
+                            {
+                              match: {
+                                "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postdistrikt": {
+                                  query: location,
+                                  boost: 3,
+                                },
+                              },
+                            },
+                          ]
+                        : []),
                     ],
                   }
                 : {}),
