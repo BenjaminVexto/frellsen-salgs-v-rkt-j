@@ -150,12 +150,15 @@ type ParsedRow = Record<string, string>;
 interface PreparedRow {
   raw: ParsedRow;
   cvr: string | null;
-  data: Partial<Record<SystemField, string | number | null>>;
+  ean: string | null;
+  data: Partial<Record<SystemField, string | number | boolean | null>>;
   salespersonNo: string | null;
   matchedSellerId: string | null;
   isDuplicate: boolean;
   missingCvr: boolean;
+  isPublic: boolean;
   nameMatchId: string | null;
+  eanMatchId: string | null;
   hasError: boolean;
   errorMessage?: string;
 }
