@@ -383,7 +383,8 @@ function OpretListeDialog({
     let q = supabase
       .from("companies")
       .select("id, name, cvr, city, industry, employees, municipality, customer_type")
-      .limit(200);
+      .order("name")
+      .limit(500);
     if (searchTerm)
       q = q.or(`name.ilike.%${searchTerm}%,cvr.ilike.%${searchTerm}%`);
     if (filterIndustry) q = q.ilike("industry", `%${filterIndustry}%`);
@@ -391,8 +392,14 @@ function OpretListeDialog({
     if (filterMunicipality) q = q.ilike("municipality", `%${filterMunicipality}%`);
     if (filterCustomerType) q = q.eq("customer_type", filterCustomerType as any);
     if (minEmployees) q = q.gte("employees", parseInt(minEmployees));
-    const { data } = await q;
-    setCompanies(data ?? []);
+    const { data, error } = await q;
+    if (error) {
+      toast.error("Søgefejl: " + error.message);
+      setCompanies([]);
+    } else {
+      setCompanies(data ?? []);
+    }
+    setHasSearched(true);
     setSearching(false);
   };
 
