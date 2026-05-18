@@ -62,7 +62,10 @@ type SystemField =
   | "visma_id"
   | "visma_delivery_id"
   | "contact_person"
-  | "salesperson_no";
+  | "salesperson_no"
+  | "ean_number"
+  | "parent_cvr"
+  | "is_public";
 
 // Felter der gemmes direkte på companies-tabellen
 const COMPANY_DB_FIELDS = new Set<SystemField>([
@@ -71,9 +74,11 @@ const COMPANY_DB_FIELDS = new Set<SystemField>([
   "created_in_visma", "last_purchase_date",
   "customer_segment_1", "customer_segment_2", "customer_segment_3",
   "visma_id", "visma_delivery_id", "contact_person",
+  "ean_number", "parent_cvr", "is_public",
 ]);
 
 const DATE_FIELDS = new Set<SystemField>(["created_in_visma", "last_purchase_date"]);
+const BOOLEAN_FIELDS = new Set<SystemField>(["is_public"]);
 
 const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
   { key: "cvr", label: "CVR" },
@@ -96,6 +101,9 @@ const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
   { key: "visma_delivery_id", label: "Visma leveringsnummer (Lev. kund)" },
   { key: "contact_person", label: "Kontaktperson" },
   { key: "salesperson_no", label: "Sælgernummer" },
+  { key: "ean_number", label: "EAN-nummer" },
+  { key: "parent_cvr", label: "Overordnet CVR (kommunens)" },
+  { key: "is_public", label: "Er offentlig institution (ja/nej)" },
 ];
 
 const AUTO_MATCH: Record<SystemField, string[]> = {
@@ -119,7 +127,23 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   visma_delivery_id: ["visma_leveringsnummer", "lev_kund", "lev_kunde", "leveringsnummer"],
   contact_person: ["kontaktperson", "kontakt", "contact_person"],
   salesperson_no: ["sælger", "saelger", "sælgernummer", "saelgernummer", "salesperson", "sælgernr", "saelgernr"],
+  ean_number: ["ean", "ean_nr", "ean_nummer", "ean_lokationsnummer", "ean_lokation"],
+  parent_cvr: ["overordnet_cvr", "kommune_cvr", "parent_cvr", "moder_cvr"],
+  is_public: ["offentlig", "er_offentlig", "is_public", "offentlig_institution"],
 };
+
+function parseBool(v: string): boolean | null {
+  const s = v.trim().toLowerCase();
+  if (!s) return null;
+  if (["true", "1", "ja", "yes", "y", "j", "x", "sand"].includes(s)) return true;
+  if (["false", "0", "nej", "no", "n", "falsk"].includes(s)) return false;
+  return null;
+}
+function normEan(v: string | undefined | null): string | null {
+  if (!v) return null;
+  const digits = String(v).replace(/\D/g, "");
+  return digits.length >= 8 ? digits : null;
+}
 
 type ParsedRow = Record<string, string>;
 
