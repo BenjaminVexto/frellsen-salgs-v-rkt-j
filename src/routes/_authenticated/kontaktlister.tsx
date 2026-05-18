@@ -334,6 +334,15 @@ type Company = {
   customer_type: string;
 };
 
+const CUSTOMER_TYPES: { value: string; label: string }[] = [
+  { value: "aktiv_kunde", label: "Aktiv kunde" },
+  { value: "sovende_kunde", label: "Sovende kunde" },
+  { value: "tidligere_kunde", label: "Tidligere kunde" },
+  { value: "nyt_emne", label: "Nyt emne" },
+];
+
+const TABLE_PREVIEW_LIMIT = 500;
+
 function OpretListeDialog({
   onClose,
   onCreated,
@@ -342,23 +351,26 @@ function OpretListeDialog({
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [purpose, setPurpose] = useState("");
   const [sellers, setSellers] = useState<Seller[]>([]);
-  const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
+  const [responsibleSeller, setResponsibleSeller] = useState<string>("");
   const [step, setStep] = useState<1 | 2>(1);
   const [saving, setSaving] = useState(false);
 
-  // step 2
+  // step 2 filters
   const [searchTerm, setSearchTerm] = useState("");
   const [filterIndustry, setFilterIndustry] = useState("");
   const [filterCity, setFilterCity] = useState("");
   const [filterMunicipality, setFilterMunicipality] = useState("");
-  const [filterCustomerType, setFilterCustomerType] = useState("");
+  const [filterCustomerTypes, setFilterCustomerTypes] = useState<string[]>([]);
+  const [filterUnassigned, setFilterUnassigned] = useState(false);
+  const [filterMachine, setFilterMachine] = useState<string>(""); // "", "no", "yes", "unknown"
   const [minEmployees, setMinEmployees] = useState("");
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompanies, setSelectedCompanies] = useState<
-    Record<string, string>
-  >({}); // company_id -> assigned_to seller id
+
+  const [companies, setCompanies] = useState<Company[]>([]); // preview rows (max 500)
+  const [totalMatched, setTotalMatched] = useState(0);
+  const [allMatchedIds, setAllMatchedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -378,37 +390,109 @@ function OpretListeDialog({
     })();
   }, []);
 
+  const applyFilters = <T,>(q: T): T => {
+    let qq: any = q;
+    if (searchTerm)
+      qq = qq.or(`name.ilike.%${searchTerm}%,cvr.ilike.%${searchTerm}%`);
+    if (filterIndustry) qq = qq.ilike("industry", `%${filterIndustry}%`);
+    if (filterCity) qq = qq.ilike("city", `%${filterCity}%`);
+    if (filterMunicipality) qq = qq.ilike("municipality", `%${filterMunicipality}%`);
+    if (filterCustomerTypes.length)
+      qq = qq.in("customer_type", filterCustomerTypes);
+    if (minEmployees) qq = qq.gte("employees", parseInt(minEmployees));
+    if (filterMachine === "no")
+      qq = qq.ilike("customer_segment_2", "%har ikke maskine%");
+    else if (filterMachine === "yes")
+      qq = qq.ilike("customer_segment_2", "%udlån/leje%");
+    else if (filterMachine === "unknown") qq = qq.is("customer_segment_2", null);
+    return qq;
+  };
+
   const runSearch = async () => {
     setSearching(true);
-    let q = supabase
-      .from("companies")
-      .select("id, name, cvr, city, industry, employees, municipality, customer_type")
-      .order("name")
-      .limit(500);
-    if (searchTerm)
-      q = q.or(`name.ilike.%${searchTerm}%,cvr.ilike.%${searchTerm}%`);
-    if (filterIndustry) q = q.ilike("industry", `%${filterIndustry}%`);
-    if (filterCity) q = q.ilike("city", `%${filterCity}%`);
-    if (filterMunicipality) q = q.ilike("municipality", `%${filterMunicipality}%`);
-    if (filterCustomerType) q = q.eq("customer_type", filterCustomerType as any);
-    if (minEmployees) q = q.gte("employees", parseInt(minEmployees));
-    const { data, error } = await q;
-    if (error) {
-      toast.error("Søgefejl: " + error.message);
+
+    // 1) Fetch preview rows (limited for table render)
+    const preview = applyFilters(
+      supabase
+        .from("companies")
+        .select("id, name, cvr, city, industry, employees, municipality, customer_type")
+        .order("name")
+        .limit(TABLE_PREVIEW_LIMIT),
+    );
+    const { data: previewData, error: pErr } = await preview;
+    if (pErr) {
+      toast.error("Søgefejl: " + pErr.message);
       setCompanies([]);
-    } else {
-      setCompanies(data ?? []);
+      setAllMatchedIds([]);
+      setTotalMatched(0);
+      setHasSearched(true);
+      setSearching(false);
+      return;
     }
+
+    // 2) Fetch ALL matching ids (no row limit) for select-all
+    let allIds: string[] = [];
+    const PAGE = 1000;
+    let from = 0;
+    // safety cap at 100k
+    for (let i = 0; i < 100; i++) {
+      const pageQ = applyFilters(
+        supabase.from("companies").select("id").order("name").range(from, from + PAGE - 1),
+      );
+      const { data, error } = await pageQ;
+      if (error) break;
+      const chunk = (data ?? []).map((r: any) => r.id as string);
+      allIds = allIds.concat(chunk);
+      if (chunk.length < PAGE) break;
+      from += PAGE;
+    }
+
+    // 3) Optionally filter to "ikke tildelt"
+    let matchedIds = allIds;
+    if (filterUnassigned && allIds.length) {
+      const assignedSet = new Set<string>();
+      // chunk through .in() to avoid URL limits
+      for (let i = 0; i < allIds.length; i += 1000) {
+        const slice = allIds.slice(i, i + 1000);
+        const { data: aRows } = await supabase
+          .from("contact_list_assignments")
+          .select("company_id")
+          .in("company_id", slice);
+        (aRows ?? []).forEach((r: any) => assignedSet.add(r.company_id));
+      }
+      matchedIds = allIds.filter((id) => !assignedSet.has(id));
+    }
+
+    const matchedSet = new Set(matchedIds);
+    const previewFiltered = (previewData ?? []).filter((c: any) =>
+      matchedSet.has(c.id),
+    );
+
+    setCompanies(previewFiltered);
+    setAllMatchedIds(matchedIds);
+    setTotalMatched(matchedIds.length);
     setHasSearched(true);
     setSearching(false);
   };
 
   const toggleCompany = (id: string) => {
-    setSelectedCompanies((prev) => {
-      const copy = { ...prev };
-      if (id in copy) delete copy[id];
-      else copy[id] = selectedSellers[0] ?? "";
-      return copy;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allMatchedSelected =
+    allMatchedIds.length > 0 && allMatchedIds.every((id) => selectedIds.has(id));
+
+  const toggleSelectAllMatched = (v: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (v) allMatchedIds.forEach((id) => next.add(id));
+      else allMatchedIds.forEach((id) => next.delete(id));
+      return next;
     });
   };
 
@@ -417,13 +501,18 @@ function OpretListeDialog({
       toast.error("Listenavn er påkrævet");
       return;
     }
+    if (!responsibleSeller) {
+      toast.error("Vælg en ansvarlig sælger");
+      return;
+    }
     setSaving(true);
     const { data: userRes } = await supabase.auth.getUser();
     const { data: list, error } = await supabase
       .from("contact_lists")
       .insert({
         name: name.trim(),
-        description: description.trim() || null,
+        description: purpose.trim() || null,
+        purpose: purpose.trim() || null,
         created_by: userRes.user?.id,
       })
       .select("id")
@@ -433,35 +522,42 @@ function OpretListeDialog({
       setSaving(false);
       return;
     }
-    const entries = Object.entries(selectedCompanies);
-    if (entries.length) {
-      const rows = entries.map(([company_id, assigned_to]) => ({
+    const ids = Array.from(selectedIds);
+    if (ids.length) {
+      const rows = ids.map((company_id) => ({
         contact_list_id: list.id,
         company_id,
-        assigned_to:
-          assigned_to ||
-          selectedSellers[0] ||
-          null,
+        assigned_to: responsibleSeller,
         status: "ny" as const,
       }));
-      const { error: aErr } = await supabase
-        .from("contact_list_assignments")
-        .insert(rows);
-      if (aErr) {
-        toast.error("Liste oprettet, men kunne ikke tildele: " + aErr.message);
-        setSaving(false);
-        onCreated();
-        return;
+      // chunk insert
+      for (let i = 0; i < rows.length; i += 500) {
+        const slice = rows.slice(i, i + 500);
+        const { error: aErr } = await supabase
+          .from("contact_list_assignments")
+          .insert(slice);
+        if (aErr) {
+          toast.error("Liste oprettet, men kunne ikke tildele alle: " + aErr.message);
+          setSaving(false);
+          onCreated();
+          return;
+        }
       }
     }
-    toast.success("Kontaktliste oprettet");
+    toast.success(`Kontaktliste oprettet med ${ids.length} virksomheder`);
     setSaving(false);
     onCreated();
   };
 
+  const toggleCustomerType = (value: string, checked: boolean) => {
+    setFilterCustomerTypes((prev) =>
+      checked ? [...prev, value] : prev.filter((v) => v !== value),
+    );
+  };
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {step === 1 ? "Opret kontaktliste" : "Tilføj virksomheder"}
@@ -474,39 +570,37 @@ function OpretListeDialog({
               <Label>Listenavn *</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
+
             <div>
-              <Label>Beskrivelse</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-            <div>
-              <Label>Tildel sælgere</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2 max-h-60 overflow-y-auto border rounded-md p-3">
-                {sellers.length === 0 && (
-                  <div className="text-sm text-muted-foreground col-span-2">
-                    Ingen sælgere fundet
-                  </div>
-                )}
+              <Label>Ansvarlig sælger for denne liste *</Label>
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background mt-1"
+                value={responsibleSeller}
+                onChange={(e) => setResponsibleSeller(e.target.value)}
+              >
+                <option value="">— Vælg sælger —</option>
                 {sellers.map((s) => (
-                  <label
-                    key={s.id}
-                    className="flex items-center gap-2 text-sm cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={selectedSellers.includes(s.id)}
-                      onCheckedChange={(v) =>
-                        setSelectedSellers((prev) =>
-                          v ? [...prev, s.id] : prev.filter((x) => x !== s.id),
-                        )
-                      }
-                    />
+                  <option key={s.id} value={s.id}>
                     {s.full_name || "Uden navn"}
-                  </label>
+                  </option>
                 ))}
-              </div>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Alle valgte virksomheder tildeles denne sælger.
+              </p>
+            </div>
+
+            <div>
+              <Label>Formål / instruktion til sælger</Label>
+              <Textarea
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                rows={3}
+                placeholder="Fx: Sovende kunder Jylland — fokus på reaktivering af kaffeaftale"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Vises øverst på listen når sælgeren åbner den.
+              </p>
             </div>
           </div>
         ) : (
@@ -540,16 +634,41 @@ function OpretListeDialog({
               />
               <select
                 className="border rounded-md px-3 text-sm bg-background"
-                value={filterCustomerType}
-                onChange={(e) => setFilterCustomerType(e.target.value)}
+                value={filterMachine}
+                onChange={(e) => setFilterMachine(e.target.value)}
               >
-                <option value="">Alle kundetyper</option>
-                <option value="nyt_emne">Nyt emne</option>
-                <option value="aktiv_kunde">Aktiv kunde</option>
-                <option value="sovende_kunde">Sovende kunde</option>
-                <option value="tidligere_kunde">Tidligere kunde</option>
+                <option value="">Maskinstatus: Alle</option>
+                <option value="no">Har IKKE maskine</option>
+                <option value="yes">Har udlån/leje maskine</option>
+                <option value="unknown">Ukendt</option>
               </select>
             </div>
+
+            <div>
+              <Label className="text-xs">Kundestatus</Label>
+              <div className="flex flex-wrap gap-3 mt-1">
+                {CUSTOMER_TYPES.map((t) => (
+                  <label
+                    key={t.value}
+                    className="flex items-center gap-1.5 text-sm cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={filterCustomerTypes.includes(t.value)}
+                      onCheckedChange={(v) => toggleCustomerType(t.value, !!v)}
+                    />
+                    {t.label}
+                  </label>
+                ))}
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer ml-4 border-l pl-4">
+                  <Checkbox
+                    checked={filterUnassigned}
+                    onCheckedChange={(v) => setFilterUnassigned(!!v)}
+                  />
+                  Kun ikke tildelte
+                </label>
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={runSearch} variant="secondary" size="sm" disabled={searching}>
                 <Search className="h-4 w-4 mr-2" />
@@ -557,7 +676,7 @@ function OpretListeDialog({
               </Button>
               {minEmployees && (
                 <span className="text-xs text-muted-foreground">
-                  Bemærk: filter på "Min. ansatte" skjuler virksomheder uden registreret medarbejderantal.
+                  Bemærk: "Min. ansatte" skjuler virksomheder uden registreret medarbejderantal.
                 </span>
               )}
             </div>
@@ -565,41 +684,36 @@ function OpretListeDialog({
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span className="text-muted-foreground">
                 {hasSearched
-                  ? `${companies.length} virksomheder fundet${companies.length === 500 ? " (vis kun de første 500 — indsnævr søgningen)" : ""}`
+                  ? `${totalMatched} virksomheder matcher dit filter${
+                      totalMatched > TABLE_PREVIEW_LIMIT
+                        ? ` (viser kun de første ${TABLE_PREVIEW_LIMIT} i tabellen)`
+                        : ""
+                    }`
                   : "Klik 'Søg virksomheder' for at hente liste"}
               </span>
               <span className="inline-flex items-center gap-2 font-medium">
                 <Users className="h-4 w-4" />
-                {Object.keys(selectedCompanies).length} valgt
+                {selectedIds.size} valgt
               </span>
             </div>
 
-            {hasSearched && companies.length === 0 && !searching && (
+            {hasSearched && totalMatched === 0 && !searching && (
               <div className="border rounded-md p-8 text-center text-sm text-muted-foreground">
                 Ingen virksomheder matchede dine filtre. Prøv at fjerne et eller flere filtre.
               </div>
             )}
 
-            {companies.length > 0 && (
+            {totalMatched > 0 && (
               <>
-                <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-2 text-sm bg-muted/40 rounded-md p-2 border">
                   <Checkbox
-                    checked={companies.every((c) => c.id in selectedCompanies)}
-                    onCheckedChange={(v) => {
-                      if (v) {
-                        const next: Record<string, string> = { ...selectedCompanies };
-                        companies.forEach((c) => {
-                          if (!(c.id in next)) next[c.id] = selectedSellers[0] ?? "";
-                        });
-                        setSelectedCompanies(next);
-                      } else {
-                        const next = { ...selectedCompanies };
-                        companies.forEach((c) => delete next[c.id]);
-                        setSelectedCompanies(next);
-                      }
-                    }}
+                    checked={allMatchedSelected}
+                    onCheckedChange={(v) => toggleSelectAllMatched(!!v)}
                   />
-                  <span>Vælg alle viste</span>
+                  <span>
+                    Vælg alle <strong>{totalMatched}</strong> virksomheder der matcher dit filter
+                    {totalMatched > TABLE_PREVIEW_LIMIT && " (ikke kun de viste)"}
+                  </span>
                 </div>
                 <div className="border rounded-md max-h-80 overflow-y-auto">
                   <Table>
@@ -610,12 +724,12 @@ function OpretListeDialog({
                         <TableHead>CVR</TableHead>
                         <TableHead>By</TableHead>
                         <TableHead>Ansatte</TableHead>
-                        <TableHead>Tildel sælger</TableHead>
+                        <TableHead>Kundetype</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {companies.map((c) => {
-                        const checked = c.id in selectedCompanies;
+                        const checked = selectedIds.has(c.id);
                         return (
                           <TableRow key={c.id}>
                             <TableCell>
@@ -628,28 +742,8 @@ function OpretListeDialog({
                             <TableCell className="text-xs">{c.cvr ?? "—"}</TableCell>
                             <TableCell>{c.city ?? "—"}</TableCell>
                             <TableCell>{c.employees ?? "—"}</TableCell>
-                            <TableCell>
-                              <select
-                                className="border rounded px-2 py-1 text-xs bg-background"
-                                value={selectedCompanies[c.id] ?? ""}
-                                onChange={(e) =>
-                                  setSelectedCompanies((prev) => ({
-                                    ...prev,
-                                    [c.id]: e.target.value,
-                                  }))
-                                }
-                                disabled={!checked}
-                              >
-                                <option value="">— Vælg —</option>
-                                {selectedSellers.map((sid) => {
-                                  const s = sellers.find((x) => x.id === sid);
-                                  return (
-                                    <option key={sid} value={sid}>
-                                      {s?.full_name ?? "Sælger"}
-                                    </option>
-                                  );
-                                })}
-                              </select>
+                            <TableCell className="text-xs">
+                              {c.customer_type?.replace("_", " ") ?? "—"}
                             </TableCell>
                           </TableRow>
                         );
@@ -674,8 +768,11 @@ function OpretListeDialog({
                     toast.error("Listenavn er påkrævet");
                     return;
                   }
+                  if (!responsibleSeller) {
+                    toast.error("Vælg en ansvarlig sælger");
+                    return;
+                  }
                   setStep(2);
-                  // Auto-load companies on entering step 2
                   if (!hasSearched) runSearch();
                 }}
               >
@@ -689,7 +786,7 @@ function OpretListeDialog({
               </Button>
               <Button onClick={save} disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Opret liste
+                Opret liste ({selectedIds.size})
               </Button>
             </>
           )}
