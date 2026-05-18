@@ -697,7 +697,9 @@ function OpretListeDialog({
                   Kun ikke tildelte
                 </label>
               </div>
+              <CustomerStatusLegend className="mt-2" />
             </div>
+
 
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={runSearch} variant="secondary" size="sm" disabled={searching}>
