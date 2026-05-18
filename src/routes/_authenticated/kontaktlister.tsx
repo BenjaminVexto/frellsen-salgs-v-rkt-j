@@ -471,6 +471,8 @@ function OpretListeDialog({
     setCompanies(previewFiltered);
     setAllMatchedIds(matchedIds);
     setTotalMatched(matchedIds.length);
+    // Auto-select all matches so brugeren ikke skal huske at klikke "Vælg alle"
+    setSelectedIds(new Set(matchedIds));
     setHasSearched(true);
     setSearching(false);
   };
