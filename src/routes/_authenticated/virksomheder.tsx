@@ -695,6 +695,25 @@ function VirksomhederListe() {
                     setFilters((f) => ({ ...f, employeeRanges: v }))
                   }
                 />
+                <div>
+                  <Label className="text-xs uppercase text-muted-foreground">Sektor</Label>
+                  <Select
+                    value={filters.sector}
+                    onValueChange={(v) =>
+                      setFilters((f) => ({ ...f, sector: v as FilterState["sector"] }))
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alle</SelectItem>
+                      <SelectItem value="private">Private virksomheder</SelectItem>
+                      <SelectItem value="public">Offentlige institutioner</SelectItem>
+                      <SelectItem value="unknown">Ukendt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </Card>
           </CollapsibleContent>
