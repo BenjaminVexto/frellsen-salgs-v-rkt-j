@@ -372,7 +372,8 @@ function VirksomhederListe() {
       filters.zipFrom !== "" ||
       filters.zipTo !== "" ||
       filters.lastPurchase.length > 0 ||
-      filters.employeeRanges.length > 0
+      filters.employeeRanges.length > 0 ||
+      filters.sector !== "all"
     );
   }, [filters]);
 
