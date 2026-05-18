@@ -168,7 +168,8 @@ function ImportSide() {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{
-    created: number; updated: number; skipped: number; failed: number;
+    created: number; updated: number; skipped: number; failed: number; enriched: number;
+    importSource: "visma" | "cvr";
     unmatchedSalespersonNos: string[];
   } | null>(null);
   const [importedIds, setImportedIds] = useState<string[]>([]);
@@ -326,37 +327,97 @@ function ImportSide() {
   async function runImport() {
     setImporting(true);
     setProgress(0);
-    let created = 0, updated = 0, skipped = 0, failed = 0;
+    let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0;
     const toImport = prepared.filter((p) => {
       if (p.hasError) return false;
       if (p.missingCvr && !includeMissingCvr) return false;
       return true;
     });
+    const importSource: "visma" | "cvr" = mapping.visma_id ? "visma" : "cvr";
     const companyIds: string[] = [];
     const sellerByCompany: Record<string, string> = {};
 
     for (let i = 0; i < toImport.length; i++) {
       const p = toImport[i];
       try {
-        const payload: any = { ...stripUndef(p.data) };
+        const incoming = stripUndef(p.data) as Record<string, any>;
         let companyId: string;
-        if (p.cvr) {
-          const wasDup = p.isDuplicate;
-          payload.cvr = p.cvr;
+
+        if (p.cvr && p.isDuplicate) {
+          // Hent eksisterende — flet kilder, udfyld kun tomme felter
+          const { data: existing, error: selErr } = await supabase
+            .from("companies")
+            .select("*")
+            .eq("cvr", p.cvr)
+            .maybeSingle();
+          if (selErr) throw selErr;
+          const updatePayload: Record<string, any> = {};
+          if (existing) {
+            for (const [k, v] of Object.entries(incoming)) {
+              const cur = (existing as any)[k];
+              if (cur === null || cur === undefined || cur === "") {
+                updatePayload[k] = v;
+              }
+            }
+            const existingSources: string[] = Array.isArray((existing as any).sources)
+              ? (existing as any).sources
+              : [];
+            const mergedSources = existingSources.includes(importSource)
+              ? existingSources
+              : [...existingSources, importSource];
+            updatePayload.sources = mergedSources;
+            updatePayload.source_updated_at = new Date().toISOString();
+            const { error: upErr } = await supabase
+              .from("companies")
+              .update(updatePayload as any)
+              .eq("id", (existing as any).id);
+            if (upErr) throw upErr;
+            companyId = (existing as any).id;
+            updated++;
+            if (importSource === "cvr") enriched++;
+          } else {
+            // Edge case — duplicate flag, men findes ikke længere
+            const insertPayload = {
+              ...incoming,
+              cvr: p.cvr,
+              sources: [importSource],
+              source_updated_at: new Date().toISOString(),
+            };
+            const { data, error } = await supabase
+              .from("companies")
+              .insert(insertPayload as any)
+              .select("id")
+              .single();
+            if (error) throw error;
+            companyId = data.id;
+            created++;
+          }
+        } else if (p.cvr) {
+          const insertPayload = {
+            ...incoming,
+            cvr: p.cvr,
+            sources: [importSource],
+            source_updated_at: new Date().toISOString(),
+          };
           const { data, error } = await supabase
             .from("companies")
-            .upsert(payload, { onConflict: "cvr" })
+            .insert(insertPayload as any)
             .select("id")
             .single();
           if (error) throw error;
           companyId = data.id;
-          if (wasDup) updated++; else created++;
+          created++;
         } else {
-          payload.cvr = `NO-CVR-${Date.now()}-${i}`;
-          payload.source = "csv_uden_cvr";
+          const insertPayload = {
+            ...incoming,
+            cvr: `NO-CVR-${Date.now()}-${i}`,
+            source: "csv_uden_cvr",
+            sources: [importSource],
+            source_updated_at: new Date().toISOString(),
+          };
           const { data, error } = await supabase
             .from("companies")
-            .insert(payload)
+            .insert(insertPayload as any)
             .select("id")
             .single();
           if (error) throw error;
@@ -391,7 +452,8 @@ function ImportSide() {
     setImportedIds(companyIds);
     setImportedSellerByCompany(sellerByCompany);
     setResult({
-      created, updated, skipped, failed,
+      created, updated, skipped, failed, enriched,
+      importSource,
       unmatchedSalespersonNos: stats.unmatchedSalespersonNos,
     });
     setImporting(false);
@@ -759,7 +821,7 @@ function Trin4Import({
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
-  result: { created: number; updated: number; skipped: number; failed: number; unmatchedSalespersonNos: string[] } | null;
+  result: { created: number; updated: number; skipped: number; failed: number; enriched: number; importSource: "visma" | "cvr"; unmatchedSalespersonNos: string[] } | null;
   importedCount: number;
   onBack: () => void;
   onRun: () => void;
@@ -780,6 +842,11 @@ function Trin4Import({
           <StatCard label="Sprunget over" value={result.skipped} tone="muted" />
           <StatCard label="Fejl" value={result.failed} tone="destructive" />
         </div>
+        {result.importSource === "cvr" && result.enriched > 0 && (
+          <p className="text-sm text-muted-foreground mb-4">
+            {result.enriched} virksomheder beriget med CVR-data.
+          </p>
+        )}
         {result.unmatchedSalespersonNos.length > 0 && (
           <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start max-w-md mx-auto mb-6 text-left">
             <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />

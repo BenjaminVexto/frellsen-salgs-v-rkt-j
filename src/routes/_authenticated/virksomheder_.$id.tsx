@@ -58,6 +58,7 @@ import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
+import { SourceBadges } from "@/components/source-badges";
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
 type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
@@ -219,8 +220,11 @@ function VirksomhedsKort() {
               {customerTypeLabel[company.customer_type]}
             </Badge>
           </div>
-          <h1 className="text-xl font-semibold leading-tight mb-1">{company.name}</h1>
-          <p className="text-xs text-muted-foreground mb-4">CVR {company.cvr}</p>
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h1 className="text-xl font-semibold leading-tight">{company.name}</h1>
+          </div>
+          <SourceBadges sources={(company as any).sources} />
+          <p className="text-xs text-muted-foreground mb-4 mt-1">CVR {company.cvr}</p>
 
           <div className="space-y-3 text-sm">
             {(company.address || company.city) && (

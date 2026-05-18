@@ -98,6 +98,9 @@ export type Database = {
           name: string
           phone: string | null
           source: string | null
+          source_created_by: string | null
+          source_updated_at: string | null
+          sources: string[]
           turnover_12m: number | null
           visma_delivery_id: string | null
           visma_id: string | null
@@ -126,6 +129,9 @@ export type Database = {
           name: string
           phone?: string | null
           source?: string | null
+          source_created_by?: string | null
+          source_updated_at?: string | null
+          sources?: string[]
           turnover_12m?: number | null
           visma_delivery_id?: string | null
           visma_id?: string | null
@@ -154,6 +160,9 @@ export type Database = {
           name?: string
           phone?: string | null
           source?: string | null
+          source_created_by?: string | null
+          source_updated_at?: string | null
+          sources?: string[]
           turnover_12m?: number | null
           visma_delivery_id?: string | null
           visma_id?: string | null
