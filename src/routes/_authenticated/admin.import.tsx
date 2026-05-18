@@ -622,22 +622,58 @@ function Trin3Preview({
   );
 }
 
-function Trin4Bekraeft({
+function Trin4Import({
   stats,
   includeMissingCvr,
+  importing,
+  progress,
+  result,
+  importedCount,
   onBack,
-  onNext,
+  onRun,
+  onAssignNow,
+  onLater,
 }: {
   stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number };
   includeMissingCvr: boolean;
+  importing: boolean;
+  progress: number;
+  result: { created: number; updated: number; skipped: number; failed: number } | null;
+  importedCount: number;
   onBack: () => void;
-  onNext: () => void;
+  onRun: () => void;
+  onAssignNow: () => void;
+  onLater: () => void;
 }) {
+  if (result) {
+    return (
+      <Card className="p-6 text-center">
+        <CheckCircle2 className="h-10 w-10 text-success mx-auto mb-3" />
+        <h2 className="font-semibold mb-2">Import gennemført</h2>
+        <p className="text-sm text-muted-foreground mb-5 max-w-md mx-auto">
+          {importedCount} virksomheder importeret. Vil du tildele dem til en kontaktliste og sælger nu, eller gøre det senere?
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mx-auto mb-6">
+          <StatCard label="Oprettet" value={result.created} tone="success" />
+          <StatCard label="Opdateret" value={result.updated} tone="warning" />
+          <StatCard label="Sprunget over" value={result.skipped} tone="muted" />
+          <StatCard label="Fejl" value={result.failed} tone="destructive" />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+          <Button variant="outline" onClick={onLater}>Gør det senere</Button>
+          <Button onClick={onAssignNow} disabled={importedCount === 0}>
+            Tildel nu <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
   const willImport =
     stats.newCount + stats.dupCount + (includeMissingCvr ? stats.missingCount : 0);
   return (
     <Card className="p-6">
-      <h2 className="font-semibold mb-1">Bekræft import</h2>
+      <h2 className="font-semibold mb-1">Bekræft og importér</h2>
       <p className="text-sm text-muted-foreground mb-4">
         {willImport} rækker importeres. {stats.dupCount} eksisterende opdateres, {stats.newCount} nye oprettes.
         {!includeMissingCvr && stats.missingCount > 0 && (
@@ -645,12 +681,24 @@ function Trin4Bekraeft({
         )}
         {stats.errorCount > 0 && <> {stats.errorCount} rækker med fejl springes over.</>}
       </p>
+
+      {importing && (
+        <div className="mb-4">
+          <Progress value={progress} className="mb-2" />
+          <p className="text-xs text-muted-foreground text-center">Importerer… {progress}%</p>
+        </div>
+      )}
+
       <div className="flex justify-between mt-4">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={importing}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage
         </Button>
-        <Button onClick={onNext}>
-          Næste: tildeling <ArrowRight className="h-4 w-4 ml-2" />
+        <Button onClick={onRun} disabled={importing || willImport === 0}>
+          {importing ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importerer…</>
+          ) : (
+            <><Upload className="h-4 w-4 mr-2" /> Start import</>
+          )}
         </Button>
       </div>
     </Card>
@@ -664,12 +712,11 @@ function Trin5Tildeling({
   chosenSeller,
   setChosenList,
   setChosenSeller,
-  importing,
-  progress,
-  result,
+  importedCount,
+  assigning,
   onBack,
-  onRun,
-  onDone,
+  onAssign,
+  onSkip,
 }: {
   contactLists: { id: string; name: string }[];
   sellers: { id: string; full_name: string }[];
@@ -677,33 +724,17 @@ function Trin5Tildeling({
   chosenSeller: string;
   setChosenList: (v: string) => void;
   setChosenSeller: (v: string) => void;
-  importing: boolean;
-  progress: number;
-  result: { created: number; updated: number; skipped: number; failed: number } | null;
+  importedCount: number;
+  assigning: boolean;
   onBack: () => void;
-  onRun: () => void;
-  onDone: () => void;
+  onAssign: () => void;
+  onSkip: () => void;
 }) {
-  if (result) {
-    return (
-      <Card className="p-6 text-center">
-        <CheckCircle2 className="h-10 w-10 text-success mx-auto mb-3" />
-        <h2 className="font-semibold mb-3">Import gennemført</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-md mx-auto mb-6">
-          <StatCard label="Oprettet" value={result.created} tone="success" />
-          <StatCard label="Opdateret" value={result.updated} tone="warning" />
-          <StatCard label="Sprunget over" value={result.skipped} tone="muted" />
-          <StatCard label="Fejl" value={result.failed} tone="destructive" />
-        </div>
-        <Button onClick={onDone}>Gå til virksomheder</Button>
-      </Card>
-    );
-  }
   return (
     <Card className="p-6">
       <h2 className="font-semibold mb-1">Tildel til kontaktliste og sælger</h2>
       <p className="text-sm text-muted-foreground mb-4">
-        Alle importerede virksomheder tildeles den valgte kontaktliste og sælger.
+        {importedCount} importerede virksomheder tildeles den valgte kontaktliste og sælger.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
@@ -738,24 +769,22 @@ function Trin5Tildeling({
         </div>
       </div>
 
-      {importing && (
-        <div className="mb-4">
-          <Progress value={progress} className="mb-2" />
-          <p className="text-xs text-muted-foreground text-center">Importerer… {progress}%</p>
-        </div>
-      )}
-
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={importing}>
+        <Button variant="outline" onClick={onBack} disabled={assigning}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage
         </Button>
-        <Button onClick={onRun} disabled={importing || !chosenList || !chosenSeller}>
-          {importing ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importerer…</>
-          ) : (
-            <><Upload className="h-4 w-4 mr-2" /> Start import</>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onSkip} disabled={assigning}>
+            Spring over
+          </Button>
+          <Button onClick={onAssign} disabled={assigning || !chosenList || !chosenSeller}>
+            {assigning ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Tildeler…</>
+            ) : (
+              <>Tildel <ArrowRight className="h-4 w-4 ml-2" /></>
+            )}
+          </Button>
+        </div>
       </div>
     </Card>
   );
