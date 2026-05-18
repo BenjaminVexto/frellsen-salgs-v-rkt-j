@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { CustomerStatusBadge } from "@/components/customer-status-info";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -768,9 +770,8 @@ function VirksomhederListe() {
                           Ikke tildelt
                         </Badge>
                       )}
-                      <Badge variant="secondary">
-                        {customerTypeLabel[r.customer_type] ?? r.customer_type}
-                      </Badge>
+                       <CustomerStatusBadge type={r.customer_type} />
+
                     </div>
                   </Link>
                 </div>

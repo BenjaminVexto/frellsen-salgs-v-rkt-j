@@ -27,6 +27,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Plus, Search, Users, Trash2 } from "lucide-react";
+import {
+  CustomerStatusBadge,
+  CustomerStatusLegend,
+} from "@/components/customer-status-info";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/kontaktlister")({
@@ -374,6 +379,18 @@ function OpretListeDialog({
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // First-time tip (vises max 3 gange)
+  const [showTip, setShowTip] = useState(false);
+  useEffect(() => {
+    if (step !== 2) return;
+    const seen = parseInt(localStorage.getItem("kontaktliste:filter-tip-seen") ?? "0", 10);
+    if (seen < 3) {
+      setShowTip(true);
+      localStorage.setItem("kontaktliste:filter-tip-seen", String(seen + 1));
+    }
+  }, [step]);
+
+
   useEffect(() => {
     (async () => {
       const { data: roles } = await supabase
@@ -607,6 +624,22 @@ function OpretListeDialog({
           </div>
         ) : (
           <div className="space-y-4">
+            {showTip && (
+              <div className="flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                <span>
+                  💡 <strong>Tip:</strong> Brug filtrene til at finde de rigtige virksomheder.
+                  Kundestatus beregnes automatisk ud fra sidste varekøb i Visma.
+                </span>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowTip(false)}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               <Input
                 placeholder="Søg navn eller CVR"
@@ -669,7 +702,9 @@ function OpretListeDialog({
                   Kun ikke tildelte
                 </label>
               </div>
+              <CustomerStatusLegend className="mt-2" />
             </div>
+
 
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={runSearch} variant="secondary" size="sm" disabled={searching}>
@@ -745,8 +780,13 @@ function OpretListeDialog({
                             <TableCell>{c.city ?? "—"}</TableCell>
                             <TableCell>{c.employees ?? "—"}</TableCell>
                             <TableCell className="text-xs">
-                              {c.customer_type?.replace("_", " ") ?? "—"}
+                              <CustomerStatusBadge
+                                type={c.customer_type}
+                                variant="outline"
+                                className="text-xs"
+                              />
                             </TableCell>
+
                           </TableRow>
                         );
                       })}

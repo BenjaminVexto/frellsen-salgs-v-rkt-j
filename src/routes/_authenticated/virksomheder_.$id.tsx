@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CustomerStatusBadge } from "@/components/customer-status-info";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -216,9 +218,11 @@ function VirksomhedsKort() {
             <div className="bg-muted rounded-md p-2">
               <Building2 className="h-5 w-5" />
             </div>
-            <Badge variant={customerTypeVariant[company.customer_type] ?? "outline"}>
-              {customerTypeLabel[company.customer_type]}
-            </Badge>
+            <CustomerStatusBadge
+              type={company.customer_type}
+              variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
+            />
+
           </div>
           <div className="flex items-start justify-between gap-2 mb-1">
             <h1 className="text-xl font-semibold leading-tight">{company.name}</h1>
