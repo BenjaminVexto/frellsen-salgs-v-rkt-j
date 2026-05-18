@@ -499,7 +499,7 @@ function ImportSide() {
     setImportedIds(companyIds);
     setImportedSellerByCompany(sellerByCompany);
     setResult({
-      created, updated, skipped, failed, enriched,
+      created, updated, skipped, failed, enriched, noCvrCount,
       importSource,
       unmatchedSalespersonNos: stats.unmatchedSalespersonNos,
     });
