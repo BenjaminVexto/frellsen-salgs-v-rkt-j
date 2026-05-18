@@ -53,24 +53,53 @@ type SystemField =
   | "employees"
   | "phone"
   | "email"
-  | "website";
+  | "website"
+  | "created_in_visma"
+  | "last_purchase_date"
+  | "customer_segment_1"
+  | "customer_segment_2"
+  | "customer_segment_3"
+  | "visma_id"
+  | "visma_delivery_id"
+  | "contact_person"
+  | "salesperson_no";
 
-const SYSTEM_FIELDS: { key: SystemField; label: string; required?: boolean }[] = [
-  { key: "cvr", label: "CVR", required: true },
-  { key: "name", label: "Navn", required: true },
+// Felter der gemmes direkte på companies-tabellen
+const COMPANY_DB_FIELDS = new Set<SystemField>([
+  "cvr", "name", "address", "zip", "city", "municipality", "industry",
+  "employees", "phone", "email", "website",
+  "created_in_visma", "last_purchase_date",
+  "customer_segment_1", "customer_segment_2", "customer_segment_3",
+  "visma_id", "visma_delivery_id", "contact_person",
+]);
+
+const DATE_FIELDS = new Set<SystemField>(["created_in_visma", "last_purchase_date"]);
+
+const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
+  { key: "cvr", label: "CVR" },
+  { key: "name", label: "Navn" },
   { key: "address", label: "Adresse" },
   { key: "zip", label: "Postnummer" },
   { key: "city", label: "By" },
   { key: "municipality", label: "Kommune" },
   { key: "industry", label: "Branche" },
-  { key: "employees", label: "Ansatte" },
+  { key: "employees", label: "Antal ansatte" },
   { key: "phone", label: "Telefon" },
   { key: "email", label: "Email" },
   { key: "website", label: "Hjemmeside" },
+  { key: "created_in_visma", label: "Oprettet dato" },
+  { key: "last_purchase_date", label: "Sidste varekøb" },
+  { key: "customer_segment_1", label: "Kundesegmentering 1" },
+  { key: "customer_segment_2", label: "Kundesegmentering 2" },
+  { key: "customer_segment_3", label: "Kundesegmentering 3" },
+  { key: "visma_id", label: "Visma kundenummer (Fakt. kunde)" },
+  { key: "visma_delivery_id", label: "Visma leveringsnummer (Lev. kund)" },
+  { key: "contact_person", label: "Kontaktperson" },
+  { key: "salesperson_no", label: "Sælgernummer" },
 ];
 
 const AUTO_MATCH: Record<SystemField, string[]> = {
-  cvr: ["cvr", "cvrnr", "cvr-nr", "cvr_nummer"],
+  cvr: ["cvr", "cvrnr", "cvr_nr", "cvr_nummer"],
   name: ["navn", "name", "virksomhed", "firmanavn", "selskab"],
   address: ["adresse", "address", "vejnavn", "gade"],
   zip: ["postnummer", "postnr", "zip", "postcode"],
@@ -79,8 +108,17 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   industry: ["branche", "industri", "industry"],
   employees: ["ansatte", "medarbejdere", "employees", "antal_ansatte"],
   phone: ["telefon", "tlf", "phone", "mobil"],
-  email: ["email", "mail", "e-mail"],
+  email: ["email", "mail", "e_mail"],
   website: ["hjemmeside", "website", "web", "url"],
+  created_in_visma: ["oprettet", "oprettet_dato", "created", "created_in_visma"],
+  last_purchase_date: ["sidste_varekøb", "sidste_varekoeb", "sidste_køb", "last_purchase", "last_purchase_date"],
+  customer_segment_1: ["kundesegment_1", "kundesegmentering_1", "segment_1", "prisgruppe"],
+  customer_segment_2: ["kundesegment_2", "kundesegmentering_2", "segment_2", "maskinstatus"],
+  customer_segment_3: ["kundesegment_3", "kundesegmentering_3", "segment_3", "kundetype"],
+  visma_id: ["visma_id", "visma_kundenummer", "fakt_kunde", "fakturakunde", "kundenummer"],
+  visma_delivery_id: ["visma_leveringsnummer", "lev_kund", "lev_kunde", "leveringsnummer"],
+  contact_person: ["kontaktperson", "kontakt", "contact_person"],
+  salesperson_no: ["sælger", "saelger", "sælgernummer", "saelgernummer", "salesperson", "sælgernr", "saelgernr"],
 };
 
 type ParsedRow = Record<string, string>;
@@ -89,10 +127,28 @@ interface PreparedRow {
   raw: ParsedRow;
   cvr: string | null;
   data: Partial<Record<SystemField, string | number | null>>;
+  salespersonNo: string | null;
+  matchedSellerId: string | null;
   isDuplicate: boolean;
   missingCvr: boolean;
   hasError: boolean;
   errorMessage?: string;
+}
+
+function parseDanishDate(v: string): string | null {
+  const s = v.trim();
+  if (!s) return null;
+  // ISO YYYY-MM-DD or YYYY/MM/DD
+  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+  // DK DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+  const dk = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (dk) {
+    let y = dk[3];
+    if (y.length === 2) y = (parseInt(y, 10) > 50 ? "19" : "20") + y;
+    return `${y}-${dk[2].padStart(2, "0")}-${dk[1].padStart(2, "0")}`;
+  }
+  return null;
 }
 
 function ImportSide() {
