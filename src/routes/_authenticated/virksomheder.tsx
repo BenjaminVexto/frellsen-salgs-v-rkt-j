@@ -337,6 +337,13 @@ function VirksomhederListe() {
       if (!matchesLastPurchase(r.last_purchase_date, filters.lastPurchase))
         return false;
       if (!matchesEmployees(r.employees, filters.employeeRanges)) return false;
+      if (filters.sector !== "all") {
+        const pub = r.is_public === true;
+        const hasCvr = !!r.cvr;
+        if (filters.sector === "public" && !pub) return false;
+        if (filters.sector === "private" && (pub || !hasCvr)) return false;
+        if (filters.sector === "unknown" && (pub || hasCvr)) return false;
+      }
       return true;
     });
   }, [rows, q, filters, assignmentMap]);
