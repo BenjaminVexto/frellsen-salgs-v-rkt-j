@@ -819,7 +819,7 @@ function RegistrerTilbudDialog({
   );
 }
 
-function AddCvrInline({ companyId, onAdded }: { companyId: string; onAdded: (v: string) => void }) {
+function AddCvrInline({ companyId, onAdded }: { companyId: string; onAdded: (cvr: string) => void }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
