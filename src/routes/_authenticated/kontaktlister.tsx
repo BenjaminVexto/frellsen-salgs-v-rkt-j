@@ -681,6 +681,16 @@ function OpretListeDialog({
                 <option value="yes">Har udlån/leje maskine</option>
                 <option value="unknown">Ukendt</option>
               </select>
+              <select
+                className="border rounded-md px-3 text-sm bg-background"
+                value={filterSector}
+                onChange={(e) => setFilterSector(e.target.value)}
+              >
+                <option value="">Sektor: Alle</option>
+                <option value="private">Private virksomheder</option>
+                <option value="public">Offentlige institutioner</option>
+                <option value="unknown">Ukendt</option>
+              </select>
             </div>
 
             <div>
