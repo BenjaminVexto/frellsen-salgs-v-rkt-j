@@ -20,6 +20,7 @@ import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authe
 import { Route as AuthenticatedKontaktlisterIdRouteImport } from './routes/_authenticated/kontaktlister_.$id'
 import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
+import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -82,6 +83,12 @@ const AuthenticatedAdminImportRoute =
     path: '/admin/import',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminBrugereRoute =
+  AuthenticatedAdminBrugereRouteImport.update({
+    id: '/admin/brugere',
+    path: '/admin/brugere',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
@@ -102,6 +110,7 @@ export interface FileRoutesByTo {
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
@@ -116,6 +125,7 @@ export interface FileRoutesById {
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/_authenticated/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
   '/_authenticated/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/_authenticated/kontaktlister_/$id': typeof AuthenticatedKontaktlisterIdRoute
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/kontaktlister'
     | '/salgsmuligheder'
     | '/virksomheder'
+    | '/admin/brugere'
     | '/admin/import'
     | '/admin/overblik'
     | '/kontaktlister/$id'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/kontaktlister'
     | '/salgsmuligheder'
     | '/virksomheder'
+    | '/admin/brugere'
     | '/admin/import'
     | '/admin/overblik'
     | '/kontaktlister/$id'
@@ -155,6 +167,7 @@ export interface FileRouteTypes {
     | '/_authenticated/kontaktlister'
     | '/_authenticated/salgsmuligheder'
     | '/_authenticated/virksomheder'
+    | '/_authenticated/admin/brugere'
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/overblik'
     | '/_authenticated/kontaktlister_/$id'
@@ -246,6 +259,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/brugere': {
+      id: '/_authenticated/admin/brugere'
+      path: '/admin/brugere'
+      fullPath: '/admin/brugere'
+      preLoaderRoute: typeof AuthenticatedAdminBrugereRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -254,6 +274,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
   AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
+  AuthenticatedAdminBrugereRoute: typeof AuthenticatedAdminBrugereRoute
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRoute
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
   AuthenticatedKontaktlisterIdRoute: typeof AuthenticatedKontaktlisterIdRoute
@@ -265,6 +286,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
   AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
+  AuthenticatedAdminBrugereRoute: AuthenticatedAdminBrugereRoute,
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRoute,
   AuthenticatedAdminOverblikRoute: AuthenticatedAdminOverblikRoute,
   AuthenticatedKontaktlisterIdRoute: AuthenticatedKontaktlisterIdRoute,
