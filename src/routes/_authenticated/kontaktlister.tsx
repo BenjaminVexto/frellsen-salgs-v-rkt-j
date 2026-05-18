@@ -26,7 +26,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Search, Users, Trash2 } from "lucide-react";
+import { Loader2, Plus, Search, Users, Trash2, Sparkles } from "lucide-react";
+import { CvrBulkSoegningDialog } from "@/components/cvr-bulk-soegning-dialog";
 import {
   CustomerStatusBadge,
   CustomerStatusLegend,
@@ -56,6 +57,8 @@ function KontaktlisterOversigt() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [cvrSearchOpen, setCvrSearchOpen] = useState(false);
+  const [preselectedIds, setPreselectedIds] = useState<string[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ListRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -171,9 +174,14 @@ function KontaktlisterOversigt() {
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Opret ny kontaktliste
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setCvrSearchOpen(true)}>
+              <Sparkles className="h-4 w-4 mr-2" /> Søg nye emner i CVR
+            </Button>
+            <Button onClick={() => { setPreselectedIds(null); setCreateOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" /> Opret ny kontaktliste
+            </Button>
+          </div>
         )}
       </div>
 
@@ -294,13 +302,26 @@ function KontaktlisterOversigt() {
 
       {createOpen && (
         <OpretListeDialog
-          onClose={() => setCreateOpen(false)}
+          preselectedCompanyIds={preselectedIds}
+          onClose={() => { setCreateOpen(false); setPreselectedIds(null); }}
           onCreated={() => {
             setCreateOpen(false);
+            setPreselectedIds(null);
             load();
           }}
         />
       )}
+
+      <CvrBulkSoegningDialog
+        open={cvrSearchOpen}
+        onOpenChange={setCvrSearchOpen}
+        onImported={(ids) => {
+          setCvrSearchOpen(false);
+          setPreselectedIds(ids);
+          setCreateOpen(true);
+        }}
+      />
+
 
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <DialogContent>
@@ -351,9 +372,11 @@ const TABLE_PREVIEW_LIMIT = 500;
 function OpretListeDialog({
   onClose,
   onCreated,
+  preselectedCompanyIds,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  preselectedCompanyIds?: string[] | null;
 }) {
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -379,6 +402,26 @@ function OpretListeDialog({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Preselect virksomheder (fx fra CVR-import-flow)
+  useEffect(() => {
+    if (!preselectedCompanyIds || !preselectedCompanyIds.length) return;
+    (async () => {
+      const ids = preselectedCompanyIds;
+      // Hent preview-data for de forvalgte
+      const { data } = await supabase
+        .from("companies")
+        .select("id, name, cvr, city, industry, employees, municipality, customer_type")
+        .in("id", ids.slice(0, TABLE_PREVIEW_LIMIT));
+      setCompanies(data ?? []);
+      setAllMatchedIds(ids);
+      setTotalMatched(ids.length);
+      setSelectedIds(new Set(ids));
+      setHasSearched(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   // First-time tip (vises max 3 gange)
   const [showTip, setShowTip] = useState(false);

@@ -39,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Plus, Pencil, KeyRound, Mail } from "lucide-react";
+import { CvrApiStatusKort } from "@/components/cvr-api-status-kort";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/brugere")({
@@ -238,6 +239,9 @@ function BrugerStyringSide() {
           <Plus className="h-4 w-4 mr-2" /> Opret bruger
         </Button>
       </div>
+
+      <CvrApiStatusKort />
+
 
       <Card className="p-0 overflow-hidden">
         {loading ? (
