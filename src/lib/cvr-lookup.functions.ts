@@ -204,6 +204,51 @@ export const cvrLookup = createServerFn({ method: "POST" })
         return { success: true, data: mapVirksomhed(hit) };
       }
 
+      if (data.type === "search") {
+        const must: any[] = [
+          {
+            match: {
+              "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
+                query: data.name,
+                operator: "and",
+                fuzziness: "AUTO",
+              },
+            },
+          },
+          {
+            term: {
+              "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "AKTIV",
+            },
+          },
+        ];
+        const query: any = { bool: { must } };
+        if (data.location && data.location.trim()) {
+          query.bool.filter = [
+            {
+              multi_match: {
+                query: data.location.trim(),
+                fields: [
+                  "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postdistrikt",
+                  "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postnummer",
+                ],
+              },
+            },
+          ];
+        }
+        const payload = {
+          _source: SOURCE_FIELDS,
+          query,
+          size: data.size ?? 10,
+        };
+        const json = await callCvr(payload);
+        const hits = json?.hits?.hits ?? [];
+        const companies: CvrCompany[] = hits
+          .map((h: any) => h?._source?.Vrvirksomhed)
+          .filter(Boolean)
+          .map(mapVirksomhed);
+        return { success: true, data: companies };
+      }
+
       // bulk
       const f = data.filters;
       const must: any[] = [];
