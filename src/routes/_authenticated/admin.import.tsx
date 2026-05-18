@@ -1070,7 +1070,9 @@ function Trin4Import({
       {importing && (
         <div className="mb-4">
           <Progress value={progress} className="mb-2" />
-          <p className="text-xs text-muted-foreground text-center">Importerer… {progress}%</p>
+          <p className="text-xs text-muted-foreground text-center">
+            {progressLabel || `Importerer… ${progress}%`}
+          </p>
         </div>
       )}
 
