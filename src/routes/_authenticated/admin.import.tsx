@@ -131,6 +131,7 @@ interface PreparedRow {
   matchedSellerId: string | null;
   isDuplicate: boolean;
   missingCvr: boolean;
+  nameMatchId: string | null;
   hasError: boolean;
   errorMessage?: string;
 }
