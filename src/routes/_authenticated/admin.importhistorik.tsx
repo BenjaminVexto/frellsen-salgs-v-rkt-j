@@ -209,7 +209,7 @@ function BatchDetalje({ batchId, onBack }: { batchId: string; onBack: () => void
       <p className="text-sm text-muted-foreground mb-6">
         {format(new Date(data.batch.created_at), "d. MMMM yyyy 'kl.' HH:mm", { locale: da })}
         {" · "}
-        {data.batch.company_count} virksomheder importeret af {data.batch.created_by_name}
+        {data.batch.company_count} virksomheder importeret
       </p>
 
       <div className="space-y-4">
