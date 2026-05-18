@@ -110,6 +110,8 @@ function ImportSide() {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{ created: number; updated: number; skipped: number; failed: number } | null>(null);
+  const [importedIds, setImportedIds] = useState<string[]>([]);
+  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
