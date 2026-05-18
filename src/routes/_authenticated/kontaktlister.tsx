@@ -403,6 +403,26 @@ function OpretListeDialog({
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Preselect virksomheder (fx fra CVR-import-flow)
+  useEffect(() => {
+    if (!preselectedCompanyIds || !preselectedCompanyIds.length) return;
+    (async () => {
+      const ids = preselectedCompanyIds;
+      // Hent preview-data for de forvalgte
+      const { data } = await supabase
+        .from("companies")
+        .select("id, name, cvr, city, industry, employees, municipality, customer_type")
+        .in("id", ids.slice(0, TABLE_PREVIEW_LIMIT));
+      setCompanies(data ?? []);
+      setAllMatchedIds(ids);
+      setTotalMatched(ids.length);
+      setSelectedIds(new Set(ids));
+      setHasSearched(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
   // First-time tip (vises max 3 gange)
   const [showTip, setShowTip] = useState(false);
   useEffect(() => {
