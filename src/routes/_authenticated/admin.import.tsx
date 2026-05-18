@@ -640,8 +640,28 @@ function ImportSide() {
         .upsert(payloads as any, { onConflict: "cvr" })
         .select("id, cvr");
       if (error) {
-        failed += slice.length;
-        console.error("Bulk upsert fejl", error);
+        console.error("Bulk upsert fejl", error, { sampleCvrs: payloads.slice(0, 3).map((p: any) => p.cvr) });
+        toast.error(`Batch fejlede (${slice.length} rækker): ${error.message}`);
+        // Fald tilbage til pr-række så vi ikke mister alle 500
+        for (const j of slice) {
+          const { data: one, error: oneErr } = await supabase
+            .from("companies")
+            .upsert(j.payload as any, { onConflict: "cvr" })
+            .select("id, cvr")
+            .maybeSingle();
+          if (oneErr || !one) {
+            failed++;
+            continue;
+          }
+          companyIds.push(one.id);
+          if (j.sellerId) sellerByCompany[one.id] = j.sellerId;
+          if (j.isUpdate) {
+            updated++;
+            if (j.isEnrich) enriched++;
+          } else {
+            created++;
+          }
+        }
       } else {
         const byCvr = new Map((data ?? []).map((r: any) => [r.cvr, r.id]));
         slice.forEach((j) => {
