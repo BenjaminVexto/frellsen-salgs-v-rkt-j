@@ -223,7 +223,7 @@ function ImportSide() {
     for (let i = 0; i < unique.length; i += 500) {
       const slice = unique.slice(i, i + 500);
       const { data } = await supabase.from("companies").select("cvr").in("cvr", slice);
-      (data ?? []).forEach((d) => dupSet.add(d.cvr));
+      (data ?? []).forEach((d) => { if (d.cvr) dupSet.add(d.cvr); });
     }
     setExistingCvrs(dupSet);
 
