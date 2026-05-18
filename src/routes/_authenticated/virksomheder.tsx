@@ -60,13 +60,13 @@ function VirksomhederListe() {
       setLoading(true);
       let query = supabase
         .from("companies")
-        .select("id,name,cvr,city,customer_type")
+        .select("id,name,cvr,city,customer_type,sources")
         .order("created_at", { ascending: false })
         .limit(500);
       if (recentIds && recentIds.length) {
         query = supabase
           .from("companies")
-          .select("id,name,cvr,city,customer_type")
+          .select("id,name,cvr,city,customer_type,sources")
           .in("id", recentIds)
           .order("created_at", { ascending: false });
       }
