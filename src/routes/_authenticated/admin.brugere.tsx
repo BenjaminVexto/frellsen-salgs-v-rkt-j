@@ -51,6 +51,7 @@ type Row = {
   email: string;
   role: "admin" | "saelger";
   region: string | null;
+  salesperson_no: string | null;
   is_active: boolean;
   created_at: string;
 };
@@ -75,6 +76,7 @@ function BrugerStyringSide() {
     password: "",
     role: "saelger" as "admin" | "saelger",
     region: "",
+    salesperson_no: "",
   });
   const [creating, setCreating] = useState(false);
 
@@ -83,6 +85,7 @@ function BrugerStyringSide() {
     full_name: "",
     role: "saelger" as "admin" | "saelger",
     region: "",
+    salesperson_no: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -121,10 +124,19 @@ function BrugerStyringSide() {
     }
     setCreating(true);
     try {
-      await createFn({ data: { ...createForm, region: createForm.region || null } });
+      await createFn({
+        data: {
+          ...createForm,
+          region: createForm.region || null,
+          salesperson_no:
+            createForm.role === "saelger" && createForm.salesperson_no.trim()
+              ? createForm.salesperson_no.trim()
+              : null,
+        },
+      });
       toast.success("Bruger oprettet");
       setCreateOpen(false);
-      setCreateForm({ full_name: "", email: "", password: "", role: "saelger", region: "" });
+      setCreateForm({ full_name: "", email: "", password: "", role: "saelger", region: "", salesperson_no: "" });
       await load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Fejl ved oprettelse");
@@ -135,7 +147,12 @@ function BrugerStyringSide() {
 
   const openEdit = (r: Row) => {
     setEditRow(r);
-    setEditForm({ full_name: r.full_name, role: r.role, region: r.region ?? "" });
+    setEditForm({
+      full_name: r.full_name,
+      role: r.role,
+      region: r.region ?? "",
+      salesperson_no: r.salesperson_no ?? "",
+    });
   };
 
   const onSaveEdit = async () => {
@@ -148,6 +165,10 @@ function BrugerStyringSide() {
           full_name: editForm.full_name,
           role: editForm.role,
           region: editForm.region || null,
+          salesperson_no:
+            editForm.role === "saelger" && editForm.salesperson_no.trim()
+              ? editForm.salesperson_no.trim()
+              : null,
         },
       });
       toast.success("Bruger opdateret");
@@ -231,6 +252,7 @@ function BrugerStyringSide() {
                 <TableHead>Email</TableHead>
                 <TableHead>Rolle</TableHead>
                 <TableHead>Region</TableHead>
+                <TableHead>Sælgernr.</TableHead>
                 <TableHead>Oprettet</TableHead>
                 <TableHead>Aktiv</TableHead>
                 <TableHead className="text-right">Handlinger</TableHead>
@@ -239,7 +261,7 @@ function BrugerStyringSide() {
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     Ingen brugere fundet
                   </TableCell>
                 </TableRow>
@@ -254,6 +276,7 @@ function BrugerStyringSide() {
                     </Badge>
                   </TableCell>
                   <TableCell>{r.region || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.salesperson_no || "—"}</TableCell>
                   <TableCell>{new Date(r.created_at).toLocaleDateString("da-DK")}</TableCell>
                   <TableCell>
                     <Switch
@@ -326,6 +349,19 @@ function BrugerStyringSide() {
                 placeholder="fx Nordsjælland"
               />
             </div>
+            {createForm.role === "saelger" && (
+              <div>
+                <Label>Sælgernummer</Label>
+                <Input
+                  value={createForm.salesperson_no}
+                  onChange={(e) => setCreateForm({ ...createForm, salesperson_no: e.target.value })}
+                  placeholder="fx 106"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Bruges til auto-tildeling ved CSV-import (kolonnen "Sælgernummer").
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annullér</Button>
@@ -371,6 +407,16 @@ function BrugerStyringSide() {
                   onChange={(e) => setEditForm({ ...editForm, region: e.target.value })}
                 />
               </div>
+              {editForm.role === "saelger" && (
+                <div>
+                  <Label>Sælgernummer</Label>
+                  <Input
+                    value={editForm.salesperson_no}
+                    onChange={(e) => setEditForm({ ...editForm, salesperson_no: e.target.value })}
+                    placeholder="fx 106"
+                  />
+                </div>
+              )}
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" size="sm" onClick={() => { setEmailValue(editRow.email); setEmailOpen(true); }}>
                   <Mail className="h-4 w-4 mr-1" /> Skift email

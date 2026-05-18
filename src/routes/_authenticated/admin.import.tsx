@@ -53,24 +53,53 @@ type SystemField =
   | "employees"
   | "phone"
   | "email"
-  | "website";
+  | "website"
+  | "created_in_visma"
+  | "last_purchase_date"
+  | "customer_segment_1"
+  | "customer_segment_2"
+  | "customer_segment_3"
+  | "visma_id"
+  | "visma_delivery_id"
+  | "contact_person"
+  | "salesperson_no";
 
-const SYSTEM_FIELDS: { key: SystemField; label: string; required?: boolean }[] = [
-  { key: "cvr", label: "CVR", required: true },
-  { key: "name", label: "Navn", required: true },
+// Felter der gemmes direkte på companies-tabellen
+const COMPANY_DB_FIELDS = new Set<SystemField>([
+  "cvr", "name", "address", "zip", "city", "municipality", "industry",
+  "employees", "phone", "email", "website",
+  "created_in_visma", "last_purchase_date",
+  "customer_segment_1", "customer_segment_2", "customer_segment_3",
+  "visma_id", "visma_delivery_id", "contact_person",
+]);
+
+const DATE_FIELDS = new Set<SystemField>(["created_in_visma", "last_purchase_date"]);
+
+const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
+  { key: "cvr", label: "CVR" },
+  { key: "name", label: "Navn" },
   { key: "address", label: "Adresse" },
   { key: "zip", label: "Postnummer" },
   { key: "city", label: "By" },
   { key: "municipality", label: "Kommune" },
   { key: "industry", label: "Branche" },
-  { key: "employees", label: "Ansatte" },
+  { key: "employees", label: "Antal ansatte" },
   { key: "phone", label: "Telefon" },
   { key: "email", label: "Email" },
   { key: "website", label: "Hjemmeside" },
+  { key: "created_in_visma", label: "Oprettet dato" },
+  { key: "last_purchase_date", label: "Sidste varekøb" },
+  { key: "customer_segment_1", label: "Kundesegmentering 1" },
+  { key: "customer_segment_2", label: "Kundesegmentering 2" },
+  { key: "customer_segment_3", label: "Kundesegmentering 3" },
+  { key: "visma_id", label: "Visma kundenummer (Fakt. kunde)" },
+  { key: "visma_delivery_id", label: "Visma leveringsnummer (Lev. kund)" },
+  { key: "contact_person", label: "Kontaktperson" },
+  { key: "salesperson_no", label: "Sælgernummer" },
 ];
 
 const AUTO_MATCH: Record<SystemField, string[]> = {
-  cvr: ["cvr", "cvrnr", "cvr-nr", "cvr_nummer"],
+  cvr: ["cvr", "cvrnr", "cvr_nr", "cvr_nummer"],
   name: ["navn", "name", "virksomhed", "firmanavn", "selskab"],
   address: ["adresse", "address", "vejnavn", "gade"],
   zip: ["postnummer", "postnr", "zip", "postcode"],
@@ -79,8 +108,17 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   industry: ["branche", "industri", "industry"],
   employees: ["ansatte", "medarbejdere", "employees", "antal_ansatte"],
   phone: ["telefon", "tlf", "phone", "mobil"],
-  email: ["email", "mail", "e-mail"],
+  email: ["email", "mail", "e_mail"],
   website: ["hjemmeside", "website", "web", "url"],
+  created_in_visma: ["oprettet", "oprettet_dato", "created", "created_in_visma"],
+  last_purchase_date: ["sidste_varekøb", "sidste_varekoeb", "sidste_køb", "last_purchase", "last_purchase_date"],
+  customer_segment_1: ["kundesegment_1", "kundesegmentering_1", "segment_1", "prisgruppe"],
+  customer_segment_2: ["kundesegment_2", "kundesegmentering_2", "segment_2", "maskinstatus"],
+  customer_segment_3: ["kundesegment_3", "kundesegmentering_3", "segment_3", "kundetype"],
+  visma_id: ["visma_id", "visma_kundenummer", "fakt_kunde", "fakturakunde", "kundenummer"],
+  visma_delivery_id: ["visma_leveringsnummer", "lev_kund", "lev_kunde", "leveringsnummer"],
+  contact_person: ["kontaktperson", "kontakt", "contact_person"],
+  salesperson_no: ["sælger", "saelger", "sælgernummer", "saelgernummer", "salesperson", "sælgernr", "saelgernr"],
 };
 
 type ParsedRow = Record<string, string>;
@@ -89,10 +127,28 @@ interface PreparedRow {
   raw: ParsedRow;
   cvr: string | null;
   data: Partial<Record<SystemField, string | number | null>>;
+  salespersonNo: string | null;
+  matchedSellerId: string | null;
   isDuplicate: boolean;
   missingCvr: boolean;
   hasError: boolean;
   errorMessage?: string;
+}
+
+function parseDanishDate(v: string): string | null {
+  const s = v.trim();
+  if (!s) return null;
+  // ISO YYYY-MM-DD or YYYY/MM/DD
+  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+  // DK DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+  const dk = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (dk) {
+    let y = dk[3];
+    if (y.length === 2) y = (parseInt(y, 10) > 50 ? "19" : "20") + y;
+    return `${y}-${dk[2].padStart(2, "0")}-${dk[1].padStart(2, "0")}`;
+  }
+  return null;
 }
 
 function ImportSide() {
@@ -111,8 +167,13 @@ function ImportSide() {
   const [chosenSeller, setChosenSeller] = useState<string>("");
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<{ created: number; updated: number; skipped: number; failed: number } | null>(null);
+  const [result, setResult] = useState<{
+    created: number; updated: number; skipped: number; failed: number;
+    unmatchedSalespersonNos: string[];
+  } | null>(null);
   const [importedIds, setImportedIds] = useState<string[]>([]);
+  const [importedSellerByCompany, setImportedSellerByCompany] = useState<Record<string, string>>({});
+  const [salespersonMap, setSalespersonMap] = useState<Map<string, string>>(new Map());
   const [assigning, setAssigning] = useState(false);
   const createBatch = useServerFn(createImportBatch);
 
@@ -150,24 +211,34 @@ function ImportSide() {
     });
   }
 
-  // Trin 3: Forbered rækker + slå dubletter op
+  // Trin 3: Forbered rækker + slå dubletter og sælgernumre op
   async function gotoPreview() {
-    if (!mapping.cvr || !mapping.name) {
-      toast.error("CVR og Navn skal være tilknyttet");
-      return;
-    }
-    const cvrs = rows
-      .map((r) => normCvr(r[mapping.cvr!]))
-      .filter((v): v is string => !!v);
+    // Hent eksisterende CVR'er for at vise dubletter
+    const cvrs = mapping.cvr
+      ? rows.map((r) => normCvr(r[mapping.cvr!])).filter((v): v is string => !!v)
+      : [];
     const unique = Array.from(new Set(cvrs));
     const dupSet = new Set<string>();
-    // Chunk i 500 ad gangen for at undgå URL-overflow
     for (let i = 0; i < unique.length; i += 500) {
       const slice = unique.slice(i, i + 500);
       const { data } = await supabase.from("companies").select("cvr").in("cvr", slice);
       (data ?? []).forEach((d) => dupSet.add(d.cvr));
     }
     setExistingCvrs(dupSet);
+
+    // Hent sælgernumre → user_id-mapping
+    const { data: profs } = await supabase
+      .from("profiles")
+      .select("id, salesperson_no, is_active")
+      .not("salesperson_no", "is", null);
+    const map = new Map<string, string>();
+    for (const p of (profs ?? []) as any[]) {
+      if (p.salesperson_no && p.is_active !== false) {
+        map.set(String(p.salesperson_no).trim(), p.id);
+      }
+    }
+    setSalespersonMap(map);
+
     setStep(3);
   }
 
@@ -194,11 +265,11 @@ function ImportSide() {
   }
 
   const prepared = useMemo<PreparedRow[]>(() => {
-    if (!mapping.cvr || !mapping.name) return [];
     return rows.map((r) => {
-      const cvr = normCvr(r[mapping.cvr!]);
+      const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
       const data: PreparedRow["data"] = {};
       for (const f of SYSTEM_FIELDS) {
+        if (!COMPANY_DB_FIELDS.has(f.key)) continue;
         const src = mapping[f.key];
         if (!src) continue;
         const v = (r[src] ?? "").trim();
@@ -206,8 +277,21 @@ function ImportSide() {
         if (f.key === "employees") {
           const n = parseInt(v.replace(/\D/g, ""), 10);
           data.employees = isNaN(n) ? null : n;
+        } else if (DATE_FIELDS.has(f.key)) {
+          const d = parseDanishDate(v);
+          if (d) (data as any)[f.key] = d;
         } else {
           (data as any)[f.key] = v;
+        }
+      }
+      // Sælgernummer-lookup
+      let salespersonNo: string | null = null;
+      let matchedSellerId: string | null = null;
+      if (mapping.salesperson_no) {
+        const raw = (r[mapping.salesperson_no] ?? "").trim();
+        if (raw) {
+          salespersonNo = raw;
+          matchedSellerId = salespersonMap.get(raw) ?? null;
         }
       }
       const missingCvr = !cvr;
@@ -217,20 +301,25 @@ function ImportSide() {
         raw: r,
         cvr,
         data,
+        salespersonNo,
+        matchedSellerId,
         isDuplicate,
         missingCvr,
         hasError,
         errorMessage: !data.name ? "Mangler navn" : undefined,
       };
     });
-  }, [rows, mapping, existingCvrs]);
+  }, [rows, mapping, existingCvrs, salespersonMap]);
 
   const stats = useMemo(() => {
     const newCount = prepared.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
     const dupCount = prepared.filter((p) => p.isDuplicate).length;
     const missingCount = prepared.filter((p) => p.missingCvr && !p.hasError).length;
     const errorCount = prepared.filter((p) => p.hasError).length;
-    return { newCount, dupCount, missingCount, errorCount };
+    const unmatchedSp = new Set(
+      prepared.filter((p) => p.salespersonNo && !p.matchedSellerId).map((p) => p.salespersonNo!),
+    );
+    return { newCount, dupCount, missingCount, errorCount, unmatchedSalespersonNos: Array.from(unmatchedSp) };
   }, [prepared]);
 
   // Trin 4: kør import (uden tildeling)
@@ -244,11 +333,13 @@ function ImportSide() {
       return true;
     });
     const companyIds: string[] = [];
+    const sellerByCompany: Record<string, string> = {};
 
     for (let i = 0; i < toImport.length; i++) {
       const p = toImport[i];
       try {
         const payload: any = { ...stripUndef(p.data) };
+        let companyId: string;
         if (p.cvr) {
           const wasDup = p.isDuplicate;
           payload.cvr = p.cvr;
@@ -258,7 +349,7 @@ function ImportSide() {
             .select("id")
             .single();
           if (error) throw error;
-          companyIds.push(data.id);
+          companyId = data.id;
           if (wasDup) updated++; else created++;
         } else {
           payload.cvr = `NO-CVR-${Date.now()}-${i}`;
@@ -269,9 +360,11 @@ function ImportSide() {
             .select("id")
             .single();
           if (error) throw error;
-          companyIds.push(data.id);
+          companyId = data.id;
           created++;
         }
+        companyIds.push(companyId);
+        if (p.matchedSellerId) sellerByCompany[companyId] = p.matchedSellerId;
       } catch (err: any) {
         failed++;
         console.error("Import-fejl række", i, err);
@@ -281,7 +374,6 @@ function ImportSide() {
 
     skipped = prepared.length - toImport.length - failed;
 
-    // Opret import-batch og stempl virksomheder
     if (companyIds.length) {
       try {
         await createBatch({
@@ -297,15 +389,24 @@ function ImportSide() {
     }
 
     setImportedIds(companyIds);
-    setResult({ created, updated, skipped, failed });
+    setImportedSellerByCompany(sellerByCompany);
+    setResult({
+      created, updated, skipped, failed,
+      unmatchedSalespersonNos: stats.unmatchedSalespersonNos,
+    });
     setImporting(false);
     toast.success("Import gennemført");
   }
 
   // Trin 5: tildel allerede importerede virksomheder
   async function runAssignment() {
-    if (!chosenList || !chosenSeller) {
-      toast.error("Vælg både kontaktliste og sælger");
+    if (!chosenList) {
+      toast.error("Vælg en kontaktliste");
+      return;
+    }
+    const hasPerRowSeller = !!mapping.salesperson_no;
+    if (!hasPerRowSeller && !chosenSeller) {
+      toast.error("Vælg en sælger");
       return;
     }
     if (!importedIds.length) {
@@ -316,8 +417,10 @@ function ImportSide() {
     const assignments = importedIds.map((id) => ({
       company_id: id,
       contact_list_id: chosenList,
-      assigned_to: chosenSeller,
-    }));
+      assigned_to: hasPerRowSeller
+        ? (importedSellerByCompany[id] ?? (chosenSeller || null))
+        : chosenSeller,
+    })).filter((a) => a.assigned_to); // hop over rækker uden match og uden fallback
     let failed = 0;
     for (let i = 0; i < assignments.length; i += 200) {
       const { error } = await supabase
@@ -329,7 +432,7 @@ function ImportSide() {
     if (failed) {
       toast.error("Nogle tildelinger fejlede");
     } else {
-      toast.success(`${importedIds.length} virksomheder tildelt`);
+      toast.success(`${assignments.length} virksomheder tildelt`);
     }
     navigate({ to: "/virksomheder" });
   }
@@ -501,14 +604,12 @@ function Trin2Mapping({
     <Card className="p-6">
       <h2 className="font-semibold mb-1">Match kolonner</h2>
       <p className="text-sm text-muted-foreground mb-5">
-        Vælg hvilken CSV-kolonne der svarer til hvert systemfelt. CVR og Navn er påkrævet.
+        Vælg hvilken CSV-kolonne der svarer til hvert systemfelt. Alle felter er valgfrie — vælg "Tom / spring over" hvis kolonnen ikke findes i din fil.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {SYSTEM_FIELDS.map((f) => (
           <div key={f.key}>
-            <Label className="mb-1.5 block">
-              {f.label} {f.required && <span className="text-destructive">*</span>}
-            </Label>
+            <Label className="mb-1.5 block">{f.label}</Label>
             <Select
               value={mapping[f.key] ?? "__none"}
               onValueChange={(v) =>
@@ -516,10 +617,10 @@ function Trin2Mapping({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Vælg kolonne" />
+                <SelectValue placeholder="Tom / spring over" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none">— Ingen —</SelectItem>
+                <SelectItem value="__none">Tom / spring over</SelectItem>
                 {headers.map((h) => (
                   <SelectItem key={h} value={h}>
                     {h}
@@ -551,7 +652,7 @@ function Trin3Preview({
   onNext,
 }: {
   prepared: PreparedRow[];
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   setIncludeMissingCvr: (v: boolean) => void;
   onBack: () => void;
@@ -652,11 +753,11 @@ function Trin4Import({
   onAssignNow,
   onLater,
 }: {
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
-  result: { created: number; updated: number; skipped: number; failed: number } | null;
+  result: { created: number; updated: number; skipped: number; failed: number; unmatchedSalespersonNos: string[] } | null;
   importedCount: number;
   onBack: () => void;
   onRun: () => void;
@@ -677,6 +778,15 @@ function Trin4Import({
           <StatCard label="Sprunget over" value={result.skipped} tone="muted" />
           <StatCard label="Fejl" value={result.failed} tone="destructive" />
         </div>
+        {result.unmatchedSalespersonNos.length > 0 && (
+          <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start max-w-md mx-auto mb-6 text-left">
+            <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+            <div className="text-sm">
+              {result.unmatchedSalespersonNos.length} sælgernumre kunne ikke matches — sælgernummer{result.unmatchedSalespersonNos.length === 1 ? "" : "ne"}{" "}
+              <span className="font-mono">{result.unmatchedSalespersonNos.join(", ")}</span> findes ikke i systemet. Berørte virksomheder er importeret men markeret som "Ikke tildelt".
+            </div>
+          </Card>
+        )}
         <div className="flex flex-col sm:flex-row gap-2 justify-center">
           <Button variant="outline" onClick={onLater}>Gør det senere</Button>
           <Button onClick={onAssignNow} disabled={importedCount === 0}>
@@ -731,6 +841,8 @@ function Trin5Tildeling({
   setChosenList,
   setChosenSeller,
   importedCount,
+  perRowMatchedCount,
+  hasPerRowMapping,
   assigning,
   onBack,
   onAssign,
@@ -743,16 +855,21 @@ function Trin5Tildeling({
   setChosenList: (v: string) => void;
   setChosenSeller: (v: string) => void;
   importedCount: number;
+  perRowMatchedCount: number;
+  hasPerRowMapping: boolean;
   assigning: boolean;
   onBack: () => void;
   onAssign: () => void;
   onSkip: () => void;
 }) {
+  const sellerDisabled = hasPerRowMapping && perRowMatchedCount === importedCount;
   return (
     <Card className="p-6">
       <h2 className="font-semibold mb-1">Tildel til kontaktliste og sælger</h2>
       <p className="text-sm text-muted-foreground mb-4">
-        {importedCount} importerede virksomheder tildeles den valgte kontaktliste og sælger.
+        {hasPerRowMapping
+          ? `${perRowMatchedCount} af ${importedCount} virksomheder har et matchet sælgernummer fra CSV-filen. Vælg evt. en fallback-sælger for de øvrige.`
+          : `${importedCount} importerede virksomheder tildeles den valgte kontaktliste og sælger.`}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
@@ -771,9 +888,11 @@ function Trin5Tildeling({
           </Select>
         </div>
         <div>
-          <Label className="mb-1.5 block">Sælger</Label>
-          <Select value={chosenSeller} onValueChange={setChosenSeller}>
-            <SelectTrigger><SelectValue placeholder="Vælg sælger" /></SelectTrigger>
+          <Label className="mb-1.5 block">
+            {hasPerRowMapping ? "Fallback-sælger (valgfri)" : "Sælger"}
+          </Label>
+          <Select value={chosenSeller} onValueChange={setChosenSeller} disabled={sellerDisabled}>
+            <SelectTrigger><SelectValue placeholder={sellerDisabled ? "Fra CSV" : "Vælg sælger"} /></SelectTrigger>
             <SelectContent>
               {sellers.length === 0 ? (
                 <SelectItem value="__none" disabled>Ingen sælgere fundet</SelectItem>
@@ -795,7 +914,10 @@ function Trin5Tildeling({
           <Button variant="ghost" onClick={onSkip} disabled={assigning}>
             Spring over
           </Button>
-          <Button onClick={onAssign} disabled={assigning || !chosenList || !chosenSeller}>
+          <Button
+            onClick={onAssign}
+            disabled={assigning || !chosenList || (!hasPerRowMapping && !chosenSeller)}
+          >
             {assigning ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Tildeler…</>
             ) : (
