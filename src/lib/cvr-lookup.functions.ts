@@ -270,6 +270,9 @@ export const cvrLookup = createServerFn({ method: "POST" })
           .map((h: any) => h?._source?.Vrvirksomhed)
           .filter(Boolean)
           .map(mapVirksomhed);
+        if (!companies.length) {
+          return { success: false, error: "NOT_FOUND" };
+        }
         return { success: true, data: companies };
       }
 
