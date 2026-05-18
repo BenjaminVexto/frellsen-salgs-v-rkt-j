@@ -360,6 +360,7 @@ function OpretListeDialog({
     Record<string, string>
   >({}); // company_id -> assigned_to seller id
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     (async () => {
