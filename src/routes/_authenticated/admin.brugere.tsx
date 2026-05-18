@@ -124,10 +124,19 @@ function BrugerStyringSide() {
     }
     setCreating(true);
     try {
-      await createFn({ data: { ...createForm, region: createForm.region || null } });
+      await createFn({
+        data: {
+          ...createForm,
+          region: createForm.region || null,
+          salesperson_no:
+            createForm.role === "saelger" && createForm.salesperson_no.trim()
+              ? createForm.salesperson_no.trim()
+              : null,
+        },
+      });
       toast.success("Bruger oprettet");
       setCreateOpen(false);
-      setCreateForm({ full_name: "", email: "", password: "", role: "saelger", region: "" });
+      setCreateForm({ full_name: "", email: "", password: "", role: "saelger", region: "", salesperson_no: "" });
       await load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Fejl ved oprettelse");
@@ -138,7 +147,12 @@ function BrugerStyringSide() {
 
   const openEdit = (r: Row) => {
     setEditRow(r);
-    setEditForm({ full_name: r.full_name, role: r.role, region: r.region ?? "" });
+    setEditForm({
+      full_name: r.full_name,
+      role: r.role,
+      region: r.region ?? "",
+      salesperson_no: r.salesperson_no ?? "",
+    });
   };
 
   const onSaveEdit = async () => {
@@ -151,6 +165,10 @@ function BrugerStyringSide() {
           full_name: editForm.full_name,
           role: editForm.role,
           region: editForm.region || null,
+          salesperson_no:
+            editForm.role === "saelger" && editForm.salesperson_no.trim()
+              ? editForm.salesperson_no.trim()
+              : null,
         },
       });
       toast.success("Bruger opdateret");
