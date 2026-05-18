@@ -633,6 +633,8 @@ function OpretListeDialog({
                     return;
                   }
                   setStep(2);
+                  // Auto-load companies on entering step 2
+                  if (!hasSearched) runSearch();
                 }}
               >
                 Næste: Tilføj virksomheder
