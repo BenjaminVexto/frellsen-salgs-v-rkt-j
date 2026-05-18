@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/virksomheder")({
 type Row = {
   id: string;
   name: string;
-  cvr: string;
+  cvr: string | null;
   city: string | null;
   customer_type: string;
   sources: string[] | null;
