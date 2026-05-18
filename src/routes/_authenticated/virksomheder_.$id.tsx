@@ -51,6 +51,7 @@ import {
   PlusCircle,
   FileText,
   ClipboardList,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
