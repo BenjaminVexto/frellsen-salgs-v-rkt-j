@@ -374,6 +374,18 @@ function OpretListeDialog({
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // First-time tip (vises max 3 gange)
+  const [showTip, setShowTip] = useState(false);
+  useEffect(() => {
+    if (step !== 2) return;
+    const seen = parseInt(localStorage.getItem("kontaktliste:filter-tip-seen") ?? "0", 10);
+    if (seen < 3) {
+      setShowTip(true);
+      localStorage.setItem("kontaktliste:filter-tip-seen", String(seen + 1));
+    }
+  }, [step]);
+
+
   useEffect(() => {
     (async () => {
       const { data: roles } = await supabase
