@@ -169,6 +169,7 @@ function ImportSide() {
   const [chosenSeller, setChosenSeller] = useState<string>("");
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("");
   const [result, setResult] = useState<{
     created: number; updated: number; skipped: number; failed: number; enriched: number;
     noCvrCount: number;
