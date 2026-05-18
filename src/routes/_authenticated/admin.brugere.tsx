@@ -240,6 +240,9 @@ function BrugerStyringSide() {
         </Button>
       </div>
 
+      <CvrApiStatusKort />
+
+
       <Card className="p-0 overflow-hidden">
         {loading ? (
           <div className="p-12 flex justify-center">
