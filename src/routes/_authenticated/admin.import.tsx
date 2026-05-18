@@ -339,7 +339,7 @@ function ImportSide() {
   return (
     <div className="px-4 md:px-8 py-8 max-w-5xl mx-auto pb-24 md:pb-8">
       <h1 className="text-2xl md:text-3xl font-semibold mb-2">Import af virksomheder</h1>
-      <p className="text-sm text-muted-foreground mb-6">CSV-import i 5 trin</p>
+      <p className="text-sm text-muted-foreground mb-6">CSV-import i 4 trin (+ valgfri tildeling)</p>
 
       <Stepper step={step} />
 
@@ -364,11 +364,17 @@ function ImportSide() {
         />
       )}
       {step === 4 && (
-        <Trin4Bekraeft
+        <Trin4Import
           stats={stats}
           includeMissingCvr={includeMissingCvr}
+          importing={importing}
+          progress={progress}
+          result={result}
+          importedCount={importedIds.length}
           onBack={() => setStep(3)}
-          onNext={gotoAssignment}
+          onRun={runImport}
+          onAssignNow={gotoAssignment}
+          onLater={goLater}
         />
       )}
       {step === 5 && (
@@ -379,12 +385,11 @@ function ImportSide() {
           chosenSeller={chosenSeller}
           setChosenList={setChosenList}
           setChosenSeller={setChosenSeller}
-          importing={importing}
-          progress={progress}
-          result={result}
+          importedCount={importedIds.length}
+          assigning={assigning}
           onBack={() => setStep(4)}
-          onRun={runImport}
-          onDone={() => navigate({ to: "/virksomheder" })}
+          onAssign={runAssignment}
+          onSkip={goLater}
         />
       )}
     </div>
