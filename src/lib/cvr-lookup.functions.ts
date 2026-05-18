@@ -244,8 +244,12 @@ export const cvrLookup = createServerFn({ method: "POST" })
                   },
                 },
                 {
-                  terms: {
-                    "Vrvirksomhed.virksomhedMetadata.sammensatStatus": ["Aktiv", "NORMAL"],
+                  bool: {
+                    should: [
+                      { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv" } },
+                      { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "NORMAL" } },
+                    ],
+                    minimum_should_match: 1,
                   },
                 },
               ],
@@ -276,7 +280,12 @@ export const cvrLookup = createServerFn({ method: "POST" })
 
       const statusValues = f.status ? [f.status] : ["Aktiv", "NORMAL"];
       must.push({
-        terms: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": statusValues },
+        bool: {
+          should: statusValues.map((s) => ({
+            match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": s },
+          })),
+          minimum_should_match: 1,
+        },
       });
 
       // Kommune
