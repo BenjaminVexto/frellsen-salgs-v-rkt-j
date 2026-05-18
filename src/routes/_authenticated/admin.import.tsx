@@ -230,6 +230,25 @@ function ImportSide() {
     }
     setExistingCvrs(dupSet);
 
+    // Slå navne op for rækker uden CVR
+    const nameMap = new Map<string, string>();
+    const noCvrNames = rows
+      .filter((r) => !(mapping.cvr ? normCvr(r[mapping.cvr!]) : null))
+      .map((r) => mapping.name ? (r[mapping.name] ?? "").trim() : "")
+      .filter((n) => !!n);
+    const uniqueNames = Array.from(new Set(noCvrNames));
+    for (let i = 0; i < uniqueNames.length; i += 200) {
+      const slice = uniqueNames.slice(i, i + 200);
+      const { data: ndata } = await supabase
+        .from("companies")
+        .select("id, name")
+        .in("name", slice);
+      (ndata ?? []).forEach((d: any) => {
+        if (!nameMap.has(d.name.toLowerCase())) nameMap.set(d.name.toLowerCase(), d.id);
+      });
+    }
+    setExistingNameMap(nameMap);
+
     // Hent sælgernumre → user_id-mapping
     const { data: profs } = await supabase
       .from("profiles")
