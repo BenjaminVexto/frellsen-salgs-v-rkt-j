@@ -168,6 +168,12 @@ const InputSchema = z.discriminatedUnion("type", [
     cvr: z.string().regex(/^\d{8}$/, "CVR skal være 8 cifre"),
   }),
   z.object({
+    type: z.literal("search"),
+    name: z.string().min(2).max(200),
+    location: z.string().min(1).max(100).optional(),
+    size: z.number().int().min(1).max(50).optional(),
+  }),
+  z.object({
     type: z.literal("bulk"),
     filters: z.object({
       municipality: z.string().min(1).max(60).optional(),
