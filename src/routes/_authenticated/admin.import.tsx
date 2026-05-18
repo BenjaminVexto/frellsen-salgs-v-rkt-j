@@ -436,7 +436,8 @@ function ImportSide() {
     let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0, noCvrCount = 0;
     const toImport = prepared.filter((p) => {
       if (p.hasError) return false;
-      if (p.missingCvr && !includeMissingCvr) return false;
+      // Tillad rækker uden CVR hvis de har EAN, ellers respekter checkbox
+      if (p.missingCvr && !p.ean && !includeMissingCvr) return false;
       return true;
     });
     const importSource: "visma" | "cvr" = mapping.visma_id ? "visma" : "cvr";
