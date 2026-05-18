@@ -297,18 +297,21 @@ export const cvrLookup = createServerFn({ method: "POST" })
       }
       if (kommuneKode) {
         filter.push({
-          term: { "Vrvirksomhed.beliggenhedskommune.kommuneKode": kommuneKode },
+          term: {
+            "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.kommune.kommuneKode":
+              kommuneKode,
+          },
         });
       }
 
-      // Brancher: match i hovedbranche ELLER bibranche1/2/3
+      // Brancher: prefix-match (frontend sender 2-cifrede præfikser, ES gemmer 6-cifrede koder)
       if (f.branch_codes && f.branch_codes.length) {
         const should: any[] = [];
         for (const code of f.branch_codes) {
-          should.push({ term: { "Vrvirksomhed.hovedbranche.branchekode": code } });
-          should.push({ term: { "Vrvirksomhed.bibranche1.branchekode": code } });
-          should.push({ term: { "Vrvirksomhed.bibranche2.branchekode": code } });
-          should.push({ term: { "Vrvirksomhed.bibranche3.branchekode": code } });
+          should.push({ prefix: { "Vrvirksomhed.hovedbranche.branchekode": code } });
+          should.push({ prefix: { "Vrvirksomhed.bibranche1.branchekode": code } });
+          should.push({ prefix: { "Vrvirksomhed.bibranche2.branchekode": code } });
+          should.push({ prefix: { "Vrvirksomhed.bibranche3.branchekode": code } });
         }
         filter.push({ bool: { should, minimum_should_match: 1 } });
       }
