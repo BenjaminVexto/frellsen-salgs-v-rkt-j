@@ -118,6 +118,7 @@ function KontaktlisteDetalje() {
   const [list, setList] = useState<{
     name: string;
     description: string | null;
+    purpose: string | null;
   } | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,7 +147,7 @@ function KontaktlisteDetalje() {
     const [{ data: listData }, { data: assigns }] = await Promise.all([
       supabase
         .from("contact_lists")
-        .select("name, description")
+        .select("name, description, purpose")
         .eq("id", id)
         .maybeSingle(),
       supabase
@@ -156,7 +157,7 @@ function KontaktlisteDetalje() {
         )
         .eq("contact_list_id", id),
     ]);
-    setList(listData);
+    setList(listData as any);
 
     const userIds = Array.from(
       new Set(
@@ -371,6 +372,14 @@ function KontaktlisteDetalje() {
               <p className="text-sm text-muted-foreground mt-1">
                 {list.description}
               </p>
+            )}
+            {list.purpose && (
+              <div className="mt-3 p-3 rounded-md bg-primary/5 border border-primary/30 text-sm">
+                <div className="text-xs font-semibold uppercase text-primary mb-1">
+                  Formål / instruktion fra admin
+                </div>
+                <p className="whitespace-pre-wrap">{list.purpose}</p>
+              </div>
             )}
             <div className="mt-4 flex items-center gap-3">
               <Progress value={pct} className="h-2 flex-1 max-w-md" />
