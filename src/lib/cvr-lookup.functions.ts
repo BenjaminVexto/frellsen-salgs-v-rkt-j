@@ -204,10 +204,30 @@ export const cvrLookup = createServerFn({ method: "POST" })
         return { success: true, data: mapVirksomhed(hit) };
       }
 
-      // --- SEARCH: søg på navn med valgfri lokation-boost ---
+      // --- SEARCH: søg på navn med valgfri lokation-filter ---
       if (data.type === "search") {
         const nameQuery = data.name;
         const location = data.location ?? "";
+        const isPostalCode = /^\d+$/.test(location);
+
+        const locationFilter: any[] = [];
+        if (location) {
+          if (isPostalCode) {
+            locationFilter.push({
+              term: {
+                "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postnummer":
+                  parseInt(location, 10),
+              },
+            });
+          } else {
+            locationFilter.push({
+              match: {
+                "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postdistrikt":
+                  location,
+              },
+            });
+          }
+        }
 
         const payload: any = {
           _source: SOURCE_FIELDS,
@@ -215,28 +235,12 @@ export const cvrLookup = createServerFn({ method: "POST" })
             bool: {
               must: [
                 {
-                  bool: {
-                    should: [
-                      {
-                        match: {
-                          "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
-                            query: nameQuery,
-                            fuzziness: "AUTO",
-                            prefix_length: 2,
-                            boost: 2,
-                          },
-                        },
-                      },
-                      {
-                        wildcard: {
-                          "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
-                            value: `*${nameQuery.toLowerCase()}*`,
-                            boost: 1,
-                          },
-                        },
-                      },
-                    ],
-                    minimum_should_match: 1,
+                  match: {
+                    "Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn": {
+                      query: nameQuery,
+                      fuzziness: "1",
+                      prefix_length: 3,
+                    },
                   },
                 },
                 {
@@ -244,48 +248,8 @@ export const cvrLookup = createServerFn({ method: "POST" })
                     "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv",
                   },
                 },
-                {
-                  bool: {
-                    must_not: [
-                      {
-                        terms: {
-                          "Vrvirksomhed.virksomhedsform.virksomhedsformkode": [10, 20],
-                        },
-                      },
-                    ],
-                  },
-                },
               ],
-              ...(location
-                ? {
-                    should: [
-                      ...(/^[\d]+$/.test(location)
-                        ? [
-                            {
-                              term: {
-                                "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postnummer": parseInt(
-                                  location,
-                                  10,
-                                ),
-                              },
-                            },
-                          ]
-                        : []),
-                      ...(!/^[\d]+$/.test(location)
-                        ? [
-                            {
-                              match: {
-                                "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.postdistrikt": {
-                                  query: location,
-                                  boost: 3,
-                                },
-                              },
-                            },
-                          ]
-                        : []),
-                    ],
-                  }
-                : {}),
+              filter: locationFilter,
             },
           },
           sort: [{ _score: { order: "desc" } }],
