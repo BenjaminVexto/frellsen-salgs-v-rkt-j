@@ -550,73 +550,115 @@ function OpretListeDialog({
                 <option value="tidligere_kunde">Tidligere kunde</option>
               </select>
             </div>
-            <Button onClick={runSearch} variant="secondary" size="sm">
-              <Search className="h-4 w-4 mr-2" />
-              {searching ? "Søger…" : "Søg virksomheder"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button onClick={runSearch} variant="secondary" size="sm" disabled={searching}>
+                <Search className="h-4 w-4 mr-2" />
+                {searching ? "Søger…" : "Søg virksomheder"}
+              </Button>
+              {minEmployees && (
+                <span className="text-xs text-muted-foreground">
+                  Bemærk: filter på "Min. ansatte" skjuler virksomheder uden registreret medarbejderantal.
+                </span>
+              )}
+            </div>
 
-            {companies.length > 0 && (
-              <div className="border rounded-md max-h-80 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10"></TableHead>
-                      <TableHead>Virksomhed</TableHead>
-                      <TableHead>CVR</TableHead>
-                      <TableHead>By</TableHead>
-                      <TableHead>Ansatte</TableHead>
-                      <TableHead>Tildel sælger</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {companies.map((c) => {
-                      const checked = c.id in selectedCompanies;
-                      return (
-                        <TableRow key={c.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={() => toggleCompany(c.id)}
-                            />
-                          </TableCell>
-                          <TableCell>{c.name}</TableCell>
-                          <TableCell className="text-xs">{c.cvr}</TableCell>
-                          <TableCell>{c.city ?? "—"}</TableCell>
-                          <TableCell>{c.employees ?? "—"}</TableCell>
-                          <TableCell>
-                            <select
-                              className="border rounded px-2 py-1 text-xs bg-background"
-                              value={selectedCompanies[c.id] ?? ""}
-                              onChange={(e) =>
-                                setSelectedCompanies((prev) => ({
-                                  ...prev,
-                                  [c.id]: e.target.value,
-                                }))
-                              }
-                              disabled={!checked}
-                            >
-                              <option value="">— Vælg —</option>
-                              {selectedSellers.map((sid) => {
-                                const s = sellers.find((x) => x.id === sid);
-                                return (
-                                  <option key={sid} value={sid}>
-                                    {s?.full_name ?? "Sælger"}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {hasSearched
+                  ? `${companies.length} virksomheder fundet${companies.length === 500 ? " (vis kun de første 500 — indsnævr søgningen)" : ""}`
+                  : "Klik 'Søg virksomheder' for at hente liste"}
+              </span>
+              <span className="inline-flex items-center gap-2 font-medium">
+                <Users className="h-4 w-4" />
+                {Object.keys(selectedCompanies).length} valgt
+              </span>
+            </div>
+
+            {hasSearched && companies.length === 0 && !searching && (
+              <div className="border rounded-md p-8 text-center text-sm text-muted-foreground">
+                Ingen virksomheder matchede dine filtre. Prøv at fjerne et eller flere filtre.
               </div>
             )}
-            <div className="text-sm text-muted-foreground flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              {Object.keys(selectedCompanies).length} virksomheder valgt
-            </div>
+
+            {companies.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 text-xs">
+                  <Checkbox
+                    checked={companies.every((c) => c.id in selectedCompanies)}
+                    onCheckedChange={(v) => {
+                      if (v) {
+                        const next: Record<string, string> = { ...selectedCompanies };
+                        companies.forEach((c) => {
+                          if (!(c.id in next)) next[c.id] = selectedSellers[0] ?? "";
+                        });
+                        setSelectedCompanies(next);
+                      } else {
+                        const next = { ...selectedCompanies };
+                        companies.forEach((c) => delete next[c.id]);
+                        setSelectedCompanies(next);
+                      }
+                    }}
+                  />
+                  <span>Vælg alle viste</span>
+                </div>
+                <div className="border rounded-md max-h-80 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10"></TableHead>
+                        <TableHead>Virksomhed</TableHead>
+                        <TableHead>CVR</TableHead>
+                        <TableHead>By</TableHead>
+                        <TableHead>Ansatte</TableHead>
+                        <TableHead>Tildel sælger</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {companies.map((c) => {
+                        const checked = c.id in selectedCompanies;
+                        return (
+                          <TableRow key={c.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={() => toggleCompany(c.id)}
+                              />
+                            </TableCell>
+                            <TableCell>{c.name}</TableCell>
+                            <TableCell className="text-xs">{c.cvr ?? "—"}</TableCell>
+                            <TableCell>{c.city ?? "—"}</TableCell>
+                            <TableCell>{c.employees ?? "—"}</TableCell>
+                            <TableCell>
+                              <select
+                                className="border rounded px-2 py-1 text-xs bg-background"
+                                value={selectedCompanies[c.id] ?? ""}
+                                onChange={(e) =>
+                                  setSelectedCompanies((prev) => ({
+                                    ...prev,
+                                    [c.id]: e.target.value,
+                                  }))
+                                }
+                                disabled={!checked}
+                              >
+                                <option value="">— Vælg —</option>
+                                {selectedSellers.map((sid) => {
+                                  const s = sellers.find((x) => x.id === sid);
+                                  return (
+                                    <option key={sid} value={sid}>
+                                      {s?.full_name ?? "Sælger"}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
           </div>
         )}
 
