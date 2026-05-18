@@ -114,6 +114,7 @@ function ImportSide() {
   const [result, setResult] = useState<{ created: number; updated: number; skipped: number; failed: number } | null>(null);
   const [importedIds, setImportedIds] = useState<string[]>([]);
   const [assigning, setAssigning] = useState(false);
+  const createBatch = useServerFn(createImportBatch);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
