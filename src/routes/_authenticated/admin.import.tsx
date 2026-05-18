@@ -868,7 +868,7 @@ function Trin4Import({
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
-  result: { created: number; updated: number; skipped: number; failed: number; enriched: number; importSource: "visma" | "cvr"; unmatchedSalespersonNos: string[] } | null;
+  result: { created: number; updated: number; skipped: number; failed: number; enriched: number; noCvrCount: number; importSource: "visma" | "cvr"; unmatchedSalespersonNos: string[] } | null;
   importedCount: number;
   onBack: () => void;
   onRun: () => void;
