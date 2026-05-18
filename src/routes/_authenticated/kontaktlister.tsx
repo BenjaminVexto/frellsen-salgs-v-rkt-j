@@ -174,9 +174,14 @@ function KontaktlisterOversigt() {
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Opret ny kontaktliste
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setCvrSearchOpen(true)}>
+              <Sparkles className="h-4 w-4 mr-2" /> Søg nye emner i CVR
+            </Button>
+            <Button onClick={() => { setPreselectedIds(null); setCreateOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" /> Opret ny kontaktliste
+            </Button>
+          </div>
         )}
       </div>
 
