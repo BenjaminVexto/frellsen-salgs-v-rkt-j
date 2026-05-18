@@ -344,6 +344,17 @@ function VirksomhedsKort() {
             <Button variant="outline" className="w-full justify-start" onClick={() => setQuoteOpen(true)}>
               <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
             </Button>
+            {isAdmin && (
+              <div className="pt-4 mt-2 border-t">
+                <Button
+                  variant="destructive"
+                  className="w-full justify-start"
+                  onClick={openDeleteDialog}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Slet virksomhed
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -370,6 +381,47 @@ function VirksomhedsKort() {
         userId={user?.id ?? ""}
         onSaved={load}
       />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slet virksomhed?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Er du sikker? Dette sletter virksomheden og al tilknyttet data permanent.
+                  Dette kan ikke fortrydes.
+                </p>
+                {deleteStats === null ? (
+                  <p className="text-xs text-muted-foreground">Henter statistik…</p>
+                ) : (
+                  (deleteStats.activities > 0 || deleteStats.opportunities > 0) && (
+                    <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+                      <strong>Advarsel:</strong> Denne virksomhed har{" "}
+                      {deleteStats.activities} aktiviteter og {deleteStats.opportunities}{" "}
+                      salgsmuligheder som også vil blive slettet
+                      {deleteStats.quotes > 0 && <>, samt {deleteStats.quotes} tilbud</>}.
+                    </div>
+                  )
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annullér</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Sletter…" : "Slet permanent"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
