@@ -51,6 +51,8 @@ function KontaktlisterOversigt() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ListRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const isAdmin = auth.role === "admin";
 
