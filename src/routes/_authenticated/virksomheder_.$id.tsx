@@ -224,7 +224,14 @@ function VirksomhedsKort() {
             <h1 className="text-xl font-semibold leading-tight">{company.name}</h1>
           </div>
           <SourceBadges sources={(company as any).sources} />
-          <p className="text-xs text-muted-foreground mb-4 mt-1">CVR {company.cvr}</p>
+          {company.cvr ? (
+            <p className="text-xs text-muted-foreground mb-4 mt-1">CVR {company.cvr}</p>
+          ) : (
+            <div className="flex items-center gap-2 mt-2 mb-4">
+              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/40">Mangler CVR</Badge>
+              <AddCvrInline companyId={company.id} onAdded={(v) => setCompany({ ...company, cvr: v })} />
+            </div>
+          )}
 
           <div className="space-y-3 text-sm">
             {(company.address || company.city) && (
