@@ -103,14 +103,30 @@ function PipelinePage() {
     const { data, error } = await supabase
       .from("sales_opportunities")
       .select(
-        "id,name,company_id,opportunity_type,estimated_value,expected_close_date,status,probability,next_action,next_followup_date,assigned_to,companies(name),profiles:assigned_to(full_name)",
+        "id,name,company_id,opportunity_type,estimated_value,expected_close_date,status,probability,next_action,next_followup_date,assigned_to,companies(name)",
       )
       .order("updated_at", { ascending: false });
     if (error) {
       toast.error("Kunne ikke hente salgsmuligheder");
-    } else {
-      setItems((data as unknown as Opportunity[]) ?? []);
+      setLoading(false);
+      return;
     }
+    const rows = (data as unknown as Opportunity[]) ?? [];
+    const ids = Array.from(
+      new Set(rows.map((r) => r.assigned_to).filter(Boolean) as string[]),
+    );
+    if (ids.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", ids);
+      const map = new Map((profs ?? []).map((p) => [p.id, p.full_name]));
+      rows.forEach((r) => {
+        if (r.assigned_to)
+          r.profiles = { full_name: map.get(r.assigned_to) ?? "" };
+      });
+    }
+    setItems(rows);
     setLoading(false);
   };
 
