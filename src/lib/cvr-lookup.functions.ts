@@ -259,8 +259,8 @@ export const cvrLookup = createServerFn({ method: "POST" })
       const must: any[] = [];
       const filter: any[] = [];
 
-      const status = f.status ?? "AKTIV";
-      must.push({ term: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": status } });
+      const status = f.status ?? "Aktiv";
+      must.push({ match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": status } });
 
       // Kommune
       let kommuneKode: string | null = null;
