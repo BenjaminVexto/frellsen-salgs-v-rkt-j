@@ -373,6 +373,14 @@ function KontaktlisteDetalje() {
                 {list.description}
               </p>
             )}
+            {list.purpose && (
+              <div className="mt-3 p-3 rounded-md bg-primary/5 border border-primary/30 text-sm">
+                <div className="text-xs font-semibold uppercase text-primary mb-1">
+                  Formål / instruktion fra admin
+                </div>
+                <p className="whitespace-pre-wrap">{list.purpose}</p>
+              </div>
+            )}
             <div className="mt-4 flex items-center gap-3">
               <Progress value={pct} className="h-2 flex-1 max-w-md" />
               <span className="text-sm text-muted-foreground whitespace-nowrap">
