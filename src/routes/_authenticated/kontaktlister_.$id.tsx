@@ -717,6 +717,27 @@ function KontaktlisteDetalje() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Slet kontaktliste</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Er du sikker på, at du vil slette listen <strong>{list?.name}</strong>?<br />
+            Alle {total} tildelinger fjernes permanent.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>
+              Annullér
+            </Button>
+            <Button variant="destructive" onClick={doDelete} disabled={deleting}>
+              {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Slet liste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
