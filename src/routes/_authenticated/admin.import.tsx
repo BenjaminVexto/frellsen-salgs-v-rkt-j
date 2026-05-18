@@ -281,6 +281,21 @@ function ImportSide() {
 
     skipped = prepared.length - toImport.length - failed;
 
+    // Opret import-batch og stempl virksomheder
+    if (companyIds.length) {
+      try {
+        await createBatch({
+          data: {
+            filename: file?.name ?? null,
+            company_count: companyIds.length,
+            company_ids: companyIds,
+          },
+        });
+      } catch (e: any) {
+        console.error("Kunne ikke registrere import-batch", e);
+      }
+    }
+
     setImportedIds(companyIds);
     setResult({ created, updated, skipped, failed });
     setImporting(false);
