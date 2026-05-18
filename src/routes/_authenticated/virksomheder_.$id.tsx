@@ -16,6 +16,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  getCompanyDeletionStats,
+  adminDeleteCompany,
+} from "@/lib/admin-companies.functions";
+import {
   Select,
   SelectContent,
   SelectItem,
