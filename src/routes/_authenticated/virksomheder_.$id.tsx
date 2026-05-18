@@ -118,7 +118,8 @@ type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"
 function VirksomhedsKort() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdmin = role === "admin";
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -127,6 +128,41 @@ function VirksomhedsKort() {
   const [activityOpen, setActivityOpen] = useState(false);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteStats, setDeleteStats] = useState<{
+    activities: number;
+    opportunities: number;
+    quotes: number;
+    assignments: number;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const fetchDeleteStats = useServerFn(getCompanyDeletionStats);
+  const deleteCompanyFn = useServerFn(adminDeleteCompany);
+
+  async function openDeleteDialog() {
+    setDeleteStats(null);
+    setDeleteOpen(true);
+    try {
+      const stats = await fetchDeleteStats({ data: { company_id: id } });
+      setDeleteStats(stats);
+    } catch (e: any) {
+      toast.error("Kunne ikke hente statistik: " + e.message);
+    }
+  }
+
+  async function confirmDelete() {
+    setDeleting(true);
+    try {
+      await deleteCompanyFn({ data: { company_id: id } });
+      toast.success("Virksomhed slettet");
+      setDeleteOpen(false);
+      navigate({ to: "/virksomheder" });
+    } catch (e: any) {
+      toast.error("Sletning fejlede: " + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
