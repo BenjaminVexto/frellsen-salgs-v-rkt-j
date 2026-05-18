@@ -241,7 +241,9 @@ export const cvrLookup = createServerFn({ method: "POST" })
           query,
           size: data.size ?? 10,
         };
+        console.log("Payload:", JSON.stringify(payload));
         const json = await callCvr(payload);
+        console.log("CVR response:", JSON.stringify(json));
         const hits = json?.hits?.hits ?? [];
         const companies: CvrCompany[] = hits
           .map((h: any) => h?._source?.Vrvirksomhed)
