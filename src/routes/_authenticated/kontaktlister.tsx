@@ -619,6 +619,22 @@ function OpretListeDialog({
           </div>
         ) : (
           <div className="space-y-4">
+            {showTip && (
+              <div className="flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                <span>
+                  💡 <strong>Tip:</strong> Brug filtrene til at finde de rigtige virksomheder.
+                  Kundestatus beregnes automatisk ud fra sidste varekøb i Visma.
+                </span>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowTip(false)}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               <Input
                 placeholder="Søg navn eller CVR"
