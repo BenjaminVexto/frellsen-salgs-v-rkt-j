@@ -903,6 +903,14 @@ function Trin4Import({
             </div>
           </Card>
         )}
+        {result.noCvrCount > 0 && (
+          <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start max-w-md mx-auto mb-6 text-left">
+            <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+            <div className="text-sm">
+              {result.noCvrCount} virksomheder uden CVR-nummer — disse kan ikke garanteres mod dubletter ved fremtidige imports. Vi anbefaler at efterslå CVR manuelt.
+            </div>
+          </Card>
+        )}
         <div className="flex flex-col sm:flex-row gap-2 justify-center">
           <Button variant="outline" onClick={onLater}>Gør det senere</Button>
           <Button onClick={onAssignNow} disabled={importedCount === 0}>
