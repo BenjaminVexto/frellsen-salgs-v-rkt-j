@@ -511,6 +511,8 @@ function ImportSide() {
           onBack={() => setStep(4)}
           onAssign={runAssignment}
           onSkip={goLater}
+          hasPerRowMapping={!!mapping.salesperson_no}
+          perRowMatchedCount={importedIds.filter((id) => importedSellerByCompany[id]).length}
         />
       )}
     </div>
