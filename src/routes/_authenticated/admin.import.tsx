@@ -167,8 +167,13 @@ function ImportSide() {
   const [chosenSeller, setChosenSeller] = useState<string>("");
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<{ created: number; updated: number; skipped: number; failed: number } | null>(null);
+  const [result, setResult] = useState<{
+    created: number; updated: number; skipped: number; failed: number;
+    unmatchedSalespersonNos: string[];
+  } | null>(null);
   const [importedIds, setImportedIds] = useState<string[]>([]);
+  const [importedSellerByCompany, setImportedSellerByCompany] = useState<Record<string, string>>({});
+  const [salespersonMap, setSalespersonMap] = useState<Map<string, string>>(new Map());
   const [assigning, setAssigning] = useState(false);
   const createBatch = useServerFn(createImportBatch);
 
@@ -206,24 +211,34 @@ function ImportSide() {
     });
   }
 
-  // Trin 3: Forbered rækker + slå dubletter op
+  // Trin 3: Forbered rækker + slå dubletter og sælgernumre op
   async function gotoPreview() {
-    if (!mapping.cvr || !mapping.name) {
-      toast.error("CVR og Navn skal være tilknyttet");
-      return;
-    }
-    const cvrs = rows
-      .map((r) => normCvr(r[mapping.cvr!]))
-      .filter((v): v is string => !!v);
+    // Hent eksisterende CVR'er for at vise dubletter
+    const cvrs = mapping.cvr
+      ? rows.map((r) => normCvr(r[mapping.cvr!])).filter((v): v is string => !!v)
+      : [];
     const unique = Array.from(new Set(cvrs));
     const dupSet = new Set<string>();
-    // Chunk i 500 ad gangen for at undgå URL-overflow
     for (let i = 0; i < unique.length; i += 500) {
       const slice = unique.slice(i, i + 500);
       const { data } = await supabase.from("companies").select("cvr").in("cvr", slice);
       (data ?? []).forEach((d) => dupSet.add(d.cvr));
     }
     setExistingCvrs(dupSet);
+
+    // Hent sælgernumre → user_id-mapping
+    const { data: profs } = await supabase
+      .from("profiles")
+      .select("id, salesperson_no, is_active")
+      .not("salesperson_no", "is", null);
+    const map = new Map<string, string>();
+    for (const p of (profs ?? []) as any[]) {
+      if (p.salesperson_no && p.is_active !== false) {
+        map.set(String(p.salesperson_no).trim(), p.id);
+      }
+    }
+    setSalespersonMap(map);
+
     setStep(3);
   }
 
@@ -250,11 +265,11 @@ function ImportSide() {
   }
 
   const prepared = useMemo<PreparedRow[]>(() => {
-    if (!mapping.cvr || !mapping.name) return [];
     return rows.map((r) => {
-      const cvr = normCvr(r[mapping.cvr!]);
+      const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
       const data: PreparedRow["data"] = {};
       for (const f of SYSTEM_FIELDS) {
+        if (!COMPANY_DB_FIELDS.has(f.key)) continue;
         const src = mapping[f.key];
         if (!src) continue;
         const v = (r[src] ?? "").trim();
@@ -262,8 +277,21 @@ function ImportSide() {
         if (f.key === "employees") {
           const n = parseInt(v.replace(/\D/g, ""), 10);
           data.employees = isNaN(n) ? null : n;
+        } else if (DATE_FIELDS.has(f.key)) {
+          const d = parseDanishDate(v);
+          if (d) (data as any)[f.key] = d;
         } else {
           (data as any)[f.key] = v;
+        }
+      }
+      // Sælgernummer-lookup
+      let salespersonNo: string | null = null;
+      let matchedSellerId: string | null = null;
+      if (mapping.salesperson_no) {
+        const raw = (r[mapping.salesperson_no] ?? "").trim();
+        if (raw) {
+          salespersonNo = raw;
+          matchedSellerId = salespersonMap.get(raw) ?? null;
         }
       }
       const missingCvr = !cvr;
@@ -273,20 +301,25 @@ function ImportSide() {
         raw: r,
         cvr,
         data,
+        salespersonNo,
+        matchedSellerId,
         isDuplicate,
         missingCvr,
         hasError,
         errorMessage: !data.name ? "Mangler navn" : undefined,
       };
     });
-  }, [rows, mapping, existingCvrs]);
+  }, [rows, mapping, existingCvrs, salespersonMap]);
 
   const stats = useMemo(() => {
     const newCount = prepared.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
     const dupCount = prepared.filter((p) => p.isDuplicate).length;
     const missingCount = prepared.filter((p) => p.missingCvr && !p.hasError).length;
     const errorCount = prepared.filter((p) => p.hasError).length;
-    return { newCount, dupCount, missingCount, errorCount };
+    const unmatchedSp = new Set(
+      prepared.filter((p) => p.salespersonNo && !p.matchedSellerId).map((p) => p.salespersonNo!),
+    );
+    return { newCount, dupCount, missingCount, errorCount, unmatchedSalespersonNos: Array.from(unmatchedSp) };
   }, [prepared]);
 
   // Trin 4: kør import (uden tildeling)
@@ -300,11 +333,13 @@ function ImportSide() {
       return true;
     });
     const companyIds: string[] = [];
+    const sellerByCompany: Record<string, string> = {};
 
     for (let i = 0; i < toImport.length; i++) {
       const p = toImport[i];
       try {
         const payload: any = { ...stripUndef(p.data) };
+        let companyId: string;
         if (p.cvr) {
           const wasDup = p.isDuplicate;
           payload.cvr = p.cvr;
@@ -314,7 +349,7 @@ function ImportSide() {
             .select("id")
             .single();
           if (error) throw error;
-          companyIds.push(data.id);
+          companyId = data.id;
           if (wasDup) updated++; else created++;
         } else {
           payload.cvr = `NO-CVR-${Date.now()}-${i}`;
@@ -325,9 +360,11 @@ function ImportSide() {
             .select("id")
             .single();
           if (error) throw error;
-          companyIds.push(data.id);
+          companyId = data.id;
           created++;
         }
+        companyIds.push(companyId);
+        if (p.matchedSellerId) sellerByCompany[companyId] = p.matchedSellerId;
       } catch (err: any) {
         failed++;
         console.error("Import-fejl række", i, err);
@@ -337,7 +374,6 @@ function ImportSide() {
 
     skipped = prepared.length - toImport.length - failed;
 
-    // Opret import-batch og stempl virksomheder
     if (companyIds.length) {
       try {
         await createBatch({
@@ -353,15 +389,24 @@ function ImportSide() {
     }
 
     setImportedIds(companyIds);
-    setResult({ created, updated, skipped, failed });
+    setImportedSellerByCompany(sellerByCompany);
+    setResult({
+      created, updated, skipped, failed,
+      unmatchedSalespersonNos: stats.unmatchedSalespersonNos,
+    });
     setImporting(false);
     toast.success("Import gennemført");
   }
 
   // Trin 5: tildel allerede importerede virksomheder
   async function runAssignment() {
-    if (!chosenList || !chosenSeller) {
-      toast.error("Vælg både kontaktliste og sælger");
+    if (!chosenList) {
+      toast.error("Vælg en kontaktliste");
+      return;
+    }
+    const hasPerRowSeller = !!mapping.salesperson_no;
+    if (!hasPerRowSeller && !chosenSeller) {
+      toast.error("Vælg en sælger");
       return;
     }
     if (!importedIds.length) {
@@ -372,8 +417,10 @@ function ImportSide() {
     const assignments = importedIds.map((id) => ({
       company_id: id,
       contact_list_id: chosenList,
-      assigned_to: chosenSeller,
-    }));
+      assigned_to: hasPerRowSeller
+        ? (importedSellerByCompany[id] ?? (chosenSeller || null))
+        : chosenSeller,
+    })).filter((a) => a.assigned_to); // hop over rækker uden match og uden fallback
     let failed = 0;
     for (let i = 0; i < assignments.length; i += 200) {
       const { error } = await supabase
@@ -385,7 +432,7 @@ function ImportSide() {
     if (failed) {
       toast.error("Nogle tildelinger fejlede");
     } else {
-      toast.success(`${importedIds.length} virksomheder tildelt`);
+      toast.success(`${assignments.length} virksomheder tildelt`);
     }
     navigate({ to: "/virksomheder" });
   }
