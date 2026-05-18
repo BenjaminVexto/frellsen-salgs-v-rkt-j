@@ -1039,6 +1039,10 @@ function Trin3Preview({
                 <TableCell>
                   {p.hasError ? (
                     <Badge variant="destructive">Fejl</Badge>
+                  ) : p.isPublic ? (
+                    <Badge className="bg-primary/15 text-primary border-primary/30" variant="outline">
+                      Offentlig
+                    </Badge>
                   ) : p.missingCvr ? (
                     <Badge variant="outline">Uden CVR</Badge>
                   ) : p.isDuplicate ? (
