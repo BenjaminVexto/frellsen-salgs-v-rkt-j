@@ -557,6 +557,16 @@ function ImportSide() {
             isNoCvr: false,
           });
         }
+      } else if (p.eanMatchId && existingById.has(p.eanMatchId)) {
+        const existing = existingById.get(p.eanMatchId);
+        const merged = buildMerged(existing, incoming);
+        jobs.push({
+          kind: "update_id",
+          id: existing.id,
+          payload: merged,
+          sellerId: p.matchedSellerId,
+          isNoCvr: !p.cvr,
+        });
       } else if (p.nameMatchId && existingById.has(p.nameMatchId)) {
         const existing = existingById.get(p.nameMatchId);
         const merged = buildMerged(existing, incoming);
