@@ -6,7 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
+import { SourceBadges } from "@/components/source-badges";
+import { OpretVirksomhedDialog } from "@/components/opret-virksomhed-dialog";
 
 export const Route = createFileRoute("/_authenticated/virksomheder")({
   component: VirksomhederListe,
@@ -111,8 +113,16 @@ function VirksomhederListe() {
 
   return (
     <div className="px-4 md:px-8 py-8 max-w-6xl mx-auto pb-24 md:pb-8">
-      <h1 className="text-2xl md:text-3xl font-semibold mb-6">Virksomheder</h1>
-
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl md:text-3xl font-semibold">Virksomheder</h1>
+        <OpretVirksomhedDialog
+          trigger={
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1" /> Opret virksomhed
+            </Button>
+          }
+        />
+      </div>
       {recentIds && recentIds.length > 0 && (
         <Card className="p-3 mb-4 flex items-center justify-between bg-primary/5 border-primary/30">
           <div className="text-sm">
@@ -157,8 +167,11 @@ function VirksomhederListe() {
                 params={{ id: r.id }}
                 className="flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
               >
-                <div>
-                  <div className="font-medium">{r.name}</div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium">{r.name}</span>
+                    <SourceBadges sources={r.sources} size="sm" />
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     CVR {r.cvr}
                     {r.city ? ` · ${r.city}` : ""}
