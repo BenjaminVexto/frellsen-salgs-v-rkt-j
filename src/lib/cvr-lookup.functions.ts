@@ -244,8 +244,12 @@ export const cvrLookup = createServerFn({ method: "POST" })
                   },
                 },
                 {
-                  terms: {
-                    "Vrvirksomhed.virksomhedMetadata.sammensatStatus": ["Aktiv", "NORMAL"],
+                  bool: {
+                    should: [
+                      { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv" } },
+                      { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "NORMAL" } },
+                    ],
+                    minimum_should_match: 1,
                   },
                 },
               ],
