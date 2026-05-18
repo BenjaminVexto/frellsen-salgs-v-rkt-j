@@ -319,6 +319,10 @@ function ImportSide() {
       }
       const missingCvr = !cvr;
       const isDuplicate = !!cvr && existingCvrs.has(cvr);
+      const nameMatchId =
+        missingCvr && data.name
+          ? existingNameMap.get(String(data.name).toLowerCase()) ?? null
+          : null;
       const hasError = !data.name;
       return {
         raw: r,
@@ -328,11 +332,12 @@ function ImportSide() {
         matchedSellerId,
         isDuplicate,
         missingCvr,
+        nameMatchId,
         hasError,
         errorMessage: !data.name ? "Mangler navn" : undefined,
       };
     });
-  }, [rows, mapping, existingCvrs, salespersonMap]);
+  }, [rows, mapping, existingCvrs, existingNameMap, salespersonMap]);
 
   const stats = useMemo(() => {
     const newCount = prepared.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
