@@ -780,8 +780,13 @@ function OpretListeDialog({
                             <TableCell>{c.city ?? "—"}</TableCell>
                             <TableCell>{c.employees ?? "—"}</TableCell>
                             <TableCell className="text-xs">
-                              {c.customer_type?.replace("_", " ") ?? "—"}
+                              <CustomerStatusBadge
+                                type={c.customer_type}
+                                variant="outline"
+                                className="text-xs"
+                              />
                             </TableCell>
+
                           </TableRow>
                         );
                       })}
