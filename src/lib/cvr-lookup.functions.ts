@@ -155,6 +155,8 @@ async function callCvr(payload: unknown): Promise<any> {
     throw err;
   }
   if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    console.log("CVR HTTP error body:", res.status, bodyText);
     const err: any = new Error(`HTTP_ERROR: ${res.status}`);
     err.code = "HTTP_ERROR";
     throw err;
