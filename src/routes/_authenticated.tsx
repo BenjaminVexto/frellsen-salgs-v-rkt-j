@@ -8,6 +8,8 @@ import {
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { NotificationBell } from "@/components/notification-bell";
+import { toast } from "sonner";
 import {
   LayoutDashboard,
   Building2,
