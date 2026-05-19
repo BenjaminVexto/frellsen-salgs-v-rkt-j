@@ -377,7 +377,7 @@ function VirksomhederListe() {
       }
       return true;
     });
-  }, [rows, q, filters, assignmentMap]);
+  }, [rows, q, filters, assignmentMap, locationMap]);
 
   // Reset til side 0 når filtre ændrer sig
   useEffect(() => {
