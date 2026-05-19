@@ -192,6 +192,29 @@ function VirksomhedsKort() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Scroll to a specific activity if URL has #activity-<id>
+  useEffect(() => {
+    if (loading) return;
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    if (!hash.startsWith("#activity-")) return;
+    const id = hash.slice(1);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-primary", "rounded");
+        setTimeout(
+          () => el.classList.remove("ring-2", "ring-primary", "rounded"),
+          2500,
+        );
+      }
+    });
+  }, [loading, activities.length]);
+
   if (loading) {
     return <div className="p-8 text-sm text-muted-foreground">Indlæser…</div>;
   }
