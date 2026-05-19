@@ -603,6 +603,7 @@ function RegistrerAktivitetDialog({
   const [updateStatus, setUpdateStatus] = useState<AssignmentStatus | "">("");
   const [assignmentId, setAssignmentId] = useState<string>(assignments[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
+  const [users, setUsers] = useState<MentionableUser[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -612,8 +613,9 @@ function RegistrerAktivitetDialog({
       setNextDate(undefined);
       setUpdateStatus("");
       setAssignmentId(assignments[0]?.id ?? "");
+      fetchMentionableUsers(userId).then(setUsers);
     }
-  }, [open, assignments]);
+  }, [open, assignments, userId]);
 
   const requiresFollowup =
     updateStatus !== "" && STATUS_REQUIRES_FOLLOWUP.includes(updateStatus as AssignmentStatus);
