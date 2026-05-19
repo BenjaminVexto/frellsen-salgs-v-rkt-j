@@ -67,6 +67,7 @@ import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
+import { LokationerSektion, type Location } from "@/components/lokationer-sektion";
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
 type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
@@ -134,7 +135,10 @@ function VirksomhedsKort() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [locationReloadKey, setLocationReloadKey] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [presetLocationId, setPresetLocationId] = useState<string | null>(null);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -175,16 +179,23 @@ function VirksomhedsKort() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: c }, { data: ct }, { data: a }, { data: asg }] = await Promise.all([
+    const [{ data: c }, { data: ct }, { data: a }, { data: asg }, { data: locs }] = await Promise.all([
       supabase.from("companies").select("*").eq("id", id).maybeSingle(),
       supabase.from("contacts").select("*").eq("company_id", id).order("is_primary", { ascending: false }),
       supabase.from("activities").select("*").eq("company_id", id).order("created_at", { ascending: false }),
       supabase.from("contact_list_assignments").select("*").eq("company_id", id),
+      (supabase as any)
+        .from("locations")
+        .select("*")
+        .eq("company_id", id)
+        .order("is_primary", { ascending: false })
+        .order("city", { ascending: true }),
     ]);
     setCompany(c ?? null);
     setContacts(ct ?? []);
     setActivities(a ?? []);
     setAssignments(asg ?? []);
+    setLocations(((locs ?? []) as Location[]));
     setLoading(false);
   }, [id]);
 
@@ -375,38 +386,62 @@ function VirksomhedsKort() {
               <p className="text-sm text-muted-foreground">Ingen aktiviteter endnu.</p>
             ) : (
               <div className="space-y-4">
-                {activities.map((a) => (
-                  <div
-                    key={a.id}
-                    id={`activity-${a.id}`}
-                    className="border-l-2 border-primary/30 pl-3 scroll-mt-24 transition-shadow"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <Badge variant="outline" className="capitalize">
-                        {activityTypes.find((t) => t.value === a.activity_type)?.label ?? a.activity_type}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
-                      </span>
-                    </div>
-                    {a.note && <NoteWithMentions text={a.note} />}
-                    {(a.next_action || a.next_followup_date) && (
-                      <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
-                        <span className="font-medium">Næste: </span>
-                        {a.next_action}
-                        {a.next_followup_date && (
-                          <span className="text-muted-foreground">
-                            {" — "}
-                            {format(new Date(a.next_followup_date), "d. MMM yyyy", { locale: da })}
-                          </span>
-                        )}
+                {activities.map((a) => {
+                  const loc = (a as any).location_id
+                    ? locations.find((l) => l.id === (a as any).location_id)
+                    : null;
+                  return (
+                    <div
+                      key={a.id}
+                      id={`activity-${a.id}`}
+                      className="border-l-2 border-primary/30 pl-3 scroll-mt-24 transition-shadow"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="capitalize">
+                            {activityTypes.find((t) => t.value === a.activity_type)?.label ?? a.activity_type}
+                          </Badge>
+                          {loc && (
+                            <Badge variant="secondary" className="text-xs gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {loc.city || loc.address || "Lokation"}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {a.note && <NoteWithMentions text={a.note} />}
+                      {(a.next_action || a.next_followup_date) && (
+                        <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
+                          <span className="font-medium">Næste: </span>
+                          {a.next_action}
+                          {a.next_followup_date && (
+                            <span className="text-muted-foreground">
+                              {" — "}
+                              {format(new Date(a.next_followup_date), "d. MMM yyyy", { locale: da })}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Card>
+
+          <LokationerSektion
+            companyId={company.id}
+            isAdmin={isAdmin}
+            reloadKey={locationReloadKey}
+            onRegisterActivity={(locationId) => {
+              setPresetLocationId(locationId);
+              setActivityOpen(true);
+            }}
+          />
+
 
           <Card className="p-5">
             <h2 className="font-semibold mb-4 flex items-center gap-2">
@@ -438,7 +473,7 @@ function VirksomhedsKort() {
         <Card className="p-5 h-fit lg:sticky lg:top-6">
           <h2 className="font-semibold mb-4">Handlinger</h2>
           <div className="space-y-2">
-            <Button className="w-full justify-start" onClick={() => setActivityOpen(true)}>
+            <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
             </Button>
             <Button variant="outline" className="w-full justify-start" onClick={() => setOpportunityOpen(true)}>
@@ -464,11 +499,13 @@ function VirksomhedsKort() {
 
       <RegistrerAktivitetDialog
         open={activityOpen}
-        onOpenChange={setActivityOpen}
+        onOpenChange={(v) => { setActivityOpen(v); if (!v) setPresetLocationId(null); }}
         companyId={company.id}
         userId={user?.id ?? ""}
         assignments={assignments}
-        onSaved={load}
+        locations={locations}
+        presetLocationId={presetLocationId}
+        onSaved={() => { load(); setLocationReloadKey((k) => k + 1); }}
       />
       <OpretSalgsmulighedDialog
         open={opportunityOpen}
@@ -587,6 +624,8 @@ function RegistrerAktivitetDialog({
   companyId,
   userId,
   assignments,
+  locations,
+  presetLocationId,
   onSaved,
 }: {
   open: boolean;
@@ -594,6 +633,8 @@ function RegistrerAktivitetDialog({
   companyId: string;
   userId: string;
   assignments: Assignment[];
+  locations: Location[];
+  presetLocationId: string | null;
   onSaved: () => void;
 }) {
   const [type, setType] = useState<ActivityType | "">("");
@@ -602,6 +643,7 @@ function RegistrerAktivitetDialog({
   const [nextDate, setNextDate] = useState<Date | undefined>();
   const [updateStatus, setUpdateStatus] = useState<AssignmentStatus | "">("");
   const [assignmentId, setAssignmentId] = useState<string>(assignments[0]?.id ?? "");
+  const [locationId, setLocationId] = useState<string>("__general");
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<MentionableUser[]>([]);
 
@@ -613,9 +655,10 @@ function RegistrerAktivitetDialog({
       setNextDate(undefined);
       setUpdateStatus("");
       setAssignmentId(assignments[0]?.id ?? "");
+      setLocationId(presetLocationId ?? "__general");
       fetchMentionableUsers(userId).then(setUsers);
     }
-  }, [open, assignments, userId]);
+  }, [open, assignments, userId, presetLocationId]);
 
   const requiresFollowup =
     updateStatus !== "" && STATUS_REQUIRES_FOLLOWUP.includes(updateStatus as AssignmentStatus);
@@ -641,7 +684,8 @@ function RegistrerAktivitetDialog({
         next_action: nextAction.trim() || null,
         next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
         contact_list_assignment_id: assignmentId || null,
-      })
+        location_id: locationId === "__general" ? null : locationId,
+      } as any)
       .select("id")
       .single();
     if (error) {
@@ -701,6 +745,23 @@ function RegistrerAktivitetDialog({
               </SelectContent>
             </Select>
           </div>
+          {locations.length > 0 && (
+            <div>
+              <Label className="mb-1.5 block">Hvilken lokation gælder dette?</Label>
+              <Select value={locationId} onValueChange={setLocationId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__general">Hele virksomheden (generelt)</SelectItem>
+                  {locations.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.city || l.address || "Lokation"}
+                      {l.is_primary ? " (primær)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label className="mb-1.5 block">
               Note <span className="text-xs text-muted-foreground font-normal">— skriv @ for at tagge en kollega</span>

@@ -65,7 +65,14 @@ type SystemField =
   | "salesperson_no"
   | "ean_number"
   | "parent_cvr"
-  | "is_public";
+  | "is_public"
+  // Lokations-felter (kan også mappes; en række pr. unik visma_delivery_id bliver til én lokation)
+  | "location_address"
+  | "location_zip"
+  | "location_city"
+  | "location_phone"
+  | "location_email"
+  | "location_contact_person";
 
 // Felter der gemmes direkte på companies-tabellen
 const COMPANY_DB_FIELDS = new Set<SystemField>([
@@ -77,15 +84,20 @@ const COMPANY_DB_FIELDS = new Set<SystemField>([
   "ean_number", "parent_cvr", "is_public",
 ]);
 
+const LOCATION_FIELDS = new Set<SystemField>([
+  "location_address", "location_zip", "location_city",
+  "location_phone", "location_email", "location_contact_person",
+]);
+
 const DATE_FIELDS = new Set<SystemField>(["created_in_visma", "last_purchase_date"]);
 const BOOLEAN_FIELDS = new Set<SystemField>(["is_public"]);
 
 const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
   { key: "cvr", label: "CVR" },
   { key: "name", label: "Navn" },
-  { key: "address", label: "Adresse" },
-  { key: "zip", label: "Postnummer" },
-  { key: "city", label: "By" },
+  { key: "address", label: "Adresse (fakturering)" },
+  { key: "zip", label: "Postnummer (fakturering)" },
+  { key: "city", label: "By (fakturering)" },
   { key: "municipality", label: "Kommune" },
   { key: "industry", label: "Branche" },
   { key: "employees", label: "Antal ansatte" },
@@ -104,6 +116,13 @@ const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
   { key: "ean_number", label: "EAN-nummer" },
   { key: "parent_cvr", label: "Overordnet CVR (kommunens)" },
   { key: "is_public", label: "Er offentlig institution (ja/nej)" },
+  // Lokationer
+  { key: "location_address", label: "Lokation: Adresselinje 1" },
+  { key: "location_zip", label: "Lokation: Postnr." },
+  { key: "location_city", label: "Lokation: By" },
+  { key: "location_contact_person", label: "Lokation: Ref person" },
+  { key: "location_phone", label: "Lokation: Telefonnr.1" },
+  { key: "location_email", label: "Lokation: E-mailadresse" },
 ];
 
 const AUTO_MATCH: Record<SystemField, string[]> = {
@@ -130,7 +149,14 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   ean_number: ["ean", "ean_nr", "ean_nummer", "ean_lokationsnummer", "ean_lokation"],
   parent_cvr: ["overordnet_cvr", "kommune_cvr", "parent_cvr", "moder_cvr"],
   is_public: ["offentlig", "er_offentlig", "is_public", "offentlig_institution"],
+  location_address: ["adresselinje_1", "lev_adresse", "leveringsadresse"],
+  location_zip: ["lev_postnr", "leveringspostnr"],
+  location_city: ["lev_by", "leveringsby"],
+  location_phone: ["telefonnr_1", "telefonnr1", "lev_telefon"],
+  location_email: ["e_mailadresse", "lev_email"],
+  location_contact_person: ["ref_person", "kontaktperson_lev"],
 };
+
 
 function parseBool(v: string): boolean | null {
   const s = v.trim().toLowerCase();
@@ -749,6 +775,75 @@ function ImportSide() {
       } catch (e: any) {
         console.error("Kunne ikke registrere import-batch", e);
       }
+    }
+
+    // 4) Opret lokationer pr. unikt Lev.kund-nr. (visma_delivery_id) pr. CVR.
+    // Den række hvor Lev. kund == Fakt. kunde markeres som primær.
+    let companiesWithMultipleLocations = 0;
+    try {
+      const cvrToCompanyId = new Map<string, string>();
+      // Hent CVR for de oprettede/opdaterede company-id'er
+      for (let i = 0; i < companyIds.length; i += 500) {
+        const slice = companyIds.slice(i, i + 500);
+        const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
+        (data ?? []).forEach((r: any) => { if (r.cvr) cvrToCompanyId.set(r.cvr, r.id); });
+      }
+
+      // Grupper rækker pr. CVR for at finde unikke leveringsnumre
+      type LocRow = { delivery: string; faktKunde: string | null; loc: Record<string, string | null> };
+      const byCvr = new Map<string, LocRow[]>();
+      for (const r of rows) {
+        const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
+        if (!cvr || !cvrToCompanyId.has(cvr)) continue;
+        const delivery = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
+        if (!delivery) continue;
+        const faktKunde = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : null;
+        const loc: Record<string, string | null> = {
+          address: mapping.location_address ? (r[mapping.location_address] ?? "").trim() || null : null,
+          zip: mapping.location_zip ? (r[mapping.location_zip] ?? "").trim() || null : null,
+          city: mapping.location_city ? (r[mapping.location_city] ?? "").trim() || null : null,
+          phone: mapping.location_phone ? (r[mapping.location_phone] ?? "").trim() || null : null,
+          email: mapping.location_email ? (r[mapping.location_email] ?? "").trim() || null : null,
+          contact_person: mapping.location_contact_person ? (r[mapping.location_contact_person] ?? "").trim() || null : null,
+        };
+        const list = byCvr.get(cvr) ?? [];
+        if (!list.find((x) => x.delivery === delivery)) list.push({ delivery, faktKunde, loc });
+        byCvr.set(cvr, list);
+      }
+
+      const locRows: any[] = [];
+      for (const [cvr, list] of byCvr.entries()) {
+        if (list.length > 1) companiesWithMultipleLocations++;
+        const companyId = cvrToCompanyId.get(cvr)!;
+        for (const row of list) {
+          locRows.push({
+            company_id: companyId,
+            visma_delivery_no: row.delivery,
+            address: row.loc.address,
+            zip: row.loc.zip,
+            city: row.loc.city,
+            phone: row.loc.phone,
+            email: row.loc.email,
+            contact_person: row.loc.contact_person,
+            is_primary: row.faktKunde !== null && row.faktKunde === row.delivery,
+          });
+        }
+      }
+      // Upsert pr. (company_id, visma_delivery_no)
+      for (let i = 0; i < locRows.length; i += 500) {
+        const slice = locRows.slice(i, i + 500);
+        const { error } = await (supabase as any)
+          .from("locations")
+          .upsert(slice, { onConflict: "company_id,visma_delivery_no" });
+        if (error) console.error("Lokationer-upsert fejl", error);
+      }
+      if (companiesWithMultipleLocations > 0) {
+        toast.success(
+          `${companiesWithMultipleLocations} virksomheder fik flere lokationer registreret`,
+        );
+      }
+    } catch (e) {
+      console.error("Kunne ikke oprette lokationer", e);
     }
 
     setImportedIds(companyIds);

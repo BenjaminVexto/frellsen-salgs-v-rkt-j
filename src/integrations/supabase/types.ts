@@ -22,6 +22,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          location_id: string | null
           next_action: string | null
           next_followup_date: string | null
           note: string | null
@@ -34,6 +35,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          location_id?: string | null
           next_action?: string | null
           next_followup_date?: string | null
           note?: string | null
@@ -46,6 +48,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          location_id?: string | null
           next_action?: string | null
           next_followup_date?: string | null
           note?: string | null
@@ -64,6 +67,13 @@ export type Database = {
             columns: ["contact_list_assignment_id"]
             isOneToOne: false
             referencedRelation: "contact_list_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
@@ -204,6 +214,7 @@ export type Database = {
           contact_list_id: string
           created_at: string
           id: string
+          location_id: string | null
           next_action_note: string | null
           next_followup_date: string | null
           priority: Database["public"]["Enums"]["priority_level"]
@@ -216,6 +227,7 @@ export type Database = {
           contact_list_id: string
           created_at?: string
           id?: string
+          location_id?: string | null
           next_action_note?: string | null
           next_followup_date?: string | null
           priority?: Database["public"]["Enums"]["priority_level"]
@@ -228,6 +240,7 @@ export type Database = {
           contact_list_id?: string
           created_at?: string
           id?: string
+          location_id?: string | null
           next_action_note?: string | null
           next_followup_date?: string | null
           priority?: Database["public"]["Enums"]["priority_level"]
@@ -247,6 +260,13 @@ export type Database = {
             columns: ["contact_list_id"]
             isOneToOne: false
             referencedRelation: "contact_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_list_assignments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -372,6 +392,56 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          company_id: string
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_primary: boolean
+          phone: string | null
+          visma_delivery_no: string | null
+          zip: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          company_id: string
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          phone?: string | null
+          visma_delivery_no?: string | null
+          zip?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          company_id?: string
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          phone?: string | null
+          visma_delivery_no?: string | null
+          zip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
