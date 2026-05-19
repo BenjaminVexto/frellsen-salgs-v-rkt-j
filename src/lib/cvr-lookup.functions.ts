@@ -352,6 +352,9 @@ export const cvrLookup = createServerFn({ method: "POST" })
           filter.push({
             bool: {
               should: [
+                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteAarsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
+                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteKvartalsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
+                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteMaanedsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
                 { terms: { "Vrvirksomhed.aarsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
                 { terms: { "Vrvirksomhed.kvartalsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
                 { terms: { "Vrvirksomhed.maanedsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
