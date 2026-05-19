@@ -319,10 +319,16 @@ function VirksomhederListe() {
       // søgetekst
       if (q) {
         const qq = q.toLowerCase();
+        const locs = locationMap.get(r.id) ?? [];
         const hit =
           r.name.toLowerCase().includes(qq) ||
           (r.cvr ?? "").includes(q) ||
-          (r.city ?? "").toLowerCase().includes(qq);
+          (r.city ?? "").toLowerCase().includes(qq) ||
+          locs.some(
+            (l) =>
+              (l.city ?? "").toLowerCase().includes(qq) ||
+              (l.address ?? "").toLowerCase().includes(qq),
+          );
         if (!hit) return false;
       }
       if (
