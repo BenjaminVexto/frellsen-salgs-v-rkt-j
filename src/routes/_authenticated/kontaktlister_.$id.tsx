@@ -194,7 +194,7 @@ function KontaktlisteDetalje() {
         : Promise.resolve({ data: [] as { id: string; city: string | null }[] }),
     ]);
     const pMap = new Map((profs ?? []).map((p) => [p.id, p.full_name]));
-    const locMap = new Map((locs ?? []).map((l: any) => [l.id, l.city]));
+    const locMap = new Map<string, string | null>((locs ?? []).map((l: any) => [l.id as string, l.city as string | null]));
     const lastActMap = new Map<string, { at: string; type: string }>();
     for (const a of acts ?? []) {
       if (!lastActMap.has(a.company_id)) {
