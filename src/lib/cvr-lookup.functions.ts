@@ -180,10 +180,11 @@ const InputSchema = z.discriminatedUnion("type", [
       branch_codes: z.array(z.string().min(2).max(10)).max(50).optional(),
       min_employees: z.number().int().min(0).max(100000).optional(),
       max_employees: z.number().int().min(0).max(100000).optional(),
-      company_forms: z.array(z.string().min(1).max(20)).max(20).optional(),
+      company_forms: z.array(z.string().min(1).max(40)).max(20).optional(),
       status: z.string().min(1).max(20).optional(),
     }),
     size: z.number().int().min(1).max(1000).optional(),
+    from: z.number().int().min(0).optional(),
   }),
 ]);
 
