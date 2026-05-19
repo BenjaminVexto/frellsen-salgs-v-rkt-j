@@ -232,6 +232,9 @@ function ImportSide() {
   } | null>(null);
   const [importedIds, setImportedIds] = useState<string[]>([]);
   const [importedSellerByCompany, setImportedSellerByCompany] = useState<Record<string, string>>({});
+  const [importedRowAssignments, setImportedRowAssignments] = useState<
+    { company_id: string; location_id: string | null; seller_id: string | null }[]
+  >([]);
   const [salespersonMap, setSalespersonMap] = useState<Map<string, string>>(new Map());
   const [assigning, setAssigning] = useState(false);
   const createBatch = useServerFn(createImportBatch);
