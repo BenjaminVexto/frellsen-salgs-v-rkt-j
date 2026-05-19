@@ -170,7 +170,7 @@ function KontaktlisterOversigt() {
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold">Kontaktlister</h1>
           <p className="text-sm text-muted-foreground">
-            {isAdmin ? "Alle kontaktlister" : "Lister tildelt dig"}
+            Alle kontaktlister
           </p>
         </div>
         {isAdmin && (
