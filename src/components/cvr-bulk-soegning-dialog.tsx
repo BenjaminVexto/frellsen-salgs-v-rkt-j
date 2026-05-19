@@ -175,6 +175,22 @@ export function CvrBulkSoegningDialog({
     });
   }
 
+  function filterByEmployees(list: CvrRow[]): CvrRow[] {
+    if (!employeeBuckets.length) return list;
+    const { minEmp, maxEmp } = buildFilters();
+    if (minEmp == null && maxEmp == null) return list;
+    const min = minEmp ?? 0;
+    const max = maxEmp ?? 999999;
+    return list.filter((r) => {
+      if (!r.employees) return false;
+      const parts = r.employees.split("_").map((p) => parseInt(p, 10));
+      const lo = isNaN(parts[0]) ? null : parts[0];
+      const hi = parts.length > 1 && !isNaN(parts[1]) ? parts[1] : lo;
+      if (lo == null) return false;
+      return (hi ?? lo) >= min && lo <= max;
+    });
+  }
+
   async function fetchPage(pageNum: number, kommune: string | null) {
     const { branchCodes, minEmp, maxEmp } = buildFilters();
     const formValues = companyForms;
@@ -235,7 +251,8 @@ export function CvrBulkSoegningDialog({
         mapped,
         list.map((c) => ({ z: c.zip })),
       );
-      const annotated = await annotateExisting(zipFiltered);
+      const empFiltered = filterByEmployees(zipFiltered);
+      const annotated = await annotateExisting(empFiltered);
       setRows(annotated);
       setSelectedCvrs(new Set(annotated.filter((r) => !r.existing).map((r) => r.cvr)));
     } finally {
@@ -266,7 +283,8 @@ export function CvrBulkSoegningDialog({
         existing: false,
       }));
       const zipFiltered = filterByZip(mapped, list.map((c) => ({ z: c.zip })));
-      const annotated = await annotateExisting(zipFiltered);
+      const empFiltered = filterByEmployees(zipFiltered);
+      const annotated = await annotateExisting(empFiltered);
       setRows(annotated);
       setPage(pageNum);
     } finally {
@@ -306,7 +324,8 @@ export function CvrBulkSoegningDialog({
           existing: false,
         }));
         const zipFiltered = filterByZip(mapped, list.map((c) => ({ z: c.zip })));
-        for (const r of zipFiltered) {
+        const empFiltered = filterByEmployees(zipFiltered);
+        for (const r of empFiltered) {
           if (!seen.has(r.cvr)) {
             seen.add(r.cvr);
             aggregated.push(r);
@@ -472,7 +491,7 @@ export function CvrBulkSoegningDialog({
                     {total > 0 && ` — viser ${showFrom}–${showTo}`}
                     {rows.length > 0 && ` · ${selectedCvrs.size} valgt`}
                   </span>
-                ) : (
+              ) : (
                   <span className="text-muted-foreground">Konfigurér filtre og søg</span>
                 )}
               </div>
@@ -483,6 +502,12 @@ export function CvrBulkSoegningDialog({
                 </div>
               )}
             </div>
+
+            {hasSearched && employeeBuckets.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                * Antal ansatte filtreres lokalt — total er før ansatte-filter
+              </p>
+            )}
 
             {hasSearched && total > 0 && (
               <div>

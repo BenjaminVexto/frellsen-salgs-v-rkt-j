@@ -336,41 +336,8 @@ export const cvrLookup = createServerFn({ method: "POST" })
         });
       }
 
-      // Ansatte-interval (server-side i ES)
-      if (f.min_employees != null || f.max_employees != null) {
-        const validCodes = [
-          { code: "ANTAL_0", lo: 0, hi: 0 },
-          { code: "ANTAL_1", lo: 1, hi: 1 },
-          { code: "ANTAL_2_4", lo: 2, hi: 4 },
-          { code: "ANTAL_5_9", lo: 5, hi: 9 },
-          { code: "ANTAL_10_19", lo: 10, hi: 19 },
-          { code: "ANTAL_20_49", lo: 20, hi: 49 },
-          { code: "ANTAL_50_99", lo: 50, hi: 99 },
-          { code: "ANTAL_100_199", lo: 100, hi: 199 },
-          { code: "ANTAL_200_499", lo: 200, hi: 499 },
-          { code: "ANTAL_500_999", lo: 500, hi: 999 },
-          { code: "ANTAL_1000_", lo: 1000, hi: 999999 },
-        ]
-          .filter(
-            (b) =>
-              b.hi >= (f.min_employees ?? 0) &&
-              b.lo <= (f.max_employees ?? 999999),
-          )
-          .map((b) => b.code);
+      // Ansatte-interval filtreres client-side (se CvrBulkSoegningDialog)
 
-        if (validCodes.length) {
-          filter.push({
-            bool: {
-              should: [
-                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteMaanedsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
-                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteKvartalsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
-                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteAarsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
-              ],
-              minimum_should_match: 1,
-            },
-          });
-        }
-      }
 
       const payload: any = {
         query: { bool: { must, filter } },
