@@ -175,6 +175,22 @@ export function CvrBulkSoegningDialog({
     });
   }
 
+  function filterByEmployees(list: CvrRow[]): CvrRow[] {
+    if (!employeeBuckets.length) return list;
+    const { minEmp, maxEmp } = buildFilters();
+    if (minEmp == null && maxEmp == null) return list;
+    const min = minEmp ?? 0;
+    const max = maxEmp ?? 999999;
+    return list.filter((r) => {
+      if (!r.employees) return false;
+      const parts = r.employees.split("_").map((p) => parseInt(p, 10));
+      const lo = isNaN(parts[0]) ? null : parts[0];
+      const hi = parts.length > 1 && !isNaN(parts[1]) ? parts[1] : lo;
+      if (lo == null) return false;
+      return (hi ?? lo) >= min && lo <= max;
+    });
+  }
+
   async function fetchPage(pageNum: number, kommune: string | null) {
     const { branchCodes, minEmp, maxEmp } = buildFilters();
     const formValues = companyForms;
