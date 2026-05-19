@@ -488,7 +488,7 @@ function VirksomhederListe() {
       {/* Søg + filter toggle */}
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
         <Input
-          placeholder="Søg på navn, CVR eller by…"
+          placeholder="Søg på navn, CVR, by eller lokation…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="max-w-md"
