@@ -101,6 +101,8 @@ type Row = {
   next_followup_date: string | null;
   next_action_note: string | null;
   assigned_to: string | null;
+  location_id: string | null;
+  location_city: string | null;
   company: {
     name: string;
     city: string | null;
