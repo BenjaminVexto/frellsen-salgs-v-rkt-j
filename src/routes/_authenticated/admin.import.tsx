@@ -777,6 +777,75 @@ function ImportSide() {
       }
     }
 
+    // 4) Opret lokationer pr. unikt Lev.kund-nr. (visma_delivery_id) pr. CVR.
+    // Den række hvor Lev. kund == Fakt. kunde markeres som primær.
+    let companiesWithMultipleLocations = 0;
+    try {
+      const cvrToCompanyId = new Map<string, string>();
+      // Hent CVR for de oprettede/opdaterede company-id'er
+      for (let i = 0; i < companyIds.length; i += 500) {
+        const slice = companyIds.slice(i, i + 500);
+        const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
+        (data ?? []).forEach((r: any) => { if (r.cvr) cvrToCompanyId.set(r.cvr, r.id); });
+      }
+
+      // Grupper rækker pr. CVR for at finde unikke leveringsnumre
+      type LocRow = { delivery: string; faktKunde: string | null; loc: Record<string, string | null> };
+      const byCvr = new Map<string, LocRow[]>();
+      for (const r of rows) {
+        const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
+        if (!cvr || !cvrToCompanyId.has(cvr)) continue;
+        const delivery = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
+        if (!delivery) continue;
+        const faktKunde = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : null;
+        const loc: Record<string, string | null> = {
+          address: mapping.location_address ? (r[mapping.location_address] ?? "").trim() || null : null,
+          zip: mapping.location_zip ? (r[mapping.location_zip] ?? "").trim() || null : null,
+          city: mapping.location_city ? (r[mapping.location_city] ?? "").trim() || null : null,
+          phone: mapping.location_phone ? (r[mapping.location_phone] ?? "").trim() || null : null,
+          email: mapping.location_email ? (r[mapping.location_email] ?? "").trim() || null : null,
+          contact_person: mapping.location_contact_person ? (r[mapping.location_contact_person] ?? "").trim() || null : null,
+        };
+        const list = byCvr.get(cvr) ?? [];
+        if (!list.find((x) => x.delivery === delivery)) list.push({ delivery, faktKunde, loc });
+        byCvr.set(cvr, list);
+      }
+
+      const locRows: any[] = [];
+      for (const [cvr, list] of byCvr.entries()) {
+        if (list.length > 1) companiesWithMultipleLocations++;
+        const companyId = cvrToCompanyId.get(cvr)!;
+        for (const row of list) {
+          locRows.push({
+            company_id: companyId,
+            visma_delivery_no: row.delivery,
+            address: row.loc.address,
+            zip: row.loc.zip,
+            city: row.loc.city,
+            phone: row.loc.phone,
+            email: row.loc.email,
+            contact_person: row.loc.contact_person,
+            is_primary: row.faktKunde !== null && row.faktKunde === row.delivery,
+          });
+        }
+      }
+      // Upsert pr. (company_id, visma_delivery_no)
+      for (let i = 0; i < locRows.length; i += 500) {
+        const slice = locRows.slice(i, i + 500);
+        const { error } = await (supabase as any)
+          .from("locations")
+          .upsert(slice, { onConflict: "company_id,visma_delivery_no" });
+        if (error) console.error("Lokationer-upsert fejl", error);
+      }
+      if (companiesWithMultipleLocations > 0) {
+        toast.success(
+          `${companiesWithMultipleLocations} virksomheder fik flere lokationer registreret`,
+        );
+      }
+    } catch (e) {
+      console.error("Kunne ikke oprette lokationer", e);
+    }
+
     setImportedIds(companyIds);
     setImportedSellerByCompany(sellerByCompany);
     setResult({
