@@ -53,6 +53,9 @@ const SOURCE_FIELDS = [
   "Vrvirksomhed.aarsbeskaeftigelse",
   "Vrvirksomhed.kvartalsbeskaeftigelse",
   "Vrvirksomhed.maanedsbeskaeftigelse",
+  "Vrvirksomhed.virksomhedMetadata.nyesteMaanedsbeskaeftigelse",
+  "Vrvirksomhed.virksomhedMetadata.nyesteKvartalsbeskaeftigelse",
+  "Vrvirksomhed.virksomhedMetadata.nyesteAarsbeskaeftigelse",
 ];
 
 function pickLatest<T extends { periode?: { gyldigFra?: string | null; gyldigTil?: string | null } }>(
@@ -359,12 +362,9 @@ export const cvrLookup = createServerFn({ method: "POST" })
           filter.push({
             bool: {
               should: [
-                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteAarsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
-                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteKvartalsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
                 { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteMaanedsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
-                { terms: { "Vrvirksomhed.aarsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
-                { terms: { "Vrvirksomhed.kvartalsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
-                { terms: { "Vrvirksomhed.maanedsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
+                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteKvartalsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
+                { terms: { "Vrvirksomhed.virksomhedMetadata.nyesteAarsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
               ],
               minimum_should_match: 1,
             },
