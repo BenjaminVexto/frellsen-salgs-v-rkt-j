@@ -228,10 +228,6 @@ export function CvrBulkSoegningDialog({
       toast.error("Vælg en kommune eller postnummer-interval");
       return;
     }
-    if (!categories.length && !companyForms.length) {
-      toast.error("Vælg mindst én branchekategori eller virksomhedsform for at begrænse søgningen");
-      return;
-    }
 
     setSearching(true);
     setHasSearched(true);
