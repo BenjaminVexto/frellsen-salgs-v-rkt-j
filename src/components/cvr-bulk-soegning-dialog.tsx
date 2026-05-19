@@ -292,7 +292,10 @@ export function CvrBulkSoegningDialog({
       setFilteredRows(annotated);
       setSelectedCvrs(new Set(annotated.filter((r) => !r.existing).map((r) => r.cvr)));
       setPage(0);
-      toast.success(`Hentet ${annotated.length} virksomheder der matcher alle filtre`);
+      toast.success(
+        `${annotated.length.toLocaleString("da")} virksomheder matcher ALLE filtre inkl. ansatte` +
+        ` (hentet og filtreret fra ${esTotalBeforeEmpFilter.toLocaleString("da")} i CVR)`,
+      );
     } finally {
       setFetchingAll(false);
     }
