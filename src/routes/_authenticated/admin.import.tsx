@@ -924,16 +924,27 @@ function ImportSide() {
       return;
     }
     setAssigning(true);
-    const assignments = importedIds.map((id) => ({
-      company_id: id,
-      contact_list_id: chosenList,
-      assigned_to: hasPerRowSeller
-        ? (importedSellerByCompany[id] ?? (chosenSeller || null))
-        : chosenSeller,
-    })).filter((a) => a.assigned_to); // hop over rækker uden match og uden fallback
+    const hasPerRowLocation = !!mapping.visma_delivery_id && importedRowAssignments.some((r) => r.location_id);
+    const assignments = hasPerRowLocation
+      ? importedRowAssignments
+          .map((r) => ({
+            company_id: r.company_id,
+            location_id: r.location_id,
+            contact_list_id: chosenList,
+            assigned_to: hasPerRowSeller ? (r.seller_id ?? (chosenSeller || null)) : chosenSeller,
+          }))
+          .filter((a) => a.assigned_to)
+      : importedIds.map((id) => ({
+          company_id: id,
+          location_id: null as string | null,
+          contact_list_id: chosenList,
+          assigned_to: hasPerRowSeller
+            ? (importedSellerByCompany[id] ?? (chosenSeller || null))
+            : chosenSeller,
+        })).filter((a) => a.assigned_to);
     let failed = 0;
     for (let i = 0; i < assignments.length; i += 200) {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("contact_list_assignments")
         .insert(assignments.slice(i, i + 200));
       if (error) failed++;
@@ -942,7 +953,12 @@ function ImportSide() {
     if (failed) {
       toast.error("Nogle tildelinger fejlede");
     } else {
-      toast.success(`${assignments.length} virksomheder tildelt`);
+      const locCount = hasPerRowLocation ? assignments.filter((a) => a.location_id).length : 0;
+      toast.success(
+        hasPerRowLocation
+          ? `${assignments.length} tildelinger oprettet (heraf ${locCount} på specifik lokation)`
+          : `${assignments.length} virksomheder tildelt`,
+      );
     }
     navigate({ to: "/virksomheder" });
   }
