@@ -1040,6 +1040,7 @@ function ImportSide() {
           onSkip={goLater}
           hasPerRowMapping={!!mapping.salesperson_no}
           perRowMatchedCount={importedIds.filter((id) => importedSellerByCompany[id]).length}
+          locationAssignmentCount={importedRowAssignments.filter((r) => r.location_id).length}
         />
       )}
     </div>
