@@ -192,9 +192,6 @@ function VirksomhedsKort() {
     load();
   }, [load]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
 
   // Scroll to a specific activity if URL has #activity-<id>
   useEffect(() => {
