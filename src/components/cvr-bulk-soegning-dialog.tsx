@@ -440,14 +440,17 @@ export function CvrBulkSoegningDialog({
             {hasSearched && (
               <div className="space-y-1">
                 <div className="text-sm">
-                  <strong>{filteredRows.length}</strong> virksomheder matcher alle filtre
+                  <strong>{esTotalBeforeEmpFilter.toLocaleString("da")}</strong>{" "}
+                  virksomheder fundet i CVR
                   {empFilterActive && (
-                    <span className="text-muted-foreground">
-                      {" "}(filtreret fra {esTotalBeforeEmpFilter.toLocaleString("da")} i CVR)
+                    <span className="text-muted-foreground font-normal">
+                      {" "}(antal ansatte filtreres separat)
                     </span>
                   )}
                   {filteredRows.length > 0 && (
-                    <span className="text-muted-foreground"> · {selectedCvrs.size} valgt</span>
+                    <span className="text-muted-foreground font-normal">
+                      {` · viser ${filteredRows.length.toLocaleString("da")} efter lokale filtre · ${selectedCvrs.size} valgt`}
+                    </span>
                   )}
                 </div>
                 {empFilterActive && (
