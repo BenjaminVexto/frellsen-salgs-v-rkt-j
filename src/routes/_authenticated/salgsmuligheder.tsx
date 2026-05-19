@@ -342,8 +342,7 @@ function OpportunityDrawer({
     if (opp) setForm(opp);
   }, [opp]);
 
-  const canEdit =
-    !!opp && (isAdmin || opp.assigned_to === currentUserId);
+  const canEdit = !!opp;
 
   const save = async () => {
     if (!opp) return;
