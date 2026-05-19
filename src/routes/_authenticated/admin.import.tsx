@@ -1394,6 +1394,7 @@ function Trin5Tildeling({
   importedCount,
   perRowMatchedCount,
   hasPerRowMapping,
+  locationAssignmentCount,
   assigning,
   onBack,
   onAssign,
@@ -1408,6 +1409,7 @@ function Trin5Tildeling({
   importedCount: number;
   perRowMatchedCount: number;
   hasPerRowMapping: boolean;
+  locationAssignmentCount: number;
   assigning: boolean;
   onBack: () => void;
   onAssign: () => void;
@@ -1421,6 +1423,14 @@ function Trin5Tildeling({
         {hasPerRowMapping
           ? `${perRowMatchedCount} af ${importedCount} virksomheder har et matchet sælgernummer fra CSV-filen. Vælg evt. en fallback-sælger for de øvrige.`
           : `${importedCount} importerede virksomheder tildeles den valgte kontaktliste og sælger.`}
+        {locationAssignmentCount > 0 && (
+          <>
+            {" "}
+            <span className="text-primary">
+              📍 {locationAssignmentCount} tildelinger oprettes på specifikke lokationer.
+            </span>
+          </>
+        )}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
