@@ -332,7 +332,9 @@ export const cvrLookup = createServerFn({ method: "POST" })
       // Ansatte-interval (server-side i ES)
       if (f.min_employees != null || f.max_employees != null) {
         const validCodes = [
-          { code: "ANTAL_1_4", lo: 1, hi: 4 },
+          { code: "ANTAL_0", lo: 0, hi: 0 },
+          { code: "ANTAL_1", lo: 1, hi: 1 },
+          { code: "ANTAL_2_4", lo: 2, hi: 4 },
           { code: "ANTAL_5_9", lo: 5, hi: 9 },
           { code: "ANTAL_10_19", lo: 10, hi: 19 },
           { code: "ANTAL_20_49", lo: 20, hi: 49 },
