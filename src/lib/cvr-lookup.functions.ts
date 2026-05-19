@@ -339,7 +339,8 @@ export const cvrLookup = createServerFn({ method: "POST" })
           { code: "ANTAL_50_99", lo: 50, hi: 99 },
           { code: "ANTAL_100_199", lo: 100, hi: 199 },
           { code: "ANTAL_200_499", lo: 200, hi: 499 },
-          { code: "ANTAL_500_", lo: 500, hi: 999999 },
+          { code: "ANTAL_500_999", lo: 500, hi: 999 },
+          { code: "ANTAL_1000_", lo: 1000, hi: 999999 },
         ]
           .filter(
             (b) =>
