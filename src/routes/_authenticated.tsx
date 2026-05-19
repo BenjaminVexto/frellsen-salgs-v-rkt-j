@@ -124,10 +124,32 @@ function AuthenticatedLayout() {
           )}
         </nav>
         <div className="px-4 py-4 border-t border-primary-foreground/10">
-          <div className="text-sm font-medium">{auth.fullName || auth.user?.email}</div>
-          <div className="text-xs text-primary-foreground/60 mb-3">
-            {isAdmin ? "Administrator" : "Sælger"}
-            {auth.region ? ` · ${auth.region}` : ""}
+          <div className="flex items-center justify-between mb-2">
+            <div className="min-w-0">
+              <div className="text-sm font-medium truncate">{auth.fullName || auth.user?.email}</div>
+              <div className="text-xs text-primary-foreground/60">
+                {isAdmin ? "Administrator" : "Sælger"}
+                {auth.region ? ` · ${auth.region}` : ""}
+              </div>
+            </div>
+            {auth.user?.id && (
+              <NotificationBell
+                userId={auth.user.id}
+                onUnreadCountChange={(n) => {
+                  if (typeof window === "undefined") return;
+                  const key = `welcome-toast-${auth.user!.id}`;
+                  if (sessionStorage.getItem(key)) return;
+                  sessionStorage.setItem(key, "1");
+                  if (n > 0) {
+                    toast.message(
+                      n === 1
+                        ? "Du har 1 ny besked fra en kollega"
+                        : `Du har ${n} nye beskeder fra kolleger`,
+                    );
+                  }
+                }}
+              />
+            )}
           </div>
           <Button
             variant="secondary"
