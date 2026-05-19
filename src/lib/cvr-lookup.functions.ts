@@ -322,41 +322,65 @@ export const cvrLookup = createServerFn({ method: "POST" })
         filter.push({
           bool: {
             should: f.company_forms.map((form) => ({
-              term: { "Vrvirksomhed.virksomhedsform.kortBeskrivelse": form },
+              match: { "Vrvirksomhed.virksomhedsform.kortBeskrivelse": form },
             })),
             minimum_should_match: 1,
           },
         });
       }
 
+      // Ansatte-interval (server-side i ES)
+      if (f.min_employees != null || f.max_employees != null) {
+        const validCodes = [
+          { code: "ANTAL_1_4", lo: 1, hi: 4 },
+          { code: "ANTAL_5_9", lo: 5, hi: 9 },
+          { code: "ANTAL_10_19", lo: 10, hi: 19 },
+          { code: "ANTAL_20_49", lo: 20, hi: 49 },
+          { code: "ANTAL_50_99", lo: 50, hi: 99 },
+          { code: "ANTAL_100_199", lo: 100, hi: 199 },
+          { code: "ANTAL_200_499", lo: 200, hi: 499 },
+          { code: "ANTAL_500_", lo: 500, hi: 999999 },
+        ]
+          .filter(
+            (b) =>
+              b.hi >= (f.min_employees ?? 0) &&
+              b.lo <= (f.max_employees ?? 999999),
+          )
+          .map((b) => b.code);
+
+        if (validCodes.length) {
+          filter.push({
+            bool: {
+              should: [
+                { terms: { "Vrvirksomhed.aarsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
+                { terms: { "Vrvirksomhed.kvartalsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
+                { terms: { "Vrvirksomhed.maanedsbeskaeftigelse.intervalKodeAntalAnsatte": validCodes } },
+              ],
+              minimum_should_match: 1,
+            },
+          });
+        }
+      }
+
       const payload: any = {
         query: { bool: { must, filter } },
         _source: SOURCE_FIELDS,
-        size: data.size ?? 500,
+        from: data.from ?? 0,
+        size: 100,
       };
 
       const json = await callCvr(payload);
       const hits = json?.hits?.hits ?? [];
-      let companies: CvrCompany[] = hits
+      const companies: CvrCompany[] = hits
         .map((h: any) => h?._source?.Vrvirksomhed)
         .filter(Boolean)
         .map(mapVirksomhed);
 
-      // Filtrér ansatte-interval
-      if (f.min_employees != null || f.max_employees != null) {
-        const min = f.min_employees ?? 0;
-        const max = f.max_employees ?? Number.MAX_SAFE_INTEGER;
-        companies = companies.filter((c) => {
-          if (!c.employees_interval) return false;
-          const parts = c.employees_interval.split("_").map((p) => parseInt(p, 10));
-          const lo = isNaN(parts[0]) ? null : parts[0];
-          const hi = parts.length > 1 && !isNaN(parts[1]) ? parts[1] : lo;
-          if (lo == null) return false;
-          return (hi ?? lo) >= min && lo <= max;
-        });
-      }
-
-      return { success: true, data: companies };
+      return {
+        success: true,
+        data: companies,
+        total: json?.hits?.total?.value ?? json?.hits?.total ?? 0,
+      };
     } catch (e: any) {
       const code =
         e?.code ??
