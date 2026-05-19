@@ -376,7 +376,11 @@ function VirksomhedsKort() {
             ) : (
               <div className="space-y-4">
                 {activities.map((a) => (
-                  <div key={a.id} className="border-l-2 border-primary/30 pl-3">
+                  <div
+                    key={a.id}
+                    id={`activity-${a.id}`}
+                    className="border-l-2 border-primary/30 pl-3 scroll-mt-24 transition-shadow"
+                  >
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <Badge variant="outline" className="capitalize">
                         {activityTypes.find((t) => t.value === a.activity_type)?.label ?? a.activity_type}
@@ -385,7 +389,7 @@ function VirksomhedsKort() {
                         {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
                       </span>
                     </div>
-                    {a.note && <p className="text-sm whitespace-pre-wrap">{a.note}</p>}
+                    {a.note && <NoteWithMentions text={a.note} />}
                     {(a.next_action || a.next_followup_date) && (
                       <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
                         <span className="font-medium">Næste: </span>
