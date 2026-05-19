@@ -232,6 +232,9 @@ function ImportSide() {
   } | null>(null);
   const [importedIds, setImportedIds] = useState<string[]>([]);
   const [importedSellerByCompany, setImportedSellerByCompany] = useState<Record<string, string>>({});
+  const [importedRowAssignments, setImportedRowAssignments] = useState<
+    { company_id: string; location_id: string | null; seller_id: string | null }[]
+  >([]);
   const [salespersonMap, setSalespersonMap] = useState<Map<string, string>>(new Map());
   const [assigning, setAssigning] = useState(false);
   const createBatch = useServerFn(createImportBatch);
@@ -846,8 +849,53 @@ function ImportSide() {
       console.error("Kunne ikke oprette lokationer", e);
     }
 
+    // Byg per-række tildelinger (company + lokation + sælger) til Trin 5
+    const rowAssignments: { company_id: string; location_id: string | null; seller_id: string | null }[] = [];
+    try {
+      // Hent location id-map (company_id, visma_delivery_no) -> location_id
+      const locIdMap = new Map<string, string>();
+      for (let i = 0; i < companyIds.length; i += 500) {
+        const slice = companyIds.slice(i, i + 500);
+        const { data } = await (supabase as any)
+          .from("locations")
+          .select("id, company_id, visma_delivery_no")
+          .in("company_id", slice);
+        (data ?? []).forEach((l: any) => {
+          if (l.visma_delivery_no) {
+            locIdMap.set(`${l.company_id}|${l.visma_delivery_no}`, l.id);
+          }
+        });
+      }
+
+      // Byg cvr -> company_id map
+      const cvrToCompanyId = new Map<string, string>();
+      for (let i = 0; i < companyIds.length; i += 500) {
+        const slice = companyIds.slice(i, i + 500);
+        const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
+        (data ?? []).forEach((c: any) => { if (c.cvr) cvrToCompanyId.set(c.cvr, c.id); });
+      }
+
+      const seen = new Set<string>();
+      for (const r of rows) {
+        const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
+        const companyId = cvr ? cvrToCompanyId.get(cvr) : null;
+        if (!companyId) continue;
+        const delivery = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
+        const locationId = delivery ? (locIdMap.get(`${companyId}|${delivery}`) ?? null) : null;
+        const sellerRaw = mapping.salesperson_no ? (r[mapping.salesperson_no] ?? "").trim() : "";
+        const sellerId = sellerRaw ? (salespersonMap.get(sellerRaw) ?? null) : (sellerByCompany[companyId] ?? null);
+        const key = `${companyId}|${locationId ?? ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rowAssignments.push({ company_id: companyId, location_id: locationId, seller_id: sellerId });
+      }
+    } catch (e) {
+      console.error("Kunne ikke bygge per-række tildelinger", e);
+    }
+
     setImportedIds(companyIds);
     setImportedSellerByCompany(sellerByCompany);
+    setImportedRowAssignments(rowAssignments);
     setResult({
       created, updated, skipped, failed, enriched, noCvrCount,
       importSource,
@@ -876,16 +924,27 @@ function ImportSide() {
       return;
     }
     setAssigning(true);
-    const assignments = importedIds.map((id) => ({
-      company_id: id,
-      contact_list_id: chosenList,
-      assigned_to: hasPerRowSeller
-        ? (importedSellerByCompany[id] ?? (chosenSeller || null))
-        : chosenSeller,
-    })).filter((a) => a.assigned_to); // hop over rækker uden match og uden fallback
+    const hasPerRowLocation = !!mapping.visma_delivery_id && importedRowAssignments.some((r) => r.location_id);
+    const assignments = hasPerRowLocation
+      ? importedRowAssignments
+          .map((r) => ({
+            company_id: r.company_id,
+            location_id: r.location_id,
+            contact_list_id: chosenList,
+            assigned_to: hasPerRowSeller ? (r.seller_id ?? (chosenSeller || null)) : chosenSeller,
+          }))
+          .filter((a) => a.assigned_to)
+      : importedIds.map((id) => ({
+          company_id: id,
+          location_id: null as string | null,
+          contact_list_id: chosenList,
+          assigned_to: hasPerRowSeller
+            ? (importedSellerByCompany[id] ?? (chosenSeller || null))
+            : chosenSeller,
+        })).filter((a) => a.assigned_to);
     let failed = 0;
     for (let i = 0; i < assignments.length; i += 200) {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("contact_list_assignments")
         .insert(assignments.slice(i, i + 200));
       if (error) failed++;
@@ -894,7 +953,12 @@ function ImportSide() {
     if (failed) {
       toast.error("Nogle tildelinger fejlede");
     } else {
-      toast.success(`${assignments.length} virksomheder tildelt`);
+      const locCount = hasPerRowLocation ? assignments.filter((a) => a.location_id).length : 0;
+      toast.success(
+        hasPerRowLocation
+          ? `${assignments.length} tildelinger oprettet (heraf ${locCount} på specifik lokation)`
+          : `${assignments.length} virksomheder tildelt`,
+      );
     }
     navigate({ to: "/virksomheder" });
   }
@@ -976,6 +1040,7 @@ function ImportSide() {
           onSkip={goLater}
           hasPerRowMapping={!!mapping.salesperson_no}
           perRowMatchedCount={importedIds.filter((id) => importedSellerByCompany[id]).length}
+          locationAssignmentCount={importedRowAssignments.filter((r) => r.location_id).length}
         />
       )}
     </div>
@@ -1329,6 +1394,7 @@ function Trin5Tildeling({
   importedCount,
   perRowMatchedCount,
   hasPerRowMapping,
+  locationAssignmentCount,
   assigning,
   onBack,
   onAssign,
@@ -1343,6 +1409,7 @@ function Trin5Tildeling({
   importedCount: number;
   perRowMatchedCount: number;
   hasPerRowMapping: boolean;
+  locationAssignmentCount: number;
   assigning: boolean;
   onBack: () => void;
   onAssign: () => void;
@@ -1356,6 +1423,14 @@ function Trin5Tildeling({
         {hasPerRowMapping
           ? `${perRowMatchedCount} af ${importedCount} virksomheder har et matchet sælgernummer fra CSV-filen. Vælg evt. en fallback-sælger for de øvrige.`
           : `${importedCount} importerede virksomheder tildeles den valgte kontaktliste og sælger.`}
+        {locationAssignmentCount > 0 && (
+          <>
+            {" "}
+            <span className="text-primary">
+              📍 {locationAssignmentCount} tildelinger oprettes på specifikke lokationer.
+            </span>
+          </>
+        )}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>

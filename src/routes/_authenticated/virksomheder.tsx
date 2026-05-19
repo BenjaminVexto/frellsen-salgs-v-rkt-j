@@ -113,6 +113,9 @@ function VirksomhederListe() {
   const [assignmentMap, setAssignmentMap] = useState<Map<string, string[]>>(
     new Map(),
   );
+  const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null }[]>>(
+    new Map(),
+  );
   const [recentIds, setRecentIds] = useState<string[] | null>(null);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -196,6 +199,28 @@ function VirksomhederListe() {
       setAssignmentMap(m);
     })();
   }, [isAdmin, rows.length]);
+
+  // Lokationer for alle virksomheder — bruges til fritekstsøgning
+  useEffect(() => {
+    if (!rows.length) return;
+    (async () => {
+      const ids = rows.map((r) => r.id);
+      const m = new Map<string, { city: string | null; address: string | null }[]>();
+      for (let i = 0; i < ids.length; i += 500) {
+        const slice = ids.slice(i, i + 500);
+        const { data } = await (supabase as any)
+          .from("locations")
+          .select("company_id, city, address")
+          .in("company_id", slice);
+        (data ?? []).forEach((l: any) => {
+          const arr = m.get(l.company_id) ?? [];
+          arr.push({ city: l.city, address: l.address });
+          m.set(l.company_id, arr);
+        });
+      }
+      setLocationMap(m);
+    })();
+  }, [rows]);
 
   // Sælgere
   useEffect(() => {
@@ -294,10 +319,16 @@ function VirksomhederListe() {
       // søgetekst
       if (q) {
         const qq = q.toLowerCase();
+        const locs = locationMap.get(r.id) ?? [];
         const hit =
           r.name.toLowerCase().includes(qq) ||
           (r.cvr ?? "").includes(q) ||
-          (r.city ?? "").toLowerCase().includes(qq);
+          (r.city ?? "").toLowerCase().includes(qq) ||
+          locs.some(
+            (l) =>
+              (l.city ?? "").toLowerCase().includes(qq) ||
+              (l.address ?? "").toLowerCase().includes(qq),
+          );
         if (!hit) return false;
       }
       if (
@@ -346,7 +377,7 @@ function VirksomhederListe() {
       }
       return true;
     });
-  }, [rows, q, filters, assignmentMap]);
+  }, [rows, q, filters, assignmentMap, locationMap]);
 
   // Reset til side 0 når filtre ændrer sig
   useEffect(() => {
@@ -457,7 +488,7 @@ function VirksomhederListe() {
       {/* Søg + filter toggle */}
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
         <Input
-          placeholder="Søg på navn, CVR eller by…"
+          placeholder="Søg på navn, CVR, by eller lokation…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="max-w-md"
@@ -790,6 +821,26 @@ function VirksomhederListe() {
                         {r.city ? ` · ${r.city}` : ""}
                         {r.municipality ? ` · ${r.municipality}` : ""}
                       </div>
+                      {(() => {
+                        if (!q) return null;
+                        const qq = q.toLowerCase();
+                        const nameHit = r.name.toLowerCase().includes(qq);
+                        const cvrHit = (r.cvr ?? "").includes(q);
+                        const cityHit = (r.city ?? "").toLowerCase().includes(qq);
+                        if (nameHit || cvrHit || cityHit) return null;
+                        const locs = locationMap.get(r.id) ?? [];
+                        const match = locs.find(
+                          (l) =>
+                            (l.city ?? "").toLowerCase().includes(qq) ||
+                            (l.address ?? "").toLowerCase().includes(qq),
+                        );
+                        if (!match) return null;
+                        return (
+                          <div className="text-xs text-primary mt-0.5">
+                            📍 lokation i {match.city ?? match.address}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {unassigned && (
