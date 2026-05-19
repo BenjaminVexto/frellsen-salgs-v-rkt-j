@@ -334,14 +334,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
         size: data.size ?? 500,
       };
 
-      console.log("BULK PAYLOAD:", JSON.stringify(payload, null, 2));
       const json = await callCvr(payload);
-      console.log(
-        "BULK HITS:",
-        json?.hits?.total,
-        "første hit:",
-        json?.hits?.hits?.[0]?._source?.Vrvirksomhed?.virksomhedMetadata?.nyesteNavn?.navn ?? "ingen",
-      );
       const hits = json?.hits?.hits ?? [];
       let companies: CvrCompany[] = hits
         .map((h: any) => h?._source?.Vrvirksomhed)

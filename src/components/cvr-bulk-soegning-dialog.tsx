@@ -147,11 +147,7 @@ export function CvrBulkSoegningDialog({
           toast.error("CVR-søgning fejlede: " + (res.error ?? "ukendt"));
           continue;
         }
-        console.log("res.success:", res.success);
-        console.log("res.data type:", typeof res.data, Array.isArray(res.data));
-        console.log("Første element:", (res.data as any)?.[0]);
         const list = Array.isArray(res.data) ? res.data : [];
-        console.log("Frontend modtog:", list.length, "virksomheder, første:", list[0]?.name ?? "ingen navn");
         for (const c of list) {
           // Postnummer-filter (klient-side)
           if (zipFrom && zipTo && c.zip) {
