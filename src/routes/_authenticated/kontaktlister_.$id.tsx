@@ -160,7 +160,7 @@ function KontaktlisteDetalje() {
       supabase
         .from("contact_list_assignments")
         .select(
-          "id, company_id, status, priority, next_followup_date, next_action_note, assigned_to, companies(name, city, employees, customer_type)",
+          "id, company_id, status, priority, next_followup_date, next_action_note, assigned_to, location_id, companies(name, city, employees, customer_type)",
         )
         .eq("contact_list_id", id),
     ]);
@@ -172,8 +172,13 @@ function KontaktlisteDetalje() {
       ),
     );
     const companyIds = (assigns ?? []).map((a) => a.company_id);
+    const locationIds = Array.from(
+      new Set(
+        (assigns ?? []).map((a: any) => a.location_id).filter(Boolean) as string[],
+      ),
+    );
 
-    const [{ data: profs }, { data: acts }] = await Promise.all([
+    const [{ data: profs }, { data: acts }, { data: locs }] = await Promise.all([
       userIds.length
         ? supabase.from("profiles").select("id, full_name").in("id", userIds)
         : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
@@ -184,8 +189,12 @@ function KontaktlisteDetalje() {
             .in("company_id", companyIds)
             .order("created_at", { ascending: false })
         : Promise.resolve({ data: [] as any[] }),
+      locationIds.length
+        ? (supabase as any).from("locations").select("id, city").in("id", locationIds)
+        : Promise.resolve({ data: [] as { id: string; city: string | null }[] }),
     ]);
     const pMap = new Map((profs ?? []).map((p) => [p.id, p.full_name]));
+    const locMap = new Map((locs ?? []).map((l: any) => [l.id, l.city]));
     const lastActMap = new Map<string, { at: string; type: string }>();
     for (const a of acts ?? []) {
       if (!lastActMap.has(a.company_id)) {
@@ -204,6 +213,8 @@ function KontaktlisteDetalje() {
       next_followup_date: a.next_followup_date,
       next_action_note: a.next_action_note,
       assigned_to: a.assigned_to,
+      location_id: a.location_id ?? null,
+      location_city: a.location_id ? (locMap.get(a.location_id) ?? null) : null,
       company: a.companies ?? {
         name: "?",
         city: null,
