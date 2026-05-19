@@ -5,6 +5,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
+import { MentionTextarea, NoteWithMentions } from "@/components/mention-textarea";
+import {
+  fetchMentionableUsers,
+  createMentionNotifications,
+  type MentionableUser,
+} from "@/lib/mentions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -186,6 +192,26 @@ function VirksomhedsKort() {
     load();
   }, [load]);
 
+
+  // Scroll to a specific activity if URL has #activity-<id>
+  useEffect(() => {
+    if (loading) return;
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    if (!hash.startsWith("#activity-")) return;
+    const id = hash.slice(1);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-primary", "rounded");
+        setTimeout(
+          () => el.classList.remove("ring-2", "ring-primary", "rounded"),
+          2500,
+        );
+      }
+    });
+  }, [loading, activities.length]);
+
   if (loading) {
     return <div className="p-8 text-sm text-muted-foreground">Indlæser…</div>;
   }
@@ -350,7 +376,11 @@ function VirksomhedsKort() {
             ) : (
               <div className="space-y-4">
                 {activities.map((a) => (
-                  <div key={a.id} className="border-l-2 border-primary/30 pl-3">
+                  <div
+                    key={a.id}
+                    id={`activity-${a.id}`}
+                    className="border-l-2 border-primary/30 pl-3 scroll-mt-24 transition-shadow"
+                  >
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <Badge variant="outline" className="capitalize">
                         {activityTypes.find((t) => t.value === a.activity_type)?.label ?? a.activity_type}
@@ -359,7 +389,7 @@ function VirksomhedsKort() {
                         {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
                       </span>
                     </div>
-                    {a.note && <p className="text-sm whitespace-pre-wrap">{a.note}</p>}
+                    {a.note && <NoteWithMentions text={a.note} />}
                     {(a.next_action || a.next_followup_date) && (
                       <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
                         <span className="font-medium">Næste: </span>
@@ -573,6 +603,7 @@ function RegistrerAktivitetDialog({
   const [updateStatus, setUpdateStatus] = useState<AssignmentStatus | "">("");
   const [assignmentId, setAssignmentId] = useState<string>(assignments[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
+  const [users, setUsers] = useState<MentionableUser[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -582,8 +613,9 @@ function RegistrerAktivitetDialog({
       setNextDate(undefined);
       setUpdateStatus("");
       setAssignmentId(assignments[0]?.id ?? "");
+      fetchMentionableUsers(userId).then(setUsers);
     }
-  }, [open, assignments]);
+  }, [open, assignments, userId]);
 
   const requiresFollowup =
     updateStatus !== "" && STATUS_REQUIRES_FOLLOWUP.includes(updateStatus as AssignmentStatus);
@@ -598,19 +630,41 @@ function RegistrerAktivitetDialog({
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("activities").insert({
-      company_id: companyId,
-      created_by: userId,
-      activity_type: type as ActivityType,
-      note: note.trim() || null,
-      next_action: nextAction.trim() || null,
-      next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
-      contact_list_assignment_id: assignmentId || null,
-    });
+    const trimmedNote = note.trim();
+    const { data: inserted, error } = await supabase
+      .from("activities")
+      .insert({
+        company_id: companyId,
+        created_by: userId,
+        activity_type: type as ActivityType,
+        note: trimmedNote || null,
+        next_action: nextAction.trim() || null,
+        next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
+        contact_list_assignment_id: assignmentId || null,
+      })
+      .select("id")
+      .single();
     if (error) {
       toast.error("Kunne ikke gemme aktivitet: " + error.message);
       setSaving(false);
       return;
+    }
+    // @mentions → notifikationer
+    if (trimmedNote) {
+      const n = await createMentionNotifications({
+        note: trimmedNote,
+        users,
+        senderId: userId,
+        companyId,
+        activityId: inserted?.id ?? null,
+      });
+      if (n > 0) {
+        toast.success(
+          n === 1
+            ? "1 kollega notificeret"
+            : `${n} kolleger notificeret`,
+        );
+      }
     }
     if (updateStatus && assignmentId) {
       const { error: e2 } = await supabase
@@ -648,8 +702,16 @@ function RegistrerAktivitetDialog({
             </Select>
           </div>
           <div>
-            <Label className="mb-1.5 block">Note</Label>
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Hvad skete der?" />
+            <Label className="mb-1.5 block">
+              Note <span className="text-xs text-muted-foreground font-normal">— skriv @ for at tagge en kollega</span>
+            </Label>
+            <MentionTextarea
+              value={note}
+              onChange={setNote}
+              users={users}
+              rows={3}
+              placeholder="Hvad skete der? Tag kolleger med @Fornavn"
+            />
           </div>
           {assignments.length > 0 && (
             <div>

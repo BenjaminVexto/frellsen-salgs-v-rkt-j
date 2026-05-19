@@ -8,6 +8,8 @@ import {
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { NotificationBell } from "@/components/notification-bell";
+import { toast } from "sonner";
 import {
   LayoutDashboard,
   Building2,
@@ -122,10 +124,32 @@ function AuthenticatedLayout() {
           )}
         </nav>
         <div className="px-4 py-4 border-t border-primary-foreground/10">
-          <div className="text-sm font-medium">{auth.fullName || auth.user?.email}</div>
-          <div className="text-xs text-primary-foreground/60 mb-3">
-            {isAdmin ? "Administrator" : "Sælger"}
-            {auth.region ? ` · ${auth.region}` : ""}
+          <div className="flex items-center justify-between mb-2">
+            <div className="min-w-0">
+              <div className="text-sm font-medium truncate">{auth.fullName || auth.user?.email}</div>
+              <div className="text-xs text-primary-foreground/60">
+                {isAdmin ? "Administrator" : "Sælger"}
+                {auth.region ? ` · ${auth.region}` : ""}
+              </div>
+            </div>
+            {auth.user?.id && (
+              <NotificationBell
+                userId={auth.user.id}
+                onUnreadCountChange={(n) => {
+                  if (typeof window === "undefined") return;
+                  const key = `welcome-toast-${auth.user!.id}`;
+                  if (sessionStorage.getItem(key)) return;
+                  sessionStorage.setItem(key, "1");
+                  if (n > 0) {
+                    toast.message(
+                      n === 1
+                        ? "Du har 1 ny besked fra en kollega"
+                        : `Du har ${n} nye beskeder fra kolleger`,
+                    );
+                  }
+                }}
+              />
+            )}
           </div>
           <Button
             variant="secondary"
@@ -144,9 +168,12 @@ function AuthenticatedLayout() {
           <Coffee className="h-5 w-5" />
           <span className="font-semibold text-sm">Frellsen Salgsoversigt</span>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
-          <LogOut className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {auth.user?.id && <NotificationBell userId={auth.user.id} />}
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <main className="flex-1 md:ml-0 pt-14 md:pt-0">
