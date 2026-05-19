@@ -251,7 +251,8 @@ export function CvrBulkSoegningDialog({
         mapped,
         list.map((c) => ({ z: c.zip })),
       );
-      const annotated = await annotateExisting(zipFiltered);
+      const empFiltered = filterByEmployees(zipFiltered);
+      const annotated = await annotateExisting(empFiltered);
       setRows(annotated);
       setSelectedCvrs(new Set(annotated.filter((r) => !r.existing).map((r) => r.cvr)));
     } finally {
@@ -282,7 +283,8 @@ export function CvrBulkSoegningDialog({
         existing: false,
       }));
       const zipFiltered = filterByZip(mapped, list.map((c) => ({ z: c.zip })));
-      const annotated = await annotateExisting(zipFiltered);
+      const empFiltered = filterByEmployees(zipFiltered);
+      const annotated = await annotateExisting(empFiltered);
       setRows(annotated);
       setPage(pageNum);
     } finally {
@@ -322,7 +324,8 @@ export function CvrBulkSoegningDialog({
           existing: false,
         }));
         const zipFiltered = filterByZip(mapped, list.map((c) => ({ z: c.zip })));
-        for (const r of zipFiltered) {
+        const empFiltered = filterByEmployees(zipFiltered);
+        for (const r of empFiltered) {
           if (!seen.has(r.cvr)) {
             seen.add(r.cvr);
             aggregated.push(r);
