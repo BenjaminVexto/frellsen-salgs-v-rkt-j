@@ -5,6 +5,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
+import { MentionTextarea, NoteWithMentions } from "@/components/mention-textarea";
+import {
+  fetchMentionableUsers,
+  createMentionNotifications,
+  type MentionableUser,
+} from "@/lib/mentions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
