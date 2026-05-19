@@ -386,38 +386,62 @@ function VirksomhedsKort() {
               <p className="text-sm text-muted-foreground">Ingen aktiviteter endnu.</p>
             ) : (
               <div className="space-y-4">
-                {activities.map((a) => (
-                  <div
-                    key={a.id}
-                    id={`activity-${a.id}`}
-                    className="border-l-2 border-primary/30 pl-3 scroll-mt-24 transition-shadow"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <Badge variant="outline" className="capitalize">
-                        {activityTypes.find((t) => t.value === a.activity_type)?.label ?? a.activity_type}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
-                      </span>
-                    </div>
-                    {a.note && <NoteWithMentions text={a.note} />}
-                    {(a.next_action || a.next_followup_date) && (
-                      <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
-                        <span className="font-medium">Næste: </span>
-                        {a.next_action}
-                        {a.next_followup_date && (
-                          <span className="text-muted-foreground">
-                            {" — "}
-                            {format(new Date(a.next_followup_date), "d. MMM yyyy", { locale: da })}
-                          </span>
-                        )}
+                {activities.map((a) => {
+                  const loc = (a as any).location_id
+                    ? locations.find((l) => l.id === (a as any).location_id)
+                    : null;
+                  return (
+                    <div
+                      key={a.id}
+                      id={`activity-${a.id}`}
+                      className="border-l-2 border-primary/30 pl-3 scroll-mt-24 transition-shadow"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="capitalize">
+                            {activityTypes.find((t) => t.value === a.activity_type)?.label ?? a.activity_type}
+                          </Badge>
+                          {loc && (
+                            <Badge variant="secondary" className="text-xs gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {loc.city || loc.address || "Lokation"}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {a.note && <NoteWithMentions text={a.note} />}
+                      {(a.next_action || a.next_followup_date) && (
+                        <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
+                          <span className="font-medium">Næste: </span>
+                          {a.next_action}
+                          {a.next_followup_date && (
+                            <span className="text-muted-foreground">
+                              {" — "}
+                              {format(new Date(a.next_followup_date), "d. MMM yyyy", { locale: da })}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Card>
+
+          <LokationerSektion
+            companyId={company.id}
+            isAdmin={isAdmin}
+            reloadKey={locationReloadKey}
+            onRegisterActivity={(locationId) => {
+              setPresetLocationId(locationId);
+              setActivityOpen(true);
+            }}
+          />
+
 
           <Card className="p-5">
             <h2 className="font-semibold mb-4 flex items-center gap-2">
@@ -449,7 +473,7 @@ function VirksomhedsKort() {
         <Card className="p-5 h-fit lg:sticky lg:top-6">
           <h2 className="font-semibold mb-4">Handlinger</h2>
           <div className="space-y-2">
-            <Button className="w-full justify-start" onClick={() => setActivityOpen(true)}>
+            <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
             </Button>
             <Button variant="outline" className="w-full justify-start" onClick={() => setOpportunityOpen(true)}>
@@ -475,11 +499,13 @@ function VirksomhedsKort() {
 
       <RegistrerAktivitetDialog
         open={activityOpen}
-        onOpenChange={setActivityOpen}
+        onOpenChange={(v) => { setActivityOpen(v); if (!v) setPresetLocationId(null); }}
         companyId={company.id}
         userId={user?.id ?? ""}
         assignments={assignments}
-        onSaved={load}
+        locations={locations}
+        presetLocationId={presetLocationId}
+        onSaved={() => { load(); setLocationReloadKey((k) => k + 1); }}
       />
       <OpretSalgsmulighedDialog
         open={opportunityOpen}
