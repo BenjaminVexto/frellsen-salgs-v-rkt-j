@@ -32,7 +32,7 @@ export type CvrCompany = {
 };
 
 export type CvrResponse =
-  | { success: true; data: CvrCompany | CvrCompany[]; error?: string }
+  | { success: true; data: CvrCompany | CvrCompany[]; total?: number; error?: string }
   | { success: false; error: string; data?: null };
 
 const SOURCE_FIELDS = [
