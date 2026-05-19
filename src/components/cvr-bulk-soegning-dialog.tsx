@@ -48,7 +48,8 @@ const EMPLOYEE_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: "50-99", min: 50, max: 99 },
   { label: "100-199", min: 100, max: 199 },
   { label: "200-499", min: 200, max: 499 },
-  { label: "500+", min: 500, max: 999999 },
+  { label: "500-999", min: 500, max: 999 },
+  { label: "1000+", min: 1000, max: 999999 },
 ];
 
 const COMPANY_FORMS: { label: string; value: string }[] = [
