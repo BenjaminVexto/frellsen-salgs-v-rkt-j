@@ -289,6 +289,10 @@ export const cvrLookup = createServerFn({ method: "POST" })
         },
       });
 
+      // Ekskludér P-enheder: kræv selvstændigt 8-cifret CVR-nummer
+      must.push({ exists: { field: "Vrvirksomhed.cvrNummer" } });
+      filter.push({ regexp: { "Vrvirksomhed.cvrNummer": "[0-9]{8}" } });
+
       // Kommune
       let kommuneKode: string | null = null;
       if (f.municipality_code) kommuneKode = f.municipality_code.padStart(4, "0");
