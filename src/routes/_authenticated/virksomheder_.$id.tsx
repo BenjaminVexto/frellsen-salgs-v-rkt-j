@@ -67,6 +67,7 @@ import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
+import { LokationerSektion, type Location } from "@/components/lokationer-sektion";
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
 type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
@@ -134,7 +135,10 @@ function VirksomhedsKort() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [locationReloadKey, setLocationReloadKey] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [presetLocationId, setPresetLocationId] = useState<string | null>(null);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -175,16 +179,23 @@ function VirksomhedsKort() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: c }, { data: ct }, { data: a }, { data: asg }] = await Promise.all([
+    const [{ data: c }, { data: ct }, { data: a }, { data: asg }, { data: locs }] = await Promise.all([
       supabase.from("companies").select("*").eq("id", id).maybeSingle(),
       supabase.from("contacts").select("*").eq("company_id", id).order("is_primary", { ascending: false }),
       supabase.from("activities").select("*").eq("company_id", id).order("created_at", { ascending: false }),
       supabase.from("contact_list_assignments").select("*").eq("company_id", id),
+      (supabase as any)
+        .from("locations")
+        .select("*")
+        .eq("company_id", id)
+        .order("is_primary", { ascending: false })
+        .order("city", { ascending: true }),
     ]);
     setCompany(c ?? null);
     setContacts(ct ?? []);
     setActivities(a ?? []);
     setAssignments(asg ?? []);
+    setLocations(((locs ?? []) as Location[]));
     setLoading(false);
   }, [id]);
 
