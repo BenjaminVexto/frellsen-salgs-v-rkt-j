@@ -745,6 +745,23 @@ function RegistrerAktivitetDialog({
               </SelectContent>
             </Select>
           </div>
+          {locations.length > 0 && (
+            <div>
+              <Label className="mb-1.5 block">Hvilken lokation gælder dette?</Label>
+              <Select value={locationId} onValueChange={setLocationId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__general">Hele virksomheden (generelt)</SelectItem>
+                  {locations.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.city || l.address || "Lokation"}
+                      {l.is_primary ? " (primær)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label className="mb-1.5 block">
               Note <span className="text-xs text-muted-foreground font-normal">— skriv @ for at tagge en kollega</span>
