@@ -16,7 +16,7 @@ export type CvrCompany = {
   email: string | null;
   website: string | null;
   company_form: string | null;
-  status: "AKTIV" | "OPLØST" | "KONKURS" | "UKENDT" | string;
+  status: string;
   start_date: string | null;
   ad_protection: boolean;
   employees_interval: string | null;
@@ -53,9 +53,6 @@ const SOURCE_FIELDS = [
   "Vrvirksomhed.aarsbeskaeftigelse",
   "Vrvirksomhed.kvartalsbeskaeftigelse",
   "Vrvirksomhed.maanedsbeskaeftigelse",
-  "Vrvirksomhed.virksomhedMetadata.nyesteMaanedsbeskaeftigelse",
-  "Vrvirksomhed.virksomhedMetadata.nyesteKvartalsbeskaeftigelse",
-  "Vrvirksomhed.virksomhedMetadata.nyesteAarsbeskaeftigelse",
 ];
 
 function pickLatest<T extends { periode?: { gyldigFra?: string | null; gyldigTil?: string | null } }>(
@@ -156,7 +153,8 @@ async function callCvr(payload: unknown): Promise<any> {
     throw err;
   }
   if (!res.ok) {
-    const err: any = new Error(`HTTP_ERROR: ${res.status}`);
+    const body = await res.text().catch(() => "");
+    const err: any = new Error(`HTTP_ERROR: ${res.status} ${body}`);
     err.code = "HTTP_ERROR";
     throw err;
   }
@@ -168,7 +166,6 @@ const InputSchema = z.discriminatedUnion("type", [
     type: z.literal("single"),
     cvr: z.string().regex(/^\d{8}$/, "CVR skal være 8 cifre"),
   }),
-  // SEARCH: søg på navn + valgfri lokation
   z.object({
     type: z.literal("search"),
     name: z.string().min(2).max(100),
@@ -181,12 +178,8 @@ const InputSchema = z.discriminatedUnion("type", [
       municipality: z.string().min(1).max(60).optional(),
       municipality_code: z.string().regex(/^\d{3,4}$/).optional(),
       branch_codes: z.array(z.string().min(2).max(10)).max(50).optional(),
-      min_employees: z.number().int().min(0).max(1000000).optional(),
-      max_employees: z.number().int().min(0).max(1000000).optional(),
       company_forms: z.array(z.string().min(1).max(40)).max(20).optional(),
-      status: z.string().min(1).max(20).optional(),
     }),
-    size: z.number().int().min(1).max(1000).optional(),
     from: z.number().int().min(0).optional(),
   }),
 ]);
@@ -195,7 +188,8 @@ export const cvrLookup = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<CvrResponse> => {
     try {
-      // --- SINGLE: opslag på præcist CVR-nummer ---
+
+      // --- SINGLE ---
       if (data.type === "single") {
         const payload = {
           _source: SOURCE_FIELDS,
@@ -208,12 +202,11 @@ export const cvrLookup = createServerFn({ method: "POST" })
         return { success: true, data: mapVirksomhed(hit) };
       }
 
-      // --- SEARCH: søg på navn med valgfri lokation-filter ---
+      // --- SEARCH ---
       if (data.type === "search") {
         const nameQuery = data.name;
         const location = data.location ?? "";
         const isPostalCode = /^\d+$/.test(location);
-
         const locationFilter: any[] = [];
         if (location) {
           if (isPostalCode) {
@@ -232,7 +225,6 @@ export const cvrLookup = createServerFn({ method: "POST" })
             });
           }
         }
-
         const payload: any = {
           _source: SOURCE_FIELDS,
           query: {
@@ -263,25 +255,27 @@ export const cvrLookup = createServerFn({ method: "POST" })
           sort: [{ _score: { order: "desc" } }],
           size: data.size ?? 10,
         };
-
         const json = await callCvr(payload);
         const hits = json?.hits?.hits ?? [];
         const companies: CvrCompany[] = hits
           .map((h: any) => h?._source?.Vrvirksomhed)
           .filter(Boolean)
           .map(mapVirksomhed);
-
-        if (!companies.length) {
-          return { success: false, error: "NOT_FOUND" };
-        }
+        if (!companies.length) return { success: false, error: "NOT_FOUND" };
         return { success: true, data: companies };
       }
 
-      // --- BULK: filtreret udtræk til kontaktlister ---
+      // --- BULK ---
+      // Ansatte filtreres IKKE her — det gøres client-side
+      // fordi ES-arrayfelterne indeholder historiske poster
+      // og giver upålidelige resultater.
+      // ES filtrerer kun på: status, kommune, branche, virksomhedsform.
+
       const f = data.filters;
       const must: any[] = [];
       const filter: any[] = [];
 
+      // Status: aktiv + normal
       must.push({
         bool: {
           should: [
@@ -291,10 +285,6 @@ export const cvrLookup = createServerFn({ method: "POST" })
           minimum_should_match: 1,
         },
       });
-
-      // Ekskludér P-enheder: kræv selvstændigt 8-cifret CVR-nummer
-      must.push({ exists: { field: "Vrvirksomhed.cvrNummer" } });
-      filter.push({ regexp: { "Vrvirksomhed.cvrNummer": "[0-9]{8}" } });
 
       // Kommune
       let kommuneKode: string | null = null;
@@ -312,7 +302,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
         });
       }
 
-      // Brancher: prefix-match (frontend sender 2-cifrede præfikser, ES gemmer 6-cifrede koder)
+      // Brancher: prefix-match på hoved- og bibrancher
       if (f.branch_codes && f.branch_codes.length) {
         const should: any[] = [];
         for (const code of f.branch_codes) {
@@ -336,9 +326,6 @@ export const cvrLookup = createServerFn({ method: "POST" })
         });
       }
 
-      // Ansatte-interval filtreres client-side (se CvrBulkSoegningDialog)
-
-
       const payload: any = {
         query: { bool: { must, filter } },
         _source: SOURCE_FIELDS,
@@ -358,11 +345,10 @@ export const cvrLookup = createServerFn({ method: "POST" })
         data: companies,
         total: json?.hits?.total?.value ?? json?.hits?.total ?? 0,
       };
+
     } catch (e: any) {
-      const code =
-        e?.code ??
-        (e?.message?.startsWith("NETWORK_ERROR") ? "NETWORK_ERROR" : "HTTP_ERROR");
-      console.error("cvrLookup error:", e);
+      const code = e?.code ?? "HTTP_ERROR";
+      console.error("cvrLookup error:", e?.message ?? e);
       return { success: false, error: code };
     }
   });

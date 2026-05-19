@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -40,29 +39,30 @@ const BRANCH_CATEGORIES: { label: string; prefixes: string[] }[] = [
   { label: "Foreninger og organisationer", prefixes: ["90","91","92","93","94","95","96"] },
 ];
 
-const EMPLOYEE_BUCKETS: { label: string; min: number; max: number }[] = [
-  { label: "0", min: 0, max: 0 },
-  { label: "1", min: 1, max: 1 },
-  { label: "2-4", min: 2, max: 4 },
-  { label: "5-9", min: 5, max: 9 },
-  { label: "10-19", min: 10, max: 19 },
-  { label: "20-49", min: 20, max: 49 },
-  { label: "50-99", min: 50, max: 99 },
-  { label: "100-199", min: 100, max: 199 },
-  { label: "200-499", min: 200, max: 499 },
-  { label: "500-999", min: 500, max: 999 },
-  { label: "1000+", min: 1000, max: 999999 },
+// Svarer til CVR's intervalkoder efter ANTAL_-prefix er fjernet
+const EMPLOYEE_BUCKETS: { label: string; codes: string[] }[] = [
+  { label: "0",       codes: ["0"]       },
+  { label: "1",       codes: ["1"]       },
+  { label: "2-4",     codes: ["2_4"]     },
+  { label: "5-9",     codes: ["5_9"]     },
+  { label: "10-19",   codes: ["10_19"]   },
+  { label: "20-49",   codes: ["20_49"]   },
+  { label: "50-99",   codes: ["50_99"]   },
+  { label: "100-199", codes: ["100_199"] },
+  { label: "200-499", codes: ["200_499"] },
+  { label: "500-999", codes: ["500_999"] },
+  { label: "1000+",   codes: ["1000_"]   },
 ];
 
 const COMPANY_FORMS: { label: string; value: string }[] = [
-  { label: "A/S", value: "Aktieselskab" },
-  { label: "ApS", value: "Anpartsselskab" },
-  { label: "I/S", value: "Interessentskab" },
-  { label: "K/S", value: "Kommanditselskab" },
-  { label: "Enkeltmandsfirma", value: "Enkeltmandsvirksomhed" },
-  { label: "Forening", value: "Forening" },
-  { label: "Kommune/Region/Stat", value: "Kommune" },
-  { label: "Øvrige", value: "Øvrige" },
+  { label: "A/S",                 value: "Aktieselskab"          },
+  { label: "ApS",                 value: "Anpartsselskab"        },
+  { label: "I/S",                 value: "Interessentskab"       },
+  { label: "K/S",                 value: "Kommanditselskab"      },
+  { label: "Enkeltmandsfirma",    value: "Enkeltmandsvirksomhed" },
+  { label: "Forening",            value: "Forening"              },
+  { label: "Kommune/Region/Stat", value: "Kommune"               },
+  { label: "Øvrige",              value: "Øvrige"                },
 ];
 
 const KOMMUNER = [
@@ -87,6 +87,7 @@ const KOMMUNER = [
 ].sort((a, b) => a.localeCompare(b, "da"));
 
 const PAGE_SIZE = 100;
+const ROWS_PER_PAGE = 100;
 
 type CvrRow = {
   cvr: string;
@@ -98,7 +99,22 @@ type CvrRow = {
   ad_protection: boolean;
   company_form: string | null;
   existing: boolean;
+  zip: string | null;
 };
+
+// Filtrer på ansatte client-side. employees-værdien er ANTAL_-prefix fjernet,
+// fx "20_49", "5_9", "1000_", null. Virksomheder med null passerer filteret.
+function matchesEmployeeFilter(
+  employees: string | null,
+  selectedBuckets: string[],
+): boolean {
+  if (!selectedBuckets.length) return true;
+  if (!employees) return true;
+  const selectedCodes = EMPLOYEE_BUCKETS
+    .filter((b) => selectedBuckets.includes(b.label))
+    .flatMap((b) => b.codes);
+  return selectedCodes.includes(employees);
+}
 
 export function CvrBulkSoegningDialog({
   open,
@@ -112,41 +128,51 @@ export function CvrBulkSoegningDialog({
   const lookupFn = useServerFn(cvrLookup);
   const importFn = useServerFn(importCompaniesFromCvr);
 
-  const [kommuner, setKommuner] = useState<string[]>([]);
+  // Filtre
+  const [kommune, setKommune] = useState("");
   const [zipFrom, setZipFrom] = useState("");
   const [zipTo, setZipTo] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
   const [employeeBuckets, setEmployeeBuckets] = useState<string[]>([]);
   const [companyForms, setCompanyForms] = useState<string[]>([]);
-  const [activeOnly, setActiveOnly] = useState(true);
 
-  const [rows, setRows] = useState<CvrRow[]>([]);
+  // Resultater
+  const [filteredRows, setFilteredRows] = useState<CvrRow[]>([]);
   const [selectedCvrs, setSelectedCvrs] = useState<Set<string>>(new Set());
-  const [searching, setSearching] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [total, setTotal] = useState(0);
+  const [esTotalBeforeEmpFilter, setEsTotalBeforeEmpFilter] = useState(0);
   const [page, setPage] = useState(0);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Loading states
+  const [searching, setSearching] = useState(false);
   const [fetchingAll, setFetchingAll] = useState(false);
-  const [fetchProgress, setFetchProgress] = useState(0);
+  const [fetchProgress, setFetchProgress] = useState({ current: 0, total: 0 });
+  const [importing, setImporting] = useState(false);
 
-  const toggleSet = (set: string[], val: string, setter: (v: string[]) => void) => {
-    setter(set.includes(val) ? set.filter((v) => v !== val) : [...set, val]);
-  };
+  function toggleItem(arr: string[], val: string, setter: (v: string[]) => void) {
+    setter(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
+  }
 
-  function buildFilters() {
-    const branchCodes: string[] = [];
-    for (const cat of BRANCH_CATEGORIES) {
-      if (categories.includes(cat.label)) branchCodes.push(...cat.prefixes);
-    }
-    let minEmp: number | undefined;
-    let maxEmp: number | undefined;
-    if (employeeBuckets.length) {
-      const buckets = EMPLOYEE_BUCKETS.filter((b) => employeeBuckets.includes(b.label));
-      minEmp = Math.min(...buckets.map((b) => b.min));
-      maxEmp = Math.max(...buckets.map((b) => b.max));
-    }
-    return { branchCodes, minEmp, maxEmp };
+  function getBranchCodes(): string[] {
+    return BRANCH_CATEGORIES
+      .filter((c) => categories.includes(c.label))
+      .flatMap((c) => c.prefixes);
+  }
+
+  function applyEmployeeFilter(items: CvrRow[]): CvrRow[] {
+    return items.filter((r) => matchesEmployeeFilter(r.employees, employeeBuckets));
+  }
+
+  function applyZipFilter(items: CvrRow[]): CvrRow[] {
+    if (!zipFrom || !zipTo) return items;
+    const from = parseInt(zipFrom, 10);
+    const to = parseInt(zipTo, 10);
+    if (isNaN(from) || isNaN(to)) return items;
+    return items.filter((r) => {
+      if (!r.zip) return true;
+      const z = parseInt(r.zip, 10);
+      return !isNaN(z) && z >= from && z <= to;
+    });
   }
 
   async function annotateExisting(items: CvrRow[]): Promise<CvrRow[]> {
@@ -154,211 +180,130 @@ export function CvrBulkSoegningDialog({
     if (!cvrs.length) return items;
     const existingSet = new Set<string>();
     for (let i = 0; i < cvrs.length; i += 500) {
-      const slice = cvrs.slice(i, i + 500);
-      const { data } = await supabase.from("companies").select("cvr").in("cvr", slice);
-      (data ?? []).forEach((r) => r.cvr && existingSet.add(r.cvr));
+      const { data } = await supabase
+        .from("companies")
+        .select("cvr")
+        .in("cvr", cvrs.slice(i, i + 500));
+      (data ?? []).forEach((r: any) => r.cvr && existingSet.add(r.cvr));
     }
     return items.map((r) => ({ ...r, existing: existingSet.has(r.cvr) }));
   }
 
-  function filterByZip(list: CvrRow[], zipList: { z: string | null }[]): CvrRow[] {
-    if (!(zipFrom && zipTo)) return list;
-    const from = parseInt(zipFrom, 10);
-    const to = parseInt(zipTo, 10);
-    if (isNaN(from) || isNaN(to)) return list;
-    return list.filter((_r, i) => {
-      const z = zipList[i].z;
-      if (!z) return true;
-      const zn = parseInt(z, 10);
-      if (isNaN(zn)) return true;
-      return zn >= from && zn <= to;
-    });
+  function buildRequestFilters() {
+    const branchCodes = getBranchCodes();
+    return {
+      ...(kommune ? { municipality: kommune } : {}),
+      ...(branchCodes.length ? { branch_codes: branchCodes } : {}),
+      ...(companyForms.length ? { company_forms: companyForms } : {}),
+    };
   }
 
-  function filterByEmployees(list: CvrRow[]): CvrRow[] {
-    if (!employeeBuckets.length) return list;
-    const { minEmp, maxEmp } = buildFilters();
-    if (minEmp == null && maxEmp == null) return list;
-    const min = minEmp ?? 0;
-    const max = maxEmp ?? 999999;
-    return list.filter((r) => {
-      if (!r.employees) return false;
-      const parts = r.employees.split("_").map((p) => parseInt(p, 10));
-      const lo = isNaN(parts[0]) ? null : parts[0];
-      const hi = parts.length > 1 && !isNaN(parts[1]) ? parts[1] : lo;
-      if (lo == null) return false;
-      return (hi ?? lo) >= min && lo <= max;
-    });
-  }
-
-  async function fetchPage(pageNum: number, kommune: string | null) {
-    const { branchCodes, minEmp, maxEmp } = buildFilters();
-    const formValues = companyForms;
-    const res = await lookupFn({
+  async function fetchOnePage(from: number) {
+    return lookupFn({
       data: {
         type: "bulk",
-        filters: {
-          ...(kommune ? { municipality: kommune } : {}),
-          branch_codes: branchCodes.length ? branchCodes : undefined,
-          min_employees: minEmp,
-          max_employees: maxEmp,
-          company_forms: formValues.length ? formValues : undefined,
-          status: activeOnly ? "Aktiv" : undefined,
-        } as any,
-        from: pageNum * PAGE_SIZE,
+        filters: buildRequestFilters() as any,
+        from,
       } as any,
     });
-    return res;
+  }
+
+  function mapToRow(c: any): CvrRow {
+    return {
+      cvr: c.cvr,
+      name: c.name,
+      city: c.city,
+      municipality: c.municipality,
+      industry: c.main_branch_text,
+      employees: c.employees_interval,
+      ad_protection: !!c.ad_protection,
+      company_form: c.company_form,
+      existing: false,
+      zip: c.zip,
+    };
   }
 
   async function runSearch() {
-    if (!kommuner.length && !(zipFrom && zipTo)) {
-      toast.error("Vælg mindst én kommune eller indtast postnummer-interval");
+    if (!kommune && !(zipFrom && zipTo)) {
+      toast.error("Vælg en kommune eller postnummer-interval");
       return;
     }
-    if (kommuner.length > 1) {
-      toast.error("Vælg én kommune ad gangen for at få korrekt total og paginering");
+    if (!categories.length && !companyForms.length) {
+      toast.error("Vælg mindst én branchekategori eller virksomhedsform for at begrænse søgningen");
       return;
     }
+
     setSearching(true);
     setHasSearched(true);
-    setRows([]);
+    setFilteredRows([]);
     setSelectedCvrs(new Set());
     setPage(0);
-    setTotal(0);
+    setEsTotalBeforeEmpFilter(0);
 
     try {
-      const kommune = kommuner[0] ?? null;
-      const res = await fetchPage(0, kommune);
+      const res = await fetchOnePage(0);
       if (!res.success) {
         toast.error("CVR-søgning fejlede: " + (res.error ?? "ukendt"));
         return;
       }
-      setTotal(res.total ?? 0);
+      const esTotal = res.total ?? 0;
+      setEsTotalBeforeEmpFilter(esTotal);
+
       const list = Array.isArray(res.data) ? res.data : [];
-      const mapped: CvrRow[] = list.map((c) => ({
-        cvr: c.cvr,
-        name: c.name,
-        city: c.city,
-        municipality: c.municipality,
-        industry: c.main_branch_text,
-        employees: c.employees_interval,
-        ad_protection: !!c.ad_protection,
-        company_form: c.company_form,
-        existing: false,
-      }));
-      const zipFiltered = filterByZip(
-        mapped,
-        list.map((c) => ({ z: c.zip })),
-      );
-      const empFiltered = filterByEmployees(zipFiltered);
+      const mapped = list.map(mapToRow);
+      const zipFiltered = applyZipFilter(mapped);
+      const empFiltered = applyEmployeeFilter(zipFiltered);
       const annotated = await annotateExisting(empFiltered);
-      setRows(annotated);
+
+      setFilteredRows(annotated);
       setSelectedCvrs(new Set(annotated.filter((r) => !r.existing).map((r) => r.cvr)));
     } finally {
       setSearching(false);
     }
   }
 
-  async function loadPage(pageNum: number) {
-    if (pageNum < 0) return;
-    setSearching(true);
-    try {
-      const kommune = kommuners();
-      const res = await fetchPage(pageNum, kommune);
-      if (!res.success) {
-        toast.error("CVR-søgning fejlede: " + (res.error ?? "ukendt"));
-        return;
-      }
-      const list = Array.isArray(res.data) ? res.data : [];
-      const mapped: CvrRow[] = list.map((c) => ({
-        cvr: c.cvr,
-        name: c.name,
-        city: c.city,
-        municipality: c.municipality,
-        industry: c.main_branch_text,
-        employees: c.employees_interval,
-        ad_protection: !!c.ad_protection,
-        company_form: c.company_form,
-        existing: false,
-      }));
-      const zipFiltered = filterByZip(mapped, list.map((c) => ({ z: c.zip })));
-      const empFiltered = filterByEmployees(zipFiltered);
-      const annotated = await annotateExisting(empFiltered);
-      setRows(annotated);
-      setPage(pageNum);
-    } finally {
-      setSearching(false);
-    }
-  }
-
-  function kommuners(): string | null {
-    return kommuner[0] ?? null;
-  }
-
   async function fetchAndSelectAll() {
-    if (total > 5000) return;
     setFetchingAll(true);
-    setFetchProgress(0);
+    setFetchProgress({ current: 0, total: esTotalBeforeEmpFilter });
+    const aggregated: CvrRow[] = [];
+    const seen = new Set<string>();
+    const pages = Math.ceil(esTotalBeforeEmpFilter / PAGE_SIZE);
+
     try {
-      const kommune = kommuners();
-      const aggregated: CvrRow[] = [];
-      const seen = new Set<string>();
-      const pages = Math.ceil(total / PAGE_SIZE);
       for (let p = 0; p < pages; p++) {
-        const res = await fetchPage(p, kommune);
+        const res = await fetchOnePage(p * PAGE_SIZE);
         if (!res.success) {
-          toast.error("Fejl under indlæsning: " + (res.error ?? "ukendt"));
+          toast.error("Fejl under hentning: " + (res.error ?? "ukendt"));
           break;
         }
         const list = Array.isArray(res.data) ? res.data : [];
-        const mapped: CvrRow[] = list.map((c) => ({
-          cvr: c.cvr,
-          name: c.name,
-          city: c.city,
-          municipality: c.municipality,
-          industry: c.main_branch_text,
-          employees: c.employees_interval,
-          ad_protection: !!c.ad_protection,
-          company_form: c.company_form,
-          existing: false,
-        }));
-        const zipFiltered = filterByZip(mapped, list.map((c) => ({ z: c.zip })));
-        const empFiltered = filterByEmployees(zipFiltered);
+        const mapped = list.map(mapToRow);
+        const zipFiltered = applyZipFilter(mapped);
+        const empFiltered = applyEmployeeFilter(zipFiltered);
         for (const r of empFiltered) {
           if (!seen.has(r.cvr)) {
             seen.add(r.cvr);
             aggregated.push(r);
           }
         }
-        setFetchProgress(Math.min((p + 1) * PAGE_SIZE, total));
+        setFetchProgress({
+          current: Math.min((p + 1) * PAGE_SIZE, esTotalBeforeEmpFilter),
+          total: esTotalBeforeEmpFilter,
+        });
       }
+
       const annotated = await annotateExisting(aggregated);
-      setRows(annotated);
+      setFilteredRows(annotated);
       setSelectedCvrs(new Set(annotated.filter((r) => !r.existing).map((r) => r.cvr)));
       setPage(0);
+      toast.success(`Hentet ${annotated.length} virksomheder der matcher alle filtre`);
     } finally {
       setFetchingAll(false);
-      setFetchProgress(0);
     }
   }
 
-  function selectAllNew() {
-    setSelectedCvrs(new Set(rows.filter((r) => !r.existing).map((r) => r.cvr)));
-  }
-  function clearSelection() {
-    setSelectedCvrs(new Set());
-  }
-  function toggleRow(cvr: string) {
-    setSelectedCvrs((prev) => {
-      const next = new Set(prev);
-      if (next.has(cvr)) next.delete(cvr); else next.add(cvr);
-      return next;
-    });
-  }
-
   async function doImport() {
-    const chosen = rows.filter((r) => selectedCvrs.has(r.cvr));
+    const chosen = filteredRows.filter((r) => selectedCvrs.has(r.cvr));
     if (!chosen.length) {
       toast.error("Vælg mindst én virksomhed");
       return;
@@ -377,62 +322,70 @@ export function CvrBulkSoegningDialog({
           company_form: r.company_form,
         }));
       const res = await importFn({ data: { companies: payload } });
-      toast.success(
-        `Importeret: ${res.inserted} nye, ${res.already_existed} fandtes allerede`,
-      );
+      toast.success(`Importeret: ${res.inserted} nye, ${res.already_existed} fandtes allerede`);
       onImported(res.company_ids);
       onOpenChange(false);
     } catch (e: any) {
-      toast.error("Import fejlede: " + (e?.message ?? "ukendt fejl"));
+      toast.error("Import fejlede: " + (e?.message ?? "ukendt"));
     } finally {
       setImporting(false);
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const showFrom = total === 0 ? 0 : page * PAGE_SIZE + 1;
-  const showTo = Math.min((page + 1) * PAGE_SIZE, total);
+  const pagedRows = filteredRows.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ROWS_PER_PAGE));
+  const empFilterActive = employeeBuckets.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Søg nye emner i CVR-registret</DialogTitle>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Sektion A: Filtre */}
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+          {/* Filtre */}
           <div className="space-y-5">
-            <div>
-              <Label className="text-sm font-semibold">Geografi *</Label>
-              <p className="text-xs text-muted-foreground mb-2">Vælg én kommune ELLER postnummer-interval</p>
-              <div className="border rounded-md max-h-44 overflow-y-auto p-2 bg-background">
-                <div className="grid grid-cols-2 gap-1">
-                  {KOMMUNER.map((k) => (
-                    <label key={k} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                      <Checkbox
-                        checked={kommuner.includes(k)}
-                        onCheckedChange={() => toggleSet(kommuner, k, setKommuner)}
-                      />
-                      {k}
-                    </label>
-                  ))}
-                </div>
+            <div className="space-y-2">
+              <Label>Geografi *</Label>
+              <p className="text-xs text-muted-foreground">Vælg én kommune ELLER postnummer-interval</p>
+              <div className="max-h-48 overflow-y-auto border rounded p-2 space-y-1">
+                {KOMMUNER.map((k) => (
+                  <label key={k} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="radio"
+                      name="kommune"
+                      checked={kommune === k}
+                      onChange={() => setKommune(kommune === k ? "" : k)}
+                      onClick={() => setKommune(kommune === k ? "" : k)}
+                      className="accent-primary"
+                    />
+                    {k}
+                  </label>
+                ))}
               </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <Input placeholder="Postnr. fra" value={zipFrom} onChange={(e) => setZipFrom(e.target.value)} />
-                <Input placeholder="Postnr. til" value={zipTo} onChange={(e) => setZipTo(e.target.value)} />
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Postnr. fra"
+                  value={zipFrom}
+                  onChange={(e) => setZipFrom(e.target.value)}
+                />
+                <Input
+                  placeholder="Postnr. til"
+                  value={zipTo}
+                  onChange={(e) => setZipTo(e.target.value)}
+                />
               </div>
             </div>
 
-            <div>
-              <Label className="text-sm font-semibold">Branchekategori</Label>
-              <div className="grid grid-cols-1 gap-1 mt-1">
+            <div className="space-y-2">
+              <Label>Branchekategori *</Label>
+              <div className="space-y-1">
                 {BRANCH_CATEGORIES.map((cat) => (
                   <label key={cat.label} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={categories.includes(cat.label)}
-                      onCheckedChange={() => toggleSet(categories, cat.label, setCategories)}
+                      onCheckedChange={() => toggleItem(categories, cat.label, setCategories)}
                     />
                     {cat.label}
                   </label>
@@ -440,14 +393,15 @@ export function CvrBulkSoegningDialog({
               </div>
             </div>
 
-            <div>
-              <Label className="text-sm font-semibold">Antal ansatte</Label>
-              <div className="flex flex-wrap gap-3 mt-1">
+            <div className="space-y-2">
+              <Label>Antal ansatte</Label>
+              <p className="text-xs text-muted-foreground">Filtreres efter søgning baseret på aktuelle tal</p>
+              <div className="space-y-1">
                 {EMPLOYEE_BUCKETS.map((b) => (
-                  <label key={b.label} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <label key={b.label} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={employeeBuckets.includes(b.label)}
-                      onCheckedChange={() => toggleSet(employeeBuckets, b.label, setEmployeeBuckets)}
+                      onCheckedChange={() => toggleItem(employeeBuckets, b.label, setEmployeeBuckets)}
                     />
                     {b.label}
                   </label>
@@ -455,14 +409,14 @@ export function CvrBulkSoegningDialog({
               </div>
             </div>
 
-            <div>
-              <Label className="text-sm font-semibold">Virksomhedsform</Label>
-              <div className="flex flex-wrap gap-3 mt-1">
+            <div className="space-y-2">
+              <Label>Virksomhedsform *</Label>
+              <div className="space-y-1">
                 {COMPANY_FORMS.map((f) => (
-                  <label key={f.value} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <label key={f.value} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={companyForms.includes(f.value)}
-                      onCheckedChange={() => toggleSet(companyForms, f.value, setCompanyForms)}
+                      onCheckedChange={() => toggleItem(companyForms, f.value, setCompanyForms)}
                     />
                     {f.label}
                   </label>
@@ -470,75 +424,92 @@ export function CvrBulkSoegningDialog({
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-t pt-3">
-              <Label className="text-sm">Kun aktive virksomheder</Label>
-              <Switch checked={activeOnly} onCheckedChange={setActiveOnly} />
-            </div>
-
             <Button onClick={runSearch} disabled={searching || fetchingAll} className="w-full">
-              {searching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
-              Søg i CVR-registret
+              {searching ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Søger…
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4 mr-2" />
+                  Søg i CVR-registret
+                </>
+              )}
             </Button>
           </div>
 
-          {/* Sektion B: Resultater */}
+          {/* Resultater */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="text-sm">
-                {hasSearched ? (
-                  <span>
-                    <strong>{total}</strong> virksomheder fundet i CVR totalt
-                    {total > 0 && ` — viser ${showFrom}–${showTo}`}
-                    {rows.length > 0 && ` · ${selectedCvrs.size} valgt`}
-                  </span>
-              ) : (
-                  <span className="text-muted-foreground">Konfigurér filtre og søg</span>
+            {hasSearched && (
+              <div className="space-y-1">
+                <div className="text-sm">
+                  <strong>{filteredRows.length}</strong> virksomheder matcher alle filtre
+                  {empFilterActive && (
+                    <span className="text-muted-foreground">
+                      {" "}(filtreret fra {esTotalBeforeEmpFilter.toLocaleString("da")} i CVR)
+                    </span>
+                  )}
+                  {filteredRows.length > 0 && (
+                    <span className="text-muted-foreground"> · {selectedCvrs.size} valgt</span>
+                  )}
+                </div>
+                {empFilterActive && (
+                  <p className="text-xs text-muted-foreground">
+                    * Ansatte-filteret bruger aktuelle tal — virksomheder uden ansatte-data vises også
+                  </p>
                 )}
               </div>
-              {rows.length > 0 && (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={selectAllNew}>Vælg alle nye</Button>
-                  <Button size="sm" variant="ghost" onClick={clearSelection}>Ryd</Button>
-                </div>
-              )}
-            </div>
-
-            {hasSearched && employeeBuckets.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                * Antal ansatte filtreres lokalt — total er før ansatte-filter
-              </p>
             )}
 
-            {hasSearched && total > 0 && (
-              <div>
-                {total <= 5000 ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={fetchAndSelectAll}
-                    disabled={fetchingAll || searching}
-                  >
-                    {fetchingAll && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Hent og vælg alle {total} →
-                  </Button>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Over 5.000 resultater — indsnævr filteret for bedre præcision
-                  </p>
+            {hasSearched && filteredRows.length > 0 && (
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setSelectedCvrs(
+                      new Set(filteredRows.filter((r) => !r.existing).map((r) => r.cvr)),
+                    )
+                  }
+                >
+                  Vælg alle nye
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setSelectedCvrs(new Set())}>
+                  Ryd
+                </Button>
+                {esTotalBeforeEmpFilter > filteredRows.length &&
+                  esTotalBeforeEmpFilter <= 5000 &&
+                  !fetchingAll && (
+                    <Button size="sm" onClick={fetchAndSelectAll}>
+                      Hent og vælg alle {esTotalBeforeEmpFilter} →
+                    </Button>
+                  )}
+                {esTotalBeforeEmpFilter > 5000 && (
+                  <span className="text-xs text-destructive">
+                    Over 5.000 resultater — indsnævr filtrene
+                  </span>
                 )}
               </div>
             )}
 
             {fetchingAll && (
               <div className="space-y-1">
-                <Progress value={total ? (fetchProgress / total) * 100 : 0} />
+                <Progress
+                  value={
+                    fetchProgress.total
+                      ? (fetchProgress.current / fetchProgress.total) * 100
+                      : 0
+                  }
+                />
                 <p className="text-xs text-muted-foreground">
-                  Henter… {fetchProgress} af {total}
+                  Henter… {fetchProgress.current.toLocaleString("da")} af{" "}
+                  {fetchProgress.total.toLocaleString("da")}
                 </p>
               </div>
             )}
 
-            <div className="border rounded-md max-h-[480px] overflow-y-auto">
+            <div className="border rounded">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -547,68 +518,76 @@ export function CvrBulkSoegningDialog({
                     <TableHead>By</TableHead>
                     <TableHead>Branche</TableHead>
                     <TableHead>Ansatte</TableHead>
-                    <TableHead>I systemet?</TableHead>
-                    <TableHead className="w-10"></TableHead>
+                    <TableHead>I systemet</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.length === 0 && (
+                  {pagedRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
-                        {searching ? "Søger…" : hasSearched ? "Ingen resultater" : "—"}
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                        {searching
+                          ? "Søger…"
+                          : hasSearched
+                            ? "Ingen resultater"
+                            : "Konfigurér filtre og søg"}
                       </TableCell>
                     </TableRow>
+                  ) : (
+                    pagedRows.map((r) => (
+                      <TableRow key={r.cvr}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedCvrs.has(r.cvr)}
+                            onCheckedChange={() => {
+                              setSelectedCvrs((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(r.cvr)) next.delete(r.cvr);
+                                else next.add(r.cvr);
+                                return next;
+                              });
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>{r.name ?? "—"}</TableCell>
+                        <TableCell>{r.city ?? "—"}</TableCell>
+                        <TableCell>{r.industry ?? "—"}</TableCell>
+                        <TableCell>{r.employees ?? "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={r.existing ? "secondary" : "outline"}>
+                            {r.existing ? "Ja" : "Nej"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {r.ad_protection && (
+                            <ShieldAlert className="h-4 w-4 text-amber-500" />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
                   )}
-                  {rows.map((r) => (
-                    <TableRow key={r.cvr}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedCvrs.has(r.cvr)}
-                          onCheckedChange={() => toggleRow(r.cvr)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-sm">{r.name ?? "—"}</TableCell>
-                      <TableCell className="text-xs">{r.city ?? "—"}</TableCell>
-                      <TableCell className="text-xs max-w-[180px] truncate">{r.industry ?? "—"}</TableCell>
-                      <TableCell className="text-xs">{r.employees ?? "—"}</TableCell>
-                      <TableCell>
-                        {r.existing ? (
-                          <Badge variant="secondary" className="text-xs">Ja</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs">Nej</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {r.ad_protection && (
-                          <span title="Reklamebeskyttelse">
-                            <ShieldAlert className="h-4 w-4 text-warning" />
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
                 </TableBody>
               </Table>
             </div>
 
-            {hasSearched && total > PAGE_SIZE && !fetchingAll && (
-              <div className="flex items-center justify-between text-sm">
+            {filteredRows.length > ROWS_PER_PAGE && (
+              <div className="flex items-center justify-between">
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={page === 0 || searching}
-                  onClick={() => loadPage(page - 1)}
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => p - 1)}
                 >
                   ← Forrige
                 </Button>
-                <span className="text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   Side {page + 1} af {totalPages}
                 </span>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={(page + 1) * PAGE_SIZE >= total || searching}
-                  onClick={() => loadPage(page + 1)}
+                  disabled={page + 1 >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
                 >
                   Næste →
                 </Button>
@@ -618,9 +597,11 @@ export function CvrBulkSoegningDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Annullér</Button>
-          <Button onClick={doImport} disabled={importing || !selectedCvrs.size}>
-            {importing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Annullér
+          </Button>
+          <Button onClick={doImport} disabled={importing || selectedCvrs.size === 0}>
+            {importing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Importér {selectedCvrs.size} valgte til systemet
           </Button>
         </DialogFooter>
