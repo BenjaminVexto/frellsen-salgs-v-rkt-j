@@ -588,6 +588,11 @@ function KontaktlisteDetalje() {
                           >
                             {r.company.name}
                           </Link>
+                          {r.location_city && (
+                            <div className="text-xs text-muted-foreground font-normal">
+                              📍 {r.location_city}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>{r.company.city ?? "—"}</TableCell>
                         <TableCell>{r.company.employees ?? "—"}</TableCell>
