@@ -200,6 +200,28 @@ function VirksomhederListe() {
     })();
   }, [isAdmin, rows.length]);
 
+  // Lokationer for alle virksomheder — bruges til fritekstsøgning
+  useEffect(() => {
+    if (!rows.length) return;
+    (async () => {
+      const ids = rows.map((r) => r.id);
+      const m = new Map<string, { city: string | null; address: string | null }[]>();
+      for (let i = 0; i < ids.length; i += 500) {
+        const slice = ids.slice(i, i + 500);
+        const { data } = await (supabase as any)
+          .from("locations")
+          .select("company_id, city, address")
+          .in("company_id", slice);
+        (data ?? []).forEach((l: any) => {
+          const arr = m.get(l.company_id) ?? [];
+          arr.push({ city: l.city, address: l.address });
+          m.set(l.company_id, arr);
+        });
+      }
+      setLocationMap(m);
+    })();
+  }, [rows]);
+
   // Sælgere
   useEffect(() => {
     if (!isAdmin) return;
