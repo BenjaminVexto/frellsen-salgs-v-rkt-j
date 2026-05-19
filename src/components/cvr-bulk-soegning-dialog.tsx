@@ -41,7 +41,9 @@ const BRANCH_CATEGORIES: { label: string; prefixes: string[] }[] = [
 ];
 
 const EMPLOYEE_BUCKETS: { label: string; min: number; max: number }[] = [
-  { label: "1-4", min: 1, max: 4 },
+  { label: "0", min: 0, max: 0 },
+  { label: "1", min: 1, max: 1 },
+  { label: "2-4", min: 2, max: 4 },
   { label: "5-9", min: 5, max: 9 },
   { label: "10-19", min: 10, max: 19 },
   { label: "20-49", min: 20, max: 49 },
