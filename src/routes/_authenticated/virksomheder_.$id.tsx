@@ -702,8 +702,16 @@ function RegistrerAktivitetDialog({
             </Select>
           </div>
           <div>
-            <Label className="mb-1.5 block">Note</Label>
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Hvad skete der?" />
+            <Label className="mb-1.5 block">
+              Note <span className="text-xs text-muted-foreground font-normal">— skriv @ for at tagge en kollega</span>
+            </Label>
+            <MentionTextarea
+              value={note}
+              onChange={setNote}
+              users={users}
+              rows={3}
+              placeholder="Hvad skete der? Tag kolleger med @Fornavn"
+            />
           </div>
           {assignments.length > 0 && (
             <div>
