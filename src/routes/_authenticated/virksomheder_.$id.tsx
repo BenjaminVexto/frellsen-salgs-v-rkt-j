@@ -624,6 +624,8 @@ function RegistrerAktivitetDialog({
   companyId,
   userId,
   assignments,
+  locations,
+  presetLocationId,
   onSaved,
 }: {
   open: boolean;
@@ -631,6 +633,8 @@ function RegistrerAktivitetDialog({
   companyId: string;
   userId: string;
   assignments: Assignment[];
+  locations: Location[];
+  presetLocationId: string | null;
   onSaved: () => void;
 }) {
   const [type, setType] = useState<ActivityType | "">("");
@@ -639,6 +643,7 @@ function RegistrerAktivitetDialog({
   const [nextDate, setNextDate] = useState<Date | undefined>();
   const [updateStatus, setUpdateStatus] = useState<AssignmentStatus | "">("");
   const [assignmentId, setAssignmentId] = useState<string>(assignments[0]?.id ?? "");
+  const [locationId, setLocationId] = useState<string>("__general");
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<MentionableUser[]>([]);
 
@@ -650,9 +655,10 @@ function RegistrerAktivitetDialog({
       setNextDate(undefined);
       setUpdateStatus("");
       setAssignmentId(assignments[0]?.id ?? "");
+      setLocationId(presetLocationId ?? "__general");
       fetchMentionableUsers(userId).then(setUsers);
     }
-  }, [open, assignments, userId]);
+  }, [open, assignments, userId, presetLocationId]);
 
   const requiresFollowup =
     updateStatus !== "" && STATUS_REQUIRES_FOLLOWUP.includes(updateStatus as AssignmentStatus);
@@ -678,7 +684,8 @@ function RegistrerAktivitetDialog({
         next_action: nextAction.trim() || null,
         next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
         contact_list_assignment_id: assignmentId || null,
-      })
+        location_id: locationId === "__general" ? null : locationId,
+      } as any)
       .select("id")
       .single();
     if (error) {
