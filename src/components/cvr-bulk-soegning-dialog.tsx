@@ -491,7 +491,7 @@ export function CvrBulkSoegningDialog({
                     {total > 0 && ` — viser ${showFrom}–${showTo}`}
                     {rows.length > 0 && ` · ${selectedCvrs.size} valgt`}
                   </span>
-                ) : (
+              ) : (
                   <span className="text-muted-foreground">Konfigurér filtre og søg</span>
                 )}
               </div>
@@ -502,6 +502,12 @@ export function CvrBulkSoegningDialog({
                 </div>
               )}
             </div>
+
+            {hasSearched && employeeBuckets.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                * Antal ansatte filtreres lokalt — total er før ansatte-filter
+              </p>
+            )}
 
             {hasSearched && total > 0 && (
               <div>
