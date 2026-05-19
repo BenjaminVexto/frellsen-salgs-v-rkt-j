@@ -168,9 +168,12 @@ function AuthenticatedLayout() {
           <Coffee className="h-5 w-5" />
           <span className="font-semibold text-sm">Frellsen Salgsoversigt</span>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
-          <LogOut className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {auth.user?.id && <NotificationBell userId={auth.user.id} />}
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <main className="flex-1 md:ml-0 pt-14 md:pt-0">
