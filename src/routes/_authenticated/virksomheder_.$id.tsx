@@ -630,19 +630,41 @@ function RegistrerAktivitetDialog({
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("activities").insert({
-      company_id: companyId,
-      created_by: userId,
-      activity_type: type as ActivityType,
-      note: note.trim() || null,
-      next_action: nextAction.trim() || null,
-      next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
-      contact_list_assignment_id: assignmentId || null,
-    });
+    const trimmedNote = note.trim();
+    const { data: inserted, error } = await supabase
+      .from("activities")
+      .insert({
+        company_id: companyId,
+        created_by: userId,
+        activity_type: type as ActivityType,
+        note: trimmedNote || null,
+        next_action: nextAction.trim() || null,
+        next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
+        contact_list_assignment_id: assignmentId || null,
+      })
+      .select("id")
+      .single();
     if (error) {
       toast.error("Kunne ikke gemme aktivitet: " + error.message);
       setSaving(false);
       return;
+    }
+    // @mentions → notifikationer
+    if (trimmedNote) {
+      const n = await createMentionNotifications({
+        note: trimmedNote,
+        users,
+        senderId: userId,
+        companyId,
+        activityId: inserted?.id ?? null,
+      });
+      if (n > 0) {
+        toast.success(
+          n === 1
+            ? "1 kollega notificeret"
+            : `${n} kolleger notificeret`,
+        );
+      }
     }
     if (updateStatus && assignmentId) {
       const { error: e2 } = await supabase
