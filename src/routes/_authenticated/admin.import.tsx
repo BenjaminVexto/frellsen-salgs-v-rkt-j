@@ -849,8 +849,53 @@ function ImportSide() {
       console.error("Kunne ikke oprette lokationer", e);
     }
 
+    // Byg per-række tildelinger (company + lokation + sælger) til Trin 5
+    const rowAssignments: { company_id: string; location_id: string | null; seller_id: string | null }[] = [];
+    try {
+      // Hent location id-map (company_id, visma_delivery_no) -> location_id
+      const locIdMap = new Map<string, string>();
+      for (let i = 0; i < companyIds.length; i += 500) {
+        const slice = companyIds.slice(i, i + 500);
+        const { data } = await (supabase as any)
+          .from("locations")
+          .select("id, company_id, visma_delivery_no")
+          .in("company_id", slice);
+        (data ?? []).forEach((l: any) => {
+          if (l.visma_delivery_no) {
+            locIdMap.set(`${l.company_id}|${l.visma_delivery_no}`, l.id);
+          }
+        });
+      }
+
+      // Byg cvr -> company_id map
+      const cvrToCompanyId = new Map<string, string>();
+      for (let i = 0; i < companyIds.length; i += 500) {
+        const slice = companyIds.slice(i, i + 500);
+        const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
+        (data ?? []).forEach((c: any) => { if (c.cvr) cvrToCompanyId.set(c.cvr, c.id); });
+      }
+
+      const seen = new Set<string>();
+      for (const r of rows) {
+        const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
+        const companyId = cvr ? cvrToCompanyId.get(cvr) : null;
+        if (!companyId) continue;
+        const delivery = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
+        const locationId = delivery ? (locIdMap.get(`${companyId}|${delivery}`) ?? null) : null;
+        const sellerRaw = mapping.salesperson_no ? (r[mapping.salesperson_no] ?? "").trim() : "";
+        const sellerId = sellerRaw ? (salespersonMap.get(sellerRaw) ?? null) : (sellerByCompany[companyId] ?? null);
+        const key = `${companyId}|${locationId ?? ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rowAssignments.push({ company_id: companyId, location_id: locationId, seller_id: sellerId });
+      }
+    } catch (e) {
+      console.error("Kunne ikke bygge per-række tildelinger", e);
+    }
+
     setImportedIds(companyIds);
     setImportedSellerByCompany(sellerByCompany);
+    setImportedRowAssignments(rowAssignments);
     setResult({
       created, updated, skipped, failed, enriched, noCvrCount,
       importSource,
