@@ -72,7 +72,7 @@ function AuthenticatedLayout() {
   return (
     <div className="min-h-screen flex bg-background">
       <aside className="hidden md:flex w-64 flex-col bg-primary text-primary-foreground">
-        <div className="px-6 py-5 border-b border-primary-foreground/10 flex items-center justify-center bg-white">
+        <div className="px-6 py-5 border-b border-primary-foreground/10 flex items-center justify-center">
           <img src={frellsenLogo} alt="Frellsen siden 1897" className="h-12 w-auto object-contain" />
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
