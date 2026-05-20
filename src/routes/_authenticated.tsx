@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationBell } from "@/components/notification-bell";
+import frellsenLogo from "@/assets/frellsen-logo.png";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
