@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationBell } from "@/components/notification-bell";
+import frellsenLogo from "@/assets/frellsen-logo.png";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -71,14 +72,8 @@ function AuthenticatedLayout() {
   return (
     <div className="min-h-screen flex bg-background">
       <aside className="hidden md:flex w-64 flex-col bg-primary text-primary-foreground">
-        <div className="px-6 py-5 border-b border-primary-foreground/10 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-md bg-primary-foreground/10 flex items-center justify-center">
-            <Coffee className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold leading-tight">Frellsen</div>
-            <div className="text-xs text-primary-foreground/60">Salgsoversigt</div>
-          </div>
+        <div className="px-6 py-5 border-b border-primary-foreground/10 flex items-center justify-center bg-white">
+          <img src={frellsenLogo} alt="Frellsen siden 1897" className="h-12 w-auto object-contain" />
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map((item) => {
