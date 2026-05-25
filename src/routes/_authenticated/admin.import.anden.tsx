@@ -837,13 +837,13 @@ function ImportSide() {
           });
         }
       }
-      // Upsert pr. (company_id, visma_delivery_no)
-      for (let i = 0; i < locRows.length; i += 500) {
-        const slice = locRows.slice(i, i + 500);
-        const { error } = await (supabase as any)
-          .from("locations")
-          .upsert(slice, { onConflict: "company_id,visma_delivery_no" });
-        if (error) console.error("Lokationer-upsert fejl", error);
+      // Upsert pr. (company_id, visma_delivery_no) — server-side
+      if (locRows.length) {
+        try {
+          await upsertLocations({ data: { rows: locRows } });
+        } catch (e) {
+          console.error("Lokationer-upsert fejl", e);
+        }
       }
       if (companiesWithMultipleLocations > 0) {
         toast.success(
