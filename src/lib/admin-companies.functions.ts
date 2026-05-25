@@ -184,36 +184,30 @@ export const getImportBatchBreakdown = createServerFn({ method: "POST" })
     if (bErr) throw new Error(bErr.message);
     if (!batch) throw new Error("Batch ikke fundet");
 
-    const { data: companies, error: cErr } = await supabaseAdmin
-      .from("companies")
-      .select("id, name, cvr, city")
-      .eq("import_batch_id", data.batch_id)
-      .order("name");
-    if (cErr) throw new Error(cErr.message);
+    const companies = (await fetchAllCompaniesForBatch(
+      data.batch_id,
+      "id, name, cvr, city",
+    )) as CompanyRow[];
 
-    const ids = (companies ?? []).map((c) => c.id);
+    const ids = companies.map((c) => c.id);
     if (!ids.length) {
       return { batch, untouched: [], partial: [], active: [] };
     }
 
-    // Aktiviteter, salgsmuligheder, tilbud → "aktive"
-    const [actRes, oppRes, qRes, asgRes] = await Promise.all([
-      supabaseAdmin.from("activities").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("sales_opportunities").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("quotes").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("contact_list_assignments").select("company_id").in("company_id", ids),
+    // Aktiviteter, salgsmuligheder, tilbud → "aktive". Chunkes for at undgå 1000-cap.
+    const [actSet, oppSet, qSet, asgSet] = await Promise.all([
+      fetchRelatedCompanyIds("activities", ids),
+      fetchRelatedCompanyIds("sales_opportunities", ids),
+      fetchRelatedCompanyIds("quotes", ids),
+      fetchRelatedCompanyIds("contact_list_assignments", ids),
     ]);
-    const activeSet = new Set<string>();
-    (actRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    (oppRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    (qRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    const assignedSet = new Set<string>();
-    (asgRes.data ?? []).forEach((r: any) => assignedSet.add(r.company_id));
+    const activeSet = new Set<string>([...actSet, ...oppSet, ...qSet]);
+    const assignedSet = asgSet;
 
-    const untouched: typeof companies = [];
-    const partial: typeof companies = [];
-    const active: typeof companies = [];
-    for (const c of companies ?? []) {
+    const untouched: CompanyRow[] = [];
+    const partial: CompanyRow[] = [];
+    const active: CompanyRow[] = [];
+    for (const c of companies) {
       if (activeSet.has(c.id)) active.push(c);
       else if (assignedSet.has(c.id)) partial.push(c);
       else untouched.push(c);
