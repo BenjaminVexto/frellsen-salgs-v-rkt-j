@@ -294,6 +294,19 @@ function ImportSide() {
     }
   }, [auth.loading, auth.role, navigate]);
 
+  // Hydrate post-import state if user navigates back to the page after import finished.
+  useEffect(() => {
+    const r = importRunner.get();
+    if (r.kind === "visma" && r.postState && !result) {
+      const p = r.postState as any;
+      if (p.companyIds) setImportedIds(p.companyIds);
+      if (p.sellerByCompany) setImportedSellerByCompany(p.sellerByCompany);
+      if (p.rowAssignments) setImportedRowAssignments(p.rowAssignments);
+      if (p.result) setResult(p.result);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Trin 1: Parse Visma-fil (altid semikolon-separator, UTF-8 m. BOM)
   async function handleFile(f: File) {
     setFile(f);
