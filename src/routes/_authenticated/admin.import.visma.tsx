@@ -1599,3 +1599,115 @@ function StatCard({
     </Card>
   );
 }
+
+function Trin1VismaUpload({ onFile }: { onFile: (f: File) => void }) {
+  return (
+    <Card className="p-8">
+      <div className="text-center">
+        <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+          <FileUp className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <h2 className="font-semibold mb-1">Upload din CSV-eksport fra Visma</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Filen skal være eksporteret som semikolon-separeret CSV fra Visma Debitorliste.
+        </p>
+        <div className="max-w-sm mx-auto">
+          <Input
+            type="file"
+            accept=".csv,.txt,text/csv,text/plain"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onFile(f);
+            }}
+          />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function Trin2VismaConfirm({
+  report,
+  filters,
+  setFilters,
+  rowCount,
+  onBack,
+  onNext,
+}: {
+  report: { matched: string[]; missing: string[] };
+  filters: { excludeInternal: boolean; excludeForeign: boolean; excludeCreditBlocked: boolean };
+  setFilters: (f: { excludeInternal: boolean; excludeForeign: boolean; excludeCreditBlocked: boolean }) => void;
+  rowCount: number;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <Card className="p-6">
+        <h2 className="font-semibold mb-3">Auto-mapping fra Visma-format</h2>
+        <p className="text-sm mb-2">
+          <span className="text-success font-medium">✅ {report.matched.length} kolonner</span>{" "}
+          auto-matchet fra Visma-format ({rowCount.toLocaleString("da-DK")} rækker)
+        </p>
+        {report.missing.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            ⚠️ {report.missing.length} kolonner ikke fundet i filen: {report.missing.join(", ")}
+          </p>
+        )}
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="font-semibold mb-3">Filtreringsindstillinger</h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Slå filtre fra hvis du vil importere alle rækker.
+        </p>
+        <div className="space-y-3">
+          <label className="flex items-start gap-3 text-sm cursor-pointer">
+            <Checkbox
+              checked={filters.excludeInternal}
+              onCheckedChange={(v) => setFilters({ ...filters, excludeInternal: v === true })}
+              className="mt-0.5"
+            />
+            <div>
+              <div className="font-medium">Udeluk interne og personalekonti</div>
+              <div className="text-xs text-muted-foreground">
+                Kundeprisgruppe 1 indeholder "Personale" eller "Interne"
+              </div>
+            </div>
+          </label>
+          <label className="flex items-start gap-3 text-sm cursor-pointer">
+            <Checkbox
+              checked={filters.excludeForeign}
+              onCheckedChange={(v) => setFilters({ ...filters, excludeForeign: v === true })}
+              className="mt-0.5"
+            />
+            <div>
+              <div className="font-medium">Udeluk udenlandske kunder</div>
+              <div className="text-xs text-muted-foreground">Landnr. udfyldt og ≠ 1</div>
+            </div>
+          </label>
+          <label className="flex items-start gap-3 text-sm cursor-pointer">
+            <Checkbox
+              checked={filters.excludeCreditBlocked}
+              onCheckedChange={(v) => setFilters({ ...filters, excludeCreditBlocked: v === true })}
+              className="mt-0.5"
+            />
+            <div>
+              <div className="font-medium">Udeluk kreditspærrede kunder</div>
+              <div className="text-xs text-muted-foreground">Kreditspærre-feltet er udfyldt</div>
+            </div>
+          </label>
+        </div>
+      </Card>
+
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage
+        </Button>
+        <Button onClick={onNext}>
+          Forhåndsvis <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
+      </div>
+    </div>
+  );
+}
