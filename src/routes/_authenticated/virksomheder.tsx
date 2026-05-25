@@ -192,6 +192,7 @@ function VirksomhederListe() {
   }, [recentIds]);
 
   // Tildelinger (alle) — gemmes som map company_id -> assigned_to[]
+  // Kombinerer direkte companies.assigned_to (Visma-auto-tildeling) med contact_list_assignments.
   useEffect(() => {
     if (!isAdmin) return;
     (async () => {
@@ -200,14 +201,19 @@ function VirksomhederListe() {
         .select("company_id, assigned_to")
         .limit(10000);
       const m = new Map<string, string[]>();
+      // Direkte sælger på virksomheden (fra Visma-import)
+      for (const r of rows as any[]) {
+        if (r.assigned_to) m.set(r.id, [r.assigned_to]);
+      }
+      // Tildelinger via kontaktlister (kan tilføje flere sælgere)
       (data ?? []).forEach((a: Assignment) => {
         const arr = m.get(a.company_id) ?? [];
-        if (a.assigned_to) arr.push(a.assigned_to);
+        if (a.assigned_to && !arr.includes(a.assigned_to)) arr.push(a.assigned_to);
         m.set(a.company_id, arr);
       });
       setAssignmentMap(m);
     })();
-  }, [isAdmin, rows.length]);
+  }, [isAdmin, rows]);
 
   // Lokationer for alle virksomheder — bruges til fritekstsøgning
   useEffect(() => {
