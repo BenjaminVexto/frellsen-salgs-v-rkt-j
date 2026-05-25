@@ -280,6 +280,10 @@ function ImportSide() {
     missing: [],
   });
   const createBatch = useServerFn(createImportBatch);
+  const upsertByCvr = useServerFn(importUpsertCompaniesByCvr);
+  const insertNoCvr = useServerFn(importInsertCompaniesNoCvr);
+  const updateById = useServerFn(importUpdateCompaniesById);
+  const upsertLocations = useServerFn(importInsertLocations);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
