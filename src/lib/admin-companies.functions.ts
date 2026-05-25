@@ -230,27 +230,19 @@ export const deleteBatchGroup = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
 
-    const { data: companies, error } = await supabaseAdmin
-      .from("companies")
-      .select("id")
-      .eq("import_batch_id", data.batch_id);
-    if (error) throw new Error(error.message);
-    const ids = (companies ?? []).map((c) => c.id);
+    const companies = (await fetchAllCompaniesForBatch(data.batch_id, "id")) as Array<{ id: string }>;
+    const ids = companies.map((c) => c.id);
     if (!ids.length) return { deleted: 0 };
 
-    // Genberegn grupper for at sikre at vi ikke sletter aktive virksomheder
-    const [actRes, oppRes, qRes, asgRes] = await Promise.all([
-      supabaseAdmin.from("activities").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("sales_opportunities").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("quotes").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("contact_list_assignments").select("company_id").in("company_id", ids),
+    // Genberegn grupper for at sikre at vi ikke sletter aktive virksomheder (chunked)
+    const [actSet, oppSet, qSet, asgSet] = await Promise.all([
+      fetchRelatedCompanyIds("activities", ids),
+      fetchRelatedCompanyIds("sales_opportunities", ids),
+      fetchRelatedCompanyIds("quotes", ids),
+      fetchRelatedCompanyIds("contact_list_assignments", ids),
     ]);
-    const activeSet = new Set<string>();
-    (actRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    (oppRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    (qRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    const assignedSet = new Set<string>();
-    (asgRes.data ?? []).forEach((r: any) => assignedSet.add(r.company_id));
+    const activeSet = new Set<string>([...actSet, ...oppSet, ...qSet]);
+    const assignedSet = asgSet;
 
     let toDelete: string[];
     if (data.group === "untouched") {
