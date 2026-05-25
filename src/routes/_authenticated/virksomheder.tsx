@@ -157,24 +157,33 @@ function VirksomhederListe() {
 
   const loadCompanies = async () => {
     setLoading(true);
-    let query = supabase
-      .from("companies")
-      .select(
-        "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public",
-      )
-      .order("name", { ascending: true })
-      .limit(5000);
+    const cols =
+      "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public";
     if (recentIds && recentIds.length) {
-      query = supabase
+      const { data } = await supabase
         .from("companies")
-        .select(
-          "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public",
-        )
+        .select(cols)
         .in("id", recentIds)
         .order("name");
+      setRows((data ?? []) as any);
+      setLoading(false);
+      return;
     }
-    const { data } = await query;
-    setRows((data ?? []) as any);
+    // Paginér forbi Supabase' 1000-rækkers grænse pr. request
+    const PAGE = 1000;
+    const all: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("companies")
+        .select(cols)
+        .order("name", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) break;
+      const batch = data ?? [];
+      all.push(...batch);
+      if (batch.length < PAGE) break;
+    }
+    setRows(all as any);
     setLoading(false);
   };
 
