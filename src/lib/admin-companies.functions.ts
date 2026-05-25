@@ -223,3 +223,131 @@ export const deleteBatchGroup = createServerFn({ method: "POST" })
     await cascadeDeleteCompanies(toDelete);
     return { deleted: toDelete.length };
   });
+
+// ============================================================
+// Import: bulk write companies via service role (bypasser RLS)
+// ============================================================
+
+const CompanyRow = z.record(z.any());
+
+export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      rows: z.array(CompanyRow).min(1).max(25000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const CHUNK = 500;
+    const results: Array<{ id: string; cvr: string | null }> = [];
+    let failed = 0;
+    const errors: string[] = [];
+    for (let i = 0; i < data.rows.length; i += CHUNK) {
+      const slice = data.rows.slice(i, i + CHUNK);
+      const { data: res, error } = await supabaseAdmin
+        .from("companies")
+        .upsert(slice as any, { onConflict: "cvr" })
+        .select("id, cvr");
+      if (error) {
+        console.error("Import upsert fejl:", error.message);
+        errors.push(error.message);
+        // Fallback pr. række så ét dårligt rækkesæt ikke vælter hele batchen
+        for (const row of slice) {
+          const { data: one, error: oneErr } = await supabaseAdmin
+            .from("companies")
+            .upsert(row as any, { onConflict: "cvr" })
+            .select("id, cvr")
+            .maybeSingle();
+          if (oneErr || !one) {
+            failed++;
+            continue;
+          }
+          results.push({ id: one.id, cvr: one.cvr });
+        }
+        continue;
+      }
+      (res ?? []).forEach((r: any) => results.push({ id: r.id, cvr: r.cvr }));
+    }
+    return { results, failed, errors };
+  });
+
+export const importInsertCompaniesNoCvr = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      rows: z.array(CompanyRow).min(1).max(25000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const CHUNK = 500;
+    const results: Array<{ id: string }> = [];
+    let failed = 0;
+    for (let i = 0; i < data.rows.length; i += CHUNK) {
+      const slice = data.rows.slice(i, i + CHUNK);
+      const { data: res, error } = await supabaseAdmin
+        .from("companies")
+        .insert(slice as any)
+        .select("id");
+      if (error) {
+        console.error("Import insert fejl:", error.message);
+        failed += slice.length;
+        continue;
+      }
+      (res ?? []).forEach((r: any) => results.push({ id: r.id }));
+    }
+    return { results, failed };
+  });
+
+export const importUpdateCompaniesById = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      updates: z.array(z.object({
+        id: z.string().uuid(),
+        payload: CompanyRow,
+      })).min(1).max(25000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const results: Array<{ id: string; ok: boolean }> = [];
+    for (const u of data.updates) {
+      const { error } = await supabaseAdmin
+        .from("companies")
+        .update(u.payload as any)
+        .eq("id", u.id);
+      results.push({ id: u.id, ok: !error });
+      if (error) console.error("Import update fejl", u.id, error.message);
+    }
+    return { results };
+  });
+
+export const importInsertLocations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      rows: z.array(z.record(z.any())).min(1).max(50000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const CHUNK = 500;
+    let inserted = 0;
+    let failed = 0;
+    for (let i = 0; i < data.rows.length; i += CHUNK) {
+      const slice = data.rows.slice(i, i + CHUNK);
+      const { error, count } = await supabaseAdmin
+        .from("locations")
+        .upsert(slice as any, { onConflict: "company_id,visma_delivery_no", count: "exact" });
+      if (error) {
+        console.error("Import locations fejl:", error.message);
+        failed += slice.length;
+        continue;
+      }
+      inserted += count ?? slice.length;
+    }
+    return { inserted, failed };
+  });
+

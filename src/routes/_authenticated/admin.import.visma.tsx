@@ -4,7 +4,13 @@ import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useServerFn } from "@tanstack/react-start";
-import { createImportBatch } from "@/lib/admin-companies.functions";
+import {
+  createImportBatch,
+  importUpsertCompaniesByCvr,
+  importInsertCompaniesNoCvr,
+  importUpdateCompaniesById,
+  importInsertLocations,
+} from "@/lib/admin-companies.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -274,6 +280,10 @@ function ImportSide() {
     missing: [],
   });
   const createBatch = useServerFn(createImportBatch);
+  const upsertByCvr = useServerFn(importUpsertCompaniesByCvr);
+  const insertNoCvr = useServerFn(importInsertCompaniesNoCvr);
+  const updateById = useServerFn(importUpdateCompaniesById);
+  const upsertLocations = useServerFn(importInsertLocations);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -462,7 +472,14 @@ function ImportSide() {
         }
       }
       const missingCvr = !cvr;
-      const isPublic = data.is_public === true || !!ean;
+      const seg3 = String(data.customer_segment_3 ?? "").toLowerCase();
+      const isPublicFromSegment =
+        seg3.includes("offentlig") ||
+        seg3.includes("udbudskunder") ||
+        seg3.includes("aftale kunder") ||
+        seg3.includes("kommune") ||
+        seg3.includes("region");
+      const isPublic = data.is_public === true || isPublicFromSegment;
       if (isPublic && data.is_public === undefined) (data as any).is_public = true;
       const isDuplicate =
         (!!cvr && existingCvrs.has(cvr)) ||
@@ -737,39 +754,13 @@ function ImportSide() {
       );
     };
 
-    // 3a) Bulk upsert (cvr conflict) — returnér id'er
+    // 3a) Bulk upsert (cvr conflict) — kører server-side via service role
     for (let i = 0; i < upserts.length; i += CHUNK) {
       const slice = upserts.slice(i, i + CHUNK);
       const payloads = slice.map((j) => j.payload);
-      const { data, error } = await supabase
-        .from("companies")
-        .upsert(payloads as any, { onConflict: "cvr" })
-        .select("id, cvr");
-      if (error) {
-        console.error("Bulk upsert fejl", error, { sampleCvrs: payloads.slice(0, 3).map((p: any) => p.cvr) });
-        toast.error(`Batch fejlede (${slice.length} rækker): ${error.message}`);
-        // Fald tilbage til pr-række så vi ikke mister alle 500
-        for (const j of slice) {
-          const { data: one, error: oneErr } = await supabase
-            .from("companies")
-            .upsert(j.payload as any, { onConflict: "cvr" })
-            .select("id, cvr")
-            .maybeSingle();
-          if (oneErr || !one) {
-            failed++;
-            continue;
-          }
-          companyIds.push(one.id);
-          if (j.sellerId) sellerByCompany[one.id] = j.sellerId;
-          if (j.isUpdate) {
-            updated++;
-            if (j.isEnrich) enriched++;
-          } else {
-            created++;
-          }
-        }
-      } else {
-        const byCvr = new Map((data ?? []).map((r: any) => [r.cvr, r.id]));
+      try {
+        const res = await upsertByCvr({ data: { rows: payloads } });
+        const byCvr = new Map(res.results.map((r) => [r.cvr, r.id]));
         slice.forEach((j) => {
           const id = j.payload.id ?? byCvr.get(j.payload.cvr);
           if (id) {
@@ -785,61 +776,70 @@ function ImportSide() {
             failed++;
           }
         });
+        if (res.failed) failed += res.failed;
+        if (res.errors.length) {
+          toast.error(`Batch fejl: ${res.errors[0]}`);
+        }
+      } catch (e: any) {
+        console.error("Bulk upsert server-fn fejl", e);
+        toast.error(`Batch fejlede (${slice.length} rækker): ${e?.message ?? e}`);
+        failed += slice.length;
       }
       tick("upsert", slice.length);
       await yieldUI();
     }
 
-    // 3b) Bulk insert (no-cvr nye)
+    // 3b) Bulk insert (no-cvr nye) — server-side
     for (let i = 0; i < inserts.length; i += CHUNK) {
       const slice = inserts.slice(i, i + CHUNK);
       const payloads = slice.map((j) => j.payload);
-      const { data, error } = await supabase
-        .from("companies")
-        .insert(payloads as any)
-        .select("id");
-      if (error) {
-        failed += slice.length;
-        console.error("Bulk insert fejl", error);
-      } else {
-        (data ?? []).forEach((r: any, idx: number) => {
+      try {
+        const res = await insertNoCvr({ data: { rows: payloads } });
+        res.results.forEach((r, idx) => {
           companyIds.push(r.id);
           const sid = slice[idx]?.sellerId;
           if (sid) sellerByCompany[r.id] = sid;
           created++;
           noCvrCount++;
         });
+        if (res.failed) failed += res.failed;
+      } catch (e: any) {
+        console.error("Bulk insert server-fn fejl", e);
+        failed += slice.length;
       }
       tick("insert", slice.length);
       await yieldUI();
     }
 
-    // 3c) Name-match updates (per id, men parallelt i batches)
+    // 3c) Name-match updates (per id) — server-side
     for (let i = 0; i < updates.length; i += CHUNK) {
       const slice = updates.slice(i, i + CHUNK);
-      const results = await Promise.all(
-        slice.map(async (j) => {
+      try {
+        const payload = slice.map((j) => {
           const { id, ...rest } = j.payload;
-          const { error } = await supabase
-            .from("companies")
-            .update(rest as any)
-            .eq("id", j.id);
-          return { ok: !error, job: j };
-        }),
-      );
-      results.forEach((r) => {
-        if (r.ok) {
-          companyIds.push(r.job.id);
-          if (r.job.sellerId) sellerByCompany[r.job.id] = r.job.sellerId;
-          updated++;
-          if (r.job.isNoCvr) noCvrCount++;
-        } else {
-          failed++;
-        }
-      });
+          return { id: j.id, payload: rest };
+        });
+        const res = await updateById({ data: { updates: payload } });
+        const okSet = new Set(res.results.filter((r) => r.ok).map((r) => r.id));
+        slice.forEach((j) => {
+          if (okSet.has(j.id)) {
+            companyIds.push(j.id);
+            if (j.sellerId) sellerByCompany[j.id] = j.sellerId;
+            updated++;
+            if (j.isNoCvr) noCvrCount++;
+          } else {
+            failed++;
+          }
+        });
+      } catch (e: any) {
+        console.error("Bulk update server-fn fejl", e);
+        failed += slice.length;
+      }
       tick("update", slice.length);
       await yieldUI();
     }
+
+
 
     skipped = prepared.length - toImport.length;
 
@@ -909,13 +909,13 @@ function ImportSide() {
           });
         }
       }
-      // Upsert pr. (company_id, visma_delivery_no)
-      for (let i = 0; i < locRows.length; i += 500) {
-        const slice = locRows.slice(i, i + 500);
-        const { error } = await (supabase as any)
-          .from("locations")
-          .upsert(slice, { onConflict: "company_id,visma_delivery_no" });
-        if (error) console.error("Lokationer-upsert fejl", error);
+      // Upsert pr. (company_id, visma_delivery_no) — server-side
+      if (locRows.length) {
+        try {
+          await upsertLocations({ data: { rows: locRows } });
+        } catch (e) {
+          console.error("Lokationer-upsert fejl", e);
+        }
       }
       if (companiesWithMultipleLocations > 0) {
         toast.success(
