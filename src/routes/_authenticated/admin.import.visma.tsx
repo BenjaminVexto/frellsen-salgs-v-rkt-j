@@ -755,7 +755,7 @@ function ImportSide() {
       batchIdx++;
       processed += doneRows;
       importRunner.setProgress(Math.round((processed / toImport.length) * 100));
-      setProgressLabel(
+      importRunner.setLabel(
         `Importerer batch ${batchIdx} af ${totalBatches}… (${processed.toLocaleString("da-DK")} / ${toImport.length.toLocaleString("da-DK")})`,
       );
     };
