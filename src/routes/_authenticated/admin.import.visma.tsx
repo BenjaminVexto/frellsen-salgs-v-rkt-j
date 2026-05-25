@@ -255,9 +255,10 @@ function ImportSide() {
   const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
   const [chosenList, setChosenList] = useState<string>("");
   const [chosenSeller, setChosenSeller] = useState<string>("");
-  const [importing, setImporting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressLabel, setProgressLabel] = useState("");
+  const runnerState = useImportRunner();
+  const importing = runnerState.running && runnerState.kind === "visma";
+  const progress = runnerState.kind === "visma" ? runnerState.progress : 0;
+  const progressLabel = runnerState.kind === "visma" ? runnerState.label : "";
   const [result, setResult] = useState<{
     created: number; updated: number; skipped: number; failed: number; enriched: number;
     noCvrCount: number;
