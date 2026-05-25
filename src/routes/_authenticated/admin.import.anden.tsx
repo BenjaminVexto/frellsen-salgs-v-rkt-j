@@ -900,17 +900,19 @@ function ImportSide() {
       console.error("Kunne ikke bygge per-række tildelinger", e);
     }
 
-    setImportedIds(companyIds);
-    setImportedSellerByCompany(sellerByCompany);
-    setImportedRowAssignments(rowAssignments);
-    setResult({
+    const resultPayload = {
       created, updated, skipped, failed, enriched, noCvrCount,
       importSource,
       unmatchedSalespersonNos: stats.unmatchedSalespersonNos,
-    });
-    importRunner.setProgress(100);
-    importRunner.setLabel(`Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`);
-    importRunner.fail(progressLabel || "Import afbrudt");
+    };
+    setImportedIds(companyIds);
+    setImportedSellerByCompany(sellerByCompany);
+    setImportedRowAssignments(rowAssignments);
+    setResult(resultPayload);
+    importRunner.finish(
+      `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`,
+      { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
+    );
     toast.success("Import gennemført");
   }
 
