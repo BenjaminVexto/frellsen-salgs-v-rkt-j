@@ -16,15 +16,60 @@ async function ensureAdmin(userId: string) {
 
 async function cascadeDeleteCompanies(companyIds: string[]) {
   if (!companyIds.length) return;
-  // Slet i børn-først rækkefølge for at undgå FK-konflikter.
-  // activities og quotes har FK til sales_opportunities, så slet dem først.
-  await supabaseAdmin.from("activities").delete().in("company_id", companyIds);
-  await supabaseAdmin.from("quotes").delete().in("company_id", companyIds);
-  await supabaseAdmin.from("contact_list_assignments").delete().in("company_id", companyIds);
-  await supabaseAdmin.from("sales_opportunities").delete().in("company_id", companyIds);
-  await supabaseAdmin.from("contacts").delete().in("company_id", companyIds);
-  const { error } = await supabaseAdmin.from("companies").delete().in("id", companyIds);
-  if (error) throw new Error(error.message);
+  // Chunk for at undgå for lange URL'er og rammen af query-limits
+  const CHUNK = 500;
+  for (let i = 0; i < companyIds.length; i += CHUNK) {
+    const slice = companyIds.slice(i, i + CHUNK);
+    // Børn først for at undgå FK-konflikter
+    await supabaseAdmin.from("activities").delete().in("company_id", slice);
+    await supabaseAdmin.from("quotes").delete().in("company_id", slice);
+    await supabaseAdmin.from("contact_list_assignments").delete().in("company_id", slice);
+    await supabaseAdmin.from("sales_opportunities").delete().in("company_id", slice);
+    await supabaseAdmin.from("contacts").delete().in("company_id", slice);
+    const { error } = await supabaseAdmin.from("companies").delete().in("id", slice);
+    if (error) throw new Error(error.message);
+  }
+}
+
+// Hent ALLE virksomheder for en batch – paginer forbi 1000-rækkers grænsen
+async function fetchAllCompaniesForBatch(
+  batchId: string,
+  select: string,
+): Promise<any[]> {
+  const PAGE = 1000;
+  const all: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin
+      .from("companies")
+      .select(select)
+      .eq("import_batch_id", batchId)
+      .order("name")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = data ?? [];
+    all.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return all;
+}
+
+// Henter kun company_ids relateret til en liste af ids (chunked .in)
+async function fetchRelatedCompanyIds(
+  table: "activities" | "sales_opportunities" | "quotes" | "contact_list_assignments",
+  ids: string[],
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select("company_id")
+      .in("company_id", slice);
+    if (error) throw new Error(error.message);
+    (data ?? []).forEach((r: any) => out.add(r.company_id));
+  }
+  return out;
 }
 
 export const getCompanyDeletionStats = createServerFn({ method: "POST" })
