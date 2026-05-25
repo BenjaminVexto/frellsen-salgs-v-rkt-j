@@ -768,10 +768,6 @@ function ImportSide() {
     }
 
 
-      });
-      tick("update", slice.length);
-      await yieldUI();
-    }
 
     skipped = prepared.length - toImport.length;
 
