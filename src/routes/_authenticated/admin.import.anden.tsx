@@ -418,7 +418,14 @@ function ImportSide() {
         }
       }
       const missingCvr = !cvr;
-      const isPublic = data.is_public === true || !!ean;
+      const seg3 = String(data.customer_segment_3 ?? "").toLowerCase();
+      const isPublicFromSegment =
+        seg3.includes("offentlig") ||
+        seg3.includes("udbudskunder") ||
+        seg3.includes("aftale kunder") ||
+        seg3.includes("kommune") ||
+        seg3.includes("region");
+      const isPublic = data.is_public === true || isPublicFromSegment;
       if (isPublic && data.is_public === undefined) (data as any).is_public = true;
       const isDuplicate =
         (!!cvr && existingCvrs.has(cvr)) ||
