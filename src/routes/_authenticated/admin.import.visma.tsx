@@ -726,19 +726,28 @@ function ImportSide() {
     const upsertsRaw = jobs.filter((j) => j.kind === "upsert_cvr") as Extract<Job, { kind: "upsert_cvr" }>[];
     const upsertsByCvr = new Map<string, Extract<Job, { kind: "upsert_cvr" }>>();
     let dedupedCvrDuplicates = 0;
+    const isPrimaryRow = (j: Extract<Job, { kind: "upsert_cvr" }>) => {
+      const k = j.payload.visma_id;
+      const d = j.payload.visma_delivery_id;
+      return !!k && !!d && String(k).trim() === String(d).trim();
+    };
     for (const j of upsertsRaw) {
       const key = j.payload.cvr as string;
-      if (upsertsByCvr.has(key)) {
-        dedupedCvrDuplicates++;
-        // Behold seneste forekomst (overskriver tidligere) — typisk samme data
+      const existing = upsertsByCvr.get(key);
+      if (!existing) {
         upsertsByCvr.set(key, j);
       } else {
-        upsertsByCvr.set(key, j);
+        dedupedCvrDuplicates++;
+        // Foretræk primær-rækken (Visma Kundenr == Visma Lev.nr) som hovedkort.
+        // Ellers behold den første forekomst.
+        if (isPrimaryRow(j) && !isPrimaryRow(existing)) {
+          upsertsByCvr.set(key, j);
+        }
       }
     }
     const upserts = Array.from(upsertsByCvr.values());
     if (dedupedCvrDuplicates > 0) {
-      console.warn(`Dedupliceret ${dedupedCvrDuplicates} dublerede CVR-rækker i upload`);
+      console.warn(`Dedupliceret ${dedupedCvrDuplicates} dublerede CVR-rækker i upload (primær-række valgt til hovedkort)`);
     }
     const updates = jobs.filter((j) => j.kind === "update_id") as Extract<Job, { kind: "update_id" }>[];
     const inserts = jobs.filter((j) => j.kind === "insert_no_cvr") as Extract<Job, { kind: "insert_no_cvr" }>[];
