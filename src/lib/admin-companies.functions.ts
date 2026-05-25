@@ -184,10 +184,11 @@ export const getImportBatchBreakdown = createServerFn({ method: "POST" })
     if (bErr) throw new Error(bErr.message);
     if (!batch) throw new Error("Batch ikke fundet");
 
+    type CRow = { id: string; name: string; cvr: string | null; city: string | null };
     const companies = (await fetchAllCompaniesForBatch(
       data.batch_id,
       "id, name, cvr, city",
-    )) as CompanyRow[];
+    )) as CRow[];
 
     const ids = companies.map((c) => c.id);
     if (!ids.length) {
@@ -204,9 +205,9 @@ export const getImportBatchBreakdown = createServerFn({ method: "POST" })
     const activeSet = new Set<string>([...actSet, ...oppSet, ...qSet]);
     const assignedSet = asgSet;
 
-    const untouched: CompanyRow[] = [];
-    const partial: CompanyRow[] = [];
-    const active: CompanyRow[] = [];
+    const untouched: CRow[] = [];
+    const partial: CRow[] = [];
+    const active: CRow[] = [];
     for (const c of companies) {
       if (activeSet.has(c.id)) active.push(c);
       else if (assignedSet.has(c.id)) partial.push(c);
