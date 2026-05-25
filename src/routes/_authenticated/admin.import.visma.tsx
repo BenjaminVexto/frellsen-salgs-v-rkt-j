@@ -4,7 +4,13 @@ import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useServerFn } from "@tanstack/react-start";
-import { createImportBatch } from "@/lib/admin-companies.functions";
+import {
+  createImportBatch,
+  importUpsertCompaniesByCvr,
+  importInsertCompaniesNoCvr,
+  importUpdateCompaniesById,
+  importInsertLocations,
+} from "@/lib/admin-companies.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
