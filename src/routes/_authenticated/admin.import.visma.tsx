@@ -10,6 +10,7 @@ import {
   importInsertCompaniesNoCvr,
   importUpdateCompaniesById,
   importInsertLocations,
+  importAssignSellersToCompanies,
 } from "@/lib/admin-companies.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -292,6 +293,7 @@ function ImportSide() {
   const insertNoCvr = useServerFn(importInsertCompaniesNoCvr);
   const updateById = useServerFn(importUpdateCompaniesById);
   const upsertLocations = useServerFn(importInsertLocations);
+  const assignSellers = useServerFn(importAssignSellersToCompanies);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -856,6 +858,24 @@ function ImportSide() {
 
 
     skipped = prepared.length - toImport.length;
+
+    // Auto-tildel sælger direkte på virksomheden ud fra Visma-sælgernummer
+    const sellerAssignments = Object.entries(sellerByCompany)
+      .filter(([, sid]) => !!sid)
+      .map(([company_id, seller_id]) => ({ company_id, seller_id: seller_id as string }));
+    if (sellerAssignments.length) {
+      importRunner.setLabel(`Tildeler sælgere til ${sellerAssignments.length} virksomheder…`);
+      try {
+        const res = await assignSellers({ data: { assignments: sellerAssignments } });
+        if (res.failed) {
+          console.warn(`Sælger-tildeling: ${res.failed} fejlede`);
+        }
+      } catch (e) {
+        console.error("Auto-tildeling af sælgere fejlede", e);
+        toast.error("Auto-tildeling af sælgere fejlede – kør Trin 5 manuelt");
+      }
+    }
+
 
     if (companyIds.length) {
       try {

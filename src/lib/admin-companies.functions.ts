@@ -379,6 +379,46 @@ export const importUpdateCompaniesById = createServerFn({ method: "POST" })
     return { results };
   });
 
+export const importAssignSellersToCompanies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      assignments: z.array(z.object({
+        company_id: z.string().uuid(),
+        seller_id: z.string().uuid(),
+      })).min(1).max(50000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    // Grupper pr. sælger og kør ét UPDATE pr. sælger
+    const bySeller = new Map<string, string[]>();
+    for (const a of data.assignments) {
+      const arr = bySeller.get(a.seller_id) ?? [];
+      arr.push(a.company_id);
+      bySeller.set(a.seller_id, arr);
+    }
+    let updated = 0;
+    let failed = 0;
+    for (const [seller, ids] of bySeller.entries()) {
+      const CHUNK = 500;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const { error, count } = await supabaseAdmin
+          .from("companies")
+          .update({ assigned_to: seller }, { count: "exact" })
+          .in("id", slice);
+        if (error) {
+          console.error("Import assign sellers fejl:", error.message);
+          failed += slice.length;
+          continue;
+        }
+        updated += count ?? slice.length;
+      }
+    }
+    return { updated, failed };
+  });
+
 export const importInsertLocations = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
