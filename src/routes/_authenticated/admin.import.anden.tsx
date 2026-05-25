@@ -479,9 +479,9 @@ function ImportSide() {
 
   // Trin 4: kør import (batch-baseret bulk upsert)
   async function runImport() {
-    setImporting(true);
-    setProgress(0);
-    setProgressLabel("Forbereder…");
+    importRunner.start("anden");
+    importRunner.setProgress(0);
+    importRunner.setLabel("Forbereder…");
 
     const CHUNK = 500;
     const yieldUI = () => new Promise((r) => setTimeout(r, 0));
@@ -521,7 +521,7 @@ function ImportSide() {
     const existingByCvr = new Map<string, any>();
     const existingById = new Map<string, any>();
 
-    setProgressLabel("Henter eksisterende virksomheder…");
+    importRunner.setLabel("Henter eksisterende virksomheder…");
     for (let i = 0; i < cvrsToFetch.length; i += CHUNK) {
       const slice = cvrsToFetch.slice(i, i + CHUNK);
       const { data, error } = await supabase
@@ -530,7 +530,7 @@ function ImportSide() {
         .in("cvr", slice);
       if (error) {
         toast.error("Kunne ikke hente eksisterende: " + error.message);
-        setImporting(false);
+        importRunner.fail(progressLabel || "Import afbrudt");
         return;
       }
       (data ?? []).forEach((r: any) => {
@@ -547,7 +547,7 @@ function ImportSide() {
         .in("id", slice);
       if (error) {
         toast.error("Kunne ikke hente eksisterende match: " + error.message);
-        setImporting(false);
+        importRunner.fail(progressLabel || "Import afbrudt");
         return;
       }
       (data ?? []).forEach((r: any) => existingById.set(r.id, r));
@@ -678,7 +678,7 @@ function ImportSide() {
     const tick = (label: string, doneRows: number) => {
       batchIdx++;
       processed += doneRows;
-      setProgress(Math.round((processed / toImport.length) * 100));
+      importRunner.setProgress(Math.round((processed / toImport.length) * 100));
       setProgressLabel(
         `Importerer batch ${batchIdx} af ${totalBatches}… (${processed.toLocaleString("da-DK")} / ${toImport.length.toLocaleString("da-DK")})`,
       );
@@ -908,9 +908,9 @@ function ImportSide() {
       importSource,
       unmatchedSalespersonNos: stats.unmatchedSalespersonNos,
     });
-    setProgress(100);
-    setProgressLabel(`Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`);
-    setImporting(false);
+    importRunner.setProgress(100);
+    importRunner.setLabel(`Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`);
+    importRunner.fail(progressLabel || "Import afbrudt");
     toast.success("Import gennemført");
   }
 
