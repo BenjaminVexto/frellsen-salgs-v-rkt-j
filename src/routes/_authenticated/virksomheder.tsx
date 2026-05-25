@@ -158,7 +158,7 @@ function VirksomhederListe() {
   const loadCompanies = async () => {
     setLoading(true);
     const cols =
-      "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public";
+      "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,assigned_to";
     if (recentIds && recentIds.length) {
       const { data } = await supabase
         .from("companies")
