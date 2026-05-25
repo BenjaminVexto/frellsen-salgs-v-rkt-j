@@ -244,6 +244,10 @@ function ImportSide() {
   const [salespersonMap, setSalespersonMap] = useState<Map<string, string>>(new Map());
   const [assigning, setAssigning] = useState(false);
   const createBatch = useServerFn(createImportBatch);
+  const upsertByCvr = useServerFn(importUpsertCompaniesByCvr);
+  const insertNoCvr = useServerFn(importInsertCompaniesNoCvr);
+  const updateById = useServerFn(importUpdateCompaniesById);
+  const upsertLocations = useServerFn(importInsertLocations);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
