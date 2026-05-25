@@ -40,7 +40,7 @@ function intervalToNumber(interval: string | null | undefined): number | null {
 export const importCompaniesFromCvr = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ companies: z.array(CompanySchema).min(1).max(2000) }).parse(input),
+    z.object({ companies: z.array(CompanySchema).min(1).max(25000) }).parse(input),
   )
   .handler(async ({ data, context }) => {
     if (!(await isAdmin(context.userId))) throw new Error("Forbidden");

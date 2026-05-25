@@ -247,12 +247,17 @@ function ImportSide() {
   }, [auth.loading, auth.role, navigate]);
 
   // Trin 1: Parse fil
-  function handleFile(f: File) {
+  async function handleFile(f: File) {
     setFile(f);
-    Papa.parse<ParsedRow>(f, {
+    const rawText = await f.text();
+    const firstLine = rawText.split("\n")[0] ?? "";
+    const delimiter =
+      firstLine.split(";").length > firstLine.split(",").length ? ";" : ",";
+    Papa.parse<ParsedRow>(rawText, {
+      delimiter,
       header: true,
       skipEmptyLines: true,
-      transformHeader: (h) => h.trim(),
+      transformHeader: (h) => h.replace(/^\uFEFF/, "").trim(),
       complete: (res) => {
         const hdrs = res.meta.fields ?? [];
         setHeaders(hdrs);
@@ -269,7 +274,7 @@ function ImportSide() {
         toast.success(`${res.data.length} rækker indlæst`);
         setStep(2);
       },
-      error: (err) => toast.error("Kunne ikke læse CSV: " + err.message),
+      error: (err: { message: string }) => toast.error("Kunne ikke læse CSV: " + err.message),
     });
   }
 
