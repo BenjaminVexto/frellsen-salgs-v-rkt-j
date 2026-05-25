@@ -491,16 +491,43 @@ function ImportSide() {
     });
   }, [rows, mapping, existingCvrs, existingEanMap, existingNameMap, salespersonMap]);
 
+  function isFilteredByVisma(p: PreparedRow): boolean {
+    if (vismaFilters.excludeInternal) {
+      const seg1 = String(p.data.customer_segment_1 ?? "").toLowerCase();
+      if (seg1.includes("personale") || seg1.includes("interne")) return true;
+    }
+    if (vismaFilters.excludeForeign) {
+      const land = (p.raw["Landnr."] ?? "").trim();
+      if (land && land !== "1") return true;
+    }
+    if (vismaFilters.excludeCreditBlocked) {
+      const credit = (p.raw["Kreditspærre"] ?? "").trim();
+      if (credit) return true;
+    }
+    return false;
+  }
+
   const stats = useMemo(() => {
-    const newCount = prepared.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
-    const dupCount = prepared.filter((p) => p.isDuplicate).length;
-    const missingCount = prepared.filter((p) => p.missingCvr && !p.hasError).length;
-    const errorCount = prepared.filter((p) => p.hasError).length;
+    const kept = prepared.filter((p) => !isFilteredByVisma(p));
+    const filteredCount = prepared.length - kept.length;
+    const newCount = kept.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
+    const dupCount = kept.filter((p) => p.isDuplicate).length;
+    const missingCount = kept.filter((p) => p.missingCvr && !p.hasError).length;
+    const errorCount = kept.filter((p) => p.hasError).length;
     const unmatchedSp = new Set(
-      prepared.filter((p) => p.salespersonNo && !p.matchedSellerId).map((p) => p.salespersonNo!),
+      kept.filter((p) => p.salespersonNo && !p.matchedSellerId).map((p) => p.salespersonNo!),
     );
-    return { newCount, dupCount, missingCount, errorCount, unmatchedSalespersonNos: Array.from(unmatchedSp) };
-  }, [prepared]);
+    return {
+      newCount,
+      dupCount,
+      missingCount,
+      errorCount,
+      filteredCount,
+      totalRows: prepared.length,
+      unmatchedSalespersonNos: Array.from(unmatchedSp),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prepared, vismaFilters]);
 
   // Trin 4: kør import (batch-baseret bulk upsert)
   async function runImport() {
@@ -514,6 +541,7 @@ function ImportSide() {
     let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0, noCvrCount = 0;
     const toImport = prepared.filter((p) => {
       if (p.hasError) return false;
+      if (isFilteredByVisma(p)) return false;
       // Tillad rækker uden CVR hvis de har EAN, ellers respekter checkbox
       if (p.missingCvr && !p.ean && !includeMissingCvr) return false;
       return true;
