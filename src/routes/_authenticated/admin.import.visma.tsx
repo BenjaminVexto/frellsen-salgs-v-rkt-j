@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
@@ -155,6 +155,33 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   location_phone: ["telefonnr_1", "telefonnr1", "lev_telefon"],
   location_email: ["e_mailadresse", "lev_email"],
   location_contact_person: ["ref_person", "kontaktperson_lev"],
+};
+
+// Visma debitorliste → systemfelter (eksakt headerne fra Visma CSV)
+const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
+  cvr: ["CVR nr.", "CVR nr"],
+  name: ["Navn"],
+  address: ["Adresselinje 1"],
+  zip: ["Postnr."],
+  city: ["By"],
+  phone: ["Telefonnr.1"],
+  email: ["E-mailadresse"],
+  created_in_visma: ["Oprettet dato"],
+  last_purchase_date: ["Sidste Varekøb"],
+  customer_segment_1: ["Kundeprisgruppe 1"],
+  customer_segment_2: ["Kundeprisgruppe 2"],
+  customer_segment_3: ["Kundeprisgruppe 3"],
+  visma_id: ["Fakt. kunde"],
+  visma_delivery_id: ["Lev. kund"],
+  contact_person: ["Ref person"],
+  salesperson_no: ["Sælger"],
+  ean_number: ["EAN nr."],
+};
+
+type VismaFilters = {
+  excludeInternal: boolean;
+  excludeForeign: boolean;
+  excludeCreditBlocked: boolean;
 };
 
 
