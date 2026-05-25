@@ -496,10 +496,8 @@ function ImportSide() {
         seg3.includes("region");
       const isPublic = data.is_public === true || isPublicFromSegment;
       (data as any).is_public = isPublic;
-      const isDuplicate =
-        (!!cvr && existingCvrs.has(cvr)) ||
-        (!!ean && existingEanMap.has(ean));
-      const eanMatchId = ean ? existingEanMap.get(ean) ?? null : null;
+      const isDuplicate = !!cvr && existingCvrs.has(cvr);
+      const eanMatchId = null;
       const nameMatchId =
         !cvr && !ean && data.name
           ? existingNameMap.get(`${String(data.name).toLowerCase()}|${(data.zip as string) ?? ""}`) ?? null
