@@ -308,6 +308,7 @@ function GruppeKort({
   onAction,
   actionWarning,
   showLinks,
+  emptyHint,
 }: {
   tone: "success" | "warning" | "destructive";
   emoji: string;
