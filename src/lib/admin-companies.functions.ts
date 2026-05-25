@@ -59,15 +59,28 @@ async function fetchRelatedCompanyIds(
   ids: string[],
 ): Promise<Set<string>> {
   const out = new Set<string>();
-  const CHUNK = 500;
+  // Hold URL'er korte — 500 UUIDs i .in() kan give "fetch failed" på worker-runtime
+  const CHUNK = 150;
   for (let i = 0; i < ids.length; i += CHUNK) {
     const slice = ids.slice(i, i + CHUNK);
-    const { data, error } = await supabaseAdmin
-      .from(table)
-      .select("company_id")
-      .in("company_id", slice);
-    if (error) throw new Error(error.message);
-    (data ?? []).forEach((r: any) => out.add(r.company_id));
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from(table)
+          .select("company_id")
+          .in("company_id", slice);
+        if (error) throw new Error(error.message);
+        (data ?? []).forEach((r: any) => out.add(r.company_id));
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        // Eksponentiel backoff: 200ms, 600ms
+        await new Promise((r) => setTimeout(r, 200 * Math.pow(3, attempt)));
+      }
+    }
+    if (lastErr) throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
   }
   return out;
 }
@@ -209,15 +222,15 @@ export const getImportBatchBreakdown = createServerFn({ method: "POST" })
       return { batch, untouched: [], partial: [], active: [] };
     }
 
-    // Aktiviteter, salgsmuligheder, tilbud → "aktive". Chunkes for at undgå 1000-cap.
-    const [actSet, oppSet, qSet, asgSet] = await Promise.all([
-      fetchRelatedCompanyIds("activities", ids),
-      fetchRelatedCompanyIds("sales_opportunities", ids),
-      fetchRelatedCompanyIds("quotes", ids),
-      fetchRelatedCompanyIds("contact_list_assignments", ids),
-    ]);
+    // Aktiviteter, salgsmuligheder, tilbud → "aktive". Kør sekventielt for at
+    // undgå at workeren overbelastes med parallelle fetch-pools (giver "fetch failed").
+    const actSet = await fetchRelatedCompanyIds("activities", ids);
+    const oppSet = await fetchRelatedCompanyIds("sales_opportunities", ids);
+    const qSet = await fetchRelatedCompanyIds("quotes", ids);
+    const asgSet = await fetchRelatedCompanyIds("contact_list_assignments", ids);
     const activeSet = new Set<string>([...actSet, ...oppSet, ...qSet]);
     const assignedSet = asgSet;
+
 
     const untouched: CRow[] = [];
     const partial: CRow[] = [];
