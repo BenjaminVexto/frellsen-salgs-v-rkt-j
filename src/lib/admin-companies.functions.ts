@@ -214,7 +214,16 @@ export const getImportBatchBreakdown = createServerFn({ method: "POST" })
       else untouched.push(c);
     }
 
-    return { batch, untouched, partial, active };
+    // Brug det faktiske antal virksomheder fra DB, så tællingen altid stemmer
+    const batchWithActualCount = { ...batch, company_count: companies.length };
+    if (batch.company_count !== companies.length) {
+      await supabaseAdmin
+        .from("import_batches")
+        .update({ company_count: companies.length })
+        .eq("id", batch.id);
+    }
+
+    return { batch: batchWithActualCount, untouched, partial, active };
   });
 
 export const deleteBatchGroup = createServerFn({ method: "POST" })
