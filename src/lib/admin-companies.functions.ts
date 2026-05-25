@@ -16,15 +16,60 @@ async function ensureAdmin(userId: string) {
 
 async function cascadeDeleteCompanies(companyIds: string[]) {
   if (!companyIds.length) return;
-  // Slet i børn-først rækkefølge for at undgå FK-konflikter.
-  // activities og quotes har FK til sales_opportunities, så slet dem først.
-  await supabaseAdmin.from("activities").delete().in("company_id", companyIds);
-  await supabaseAdmin.from("quotes").delete().in("company_id", companyIds);
-  await supabaseAdmin.from("contact_list_assignments").delete().in("company_id", companyIds);
-  await supabaseAdmin.from("sales_opportunities").delete().in("company_id", companyIds);
-  await supabaseAdmin.from("contacts").delete().in("company_id", companyIds);
-  const { error } = await supabaseAdmin.from("companies").delete().in("id", companyIds);
-  if (error) throw new Error(error.message);
+  // Chunk for at undgå for lange URL'er og rammen af query-limits
+  const CHUNK = 500;
+  for (let i = 0; i < companyIds.length; i += CHUNK) {
+    const slice = companyIds.slice(i, i + CHUNK);
+    // Børn først for at undgå FK-konflikter
+    await supabaseAdmin.from("activities").delete().in("company_id", slice);
+    await supabaseAdmin.from("quotes").delete().in("company_id", slice);
+    await supabaseAdmin.from("contact_list_assignments").delete().in("company_id", slice);
+    await supabaseAdmin.from("sales_opportunities").delete().in("company_id", slice);
+    await supabaseAdmin.from("contacts").delete().in("company_id", slice);
+    const { error } = await supabaseAdmin.from("companies").delete().in("id", slice);
+    if (error) throw new Error(error.message);
+  }
+}
+
+// Hent ALLE virksomheder for en batch – paginer forbi 1000-rækkers grænsen
+async function fetchAllCompaniesForBatch(
+  batchId: string,
+  select: string,
+): Promise<any[]> {
+  const PAGE = 1000;
+  const all: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin
+      .from("companies")
+      .select(select)
+      .eq("import_batch_id", batchId)
+      .order("name")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = data ?? [];
+    all.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return all;
+}
+
+// Henter kun company_ids relateret til en liste af ids (chunked .in)
+async function fetchRelatedCompanyIds(
+  table: "activities" | "sales_opportunities" | "quotes" | "contact_list_assignments",
+  ids: string[],
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select("company_id")
+      .in("company_id", slice);
+    if (error) throw new Error(error.message);
+    (data ?? []).forEach((r: any) => out.add(r.company_id));
+  }
+  return out;
 }
 
 export const getCompanyDeletionStats = createServerFn({ method: "POST" })
@@ -139,42 +184,46 @@ export const getImportBatchBreakdown = createServerFn({ method: "POST" })
     if (bErr) throw new Error(bErr.message);
     if (!batch) throw new Error("Batch ikke fundet");
 
-    const { data: companies, error: cErr } = await supabaseAdmin
-      .from("companies")
-      .select("id, name, cvr, city")
-      .eq("import_batch_id", data.batch_id)
-      .order("name");
-    if (cErr) throw new Error(cErr.message);
+    type CRow = { id: string; name: string; cvr: string | null; city: string | null };
+    const companies = (await fetchAllCompaniesForBatch(
+      data.batch_id,
+      "id, name, cvr, city",
+    )) as CRow[];
 
-    const ids = (companies ?? []).map((c) => c.id);
+    const ids = companies.map((c) => c.id);
     if (!ids.length) {
       return { batch, untouched: [], partial: [], active: [] };
     }
 
-    // Aktiviteter, salgsmuligheder, tilbud → "aktive"
-    const [actRes, oppRes, qRes, asgRes] = await Promise.all([
-      supabaseAdmin.from("activities").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("sales_opportunities").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("quotes").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("contact_list_assignments").select("company_id").in("company_id", ids),
+    // Aktiviteter, salgsmuligheder, tilbud → "aktive". Chunkes for at undgå 1000-cap.
+    const [actSet, oppSet, qSet, asgSet] = await Promise.all([
+      fetchRelatedCompanyIds("activities", ids),
+      fetchRelatedCompanyIds("sales_opportunities", ids),
+      fetchRelatedCompanyIds("quotes", ids),
+      fetchRelatedCompanyIds("contact_list_assignments", ids),
     ]);
-    const activeSet = new Set<string>();
-    (actRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    (oppRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    (qRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    const assignedSet = new Set<string>();
-    (asgRes.data ?? []).forEach((r: any) => assignedSet.add(r.company_id));
+    const activeSet = new Set<string>([...actSet, ...oppSet, ...qSet]);
+    const assignedSet = asgSet;
 
-    const untouched: typeof companies = [];
-    const partial: typeof companies = [];
-    const active: typeof companies = [];
-    for (const c of companies ?? []) {
+    const untouched: CRow[] = [];
+    const partial: CRow[] = [];
+    const active: CRow[] = [];
+    for (const c of companies) {
       if (activeSet.has(c.id)) active.push(c);
       else if (assignedSet.has(c.id)) partial.push(c);
       else untouched.push(c);
     }
 
-    return { batch, untouched, partial, active };
+    // Brug det faktiske antal virksomheder fra DB, så tællingen altid stemmer
+    const batchWithActualCount = { ...batch, company_count: companies.length };
+    if (batch.company_count !== companies.length) {
+      await supabaseAdmin
+        .from("import_batches")
+        .update({ company_count: companies.length })
+        .eq("id", batch.id);
+    }
+
+    return { batch: batchWithActualCount, untouched, partial, active };
   });
 
 export const deleteBatchGroup = createServerFn({ method: "POST" })
@@ -190,27 +239,19 @@ export const deleteBatchGroup = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
 
-    const { data: companies, error } = await supabaseAdmin
-      .from("companies")
-      .select("id")
-      .eq("import_batch_id", data.batch_id);
-    if (error) throw new Error(error.message);
-    const ids = (companies ?? []).map((c) => c.id);
+    const companies = (await fetchAllCompaniesForBatch(data.batch_id, "id")) as Array<{ id: string }>;
+    const ids = companies.map((c) => c.id);
     if (!ids.length) return { deleted: 0 };
 
-    // Genberegn grupper for at sikre at vi ikke sletter aktive virksomheder
-    const [actRes, oppRes, qRes, asgRes] = await Promise.all([
-      supabaseAdmin.from("activities").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("sales_opportunities").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("quotes").select("company_id").in("company_id", ids),
-      supabaseAdmin.from("contact_list_assignments").select("company_id").in("company_id", ids),
+    // Genberegn grupper for at sikre at vi ikke sletter aktive virksomheder (chunked)
+    const [actSet, oppSet, qSet, asgSet] = await Promise.all([
+      fetchRelatedCompanyIds("activities", ids),
+      fetchRelatedCompanyIds("sales_opportunities", ids),
+      fetchRelatedCompanyIds("quotes", ids),
+      fetchRelatedCompanyIds("contact_list_assignments", ids),
     ]);
-    const activeSet = new Set<string>();
-    (actRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    (oppRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    (qRes.data ?? []).forEach((r: any) => activeSet.add(r.company_id));
-    const assignedSet = new Set<string>();
-    (asgRes.data ?? []).forEach((r: any) => assignedSet.add(r.company_id));
+    const activeSet = new Set<string>([...actSet, ...oppSet, ...qSet]);
+    const assignedSet = asgSet;
 
     let toDelete: string[];
     if (data.group === "untouched") {
