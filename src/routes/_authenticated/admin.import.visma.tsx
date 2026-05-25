@@ -264,6 +264,15 @@ function ImportSide() {
   >([]);
   const [salespersonMap, setSalespersonMap] = useState<Map<string, string>>(new Map());
   const [assigning, setAssigning] = useState(false);
+  const [vismaFilters, setVismaFilters] = useState<VismaFilters>({
+    excludeInternal: true,
+    excludeForeign: true,
+    excludeCreditBlocked: true,
+  });
+  const [autoMatchReport, setAutoMatchReport] = useState<{ matched: string[]; missing: string[] }>({
+    matched: [],
+    missing: [],
+  });
   const createBatch = useServerFn(createImportBatch);
 
   useEffect(() => {
@@ -273,31 +282,39 @@ function ImportSide() {
     }
   }, [auth.loading, auth.role, navigate]);
 
-  // Trin 1: Parse fil
+  // Trin 1: Parse Visma-fil (altid semikolon-separator, UTF-8 m. BOM)
   async function handleFile(f: File) {
     setFile(f);
-    const rawText = await f.text();
-    const firstLine = rawText.split("\n")[0] ?? "";
-    const delimiter =
-      firstLine.split(";").length > firstLine.split(",").length ? ";" : ",";
-    Papa.parse<ParsedRow>(rawText, {
-      delimiter,
+    Papa.parse<ParsedRow>(f, {
+      delimiter: ";",
       header: true,
       skipEmptyLines: true,
+      encoding: "UTF-8",
       transformHeader: (h) => h.replace(/^\uFEFF/, "").trim(),
       complete: (res) => {
         const hdrs = res.meta.fields ?? [];
         setHeaders(hdrs);
         setRows(res.data);
-        // Auto-match
+        // Auto-mapping baseret på eksakte Visma-headers
         const auto: Partial<Record<SystemField, string>> = {};
-        for (const f of SYSTEM_FIELDS) {
+        const matchedHeaders: string[] = [];
+        const missingFields: string[] = [];
+        for (const [field, aliases] of Object.entries(VISMA_MAPPING) as [
+          SystemField,
+          string[],
+        ][]) {
           const found = hdrs.find((h) =>
-            AUTO_MATCH[f.key].some((alias) => h.toLowerCase().replace(/[\s-]/g, "_") === alias),
+            aliases.some((a) => h.toLowerCase() === a.toLowerCase()),
           );
-          if (found) auto[f.key] = found;
+          if (found) {
+            auto[field] = found;
+            matchedHeaders.push(found);
+          } else {
+            missingFields.push(aliases[0]);
+          }
         }
         setMapping(auto);
+        setAutoMatchReport({ matched: matchedHeaders, missing: missingFields });
         toast.success(`${res.data.length} rækker indlæst`);
         setStep(2);
       },
