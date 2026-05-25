@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.companies_ean_number_key;
