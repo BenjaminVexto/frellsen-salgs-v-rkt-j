@@ -567,9 +567,11 @@ function ImportSide() {
 
   // Trin 4: kør import (batch-baseret bulk upsert)
   async function runImport() {
+    if (importRunner.isBusy()) {
+      toast.error("Der kører allerede en import. Vent indtil den er færdig.");
+      return;
+    }
     importRunner.start("visma");
-    importRunner.setProgress(0);
-    importRunner.setLabel("Forbereder…");
 
     const CHUNK = 500;
     const yieldUI = () => new Promise((r) => setTimeout(r, 0));
