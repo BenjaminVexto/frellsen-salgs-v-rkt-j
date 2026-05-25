@@ -25,6 +25,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GlobalImportIndicator } from "@/components/global-import-indicator";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
