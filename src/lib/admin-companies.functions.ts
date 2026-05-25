@@ -222,15 +222,15 @@ export const getImportBatchBreakdown = createServerFn({ method: "POST" })
       return { batch, untouched: [], partial: [], active: [] };
     }
 
-    // Aktiviteter, salgsmuligheder, tilbud → "aktive". Chunkes for at undgå 1000-cap.
-    const [actSet, oppSet, qSet, asgSet] = await Promise.all([
-      fetchRelatedCompanyIds("activities", ids),
-      fetchRelatedCompanyIds("sales_opportunities", ids),
-      fetchRelatedCompanyIds("quotes", ids),
-      fetchRelatedCompanyIds("contact_list_assignments", ids),
-    ]);
+    // Aktiviteter, salgsmuligheder, tilbud → "aktive". Kør sekventielt for at
+    // undgå at workeren overbelastes med parallelle fetch-pools (giver "fetch failed").
+    const actSet = await fetchRelatedCompanyIds("activities", ids);
+    const oppSet = await fetchRelatedCompanyIds("sales_opportunities", ids);
+    const qSet = await fetchRelatedCompanyIds("quotes", ids);
+    const asgSet = await fetchRelatedCompanyIds("contact_list_assignments", ids);
     const activeSet = new Set<string>([...actSet, ...oppSet, ...qSet]);
     const assignedSet = asgSet;
+
 
     const untouched: CRow[] = [];
     const partial: CRow[] = [];
