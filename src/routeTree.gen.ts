@@ -23,6 +23,7 @@ import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
+import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authenticated/admin.import.cvr'
 import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
 
 const LoginRoute = LoginRouteImport.update({
@@ -104,6 +105,12 @@ const AuthenticatedAdminImportVismaRoute =
     path: '/visma',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
+const AuthenticatedAdminImportCvrRoute =
+  AuthenticatedAdminImportCvrRouteImport.update({
+    id: '/cvr',
+    path: '/cvr',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
 const AuthenticatedAdminImportAndenRoute =
   AuthenticatedAdminImportAndenRouteImport.update({
     id: '/anden',
@@ -125,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
+  '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
 }
 export interface FileRoutesByTo {
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
+  '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
 }
 export interface FileRoutesById {
@@ -159,6 +168,7 @@ export interface FileRoutesById {
   '/_authenticated/kontaktlister_/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
   '/_authenticated/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
+  '/_authenticated/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/_authenticated/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
 }
 export interface FileRouteTypes {
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/kontaktlister/$id'
     | '/virksomheder/$id'
     | '/admin/import/anden'
+    | '/admin/import/cvr'
     | '/admin/import/visma'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/kontaktlister/$id'
     | '/virksomheder/$id'
     | '/admin/import/anden'
+    | '/admin/import/cvr'
     | '/admin/import/visma'
   id:
     | '__root__'
@@ -210,6 +222,7 @@ export interface FileRouteTypes {
     | '/_authenticated/kontaktlister_/$id'
     | '/_authenticated/virksomheder_/$id'
     | '/_authenticated/admin/import/anden'
+    | '/_authenticated/admin/import/cvr'
     | '/_authenticated/admin/import/visma'
   fileRoutesById: FileRoutesById
 }
@@ -319,6 +332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportVismaRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
+    '/_authenticated/admin/import/cvr': {
+      id: '/_authenticated/admin/import/cvr'
+      path: '/cvr'
+      fullPath: '/admin/import/cvr'
+      preLoaderRoute: typeof AuthenticatedAdminImportCvrRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
     '/_authenticated/admin/import/anden': {
       id: '/_authenticated/admin/import/anden'
       path: '/anden'
@@ -331,12 +351,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminImportRouteChildren {
   AuthenticatedAdminImportAndenRoute: typeof AuthenticatedAdminImportAndenRoute
+  AuthenticatedAdminImportCvrRoute: typeof AuthenticatedAdminImportCvrRoute
   AuthenticatedAdminImportVismaRoute: typeof AuthenticatedAdminImportVismaRoute
 }
 
 const AuthenticatedAdminImportRouteChildren: AuthenticatedAdminImportRouteChildren =
   {
     AuthenticatedAdminImportAndenRoute: AuthenticatedAdminImportAndenRoute,
+    AuthenticatedAdminImportCvrRoute: AuthenticatedAdminImportCvrRoute,
     AuthenticatedAdminImportVismaRoute: AuthenticatedAdminImportVismaRoute,
   }
 
