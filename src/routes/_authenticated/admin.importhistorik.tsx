@@ -163,6 +163,7 @@ function BatchDetalje({ batchId, onBack }: { batchId: string; onBack: () => void
       setData(res);
     } catch (e: any) {
       toast.error("Kunne ikke hente: " + e.message);
+      onBack();
     } finally {
       setLoading(false);
     }
@@ -222,6 +223,11 @@ function BatchDetalje({ batchId, onBack }: { batchId: string; onBack: () => void
           companies={data.untouched}
           actionLabel="Slet alle uberørte"
           onAction={data.untouched.length > 0 ? () => setConfirm("untouched") : undefined}
+          emptyHint={
+            data.batch.company_count > 0
+              ? "Denne import er ikke knyttet til virksomhederne i historikken endnu, så der er intet at slette herfra."
+              : undefined
+          }
         />
         <GruppeKort
           tone="warning"
@@ -233,6 +239,11 @@ function BatchDetalje({ batchId, onBack }: { batchId: string; onBack: () => void
           actionLabel="Slet alligevel"
           onAction={data.partial.length > 0 ? () => setConfirm("partial") : undefined}
           actionWarning
+          emptyHint={
+            data.batch.company_count > 0
+              ? "Denne import er ikke knyttet til virksomhederne i historikken endnu, så der er intet at slette herfra."
+              : undefined
+          }
         />
         <GruppeKort
           tone="destructive"
@@ -297,6 +308,7 @@ function GruppeKort({
   onAction,
   actionWarning,
   showLinks,
+  emptyHint,
 }: {
   tone: "success" | "warning" | "destructive";
   emoji: string;
@@ -308,6 +320,7 @@ function GruppeKort({
   onAction?: () => void;
   actionWarning?: boolean;
   showLinks?: boolean;
+  emptyHint?: string;
 }) {
   const toneClass = {
     success: "border-success/40 bg-success/5",
@@ -339,7 +352,7 @@ function GruppeKort({
       </div>
 
       {companies.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Ingen virksomheder i denne gruppe.</p>
+        <p className="text-xs text-muted-foreground">{emptyHint ?? "Ingen virksomheder i denne gruppe."}</p>
       ) : (
         <div className="max-h-60 overflow-y-auto border rounded-md bg-card divide-y">
           {companies.slice(0, 100).map((c) => (
