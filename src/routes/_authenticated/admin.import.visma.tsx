@@ -515,7 +515,11 @@ function ImportSide() {
     }
     if (vismaFilters.excludeForeign) {
       const land = (p.raw["Landnr."] ?? "").trim();
-      if (land && land !== "1") return true;
+      // 45 = Danmark (dansk telefonkode brugt i Visma)
+      // 1 = alternativ dansk kode
+      // tom = dansk (ikke udfyldt)
+      const isDanish = !land || land === "1" || land === "45";
+      if (!isDanish) return true;
     }
     if (vismaFilters.excludeCreditBlocked) {
       const credit = (p.raw["Kreditspærre"] ?? "").trim();
@@ -1602,7 +1606,7 @@ function Trin2VismaConfirm({
             />
             <div>
               <div className="font-medium">Udeluk udenlandske kunder</div>
-              <div className="text-xs text-muted-foreground">Landnr. udfyldt og ≠ 1</div>
+              <div className="text-xs text-muted-foreground">Landnr. er hverken 1, 45 eller tom</div>
             </div>
           </label>
           <label className="flex items-start gap-3 text-sm cursor-pointer">
