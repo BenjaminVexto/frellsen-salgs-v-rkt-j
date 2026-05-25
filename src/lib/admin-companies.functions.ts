@@ -72,6 +72,24 @@ async function fetchRelatedCompanyIds(
   return out;
 }
 
+async function stampCompaniesToBatch(
+  batchId: string,
+  createdAt: string,
+  companyIds: string[],
+) {
+  if (!companyIds.length) return;
+  const uniqueCompanyIds = Array.from(new Set(companyIds));
+  const CHUNK = 500;
+  for (let i = 0; i < uniqueCompanyIds.length; i += CHUNK) {
+    const slice = uniqueCompanyIds.slice(i, i + CHUNK);
+    const { error } = await supabaseAdmin
+      .from("companies")
+      .update({ import_batch_id: batchId, import_batch_date: createdAt })
+      .in("id", slice);
+    if (error) throw new Error(error.message);
+  }
+}
+
 export const getCompanyDeletionStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -117,25 +135,21 @@ export const createImportBatch = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
+    const uniqueCompanyIds = Array.from(new Set(data.company_ids));
     const { data: batch, error } = await supabaseAdmin
       .from("import_batches")
       .insert({
         filename: data.filename ?? null,
         created_by: context.userId,
-        company_count: data.company_count,
+        company_count: uniqueCompanyIds.length,
       })
       .select("id, created_at")
       .single();
     if (error || !batch) throw new Error(error?.message ?? "Kunne ikke oprette batch");
 
-    // Stempel virksomheder
-    const { error: stampErr } = await supabaseAdmin
-      .from("companies")
-      .update({ import_batch_id: batch.id, import_batch_date: batch.created_at })
-      .in("id", data.company_ids);
-    if (stampErr) throw new Error(stampErr.message);
+    await stampCompaniesToBatch(batch.id, batch.created_at, uniqueCompanyIds);
 
-    return { batch_id: batch.id };
+    return { batch_id: batch.id, company_count: uniqueCompanyIds.length };
   });
 
 export const listImportBatches = createServerFn({ method: "GET" })
