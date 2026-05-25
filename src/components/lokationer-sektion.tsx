@@ -58,7 +58,27 @@ export function LokationerSektion({
     load();
   }, [companyId, reloadKey]);
 
-  if (locations.length === 0 && !isAdmin) return null;
+  if (locations.length === 0) {
+    if (!isAdmin) return null;
+    // Admin: vis kun "Tilføj lokation"-knap, ikke hele sektionen
+    return (
+      <>
+        <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
+        </Button>
+        <AddLocationDialog
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          companyId={companyId}
+          hasPrimary={false}
+          onSaved={() => {
+            setAddOpen(false);
+            load();
+          }}
+        />
+      </>
+    );
+  }
 
   const primary = locations.find((l) => l.is_primary);
   const others = locations.filter((l) => !l.is_primary);
@@ -69,11 +89,9 @@ export function LokationerSektion({
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold flex items-center gap-2">
           <MapPin className="h-4 w-4" /> Lokationer
-          {locations.length > 0 && (
-            <span className="text-xs text-muted-foreground font-normal">
-              ({locations.length})
-            </span>
-          )}
+          <span className="text-xs text-muted-foreground font-normal">
+            ({locations.length})
+          </span>
         </h2>
         {isAdmin && (
           <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
@@ -82,39 +100,34 @@ export function LokationerSektion({
         )}
       </div>
 
-      {locations.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Ingen lokationer registreret endnu.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {primary && (
-            <LokationRow
-              location={primary}
-              isPrimary
-              onRegister={() => onRegisterActivity(primary.id)}
-            />
-          )}
-          {visibleOthers.map((l) => (
-            <LokationRow
-              key={l.id}
-              location={l}
-              onRegister={() => onRegisterActivity(l.id)}
-            />
-          ))}
-          {others.length > 3 && !expanded && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => setExpanded(true)}
-            >
-              <ChevronDown className="h-4 w-4 mr-1" />
-              Vis alle {locations.length} lokationer
-            </Button>
-          )}
-        </div>
-      )}
+      <div className="space-y-3">
+        {primary && (
+          <LokationRow
+            location={primary}
+            isPrimary
+            onRegister={() => onRegisterActivity(primary.id)}
+          />
+        )}
+        {visibleOthers.map((l) => (
+          <LokationRow
+            key={l.id}
+            location={l}
+            onRegister={() => onRegisterActivity(l.id)}
+          />
+        ))}
+        {others.length > 3 && !expanded && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={() => setExpanded(true)}
+          >
+            <ChevronDown className="h-4 w-4 mr-1" />
+            Vis alle {locations.length} lokationer
+          </Button>
+        )}
+      </div>
+
 
       {isAdmin && (
         <AddLocationDialog

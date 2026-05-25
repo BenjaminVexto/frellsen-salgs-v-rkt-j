@@ -898,7 +898,8 @@ function ImportSide() {
 
       const locRows: any[] = [];
       for (const [cvr, list] of byCvr.entries()) {
-        if (list.length > 1) companiesWithMultipleLocations++;
+        if (list.length < 2) continue; // Model B: kun virksomheder med 2+ leveringsadresser får lokationer
+        companiesWithMultipleLocations++;
         const companyId = cvrToCompanyId.get(cvr)!;
         for (const row of list) {
           locRows.push({
