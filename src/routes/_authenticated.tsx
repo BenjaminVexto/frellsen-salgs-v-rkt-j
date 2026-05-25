@@ -193,6 +193,7 @@ function AuthenticatedLayout() {
           })}
         </nav>
       </main>
+      <GlobalImportIndicator />
     </div>
   );
 }
