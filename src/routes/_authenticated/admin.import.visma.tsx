@@ -389,28 +389,8 @@ function ImportSide() {
     }
     setExistingNameMap(nameMap);
 
-    // EAN-opslag
-    const eanMap = new Map<string, string>();
-    if (mapping.ean_number) {
-      const eans = Array.from(
-        new Set(
-          rows
-            .map((r) => normEan(r[mapping.ean_number!]))
-            .filter((v): v is string => !!v),
-        ),
-      );
-      for (let i = 0; i < eans.length; i += 500) {
-        const slice = eans.slice(i, i + 500);
-        const { data: edata } = await (supabase as any)
-          .from("companies")
-          .select("id, ean_number")
-          .in("ean_number", slice);
-        (edata ?? []).forEach((d: any) => {
-          if (d.ean_number) eanMap.set(d.ean_number, d.id);
-        });
-      }
-    }
-    setExistingEanMap(eanMap);
+    // EAN bruges ikke til deduplicering
+    setExistingEanMap(new Map());
 
     // Hent sælgernumre → user_id-mapping
     const { data: profs } = await supabase
