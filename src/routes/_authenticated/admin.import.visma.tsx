@@ -1259,7 +1259,7 @@ function Trin3Preview({
   onNext,
 }: {
   prepared: PreparedRow[];
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; unmatchedSalespersonNos: string[] };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   setIncludeMissingCvr: (v: boolean) => void;
   onBack: () => void;
@@ -1365,7 +1365,7 @@ function Trin4Import({
   onAssignNow,
   onLater,
 }: {
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; unmatchedSalespersonNos: string[] };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
