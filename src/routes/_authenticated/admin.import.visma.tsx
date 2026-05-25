@@ -1062,17 +1062,26 @@ function ImportSide() {
 
   return (
     <div className="px-4 md:px-8 py-8 max-w-5xl mx-auto pb-24 md:pb-8">
-      <h1 className="text-2xl md:text-3xl font-semibold mb-2">Import af virksomheder</h1>
-      <p className="text-sm text-muted-foreground mb-6">CSV-import i 4 trin (+ valgfri tildeling)</p>
+      <Link
+        to="/admin/import"
+        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center mb-4"
+      >
+        <ArrowLeft className="h-4 w-4 mr-1" /> Vælg anden importtype
+      </Link>
+      <h1 className="text-2xl md:text-3xl font-semibold mb-2">Visma-import</h1>
+      <p className="text-sm text-muted-foreground mb-6">
+        CSV-eksport fra Visma Debitorliste. Kolonner auto-mappes — du behøver ikke matche manuelt.
+      </p>
 
       <Stepper step={step} />
 
-      {step === 1 && <Trin1Upload onFile={handleFile} />}
+      {step === 1 && <Trin1VismaUpload onFile={handleFile} />}
       {step === 2 && (
-        <Trin2Mapping
-          headers={headers}
-          mapping={mapping}
-          setMapping={setMapping}
+        <Trin2VismaConfirm
+          report={autoMatchReport}
+          filters={vismaFilters}
+          setFilters={setVismaFilters}
+          rowCount={rows.length}
           onBack={() => setStep(1)}
           onNext={gotoPreview}
         />
