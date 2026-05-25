@@ -436,7 +436,7 @@ function ImportSide() {
         seg3.includes("kommune") ||
         seg3.includes("region");
       const isPublic = data.is_public === true || isPublicFromSegment;
-      if (isPublic && data.is_public === undefined) (data as any).is_public = true;
+      (data as any).is_public = isPublic;
       const isDuplicate =
         (!!cvr && existingCvrs.has(cvr)) ||
         (!!ean && existingEanMap.has(ean));
