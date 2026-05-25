@@ -43,6 +43,7 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import { importRunner, useImportRunner } from "@/lib/import-runner";
 
 export const Route = createFileRoute("/_authenticated/admin/import/visma")({
   component: ImportSide,
@@ -254,9 +255,10 @@ function ImportSide() {
   const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
   const [chosenList, setChosenList] = useState<string>("");
   const [chosenSeller, setChosenSeller] = useState<string>("");
-  const [importing, setImporting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressLabel, setProgressLabel] = useState("");
+  const runnerState = useImportRunner();
+  const importing = runnerState.running && runnerState.kind === "visma";
+  const progress = runnerState.kind === "visma" ? runnerState.progress : 0;
+  const progressLabel = runnerState.kind === "visma" ? runnerState.label : "";
   const [result, setResult] = useState<{
     created: number; updated: number; skipped: number; failed: number; enriched: number;
     noCvrCount: number;
@@ -291,6 +293,19 @@ function ImportSide() {
       navigate({ to: "/dashboard" });
     }
   }, [auth.loading, auth.role, navigate]);
+
+  // Hydrate post-import state if user navigates back to the page after import finished.
+  useEffect(() => {
+    const r = importRunner.get();
+    if (r.kind === "visma" && r.postState && !result) {
+      const p = r.postState as any;
+      if (p.companyIds) setImportedIds(p.companyIds);
+      if (p.sellerByCompany) setImportedSellerByCompany(p.sellerByCompany);
+      if (p.rowAssignments) setImportedRowAssignments(p.rowAssignments);
+      if (p.result) setResult(p.result);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Trin 1: Parse Visma-fil (altid semikolon-separator, UTF-8 m. BOM)
   async function handleFile(f: File) {
@@ -480,7 +495,7 @@ function ImportSide() {
         seg3.includes("kommune") ||
         seg3.includes("region");
       const isPublic = data.is_public === true || isPublicFromSegment;
-      if (isPublic && data.is_public === undefined) (data as any).is_public = true;
+      (data as any).is_public = isPublic;
       const isDuplicate =
         (!!cvr && existingCvrs.has(cvr)) ||
         (!!ean && existingEanMap.has(ean));
@@ -552,9 +567,11 @@ function ImportSide() {
 
   // Trin 4: kør import (batch-baseret bulk upsert)
   async function runImport() {
-    setImporting(true);
-    setProgress(0);
-    setProgressLabel("Forbereder…");
+    if (importRunner.isBusy()) {
+      toast.error("Der kører allerede en import. Vent indtil den er færdig.");
+      return;
+    }
+    importRunner.start("visma");
 
     const CHUNK = 500;
     const yieldUI = () => new Promise((r) => setTimeout(r, 0));
@@ -595,7 +612,7 @@ function ImportSide() {
     const existingByCvr = new Map<string, any>();
     const existingById = new Map<string, any>();
 
-    setProgressLabel("Henter eksisterende virksomheder…");
+    importRunner.setLabel("Henter eksisterende virksomheder…");
     for (let i = 0; i < cvrsToFetch.length; i += CHUNK) {
       const slice = cvrsToFetch.slice(i, i + CHUNK);
       const { data, error } = await supabase
@@ -604,7 +621,7 @@ function ImportSide() {
         .in("cvr", slice);
       if (error) {
         toast.error("Kunne ikke hente eksisterende: " + error.message);
-        setImporting(false);
+        importRunner.fail(progressLabel || "Import afbrudt");
         return;
       }
       (data ?? []).forEach((r: any) => {
@@ -621,7 +638,7 @@ function ImportSide() {
         .in("id", slice);
       if (error) {
         toast.error("Kunne ikke hente eksisterende match: " + error.message);
-        setImporting(false);
+        importRunner.fail(progressLabel || "Import afbrudt");
         return;
       }
       (data ?? []).forEach((r: any) => existingById.set(r.id, r));
@@ -752,8 +769,8 @@ function ImportSide() {
     const tick = (label: string, doneRows: number) => {
       batchIdx++;
       processed += doneRows;
-      setProgress(Math.round((processed / toImport.length) * 100));
-      setProgressLabel(
+      importRunner.setProgress(Math.round((processed / toImport.length) * 100));
+      importRunner.setLabel(
         `Importerer batch ${batchIdx} af ${totalBatches}… (${processed.toLocaleString("da-DK")} / ${toImport.length.toLocaleString("da-DK")})`,
       );
     };
@@ -974,17 +991,19 @@ function ImportSide() {
       console.error("Kunne ikke bygge per-række tildelinger", e);
     }
 
-    setImportedIds(companyIds);
-    setImportedSellerByCompany(sellerByCompany);
-    setImportedRowAssignments(rowAssignments);
-    setResult({
+    const resultPayload = {
       created, updated, skipped, failed, enriched, noCvrCount,
       importSource,
       unmatchedSalespersonNos: stats.unmatchedSalespersonNos,
-    });
-    setProgress(100);
-    setProgressLabel(`Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`);
-    setImporting(false);
+    };
+    setImportedIds(companyIds);
+    setImportedSellerByCompany(sellerByCompany);
+    setImportedRowAssignments(rowAssignments);
+    setResult(resultPayload);
+    importRunner.finish(
+      `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`,
+      { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
+    );
     toast.success("Import gennemført");
   }
 
