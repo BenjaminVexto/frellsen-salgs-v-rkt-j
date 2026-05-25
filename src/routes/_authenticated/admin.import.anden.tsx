@@ -990,7 +990,13 @@ function ImportSide() {
 
   return (
     <div className="px-4 md:px-8 py-8 max-w-5xl mx-auto pb-24 md:pb-8">
-      <h1 className="text-2xl md:text-3xl font-semibold mb-2">Import af virksomheder</h1>
+      <Link
+        to="/admin/import"
+        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center mb-4"
+      >
+        <ArrowLeft className="h-4 w-4 mr-1" /> Vælg anden importtype
+      </Link>
+      <h1 className="text-2xl md:text-3xl font-semibold mb-2">Anden fil – manuel mapping</h1>
       <p className="text-sm text-muted-foreground mb-6">CSV-import i 4 trin (+ valgfri tildeling)</p>
 
       <Stepper step={step} />
