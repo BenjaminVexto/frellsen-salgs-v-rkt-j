@@ -12,7 +12,7 @@ import {
   Building2,
   ArrowRight,
 } from "lucide-react";
-import { format, isToday, parseISO } from "date-fns";
+import { format, isToday, parseISO, addDays } from "date-fns";
 import { da } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
