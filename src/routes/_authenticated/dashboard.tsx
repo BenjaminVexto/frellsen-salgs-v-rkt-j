@@ -95,6 +95,25 @@ function DashboardPage() {
     },
   });
 
+  const expiringDocsQuery = useQuery({
+    enabled: !!userId,
+    queryKey: ["dashboard-expiring-docs"],
+    queryFn: async () => {
+      const in90 = new Date();
+      in90.setDate(in90.getDate() + 90);
+      const { data, error } = await supabase
+        .from("company_documents")
+        .select("id, filename, document_type, expires_at, company:companies(id, name)")
+        .not("expires_at", "is", null)
+        .gte("expires_at", today)
+        .lte("expires_at", in90.toISOString().slice(0, 10))
+        .order("expires_at", { ascending: true })
+        .limit(10);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const overdue = (followupsQuery.data ?? []).filter(
     (f) => f.next_followup_date && f.next_followup_date < today
   );
