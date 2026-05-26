@@ -185,7 +185,7 @@ const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
   contact_person: ["Ref person"],
   salesperson_no: ["Sælger"],
   ean_number: ["EAN nr."],
-  location_address: ["Adresselinje 1"],
+  location_address: ["Adresselinje 2"],
   location_zip: ["Postnr."],
   location_city: ["By"],
   location_contact_person: ["Ref person"],
