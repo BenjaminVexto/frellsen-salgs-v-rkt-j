@@ -36,18 +36,31 @@ export type LocationContact = {
   email: string | null;
 };
 
+const firstFilled = (...values: Array<string | null | undefined>) => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+};
+
 export function LokationerSektion({
   companyId,
   isAdmin,
   onRegisterActivity,
   reloadKey,
   contactsByLocation,
+  companyFallbackAddress,
+  companyFallbackZip,
+  companyFallbackCity,
 }: {
   companyId: string;
   isAdmin: boolean;
   onRegisterActivity: (locationId: string) => void;
   reloadKey?: number;
   contactsByLocation?: Map<string, LocationContact[]>;
+  companyFallbackAddress?: string | null;
+  companyFallbackZip?: string | null;
+  companyFallbackCity?: string | null;
 }) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -115,6 +128,9 @@ export function LokationerSektion({
             location={primary}
             isPrimary
             contacts={contactsByLocation?.get(primary.id) ?? []}
+            fallbackAddress={companyFallbackAddress}
+            fallbackZip={companyFallbackZip}
+            fallbackCity={companyFallbackCity}
             onRegister={() => onRegisterActivity(primary.id)}
           />
         )}
@@ -161,19 +177,28 @@ function LokationRow({
   isPrimary,
   onRegister,
   contacts = [],
+  fallbackAddress,
+  fallbackZip,
+  fallbackCity,
 }: {
   location: Location;
   isPrimary?: boolean;
   onRegister: () => void;
   contacts?: LocationContact[];
+  fallbackAddress?: string | null;
+  fallbackZip?: string | null;
+  fallbackCity?: string | null;
 }) {
-  const cityLine = [location.zip, location.city].filter(Boolean).join(" ");
+  const address = firstFilled(location.address, isPrimary ? fallbackAddress : null);
+  const zip = firstFilled(location.zip, isPrimary ? fallbackZip : null);
+  const city = firstFilled(location.city, isPrimary ? fallbackCity : null);
+  const cityLine = [zip, city].filter(Boolean).join(" ");
   return (
     <div id={`location-${location.id}`} className="border rounded-md p-3 scroll-mt-20">
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-2 font-medium">
           <MapPin className="h-4 w-4 text-muted-foreground" />
-          {location.city || location.address || "Lokation"}
+          {address || city || zip || "Lokation"}
           {isPrimary && (
             <Badge variant="secondary" className="text-xs">
               Primær
@@ -182,8 +207,8 @@ function LokationRow({
         </div>
       </div>
       <div className="text-sm text-muted-foreground space-y-0.5 pl-6">
-        {location.address && (
-          <p className="text-sm text-foreground">{location.address}</p>
+        {address && (
+          <p className="text-sm text-foreground">{address}</p>
         )}
         {cityLine && <p className="text-sm text-muted-foreground">{cityLine}</p>}
         {contacts.length > 0 ? (

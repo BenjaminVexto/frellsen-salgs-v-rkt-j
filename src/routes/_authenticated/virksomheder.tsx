@@ -105,6 +105,13 @@ const customerTypeLabel: Record<string, string> = {
 const RECENT_KEY = "recently_imported_ids";
 const PAGE_SIZE = 50;
 
+const firstFilled = (...values: Array<string | null | undefined>) => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+};
+
 function VirksomhederListe() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -334,19 +341,21 @@ function VirksomhederListe() {
     return rows.filter((r) => {
       // søgetekst
       if (q) {
-        const qq = q.toLowerCase();
+        const rawQuery = q.trim();
+        if (!rawQuery) return true;
+        const qq = rawQuery.toLowerCase();
         const locs = locationMap.get(r.id) ?? [];
         const hit =
           r.name.toLowerCase().includes(qq) ||
-          (r.cvr ?? "").includes(q) ||
+          (r.cvr ?? "").includes(rawQuery) ||
           (r.address ?? "").toLowerCase().includes(qq) ||
           (r.city ?? "").toLowerCase().includes(qq) ||
-          (r.zip ?? "").includes(q) ||
+          (r.zip ?? "").includes(rawQuery) ||
           locs.some(
             (l) =>
               (l.city ?? "").toLowerCase().includes(qq) ||
               (l.address ?? "").toLowerCase().includes(qq) ||
-              (l.zip ?? "").includes(q),
+              (l.zip ?? "").includes(rawQuery),
           );
         if (!hit) return false;
       }
@@ -507,7 +516,7 @@ function VirksomhederListe() {
       {/* Søg + filter toggle */}
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
         <Input
-          placeholder="Søg på navn, CVR, by eller lokation…"
+          placeholder="Søg på navn, adresse, postnr., by, CVR eller lokation…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="max-w-md"
@@ -842,22 +851,27 @@ function VirksomhederListe() {
                       </div>
                       {(() => {
                         if (!q) return null;
-                        const qq = q.toLowerCase();
+                        const rawQuery = q.trim();
+                        if (!rawQuery) return null;
+                        const qq = rawQuery.toLowerCase();
                         const nameHit = r.name.toLowerCase().includes(qq);
-                        const cvrHit = (r.cvr ?? "").includes(q);
+                        const cvrHit = (r.cvr ?? "").includes(rawQuery);
                         const addrHit = (r.address ?? "").toLowerCase().includes(qq);
                         const cityHit = (r.city ?? "").toLowerCase().includes(qq);
-                        const zipHit = (r.zip ?? "").includes(q);
+                        const zipHit = (r.zip ?? "").includes(rawQuery);
                         if (nameHit || cvrHit || addrHit || cityHit || zipHit) return null;
                         const locs = locationMap.get(r.id) ?? [];
                         const match = locs.find(
                           (l) =>
                             (l.city ?? "").toLowerCase().includes(qq) ||
                             (l.address ?? "").toLowerCase().includes(qq) ||
-                            (l.zip ?? "").includes(q),
+                            (l.zip ?? "").includes(rawQuery),
                         );
                         if (!match) return null;
-                        const parts = [match.address, [match.zip, match.city].filter(Boolean).join(" ")]
+                        const parts = [
+                          firstFilled(match.address),
+                          [firstFilled(match.zip), firstFilled(match.city)].filter(Boolean).join(" "),
+                        ]
                           .filter((p) => p && p.trim())
                           .join(", ");
                         return (

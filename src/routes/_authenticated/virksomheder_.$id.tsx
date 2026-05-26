@@ -128,6 +128,13 @@ type Contact = Database["public"]["Tables"]["contacts"]["Row"];
 type Activity = Database["public"]["Tables"]["activities"]["Row"];
 type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"];
 
+const firstFilled = (...values: Array<string | null | undefined>) => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+};
+
 function VirksomhedsKort() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -329,9 +336,9 @@ function VirksomhedsKort() {
           <div className="space-y-3 text-sm">
             {(() => {
               const primary = locations.find((l) => l.is_primary) ?? locations[0];
-              const addr = primary?.address ?? company.address;
-              const zip = primary?.zip ?? company.zip;
-              const city = primary?.city ?? company.city;
+              const addr = firstFilled(primary?.address, company.address);
+              const zip = firstFilled(primary?.zip, company.zip);
+              const city = firstFilled(primary?.city, company.city);
               if (!addr && !zip && !city && !company.municipality) return null;
               return (
                 <Row icon={<MapPin className="h-4 w-4" />}>
@@ -479,6 +486,9 @@ function VirksomhedsKort() {
             companyId={company.id}
             isAdmin={isAdmin}
             reloadKey={locationReloadKey}
+            companyFallbackAddress={company.address}
+            companyFallbackZip={company.zip}
+            companyFallbackCity={company.city}
             contactsByLocation={(() => {
               const m = new Map<string, LocationContact[]>();
               for (const c of contacts as ContactRow[]) {
