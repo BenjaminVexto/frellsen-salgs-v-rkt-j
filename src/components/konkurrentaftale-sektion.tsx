@@ -91,11 +91,17 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
         <h2 className="font-semibold flex items-center gap-2">
           <Coffee className="h-4 w-4" /> Konkurrentaftale
         </h2>
-        {assignment && (
-          <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-            <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
-          </Button>
-        )}
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+          {assignment ? (
+            <>
+              <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4 mr-1" /> Registrér
+            </>
+          )}
+        </Button>
       </div>
 
       {loading ? (
@@ -103,69 +109,66 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : !assignment ? (
-        <div>
-          <p className="text-sm text-muted-foreground mb-3">
-            Ingen konkurrentaftale registreret.
-          </p>
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" /> Registrér konkurrentaftale
-          </Button>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Ingen konkurrentaftale registreret.
+        </p>
       ) : (
-        <dl className="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
-          <dt className="text-muted-foreground">Leverandør:</dt>
-          <dd className="font-medium">{assignment.competitors?.name ?? "—"}</dd>
-
-          <dt className="text-muted-foreground">Udløber:</dt>
-          <dd
-            className={
-              expired || expiresSoon
-                ? "text-warning font-medium flex items-center gap-1"
-                : ""
-            }
-          >
-            {(expired || expiresSoon) && <AlertTriangle className="h-3.5 w-3.5" />}
-            {assignment.contract_expires_at
-              ? format(parseISO(assignment.contract_expires_at), "d. MMMM yyyy", { locale: da })
-              : "—"}
-          </dd>
-
-          {assignment.notes && (
-            <>
-              <dt className="text-muted-foreground">Bemærkning:</dt>
-              <dd className="italic">{assignment.notes}</dd>
-            </>
+        <div className="space-y-1 text-sm">
+          <div className="font-medium flex items-center gap-2 flex-wrap">
+            <span>{assignment.competitors?.name ?? "—"}</span>
+            {assignment.competitors?.competitor_type &&
+              COMPETITOR_TYPES[assignment.competitors.competitor_type] && (
+                <span
+                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${COMPETITOR_TYPE_BADGE[assignment.competitors.competitor_type]}`}
+                >
+                  {COMPETITOR_TYPES[assignment.competitors.competitor_type].label}
+                </span>
+              )}
+          </div>
+          {assignment.contract_expires_at && (
+            <div
+              className={
+                expired || expiresSoon
+                  ? "text-warning font-medium flex items-center gap-1"
+                  : "text-muted-foreground"
+              }
+            >
+              {(expired || expiresSoon) && <AlertTriangle className="h-3.5 w-3.5" />}
+              Udløber{" "}
+              {format(parseISO(assignment.contract_expires_at), "d. MMM yyyy", {
+                locale: da,
+              })}
+            </div>
           )}
-
-          <dt className="text-muted-foreground">Registreret af:</dt>
-          <dd>{registrantName || "—"}</dd>
-        </dl>
+          {assignment.notes && (
+            <p className="italic text-muted-foreground">"{assignment.notes}"</p>
+          )}
+          {registrantName && (
+            <p className="text-xs text-muted-foreground">
+              Registreret af {registrantName}
+            </p>
+          )}
+        </div>
       )}
 
       {assignment?.competitors?.competitor_type &&
         COMPETITOR_TYPES[assignment.competitors.competitor_type] && (() => {
           const type = COMPETITOR_TYPES[assignment.competitors.competitor_type!];
-          const badge = COMPETITOR_TYPE_BADGE[assignment.competitors.competitor_type!];
           return (
-            <div className="mt-5 rounded-lg border border-border bg-muted/30 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Lightbulb className="h-4 w-4 text-primary" />
-                <span
-                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${badge}`}
-                >
-                  {type.label}
-                </span>
+            <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Lightbulb className="h-3.5 w-3.5 text-primary" />
                 <span className="text-xs text-muted-foreground">{type.tagline}</span>
               </div>
               <div className="grid sm:grid-cols-2 gap-3 text-sm">
                 <div>
-                  <div className="text-xs text-muted-foreground mb-1">
+                  <div className="text-xs text-muted-foreground mb-0.5">
                     De spørger sandsynligvis:
                   </div>
                   <div className="italic">"{type.identifying_question}"</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground mb-1">
+                  <div className="text-xs text-muted-foreground mb-0.5">
                     Frellsens svar:
                   </div>
                   <div className="font-medium">"{type.frellsen_pitch}"</div>
@@ -174,6 +177,7 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
             </div>
           );
         })()}
+
 
       <AssignmentDialog
         open={open}
