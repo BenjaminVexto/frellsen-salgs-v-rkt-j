@@ -339,11 +339,14 @@ function VirksomhederListe() {
         const hit =
           r.name.toLowerCase().includes(qq) ||
           (r.cvr ?? "").includes(q) ||
+          (r.address ?? "").toLowerCase().includes(qq) ||
           (r.city ?? "").toLowerCase().includes(qq) ||
+          (r.zip ?? "").includes(q) ||
           locs.some(
             (l) =>
               (l.city ?? "").toLowerCase().includes(qq) ||
-              (l.address ?? "").toLowerCase().includes(qq),
+              (l.address ?? "").toLowerCase().includes(qq) ||
+              (l.zip ?? "").includes(q),
           );
         if (!hit) return false;
       }
