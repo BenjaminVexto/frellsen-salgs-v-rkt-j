@@ -63,6 +63,7 @@ function AuthenticatedLayout() {
     { to: "/dashboard", label: "Mit overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", icon: Building2 },
     { to: "/kontaktlister", label: "Kontaktlister", icon: ListChecks },
+    { to: "/konkurrenter", label: "Konkurrenter", icon: ShieldAlert },
     { to: "/salgsmuligheder", label: "Salgsmuligheder", icon: Target },
   ];
   const adminItems = [
