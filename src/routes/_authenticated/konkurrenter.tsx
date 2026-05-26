@@ -36,14 +36,12 @@ import {
   Plus,
   Pencil,
   Trash2,
-  ChevronRight,
   ArrowRight,
   Loader2,
   MapPin,
   Users,
   Wrench,
   X,
-  Lightbulb,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -51,6 +49,12 @@ import { da } from "date-fns/locale";
 import {
   COMPETITOR_TYPES,
   COMPETITOR_TYPE_BADGE,
+  COMPETITOR_TYPE_BORDER,
+  COMPETITOR_TYPE_TEXT,
+  COMPETITOR_TYPE_PANEL,
+  COMPETITOR_TYPE_ICON,
+  COMPETITOR_TYPE_ICON_BG,
+  COMPETITOR_TYPE_ORDER,
   type CompetitorTypeKey,
 } from "@/lib/competitor-types";
 
@@ -137,7 +141,9 @@ function KonkurrenterPage() {
     } else {
       const rows = (data ?? []) as AssignmentRow[];
       rows.sort((a, b) => {
-        if (!a.contract_expires_at && !b.contract_expires_at) return 0;
+        if (!a.contract_expires_at && !b.contract_expires_at) {
+          return (a.companies?.name ?? "").localeCompare(b.companies?.name ?? "");
+        }
         if (!a.contract_expires_at) return 1;
         if (!b.contract_expires_at) return -1;
         return a.contract_expires_at.localeCompare(b.contract_expires_at);
@@ -157,9 +163,18 @@ function KonkurrenterPage() {
     [competitors, selectedId],
   );
 
-  const selectedType = selectedCompetitor?.competitor_type
-    ? COMPETITOR_TYPES[selectedCompetitor.competitor_type]
-    : null;
+  // Gruppér konkurrenter efter arketype (alfabetisk inden for hver gruppe)
+  const groupedCompetitors = useMemo(() => {
+    const groups: Record<string, Competitor[]> = {};
+    for (const c of competitors) {
+      const key = c.competitor_type ?? "__none__";
+      (groups[key] ??= []).push(c);
+    }
+    for (const k of Object.keys(groups)) {
+      groups[k].sort((a, b) => a.name.localeCompare(b.name, "da"));
+    }
+    return groups;
+  }, [competitors]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -202,244 +217,144 @@ function KonkurrenterPage() {
         )}
       </header>
 
-      {/* Arketype-kort */}
-      <section className="mb-6 md:mb-8">
-        <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+      {/* Arketype-kort — visuelt markante */}
+      <section className="mb-8 md:mb-10">
+        <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
           De fire arketyper
         </h2>
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {(Object.entries(COMPETITOR_TYPES) as [CompetitorTypeKey, typeof COMPETITOR_TYPES[CompetitorTypeKey]][]).map(
-            ([key, type]) => (
-              <Card key={key} className="p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${COMPETITOR_TYPE_BADGE[key]}`}
-                  >
-                    {type.label}
-                  </span>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {COMPETITOR_TYPE_ORDER.map((key) => {
+            const type = COMPETITOR_TYPES[key];
+            const Icon = COMPETITOR_TYPE_ICON[key];
+            return (
+              <Card
+                key={key}
+                className="relative overflow-hidden p-5 pt-6 flex flex-col"
+              >
+                <div
+                  className={`absolute top-0 left-0 right-0 h-1 ${COMPETITOR_TYPE_BORDER[key]}`}
+                />
+                <div
+                  className={`h-10 w-10 rounded-lg flex items-center justify-center mb-3 ${COMPETITOR_TYPE_ICON_BG[key]}`}
+                >
+                  <Icon className="h-5 w-5" />
                 </div>
-                <div className="text-xs text-muted-foreground mb-3">
-                  {type.tagline}
+                <h3 className={`text-lg font-semibold ${COMPETITOR_TYPE_TEXT[key]}`}>
+                  {type.label}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{type.tagline}</p>
+                <div className="border-t border-dashed border-border my-4" />
+                <div className="text-xs text-muted-foreground italic mb-1">
+                  De spørger:
                 </div>
-                <div className="text-xs space-y-2">
-                  <div>
-                    <span className="text-muted-foreground">Spørger: </span>
-                    <span className="italic">"{type.identifying_question}"</span>
-                  </div>
-                  <div className="pt-2 border-t border-border">
-                    <span className="text-muted-foreground">✊ </span>
-                    <span className="font-medium">"{type.frellsen_pitch}"</span>
-                  </div>
+                <p className="text-sm italic mb-3">"{type.identifying_question}"</p>
+                <div className="text-xs text-muted-foreground mb-1">
+                  Frellsens svar:
                 </div>
+                <p className={`text-sm font-semibold ${COMPETITOR_TYPE_TEXT[key]}`}>
+                  "{type.frellsen_pitch}"
+                </p>
               </Card>
-            ),
-          )}
+            );
+          })}
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
-        <Card className="p-0 overflow-hidden h-fit">
-          <div className="px-4 py-3 border-b border-border bg-muted/30">
-            <h2 className="font-semibold text-sm">Konkurrenter</h2>
-          </div>
+      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+        {/* Venstre: grupperede konkurrent-kort */}
+        <div className="space-y-8">
           {loading ? (
-            <div className="py-6 flex justify-center">
+            <Card className="p-10 flex justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
+            </Card>
           ) : competitors.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">
+            <Card className="p-6 text-sm text-muted-foreground">
               Ingen konkurrenter oprettet endnu.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {competitors.map((c) => {
-                const count = counts[c.id] ?? 0;
-                const active = selectedId === c.id;
-                return (
-                  <li
-                    key={c.id}
-                    className={`flex items-start gap-2 px-4 py-3 hover:bg-muted/40 transition-colors ${
-                      active ? "bg-primary/5" : ""
-                    }`}
-                  >
-                    <button
-                      onClick={() => setSelectedId(c.id)}
-                      className="flex-1 min-w-0 text-left"
-                    >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium">{c.name}</span>
-                        {c.competitor_type && (
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${COMPETITOR_TYPE_BADGE[c.competitor_type]}`}
-                          >
-                            {COMPETITOR_TYPES[c.competitor_type].label}
-                          </span>
-                        )}
-                      </div>
-                      {(c.city || c.employee_count != null) && (
-                        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-                          {c.city && (
-                            <span className="inline-flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {c.city}
-                            </span>
-                          )}
-                          {c.employee_count != null && (
-                            <span className="inline-flex items-center gap-1">
-                              <Users className="h-3 w-3" />
-                              {c.employee_count} ansatte
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {c.equipment_brands && c.equipment_brands.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {c.equipment_brands.map((b) => (
-                            <span
-                              key={b}
-                              className="inline-flex items-center rounded bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5"
-                            >
-                              {b}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="text-xs text-muted-foreground mt-1.5">
-                        {count} virksomhed{count === 1 ? "" : "er"} med aftale
-                      </div>
-                    </button>
-                    {canWrite && (
-                      <div className="flex flex-col gap-0.5">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditTarget(c);
-                          }}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteTarget(c);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-2" />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
-
-        <Card className="p-0 overflow-hidden h-fit">
-          <div className="px-4 py-3 border-b border-border bg-muted/30">
-            <h2 className="font-semibold text-sm">
-              {selectedCompetitor
-                ? `${selectedCompetitor.name} (${details.length} virksomhed${details.length === 1 ? "" : "er"})`
-                : "Vælg en konkurrent for at se aftaler"}
-            </h2>
-          </div>
-          {!selectedId ? (
-            <p className="p-6 text-sm text-muted-foreground text-center">
-              Klik på en konkurrent til venstre for at se virksomheder med aftale.
-            </p>
+            </Card>
           ) : (
             <>
-              {selectedType && selectedCompetitor?.competitor_type && (
-                <div className="p-4 border-b border-border bg-muted/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Lightbulb className="h-4 w-4 text-primary" />
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${COMPETITOR_TYPE_BADGE[selectedCompetitor.competitor_type]}`}
-                    >
-                      {selectedType.label}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {selectedType.tagline}
-                    </span>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">
-                        Hvad driver dem:
+              {COMPETITOR_TYPE_ORDER.map((key) => {
+                const list = groupedCompetitors[key] ?? [];
+                if (list.length === 0) return null;
+                const type = COMPETITOR_TYPES[key];
+                return (
+                  <section key={key}>
+                    <div className="mb-3">
+                      <div className="flex items-baseline gap-2">
+                        <h2
+                          className={`text-sm font-bold uppercase tracking-wider ${COMPETITOR_TYPE_TEXT[key]}`}
+                        >
+                          {type.plural}
+                        </h2>
+                        <span className="text-xs text-muted-foreground">
+                          ({list.length})
+                        </span>
                       </div>
-                      <div>{selectedType.what_drives}</div>
+                      <div
+                        className={`mt-1.5 h-0.5 w-12 ${COMPETITOR_TYPE_BORDER[key]} rounded-full`}
+                      />
                     </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">
-                        Sådan svarer Frellsen:
-                      </div>
-                      <div className="italic">"{selectedType.frellsen_counter}"</div>
+                    <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                      {list.map((c) => (
+                        <CompetitorCard
+                          key={c.id}
+                          competitor={c}
+                          count={counts[c.id] ?? 0}
+                          active={selectedId === c.id}
+                          canWrite={canWrite}
+                          onSelect={() => setSelectedId(c.id)}
+                          onEdit={() => setEditTarget(c)}
+                          onDelete={() => setDeleteTarget(c)}
+                        />
+                      ))}
                     </div>
+                  </section>
+                );
+              })}
+              {(groupedCompetitors["__none__"] ?? []).length > 0 && (
+                <section>
+                  <div className="mb-3">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                      Uden arketype
+                    </h2>
+                    <div className="mt-1.5 h-0.5 w-12 bg-muted-foreground/30 rounded-full" />
                   </div>
-                </div>
-              )}
-              {detailsLoading ? (
-                <div className="py-6 flex justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : details.length === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground text-center">
-                  Ingen virksomheder har aftale med {selectedCompetitor?.name}.
-                </p>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {details.map((d) => (
-                    <li
-                      key={d.id}
-                      className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-medium">{d.companies?.name ?? "—"}</div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          {d.companies?.city && (
-                            <>
-                              <MapPin className="h-3 w-3" />
-                              {d.companies.city}
-                            </>
-                          )}
-                          {d.contract_expires_at && (
-                            <>
-                              {d.companies?.city && <span>·</span>}
-                              <span>
-                                Udløber{" "}
-                                {format(parseISO(d.contract_expires_at), "d. MMM yyyy", {
-                                  locale: da,
-                                })}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        {d.notes && (
-                          <div className="text-xs text-muted-foreground italic mt-1">
-                            "{d.notes}"
-                          </div>
-                        )}
-                      </div>
-                      {d.companies?.id && (
-                        <Button asChild size="sm" variant="outline">
-                          <Link to="/virksomheder/$id" params={{ id: d.companies.id }}>
-                            Gå til <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                          </Link>
-                        </Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                  <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                    {groupedCompetitors["__none__"].map((c) => (
+                      <CompetitorCard
+                        key={c.id}
+                        competitor={c}
+                        count={counts[c.id] ?? 0}
+                        active={selectedId === c.id}
+                        canWrite={canWrite}
+                        onSelect={() => setSelectedId(c.id)}
+                        onEdit={() => setEditTarget(c)}
+                        onDelete={() => setDeleteTarget(c)}
+                      />
+                    ))}
+                  </div>
+                </section>
               )}
             </>
           )}
-        </Card>
+        </div>
+
+        {/* Højre: detail-panel */}
+        <div className="lg:sticky lg:top-6 h-fit">
+          <Card className="p-0 overflow-hidden">
+            {!selectedCompetitor ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                Vælg en konkurrent til venstre for at se detaljer og virksomheder med aftale.
+              </div>
+            ) : (
+              <CompetitorDetail
+                competitor={selectedCompetitor}
+                details={details}
+                detailsLoading={detailsLoading}
+              />
+            )}
+          </Card>
+        </div>
       </div>
 
       {canWrite && (
@@ -473,6 +388,286 @@ function KonkurrenterPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function CompetitorCard({
+  competitor,
+  count,
+  active,
+  canWrite,
+  onSelect,
+  onEdit,
+  onDelete,
+}: {
+  competitor: Competitor;
+  count: number;
+  active: boolean;
+  canWrite: boolean;
+  onSelect: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const type = competitor.competitor_type
+    ? COMPETITOR_TYPES[competitor.competitor_type]
+    : null;
+  const badge = competitor.competitor_type
+    ? COMPETITOR_TYPE_BADGE[competitor.competitor_type]
+    : "bg-muted text-muted-foreground border-border";
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`group relative bg-card border border-border rounded-lg p-4 shadow-sm transition-all cursor-pointer hover:shadow-md hover:-translate-y-0.5 ${
+        active ? "ring-2 ring-primary/40 shadow-md" : ""
+      }`}
+    >
+      {canWrite && (
+        <div className="absolute top-2 right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            aria-label="Rediger konkurrent"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Slet konkurrent"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap pr-14">
+        <h3 className="font-semibold text-base">{competitor.name}</h3>
+        <span
+          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${badge}`}
+        >
+          {type?.label ?? "Ukendt"}
+        </span>
+      </div>
+
+      {(competitor.city || competitor.employee_count != null) && (
+        <div className="text-xs text-muted-foreground mt-1.5 flex items-center gap-3 flex-wrap">
+          {competitor.city && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {competitor.city}
+            </span>
+          )}
+          {competitor.employee_count != null && (
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              {competitor.employee_count} ansatte
+            </span>
+          )}
+        </div>
+      )}
+
+      {competitor.equipment_brands && competitor.equipment_brands.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1">
+          {competitor.equipment_brands.map((b) => (
+            <span
+              key={b}
+              className="inline-flex items-center rounded-full bg-muted text-muted-foreground text-[10px] px-2 py-0.5"
+            >
+              {b}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          {count} virksomhed{count === 1 ? "" : "er"}
+        </span>
+        <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+      </div>
+    </div>
+  );
+}
+
+function CompetitorDetail({
+  competitor,
+  details,
+  detailsLoading,
+}: {
+  competitor: Competitor;
+  details: AssignmentRow[];
+  detailsLoading: boolean;
+}) {
+  const typeKey = competitor.competitor_type;
+  const type = typeKey ? COMPETITOR_TYPES[typeKey] : null;
+  const Icon = typeKey ? COMPETITOR_TYPE_ICON[typeKey] : null;
+
+  return (
+    <div>
+      <div className="p-5 border-b border-border">
+        <h2 className="text-xl font-semibold">{competitor.name}</h2>
+        {typeKey && type && (
+          <div className="mt-2">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${COMPETITOR_TYPE_BADGE[typeKey]}`}
+            >
+              {Icon && <Icon className="h-3.5 w-3.5" />}
+              {type.label}
+            </span>
+          </div>
+        )}
+        {(competitor.city || competitor.employee_count != null) && (
+          <div className="text-sm text-muted-foreground mt-3 flex items-center gap-3 flex-wrap">
+            {competitor.city && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" />
+                {competitor.city}
+              </span>
+            )}
+            {competitor.employee_count != null && (
+              <span className="inline-flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                {competitor.employee_count} ansatte
+              </span>
+            )}
+          </div>
+        )}
+        {competitor.equipment_brands && competitor.equipment_brands.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {competitor.equipment_brands.map((b) => (
+              <span
+                key={b}
+                className="inline-flex items-center rounded-full bg-muted text-muted-foreground text-xs px-2 py-0.5"
+              >
+                {b}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {typeKey && type && Icon && (
+        <div className="p-5 border-b border-border">
+          <div
+            className={`rounded-lg border p-4 ${COMPETITOR_TYPE_PANEL[typeKey]}`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Icon className={`h-4 w-4 ${COMPETITOR_TYPE_TEXT[typeKey]}`} />
+              <h3 className={`font-semibold ${COMPETITOR_TYPE_TEXT[typeKey]}`}>
+                {type.label}
+              </h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">{type.tagline}</p>
+
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="text-xs text-muted-foreground mb-0.5">
+                  Hvad driver dem:
+                </div>
+                <div>{type.what_drives}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-0.5">
+                  De spørger:
+                </div>
+                <div className="italic">"{type.identifying_question}"</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-0.5">
+                  Frellsens svar:
+                </div>
+                <div className={`font-semibold ${COMPETITOR_TYPE_TEXT[typeKey]}`}>
+                  "{type.frellsen_pitch}"
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+          <h3 className="font-semibold text-sm">
+            Virksomheder med aftale
+            <span className="text-muted-foreground font-normal ml-1.5">
+              ({details.length})
+            </span>
+          </h3>
+        </div>
+        {detailsLoading ? (
+          <div className="py-8 flex justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : details.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            Ingen kunder registreret med aftale hos {competitor.name} endnu.
+            <div className="mt-2 text-xs">
+              Tilføj via virksomhedskortet →
+            </div>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border max-h-[480px] overflow-y-auto">
+            {details.map((d) => (
+              <li
+                key={d.id}
+                className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/40 transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium text-sm">
+                    {d.companies?.name ?? "—"}
+                  </div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    {d.companies?.city && (
+                      <>
+                        <MapPin className="h-3 w-3" />
+                        {d.companies.city}
+                      </>
+                    )}
+                    {d.contract_expires_at && (
+                      <>
+                        {d.companies?.city && <span>·</span>}
+                        <span>
+                          Udløber{" "}
+                          {format(parseISO(d.contract_expires_at), "d. MMM yyyy", {
+                            locale: da,
+                          })}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {d.companies?.id && (
+                  <Button asChild size="sm" variant="ghost" className="shrink-0">
+                    <Link to="/virksomheder/$id" params={{ id: d.companies.id }}>
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -608,13 +803,11 @@ function CompetitorDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">— Ingen —</SelectItem>
-                {(Object.entries(COMPETITOR_TYPES) as [CompetitorTypeKey, typeof COMPETITOR_TYPES[CompetitorTypeKey]][]).map(
-                  ([key, type]) => (
-                    <SelectItem key={key} value={key}>
-                      {type.label} — {type.tagline}
-                    </SelectItem>
-                  ),
-                )}
+                {COMPETITOR_TYPE_ORDER.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {COMPETITOR_TYPES[key].label} — {COMPETITOR_TYPES[key].tagline}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
