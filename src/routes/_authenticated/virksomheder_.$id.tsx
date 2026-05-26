@@ -67,8 +67,9 @@ import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
-import { LokationerSektion, type Location } from "@/components/lokationer-sektion";
+import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
+import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
 type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
