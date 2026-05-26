@@ -327,17 +327,24 @@ function VirksomhedsKort() {
 
 
           <div className="space-y-3 text-sm">
-            {(company.address || company.city) && (
-              <Row icon={<MapPin className="h-4 w-4" />}>
-                {company.address && <div>{company.address}</div>}
-                <div className="text-muted-foreground">
-                  {[company.zip, company.city].filter(Boolean).join(" ")}
-                </div>
-                {company.municipality && (
-                  <div className="text-xs text-muted-foreground">{company.municipality} Kommune</div>
-                )}
-              </Row>
-            )}
+            {(() => {
+              const primary = locations.find((l) => l.is_primary) ?? locations[0];
+              const addr = primary?.address ?? company.address;
+              const zip = primary?.zip ?? company.zip;
+              const city = primary?.city ?? company.city;
+              if (!addr && !zip && !city && !company.municipality) return null;
+              return (
+                <Row icon={<MapPin className="h-4 w-4" />}>
+                  {addr && <div>{addr}</div>}
+                  <div className="text-muted-foreground">
+                    {[zip, city].filter(Boolean).join(" ")}
+                  </div>
+                  {company.municipality && (
+                    <div className="text-xs text-muted-foreground">{company.municipality} Kommune</div>
+                  )}
+                </Row>
+              );
+            })()}
             {company.phone && (
               <Row icon={<Phone className="h-4 w-4" />}>
                 <a href={`tel:${company.phone}`} className="hover:underline">{company.phone}</a>
