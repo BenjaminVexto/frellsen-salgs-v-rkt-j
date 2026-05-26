@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { CvrBulkSoegningDialog } from "@/components/cvr-bulk-soegning-dialog";
+import { AssignToListDialog } from "@/components/assign-to-list-dialog";
+import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -9,10 +11,14 @@ export const Route = createFileRoute("/_authenticated/admin/import/cvr")({
   component: ImportCvrSide,
 });
 
+type CompanyRegion = { id: string; municipality: string | null };
+
 function ImportCvrSide() {
   const auth = useAuth();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(true);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [importedCompanies, setImportedCompanies] = useState<CompanyRegion[]>([]);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -29,6 +35,26 @@ function ImportCvrSide() {
     );
   }
 
+  const handleImported = async (companyIds: string[]) => {
+    setSearchOpen(false);
+    if (!companyIds.length) {
+      navigate({ to: "/virksomheder" });
+      return;
+    }
+    // Hent kommuner for sælger-fordeling
+    const all: CompanyRegion[] = [];
+    for (let i = 0; i < companyIds.length; i += 500) {
+      const slice = companyIds.slice(i, i + 500);
+      const { data } = await supabase
+        .from("companies")
+        .select("id, municipality")
+        .in("id", slice);
+      (data ?? []).forEach((c: any) => all.push({ id: c.id, municipality: c.municipality }));
+    }
+    setImportedCompanies(all);
+    setAssignOpen(true);
+  };
+
   return (
     <div className="px-4 md:px-8 py-8 max-w-5xl mx-auto pb-24 md:pb-8">
       <Link
@@ -40,27 +66,39 @@ function ImportCvrSide() {
       <h1 className="text-2xl md:text-3xl font-semibold mb-2">Søg nye emner i CVR-registret</h1>
       <p className="text-sm text-muted-foreground mb-6">
         Find nye potentielle kunder direkte i CVR-registret. Filtrer på kommune, branche og virksomhedsform.
+        Efter import kan du tildele de nye emner til en sælger og en kontaktliste.
       </p>
 
       <CvrBulkSoegningDialog
-        open={open}
+        open={searchOpen}
         onOpenChange={(v) => {
-          setOpen(v);
-          if (!v) navigate({ to: "/admin/import" });
+          setSearchOpen(v);
+          if (!v && !assignOpen) navigate({ to: "/admin/import" });
         }}
-        onImported={() => {
-          navigate({ to: "/virksomheder" });
-        }}
+        onImported={handleImported}
       />
 
-      {!open && (
+      {!searchOpen && !assignOpen && (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => setSearchOpen(true)}
           className="text-primary hover:underline text-sm"
         >
           Åbn søgning igen
         </button>
       )}
+
+      <AssignToListDialog
+        open={assignOpen}
+        onOpenChange={(v) => {
+          setAssignOpen(v);
+          if (!v) navigate({ to: "/virksomheder" });
+        }}
+        companies={importedCompanies}
+        onAssigned={() => {
+          setAssignOpen(false);
+          navigate({ to: "/kontaktlister" });
+        }}
+      />
     </div>
   );
 }

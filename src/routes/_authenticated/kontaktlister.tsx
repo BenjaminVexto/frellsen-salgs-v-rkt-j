@@ -26,8 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Search, Users, Trash2, Sparkles } from "lucide-react";
-import { CvrBulkSoegningDialog } from "@/components/cvr-bulk-soegning-dialog";
+import { Loader2, Plus, Search, Users, Trash2 } from "lucide-react";
 import {
   CustomerStatusBadge,
   CustomerStatusLegend,
@@ -57,7 +56,7 @@ function KontaktlisterOversigt() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [cvrSearchOpen, setCvrSearchOpen] = useState(false);
+  
   const [preselectedIds, setPreselectedIds] = useState<string[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ListRow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -175,9 +174,6 @@ function KontaktlisterOversigt() {
         </div>
         {isAdmin && (
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => setCvrSearchOpen(true)}>
-              <Sparkles className="h-4 w-4 mr-2" /> Søg nye emner i CVR
-            </Button>
             <Button onClick={() => { setPreselectedIds(null); setCreateOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" /> Opret ny kontaktliste
             </Button>
@@ -312,15 +308,8 @@ function KontaktlisterOversigt() {
         />
       )}
 
-      <CvrBulkSoegningDialog
-        open={cvrSearchOpen}
-        onOpenChange={setCvrSearchOpen}
-        onImported={(ids) => {
-          setCvrSearchOpen(false);
-          setPreselectedIds(ids);
-          setCreateOpen(true);
-        }}
-      />
+
+
 
 
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
