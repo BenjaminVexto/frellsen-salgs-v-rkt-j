@@ -575,4 +575,32 @@ export const getDocumentSignedUrl = createServerFn({ method: "POST" })
     return { url: signed.signedUrl, filename: doc.filename };
   });
 
+export const downloadCompanyDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ document_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: doc } = await supabaseAdmin
+      .from("company_documents")
+      .select("storage_path, filename")
+      .eq("id", data.document_id)
+      .single();
+    if (!doc) throw new Error("Ikke fundet");
+    const { data: file, error } = await supabaseAdmin.storage
+      .from("company-documents")
+      .download(doc.storage_path);
+    if (error || !file) throw new Error(error?.message ?? "Kunne ikke hente fil");
+    const buf = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < buf.length; i += chunk) {
+      binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+    }
+    // btoa is available in the worker runtime
+    const base64 = btoa(binary);
+    return { base64, filename: doc.filename, content_type: "application/pdf" };
+  });
+
+
 
