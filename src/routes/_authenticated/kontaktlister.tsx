@@ -26,8 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Search, Users, Trash2, Sparkles } from "lucide-react";
-import { CvrBulkSoegningDialog } from "@/components/cvr-bulk-soegning-dialog";
+import { Loader2, Plus, Search, Users, Trash2 } from "lucide-react";
 import {
   CustomerStatusBadge,
   CustomerStatusLegend,
