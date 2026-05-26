@@ -167,11 +167,8 @@ function AuthenticatedLayout() {
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between border-b border-primary-foreground/10">
-        <div className="flex items-center gap-2">
-          <Coffee className="h-5 w-5" />
-          <span className="font-semibold text-sm">Frellsen Salgsoversigt</span>
-        </div>
+      <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-red-900 text-primary-foreground px-3 py-2 flex items-center justify-between border-b border-primary-foreground/10">
+        <img src={frellsenLogo} alt="Frellsen" className="h-8 w-auto object-contain" />
         <div className="flex items-center gap-1">
           {auth.user?.id && <NotificationBell userId={auth.user.id} />}
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
@@ -180,22 +177,25 @@ function AuthenticatedLayout() {
         </div>
       </div>
 
-      <main className="flex-1 md:ml-0 pt-14 md:pt-0">
+      <main className="flex-1 md:ml-0 pt-12 md:pt-0">
         <Outlet />
         {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-5 z-20">
+        <nav
+          className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-5 z-20"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
           {navItems.map((item) => {
             const active = location.pathname.startsWith(item.to);
             return (
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex flex-col items-center justify-center py-2 text-[11px] ${
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] leading-tight ${
                   active ? "text-primary" : "text-muted-foreground"
                 }`}
               >
                 <item.icon className="h-5 w-5 mb-0.5" />
-                {item.label}
+                <span className="truncate max-w-full px-1">{item.shortLabel}</span>
               </Link>
             );
           })}
