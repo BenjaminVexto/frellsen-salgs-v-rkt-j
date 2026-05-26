@@ -46,11 +46,12 @@ export const Route = createFileRoute("/_authenticated/admin/brugere")({
   component: BrugerStyringSide,
 });
 
+type AppRoleX = "admin" | "saelger" | "salgssupport";
 type Row = {
   id: string;
   full_name: string;
   email: string;
-  role: "admin" | "saelger";
+  role: AppRoleX;
   region: string | null;
   salesperson_no: string | null;
   is_active: boolean;
