@@ -37,6 +37,7 @@ import {
   Save,
   Trash2,
   Loader2,
+  Search,
 } from "lucide-react";
 import { SourceBadges } from "@/components/source-badges";
 import { OpretVirksomhedDialog } from "@/components/opret-virksomhed-dialog";
