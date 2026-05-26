@@ -111,8 +111,15 @@ export function DokumenterSektion({
 
   const handleOpen = async (id: string) => {
     try {
-      const res = await signedUrlFn({ data: { document_id: id } });
-      window.open(res.url, "_blank", "noopener,noreferrer");
+      const res = await downloadFn({ data: { document_id: id } });
+      const binary = atob(res.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: res.content_type });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      // Revoke after a delay so the new tab has time to load it
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke åbne dokument");
     }
