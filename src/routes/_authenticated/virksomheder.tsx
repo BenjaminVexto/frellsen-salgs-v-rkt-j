@@ -957,28 +957,33 @@ function VirksomhederListe() {
 
       {/* Sticky bulk action bar */}
       {isAdmin && selected.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-background border shadow-lg rounded-full px-4 py-2 flex items-center gap-3">
+        <div
+          className="fixed left-2 right-2 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-16 md:bottom-4 z-50 bg-background border shadow-lg rounded-2xl md:rounded-full px-3 md:px-4 py-2 flex flex-wrap items-center justify-center gap-2 md:gap-3"
+          style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+        >
           <span className="text-sm font-medium">
-            {selected.size} virksomheder valgt
+            {selected.size} valgt
           </span>
-          <div className="h-5 w-px bg-border" />
+          <div className="hidden md:block h-5 w-px bg-border" />
           <Button size="sm" onClick={() => setAssignOpen(true)}>
-            Tildel til kontaktliste
+            <span className="md:hidden">Tildel liste</span>
+            <span className="hidden md:inline">Tildel til kontaktliste</span>
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => setReassignOpen(true)}
           >
-            Skift ansvarlig sælger
+            <span className="md:hidden">Skift sælger</span>
+            <span className="hidden md:inline">Skift ansvarlig sælger</span>
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => setSelected(new Set())}
           >
-            <X className="h-4 w-4 mr-1" />
-            Fjern markering
+            <X className="h-4 w-4 md:mr-1" />
+            <span className="hidden md:inline">Fjern markering</span>
           </Button>
         </div>
       )}
