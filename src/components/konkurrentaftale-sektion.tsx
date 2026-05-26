@@ -19,10 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Coffee, Pencil, Plus, AlertTriangle, Loader2 } from "lucide-react";
+import { Coffee, Pencil, Plus, AlertTriangle, Loader2, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
+import {
+  COMPETITOR_TYPES,
+  COMPETITOR_TYPE_BADGE,
+  type CompetitorTypeKey,
+} from "@/lib/competitor-types";
 
 type Competitor = { id: string; name: string };
 
@@ -32,7 +37,7 @@ type Assignment = {
   contract_expires_at: string | null;
   notes: string | null;
   registered_by: string;
-  competitors: { name: string } | null;
+  competitors: { name: string; competitor_type: CompetitorTypeKey | null } | null;
 };
 
 export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
