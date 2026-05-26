@@ -114,6 +114,7 @@ export function LokationerSektion({
           <LokationRow
             location={primary}
             isPrimary
+            contacts={contactsByLocation?.get(primary.id) ?? []}
             onRegister={() => onRegisterActivity(primary.id)}
           />
         )}
@@ -121,6 +122,7 @@ export function LokationerSektion({
           <LokationRow
             key={l.id}
             location={l}
+            contacts={contactsByLocation?.get(l.id) ?? []}
             onRegister={() => onRegisterActivity(l.id)}
           />
         ))}
