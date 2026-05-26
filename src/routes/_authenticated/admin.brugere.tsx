@@ -276,9 +276,13 @@ function BrugerStyringSide() {
                   <TableCell className="font-medium">{r.full_name || "—"}</TableCell>
                   <TableCell>{r.email}</TableCell>
                   <TableCell>
-                    <Badge variant={r.role === "admin" ? "default" : "secondary"}>
-                      {r.role === "admin" ? "Admin" : "Sælger"}
-                    </Badge>
+                    {r.role === "admin" ? (
+                      <Badge variant="default">Admin</Badge>
+                    ) : r.role === "salgssupport" ? (
+                      <Badge className="bg-amber-500 hover:bg-amber-500/90 text-white">Salgssupport</Badge>
+                    ) : (
+                      <Badge variant="secondary">Sælger</Badge>
+                    )}
                   </TableCell>
                   <TableCell>{r.region || "—"}</TableCell>
                   <TableCell className="font-mono text-xs">{r.salesperson_no || "—"}</TableCell>
