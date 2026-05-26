@@ -471,3 +471,108 @@ export const importInsertLocations = createServerFn({ method: "POST" })
     return { inserted, failed };
   });
 
+// ======================= COMPANY DOCUMENTS =======================
+
+async function ensureDocumentWriter(userId: string) {
+  const { data } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "salgssupport"])
+    .maybeSingle();
+  if (!data) throw new Error("Forbidden: kun admin og salgssupport");
+}
+
+export const uploadCompanyDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        company_id: z.string().uuid(),
+        filename: z.string().trim().min(1).max(255),
+        document_type: z.enum(["aftale", "kontrakt", "tilbud", "maskine", "andet"]),
+        expires_at: z.string().nullable().optional(),
+        notes: z.string().max(500).nullable().optional(),
+        file_base64: z.string().min(1),
+        file_size_bytes: z.number().int().nonnegative().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureDocumentWriter(context.userId);
+
+    const safeName = data.filename.replace(/[^\w.\-]+/g, "_");
+    const path = `${data.company_id}/${Date.now()}_${safeName}`;
+    const buffer = Buffer.from(data.file_base64, "base64");
+    if (buffer.byteLength > 10 * 1024 * 1024) {
+      throw new Error("Filen er for stor (max 10 MB)");
+    }
+
+    const { error: uploadErr } = await supabaseAdmin.storage
+      .from("company-documents")
+      .upload(path, buffer, { contentType: "application/pdf", upsert: false });
+    if (uploadErr) throw new Error(uploadErr.message);
+
+    const { data: doc, error: dbErr } = await supabaseAdmin
+      .from("company_documents")
+      .insert({
+        company_id: data.company_id,
+        filename: data.filename,
+        storage_path: path,
+        document_type: data.document_type,
+        expires_at: data.expires_at ?? null,
+        notes: data.notes ?? null,
+        uploaded_by: context.userId,
+        file_size_bytes: data.file_size_bytes ?? buffer.byteLength,
+      })
+      .select("id")
+      .single();
+    if (dbErr) {
+      await supabaseAdmin.storage.from("company-documents").remove([path]);
+      throw new Error(dbErr.message);
+    }
+    return { id: doc.id };
+  });
+
+export const deleteCompanyDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ document_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureDocumentWriter(context.userId);
+    const { data: doc } = await supabaseAdmin
+      .from("company_documents")
+      .select("storage_path")
+      .eq("id", data.document_id)
+      .single();
+    if (!doc) throw new Error("Dokument ikke fundet");
+    await supabaseAdmin.storage.from("company-documents").remove([doc.storage_path]);
+    const { error } = await supabaseAdmin
+      .from("company_documents")
+      .delete()
+      .eq("id", data.document_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getDocumentSignedUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ document_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: doc } = await supabaseAdmin
+      .from("company_documents")
+      .select("storage_path, filename")
+      .eq("id", data.document_id)
+      .single();
+    if (!doc) throw new Error("Ikke fundet");
+    const { data: signed, error } = await supabaseAdmin.storage
+      .from("company-documents")
+      .createSignedUrl(doc.storage_path, 3600);
+    if (error) throw new Error(error.message);
+    return { url: signed.signedUrl, filename: doc.filename };
+  });
+
+

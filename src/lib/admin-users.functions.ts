@@ -22,7 +22,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
         full_name: z.string().trim().min(1).max(120),
         email: z.string().trim().email().max(255),
         password: z.string().min(8).max(128),
-        role: z.enum(["admin", "saelger"]),
+        role: z.enum(["admin", "saelger", "salgssupport"]),
         region: z.string().trim().max(120).optional().nullable(),
         salesperson_no: z.string().trim().max(32).optional().nullable(),
       })
@@ -55,11 +55,11 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       .eq("id", uid);
     if (profErr) throw new Error(profErr.message);
 
-    if (data.role === "admin") {
+    if (data.role !== "saelger") {
       await supabaseAdmin.from("user_roles").delete().eq("user_id", uid);
       const { error: roleErr } = await supabaseAdmin
         .from("user_roles")
-        .insert({ user_id: uid, role: "admin" });
+        .insert({ user_id: uid, role: data.role });
       if (roleErr) throw new Error(roleErr.message);
     }
 
@@ -73,7 +73,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       .object({
         user_id: z.string().uuid(),
         full_name: z.string().trim().min(1).max(120),
-        role: z.enum(["admin", "saelger"]),
+        role: z.enum(["admin", "saelger", "salgssupport"]),
         region: z.string().trim().max(120).optional().nullable(),
         salesperson_no: z.string().trim().max(32).optional().nullable(),
       })
@@ -194,11 +194,12 @@ export const adminListUsers = createServerFn({ method: "GET" })
     const emailMap = new Map<string, string>();
     for (const u of authList.users) emailMap.set(u.id, u.email ?? "");
 
-    const roleMap = new Map<string, "admin" | "saelger">();
+    type R = "admin" | "saelger" | "salgssupport";
+    const roleMap = new Map<string, R>();
     for (const r of roles ?? []) {
       // admin wins if multiple rows exist
       if (r.role === "admin" || !roleMap.has(r.user_id)) {
-        roleMap.set(r.user_id, r.role as "admin" | "saelger");
+        roleMap.set(r.user_id, r.role as R);
       }
     }
 

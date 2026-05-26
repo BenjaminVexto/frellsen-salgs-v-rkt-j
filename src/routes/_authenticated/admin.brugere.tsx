@@ -46,11 +46,12 @@ export const Route = createFileRoute("/_authenticated/admin/brugere")({
   component: BrugerStyringSide,
 });
 
+type AppRoleX = "admin" | "saelger" | "salgssupport";
 type Row = {
   id: string;
   full_name: string;
   email: string;
-  role: "admin" | "saelger";
+  role: AppRoleX;
   region: string | null;
   salesperson_no: string | null;
   is_active: boolean;
@@ -75,7 +76,7 @@ function BrugerStyringSide() {
     full_name: "",
     email: "",
     password: "",
-    role: "saelger" as "admin" | "saelger",
+    role: "saelger" as AppRoleX,
     region: "",
     salesperson_no: "",
   });
@@ -84,7 +85,7 @@ function BrugerStyringSide() {
   const [editRow, setEditRow] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState({
     full_name: "",
-    role: "saelger" as "admin" | "saelger",
+    role: "saelger" as AppRoleX,
     region: "",
     salesperson_no: "",
   });
@@ -275,9 +276,13 @@ function BrugerStyringSide() {
                   <TableCell className="font-medium">{r.full_name || "—"}</TableCell>
                   <TableCell>{r.email}</TableCell>
                   <TableCell>
-                    <Badge variant={r.role === "admin" ? "default" : "secondary"}>
-                      {r.role === "admin" ? "Admin" : "Sælger"}
-                    </Badge>
+                    {r.role === "admin" ? (
+                      <Badge variant="default">Admin</Badge>
+                    ) : r.role === "salgssupport" ? (
+                      <Badge className="bg-amber-500 hover:bg-amber-500/90 text-white">Salgssupport</Badge>
+                    ) : (
+                      <Badge variant="secondary">Sælger</Badge>
+                    )}
                   </TableCell>
                   <TableCell>{r.region || "—"}</TableCell>
                   <TableCell className="font-mono text-xs">{r.salesperson_no || "—"}</TableCell>
@@ -336,11 +341,12 @@ function BrugerStyringSide() {
               <Label>Rolle</Label>
               <Select
                 value={createForm.role}
-                onValueChange={(v) => setCreateForm({ ...createForm, role: v as "admin" | "saelger" })}
+                onValueChange={(v) => setCreateForm({ ...createForm, role: v as AppRoleX })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="saelger">Sælger</SelectItem>
+                  <SelectItem value="salgssupport">Salgssupport</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
@@ -395,11 +401,12 @@ function BrugerStyringSide() {
                 <Label>Rolle</Label>
                 <Select
                   value={editForm.role}
-                  onValueChange={(v) => setEditForm({ ...editForm, role: v as "admin" | "saelger" })}
+                  onValueChange={(v) => setEditForm({ ...editForm, role: v as AppRoleX })}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="saelger">Sælger</SelectItem>
+                    <SelectItem value="salgssupport">Salgssupport</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>

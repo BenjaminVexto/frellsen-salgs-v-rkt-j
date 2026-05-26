@@ -68,6 +68,7 @@ import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
 import { LokationerSektion, type Location } from "@/components/lokationer-sektion";
+import { DokumenterSektion } from "@/components/dokumenter-sektion";
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
 type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
@@ -130,6 +131,7 @@ function VirksomhedsKort() {
   const navigate = useNavigate();
   const { user, role } = useAuth();
   const isAdmin = role === "admin";
+  const canWriteDocs = role === "admin" || role === "salgssupport";
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -473,6 +475,10 @@ function VirksomhedsKort() {
               setActivityOpen(true);
             }}
           />
+
+          <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
+
+
 
 
           <Card className="p-5">
