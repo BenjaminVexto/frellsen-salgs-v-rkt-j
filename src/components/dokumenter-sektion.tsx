@@ -223,7 +223,20 @@ export function DokumenterSektion({
                     ) : (
                       <ExternalLink className="h-3.5 w-3.5 mr-1" />
                     )}
-                    Åbn PDF
+                    Åbn
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDownload(d.id, d.filename)}
+                    disabled={downloadingId === d.id}
+                  >
+                    {downloadingId === d.id ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Download
                   </Button>
                   {canWrite && (
                     <Button
