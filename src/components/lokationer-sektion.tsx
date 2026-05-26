@@ -49,12 +49,18 @@ export function LokationerSektion({
   onRegisterActivity,
   reloadKey,
   contactsByLocation,
+  companyFallbackAddress,
+  companyFallbackZip,
+  companyFallbackCity,
 }: {
   companyId: string;
   isAdmin: boolean;
   onRegisterActivity: (locationId: string) => void;
   reloadKey?: number;
   contactsByLocation?: Map<string, LocationContact[]>;
+  companyFallbackAddress?: string | null;
+  companyFallbackZip?: string | null;
+  companyFallbackCity?: string | null;
 }) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -122,6 +128,9 @@ export function LokationerSektion({
             location={primary}
             isPrimary
             contacts={contactsByLocation?.get(primary.id) ?? []}
+            fallbackAddress={companyFallbackAddress}
+            fallbackZip={companyFallbackZip}
+            fallbackCity={companyFallbackCity}
             onRegister={() => onRegisterActivity(primary.id)}
           />
         )}
@@ -168,15 +177,21 @@ function LokationRow({
   isPrimary,
   onRegister,
   contacts = [],
+  fallbackAddress,
+  fallbackZip,
+  fallbackCity,
 }: {
   location: Location;
   isPrimary?: boolean;
   onRegister: () => void;
   contacts?: LocationContact[];
+  fallbackAddress?: string | null;
+  fallbackZip?: string | null;
+  fallbackCity?: string | null;
 }) {
-  const address = firstFilled(location.address);
-  const zip = firstFilled(location.zip);
-  const city = firstFilled(location.city);
+  const address = firstFilled(location.address, isPrimary ? fallbackAddress : null);
+  const zip = firstFilled(location.zip, isPrimary ? fallbackZip : null);
+  const city = firstFilled(location.city, isPrimary ? fallbackCity : null);
   const cityLine = [zip, city].filter(Boolean).join(" ");
   return (
     <div id={`location-${location.id}`} className="border rounded-md p-3 scroll-mt-20">
