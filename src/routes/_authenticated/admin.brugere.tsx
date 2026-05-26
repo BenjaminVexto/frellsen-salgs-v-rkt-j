@@ -46,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/admin/brugere")({
   component: BrugerStyringSide,
 });
 
-type AppRoleX = "admin" | "saelger" | "salgssupport";
+type AppRoleX = AppRoleX | "salgssupport";
 type Row = {
   id: string;
   full_name: string;
@@ -76,7 +76,7 @@ function BrugerStyringSide() {
     full_name: "",
     email: "",
     password: "",
-    role: "saelger" as "admin" | "saelger",
+    role: "saelger" as AppRoleX,
     region: "",
     salesperson_no: "",
   });
@@ -85,7 +85,7 @@ function BrugerStyringSide() {
   const [editRow, setEditRow] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState({
     full_name: "",
-    role: "saelger" as "admin" | "saelger",
+    role: "saelger" as AppRoleX,
     region: "",
     salesperson_no: "",
   });
@@ -337,7 +337,7 @@ function BrugerStyringSide() {
               <Label>Rolle</Label>
               <Select
                 value={createForm.role}
-                onValueChange={(v) => setCreateForm({ ...createForm, role: v as "admin" | "saelger" })}
+                onValueChange={(v) => setCreateForm({ ...createForm, role: v as AppRoleX })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -396,7 +396,7 @@ function BrugerStyringSide() {
                 <Label>Rolle</Label>
                 <Select
                   value={editForm.role}
-                  onValueChange={(v) => setEditForm({ ...editForm, role: v as "admin" | "saelger" })}
+                  onValueChange={(v) => setEditForm({ ...editForm, role: v as AppRoleX })}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
