@@ -55,11 +55,11 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       .eq("id", uid);
     if (profErr) throw new Error(profErr.message);
 
-    if (data.role === "admin") {
+    if (data.role !== "saelger") {
       await supabaseAdmin.from("user_roles").delete().eq("user_id", uid);
       const { error: roleErr } = await supabaseAdmin
         .from("user_roles")
-        .insert({ user_id: uid, role: "admin" });
+        .insert({ user_id: uid, role: data.role });
       if (roleErr) throw new Error(roleErr.message);
     }
 
