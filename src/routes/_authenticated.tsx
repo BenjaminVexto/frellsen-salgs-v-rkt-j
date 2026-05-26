@@ -23,6 +23,7 @@ import {
   Coffee,
   LogOut,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlobalImportIndicator } from "@/components/global-import-indicator";
