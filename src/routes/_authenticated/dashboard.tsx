@@ -95,6 +95,25 @@ function DashboardPage() {
     },
   });
 
+  const expiringDocsQuery = useQuery({
+    enabled: !!userId,
+    queryKey: ["dashboard-expiring-docs"],
+    queryFn: async () => {
+      const in90 = new Date();
+      in90.setDate(in90.getDate() + 90);
+      const { data, error } = await supabase
+        .from("company_documents")
+        .select("id, filename, document_type, expires_at, company:companies(id, name)")
+        .not("expires_at", "is", null)
+        .gte("expires_at", today)
+        .lte("expires_at", in90.toISOString().slice(0, 10))
+        .order("expires_at", { ascending: true })
+        .limit(10);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const overdue = (followupsQuery.data ?? []).filter(
     (f) => f.next_followup_date && f.next_followup_date < today
   );
@@ -213,6 +232,36 @@ function DashboardPage() {
               </Link>
             );
           })}
+        </PanelCard>
+
+        <PanelCard
+          title="Aftaler der udløber snart"
+          icon={<FileText className="h-5 w-5" />}
+          tone="warning"
+          count={expiringDocsQuery.data?.length ?? 0}
+          emptyText="Ingen aftaler udløber inden for 90 dage."
+          loading={expiringDocsQuery.isLoading}
+        >
+          {(expiringDocsQuery.data ?? []).map((doc: any) => (
+            <Link
+              key={doc.id}
+              to="/virksomheder/$id"
+              params={{ id: doc.company?.id }}
+              className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-foreground truncate">
+                  {doc.company?.name ?? "Ukendt"}
+                </div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {doc.document_type} · {doc.filename}
+                </div>
+              </div>
+              <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/15 text-warning-foreground whitespace-nowrap">
+                {format(parseISO(doc.expires_at), "d. MMM yyyy", { locale: da })}
+              </span>
+            </Link>
+          ))}
         </PanelCard>
       </div>
 
