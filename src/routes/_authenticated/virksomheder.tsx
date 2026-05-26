@@ -490,20 +490,21 @@ function VirksomhederListe() {
   };
 
   return (
-    <div className="px-4 md:px-8 py-8 max-w-7xl mx-auto pb-32 md:pb-32">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl md:text-3xl font-semibold">Virksomheder</h1>
+    <div className="px-3 md:px-8 py-4 md:py-8 max-w-7xl mx-auto pb-32 md:pb-32">
+      <div className="flex items-center justify-between mb-4 md:mb-6 gap-2">
+        <h1 className="text-xl md:text-3xl font-semibold">Virksomheder</h1>
         <OpretVirksomhedDialog
           trigger={
             <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Opret virksomhed
+              <Plus className="h-4 w-4 md:mr-1" />
+              <span className="hidden md:inline">Opret virksomhed</span>
             </Button>
           }
         />
       </div>
 
       {recentIds && recentIds.length > 0 && (
-        <Card className="p-3 mb-4 flex items-center justify-between bg-primary/5 border-primary/30">
+        <Card className="p-3 mb-3 flex items-center justify-between bg-primary/5 border-primary/30">
           <div className="text-sm">
             Viser <strong>{recentIds.length}</strong> nyligt importerede
             virksomheder.
@@ -514,50 +515,71 @@ function VirksomhederListe() {
         </Card>
       )}
 
-      {/* Søg + filter toggle */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-3">
-        <Input
-          placeholder="Søg på navn, adresse, postnr., by, CVR eller lokation…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="max-w-md"
-        />
-        {isAdmin && (
-          <Button
-            variant={filtersOpen || isFilterActive ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFiltersOpen((v) => !v)}
-          >
-            <FilterIcon className="h-4 w-4 mr-1" />
-            Filtre
-            {isFilterActive && (
-              <Badge variant="secondary" className="ml-2">
-                Aktiv
-              </Badge>
-            )}
-            <ChevronDown
-              className={`h-4 w-4 ml-1 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+      {/* Søg + filter toggle — sticky på mobil for hurtig adgang */}
+      <div className="sticky top-12 md:static z-10 -mx-3 md:mx-0 px-3 md:px-0 py-2 md:py-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:bg-transparent md:backdrop-blur-none border-b md:border-0 mb-3">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 md:max-w-md">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Søg navn, by, CVR, postnr…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="pl-9 h-10 md:h-9 text-base md:text-sm"
+              type="search"
+              inputMode="search"
+              autoComplete="off"
             />
-          </Button>
-        )}
-        {isAdmin && isFilterActive && (
-          <>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setFilters(DEFAULT_FILTERS)}
-            >
-              <X className="h-4 w-4 mr-1" /> Nulstil filtre
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setSaveTemplateOpen(true)}
-            >
-              <Save className="h-4 w-4 mr-1" /> Gem filter som skabelon
-            </Button>
-          </>
-        )}
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                aria-label="Ryd søgning"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {isAdmin && (
+              <Button
+                variant={filtersOpen || isFilterActive ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFiltersOpen((v) => !v)}
+              >
+                <FilterIcon className="h-4 w-4 mr-1" />
+                Filtre
+                {isFilterActive && (
+                  <Badge variant="secondary" className="ml-2">
+                    Aktiv
+                  </Badge>
+                )}
+                <ChevronDown
+                  className={`h-4 w-4 ml-1 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+                />
+              </Button>
+            )}
+            {isAdmin && isFilterActive && (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                >
+                  <X className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Nulstil filtre</span><span className="sm:hidden">Nulstil</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSaveTemplateOpen(true)}
+                  className="hidden sm:inline-flex"
+                >
+                  <Save className="h-4 w-4 mr-1" /> Gem filter som skabelon
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Filter panel */}
