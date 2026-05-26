@@ -51,7 +51,7 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("competitor_assignments")
-      .select("id, competitor_id, contract_expires_at, notes, registered_by, competitors(name)")
+      .select("id, competitor_id, contract_expires_at, notes, registered_by, competitors(name, competitor_type)")
       .eq("company_id", companyId)
       .maybeSingle();
     if (error && error.code !== "PGRST116") {
