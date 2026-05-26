@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { MapPin, Plus, ChevronDown } from "lucide-react";
+import { MapPin, Plus, ChevronDown, User } from "lucide-react";
 import { toast } from "sonner";
 
 export type Location = {
