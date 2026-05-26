@@ -48,12 +48,15 @@ export function KontaktpersonerSektion({
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ContactRow | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const locMap = new Map(locations.map((l) => [l.id, l]));
   const sorted = [...contacts].sort((a, b) => {
     if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
     return a.name.localeCompare(b.name, "da");
   });
+  const visible = expanded ? sorted : sorted.slice(0, 3);
 
   const handleLocationClick = (locationId: string) => {
     const el = document.getElementById(`location-${locationId}`);
@@ -69,9 +72,11 @@ export function KontaktpersonerSektion({
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold flex items-center gap-2">
           <User className="h-4 w-4" /> Kontaktpersoner
-          <span className="text-xs text-muted-foreground font-normal">
-            ({contacts.length})
-          </span>
+          {contacts.length > 0 && (
+            <span className="text-xs text-muted-foreground font-normal">
+              ({contacts.length})
+            </span>
+          )}
         </h2>
         <Button
           size="sm"
@@ -88,70 +93,100 @@ export function KontaktpersonerSektion({
       {sorted.length === 0 ? (
         <p className="text-sm text-muted-foreground">Ingen kontakter registreret.</p>
       ) : (
-        <ul className="divide-y">
-          {sorted.map((c) => {
-            const loc = c.location_id ? locMap.get(c.location_id) : null;
-            const locName = loc ? loc.city || loc.address || "Lokation" : null;
-            return (
-              <li key={c.id} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{c.name}</span>
+        <>
+          <ul className="divide-y">
+            {visible.map((c) => {
+              const loc = c.location_id ? locMap.get(c.location_id) : null;
+              const locName = loc ? loc.city || loc.address || "Lokation" : null;
+              const isOpen = openId === c.id;
+              const summary = [c.name, c.phone].filter(Boolean).join(" · ");
+              return (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(isOpen ? null : c.id)}
+                    className="w-full flex items-center justify-between gap-2 py-2.5 text-left hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="truncate text-sm">{summary}</span>
                       {c.is_primary && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs flex-shrink-0">
                           Primær
                         </Badge>
                       )}
-                    </div>
-                    {c.title && (
-                      <div className="text-xs text-muted-foreground mt-0.5">{c.title}</div>
+                    </span>
+                    {isOpen ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     )}
-                    <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+                  </button>
+                  {isOpen && (
+                    <div className="pl-6 pb-3 pt-1 space-y-1 text-sm">
+                      {c.title && (
+                        <div className="text-muted-foreground">{c.title}</div>
+                      )}
                       {locName && c.location_id && (
                         <button
                           type="button"
                           onClick={() => handleLocationClick(c.location_id!)}
-                          className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+                          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
                         >
                           <MapPin className="h-3.5 w-3.5" />
                           {locName}
                         </button>
                       )}
-                      {c.phone && (
-                        <>
-                          {locName && <span>·</span>}
-                          <a href={`tel:${c.phone}`} className="hover:underline">
-                            {c.phone}
+                      {c.email && (
+                        <div>
+                          <a
+                            href={`mailto:${c.email}`}
+                            className="hover:underline"
+                          >
+                            {c.email}
                           </a>
-                        </>
+                        </div>
                       )}
+                      <div className="pt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditing(c);
+                            setOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
+                        </Button>
+                      </div>
                     </div>
-                    {c.email && (
-                      <a
-                        href={`mailto:${c.email}`}
-                        className="text-sm hover:underline block mt-0.5"
-                      >
-                        {c.email}
-                      </a>
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setEditing(c);
-                      setOpen(true);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {sorted.length > 3 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full mt-2 text-muted-foreground"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? (
+                <>
+                  <ChevronUp className="h-4 w-4 mr-1" /> Vis færre
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4 mr-1" />
+                  Vis alle {sorted.length} kontakter
+                </>
+              )}
+            </Button>
+          )}
+        </>
       )}
+
 
       <ContactDialog
         open={open}
