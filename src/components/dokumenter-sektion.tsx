@@ -73,12 +73,12 @@ export function DokumenterSektion({
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [previewDoc, setPreviewDoc] = useState<{ url: string; filename: string } | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const uploadFn = useServerFn(uploadCompanyDocument);
   const deleteFn = useServerFn(deleteCompanyDocument);
-  const downloadFn = useServerFn(downloadCompanyDocument);
+  const signedUrlFn = useServerFn(getDocumentSignedUrl);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,27 +111,11 @@ export function DokumenterSektion({
     void load();
   }, [load]);
 
-  useEffect(() => {
-    return () => {
-      if (previewDoc?.url) {
-        URL.revokeObjectURL(previewDoc.url);
-      }
-    };
-  }, [previewDoc]);
-
   const handleOpen = async (id: string) => {
     setOpeningId(id);
     try {
-      const res = await downloadFn({ data: { document_id: id } });
-      const binary = atob(res.base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: res.content_type });
-      const url = URL.createObjectURL(blob);
-      if (previewDoc?.url) {
-        URL.revokeObjectURL(previewDoc.url);
-      }
-      setPreviewDoc({ url, filename: res.filename });
+      const { url } = await signedUrlFn({ data: { document_id: id } });
+      window.open(url, "_blank", "noopener,noreferrer");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke åbne dokument");
     } finally {
@@ -139,11 +123,21 @@ export function DokumenterSektion({
     }
   };
 
-  const closePreview = () => {
-    if (previewDoc?.url) {
-      URL.revokeObjectURL(previewDoc.url);
+  const handleDownload = async (id: string, filename: string) => {
+    setDownloadingId(id);
+    try {
+      const { url } = await signedUrlFn({ data: { document_id: id } });
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Kunne ikke downloade dokument");
+    } finally {
+      setDownloadingId(null);
     }
-    setPreviewDoc(null);
   };
 
   const handleDelete = async () => {
