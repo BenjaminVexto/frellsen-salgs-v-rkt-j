@@ -486,6 +486,9 @@ function VirksomhedsKort() {
             companyId={company.id}
             isAdmin={isAdmin}
             reloadKey={locationReloadKey}
+            companyFallbackAddress={company.address}
+            companyFallbackZip={company.zip}
+            companyFallbackCity={company.city}
             contactsByLocation={(() => {
               const m = new Map<string, LocationContact[]>();
               for (const c of contacts as ContactRow[]) {
