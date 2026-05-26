@@ -342,6 +342,7 @@ function BrugerStyringSide() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="saelger">Sælger</SelectItem>
+                  <SelectItem value="salgssupport">Salgssupport</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
