@@ -279,32 +279,6 @@ export function DokumenterSektion({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!previewDoc} onOpenChange={(open) => !open && closePreview()}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{previewDoc?.filename ?? "Dokument"}</DialogTitle>
-          </DialogHeader>
-          {previewDoc && (
-            <div className="flex-1 min-h-0 border rounded-md overflow-hidden bg-muted/30">
-              <iframe
-                src={previewDoc.url}
-                title={previewDoc.filename}
-                className="h-full w-full"
-              />
-            </div>
-          )}
-          <DialogFooter>
-            {previewDoc && (
-              <Button asChild variant="outline">
-                <a href={previewDoc.url} download={previewDoc.filename}>
-                  Download PDF
-                </a>
-              </Button>
-            )}
-            <Button onClick={closePreview}>Luk</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
