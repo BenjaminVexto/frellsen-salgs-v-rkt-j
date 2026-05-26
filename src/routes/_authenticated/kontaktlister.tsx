@@ -164,31 +164,35 @@ function KontaktlisterOversigt() {
   };
 
   return (
-    <div className="px-4 md:px-8 py-8 max-w-7xl mx-auto pb-24 md:pb-8">
-      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+    <div className="px-3 md:px-8 py-4 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
+      <div className="flex items-center justify-between mb-4 md:mb-6 gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">Kontaktlister</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl md:text-3xl font-semibold">Kontaktlister</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">
             Alle kontaktlister
           </p>
         </div>
         {isAdmin && (
           <div className="flex gap-2 flex-wrap">
-            <Button onClick={() => { setPreselectedIds(null); setCreateOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" /> Opret ny kontaktliste
+            <Button size="sm" onClick={() => { setPreselectedIds(null); setCreateOpen(true); }}>
+              <Plus className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Opret ny kontaktliste</span>
+              <span className="md:hidden">Ny liste</span>
             </Button>
           </div>
         )}
       </div>
 
-      <Card className="p-4 mb-4">
-        <div className="relative max-w-md">
+      <Card className="p-3 md:p-4 mb-3 md:mb-4">
+        <div className="relative md:max-w-md">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Søg lister…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-10 md:h-9 text-base md:text-sm"
+            type="search"
+            inputMode="search"
           />
         </div>
       </Card>
@@ -203,96 +207,175 @@ function KontaktlisterOversigt() {
             Ingen kontaktlister fundet.
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Listenavn</TableHead>
-                <TableHead>Beskrivelse</TableHead>
-                <TableHead className="text-right">Virksomheder</TableHead>
-                <TableHead>Fremdrift</TableHead>
-                <TableHead>Sælgere</TableHead>
-                <TableHead>Oprettet</TableHead>
-                <TableHead>Aktiv</TableHead>
-                {isAdmin && <TableHead className="w-10"></TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Mobil: kort-liste */}
+            <ul className="md:hidden divide-y">
               {filtered.map((r) => {
                 const pct = r.total > 0 ? Math.round((r.kontaktet / r.total) * 100) : 0;
                 return (
-                  <TableRow
+                  <li
                     key={r.id}
-                    className="cursor-pointer"
+                    className="p-3 active:bg-muted/50 transition-colors"
                     onClick={() =>
-                      navigate({
-                        to: "/kontaktlister/$id",
-                        params: { id: r.id },
-                      })
+                      navigate({ to: "/kontaktlister/$id", params: { id: r.id } })
                     }
                   >
-                    <TableCell className="font-medium">{r.name}</TableCell>
-                    <TableCell className="text-muted-foreground max-w-xs truncate">
-                      {r.description || "—"}
-                    </TableCell>
-                    <TableCell className="text-right">{r.total}</TableCell>
-                    <TableCell className="min-w-[160px]">
-                      <div className="flex items-center gap-2">
-                        <Progress value={pct} className="h-2" />
-                        <span className="text-xs text-muted-foreground w-10 text-right">
-                          {pct}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {r.sellers.length === 0 ? (
-                          <span className="text-xs text-muted-foreground">Ingen</span>
-                        ) : (
-                          r.sellers.slice(0, 3).map((s) => (
-                            <Badge key={s.id} variant="secondary" className="text-xs">
-                              {s.name}
-                            </Badge>
-                          ))
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{r.name}</div>
+                        {r.description && (
+                          <div className="text-xs text-muted-foreground line-clamp-1">
+                            {r.description}
+                          </div>
                         )}
-                        {r.sellers.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{r.sellers.length - 3}
+                      </div>
+                      <Badge variant={r.is_active ? "default" : "secondary"} className="text-[10px] shrink-0">
+                        {r.is_active ? "Aktiv" : "Inaktiv"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Progress value={pct} className="h-1.5 flex-1" />
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
+                        {r.kontaktet}/{r.total} · {pct}%
+                      </span>
+                    </div>
+                    {r.sellers.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {r.sellers.slice(0, 2).map((s) => (
+                          <Badge key={s.id} variant="secondary" className="text-[10px]">
+                            {s.name}
+                          </Badge>
+                        ))}
+                        {r.sellers.length > 2 && (
+                          <Badge variant="outline" className="text-[10px]">
+                            +{r.sellers.length - 2}
                           </Badge>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(r.created_at).toLocaleDateString("da-DK")}
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {isAdmin ? (
-                        <Switch
-                          checked={r.is_active}
-                          onCheckedChange={(v) => toggleActive(r.id, v)}
-                        />
-                      ) : (
-                        <Badge variant={r.is_active ? "default" : "secondary"}>
-                          {r.is_active ? "Aktiv" : "Inaktiv"}
-                        </Badge>
-                      )}
-                    </TableCell>
+                    )}
                     {isAdmin && (
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Switch
+                              checked={r.is_active}
+                              onCheckedChange={(v) => toggleActive(r.id, v)}
+                            />
+                            Aktiv
+                          </label>
+                        </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                          onClick={() => setDeleteTarget(r)}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(r);
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </TableCell>
+                      </div>
                     )}
-                  </TableRow>
+                  </li>
                 );
               })}
-            </TableBody>
-          </Table>
+            </ul>
+
+            {/* Desktop: tabel */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Listenavn</TableHead>
+                    <TableHead>Beskrivelse</TableHead>
+                    <TableHead className="text-right">Virksomheder</TableHead>
+                    <TableHead>Fremdrift</TableHead>
+                    <TableHead>Sælgere</TableHead>
+                    <TableHead>Oprettet</TableHead>
+                    <TableHead>Aktiv</TableHead>
+                    {isAdmin && <TableHead className="w-10"></TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((r) => {
+                    const pct = r.total > 0 ? Math.round((r.kontaktet / r.total) * 100) : 0;
+                    return (
+                      <TableRow
+                        key={r.id}
+                        className="cursor-pointer"
+                        onClick={() =>
+                          navigate({
+                            to: "/kontaktlister/$id",
+                            params: { id: r.id },
+                          })
+                        }
+                      >
+                        <TableCell className="font-medium">{r.name}</TableCell>
+                        <TableCell className="text-muted-foreground max-w-xs truncate">
+                          {r.description || "—"}
+                        </TableCell>
+                        <TableCell className="text-right">{r.total}</TableCell>
+                        <TableCell className="min-w-[160px]">
+                          <div className="flex items-center gap-2">
+                            <Progress value={pct} className="h-2" />
+                            <span className="text-xs text-muted-foreground w-10 text-right">
+                              {pct}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {r.sellers.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">Ingen</span>
+                            ) : (
+                              r.sellers.slice(0, 3).map((s) => (
+                                <Badge key={s.id} variant="secondary" className="text-xs">
+                                  {s.name}
+                                </Badge>
+                              ))
+                            )}
+                            {r.sellers.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{r.sellers.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(r.created_at).toLocaleDateString("da-DK")}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {isAdmin ? (
+                            <Switch
+                              checked={r.is_active}
+                              onCheckedChange={(v) => toggleActive(r.id, v)}
+                            />
+                          ) : (
+                            <Badge variant={r.is_active ? "default" : "secondary"}>
+                              {r.is_active ? "Aktiv" : "Inaktiv"}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        {isAdmin && (
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => setDeleteTarget(r)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </Card>
 
