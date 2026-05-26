@@ -179,7 +179,11 @@ function AssignmentDialog({
         .from("competitors")
         .select("id, name")
         .order("name");
-      setCompetitors((data ?? []) as Competitor[]);
+      const list = (data ?? []) as Competitor[];
+      // Pin "Ej oplyst" øverst
+      const ejOplyst = list.find((c) => c.name.toLowerCase() === "ej oplyst");
+      const rest = list.filter((c) => c.name.toLowerCase() !== "ej oplyst");
+      setCompetitors(ejOplyst ? [ejOplyst, ...rest] : rest);
     })();
     setCompetitorId(existing?.competitor_id ?? "");
     setExpiresAt(existing?.contract_expires_at ?? "");
