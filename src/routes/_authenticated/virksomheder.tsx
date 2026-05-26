@@ -845,18 +845,24 @@ function VirksomhederListe() {
                         const qq = q.toLowerCase();
                         const nameHit = r.name.toLowerCase().includes(qq);
                         const cvrHit = (r.cvr ?? "").includes(q);
+                        const addrHit = (r.address ?? "").toLowerCase().includes(qq);
                         const cityHit = (r.city ?? "").toLowerCase().includes(qq);
-                        if (nameHit || cvrHit || cityHit) return null;
+                        const zipHit = (r.zip ?? "").includes(q);
+                        if (nameHit || cvrHit || addrHit || cityHit || zipHit) return null;
                         const locs = locationMap.get(r.id) ?? [];
                         const match = locs.find(
                           (l) =>
                             (l.city ?? "").toLowerCase().includes(qq) ||
-                            (l.address ?? "").toLowerCase().includes(qq),
+                            (l.address ?? "").toLowerCase().includes(qq) ||
+                            (l.zip ?? "").includes(q),
                         );
                         if (!match) return null;
+                        const parts = [match.address, [match.zip, match.city].filter(Boolean).join(" ")]
+                          .filter((p) => p && p.trim())
+                          .join(", ");
                         return (
                           <div className="text-xs text-primary mt-0.5">
-                            📍 lokation i {match.city ?? match.address}
+                            📍 Match: {parts || "lokation"}
                           </div>
                         );
                       })()}
