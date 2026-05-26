@@ -365,6 +365,7 @@ export type Database = {
           email: string | null
           id: string
           is_primary: boolean
+          location_id: string | null
           name: string
           notes: string | null
           phone: string | null
@@ -376,6 +377,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_primary?: boolean
+          location_id?: string | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -387,6 +389,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_primary?: boolean
+          location_id?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -398,6 +401,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
