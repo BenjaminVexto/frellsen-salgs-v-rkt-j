@@ -1,4 +1,8 @@
 import { Shield, Cpu, ShoppingCart, Leaf, type LucideIcon } from "lucide-react";
+import svaervaegterenImg from "@/assets/arketyper/svaervaegteren.png";
+import teknikerenImg from "@/assets/arketyper/teknikeren.png";
+import koebmandenImg from "@/assets/arketyper/koebmanden.png";
+import hipsterenImg from "@/assets/arketyper/hipsteren.png";
 
 export const COMPETITOR_TYPES = {
   svaervaegteren: {
@@ -61,6 +65,13 @@ export const COMPETITOR_TYPE_ICON: Record<CompetitorTypeKey, LucideIcon> = {
   teknikeren: Cpu,
   koebmanden: ShoppingCart,
   hipsteren: Leaf,
+};
+
+export const COMPETITOR_TYPE_IMAGE: Record<CompetitorTypeKey, string> = {
+  svaervaegteren: svaervaegterenImg,
+  teknikeren: teknikerenImg,
+  koebmanden: koebmandenImg,
+  hipsteren: hipsterenImg,
 };
 
 export const COMPETITOR_TYPE_BADGE: Record<CompetitorTypeKey, string> = {

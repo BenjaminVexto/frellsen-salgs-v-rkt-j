@@ -54,6 +54,7 @@ import {
   COMPETITOR_TYPE_PANEL,
   COMPETITOR_TYPE_ICON,
   COMPETITOR_TYPE_ICON_BG,
+  COMPETITOR_TYPE_IMAGE,
   COMPETITOR_TYPE_ORDER,
   type CompetitorTypeKey,
 } from "@/lib/competitor-types";
@@ -225,7 +226,7 @@ function KonkurrenterPage() {
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {COMPETITOR_TYPE_ORDER.map((key) => {
             const type = COMPETITOR_TYPES[key];
-            const Icon = COMPETITOR_TYPE_ICON[key];
+            const img = COMPETITOR_TYPE_IMAGE[key];
             return (
               <Card
                 key={key}
@@ -234,10 +235,13 @@ function KonkurrenterPage() {
                 <div
                   className={`absolute top-0 left-0 right-0 h-1 ${COMPETITOR_TYPE_BORDER[key]}`}
                 />
-                <div
-                  className={`h-10 w-10 rounded-lg flex items-center justify-center mb-3 ${COMPETITOR_TYPE_ICON_BG[key]}`}
-                >
-                  <Icon className="h-5 w-5" />
+                <div className="mb-3 flex justify-center">
+                  <img
+                    src={img}
+                    alt={type.label}
+                    className="h-28 w-28 object-contain"
+                    loading="lazy"
+                  />
                 </div>
                 <h3 className={`text-lg font-semibold ${COMPETITOR_TYPE_TEXT[key]}`}>
                   {type.label}
