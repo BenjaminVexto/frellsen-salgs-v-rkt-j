@@ -76,49 +76,49 @@ export const COMPETITOR_TYPE_IMAGE: Record<CompetitorTypeKey, string> = {
 
 export const COMPETITOR_TYPE_BADGE: Record<CompetitorTypeKey, string> = {
   svaervaegteren:
-    "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-900",
+    "bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300 border-slate-200 dark:border-slate-800",
   teknikeren:
-    "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-200 dark:border-purple-900",
+    "bg-stone-100 text-stone-700 dark:bg-stone-900 dark:text-stone-300 border-stone-200 dark:border-stone-800",
   koebmanden:
-    "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 border-green-200 dark:border-green-900",
+    "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-100 dark:border-emerald-900",
   hipsteren:
-    "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 border-orange-200 dark:border-orange-900",
+    "bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-100 dark:border-amber-900",
 };
 
 // Bruges som top-border på arketype-kort og sektion-streger
 export const COMPETITOR_TYPE_BORDER: Record<CompetitorTypeKey, string> = {
-  svaervaegteren: "bg-blue-500",
-  teknikeren: "bg-purple-500",
-  koebmanden: "bg-green-500",
-  hipsteren: "bg-orange-500",
+  svaervaegteren: "bg-slate-600",
+  teknikeren: "bg-stone-600",
+  koebmanden: "bg-emerald-700",
+  hipsteren: "bg-amber-700",
 };
 
 // Tekstfarve til arketype-overskrifter og pitch
 export const COMPETITOR_TYPE_TEXT: Record<CompetitorTypeKey, string> = {
-  svaervaegteren: "text-blue-700 dark:text-blue-400",
-  teknikeren: "text-purple-700 dark:text-purple-400",
-  koebmanden: "text-green-700 dark:text-green-400",
-  hipsteren: "text-orange-700 dark:text-orange-400",
+  svaervaegteren: "text-slate-700 dark:text-slate-300",
+  teknikeren: "text-stone-700 dark:text-stone-300",
+  koebmanden: "text-emerald-800 dark:text-emerald-300",
+  hipsteren: "text-amber-800 dark:text-amber-300",
 };
 
 // Lys baggrundsboks til arketype-info i højre panel
 export const COMPETITOR_TYPE_PANEL: Record<CompetitorTypeKey, string> = {
   svaervaegteren:
-    "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900",
+    "bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800",
   teknikeren:
-    "bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-900",
+    "bg-stone-50 dark:bg-stone-950/40 border-stone-200 dark:border-stone-800",
   koebmanden:
-    "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900",
+    "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900",
   hipsteren:
-    "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900",
+    "bg-amber-50/60 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900",
 };
 
 // Ikon-baggrund i arketype-kort
 export const COMPETITOR_TYPE_ICON_BG: Record<CompetitorTypeKey, string> = {
-  svaervaegteren: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-  teknikeren: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300",
-  koebmanden: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
-  hipsteren: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
+  svaervaegteren: "bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300",
+  teknikeren: "bg-stone-100 text-stone-700 dark:bg-stone-900 dark:text-stone-300",
+  koebmanden: "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  hipsteren: "bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
 };
 
 export const COMPETITOR_TYPE_ORDER: CompetitorTypeKey[] = [
