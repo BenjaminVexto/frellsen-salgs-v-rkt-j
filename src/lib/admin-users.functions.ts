@@ -73,7 +73,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       .object({
         user_id: z.string().uuid(),
         full_name: z.string().trim().min(1).max(120),
-        role: z.enum(["admin", "saelger"]),
+        role: z.enum(["admin", "saelger", "salgssupport"]),
         region: z.string().trim().max(120).optional().nullable(),
         salesperson_no: z.string().trim().max(32).optional().nullable(),
       })
