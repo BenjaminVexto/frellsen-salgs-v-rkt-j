@@ -69,6 +69,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
+import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
