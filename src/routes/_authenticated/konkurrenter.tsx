@@ -223,39 +223,39 @@ function KonkurrenterPage() {
         <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
           De fire arketyper
         </h2>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
           {COMPETITOR_TYPE_ORDER.map((key) => {
             const type = COMPETITOR_TYPES[key];
             const img = COMPETITOR_TYPE_IMAGE[key];
             return (
               <Card
                 key={key}
-                className="relative overflow-hidden p-5 pt-6 flex flex-col"
+                className="relative overflow-hidden p-3 pt-4 sm:p-5 sm:pt-6 flex flex-col"
               >
                 <div
                   className={`absolute top-0 left-0 right-0 h-1 ${COMPETITOR_TYPE_BORDER[key]}`}
                 />
-                <div className="mb-3 flex justify-center">
+                <div className="mb-2 sm:mb-3 flex justify-center">
                   <img
                     src={img}
                     alt={type.label}
-                    className="h-28 w-28 object-contain"
+                    className="h-16 w-16 sm:h-24 sm:w-24 lg:h-28 lg:w-28 object-contain"
                     loading="lazy"
                   />
                 </div>
-                <h3 className={`text-lg font-semibold ${COMPETITOR_TYPE_TEXT[key]}`}>
+                <h3 className={`text-sm sm:text-lg font-semibold ${COMPETITOR_TYPE_TEXT[key]}`}>
                   {type.label}
                 </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{type.tagline}</p>
-                <div className="border-t border-dashed border-border my-4" />
-                <div className="text-xs text-muted-foreground italic mb-1">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{type.tagline}</p>
+                <div className="border-t border-dashed border-border my-3 sm:my-4" />
+                <div className="text-[10px] sm:text-xs text-muted-foreground italic mb-1">
                   De spørger:
                 </div>
-                <p className="text-sm italic mb-3">"{type.identifying_question}"</p>
-                <div className="text-xs text-muted-foreground mb-1">
+                <p className="text-xs sm:text-sm italic mb-3">"{type.identifying_question}"</p>
+                <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">
                   Frellsens svar:
                 </div>
-                <p className={`text-sm font-semibold ${COMPETITOR_TYPE_TEXT[key]}`}>
+                <p className={`text-xs sm:text-sm font-semibold ${COMPETITOR_TYPE_TEXT[key]}`}>
                   "{type.frellsen_pitch}"
                 </p>
               </Card>
