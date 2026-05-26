@@ -29,16 +29,25 @@ export type Location = {
   created_at: string;
 };
 
+export type LocationContact = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+};
+
 export function LokationerSektion({
   companyId,
   isAdmin,
   onRegisterActivity,
   reloadKey,
+  contactsByLocation,
 }: {
   companyId: string;
   isAdmin: boolean;
   onRegisterActivity: (locationId: string) => void;
   reloadKey?: number;
+  contactsByLocation?: Map<string, LocationContact[]>;
 }) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [expanded, setExpanded] = useState(false);
