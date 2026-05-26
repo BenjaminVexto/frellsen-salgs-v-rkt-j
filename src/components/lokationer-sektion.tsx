@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { MapPin, Plus, ChevronDown, User } from "lucide-react";
+import { MapPin, Plus, ChevronDown, ChevronUp, User } from "lucide-react";
 import { toast } from "sonner";
 
 export type Location = {
@@ -64,6 +64,7 @@ export function LokationerSektion({
 }) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
   const load = async () => {
@@ -80,88 +81,77 @@ export function LokationerSektion({
     load();
   }, [companyId, reloadKey]);
 
-  if (locations.length === 0) {
-    if (!isAdmin) return null;
-    // Admin: vis kun "Tilføj lokation"-knap, ikke hele sektionen
-    return (
-      <>
-        <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
-        </Button>
-        <AddLocationDialog
-          open={addOpen}
-          onOpenChange={setAddOpen}
-          companyId={companyId}
-          hasPrimary={false}
-          onSaved={() => {
-            setAddOpen(false);
-            load();
-          }}
-        />
-      </>
-    );
-  }
+  // Always render the section (header) when admin; hide entirely if no data and no write
+  if (locations.length === 0 && !isAdmin) return null;
 
-  const primary = locations.find((l) => l.is_primary);
-  const others = locations.filter((l) => !l.is_primary);
-  const visibleOthers = expanded ? others : others.slice(0, 3);
+  const visible = expanded ? locations : locations.slice(0, 3);
 
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold flex items-center gap-2">
           <MapPin className="h-4 w-4" /> Lokationer
-          <span className="text-xs text-muted-foreground font-normal">
-            ({locations.length})
-          </span>
+          {locations.length > 0 && (
+            <span className="text-xs text-muted-foreground font-normal">
+              ({locations.length})
+            </span>
+          )}
         </h2>
         {isAdmin && (
           <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
+            <Plus className="h-4 w-4 mr-1" /> Tilføj
           </Button>
         )}
       </div>
 
-      <div className="space-y-3">
-        {primary && (
-          <LokationRow
-            location={primary}
-            isPrimary
-            contacts={contactsByLocation?.get(primary.id) ?? []}
-            fallbackAddress={companyFallbackAddress}
-            fallbackZip={companyFallbackZip}
-            fallbackCity={companyFallbackCity}
-            onRegister={() => onRegisterActivity(primary.id)}
-          />
-        )}
-        {visibleOthers.map((l) => (
-          <LokationRow
-            key={l.id}
-            location={l}
-            contacts={contactsByLocation?.get(l.id) ?? []}
-            onRegister={() => onRegisterActivity(l.id)}
-          />
-        ))}
-        {others.length > 3 && !expanded && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full"
-            onClick={() => setExpanded(true)}
-          >
-            <ChevronDown className="h-4 w-4 mr-1" />
-            Vis alle {locations.length} lokationer
-          </Button>
-        )}
-      </div>
-
+      {locations.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Ingen lokationer registreret.</p>
+      ) : (
+        <>
+          <ul className="divide-y">
+            {visible.map((l) => (
+              <LokationRow
+                key={l.id}
+                location={l}
+                isPrimary={l.is_primary}
+                open={openId === l.id}
+                onToggle={() => setOpenId(openId === l.id ? null : l.id)}
+                contacts={contactsByLocation?.get(l.id) ?? []}
+                fallbackAddress={l.is_primary ? companyFallbackAddress : null}
+                fallbackZip={l.is_primary ? companyFallbackZip : null}
+                fallbackCity={l.is_primary ? companyFallbackCity : null}
+                onRegister={() => onRegisterActivity(l.id)}
+              />
+            ))}
+          </ul>
+          {locations.length > 3 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full mt-2 text-muted-foreground"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? (
+                <>
+                  <ChevronUp className="h-4 w-4 mr-1" /> Vis færre
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4 mr-1" />
+                  Vis alle {locations.length} lokationer
+                </>
+              )}
+            </Button>
+          )}
+        </>
+      )}
 
       {isAdmin && (
         <AddLocationDialog
           open={addOpen}
           onOpenChange={setAddOpen}
           companyId={companyId}
-          hasPrimary={!!primary}
+          hasPrimary={locations.some((l) => l.is_primary)}
           onSaved={() => {
             setAddOpen(false);
             load();
@@ -175,6 +165,8 @@ export function LokationerSektion({
 function LokationRow({
   location,
   isPrimary,
+  open,
+  onToggle,
   onRegister,
   contacts = [],
   fallbackAddress,
@@ -183,65 +175,80 @@ function LokationRow({
 }: {
   location: Location;
   isPrimary?: boolean;
+  open: boolean;
+  onToggle: () => void;
   onRegister: () => void;
   contacts?: LocationContact[];
   fallbackAddress?: string | null;
   fallbackZip?: string | null;
   fallbackCity?: string | null;
 }) {
-  const address = firstFilled(location.address, isPrimary ? fallbackAddress : null);
-  const zip = firstFilled(location.zip, isPrimary ? fallbackZip : null);
-  const city = firstFilled(location.city, isPrimary ? fallbackCity : null);
+  const address = firstFilled(location.address, fallbackAddress);
+  const zip = firstFilled(location.zip, fallbackZip);
+  const city = firstFilled(location.city, fallbackCity);
   const cityLine = [zip, city].filter(Boolean).join(" ");
+  const headline = [address, cityLine].filter(Boolean).join(", ") || "Lokation";
+
   return (
-    <div id={`location-${location.id}`} className="border rounded-md p-3 scroll-mt-20">
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="flex items-center gap-2 font-medium">
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-          {address || city || zip || "Lokation"}
+    <li id={`location-${location.id}`} className="scroll-mt-20">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-2 py-2.5 text-left hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className="truncate text-sm">{headline}</span>
           {isPrimary && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs flex-shrink-0">
               Primær
             </Badge>
           )}
-        </div>
-      </div>
-      <div className="text-sm text-muted-foreground space-y-0.5 pl-6">
-        {address && (
-          <p className="text-sm text-foreground">{address}</p>
-        )}
-        {cityLine && <p className="text-sm text-muted-foreground">{cityLine}</p>}
-        {contacts.length > 0 ? (
-          contacts.map((c) => (
-            <div key={c.id} className="text-foreground">
-              <span className="inline-flex items-center gap-1">
-                <User className="h-3.5 w-3.5" />
-                <span className="font-medium">{c.name}</span>
-                {c.phone && <span className="text-muted-foreground">· {c.phone}</span>}
-              </span>
-              {c.email && (
-                <div className="pl-4 text-muted-foreground">{c.email}</div>
-              )}
-            </div>
-          ))
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         ) : (
-          (location.contact_person || location.phone) && (
-            <div>
-              {[location.contact_person, location.phone].filter(Boolean).join(" · ")}
+          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        )}
+      </button>
+      {open && (
+        <div className="pl-6 pb-3 pt-1 space-y-1 text-sm">
+          {contacts.length > 0 ? (
+            contacts.map((c) => (
+              <div key={c.id}>
+                <span className="inline-flex items-center gap-1">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="font-medium">{c.name}</span>
+                  {c.phone && <span className="text-muted-foreground">· {c.phone}</span>}
+                </span>
+                {c.email && (
+                  <div className="pl-4 text-muted-foreground">{c.email}</div>
+                )}
+              </div>
+            ))
+          ) : (
+            (location.contact_person || location.phone) && (
+              <div className="text-muted-foreground">
+                {[location.contact_person, location.phone].filter(Boolean).join(" · ")}
+              </div>
+            )
+          )}
+          {contacts.length === 0 && location.email && (
+            <div className="text-muted-foreground">{location.email}</div>
+          )}
+          {location.visma_delivery_no && (
+            <div className="text-xs text-muted-foreground">
+              Lev.nr. {location.visma_delivery_no}
             </div>
-          )
-        )}
-        {contacts.length === 0 && location.email && <div>{location.email}</div>}
-        {location.visma_delivery_no && (
-          <div className="text-xs">Lev.nr. {location.visma_delivery_no}</div>
-        )}
-      </div>
-      <div className="pl-6 mt-2">
-        <Button size="sm" variant="outline" onClick={onRegister}>
-          Registrér aktivitet her
-        </Button>
-      </div>
-    </div>
+          )}
+          <div className="pt-2">
+            <Button size="sm" variant="outline" onClick={onRegister}>
+              Registrér aktivitet her
+            </Button>
+          </div>
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -283,7 +290,6 @@ function AddLocationDialog({
 
   async function save() {
     setSaving(true);
-    // If marked primary, demote others first
     if (isPrimary && hasPrimary) {
       await (supabase as any)
         .from("locations")
