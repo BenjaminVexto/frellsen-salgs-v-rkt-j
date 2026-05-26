@@ -97,22 +97,58 @@ function DashboardPage() {
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-expiring-docs"],
+    queryKey: ["dashboard-expiring-agreements"],
     queryFn: async () => {
       const in90 = new Date();
       in90.setDate(in90.getDate() + 90);
-      const { data, error } = await supabase
-        .from("company_documents")
-        .select("id, filename, document_type, expires_at, company:companies(id, name)")
-        .not("expires_at", "is", null)
-        .gte("expires_at", today)
-        .lte("expires_at", in90.toISOString().slice(0, 10))
-        .order("expires_at", { ascending: true })
-        .limit(10);
-      if (error) throw error;
-      return data ?? [];
+      const to = in90.toISOString().slice(0, 10);
+
+      const [docsRes, compRes] = await Promise.all([
+        supabase
+          .from("company_documents")
+          .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
+          .not("expires_at", "is", null)
+          .gte("expires_at", today)
+          .lte("expires_at", to)
+          .order("expires_at", { ascending: true }),
+        supabase
+          .from("competitor_assignments")
+          .select(
+            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
+          )
+          .not("contract_expires_at", "is", null)
+          .gte("contract_expires_at", today)
+          .lte("contract_expires_at", to)
+          .order("contract_expires_at", { ascending: true }),
+      ]);
+
+      if (docsRes.error) throw docsRes.error;
+      if (compRes.error) throw compRes.error;
+
+      const docs = (docsRes.data ?? []).map((d: any) => ({
+        kind: "doc" as const,
+        id: `doc-${d.id}`,
+        date: d.expires_at as string,
+        companyId: d.company_id as string,
+        companyName: d.companies?.name ?? "Ukendt",
+        title: d.filename as string,
+        subtitle: d.document_type as string,
+      }));
+      const comps = (compRes.data ?? []).map((c: any) => ({
+        kind: "competitor" as const,
+        id: `comp-${c.id}`,
+        date: c.contract_expires_at as string,
+        companyId: c.company_id as string,
+        companyName: c.companies?.name ?? "Ukendt",
+        title: c.competitors?.name ?? "Konkurrent",
+        subtitle: "Konkurrentaftale",
+      }));
+      return [...docs, ...comps]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(0, 10);
     },
   });
+
 
   const overdue = (followupsQuery.data ?? []).filter(
     (f) => f.next_followup_date && f.next_followup_date < today
