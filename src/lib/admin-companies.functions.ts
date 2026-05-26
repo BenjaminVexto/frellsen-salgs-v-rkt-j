@@ -307,12 +307,23 @@ export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
+    // Dedupliker rækker pr. CVR — Postgres' ON CONFLICT kan ikke ramme samme
+    // række to gange i samme statement. Den sidste forekomst vinder (sidste
+    // leveringsadresse for samme CVR overskriver tidligere).
+    const byCvr = new Map<string, any>();
+    const noCvr: any[] = [];
+    for (const r of data.rows) {
+      const cvr = (r as any)?.cvr;
+      if (cvr) byCvr.set(String(cvr), r);
+      else noCvr.push(r);
+    }
+    const deduped = [...byCvr.values(), ...noCvr];
     const CHUNK = 500;
     const results: Array<{ id: string; cvr: string | null }> = [];
     let failed = 0;
     const errors: string[] = [];
-    for (let i = 0; i < data.rows.length; i += CHUNK) {
-      const slice = data.rows.slice(i, i + CHUNK);
+    for (let i = 0; i < deduped.length; i += CHUNK) {
+      const slice = deduped.slice(i, i + CHUNK);
       const { data: res, error } = await supabaseAdmin
         .from("companies")
         .upsert(slice as any, { onConflict: "cvr" })
@@ -339,6 +350,7 @@ export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
     }
     return { results, failed, errors };
   });
+
 
 export const importInsertCompaniesNoCvr = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
