@@ -295,6 +295,7 @@ function ImportSide() {
   const updateById = useServerFn(importUpdateCompaniesById);
   const upsertLocations = useServerFn(importInsertLocations);
   const assignSellers = useServerFn(importAssignSellersToCompanies);
+  const upsertContacts = useServerFn(importUpsertContacts);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
