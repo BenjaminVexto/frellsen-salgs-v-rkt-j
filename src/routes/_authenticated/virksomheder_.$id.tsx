@@ -131,6 +131,7 @@ function VirksomhedsKort() {
   const navigate = useNavigate();
   const { user, role } = useAuth();
   const isAdmin = role === "admin";
+  const canWriteDocs = role === "admin" || role === "salgssupport";
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
