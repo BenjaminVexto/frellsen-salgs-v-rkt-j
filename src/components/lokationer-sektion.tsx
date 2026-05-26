@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { MapPin, Plus, ChevronDown } from "lucide-react";
+import { MapPin, Plus, ChevronDown, User } from "lucide-react";
 import { toast } from "sonner";
 
 export type Location = {
@@ -29,16 +29,25 @@ export type Location = {
   created_at: string;
 };
 
+export type LocationContact = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+};
+
 export function LokationerSektion({
   companyId,
   isAdmin,
   onRegisterActivity,
   reloadKey,
+  contactsByLocation,
 }: {
   companyId: string;
   isAdmin: boolean;
   onRegisterActivity: (locationId: string) => void;
   reloadKey?: number;
+  contactsByLocation?: Map<string, LocationContact[]>;
 }) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -105,6 +114,7 @@ export function LokationerSektion({
           <LokationRow
             location={primary}
             isPrimary
+            contacts={contactsByLocation?.get(primary.id) ?? []}
             onRegister={() => onRegisterActivity(primary.id)}
           />
         )}
@@ -112,6 +122,7 @@ export function LokationerSektion({
           <LokationRow
             key={l.id}
             location={l}
+            contacts={contactsByLocation?.get(l.id) ?? []}
             onRegister={() => onRegisterActivity(l.id)}
           />
         ))}
@@ -149,14 +160,16 @@ function LokationRow({
   location,
   isPrimary,
   onRegister,
+  contacts = [],
 }: {
   location: Location;
   isPrimary?: boolean;
   onRegister: () => void;
+  contacts?: LocationContact[];
 }) {
   const cityLine = [location.zip, location.city].filter(Boolean).join(" ");
   return (
-    <div className="border rounded-md p-3">
+    <div id={`location-${location.id}`} className="border rounded-md p-3 scroll-mt-20">
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-2 font-medium">
           <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -176,12 +189,27 @@ function LokationRow({
           </div>
         )}
         {!location.address && cityLine && <div>{cityLine}</div>}
-        {(location.contact_person || location.phone) && (
-          <div>
-            {[location.contact_person, location.phone].filter(Boolean).join(" · ")}
-          </div>
+        {contacts.length > 0 ? (
+          contacts.map((c) => (
+            <div key={c.id} className="text-foreground">
+              <span className="inline-flex items-center gap-1">
+                <User className="h-3.5 w-3.5" />
+                <span className="font-medium">{c.name}</span>
+                {c.phone && <span className="text-muted-foreground">· {c.phone}</span>}
+              </span>
+              {c.email && (
+                <div className="pl-4 text-muted-foreground">{c.email}</div>
+              )}
+            </div>
+          ))
+        ) : (
+          (location.contact_person || location.phone) && (
+            <div>
+              {[location.contact_person, location.phone].filter(Boolean).join(" · ")}
+            </div>
+          )
         )}
-        {location.email && <div>{location.email}</div>}
+        {contacts.length === 0 && location.email && <div>{location.email}</div>}
         {location.visma_delivery_no && (
           <div className="text-xs">Lev.nr. {location.visma_delivery_no}</div>
         )}

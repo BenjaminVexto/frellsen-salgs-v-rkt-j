@@ -471,6 +471,43 @@ export const importInsertLocations = createServerFn({ method: "POST" })
     return { inserted, failed };
   });
 
+export const importUpsertContacts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      rows: z.array(z.object({
+        company_id: z.string().uuid(),
+        location_id: z.string().uuid().nullable(),
+        name: z.string().min(1),
+        phone: z.string().nullable().optional(),
+        email: z.string().nullable().optional(),
+        is_primary: z.boolean().optional(),
+      })).min(1).max(50000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const CHUNK = 500;
+    let inserted = 0;
+    let failed = 0;
+    for (let i = 0; i < data.rows.length; i += CHUNK) {
+      const slice = data.rows.slice(i, i + CHUNK);
+      const { error, count } = await supabaseAdmin
+        .from("contacts")
+        .upsert(slice as any, {
+          onConflict: "company_id,location_id,name",
+          count: "exact",
+        });
+      if (error) {
+        console.error("Import contacts fejl:", error.message);
+        failed += slice.length;
+        continue;
+      }
+      inserted += count ?? slice.length;
+    }
+    return { inserted, failed };
+  });
+
 // ======================= COMPANY DOCUMENTS =======================
 
 async function ensureDocumentWriter(userId: string) {

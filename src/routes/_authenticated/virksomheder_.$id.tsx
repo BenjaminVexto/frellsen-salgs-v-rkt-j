@@ -67,8 +67,9 @@ import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
-import { LokationerSektion, type Location } from "@/components/lokationer-sektion";
+import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
+import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
 type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
@@ -470,6 +471,16 @@ function VirksomhedsKort() {
             companyId={company.id}
             isAdmin={isAdmin}
             reloadKey={locationReloadKey}
+            contactsByLocation={(() => {
+              const m = new Map<string, LocationContact[]>();
+              for (const c of contacts as ContactRow[]) {
+                if (!c.location_id) continue;
+                const arr = m.get(c.location_id) ?? [];
+                arr.push({ id: c.id, name: c.name, phone: c.phone, email: c.email });
+                m.set(c.location_id, arr);
+              }
+              return m;
+            })()}
             onRegisterActivity={(locationId) => {
               setPresetLocationId(locationId);
               setActivityOpen(true);
@@ -478,34 +489,14 @@ function VirksomhedsKort() {
 
           <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
 
-
-
-
-          <Card className="p-5">
-            <h2 className="font-semibold mb-4 flex items-center gap-2">
-              <User className="h-4 w-4" /> Kontaktpersoner
-            </h2>
-            {contacts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Ingen kontakter registreret.</p>
-            ) : (
-              <ul className="divide-y">
-                {contacts.map((c) => (
-                  <li key={c.id} className="py-3 first:pt-0 last:pb-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{c.name}</span>
-                      {c.is_primary && <Badge variant="secondary" className="text-xs">Primær</Badge>}
-                    </div>
-                    {c.title && <div className="text-xs text-muted-foreground">{c.title}</div>}
-                    <div className="text-sm mt-1 space-x-3">
-                      {c.phone && <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a>}
-                      {c.email && <a href={`mailto:${c.email}`} className="hover:underline">{c.email}</a>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+          <KontaktpersonerSektion
+            companyId={company.id}
+            contacts={contacts as ContactRow[]}
+            locations={locations}
+            onReload={load}
+          />
         </div>
+
 
         {/* HØJRE — Handlingspanel */}
         <Card className="p-5 h-fit lg:sticky lg:top-6">
