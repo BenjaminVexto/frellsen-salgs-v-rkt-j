@@ -210,6 +210,60 @@ export type Database = {
           },
         ]
       }
+      company_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          document_type: string
+          expires_at: string | null
+          file_size_bytes: number | null
+          filename: string
+          id: string
+          notes: string | null
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          document_type?: string
+          expires_at?: string | null
+          file_size_bytes?: number | null
+          filename: string
+          id?: string
+          notes?: string | null
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          document_type?: string
+          expires_at?: string | null
+          file_size_bytes?: number | null
+          filename?: string
+          id?: string
+          notes?: string | null
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_list_assignments: {
         Row: {
           assigned_to: string | null
