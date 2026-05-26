@@ -68,6 +68,7 @@ import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
 import { LokationerSektion, type Location } from "@/components/lokationer-sektion";
+import { DokumenterSektion } from "@/components/dokumenter-sektion";
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
 type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
