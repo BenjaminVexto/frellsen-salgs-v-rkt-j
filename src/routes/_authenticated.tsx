@@ -20,7 +20,7 @@ import {
   BarChart3,
   Users,
   History,
-  Coffee,
+  History,
   LogOut,
   Loader2,
   ShieldAlert,
