@@ -67,6 +67,13 @@ export const COMPETITOR_TYPE_ICON: Record<CompetitorTypeKey, LucideIcon> = {
   hipsteren: Leaf,
 };
 
+export const COMPETITOR_TYPE_IMAGE: Record<CompetitorTypeKey, string> = {
+  svaervaegteren: svaervaegterenImg,
+  teknikeren: teknikerenImg,
+  koebmanden: koebmandenImg,
+  hipsteren: hipsterenImg,
+};
+
 export const COMPETITOR_TYPE_BADGE: Record<CompetitorTypeKey, string> = {
   svaervaegteren:
     "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-900",
