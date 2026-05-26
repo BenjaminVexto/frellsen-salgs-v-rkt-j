@@ -51,6 +51,7 @@ type Row = {
   id: string;
   name: string;
   cvr: string | null;
+  address: string | null;
   city: string | null;
   zip: string | null;
   municipality: string | null;
@@ -113,7 +114,7 @@ function VirksomhederListe() {
   const [assignmentMap, setAssignmentMap] = useState<Map<string, string[]>>(
     new Map(),
   );
-  const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null }[]>>(
+  const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null; zip: string | null }[]>>(
     new Map(),
   );
   const [recentIds, setRecentIds] = useState<string[] | null>(null);
@@ -158,7 +159,7 @@ function VirksomhederListe() {
   const loadCompanies = async () => {
     setLoading(true);
     const cols =
-      "id,name,cvr,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,assigned_to";
+      "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,assigned_to";
     if (recentIds && recentIds.length) {
       const { data } = await supabase
         .from("companies")
@@ -220,16 +221,16 @@ function VirksomhederListe() {
     if (!rows.length) return;
     (async () => {
       const ids = rows.map((r) => r.id);
-      const m = new Map<string, { city: string | null; address: string | null }[]>();
+      const m = new Map<string, { city: string | null; address: string | null; zip: string | null }[]>();
       for (let i = 0; i < ids.length; i += 500) {
         const slice = ids.slice(i, i + 500);
         const { data } = await (supabase as any)
           .from("locations")
-          .select("company_id, city, address")
+          .select("company_id, city, address, zip")
           .in("company_id", slice);
         (data ?? []).forEach((l: any) => {
           const arr = m.get(l.company_id) ?? [];
-          arr.push({ city: l.city, address: l.address });
+          arr.push({ city: l.city, address: l.address, zip: l.zip });
           m.set(l.company_id, arr);
         });
       }
@@ -338,11 +339,14 @@ function VirksomhederListe() {
         const hit =
           r.name.toLowerCase().includes(qq) ||
           (r.cvr ?? "").includes(q) ||
+          (r.address ?? "").toLowerCase().includes(qq) ||
           (r.city ?? "").toLowerCase().includes(qq) ||
+          (r.zip ?? "").includes(q) ||
           locs.some(
             (l) =>
               (l.city ?? "").toLowerCase().includes(qq) ||
-              (l.address ?? "").toLowerCase().includes(qq),
+              (l.address ?? "").toLowerCase().includes(qq) ||
+              (l.zip ?? "").includes(q),
           );
         if (!hit) return false;
       }
@@ -841,18 +845,24 @@ function VirksomhederListe() {
                         const qq = q.toLowerCase();
                         const nameHit = r.name.toLowerCase().includes(qq);
                         const cvrHit = (r.cvr ?? "").includes(q);
+                        const addrHit = (r.address ?? "").toLowerCase().includes(qq);
                         const cityHit = (r.city ?? "").toLowerCase().includes(qq);
-                        if (nameHit || cvrHit || cityHit) return null;
+                        const zipHit = (r.zip ?? "").includes(q);
+                        if (nameHit || cvrHit || addrHit || cityHit || zipHit) return null;
                         const locs = locationMap.get(r.id) ?? [];
                         const match = locs.find(
                           (l) =>
                             (l.city ?? "").toLowerCase().includes(qq) ||
-                            (l.address ?? "").toLowerCase().includes(qq),
+                            (l.address ?? "").toLowerCase().includes(qq) ||
+                            (l.zip ?? "").includes(q),
                         );
                         if (!match) return null;
+                        const parts = [match.address, [match.zip, match.city].filter(Boolean).join(" ")]
+                          .filter((p) => p && p.trim())
+                          .join(", ");
                         return (
                           <div className="text-xs text-primary mt-0.5">
-                            📍 lokation i {match.city ?? match.address}
+                            📍 Match: {parts || "lokation"}
                           </div>
                         );
                       })()}
