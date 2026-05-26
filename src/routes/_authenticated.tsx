@@ -183,7 +183,7 @@ function AuthenticatedLayout() {
       <main className="flex-1 md:ml-0 pt-14 md:pt-0">
         <Outlet />
         {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-4 z-20">
+        <nav className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-5 z-20">
           {navItems.map((item) => {
             const active = location.pathname.startsWith(item.to);
             return (
