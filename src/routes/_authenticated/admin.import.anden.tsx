@@ -135,7 +135,7 @@ const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
 const AUTO_MATCH: Record<SystemField, string[]> = {
   cvr: ["cvr", "cvrnr", "cvr_nr", "cvr_nummer"],
   name: ["navn", "name", "virksomhed", "firmanavn", "selskab"],
-  address: ["adresse", "address", "vejnavn", "gade"],
+  address: ["adresselinje_2", "adresse", "address", "vejnavn", "gade"],
   zip: ["postnummer", "postnr", "zip", "postcode"],
   city: ["by", "city", "bynavn"],
   municipality: ["kommune", "municipality"],
