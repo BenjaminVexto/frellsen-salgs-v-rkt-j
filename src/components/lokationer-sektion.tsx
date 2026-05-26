@@ -183,12 +183,9 @@ function LokationRow({
       </div>
       <div className="text-sm text-muted-foreground space-y-0.5 pl-6">
         {location.address && (
-          <div>
-            {location.address}
-            {cityLine ? `, ${cityLine}` : ""}
-          </div>
+          <p className="text-sm text-foreground">{location.address}</p>
         )}
-        {!location.address && cityLine && <div>{cityLine}</div>}
+        {cityLine && <p className="text-sm text-muted-foreground">{cityLine}</p>}
         {contacts.length > 0 ? (
           contacts.map((c) => (
             <div key={c.id} className="text-foreground">
