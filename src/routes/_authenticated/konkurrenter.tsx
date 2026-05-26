@@ -54,6 +54,7 @@ import {
   COMPETITOR_TYPE_PANEL,
   COMPETITOR_TYPE_ICON,
   COMPETITOR_TYPE_ICON_BG,
+  COMPETITOR_TYPE_IMAGE,
   COMPETITOR_TYPE_ORDER,
   type CompetitorTypeKey,
 } from "@/lib/competitor-types";
