@@ -22,7 +22,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
         full_name: z.string().trim().min(1).max(120),
         email: z.string().trim().email().max(255),
         password: z.string().min(8).max(128),
-        role: z.enum(["admin", "saelger"]),
+        role: z.enum(["admin", "saelger", "salgssupport"]),
         region: z.string().trim().max(120).optional().nullable(),
         salesperson_no: z.string().trim().max(32).optional().nullable(),
       })
