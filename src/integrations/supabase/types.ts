@@ -321,23 +321,41 @@ export type Database = {
       }
       competitors: {
         Row: {
+          city: string | null
+          competitor_type: string | null
           created_at: string
           created_by: string | null
+          employee_count: number | null
+          equipment_brands: string[] | null
+          frellsen_counter: string | null
           id: string
+          identifying_question: string | null
           name: string
           notes: string | null
         }
         Insert: {
+          city?: string | null
+          competitor_type?: string | null
           created_at?: string
           created_by?: string | null
+          employee_count?: number | null
+          equipment_brands?: string[] | null
+          frellsen_counter?: string | null
           id?: string
+          identifying_question?: string | null
           name: string
           notes?: string | null
         }
         Update: {
+          city?: string | null
+          competitor_type?: string | null
           created_at?: string
           created_by?: string | null
+          employee_count?: number | null
+          equipment_brands?: string[] | null
+          frellsen_counter?: string | null
           id?: string
+          identifying_question?: string | null
           name?: string
           notes?: string | null
         }
