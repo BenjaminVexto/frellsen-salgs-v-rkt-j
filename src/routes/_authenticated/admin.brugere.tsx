@@ -46,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/admin/brugere")({
   component: BrugerStyringSide,
 });
 
-type AppRoleX = AppRoleX | "salgssupport";
+type AppRoleX = "admin" | "saelger" | "salgssupport";
 type Row = {
   id: string;
   full_name: string;
