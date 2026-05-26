@@ -36,6 +36,13 @@ export type LocationContact = {
   email: string | null;
 };
 
+const firstFilled = (...values: Array<string | null | undefined>) => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+};
+
 export function LokationerSektion({
   companyId,
   isAdmin,
@@ -167,13 +174,16 @@ function LokationRow({
   onRegister: () => void;
   contacts?: LocationContact[];
 }) {
-  const cityLine = [location.zip, location.city].filter(Boolean).join(" ");
+  const address = firstFilled(location.address);
+  const zip = firstFilled(location.zip);
+  const city = firstFilled(location.city);
+  const cityLine = [zip, city].filter(Boolean).join(" ");
   return (
     <div id={`location-${location.id}`} className="border rounded-md p-3 scroll-mt-20">
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-2 font-medium">
           <MapPin className="h-4 w-4 text-muted-foreground" />
-          {location.city || location.address || "Lokation"}
+          {address || city || zip || "Lokation"}
           {isPrimary && (
             <Badge variant="secondary" className="text-xs">
               Primær
@@ -182,8 +192,8 @@ function LokationRow({
         </div>
       </div>
       <div className="text-sm text-muted-foreground space-y-0.5 pl-6">
-        {location.address && (
-          <p className="text-sm text-foreground">{location.address}</p>
+        {address && (
+          <p className="text-sm text-foreground">{address}</p>
         )}
         {cityLine && <p className="text-sm text-muted-foreground">{cityLine}</p>}
         {contacts.length > 0 ? (
