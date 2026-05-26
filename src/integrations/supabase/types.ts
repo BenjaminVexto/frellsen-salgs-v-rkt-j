@@ -670,7 +670,7 @@ export type Database = {
         | "tilbud_sendt"
         | "opfølgning"
         | "intern_note"
-      app_role: "admin" | "saelger"
+      app_role: "admin" | "saelger" | "salgssupport"
       assignment_status:
         | "ny"
         | "skal_kontaktes"
@@ -851,7 +851,7 @@ export const Constants = {
         "opfølgning",
         "intern_note",
       ],
-      app_role: ["admin", "saelger"],
+      app_role: ["admin", "saelger", "salgssupport"],
       assignment_status: [
         "ny",
         "skal_kontaktes",
