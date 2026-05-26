@@ -197,6 +197,19 @@ function VirksomhedsKort() {
     setActivities(a ?? []);
     setAssignments(asg ?? []);
     setLocations(((locs ?? []) as Location[]));
+
+    // Hent navnet på den tildelte sælger (companies.assigned_to)
+    const assignedId = (c as any)?.assigned_to as string | null | undefined;
+    if (assignedId) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", assignedId)
+        .maybeSingle();
+      setAssignedSellerName(prof?.full_name ?? "Ukendt sælger");
+    } else {
+      setAssignedSellerName(null);
+    }
     setLoading(false);
   }, [id]);
 
