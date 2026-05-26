@@ -130,7 +130,7 @@ function AuthenticatedLayout() {
             <div className="min-w-0">
               <div className="text-sm font-medium truncate">{auth.fullName || auth.user?.email}</div>
               <div className="text-xs text-primary-foreground/60">
-                {isAdmin ? "Administrator" : "Sælger"}
+                {auth.role === "admin" ? "Administrator" : auth.role === "salgssupport" ? "Salgssupport" : "Sælger"}
                 {auth.region ? ` · ${auth.region}` : ""}
               </div>
             </div>
