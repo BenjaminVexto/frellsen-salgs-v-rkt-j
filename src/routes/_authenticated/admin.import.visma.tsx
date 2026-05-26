@@ -170,7 +170,7 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
 const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
   cvr: ["CVR nr.", "CVR nr"],
   name: ["Navn"],
-  address: ["Adresselinje 1"],
+  address: ["Adresselinje 2"],
   zip: ["Postnr."],
   city: ["By"],
   phone: ["Telefonnr.1"],
