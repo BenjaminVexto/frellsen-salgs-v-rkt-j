@@ -476,6 +476,10 @@ function VirksomhedsKort() {
             }}
           />
 
+          <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
+
+
+
 
           <Card className="p-5">
             <h2 className="font-semibold mb-4 flex items-center gap-2">
