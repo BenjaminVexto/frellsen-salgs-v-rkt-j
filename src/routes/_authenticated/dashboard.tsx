@@ -97,22 +97,58 @@ function DashboardPage() {
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-expiring-docs"],
+    queryKey: ["dashboard-expiring-agreements"],
     queryFn: async () => {
       const in90 = new Date();
       in90.setDate(in90.getDate() + 90);
-      const { data, error } = await supabase
-        .from("company_documents")
-        .select("id, filename, document_type, expires_at, company:companies(id, name)")
-        .not("expires_at", "is", null)
-        .gte("expires_at", today)
-        .lte("expires_at", in90.toISOString().slice(0, 10))
-        .order("expires_at", { ascending: true })
-        .limit(10);
-      if (error) throw error;
-      return data ?? [];
+      const to = in90.toISOString().slice(0, 10);
+
+      const [docsRes, compRes] = await Promise.all([
+        supabase
+          .from("company_documents")
+          .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
+          .not("expires_at", "is", null)
+          .gte("expires_at", today)
+          .lte("expires_at", to)
+          .order("expires_at", { ascending: true }),
+        supabase
+          .from("competitor_assignments")
+          .select(
+            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
+          )
+          .not("contract_expires_at", "is", null)
+          .gte("contract_expires_at", today)
+          .lte("contract_expires_at", to)
+          .order("contract_expires_at", { ascending: true }),
+      ]);
+
+      if (docsRes.error) throw docsRes.error;
+      if (compRes.error) throw compRes.error;
+
+      const docs = (docsRes.data ?? []).map((d: any) => ({
+        kind: "doc" as const,
+        id: `doc-${d.id}`,
+        date: d.expires_at as string,
+        companyId: d.company_id as string,
+        companyName: d.companies?.name ?? "Ukendt",
+        title: d.filename as string,
+        subtitle: d.document_type as string,
+      }));
+      const comps = (compRes.data ?? []).map((c: any) => ({
+        kind: "competitor" as const,
+        id: `comp-${c.id}`,
+        date: c.contract_expires_at as string,
+        companyId: c.company_id as string,
+        companyName: c.companies?.name ?? "Ukendt",
+        title: c.competitors?.name ?? "Konkurrent",
+        subtitle: "Konkurrentaftale",
+      }));
+      return [...docs, ...comps]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(0, 10);
     },
   });
+
 
   const overdue = (followupsQuery.data ?? []).filter(
     (f) => f.next_followup_date && f.next_followup_date < today
@@ -242,27 +278,38 @@ function DashboardPage() {
           emptyText="Ingen aftaler udløber inden for 90 dage."
           loading={expiringDocsQuery.isLoading}
         >
-          {(expiringDocsQuery.data ?? []).map((doc: any) => (
+          {(expiringDocsQuery.data ?? []).map((item) => (
             <Link
-              key={doc.id}
+              key={item.id}
               to="/virksomheder/$id"
-              params={{ id: doc.company?.id }}
+              params={{ id: item.companyId }}
               className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
             >
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-foreground truncate">
-                  {doc.company?.name ?? "Ukendt"}
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                  <span>{item.kind === "doc" ? "📄" : "☕"}</span>
+                  <span className="truncate">{item.companyName}</span>
                 </div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {doc.document_type} · {doc.filename}
+                <div className="text-xs text-muted-foreground truncate mt-0.5">
+                  {item.title}
                 </div>
+                <span
+                  className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded mt-1 ${
+                    item.kind === "doc"
+                      ? "bg-success/15 text-success-foreground border border-success/30"
+                      : "bg-warning/15 text-warning-foreground border border-warning/30"
+                  }`}
+                >
+                  {item.kind === "doc" ? "Vores aftale" : "Konkurrentvindue"}
+                </span>
               </div>
               <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/15 text-warning-foreground whitespace-nowrap">
-                {format(parseISO(doc.expires_at), "d. MMM yyyy", { locale: da })}
+                {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
               </span>
             </Link>
           ))}
         </PanelCard>
+
       </div>
 
       {(followupsQuery.data?.length ?? 0) === 0 &&

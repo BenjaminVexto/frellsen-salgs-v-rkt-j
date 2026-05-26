@@ -23,6 +23,7 @@ import {
   Coffee,
   LogOut,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlobalImportIndicator } from "@/components/global-import-indicator";
@@ -62,6 +63,7 @@ function AuthenticatedLayout() {
     { to: "/dashboard", label: "Mit overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", icon: Building2 },
     { to: "/kontaktlister", label: "Kontaktlister", icon: ListChecks },
+    { to: "/konkurrenter", label: "Konkurrenter", icon: ShieldAlert },
     { to: "/salgsmuligheder", label: "Salgsmuligheder", icon: Target },
   ];
   const adminItems = [
@@ -181,7 +183,7 @@ function AuthenticatedLayout() {
       <main className="flex-1 md:ml-0 pt-14 md:pt-0">
         <Outlet />
         {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-4 z-20">
+        <nav className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-5 z-20">
           {navItems.map((item) => {
             const active = location.pathname.startsWith(item.to);
             return (

@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
 import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
+import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
 import { Route as AuthenticatedKontaktlisterIdRouteImport } from './routes/_authenticated/kontaktlister_.$id'
@@ -57,6 +58,12 @@ const AuthenticatedKontaktlisterRoute =
   AuthenticatedKontaktlisterRouteImport.update({
     id: '/kontaktlister',
     path: '/kontaktlister',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedKonkurrenterRoute =
+  AuthenticatedKonkurrenterRouteImport.update({
+    id: '/konkurrenter',
+    path: '/konkurrenter',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -129,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
@@ -147,6 +155,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
@@ -166,6 +175,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/dashboard'
+    | '/konkurrenter'
     | '/kontaktlister'
     | '/salgsmuligheder'
     | '/virksomheder'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/dashboard'
+    | '/konkurrenter'
     | '/kontaktlister'
     | '/salgsmuligheder'
     | '/virksomheder'
@@ -222,6 +234,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/_authenticated/dashboard'
+    | '/_authenticated/konkurrenter'
     | '/_authenticated/kontaktlister'
     | '/_authenticated/salgsmuligheder'
     | '/_authenticated/virksomheder'
@@ -285,6 +298,13 @@ declare module '@tanstack/react-router' {
       path: '/kontaktlister'
       fullPath: '/kontaktlister'
       preLoaderRoute: typeof AuthenticatedKontaktlisterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/konkurrenter': {
+      id: '/_authenticated/konkurrenter'
+      path: '/konkurrenter'
+      fullPath: '/konkurrenter'
+      preLoaderRoute: typeof AuthenticatedKonkurrenterRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -389,6 +409,7 @@ const AuthenticatedAdminImportRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedKonkurrenterRoute: typeof AuthenticatedKonkurrenterRoute
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
   AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
@@ -402,6 +423,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedKonkurrenterRoute: AuthenticatedKonkurrenterRoute,
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
   AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
