@@ -51,6 +51,7 @@ type Row = {
   id: string;
   name: string;
   cvr: string | null;
+  address: string | null;
   city: string | null;
   zip: string | null;
   municipality: string | null;
