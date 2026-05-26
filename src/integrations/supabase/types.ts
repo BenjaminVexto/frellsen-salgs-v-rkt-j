@@ -264,6 +264,93 @@ export type Database = {
           },
         ]
       }
+      competitor_assignments: {
+        Row: {
+          company_id: string
+          competitor_id: string
+          contract_expires_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          registered_by: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          competitor_id: string
+          contract_expires_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          registered_by: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          competitor_id?: string
+          contract_expires_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          registered_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_assignments_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_assignments_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitors: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitors_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_list_assignments: {
         Row: {
           assigned_to: string | null
