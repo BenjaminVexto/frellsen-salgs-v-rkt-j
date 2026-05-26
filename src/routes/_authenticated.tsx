@@ -42,6 +42,14 @@ function AuthenticatedLayout() {
     }
   }, [auth.loading, auth.session, navigate]);
 
+  const isAdmin = auth.role === "admin";
+
+  useEffect(() => {
+    if (!auth.loading && auth.session && !isAdmin && location.pathname.startsWith("/admin")) {
+      navigate({ to: "/dashboard" });
+    }
+  }, [auth.loading, auth.session, isAdmin, location.pathname, navigate]);
+
   if (auth.loading || !auth.session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -49,8 +57,6 @@ function AuthenticatedLayout() {
       </div>
     );
   }
-
-  const isAdmin = auth.role === "admin";
 
   const navItems = [
     { to: "/dashboard", label: "Mit overblik", icon: LayoutDashboard },
