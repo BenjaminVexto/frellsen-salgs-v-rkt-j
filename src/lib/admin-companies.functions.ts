@@ -393,13 +393,49 @@ export const importUpdateCompaniesById = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
     const results: Array<{ id: string; ok: boolean }> = [];
+
+    // Gruppér updates efter identisk payload-indhold, så vi kan køre
+    // ét UPDATE ... WHERE id IN (...) pr. unik payload i stedet for
+    // ét kald pr. række. Stabil JSON-stringify giver samme nøgle for
+    // identiske payloads uanset key-rækkefølge.
+    const stableStringify = (obj: any): string => {
+      if (obj === null || typeof obj !== "object") return JSON.stringify(obj);
+      if (Array.isArray(obj)) return "[" + obj.map(stableStringify).join(",") + "]";
+      const keys = Object.keys(obj).sort();
+      return "{" + keys.map((k) => JSON.stringify(k) + ":" + stableStringify(obj[k])).join(",") + "}";
+    };
+
+    const groups = new Map<string, { payload: any; ids: string[] }>();
     for (const u of data.updates) {
-      const { error } = await supabaseAdmin
-        .from("companies")
-        .update(u.payload as any)
-        .eq("id", u.id);
-      results.push({ id: u.id, ok: !error });
-      if (error) console.error("Import update fejl", u.id, error.message);
+      const key = stableStringify(u.payload);
+      const g = groups.get(key);
+      if (g) g.ids.push(u.id);
+      else groups.set(key, { payload: u.payload, ids: [u.id] });
+    }
+
+    const CHUNK = 500;
+    for (const { payload, ids } of groups.values()) {
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const { error } = await supabaseAdmin
+          .from("companies")
+          .update(payload as any)
+          .in("id", slice);
+        if (error) {
+          console.error("Import update fejl (batch)", error.message);
+          // Fallback pr. række så ét dårligt batch ikke vælter alt
+          for (const id of slice) {
+            const { error: oneErr } = await supabaseAdmin
+              .from("companies")
+              .update(payload as any)
+              .eq("id", id);
+            results.push({ id, ok: !oneErr });
+            if (oneErr) console.error("Import update fejl", id, oneErr.message);
+          }
+          continue;
+        }
+        for (const id of slice) results.push({ id, ok: true });
+      }
     }
     return { results };
   });
