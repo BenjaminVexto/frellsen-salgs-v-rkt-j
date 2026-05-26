@@ -30,14 +30,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FileText, Upload, ExternalLink, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { FileText, Upload, ExternalLink, Download, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
 import {
   uploadCompanyDocument,
   deleteCompanyDocument,
-  downloadCompanyDocument,
+  getDocumentSignedUrl,
 } from "@/lib/admin-companies.functions";
 
 type DocType = "aftale" | "kontrakt" | "tilbud" | "maskine" | "andet";
