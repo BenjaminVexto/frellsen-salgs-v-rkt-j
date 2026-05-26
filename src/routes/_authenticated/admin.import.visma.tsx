@@ -647,8 +647,18 @@ function ImportSide() {
         ? existingSources
         : [...existingSources, importSource];
       payload.source_updated_at = nowIso;
+      // Sikring: NOT NULL-felter skal ALTID være sat i payload'en — ellers
+      // fejler upsert hvis Supabase falder tilbage på INSERT-vejen (fx ved
+      // duplikerede CVR'er i samme batch). Brug eksisterende værdi som fallback.
+      if (payload.name == null || payload.name === "") {
+        payload.name = existing.name ?? (incoming as any).name ?? "(uden navn)";
+      }
+      if (payload.cvr == null && existing.cvr) {
+        payload.cvr = existing.cvr;
+      }
       return payload;
     };
+
 
     type Job =
       | { kind: "upsert_cvr"; payload: Record<string, any>; sellerId: string | null; isUpdate: boolean; isEnrich: boolean; isNoCvr: boolean }
