@@ -490,6 +490,9 @@ function VirksomhedsKort() {
 
           <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
 
+          <KonkurrentaftaleSektion companyId={company.id} />
+
+
           <KontaktpersonerSektion
             companyId={company.id}
             contacts={contacts as ContactRow[]}
