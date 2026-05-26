@@ -142,6 +142,39 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
         </dl>
       )}
 
+      {assignment?.competitors?.competitor_type &&
+        COMPETITOR_TYPES[assignment.competitors.competitor_type] && (() => {
+          const type = COMPETITOR_TYPES[assignment.competitors.competitor_type!];
+          const badge = COMPETITOR_TYPE_BADGE[assignment.competitors.competitor_type!];
+          return (
+            <div className="mt-5 rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Lightbulb className="h-4 w-4 text-primary" />
+                <span
+                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${badge}`}
+                >
+                  {type.label}
+                </span>
+                <span className="text-xs text-muted-foreground">{type.tagline}</span>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">
+                    De spørger sandsynligvis:
+                  </div>
+                  <div className="italic">"{type.identifying_question}"</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">
+                    Frellsens svar:
+                  </div>
+                  <div className="font-medium">"{type.frellsen_pitch}"</div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
       <AssignmentDialog
         open={open}
         onOpenChange={setOpen}
