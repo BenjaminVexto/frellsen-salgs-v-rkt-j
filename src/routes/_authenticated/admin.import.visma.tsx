@@ -1017,6 +1017,75 @@ function ImportSide() {
       console.error("Kunne ikke bygge per-række tildelinger", e);
     }
 
+    // 5) Opret kontaktpersoner fra "Ref person" pr. lokation
+    try {
+      if (mapping.location_contact_person && mapping.visma_delivery_id) {
+        // Genopbyg cvr->companyId og locIdMap (lokal scope)
+        const cvrToCompanyId2 = new Map<string, string>();
+        for (let i = 0; i < companyIds.length; i += 500) {
+          const slice = companyIds.slice(i, i + 500);
+          const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
+          (data ?? []).forEach((c: any) => { if (c.cvr) cvrToCompanyId2.set(c.cvr, c.id); });
+        }
+        const locIdMap2 = new Map<string, { id: string; is_primary: boolean }>();
+        for (let i = 0; i < companyIds.length; i += 500) {
+          const slice = companyIds.slice(i, i + 500);
+          const { data } = await (supabase as any)
+            .from("locations")
+            .select("id, company_id, visma_delivery_no, is_primary")
+            .in("company_id", slice);
+          (data ?? []).forEach((l: any) => {
+            if (l.visma_delivery_no) {
+              locIdMap2.set(`${l.company_id}|${l.visma_delivery_no}`, { id: l.id, is_primary: !!l.is_primary });
+            }
+          });
+        }
+
+        type ContactRow = {
+          company_id: string;
+          location_id: string;
+          name: string;
+          phone: string | null;
+          email: string | null;
+          is_primary: boolean;
+        };
+        const seenKeys = new Set<string>();
+        const contactRows: ContactRow[] = [];
+        for (const r of rows) {
+          const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
+          if (!cvr) continue;
+          const companyId = cvrToCompanyId2.get(cvr);
+          if (!companyId) continue;
+          const delivery = (r[mapping.visma_delivery_id!] ?? "").trim();
+          if (!delivery) continue;
+          const loc = locIdMap2.get(`${companyId}|${delivery}`);
+          if (!loc) continue; // kun lokationer der faktisk blev oprettet (Model B: 2+)
+          const name = (r[mapping.location_contact_person!] ?? "").trim();
+          if (!name) continue;
+          const key = `${companyId}|${loc.id}|${name.toLowerCase()}`;
+          if (seenKeys.has(key)) continue;
+          seenKeys.add(key);
+          contactRows.push({
+            company_id: companyId,
+            location_id: loc.id,
+            name,
+            phone: mapping.location_phone ? ((r[mapping.location_phone] ?? "").trim() || null) : null,
+            email: mapping.location_email ? ((r[mapping.location_email] ?? "").trim() || null) : null,
+            is_primary: loc.is_primary,
+          });
+        }
+
+        if (contactRows.length) {
+          const res = await upsertContacts({ data: { rows: contactRows } });
+          if (res?.inserted) {
+            toast.success(`${res.inserted} kontaktpersoner oprettet/opdateret`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Kunne ikke oprette kontaktpersoner", e);
+    }
+
     const resultPayload = {
       created, updated, skipped, failed, enriched, noCvrCount,
       importSource,
