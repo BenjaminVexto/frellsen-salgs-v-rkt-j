@@ -73,6 +73,8 @@ export function DokumenterSektion({
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; filename: string } | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   const uploadFn = useServerFn(uploadCompanyDocument);
   const deleteFn = useServerFn(deleteCompanyDocument);
@@ -109,7 +111,16 @@ export function DokumenterSektion({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    return () => {
+      if (previewDoc?.url) {
+        URL.revokeObjectURL(previewDoc.url);
+      }
+    };
+  }, [previewDoc]);
+
   const handleOpen = async (id: string) => {
+    setOpeningId(id);
     try {
       const res = await downloadFn({ data: { document_id: id } });
       const binary = atob(res.base64);
@@ -117,12 +128,22 @@ export function DokumenterSektion({
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       const blob = new Blob([bytes], { type: res.content_type });
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener,noreferrer");
-      // Revoke after a delay so the new tab has time to load it
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      if (previewDoc?.url) {
+        URL.revokeObjectURL(previewDoc.url);
+      }
+      setPreviewDoc({ url, filename: res.filename });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke åbne dokument");
+    } finally {
+      setOpeningId(null);
     }
+  };
+
+  const closePreview = () => {
+    if (previewDoc?.url) {
+      URL.revokeObjectURL(previewDoc.url);
+    }
+    setPreviewDoc(null);
   };
 
   const handleDelete = async () => {
@@ -202,8 +223,13 @@ export function DokumenterSektion({
                   )}
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <Button size="sm" variant="outline" onClick={() => handleOpen(d.id)}>
-                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> Åbn PDF
+                  <Button size="sm" variant="outline" onClick={() => handleOpen(d.id)} disabled={openingId === d.id}>
+                    {openingId === d.id ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Åbn PDF
                   </Button>
                   {canWrite && (
                     <Button
@@ -245,6 +271,33 @@ export function DokumenterSektion({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!previewDoc} onOpenChange={(open) => !open && closePreview()}>
+        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{previewDoc?.filename ?? "Dokument"}</DialogTitle>
+          </DialogHeader>
+          {previewDoc && (
+            <div className="flex-1 min-h-0 border rounded-md overflow-hidden bg-muted/30">
+              <iframe
+                src={previewDoc.url}
+                title={previewDoc.filename}
+                className="h-full w-full"
+              />
+            </div>
+          )}
+          <DialogFooter>
+            {previewDoc && (
+              <Button asChild variant="outline">
+                <a href={previewDoc.url} download={previewDoc.filename}>
+                  Download PDF
+                </a>
+              </Button>
+            )}
+            <Button onClick={closePreview}>Luk</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
