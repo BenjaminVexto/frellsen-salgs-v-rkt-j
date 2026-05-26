@@ -158,7 +158,7 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   ean_number: ["ean", "ean_nr", "ean_nummer", "ean_lokationsnummer", "ean_lokation"],
   parent_cvr: ["overordnet_cvr", "kommune_cvr", "parent_cvr", "moder_cvr"],
   is_public: ["offentlig", "er_offentlig", "is_public", "offentlig_institution"],
-  location_address: ["adresselinje_1", "lev_adresse", "leveringsadresse"],
+  location_address: ["adresselinje_2", "lev_adresse", "leveringsadresse"],
   location_zip: ["lev_postnr", "leveringspostnr"],
   location_city: ["lev_by", "leveringsby"],
   location_phone: ["telefonnr_1", "telefonnr1", "lev_telefon"],
