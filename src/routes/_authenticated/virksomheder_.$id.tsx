@@ -304,6 +304,24 @@ function VirksomhedsKort() {
             </div>
           )}
 
+          {/* Tildelt sælger — fremhævet */}
+          <div className="mb-4 rounded-md border bg-muted/40 px-3 py-2 flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">
+                Tildelt sælger
+              </div>
+              <div className="text-sm font-medium truncate mt-0.5">
+                {assignedSellerName ?? (
+                  <span className="text-muted-foreground italic font-normal">
+                    Ikke tildelt
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+
           <div className="space-y-3 text-sm">
             {(company.address || company.city) && (
               <Row icon={<MapPin className="h-4 w-4" />}>
