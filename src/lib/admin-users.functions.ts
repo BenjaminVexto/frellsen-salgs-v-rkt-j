@@ -194,11 +194,12 @@ export const adminListUsers = createServerFn({ method: "GET" })
     const emailMap = new Map<string, string>();
     for (const u of authList.users) emailMap.set(u.id, u.email ?? "");
 
-    const roleMap = new Map<string, "admin" | "saelger">();
+    type R = "admin" | "saelger" | "salgssupport";
+    const roleMap = new Map<string, R>();
     for (const r of roles ?? []) {
       // admin wins if multiple rows exist
       if (r.role === "admin" || !roleMap.has(r.user_id)) {
-        roleMap.set(r.user_id, r.role as "admin" | "saelger");
+        roleMap.set(r.user_id, r.role as R);
       }
     }
 
