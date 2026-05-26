@@ -309,15 +309,8 @@ function KontaktlisterOversigt() {
         />
       )}
 
-      <CvrBulkSoegningDialog
-        open={cvrSearchOpen}
-        onOpenChange={setCvrSearchOpen}
-        onImported={(ids) => {
-          setCvrSearchOpen(false);
-          setPreselectedIds(ids);
-          setCreateOpen(true);
-        }}
-      />
+
+
 
 
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
