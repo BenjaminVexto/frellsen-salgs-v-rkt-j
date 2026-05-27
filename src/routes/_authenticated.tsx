@@ -63,10 +63,12 @@ function AuthenticatedLayout() {
   const navItems = [
     { to: "/dashboard", label: "Mit overblik", shortLabel: "Overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", shortLabel: "Firmaer", icon: Building2 },
+    { to: "/vaekstpotentiale", label: "Vækstpotentiale", shortLabel: "Vækst", icon: TrendingUp },
     { to: "/kontaktlister", label: "Kontaktlister", shortLabel: "Lister", icon: ListChecks },
     { to: "/konkurrenter", label: "Konkurrenter", shortLabel: "Konkur.", icon: ShieldAlert },
     { to: "/salgsmuligheder", label: "Salgsmuligheder", shortLabel: "Salg", icon: Target },
   ];
+
   const adminItems = [
     { to: "/admin/import", label: "Import", icon: Upload },
     { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
