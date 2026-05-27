@@ -757,7 +757,64 @@ function VirksomhedsKort() {
   );
 }
 
+function ActivityRow({ a, locations }: { a: Activity; locations: Location[] }) {
+  const loc = (a as any).location_id
+    ? locations.find((l) => l.id === (a as any).location_id)
+    : null;
+  return (
+    <div
+      id={`activity-${a.id}`}
+      className="border-l-2 border-primary/30 pl-3 scroll-mt-24 transition-shadow"
+    >
+      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {(() => {
+            const def = getActivityType(a.activity_type as any);
+            if (def) {
+              const Icon = def.Icon;
+              return (
+                <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full", def.bg, def.color)}>
+                  <Icon className="h-3.5 w-3.5" />
+                  {def.label}
+                </span>
+              );
+            }
+            return (
+              <Badge variant="outline" className="capitalize">
+                {labelFor(a.activity_type)}
+              </Badge>
+            );
+          })()}
+          {loc && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              <MapPin className="h-3 w-3" />
+              {loc.city || loc.address || "Lokation"}
+            </Badge>
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
+        </span>
+      </div>
+      {a.note && <NoteWithMentions text={a.note} />}
+      {(a.next_action || a.next_followup_date) && (
+        <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
+          <span className="font-medium">Næste: </span>
+          {a.next_action}
+          {a.next_followup_date && (
+            <span className="text-muted-foreground">
+              {" — "}
+              {format(new Date(a.next_followup_date), "d. MMM yyyy", { locale: da })}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+
   return (
     <div className="flex gap-2">
       <div className="text-muted-foreground mt-0.5">{icon}</div>
