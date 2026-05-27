@@ -96,15 +96,14 @@ const customerTypeVariant: Record<string, "default" | "secondary" | "outline"> =
 };
 
 const activityTypes: { value: ActivityType; label: string }[] = [
-  { value: "opkald", label: "Opkald" },
-  { value: "email", label: "Email" },
-  { value: "linkedin", label: "LinkedIn" },
+  { value: "telefonopkald" as ActivityType, label: "Telefonopkald" },
   { value: "besøg", label: "Besøg" },
-  { value: "møde", label: "Møde" },
-  { value: "teams_møde", label: "Teams-møde" },
+  { value: "email", label: "Email" },
   { value: "tilbud_sendt", label: "Tilbud sendt" },
-  { value: "opfølgning", label: "Opfølgning" },
-  { value: "intern_note", label: "Intern note" },
+  { value: "møde", label: "Møde" },
+  { value: "ikke_truffet" as ActivityType, label: "Ikke truffet" },
+  { value: "opfølgning_aftalt" as ActivityType, label: "Opfølgning aftalt" },
+  { value: "andet" as ActivityType, label: "Andet" },
 ];
 
 const assignmentStatuses: { value: AssignmentStatus; label: string }[] = [
