@@ -448,7 +448,10 @@ function VirksomhedsKort() {
             (company as any).customer_segment_3 ||
             company.visma_id ||
             (company as any).visma_delivery_id ||
-            (company as any).contact_person) && (
+            (company as any).contact_person ||
+            (company as any).main_branch_text ||
+            (company as any).main_branch_code ||
+            (company as any).bi_branch_1_code) && (
             <div className="border-t mt-4 pt-4 text-sm">
               <button
                 type="button"
@@ -483,6 +486,29 @@ function VirksomhedsKort() {
                   {(company as any).customer_segment_3 && (
                     <KV label="Kundesegment 3" value={(company as any).customer_segment_3} />
                   )}
+                  {((company as any).main_branch_text || (company as any).main_branch_code) && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Hovedbranche</span>
+                      <span className="text-right">
+                        <span className="font-medium block">
+                          {(company as any).main_branch_text || (company as any).main_branch_code}
+                        </span>
+                        {(company as any).main_branch_text && (company as any).main_branch_code && (
+                          <span className="text-muted-foreground text-xs block">
+                            {(company as any).main_branch_code}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  {(company as any).bi_branch_1_code && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Bibranche</span>
+                      <span className="font-medium text-right">
+                        {(company as any).bi_branch_1_code}
+                      </span>
+                    </div>
+                  )}
                   {company.visma_id && <KV label="Visma kundenr." value={company.visma_id} />}
                   {(company as any).visma_delivery_id && (
                     <KV label="Visma lev.nr." value={(company as any).visma_delivery_id} />
@@ -494,6 +520,7 @@ function VirksomhedsKort() {
               )}
             </div>
           )}
+
         </Card>
 
         {/* MIDTEN — Faner */}
