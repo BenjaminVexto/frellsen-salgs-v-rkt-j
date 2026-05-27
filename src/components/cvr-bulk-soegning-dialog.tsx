@@ -681,7 +681,28 @@ export function CvrBulkSoegningDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2 flex-col sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2 mr-auto">
+            <Label htmlFor="cvr-seller" className="text-sm whitespace-nowrap">
+              Tildel sælger
+            </Label>
+            <Select
+              value={selectedSellerId || "none"}
+              onValueChange={(v) => setSelectedSellerId(v === "none" ? "" : v)}
+            >
+              <SelectTrigger id="cvr-seller" className="w-[220px]">
+                <SelectValue placeholder="Ingen tildeling" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ingen tildeling</SelectItem>
+                {sellers.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annullér
           </Button>
