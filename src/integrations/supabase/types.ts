@@ -89,6 +89,9 @@ export type Database = {
         Row: {
           address: string | null
           assigned_to: string | null
+          bi_branch_1_code: string | null
+          bi_branch_2_code: string | null
+          bi_branch_3_code: string | null
           city: string | null
           contact_person: string | null
           created_at: string
@@ -98,6 +101,7 @@ export type Database = {
           customer_segment_3: string | null
           customer_type: Database["public"]["Enums"]["customer_type"]
           cvr: string | null
+          cvr_p_enhed_count: number | null
           ean_number: string | null
           email: string | null
           employees: number | null
@@ -110,6 +114,8 @@ export type Database = {
             | null
           is_public: boolean
           last_purchase_date: string | null
+          main_branch_code: string | null
+          main_branch_text: string | null
           municipality: string | null
           name: string
           parent_cvr: string | null
@@ -127,6 +133,9 @@ export type Database = {
         Insert: {
           address?: string | null
           assigned_to?: string | null
+          bi_branch_1_code?: string | null
+          bi_branch_2_code?: string | null
+          bi_branch_3_code?: string | null
           city?: string | null
           contact_person?: string | null
           created_at?: string
@@ -136,6 +145,7 @@ export type Database = {
           customer_segment_3?: string | null
           customer_type?: Database["public"]["Enums"]["customer_type"]
           cvr?: string | null
+          cvr_p_enhed_count?: number | null
           ean_number?: string | null
           email?: string | null
           employees?: number | null
@@ -148,6 +158,8 @@ export type Database = {
             | null
           is_public?: boolean
           last_purchase_date?: string | null
+          main_branch_code?: string | null
+          main_branch_text?: string | null
           municipality?: string | null
           name: string
           parent_cvr?: string | null
@@ -165,6 +177,9 @@ export type Database = {
         Update: {
           address?: string | null
           assigned_to?: string | null
+          bi_branch_1_code?: string | null
+          bi_branch_2_code?: string | null
+          bi_branch_3_code?: string | null
           city?: string | null
           contact_person?: string | null
           created_at?: string
@@ -174,6 +189,7 @@ export type Database = {
           customer_segment_3?: string | null
           customer_type?: Database["public"]["Enums"]["customer_type"]
           cvr?: string | null
+          cvr_p_enhed_count?: number | null
           ean_number?: string | null
           email?: string | null
           employees?: number | null
@@ -186,6 +202,8 @@ export type Database = {
             | null
           is_public?: boolean
           last_purchase_date?: string | null
+          main_branch_code?: string | null
+          main_branch_text?: string | null
           municipality?: string | null
           name?: string
           parent_cvr?: string | null
