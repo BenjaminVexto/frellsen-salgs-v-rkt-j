@@ -323,6 +323,29 @@ export function CvrBulkSoegningDialog({
           company_form: r.company_form,
         }));
       const res = await importFn({ data: { companies: payload } });
+      const newIds: string[] = (res as any).inserted_ids ?? [];
+      if (newIds.length) {
+        try {
+          const labelBits: string[] = [];
+          if (kommune) labelBits.push(kommune);
+          else if (zipFrom || zipTo) labelBits.push(`postnr ${zipFrom || "…"}–${zipTo || "…"}`);
+          const dateLabel = new Date().toLocaleDateString("da-DK", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
+          const filename = `CVR-søgning · ${labelBits.join(" · ") || "alle"} · ${dateLabel}`;
+          await createBatch({
+            data: {
+              filename,
+              company_count: newIds.length,
+              company_ids: newIds,
+            },
+          });
+        } catch (e: any) {
+          console.error("Kunne ikke registrere CVR-import-batch", e);
+        }
+      }
       toast.success(`Importeret: ${res.inserted} nye, ${res.already_existed} fandtes allerede`);
       onImported(res.company_ids);
       onOpenChange(false);
