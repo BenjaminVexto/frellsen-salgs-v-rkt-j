@@ -387,6 +387,24 @@ export function CvrBulkSoegningDialog({
         }
       }
       toast.success(`Importeret: ${res.inserted} nye, ${res.already_existed} fandtes allerede`);
+      const allIds: string[] = res.company_ids ?? [];
+      if (selectedSellerId && allIds.length) {
+        try {
+          const r = await assignSellersFn({
+            data: {
+              assignments: allIds.map((id) => ({
+                company_id: id,
+                seller_id: selectedSellerId,
+              })),
+            },
+          });
+          const sellerName =
+            sellers.find((s) => s.id === selectedSellerId)?.full_name ?? "sælger";
+          toast.success(`Tildelt ${r.updated} virksomheder til ${sellerName}`);
+        } catch (e: any) {
+          toast.error("Sælger-tildeling fejlede: " + (e?.message ?? "ukendt"));
+        }
+      }
       onImported(res.company_ids);
       onOpenChange(false);
     } catch (e: any) {
