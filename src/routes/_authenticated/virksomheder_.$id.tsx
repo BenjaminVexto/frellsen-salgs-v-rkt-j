@@ -73,7 +73,7 @@ import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { getActivityType, labelFor } from "@/lib/activity-types";
-import { Car } from "lucide-react";
+
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
 type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
@@ -541,13 +541,6 @@ function VirksomhedsKort() {
           <div className="space-y-2">
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
-            </Button>
-            <Button
-              variant="secondary"
-              className="w-full justify-start"
-              onClick={() => navigate({ to: "/virksomheder/$id/besoeg", params: { id: company.id } })}
-            >
-              <Car className="h-4 w-4 mr-2" /> Jeg er på vej hertil
             </Button>
             <Button variant="outline" className="w-full justify-start" onClick={() => setOpportunityOpen(true)}>
               <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
