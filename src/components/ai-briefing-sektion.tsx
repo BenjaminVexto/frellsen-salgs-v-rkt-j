@@ -19,6 +19,7 @@ export function AiBriefingSektion({ companyId }: { companyId: string }) {
   const [briefing, setBriefing] = useState<{ text: string; created_at: string } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [briefingExpanded, setBriefingExpanded] = useState(false);
   const generateFn = useServerFn(generateCompanyBriefing);
 
   useEffect(() => {
