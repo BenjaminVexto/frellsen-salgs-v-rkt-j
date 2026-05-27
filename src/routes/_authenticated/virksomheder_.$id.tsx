@@ -73,7 +73,11 @@ import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion } from "@/components/ai-briefing-sektion";
+import { CvrPenhederSektion } from "@/components/cvr-penheder-sektion";
 import { getActivityType, labelFor } from "@/lib/activity-types";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Target } from "lucide-react";
+
 
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
@@ -130,6 +134,10 @@ type Company = Database["public"]["Tables"]["companies"]["Row"];
 type Contact = Database["public"]["Tables"]["contacts"]["Row"];
 type Activity = Database["public"]["Tables"]["activities"]["Row"];
 type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"];
+type Opportunity = Database["public"]["Tables"]["sales_opportunities"]["Row"];
+
+type TabKey = "oversigt" | "aktivitet" | "lokationer" | "relationer";
+
 
 const firstFilled = (...values: Array<string | null | undefined>) => {
   for (const value of values) {
@@ -150,12 +158,16 @@ function VirksomhedsKort() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [docCount, setDocCount] = useState(0);
   const [assignedSellerName, setAssignedSellerName] = useState<string | null>(null);
   const [locationReloadKey, setLocationReloadKey] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
   const [presetLocationId, setPresetLocationId] = useState<string | null>(null);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [tab, setTab] = useState<TabKey>("oversigt");
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteStats, setDeleteStats] = useState<{
     activities: number;
@@ -194,7 +206,15 @@ function VirksomhedsKort() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: c }, { data: ct }, { data: a }, { data: asg }, { data: locs }] = await Promise.all([
+    const [
+      { data: c },
+      { data: ct },
+      { data: a },
+      { data: asg },
+      { data: locs },
+      { data: opps },
+      { count: dcount },
+    ] = await Promise.all([
       supabase.from("companies").select("*").eq("id", id).maybeSingle(),
       supabase.from("contacts").select("*").eq("company_id", id).order("is_primary", { ascending: false }),
       supabase.from("activities").select("*").eq("company_id", id).order("created_at", { ascending: false }),
@@ -205,12 +225,24 @@ function VirksomhedsKort() {
         .eq("company_id", id)
         .order("is_primary", { ascending: false })
         .order("city", { ascending: true }),
+      supabase
+        .from("sales_opportunities")
+        .select("*")
+        .eq("company_id", id)
+        .not("status", "in", "(vundet,tabt)")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("company_documents")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", id),
     ]);
     setCompany(c ?? null);
     setContacts(ct ?? []);
     setActivities(a ?? []);
     setAssignments(asg ?? []);
     setLocations(((locs ?? []) as Location[]));
+    setOpportunities((opps ?? []) as Opportunity[]);
+    setDocCount(dcount ?? 0);
 
     // Hent navnet på den tildelte sælger (companies.assigned_to)
     const assignedId = (c as any)?.assigned_to as string | null | undefined;
@@ -230,6 +262,16 @@ function VirksomhedsKort() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Sync tab with URL hash on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.replace("#", "");
+    if (["oversigt", "aktivitet", "lokationer", "relationer"].includes(hash)) {
+      setTab(hash as TabKey);
+    }
+  }, []);
+
 
 
   // Scroll to a specific activity if URL has #activity-<id>
@@ -429,112 +471,193 @@ function VirksomhedsKort() {
           )}
         </Card>
 
-        {/* MIDTEN — Aktivitetslog + kontakter */}
-        <div className="space-y-6 min-w-0">
-          <AiBriefingSektion companyId={company.id} />
-          <Card className="p-5">
-            <h2 className="font-semibold mb-4 flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" /> Aktivitetslog
-            </h2>
-            {activities.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Ingen aktiviteter endnu.</p>
-            ) : (
-              <div className="space-y-4">
-                {activities.map((a) => {
-                  const loc = (a as any).location_id
-                    ? locations.find((l) => l.id === (a as any).location_id)
-                    : null;
-                  return (
-                    <div
-                      key={a.id}
-                      id={`activity-${a.id}`}
-                      className="border-l-2 border-primary/30 pl-3 scroll-mt-24 transition-shadow"
+        {/* MIDTEN — Faner */}
+        <div className="space-y-4 min-w-0">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+            <TabsList className="bg-transparent p-0 h-auto border-b w-full justify-start rounded-none">
+              {[
+                { v: "oversigt", label: "Oversigt" },
+                { v: "aktivitet", label: "Aktivitet" },
+                { v: "lokationer", label: "Lokationer" },
+                { v: "relationer", label: "Relationer" },
+              ].map((t) => (
+                <TabsTrigger
+                  key={t.v}
+                  value={t.v}
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2"
+                >
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            {/* FANE: Oversigt */}
+            <TabsContent value="oversigt" className="space-y-4 mt-4">
+              <AiBriefingSektion companyId={company.id} />
+
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-semibold flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4" /> Seneste aktiviteter
+                  </h2>
+                  {activities.length > 3 && (
+                    <button
+                      className="text-xs text-primary hover:underline"
+                      onClick={() => setTab("aktivitet")}
                     >
-                      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {(() => {
-                            const def = getActivityType(a.activity_type as any);
-                            if (def) {
-                              const Icon = def.Icon;
-                              return (
-                                <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full", def.bg, def.color)}>
-                                  <Icon className="h-3.5 w-3.5" />
-                                  {def.label}
-                                </span>
-                              );
-                            }
-                            return (
-                              <Badge variant="outline" className="capitalize">
-                                {labelFor(a.activity_type)}
-                              </Badge>
-                            );
-                          })()}
-                          {loc && (
-                            <Badge variant="secondary" className="text-xs gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {loc.city || loc.address || "Lokation"}
-                            </Badge>
-                          )}
+                      Se alle ({activities.length}) →
+                    </button>
+                  )}
+                </div>
+                {activities.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Ingen aktiviteter endnu.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {activities.slice(0, 3).map((a) => (
+                      <ActivityRow key={a.id} a={a} locations={locations} />
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-semibold flex items-center gap-2">
+                    <Target className="h-4 w-4" /> Åbne salgsmuligheder
+                  </h2>
+                  {opportunities.length > 3 && (
+                    <Link
+                      to="/salgsmuligheder"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Se alle →
+                    </Link>
+                  )}
+                </div>
+                {opportunities.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Ingen åbne salgsmuligheder.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {opportunities.slice(0, 3).map((o) => (
+                      <div
+                        key={o.id}
+                        className="flex items-center justify-between text-sm border-b last:border-0 py-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{o.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {o.status}
+                            {o.expected_close_date &&
+                              ` · lukker ${format(new Date(o.expected_close_date), "d. MMM yyyy", { locale: da })}`}
+                          </div>
                         </div>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
-                        </span>
+                        {o.estimated_value != null && (
+                          <span className="text-sm font-medium shrink-0 ml-3">
+                            {Number(o.estimated_value).toLocaleString("da-DK")} kr.
+                          </span>
+                        )}
                       </div>
-                      {a.note && <NoteWithMentions text={a.note} />}
-                      {(a.next_action || a.next_followup_date) && (
-                        <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
-                          <span className="font-medium">Næste: </span>
-                          {a.next_action}
-                          {a.next_followup_date && (
-                            <span className="text-muted-foreground">
-                              {" — "}
-                              {format(new Date(a.next_followup_date), "d. MMM yyyy", { locale: da })}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setTab("lokationer")}
+                  className="rounded-md border bg-card hover:bg-muted/50 transition-colors p-3 text-left"
+                >
+                  <div className="text-2xl font-semibold">{locations.length}</div>
+                  <div className="text-xs text-muted-foreground">Lokationer</div>
+                </button>
+                <button
+                  onClick={() => setTab("relationer")}
+                  className="rounded-md border bg-card hover:bg-muted/50 transition-colors p-3 text-left"
+                >
+                  <div className="text-2xl font-semibold">{contacts.length}</div>
+                  <div className="text-xs text-muted-foreground">Kontakter</div>
+                </button>
+                <button
+                  onClick={() => setTab("relationer")}
+                  className="rounded-md border bg-card hover:bg-muted/50 transition-colors p-3 text-left"
+                >
+                  <div className="text-2xl font-semibold">{docCount}</div>
+                  <div className="text-xs text-muted-foreground">Dokumenter</div>
+                </button>
               </div>
-            )}
-          </Card>
+            </TabsContent>
 
-          <LokationerSektion
-            companyId={company.id}
-            isAdmin={isAdmin}
-            reloadKey={locationReloadKey}
-            companyFallbackAddress={company.address}
-            companyFallbackZip={company.zip}
-            companyFallbackCity={company.city}
-            contactsByLocation={(() => {
-              const m = new Map<string, LocationContact[]>();
-              for (const c of contacts as ContactRow[]) {
-                if (!c.location_id) continue;
-                const arr = m.get(c.location_id) ?? [];
-                arr.push({ id: c.id, name: c.name, phone: c.phone, email: c.email });
-                m.set(c.location_id, arr);
-              }
-              return m;
-            })()}
-            onRegisterActivity={(locationId) => {
-              setPresetLocationId(locationId);
-              setActivityOpen(true);
-            }}
-          />
+            {/* FANE: Aktivitet */}
+            <TabsContent value="aktivitet" className="mt-4">
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4" /> Aktivitetslog
+                  </h2>
+                  <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
+                    <PlusCircle className="h-4 w-4 mr-1.5" /> Registrér aktivitet
+                  </Button>
+                </div>
+                {activities.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Ingen aktiviteter endnu.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {activities.map((a) => (
+                      <ActivityRow key={a.id} a={a} locations={locations} />
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
 
-          <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
+            {/* FANE: Lokationer */}
+            <TabsContent value="lokationer" className="space-y-4 mt-4">
+              <LokationerSektion
+                companyId={company.id}
+                isAdmin={isAdmin}
+                reloadKey={locationReloadKey}
+                companyFallbackAddress={company.address}
+                companyFallbackZip={company.zip}
+                companyFallbackCity={company.city}
+                contactsByLocation={(() => {
+                  const m = new Map<string, LocationContact[]>();
+                  for (const c of contacts as ContactRow[]) {
+                    if (!c.location_id) continue;
+                    const arr = m.get(c.location_id) ?? [];
+                    arr.push({ id: c.id, name: c.name, phone: c.phone, email: c.email });
+                    m.set(c.location_id, arr);
+                  }
+                  return m;
+                })()}
+                onRegisterActivity={(locationId) => {
+                  setPresetLocationId(locationId);
+                  setActivityOpen(true);
+                }}
+              />
 
-          <KonkurrentaftaleSektion companyId={company.id} />
+              <CvrPenhederSektion
+                companyId={company.id}
+                cvr={company.cvr}
+                existingLocations={locations}
+                onAdded={() => { load(); setLocationReloadKey((k) => k + 1); }}
+              />
+            </TabsContent>
 
-
-          <KontaktpersonerSektion
-            companyId={company.id}
-            contacts={contacts as ContactRow[]}
-            locations={locations}
-            onReload={load}
-          />
+            {/* FANE: Relationer */}
+            <TabsContent value="relationer" className="space-y-4 mt-4">
+              <KontaktpersonerSektion
+                companyId={company.id}
+                contacts={contacts as ContactRow[]}
+                locations={locations}
+                onReload={load}
+              />
+              <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
+              <KonkurrentaftaleSektion companyId={company.id} />
+            </TabsContent>
+          </Tabs>
         </div>
+
+
 
 
         {/* HØJRE — Handlingspanel */}
@@ -634,7 +757,64 @@ function VirksomhedsKort() {
   );
 }
 
+function ActivityRow({ a, locations }: { a: Activity; locations: Location[] }) {
+  const loc = (a as any).location_id
+    ? locations.find((l) => l.id === (a as any).location_id)
+    : null;
+  return (
+    <div
+      id={`activity-${a.id}`}
+      className="border-l-2 border-primary/30 pl-3 scroll-mt-24 transition-shadow"
+    >
+      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {(() => {
+            const def = getActivityType(a.activity_type as any);
+            if (def) {
+              const Icon = def.Icon;
+              return (
+                <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full", def.bg, def.color)}>
+                  <Icon className="h-3.5 w-3.5" />
+                  {def.label}
+                </span>
+              );
+            }
+            return (
+              <Badge variant="outline" className="capitalize">
+                {labelFor(a.activity_type)}
+              </Badge>
+            );
+          })()}
+          {loc && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              <MapPin className="h-3 w-3" />
+              {loc.city || loc.address || "Lokation"}
+            </Badge>
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
+        </span>
+      </div>
+      {a.note && <NoteWithMentions text={a.note} />}
+      {(a.next_action || a.next_followup_date) && (
+        <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
+          <span className="font-medium">Næste: </span>
+          {a.next_action}
+          {a.next_followup_date && (
+            <span className="text-muted-foreground">
+              {" — "}
+              {format(new Date(a.next_followup_date), "d. MMM yyyy", { locale: da })}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+
   return (
     <div className="flex gap-2">
       <div className="text-muted-foreground mt-0.5">{icon}</div>
