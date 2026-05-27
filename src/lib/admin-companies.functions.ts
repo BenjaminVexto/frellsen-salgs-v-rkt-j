@@ -186,13 +186,34 @@ export const listImportBatches = createServerFn({ method: "GET" })
       (profs ?? []).forEach((p: any) => nameMap.set(p.id, p.full_name || "(uden navn)"));
     }
 
-    return (batches ?? []).map((b) => ({
-      id: b.id,
-      filename: b.filename,
-      created_at: b.created_at,
-      created_by_name: nameMap.get(b.created_by) ?? "Ukendt",
-      company_count: b.company_count,
-    }));
+    // Filtrér batches der ikke længere har nogen tilknyttede virksomheder
+    const batchIds = (batches ?? []).map((b) => b.id);
+    const existingBatchIds = new Set<string>();
+    if (batchIds.length) {
+      const CHUNK = 200;
+      for (let i = 0; i < batchIds.length; i += CHUNK) {
+        const slice = batchIds.slice(i, i + CHUNK);
+        const { data: rows, error: cErr } = await supabaseAdmin
+          .from("companies")
+          .select("import_batch_id")
+          .in("import_batch_id", slice)
+          .not("import_batch_id", "is", null);
+        if (cErr) throw new Error(cErr.message);
+        (rows ?? []).forEach((r: any) => {
+          if (r.import_batch_id) existingBatchIds.add(r.import_batch_id);
+        });
+      }
+    }
+
+    return (batches ?? [])
+      .filter((b) => existingBatchIds.has(b.id))
+      .map((b) => ({
+        id: b.id,
+        filename: b.filename,
+        created_at: b.created_at,
+        created_by_name: nameMap.get(b.created_by) ?? "Ukendt",
+        company_count: b.company_count,
+      }));
   });
 
 export const getImportBatchBreakdown = createServerFn({ method: "POST" })
