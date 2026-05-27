@@ -450,9 +450,23 @@ function VirksomhedsKort() {
                     >
                       <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="capitalize">
-                            {activityTypes.find((t) => t.value === a.activity_type)?.label ?? a.activity_type}
-                          </Badge>
+                          {(() => {
+                            const def = getActivityType(a.activity_type as any);
+                            if (def) {
+                              const Icon = def.Icon;
+                              return (
+                                <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full", def.bg, def.color)}>
+                                  <Icon className="h-3.5 w-3.5" />
+                                  {def.label}
+                                </span>
+                              );
+                            }
+                            return (
+                              <Badge variant="outline" className="capitalize">
+                                {labelFor(a.activity_type)}
+                              </Badge>
+                            );
+                          })()}
                           {loc && (
                             <Badge variant="secondary" className="text-xs gap-1">
                               <MapPin className="h-3 w-3" />
