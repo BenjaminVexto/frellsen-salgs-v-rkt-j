@@ -23,6 +23,7 @@ import { Route as AuthenticatedKontaktlisterIdRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
 import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_authenticated/admin.importhistorik'
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
+import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authenticated/admin.cvr-debug'
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
@@ -108,6 +109,12 @@ const AuthenticatedAdminImportRoute =
     path: '/admin/import',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminCvrDebugRoute =
+  AuthenticatedAdminCvrDebugRouteImport.update({
+    id: '/admin/cvr-debug',
+    path: '/admin/cvr-debug',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminBrugereRoute =
   AuthenticatedAdminBrugereRouteImport.update({
     id: '/admin/brugere',
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/vaekstpotentiale': typeof AuthenticatedVaekstpotentialeRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
+  '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
@@ -169,6 +177,7 @@ export interface FileRoutesByTo {
   '/vaekstpotentiale': typeof AuthenticatedVaekstpotentialeRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
+  '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
@@ -190,6 +199,7 @@ export interface FileRoutesById {
   '/_authenticated/vaekstpotentiale': typeof AuthenticatedVaekstpotentialeRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/_authenticated/admin/brugere': typeof AuthenticatedAdminBrugereRoute
+  '/_authenticated/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
   '/_authenticated/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/_authenticated/admin/overblik': typeof AuthenticatedAdminOverblikRoute
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/vaekstpotentiale'
     | '/virksomheder'
     | '/admin/brugere'
+    | '/admin/cvr-debug'
     | '/admin/import'
     | '/admin/importhistorik'
     | '/admin/overblik'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/vaekstpotentiale'
     | '/virksomheder'
     | '/admin/brugere'
+    | '/admin/cvr-debug'
     | '/admin/importhistorik'
     | '/admin/overblik'
     | '/kontaktlister/$id'
@@ -252,6 +264,7 @@ export interface FileRouteTypes {
     | '/_authenticated/vaekstpotentiale'
     | '/_authenticated/virksomheder'
     | '/_authenticated/admin/brugere'
+    | '/_authenticated/admin/cvr-debug'
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/importhistorik'
     | '/_authenticated/admin/overblik'
@@ -369,6 +382,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/cvr-debug': {
+      id: '/_authenticated/admin/cvr-debug'
+      path: '/admin/cvr-debug'
+      fullPath: '/admin/cvr-debug'
+      preLoaderRoute: typeof AuthenticatedAdminCvrDebugRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/brugere': {
       id: '/_authenticated/admin/brugere'
       path: '/admin/brugere'
@@ -435,6 +455,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedVaekstpotentialeRoute: typeof AuthenticatedVaekstpotentialeRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
   AuthenticatedAdminBrugereRoute: typeof AuthenticatedAdminBrugereRoute
+  AuthenticatedAdminCvrDebugRoute: typeof AuthenticatedAdminCvrDebugRoute
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRouteWithChildren
   AuthenticatedAdminImporthistorikRoute: typeof AuthenticatedAdminImporthistorikRoute
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
@@ -450,6 +471,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedVaekstpotentialeRoute: AuthenticatedVaekstpotentialeRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
   AuthenticatedAdminBrugereRoute: AuthenticatedAdminBrugereRoute,
+  AuthenticatedAdminCvrDebugRoute: AuthenticatedAdminCvrDebugRoute,
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRouteWithChildren,
   AuthenticatedAdminImporthistorikRoute: AuthenticatedAdminImporthistorikRoute,
   AuthenticatedAdminOverblikRoute: AuthenticatedAdminOverblikRoute,
