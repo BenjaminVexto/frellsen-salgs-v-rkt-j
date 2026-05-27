@@ -24,7 +24,7 @@ import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
-import { Route as AuthenticatedVirksomhederIdBesoegRouteImport } from './routes/_authenticated/virksomheder_.$id.besoeg'
+import { Route as AuthenticatedVirksomhederIdBesoegRouteImport } from './routes/_authenticated/virksomheder_.$id_.besoeg'
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
 import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authenticated/admin.import.cvr'
 import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
@@ -116,9 +116,9 @@ const AuthenticatedAdminImportIndexRoute =
   } as any)
 const AuthenticatedVirksomhederIdBesoegRoute =
   AuthenticatedVirksomhederIdBesoegRouteImport.update({
-    id: '/besoeg',
-    path: '/besoeg',
-    getParentRoute: () => AuthenticatedVirksomhederIdRoute,
+    id: '/virksomheder_/$id_/besoeg',
+    path: '/virksomheder/$id/besoeg',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminImportVismaRoute =
   AuthenticatedAdminImportVismaRouteImport.update({
@@ -152,7 +152,7 @@ export interface FileRoutesByFullPath {
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
-  '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRouteWithChildren
+  '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
@@ -171,7 +171,7 @@ export interface FileRoutesByTo {
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
-  '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRouteWithChildren
+  '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
@@ -193,11 +193,11 @@ export interface FileRoutesById {
   '/_authenticated/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/_authenticated/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/_authenticated/kontaktlister_/$id': typeof AuthenticatedKontaktlisterIdRoute
-  '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRouteWithChildren
+  '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
   '/_authenticated/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/_authenticated/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/_authenticated/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
-  '/_authenticated/virksomheder_/$id/besoeg': typeof AuthenticatedVirksomhederIdBesoegRoute
+  '/_authenticated/virksomheder_/$id_/besoeg': typeof AuthenticatedVirksomhederIdBesoegRoute
   '/_authenticated/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRouteTypes {
@@ -259,7 +259,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import/anden'
     | '/_authenticated/admin/import/cvr'
     | '/_authenticated/admin/import/visma'
-    | '/_authenticated/virksomheder_/$id/besoeg'
+    | '/_authenticated/virksomheder_/$id_/besoeg'
     | '/_authenticated/admin/import/'
   fileRoutesById: FileRoutesById
 }
@@ -376,12 +376,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportIndexRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
-    '/_authenticated/virksomheder_/$id/besoeg': {
-      id: '/_authenticated/virksomheder_/$id/besoeg'
-      path: '/besoeg'
+    '/_authenticated/virksomheder_/$id_/besoeg': {
+      id: '/_authenticated/virksomheder_/$id_/besoeg'
+      path: '/virksomheder/$id/besoeg'
       fullPath: '/virksomheder/$id/besoeg'
       preLoaderRoute: typeof AuthenticatedVirksomhederIdBesoegRouteImport
-      parentRoute: typeof AuthenticatedVirksomhederIdRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/import/visma': {
       id: '/_authenticated/admin/import/visma'
@@ -427,21 +427,6 @@ const AuthenticatedAdminImportRouteWithChildren =
     AuthenticatedAdminImportRouteChildren,
   )
 
-interface AuthenticatedVirksomhederIdRouteChildren {
-  AuthenticatedVirksomhederIdBesoegRoute: typeof AuthenticatedVirksomhederIdBesoegRoute
-}
-
-const AuthenticatedVirksomhederIdRouteChildren: AuthenticatedVirksomhederIdRouteChildren =
-  {
-    AuthenticatedVirksomhederIdBesoegRoute:
-      AuthenticatedVirksomhederIdBesoegRoute,
-  }
-
-const AuthenticatedVirksomhederIdRouteWithChildren =
-  AuthenticatedVirksomhederIdRoute._addFileChildren(
-    AuthenticatedVirksomhederIdRouteChildren,
-  )
-
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedKonkurrenterRoute: typeof AuthenticatedKonkurrenterRoute
@@ -453,7 +438,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminImporthistorikRoute: typeof AuthenticatedAdminImporthistorikRoute
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
   AuthenticatedKontaktlisterIdRoute: typeof AuthenticatedKontaktlisterIdRoute
-  AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRouteWithChildren
+  AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRoute
+  AuthenticatedVirksomhederIdBesoegRoute: typeof AuthenticatedVirksomhederIdBesoegRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -467,8 +453,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminImporthistorikRoute: AuthenticatedAdminImporthistorikRoute,
   AuthenticatedAdminOverblikRoute: AuthenticatedAdminOverblikRoute,
   AuthenticatedKontaktlisterIdRoute: AuthenticatedKontaktlisterIdRoute,
-  AuthenticatedVirksomhederIdRoute:
-    AuthenticatedVirksomhederIdRouteWithChildren,
+  AuthenticatedVirksomhederIdRoute: AuthenticatedVirksomhederIdRoute,
+  AuthenticatedVirksomhederIdBesoegRoute:
+    AuthenticatedVirksomhederIdBesoegRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
