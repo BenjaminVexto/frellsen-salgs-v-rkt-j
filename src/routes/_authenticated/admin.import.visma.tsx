@@ -12,6 +12,7 @@ import {
   importInsertLocations,
   importAssignSellersToCompanies,
   importUpsertContacts,
+  enrichCompaniesFromCvr,
 } from "@/lib/admin-companies.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -296,6 +297,7 @@ function ImportSide() {
   const upsertLocations = useServerFn(importInsertLocations);
   const assignSellers = useServerFn(importAssignSellersToCompanies);
   const upsertContacts = useServerFn(importUpsertContacts);
+  const enrichFn = useServerFn(enrichCompaniesFromCvr);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -901,7 +903,21 @@ function ImportSide() {
       } catch (e: any) {
         console.error("Kunne ikke registrere import-batch", e);
       }
+
+      // Berig med CVR-data (branchekoder, ansatte, kommune, p-enheder)
+      importRunner.setLabel("Beriger med CVR-data…");
+      const ENRICH_CHUNK = 500;
+      for (let i = 0; i < companyIds.length; i += ENRICH_CHUNK) {
+        try {
+          await enrichFn({
+            data: { company_ids: companyIds.slice(i, i + ENRICH_CHUNK) },
+          });
+        } catch (e) {
+          console.error("CVR enrichment fejl:", e);
+        }
+      }
     }
+
 
     // 4) Opret lokationer pr. unikt Lev.kund-nr. (visma_delivery_id) pr. CVR.
     // Den række hvor Lev. kund == Fakt. kunde markeres som primær.

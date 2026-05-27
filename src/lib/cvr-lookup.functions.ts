@@ -352,3 +352,85 @@ export const cvrLookup = createServerFn({ method: "POST" })
       return { success: false, error: code };
     }
   });
+
+// Twins search: by main branch prefix + employee range
+const TwinsInput = z.object({
+  branch_prefix: z.string().regex(/^\d{2,6}$/),
+  min_employees: z.number().int().min(0).optional(),
+  max_employees: z.number().int().min(0).optional(),
+  municipality: z.string().min(1).max(60).optional(),
+  exclude_cvr: z.array(z.string().regex(/^\d{8}$/)).max(500).optional(),
+  size: z.number().int().min(1).max(50).optional(),
+});
+
+export const cvrSearchTwins = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => TwinsInput.parse(input))
+  .handler(async ({ data }): Promise<CvrResponse> => {
+    try {
+      const must: any[] = [
+        {
+          prefix: {
+            "Vrvirksomhed.virksomhedMetadata.nyesteHovedbranche.branchekode":
+              data.branch_prefix,
+          },
+        },
+        {
+          bool: {
+            should: [
+              { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv" } },
+              { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "NORMAL" } },
+            ],
+            minimum_should_match: 1,
+          },
+        },
+      ];
+      const filter: any[] = [];
+      if (data.min_employees != null || data.max_employees != null) {
+        const range: any = {};
+        if (data.min_employees != null) range.gte = data.min_employees;
+        if (data.max_employees != null) range.lte = data.max_employees;
+        filter.push({
+          range: {
+            "Vrvirksomhed.virksomhedMetadata.nyesteAarsbeskaeftigelse.antalAnsatte":
+              range,
+          },
+        });
+      }
+      if (data.municipality) {
+        filter.push({
+          match: {
+            "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.kommune.kommuneNavn":
+              data.municipality,
+          },
+        });
+      }
+      const mustNot: any[] = [];
+      if (data.exclude_cvr?.length) {
+        mustNot.push({
+          terms: {
+            "Vrvirksomhed.cvrNummer": data.exclude_cvr.map((c) => parseInt(c, 10)),
+          },
+        });
+      }
+      const payload = {
+        _source: SOURCE_FIELDS,
+        query: { bool: { must, filter, must_not: mustNot } },
+        size: data.size ?? 50,
+      };
+      const json = await callCvr(payload);
+      const hits = json?.hits?.hits ?? [];
+      const companies: CvrCompany[] = hits
+        .map((h: any) => h?._source?.Vrvirksomhed)
+        .filter(Boolean)
+        .map(mapVirksomhed);
+      return {
+        success: true,
+        data: companies,
+        total: json?.hits?.total?.value ?? json?.hits?.total ?? 0,
+      };
+    } catch (e: any) {
+      const code = e?.code ?? "HTTP_ERROR";
+      console.error("cvrSearchTwins error:", e?.message ?? e);
+      return { success: false, error: code };
+    }
+  });

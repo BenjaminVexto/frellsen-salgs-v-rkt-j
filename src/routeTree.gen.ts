@@ -13,8 +13,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
-import { Route as AuthenticatedVaekstpotentialeRouteImport } from './routes/_authenticated/vaekstpotentiale'
 import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
+import { Route as AuthenticatedSalgsintelligensRouteImport } from './routes/_authenticated/salgsintelligens'
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -50,16 +50,16 @@ const AuthenticatedVirksomhederRoute =
     path: '/virksomheder',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedVaekstpotentialeRoute =
-  AuthenticatedVaekstpotentialeRouteImport.update({
-    id: '/vaekstpotentiale',
-    path: '/vaekstpotentiale',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedSalgsmulighederRoute =
   AuthenticatedSalgsmulighederRouteImport.update({
     id: '/salgsmuligheder',
     path: '/salgsmuligheder',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSalgsintelligensRoute =
+  AuthenticatedSalgsintelligensRouteImport.update({
+    id: '/salgsintelligens',
+    path: '/salgsintelligens',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedKontaktlisterRoute =
@@ -152,8 +152,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
-  '/vaekstpotentiale': typeof AuthenticatedVaekstpotentialeRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
@@ -173,8 +173,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
-  '/vaekstpotentiale': typeof AuthenticatedVaekstpotentialeRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
@@ -195,8 +195,8 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/_authenticated/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
-  '/_authenticated/vaekstpotentiale': typeof AuthenticatedVaekstpotentialeRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/_authenticated/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/_authenticated/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
@@ -218,8 +218,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
+    | '/salgsintelligens'
     | '/salgsmuligheder'
-    | '/vaekstpotentiale'
     | '/virksomheder'
     | '/admin/brugere'
     | '/admin/cvr-debug'
@@ -239,8 +239,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
+    | '/salgsintelligens'
     | '/salgsmuligheder'
-    | '/vaekstpotentiale'
     | '/virksomheder'
     | '/admin/brugere'
     | '/admin/cvr-debug'
@@ -260,8 +260,8 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/konkurrenter'
     | '/_authenticated/kontaktlister'
+    | '/_authenticated/salgsintelligens'
     | '/_authenticated/salgsmuligheder'
-    | '/_authenticated/vaekstpotentiale'
     | '/_authenticated/virksomheder'
     | '/_authenticated/admin/brugere'
     | '/_authenticated/admin/cvr-debug'
@@ -312,18 +312,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVirksomhederRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/vaekstpotentiale': {
-      id: '/_authenticated/vaekstpotentiale'
-      path: '/vaekstpotentiale'
-      fullPath: '/vaekstpotentiale'
-      preLoaderRoute: typeof AuthenticatedVaekstpotentialeRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/salgsmuligheder': {
       id: '/_authenticated/salgsmuligheder'
       path: '/salgsmuligheder'
       fullPath: '/salgsmuligheder'
       preLoaderRoute: typeof AuthenticatedSalgsmulighederRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/salgsintelligens': {
+      id: '/_authenticated/salgsintelligens'
+      path: '/salgsintelligens'
+      fullPath: '/salgsintelligens'
+      preLoaderRoute: typeof AuthenticatedSalgsintelligensRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/kontaktlister': {
@@ -451,8 +451,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedKonkurrenterRoute: typeof AuthenticatedKonkurrenterRoute
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
+  AuthenticatedSalgsintelligensRoute: typeof AuthenticatedSalgsintelligensRoute
   AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
-  AuthenticatedVaekstpotentialeRoute: typeof AuthenticatedVaekstpotentialeRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
   AuthenticatedAdminBrugereRoute: typeof AuthenticatedAdminBrugereRoute
   AuthenticatedAdminCvrDebugRoute: typeof AuthenticatedAdminCvrDebugRoute
@@ -467,8 +467,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedKonkurrenterRoute: AuthenticatedKonkurrenterRoute,
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
+  AuthenticatedSalgsintelligensRoute: AuthenticatedSalgsintelligensRoute,
   AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
-  AuthenticatedVaekstpotentialeRoute: AuthenticatedVaekstpotentialeRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
   AuthenticatedAdminBrugereRoute: AuthenticatedAdminBrugereRoute,
   AuthenticatedAdminCvrDebugRoute: AuthenticatedAdminCvrDebugRoute,
