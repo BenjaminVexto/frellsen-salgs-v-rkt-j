@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,12 +20,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Search, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { cvrLookup } from "@/lib/cvr-lookup.functions";
 import { importCompaniesFromCvr } from "@/lib/cvr-import.functions";
-import { createImportBatch } from "@/lib/admin-companies.functions";
+import {
+  createImportBatch,
+  importAssignSellersToCompanies,
+} from "@/lib/admin-companies.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 const BRANCH_CATEGORIES: { label: string; prefixes: string[] }[] = [
