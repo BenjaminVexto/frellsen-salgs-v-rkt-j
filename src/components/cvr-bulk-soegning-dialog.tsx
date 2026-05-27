@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { cvrLookup } from "@/lib/cvr-lookup.functions";
 import { importCompaniesFromCvr } from "@/lib/cvr-import.functions";
+import { createImportBatch } from "@/lib/admin-companies.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 const BRANCH_CATEGORIES: { label: string; prefixes: string[] }[] = [
