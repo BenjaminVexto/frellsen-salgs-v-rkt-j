@@ -136,7 +136,7 @@ type Activity = Database["public"]["Tables"]["activities"]["Row"];
 type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"];
 type Opportunity = Database["public"]["Tables"]["sales_opportunities"]["Row"];
 
-type TabKey = "oversigt" | "aktivitet" | "lokationer" | "relationer";
+type TabKey = "oversigt" | "aktivitet" | "lokationer" | "relationer" | "dokumenter" | "konkurrenter";
 
 
 const firstFilled = (...values: Array<string | null | undefined>) => {
