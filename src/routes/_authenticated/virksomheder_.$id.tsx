@@ -72,6 +72,7 @@ import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
+import { AiBriefingSektion } from "@/components/ai-briefing-sektion";
 import { getActivityType, labelFor } from "@/lib/activity-types";
 
 
