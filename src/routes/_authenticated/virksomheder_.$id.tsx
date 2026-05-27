@@ -281,7 +281,7 @@ function VirksomhedsKort() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash.replace("#", "");
-    if (["oversigt", "aktivitet", "lokationer", "relationer", "dokumenter", "konkurrenter"].includes(hash)) {
+    if (["oversigt", "aktivitet", "lokationer", "relationer", "aftaler"].includes(hash)) {
       setTab(hash as TabKey);
     }
   }, []);
