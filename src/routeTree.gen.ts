@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
+import { Route as AuthenticatedVaekstpotentialeRouteImport } from './routes/_authenticated/vaekstpotentiale'
 import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
@@ -46,6 +47,12 @@ const AuthenticatedVirksomhederRoute =
   AuthenticatedVirksomhederRouteImport.update({
     id: '/virksomheder',
     path: '/virksomheder',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedVaekstpotentialeRoute =
+  AuthenticatedVaekstpotentialeRouteImport.update({
+    id: '/vaekstpotentiale',
+    path: '/vaekstpotentiale',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSalgsmulighederRoute =
@@ -139,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
+  '/vaekstpotentiale': typeof AuthenticatedVaekstpotentialeRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
@@ -158,6 +166,7 @@ export interface FileRoutesByTo {
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
+  '/vaekstpotentiale': typeof AuthenticatedVaekstpotentialeRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
@@ -178,6 +187,7 @@ export interface FileRoutesById {
   '/_authenticated/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
+  '/_authenticated/vaekstpotentiale': typeof AuthenticatedVaekstpotentialeRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/_authenticated/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/konkurrenter'
     | '/kontaktlister'
     | '/salgsmuligheder'
+    | '/vaekstpotentiale'
     | '/virksomheder'
     | '/admin/brugere'
     | '/admin/import'
@@ -218,6 +229,7 @@ export interface FileRouteTypes {
     | '/konkurrenter'
     | '/kontaktlister'
     | '/salgsmuligheder'
+    | '/vaekstpotentiale'
     | '/virksomheder'
     | '/admin/brugere'
     | '/admin/importhistorik'
@@ -237,6 +249,7 @@ export interface FileRouteTypes {
     | '/_authenticated/konkurrenter'
     | '/_authenticated/kontaktlister'
     | '/_authenticated/salgsmuligheder'
+    | '/_authenticated/vaekstpotentiale'
     | '/_authenticated/virksomheder'
     | '/_authenticated/admin/brugere'
     | '/_authenticated/admin/import'
@@ -284,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/virksomheder'
       fullPath: '/virksomheder'
       preLoaderRoute: typeof AuthenticatedVirksomhederRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/vaekstpotentiale': {
+      id: '/_authenticated/vaekstpotentiale'
+      path: '/vaekstpotentiale'
+      fullPath: '/vaekstpotentiale'
+      preLoaderRoute: typeof AuthenticatedVaekstpotentialeRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/salgsmuligheder': {
@@ -412,6 +432,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedKonkurrenterRoute: typeof AuthenticatedKonkurrenterRoute
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
   AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
+  AuthenticatedVaekstpotentialeRoute: typeof AuthenticatedVaekstpotentialeRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
   AuthenticatedAdminBrugereRoute: typeof AuthenticatedAdminBrugereRoute
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRouteWithChildren
@@ -426,6 +447,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedKonkurrenterRoute: AuthenticatedKonkurrenterRoute,
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
   AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
+  AuthenticatedVaekstpotentialeRoute: AuthenticatedVaekstpotentialeRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
   AuthenticatedAdminBrugereRoute: AuthenticatedAdminBrugereRoute,
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRouteWithChildren,
