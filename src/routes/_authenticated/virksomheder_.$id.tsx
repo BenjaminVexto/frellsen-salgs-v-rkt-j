@@ -158,12 +158,16 @@ function VirksomhedsKort() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [docCount, setDocCount] = useState(0);
   const [assignedSellerName, setAssignedSellerName] = useState<string | null>(null);
   const [locationReloadKey, setLocationReloadKey] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
   const [presetLocationId, setPresetLocationId] = useState<string | null>(null);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [tab, setTab] = useState<TabKey>("oversigt");
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteStats, setDeleteStats] = useState<{
     activities: number;
