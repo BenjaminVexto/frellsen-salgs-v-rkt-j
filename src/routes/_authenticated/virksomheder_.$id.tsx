@@ -589,30 +589,8 @@ function VirksomhedsKort() {
                 )}
               </Card>
 
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setTab("lokationer")}
-                  className="rounded-md border bg-card hover:bg-muted/50 transition-colors p-3 text-left"
-                >
-                  <div className="text-2xl font-semibold">{locations.length}</div>
-                  <div className="text-xs text-muted-foreground">Lokationer</div>
-                </button>
-                <button
-                  onClick={() => setTab("relationer")}
-                  className="rounded-md border bg-card hover:bg-muted/50 transition-colors p-3 text-left"
-                >
-                  <div className="text-2xl font-semibold">{contacts.length}</div>
-                  <div className="text-xs text-muted-foreground">Kontakter</div>
-                </button>
-                <button
-                  onClick={() => setTab("relationer")}
-                  className="rounded-md border bg-card hover:bg-muted/50 transition-colors p-3 text-left"
-                >
-                  <div className="text-2xl font-semibold">{docCount}</div>
-                  <div className="text-xs text-muted-foreground">Dokumenter</div>
-                </button>
-              </div>
             </TabsContent>
+
 
             {/* FANE: Aktivitet */}
             <TabsContent value="aktivitet" className="mt-4">
