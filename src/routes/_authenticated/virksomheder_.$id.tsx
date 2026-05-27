@@ -71,6 +71,9 @@ import { LokationerSektion, type Location, type LocationContact } from "@/compon
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
+import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
+import { getActivityType, labelFor } from "@/lib/activity-types";
+import { Car } from "lucide-react";
 
 type ActivityType = Database["public"]["Enums"]["activity_type"];
 type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
@@ -93,15 +96,14 @@ const customerTypeVariant: Record<string, "default" | "secondary" | "outline"> =
 };
 
 const activityTypes: { value: ActivityType; label: string }[] = [
-  { value: "opkald", label: "Opkald" },
-  { value: "email", label: "Email" },
-  { value: "linkedin", label: "LinkedIn" },
+  { value: "telefonopkald" as ActivityType, label: "Telefonopkald" },
   { value: "besøg", label: "Besøg" },
-  { value: "møde", label: "Møde" },
-  { value: "teams_møde", label: "Teams-møde" },
+  { value: "email", label: "Email" },
   { value: "tilbud_sendt", label: "Tilbud sendt" },
-  { value: "opfølgning", label: "Opfølgning" },
-  { value: "intern_note", label: "Intern note" },
+  { value: "møde", label: "Møde" },
+  { value: "ikke_truffet" as ActivityType, label: "Ikke truffet" },
+  { value: "opfølgning_aftalt" as ActivityType, label: "Opfølgning aftalt" },
+  { value: "andet" as ActivityType, label: "Andet" },
 ];
 
 const assignmentStatuses: { value: AssignmentStatus; label: string }[] = [
@@ -448,9 +450,23 @@ function VirksomhedsKort() {
                     >
                       <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="capitalize">
-                            {activityTypes.find((t) => t.value === a.activity_type)?.label ?? a.activity_type}
-                          </Badge>
+                          {(() => {
+                            const def = getActivityType(a.activity_type as any);
+                            if (def) {
+                              const Icon = def.Icon;
+                              return (
+                                <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full", def.bg, def.color)}>
+                                  <Icon className="h-3.5 w-3.5" />
+                                  {def.label}
+                                </span>
+                              );
+                            }
+                            return (
+                              <Badge variant="outline" className="capitalize">
+                                {labelFor(a.activity_type)}
+                              </Badge>
+                            );
+                          })()}
                           {loc && (
                             <Badge variant="secondary" className="text-xs gap-1">
                               <MapPin className="h-3 w-3" />
@@ -525,6 +541,13 @@ function VirksomhedsKort() {
           <div className="space-y-2">
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full justify-start"
+              onClick={() => navigate({ to: "/virksomheder/$id/besoeg", params: { id: company.id } })}
+            >
+              <Car className="h-4 w-4 mr-2" /> Jeg er på vej hertil
             </Button>
             <Button variant="outline" className="w-full justify-start" onClick={() => setOpportunityOpen(true)}>
               <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
