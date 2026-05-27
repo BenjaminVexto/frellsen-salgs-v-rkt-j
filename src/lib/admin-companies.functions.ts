@@ -675,5 +675,242 @@ export const downloadCompanyDocument = createServerFn({ method: "POST" })
     return { base64, filename: doc.filename, content_type: "application/pdf" };
   });
 
+// ============================================================
+// AI Briefing — genererer kort briefing med Claude + web search
+// ============================================================
+export const generateCompanyBriefing = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ company_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const [
+      companyRes,
+      activitiesRes,
+      locationsRes,
+      contactsRes,
+      docsRes,
+      competitorRes,
+      opportunitiesRes,
+      previousRes,
+    ] = await Promise.all([
+      supabaseAdmin.from("companies").select("*").eq("id", data.company_id).single(),
+      supabaseAdmin
+        .from("activities")
+        .select("activity_type, note, created_at")
+        .eq("company_id", data.company_id)
+        .order("created_at", { ascending: false })
+        .limit(5),
+      supabaseAdmin
+        .from("locations")
+        .select("address, city, zip, contact_person, phone, is_primary")
+        .eq("company_id", data.company_id)
+        .limit(10),
+      supabaseAdmin
+        .from("contacts")
+        .select("name, title, phone, email")
+        .eq("company_id", data.company_id),
+      supabaseAdmin
+        .from("company_documents")
+        .select("filename, document_type, expires_at")
+        .eq("company_id", data.company_id),
+      supabaseAdmin
+        .from("competitor_assignments")
+        .select("contract_expires_at, notes, competitors(name, competitor_type)")
+        .eq("company_id", data.company_id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("sales_opportunities")
+        .select("name, estimated_value, status")
+        .eq("company_id", data.company_id)
+        .not("status", "in", "(vundet,tabt)"),
+      supabaseAdmin
+        .from("company_briefings")
+        .select("briefing_text, created_at")
+        .eq("company_id", data.company_id)
+        .maybeSingle(),
+    ]);
+
+    const company = companyRes.data as any;
+    if (!company) throw new Error("Virksomhed ikke fundet");
+
+    const previous = previousRes.data;
+    const activities = activitiesRes.data ?? [];
+    const locations = locationsRes.data ?? [];
+    const contacts = contactsRes.data ?? [];
+    const docs = docsRes.data ?? [];
+    const competitor = competitorRes.data as any;
+    const opportunities = opportunitiesRes.data ?? [];
+
+    const internalData = `
+VIRKSOMHED: ${company.name}
+CVR: ${company.cvr ?? "Ikke registreret"}
+STATUS: ${company.sources?.includes("visma") ? "Visma-kunde" : "Nyt emne"}
+BRANCHE: ${company.industry ?? "Ukendt"}
+BY: ${company.city ?? "Ukendt"}
+KOMMUNE: ${company.municipality ?? ""}
+ANSATTE: ${company.employees ?? "Ukendt"}
+
+VISMA DATA:
+Oprettet i Visma: ${company.created_in_visma ?? "Ingen data"}
+Sidste varekøb: ${company.last_purchase_date ?? "Ingen data"}
+Kundesegment 1: ${company.customer_segment_1 ?? ""}
+Kundesegment 3: ${company.customer_segment_3 ?? ""}
+
+LOKATIONER (${locations.length}):
+${
+  locations
+    .map(
+      (l: any) =>
+        `- ${l.address ?? ""} ${l.zip ?? ""} ${l.city ?? ""}${l.contact_person ? `\n   Kontakt: ${l.contact_person}` : ""}${l.phone ? `\n   ${l.phone}` : ""}${l.is_primary ? " (Primær)" : ""}`,
+    )
+    .join("\n") || "Ingen lokationer"
+}
+
+KONTAKTPERSONER:
+${
+  contacts
+    .map(
+      (c: any) =>
+        `- ${c.name}${c.title ? ` · ${c.title}` : ""} ${c.phone ?? ""} ${c.email ?? ""}`,
+    )
+    .join("\n") || "Ingen registreret"
+}
+
+SENESTE AKTIVITETER:
+${
+  activities
+    .map(
+      (a: any) =>
+        `- [${a.activity_type ?? "Note"}] ${new Date(a.created_at).toLocaleDateString("da")}: ${a.note?.substring(0, 100) ?? ""}`,
+    )
+    .join("\n") || "Ingen aktiviteter"
+}
+
+ÅBNE SALGSMULIGHEDER:
+${
+  opportunities
+    .map(
+      (o: any) =>
+        `- ${o.name} · ${o.estimated_value ? Number(o.estimated_value).toLocaleString("da") + " kr." : "Ingen beløb"} · ${o.status}`,
+    )
+    .join("\n") || "Ingen"
+}
+
+DOKUMENTER:
+${
+  docs
+    .map(
+      (d: any) =>
+        `- ${d.document_type}: ${d.filename}${d.expires_at ? ` (Udløber: ${new Date(d.expires_at).toLocaleDateString("da")})` : ""}`,
+    )
+    .join("\n") || "Ingen"
+}
+
+KONKURRENTAFTALE:
+${
+  competitor
+    ? `${competitor.competitors?.name ?? "Ukendt"}
+     Type: ${competitor.competitors?.competitor_type ?? ""}
+     Udløber: ${competitor.contract_expires_at ? new Date(competitor.contract_expires_at).toLocaleDateString("da") : "Ingen dato"}
+     Note: ${competitor.notes ?? ""}`
+    : "Ingen registreret"
+}
+`.trim();
+
+    const previousSection = previous
+      ? `\nTIDLIGERE BRIEFING (${new Date(previous.created_at).toLocaleDateString("da")}):\n${previous.briefing_text}\n`
+      : "";
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY mangler");
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        system: `Du er salgsassistent for Frellsen Kaffe — en dansk kaffegrossist. Du forbereder sælgere til kundebesøg og opkald med korte, handlingsanvisende briefinger.
+
+REGLER:
+1. Intern CRM-data er facts — præsenter dem direkte uden forbehold
+2. Web-resultater SKAL have kilde og dato i formatet [Kilde · dato]
+3. Finder du intet relevant online: skriv "Ingen relevante resultater fundet" — opfind ALDRIG information
+4. AI-vurdering er altid i en separat sektion markeret med ⚡ og en ⚠️-advarsel
+5. Vær kortfattet — max 300 ord total
+6. Skriv på dansk
+7. Brug emojis til sektionsoverskrifter
+8. Hvis tidligere briefing findes: referer til ændringer siden sidst
+
+FORMAT:
+⚡ BRIEFING: [Virksomhedsnavn]
+[Status] · [Dato]
+────────────────────
+
+📋 INTERN STATUS
+[CRM-data]
+
+📰 FUNDET ONLINE
+[Web-resultater med kildehenvisning] ELLER "Ingen relevante resultater fundet"
+
+⚡ AI VURDERING
+[Handlingsanvisende forslag]
+
+⚠️ AI-vurderingen er ikke verificeret. Brug din egen vurdering inden opkald.`,
+        messages: [
+          {
+            role: "user",
+            content: `Forbered briefing til sælger.
+
+${internalData}
+${previousSection}
+
+Søg nu efter følgende om virksomheden:
+1. "${company.name}" nyheder 2025 OR 2026
+2. "${company.name}" LinkedIn
+3. "${company.name}" direktør OR CEO OR leder 2025 OR 2026
+4. "${company.name}" ansatte OR vækst OR ny afdeling
+5. site:virk.dk "${company.cvr ?? company.name}"
+
+Generer en kortfattet briefing der hjælper sælgeren til at ringe eller besøge denne virksomhed.`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Claude API fejl: ${err}`);
+    }
+
+    const result = await response.json();
+    const briefingText = (result.content as any[])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
+
+    const { error: upsertError } = await supabaseAdmin
+      .from("company_briefings")
+      .upsert(
+        {
+          company_id: data.company_id,
+          briefing_text: briefingText,
+          generated_by: context.userId,
+        },
+        { onConflict: "company_id" },
+      );
+    if (upsertError) throw new Error(upsertError.message);
+
+    return { briefing: briefingText, created_at: new Date().toISOString() };
+  });
+
+
 
 
