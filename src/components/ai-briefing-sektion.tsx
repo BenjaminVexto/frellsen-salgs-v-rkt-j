@@ -19,6 +19,7 @@ export function AiBriefingSektion({ companyId }: { companyId: string }) {
   const [briefing, setBriefing] = useState<{ text: string; created_at: string } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [briefingExpanded, setBriefingExpanded] = useState(false);
   const generateFn = useServerFn(generateCompanyBriefing);
 
   useEffect(() => {
@@ -108,19 +109,30 @@ export function AiBriefingSektion({ companyId }: { companyId: string }) {
           <p className="text-xs text-muted-foreground mb-3">
             Genereret: {format(new Date(briefing.created_at), "d. MMM yyyy, HH:mm", { locale: da })}
           </p>
-          <div className="border-t pt-3 whitespace-pre-wrap text-sm leading-relaxed">
-            {briefing.text}
+          <div className="border-t pt-3">
+            <div className="relative">
+              <div className={briefingExpanded ? "" : "max-h-12 overflow-hidden relative"}>
+                {!briefingExpanded && (
+                  <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none z-10" />
+                )}
+                <p className="whitespace-pre-wrap text-sm leading-relaxed">{briefing.text}</p>
+              </div>
+              <button
+                onClick={() => setBriefingExpanded((b) => !b)}
+                className="text-xs text-primary hover:underline mt-1 block"
+              >
+                {briefingExpanded ? "Skjul ↑" : "Vis hele briefingen ↓"}
+              </button>
+            </div>
           </div>
         </>
       ) : (
-        <>
-          <p className="text-sm text-muted-foreground mb-3">
-            Få en AI-genereret briefing baseret på intern data og web-søgning.
-          </p>
-          <Button size="sm" onClick={handleGenerate}>
-            <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generér briefing
+        <div className="text-center py-4">
+          <p className="text-sm text-muted-foreground mb-3">Ingen briefing genereret endnu</p>
+          <Button size="lg" onClick={handleGenerate}>
+            <Sparkles className="h-4 w-4 mr-2" /> Generér briefing
           </Button>
-        </>
+        </div>
       )}
     </Card>
   );
