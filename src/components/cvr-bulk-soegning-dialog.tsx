@@ -128,6 +128,7 @@ export function CvrBulkSoegningDialog({
 }) {
   const lookupFn = useServerFn(cvrLookup);
   const importFn = useServerFn(importCompaniesFromCvr);
+  const createBatch = useServerFn(createImportBatch);
 
   // Filtre
   const [kommune, setKommune] = useState("");
