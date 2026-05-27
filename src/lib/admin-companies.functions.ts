@@ -755,7 +755,9 @@ VISMA DATA:
 Oprettet i Visma: ${company.created_in_visma ?? "Ingen data"}
 Sidste varekøb: ${company.last_purchase_date ?? "Ingen data"}
 Kundesegment 1: ${company.customer_segment_1 ?? ""}
+Kundesegment 2: ${company.customer_segment_2 ?? ""}
 Kundesegment 3: ${company.customer_segment_3 ?? ""}
+Kontaktperson fra Visma: ${company.contact_person ?? "Ingen registreret"}
 
 LOKATIONER (${locations.length}):
 ${
