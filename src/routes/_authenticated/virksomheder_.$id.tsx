@@ -431,6 +431,7 @@ function VirksomhedsKort() {
 
         {/* MIDTEN — Aktivitetslog + kontakter */}
         <div className="space-y-6 min-w-0">
+          <AiBriefingSektion companyId={company.id} />
           <Card className="p-5">
             <h2 className="font-semibold mb-4 flex items-center gap-2">
               <ClipboardList className="h-4 w-4" /> Aktivitetslog
