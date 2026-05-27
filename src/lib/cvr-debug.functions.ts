@@ -29,7 +29,7 @@ export const cvrDebugRaw = createServerFn({ method: "POST" })
         body: JSON.stringify(payload),
       });
       const text = await res.text();
-      let json: unknown = null;
+      let json: any = null;
       try {
         json = JSON.parse(text);
       } catch {
