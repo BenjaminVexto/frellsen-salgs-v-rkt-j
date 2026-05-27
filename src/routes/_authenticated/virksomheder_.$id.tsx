@@ -167,6 +167,20 @@ function VirksomhedsKort() {
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>("oversigt");
+  const [vismaExpanded, setVismaExpanded] = useState(() => {
+    try {
+      return localStorage.getItem("visma_data_expanded") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const toggleVisma = () => {
+    const next = !vismaExpanded;
+    setVismaExpanded(next);
+    try {
+      localStorage.setItem("visma_data_expanded", String(next));
+    } catch {}
+  };
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteStats, setDeleteStats] = useState<{
