@@ -12,6 +12,7 @@ import {
   importInsertLocations,
   importAssignSellersToCompanies,
   importUpsertContacts,
+  enrichCompaniesFromCvr,
 } from "@/lib/admin-companies.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
