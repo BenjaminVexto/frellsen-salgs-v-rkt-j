@@ -667,12 +667,6 @@ function VirksomhedsKort() {
                 }}
               />
 
-              <CvrPenhederSektion
-                companyId={company.id}
-                cvr={company.cvr}
-                existingLocations={locations}
-                onAdded={() => { load(); setLocationReloadKey((k) => k + 1); }}
-              />
             </TabsContent>
 
             {/* FANE: Relationer */}
