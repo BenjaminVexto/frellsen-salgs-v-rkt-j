@@ -216,10 +216,21 @@ function LokationRow({
           {contacts.length > 0 ? (
             contacts.map((c) => (
               <div key={c.id}>
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 flex-wrap">
                   <User className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="font-medium">{c.name}</span>
-                  {c.phone && <span className="text-muted-foreground">· {c.phone}</span>}
+                  {c.phone && (
+                    <>
+                      <span className="text-muted-foreground">·</span>
+                      <a
+                        href={`tel:${c.phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-primary hover:underline"
+                      >
+                        {c.phone}
+                      </a>
+                    </>
+                  )}
                 </span>
                 {c.email && (
                   <div className="pl-4 text-muted-foreground">{c.email}</div>
@@ -228,8 +239,18 @@ function LokationRow({
             ))
           ) : (
             (location.contact_person || location.phone) && (
-              <div className="text-muted-foreground">
-                {[location.contact_person, location.phone].filter(Boolean).join(" · ")}
+              <div className="text-muted-foreground flex flex-wrap items-center gap-1">
+                {location.contact_person && <span>{location.contact_person}</span>}
+                {location.contact_person && location.phone && <span>·</span>}
+                {location.phone && (
+                  <a
+                    href={`tel:${location.phone}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-primary hover:underline"
+                  >
+                    {location.phone}
+                  </a>
+                )}
               </div>
             )
           )}
