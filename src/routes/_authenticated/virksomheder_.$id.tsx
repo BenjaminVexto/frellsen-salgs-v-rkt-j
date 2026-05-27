@@ -449,37 +449,48 @@ function VirksomhedsKort() {
             company.visma_id ||
             (company as any).visma_delivery_id ||
             (company as any).contact_person) && (
-            <div className="border-t mt-4 pt-4 space-y-2 text-sm">
-              <h3 className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-2">
-                Visma-data
-              </h3>
-              {(company as any).created_in_visma && (
-                <KV
-                  label="Oprettet i Visma"
-                  value={format(new Date((company as any).created_in_visma), "d. MMM yyyy", { locale: da })}
-                />
-              )}
-              {company.last_purchase_date && (
-                <KV
-                  label="Sidste varekøb"
-                  value={format(new Date(company.last_purchase_date), "d. MMM yyyy", { locale: da })}
-                />
-              )}
-              {(company as any).customer_segment_1 && (
-                <KV label="Kundesegment 1" value={(company as any).customer_segment_1} />
-              )}
-              {(company as any).customer_segment_2 && (
-                <KV label="Kundesegment 2" value={(company as any).customer_segment_2} />
-              )}
-              {(company as any).customer_segment_3 && (
-                <KV label="Kundesegment 3" value={(company as any).customer_segment_3} />
-              )}
-              {company.visma_id && <KV label="Visma kundenr." value={company.visma_id} />}
-              {(company as any).visma_delivery_id && (
-                <KV label="Visma lev.nr." value={(company as any).visma_delivery_id} />
-              )}
-              {(company as any).contact_person && (
-                <KV label="Kontaktperson" value={(company as any).contact_person} />
+            <div className="border-t mt-4 pt-4 text-sm">
+              <button
+                type="button"
+                onClick={toggleVisma}
+                className="w-full flex items-center justify-between cursor-pointer text-left mb-2"
+              >
+                <h3 className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
+                  Visma-data
+                </h3>
+                <span className="text-xs text-muted-foreground">{vismaExpanded ? "∨" : "›"}</span>
+              </button>
+              {vismaExpanded && (
+                <div className="space-y-2">
+                  {(company as any).created_in_visma && (
+                    <KV
+                      label="Oprettet i Visma"
+                      value={format(new Date((company as any).created_in_visma), "d. MMM yyyy", { locale: da })}
+                    />
+                  )}
+                  {company.last_purchase_date && (
+                    <KV
+                      label="Sidste varekøb"
+                      value={format(new Date(company.last_purchase_date), "d. MMM yyyy", { locale: da })}
+                    />
+                  )}
+                  {(company as any).customer_segment_1 && (
+                    <KV label="Kundesegment 1" value={(company as any).customer_segment_1} />
+                  )}
+                  {(company as any).customer_segment_2 && (
+                    <KV label="Kundesegment 2" value={(company as any).customer_segment_2} />
+                  )}
+                  {(company as any).customer_segment_3 && (
+                    <KV label="Kundesegment 3" value={(company as any).customer_segment_3} />
+                  )}
+                  {company.visma_id && <KV label="Visma kundenr." value={company.visma_id} />}
+                  {(company as any).visma_delivery_id && (
+                    <KV label="Visma lev.nr." value={(company as any).visma_delivery_id} />
+                  )}
+                  {(company as any).contact_person && (
+                    <KV label="Kontaktperson" value={(company as any).contact_person} />
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -488,7 +499,7 @@ function VirksomhedsKort() {
         {/* MIDTEN — Faner */}
         <div className="space-y-4 min-w-0">
           <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-            <TabsList className="bg-transparent p-0 h-auto border-b w-full justify-start rounded-none">
+            <TabsList className="bg-transparent p-0 h-auto border-b w-full justify-start rounded-none overflow-x-auto scrollbar-hide flex-nowrap">
               {[
                 { v: "oversigt", label: "Oversigt" },
                 { v: "aktivitet", label: "Aktivitet" },
@@ -498,7 +509,7 @@ function VirksomhedsKort() {
                 <TabsTrigger
                   key={t.v}
                   value={t.v}
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2"
+                  className="flex-shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2"
                 >
                   {t.label}
                 </TabsTrigger>
