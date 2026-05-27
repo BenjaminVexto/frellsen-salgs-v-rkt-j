@@ -542,6 +542,13 @@ function VirksomhedsKort() {
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
             </Button>
+            <Button
+              variant="secondary"
+              className="w-full justify-start"
+              onClick={() => navigate({ to: "/virksomheder/$id/besoeg", params: { id: company.id } })}
+            >
+              <Car className="h-4 w-4 mr-2" /> Jeg er på vej hertil
+            </Button>
             <Button variant="outline" className="w-full justify-start" onClick={() => setOpportunityOpen(true)}>
               <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
             </Button>
