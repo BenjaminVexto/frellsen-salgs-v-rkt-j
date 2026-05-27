@@ -90,6 +90,7 @@ export const importCompaniesFromCvr = createServerFn({ method: "POST" })
       inserted: insertedIds.length,
       already_existed: data.companies.length - insertedIds.length,
       company_ids: allIds,
+      inserted_ids: insertedIds,
     };
   });
 
