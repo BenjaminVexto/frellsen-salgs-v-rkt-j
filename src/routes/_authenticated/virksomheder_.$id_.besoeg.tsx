@@ -12,7 +12,7 @@ import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dia
 import { getActivityType, labelFor } from "@/lib/activity-types";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/virksomheder_/$id/besoeg")({
+export const Route = createFileRoute("/_authenticated/virksomheder_/$id_/besoeg")({
   component: BesoegsForberedelse,
 });
 
