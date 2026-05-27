@@ -297,6 +297,7 @@ function ImportSide() {
   const upsertLocations = useServerFn(importInsertLocations);
   const assignSellers = useServerFn(importAssignSellersToCompanies);
   const upsertContacts = useServerFn(importUpsertContacts);
+  const enrichFn = useServerFn(enrichCompaniesFromCvr);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
