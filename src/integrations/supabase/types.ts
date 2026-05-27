@@ -623,6 +623,7 @@ export type Database = {
           id: string
           is_read: boolean
           message: string
+          notification_type: string
           recipient_id: string
           sender_id: string
         }
@@ -633,6 +634,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message: string
+          notification_type?: string
           recipient_id: string
           sender_id: string
         }
@@ -643,6 +645,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message?: string
+          notification_type?: string
           recipient_id?: string
           sender_id?: string
         }
@@ -839,6 +842,10 @@ export type Database = {
         | "tilbud_sendt"
         | "opfølgning"
         | "intern_note"
+        | "telefonopkald"
+        | "ikke_truffet"
+        | "opfølgning_aftalt"
+        | "andet"
       app_role: "admin" | "saelger" | "salgssupport"
       assignment_status:
         | "ny"
@@ -1019,6 +1026,10 @@ export const Constants = {
         "tilbud_sendt",
         "opfølgning",
         "intern_note",
+        "telefonopkald",
+        "ikke_truffet",
+        "opfølgning_aftalt",
+        "andet",
       ],
       app_role: ["admin", "saelger", "salgssupport"],
       assignment_status: [
