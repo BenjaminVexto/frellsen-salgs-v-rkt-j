@@ -532,8 +532,7 @@ function VirksomhedsKort() {
                 { v: "aktivitet", label: "Aktivitet" },
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
-                { v: "dokumenter", label: "Dokumenter" },
-                { v: "konkurrenter", label: "Konkurrentaftale" },
+                { v: "aftaler", label: "Aftaler" },
               ].map((t) => (
                 <TabsTrigger
                   key={t.v}
