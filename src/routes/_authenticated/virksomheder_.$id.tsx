@@ -72,6 +72,7 @@ import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
+import { AiBriefingSektion } from "@/components/ai-briefing-sektion";
 import { getActivityType, labelFor } from "@/lib/activity-types";
 
 
@@ -430,6 +431,7 @@ function VirksomhedsKort() {
 
         {/* MIDTEN — Aktivitetslog + kontakter */}
         <div className="space-y-6 min-w-0">
+          <AiBriefingSektion companyId={company.id} />
           <Card className="p-5">
             <h2 className="font-semibold mb-4 flex items-center gap-2">
               <ClipboardList className="h-4 w-4" /> Aktivitetslog

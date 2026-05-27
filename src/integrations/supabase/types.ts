@@ -210,6 +210,45 @@ export type Database = {
           },
         ]
       }
+      company_briefings: {
+        Row: {
+          briefing_text: string
+          company_id: string
+          created_at: string
+          generated_by: string
+          id: string
+        }
+        Insert: {
+          briefing_text: string
+          company_id: string
+          created_at?: string
+          generated_by: string
+          id?: string
+        }
+        Update: {
+          briefing_text?: string
+          company_id?: string
+          created_at?: string
+          generated_by?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_briefings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_briefings_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_documents: {
         Row: {
           company_id: string
