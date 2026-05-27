@@ -139,6 +139,36 @@ export function CvrBulkSoegningDialog({
   const lookupFn = useServerFn(cvrLookup);
   const importFn = useServerFn(importCompaniesFromCvr);
   const createBatch = useServerFn(createImportBatch);
+  const assignSellersFn = useServerFn(importAssignSellersToCompanies);
+
+  // Sælgere
+  const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
+  const [selectedSellerId, setSelectedSellerId] = useState<string>("");
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "saelger");
+      const ids = (roles ?? []).map((r: any) => r.user_id);
+      if (!ids.length) {
+        setSellers([]);
+        return;
+      }
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name, is_active")
+        .in("id", ids);
+      setSellers(
+        (profs ?? [])
+          .filter((p: any) => p.is_active !== false)
+          .map((p: any) => ({ id: p.id, full_name: p.full_name || "(uden navn)" }))
+          .sort((a, b) => a.full_name.localeCompare(b.full_name, "da")),
+      );
+    })();
+  }, [open]);
 
   // Filtre
   const [kommune, setKommune] = useState("");
