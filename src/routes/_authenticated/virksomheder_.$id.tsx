@@ -680,14 +680,12 @@ function VirksomhedsKort() {
             </TabsContent>
 
             {/* FANE: Dokumenter */}
-            <TabsContent value="dokumenter" className="space-y-4 mt-4">
+            <TabsContent value="aftaler" className="space-y-6 mt-4">
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
-            </TabsContent>
-
-            {/* FANE: Konkurrentaftale */}
-            <TabsContent value="konkurrenter" className="space-y-4 mt-4">
+              <div className="border-t border-border" />
               <KonkurrentaftaleSektion companyId={company.id} />
             </TabsContent>
+
           </Tabs>
         </div>
 
