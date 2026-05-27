@@ -136,7 +136,7 @@ type Activity = Database["public"]["Tables"]["activities"]["Row"];
 type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"];
 type Opportunity = Database["public"]["Tables"]["sales_opportunities"]["Row"];
 
-type TabKey = "oversigt" | "aktivitet" | "lokationer" | "relationer";
+type TabKey = "oversigt" | "aktivitet" | "lokationer" | "relationer" | "dokumenter" | "konkurrenter";
 
 
 const firstFilled = (...values: Array<string | null | undefined>) => {
@@ -281,7 +281,7 @@ function VirksomhedsKort() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash.replace("#", "");
-    if (["oversigt", "aktivitet", "lokationer", "relationer"].includes(hash)) {
+    if (["oversigt", "aktivitet", "lokationer", "relationer", "dokumenter", "konkurrenter"].includes(hash)) {
       setTab(hash as TabKey);
     }
   }, []);
@@ -505,6 +505,8 @@ function VirksomhedsKort() {
                 { v: "aktivitet", label: "Aktivitet" },
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
+                { v: "dokumenter", label: "Dokumenter" },
+                { v: "konkurrenter", label: "Konkurrentaftale" },
               ].map((t) => (
                 <TabsTrigger
                   key={t.v}
@@ -587,30 +589,8 @@ function VirksomhedsKort() {
                 )}
               </Card>
 
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setTab("lokationer")}
-                  className="rounded-md border bg-card hover:bg-muted/50 transition-colors p-3 text-left"
-                >
-                  <div className="text-2xl font-semibold">{locations.length}</div>
-                  <div className="text-xs text-muted-foreground">Lokationer</div>
-                </button>
-                <button
-                  onClick={() => setTab("relationer")}
-                  className="rounded-md border bg-card hover:bg-muted/50 transition-colors p-3 text-left"
-                >
-                  <div className="text-2xl font-semibold">{contacts.length}</div>
-                  <div className="text-xs text-muted-foreground">Kontakter</div>
-                </button>
-                <button
-                  onClick={() => setTab("relationer")}
-                  className="rounded-md border bg-card hover:bg-muted/50 transition-colors p-3 text-left"
-                >
-                  <div className="text-2xl font-semibold">{docCount}</div>
-                  <div className="text-xs text-muted-foreground">Dokumenter</div>
-                </button>
-              </div>
             </TabsContent>
+
 
             {/* FANE: Aktivitet */}
             <TabsContent value="aktivitet" className="mt-4">
@@ -676,7 +656,15 @@ function VirksomhedsKort() {
                 locations={locations}
                 onReload={load}
               />
+            </TabsContent>
+
+            {/* FANE: Dokumenter */}
+            <TabsContent value="dokumenter" className="space-y-4 mt-4">
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
+            </TabsContent>
+
+            {/* FANE: Konkurrentaftale */}
+            <TabsContent value="konkurrenter" className="space-y-4 mt-4">
               <KonkurrentaftaleSektion companyId={company.id} />
             </TabsContent>
           </Tabs>
