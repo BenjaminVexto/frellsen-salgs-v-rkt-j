@@ -136,7 +136,7 @@ type Activity = Database["public"]["Tables"]["activities"]["Row"];
 type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"];
 type Opportunity = Database["public"]["Tables"]["sales_opportunities"]["Row"];
 
-type TabKey = "oversigt" | "aktivitet" | "lokationer" | "relationer" | "dokumenter" | "konkurrenter";
+type TabKey = "oversigt" | "aktivitet" | "lokationer" | "relationer" | "aftaler";
 
 
 const firstFilled = (...values: Array<string | null | undefined>) => {
@@ -281,7 +281,7 @@ function VirksomhedsKort() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash.replace("#", "");
-    if (["oversigt", "aktivitet", "lokationer", "relationer", "dokumenter", "konkurrenter"].includes(hash)) {
+    if (["oversigt", "aktivitet", "lokationer", "relationer", "aftaler"].includes(hash)) {
       setTab(hash as TabKey);
     }
   }, []);
@@ -532,8 +532,7 @@ function VirksomhedsKort() {
                 { v: "aktivitet", label: "Aktivitet" },
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
-                { v: "dokumenter", label: "Dokumenter" },
-                { v: "konkurrenter", label: "Konkurrentaftale" },
+                { v: "aftaler", label: "Aftaler" },
               ].map((t) => (
                 <TabsTrigger
                   key={t.v}
@@ -680,14 +679,12 @@ function VirksomhedsKort() {
             </TabsContent>
 
             {/* FANE: Dokumenter */}
-            <TabsContent value="dokumenter" className="space-y-4 mt-4">
+            <TabsContent value="aftaler" className="space-y-6 mt-4">
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
-            </TabsContent>
-
-            {/* FANE: Konkurrentaftale */}
-            <TabsContent value="konkurrenter" className="space-y-4 mt-4">
+              <div className="border-t border-border" />
               <KonkurrentaftaleSektion companyId={company.id} />
             </TabsContent>
+
           </Tabs>
         </div>
 
