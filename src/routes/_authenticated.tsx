@@ -23,7 +23,9 @@ import {
   LogOut,
   Loader2,
   ShieldAlert,
+  TrendingUp,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { GlobalImportIndicator } from "@/components/global-import-indicator";
 
