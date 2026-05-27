@@ -1061,7 +1061,7 @@ export const enrichCompaniesFromCvr = createServerFn({ method: "POST" })
 
     const { data: companies } = await supabaseAdmin
       .from("companies")
-      .select("id, cvr")
+      .select("id, cvr, name")
       .in("id", data.company_ids)
       .not("cvr", "is", null);
 
@@ -1072,7 +1072,7 @@ export const enrichCompaniesFromCvr = createServerFn({ method: "POST" })
     if (!user || !pass) throw new Error("CVR credentials mangler");
     const auth = Buffer.from(`${user}:${pass}`).toString("base64");
 
-    const CHUNK = 100;
+    const CHUNK = 500;
     let enriched = 0;
 
     for (let i = 0; i < companies.length; i += CHUNK) {
@@ -1102,46 +1102,48 @@ export const enrichCompaniesFromCvr = createServerFn({ method: "POST" })
       const json: any = await res.json();
       const hits = json?.hits?.hits ?? [];
 
+      // Saml enrichment-data for hele chunken
+      const enrichmentRows: any[] = [];
       for (const hit of hits) {
         const v = hit._source?.Vrvirksomhed;
         if (!v) continue;
         const cvr = String(v.cvrNummer);
         const company = slice.find((c) => c.cvr === cvr);
         if (!company) continue;
-
         const meta = v.virksomhedMetadata ?? {};
+        enrichmentRows.push({
+          id: company.id,
+          name: company.name,
+          employees:
+            meta.nyesteErstMaanedsbeskaeftigelse?.antalAnsatte ??
+            meta.nyesteMaanedsbeskaeftigelse?.antalAnsatte ??
+            meta.nyesteKvartalsbeskaeftigelse?.antalAnsatte ??
+            meta.nyesteAarsbeskaeftigelse?.antalAnsatte ??
+            null,
+          municipality:
+            meta.nyesteBeliggenhedsadresse?.kommune?.kommuneNavn ?? null,
+          main_branch_code: meta.nyesteHovedbranche?.branchekode ?? null,
+          main_branch_text: meta.nyesteHovedbranche?.branchetekst ?? null,
+          bi_branch_1_code: meta.nyesteBibranche1?.branchekode ?? null,
+          bi_branch_2_code: meta.nyesteBibranche2?.branchekode ?? null,
+          bi_branch_3_code: meta.nyesteBibranche3?.branchekode ?? null,
+          cvr_p_enhed_count: meta.antalPenheder ?? null,
+        });
+      }
 
-        const employees =
-          meta.nyesteErstMaanedsbeskaeftigelse?.antalAnsatte ??
-          meta.nyesteMaanedsbeskaeftigelse?.antalAnsatte ??
-          meta.nyesteKvartalsbeskaeftigelse?.antalAnsatte ??
-          meta.nyesteAarsbeskaeftigelse?.antalAnsatte ??
-          null;
-
-        const municipality =
-          meta.nyesteBeliggenhedsadresse?.kommune?.kommuneNavn ?? null;
-
-        const mainBranchCode = meta.nyesteHovedbranche?.branchekode ?? null;
-        const mainBranchText = meta.nyesteHovedbranche?.branchetekst ?? null;
-        const biBranch1Code = meta.nyesteBibranche1?.branchekode ?? null;
-        const biBranch2Code = meta.nyesteBibranche2?.branchekode ?? null;
-        const biBranch3Code = meta.nyesteBibranche3?.branchekode ?? null;
-        const pEnhederCount = meta.antalPenheder ?? null;
-
-        await supabaseAdmin
+      // ÉT bulk upsert for hele chunken
+      if (enrichmentRows.length) {
+        const { error } = await supabaseAdmin
           .from("companies")
-          .update({
-            employees,
-            municipality,
-            main_branch_code: mainBranchCode,
-            main_branch_text: mainBranchText,
-            bi_branch_1_code: biBranch1Code,
-            bi_branch_2_code: biBranch2Code,
-            bi_branch_3_code: biBranch3Code,
-            cvr_p_enhed_count: pEnhederCount,
-          })
-          .eq("id", company.id);
-        enriched++;
+          .upsert(enrichmentRows, {
+            onConflict: "id",
+            ignoreDuplicates: false,
+          });
+        if (error) {
+          console.error("Enrichment bulk upsert fejl:", error.message);
+        } else {
+          enriched += enrichmentRows.length;
+        }
       }
     }
 
