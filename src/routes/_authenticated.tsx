@@ -23,7 +23,7 @@ import {
   LogOut,
   Loader2,
   ShieldAlert,
-  TrendingUp,
+  BrainCircuit,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
