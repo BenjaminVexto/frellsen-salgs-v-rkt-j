@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,12 +20,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Search, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { cvrLookup } from "@/lib/cvr-lookup.functions";
 import { importCompaniesFromCvr } from "@/lib/cvr-import.functions";
-import { createImportBatch } from "@/lib/admin-companies.functions";
+import {
+  createImportBatch,
+  importAssignSellersToCompanies,
+} from "@/lib/admin-companies.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 const BRANCH_CATEGORIES: { label: string; prefixes: string[] }[] = [
@@ -129,6 +139,36 @@ export function CvrBulkSoegningDialog({
   const lookupFn = useServerFn(cvrLookup);
   const importFn = useServerFn(importCompaniesFromCvr);
   const createBatch = useServerFn(createImportBatch);
+  const assignSellersFn = useServerFn(importAssignSellersToCompanies);
+
+  // Sælgere
+  const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
+  const [selectedSellerId, setSelectedSellerId] = useState<string>("");
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "saelger");
+      const ids = (roles ?? []).map((r: any) => r.user_id);
+      if (!ids.length) {
+        setSellers([]);
+        return;
+      }
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name, is_active")
+        .in("id", ids);
+      setSellers(
+        (profs ?? [])
+          .filter((p: any) => p.is_active !== false)
+          .map((p: any) => ({ id: p.id, full_name: p.full_name || "(uden navn)" }))
+          .sort((a, b) => a.full_name.localeCompare(b.full_name, "da")),
+      );
+    })();
+  }, [open]);
 
   // Filtre
   const [kommune, setKommune] = useState("");
@@ -347,6 +387,24 @@ export function CvrBulkSoegningDialog({
         }
       }
       toast.success(`Importeret: ${res.inserted} nye, ${res.already_existed} fandtes allerede`);
+      const allIds: string[] = res.company_ids ?? [];
+      if (selectedSellerId && allIds.length) {
+        try {
+          const r = await assignSellersFn({
+            data: {
+              assignments: allIds.map((id) => ({
+                company_id: id,
+                seller_id: selectedSellerId,
+              })),
+            },
+          });
+          const sellerName =
+            sellers.find((s) => s.id === selectedSellerId)?.full_name ?? "sælger";
+          toast.success(`Tildelt ${r.updated} virksomheder til ${sellerName}`);
+        } catch (e: any) {
+          toast.error("Sælger-tildeling fejlede: " + (e?.message ?? "ukendt"));
+        }
+      }
       onImported(res.company_ids);
       onOpenChange(false);
     } catch (e: any) {
@@ -623,7 +681,28 @@ export function CvrBulkSoegningDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2 flex-col sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2 mr-auto">
+            <Label htmlFor="cvr-seller" className="text-sm whitespace-nowrap">
+              Tildel sælger
+            </Label>
+            <Select
+              value={selectedSellerId || "none"}
+              onValueChange={(v) => setSelectedSellerId(v === "none" ? "" : v)}
+            >
+              <SelectTrigger id="cvr-seller" className="w-[220px]">
+                <SelectValue placeholder="Ingen tildeling" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ingen tildeling</SelectItem>
+                {sellers.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annullér
           </Button>
