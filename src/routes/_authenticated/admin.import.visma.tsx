@@ -1106,6 +1106,24 @@ function ImportSide() {
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
     toast.success("Import gennemført");
+
+    // Fire-and-forget CVR-berigelse efter import er meldt færdig
+    if (companyIds.length) {
+      setTimeout(() => {
+        (async () => {
+          const ENRICH_CHUNK = 500;
+          for (let i = 0; i < companyIds.length; i += ENRICH_CHUNK) {
+            try {
+              await enrichFn({
+                data: { company_ids: companyIds.slice(i, i + ENRICH_CHUNK) },
+              });
+            } catch (e) {
+              console.error("CVR enrichment fejl:", e);
+            }
+          }
+        })();
+      }, 0);
+    }
   }
 
 
