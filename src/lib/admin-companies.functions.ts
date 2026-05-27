@@ -1048,3 +1048,102 @@ Generer en kortfattet briefing der hjælper sælgeren til at ringe eller besøge
 
 
 
+
+export const enrichCompaniesFromCvr = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      company_ids: z.array(z.string().uuid()).min(1).max(500),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+
+    const { data: companies } = await supabaseAdmin
+      .from("companies")
+      .select("id, cvr")
+      .in("id", data.company_ids)
+      .not("cvr", "is", null);
+
+    if (!companies?.length) return { enriched: 0 };
+
+    const user = process.env.CVR_USERNAME;
+    const pass = process.env.CVR_PASSWORD;
+    if (!user || !pass) throw new Error("CVR credentials mangler");
+    const auth = Buffer.from(`${user}:${pass}`).toString("base64");
+
+    const CHUNK = 100;
+    let enriched = 0;
+
+    for (let i = 0; i < companies.length; i += CHUNK) {
+      const slice = companies.slice(i, i + CHUNK);
+      const cvrs = slice
+        .map((c) => parseInt(c.cvr!, 10))
+        .filter((n) => !Number.isNaN(n));
+
+      const payload = {
+        _source: ["Vrvirksomhed.cvrNummer", "Vrvirksomhed.virksomhedMetadata"],
+        query: { terms: { "Vrvirksomhed.cvrNummer": cvrs } },
+        size: CHUNK,
+      };
+
+      const res = await fetch(
+        "http://distribution.virk.dk/cvr-permanent/virksomhed/_search",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (!res.ok) continue;
+      const json: any = await res.json();
+      const hits = json?.hits?.hits ?? [];
+
+      for (const hit of hits) {
+        const v = hit._source?.Vrvirksomhed;
+        if (!v) continue;
+        const cvr = String(v.cvrNummer);
+        const company = slice.find((c) => c.cvr === cvr);
+        if (!company) continue;
+
+        const meta = v.virksomhedMetadata ?? {};
+
+        const employees =
+          meta.nyesteErstMaanedsbeskaeftigelse?.antalAnsatte ??
+          meta.nyesteMaanedsbeskaeftigelse?.antalAnsatte ??
+          meta.nyesteKvartalsbeskaeftigelse?.antalAnsatte ??
+          meta.nyesteAarsbeskaeftigelse?.antalAnsatte ??
+          null;
+
+        const municipality =
+          meta.nyesteBeliggenhedsadresse?.kommune?.kommuneNavn ?? null;
+
+        const mainBranchCode = meta.nyesteHovedbranche?.branchekode ?? null;
+        const mainBranchText = meta.nyesteHovedbranche?.branchetekst ?? null;
+        const biBranch1Code = meta.nyesteBibranche1?.branchekode ?? null;
+        const biBranch2Code = meta.nyesteBibranche2?.branchekode ?? null;
+        const biBranch3Code = meta.nyesteBibranche3?.branchekode ?? null;
+        const pEnhederCount = meta.antalPenheder ?? null;
+
+        await supabaseAdmin
+          .from("companies")
+          .update({
+            employees,
+            municipality,
+            main_branch_code: mainBranchCode,
+            main_branch_text: mainBranchText,
+            bi_branch_1_code: biBranch1Code,
+            bi_branch_2_code: biBranch2Code,
+            bi_branch_3_code: biBranch3Code,
+            cvr_p_enhed_count: pEnhederCount,
+          })
+          .eq("id", company.id);
+        enriched++;
+      }
+    }
+
+    return { enriched };
+  });
