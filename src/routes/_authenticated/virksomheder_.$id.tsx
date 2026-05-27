@@ -656,7 +656,15 @@ function VirksomhedsKort() {
                 locations={locations}
                 onReload={load}
               />
+            </TabsContent>
+
+            {/* FANE: Dokumenter */}
+            <TabsContent value="dokumenter" className="space-y-4 mt-4">
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
+            </TabsContent>
+
+            {/* FANE: Konkurrentaftale */}
+            <TabsContent value="konkurrenter" className="space-y-4 mt-4">
               <KonkurrentaftaleSektion companyId={company.id} />
             </TabsContent>
           </Tabs>
