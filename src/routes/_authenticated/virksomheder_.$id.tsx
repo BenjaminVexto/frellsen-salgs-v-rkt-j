@@ -206,7 +206,15 @@ function VirksomhedsKort() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: c }, { data: ct }, { data: a }, { data: asg }, { data: locs }] = await Promise.all([
+    const [
+      { data: c },
+      { data: ct },
+      { data: a },
+      { data: asg },
+      { data: locs },
+      { data: opps },
+      { count: dcount },
+    ] = await Promise.all([
       supabase.from("companies").select("*").eq("id", id).maybeSingle(),
       supabase.from("contacts").select("*").eq("company_id", id).order("is_primary", { ascending: false }),
       supabase.from("activities").select("*").eq("company_id", id).order("created_at", { ascending: false }),
@@ -217,12 +225,24 @@ function VirksomhedsKort() {
         .eq("company_id", id)
         .order("is_primary", { ascending: false })
         .order("city", { ascending: true }),
+      supabase
+        .from("sales_opportunities")
+        .select("*")
+        .eq("company_id", id)
+        .not("status", "in", "(vundet,tabt)")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("company_documents")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", id),
     ]);
     setCompany(c ?? null);
     setContacts(ct ?? []);
     setActivities(a ?? []);
     setAssignments(asg ?? []);
     setLocations(((locs ?? []) as Location[]));
+    setOpportunities((opps ?? []) as Opportunity[]);
+    setDocCount(dcount ?? 0);
 
     // Hent navnet på den tildelte sælger (companies.assigned_to)
     const assignedId = (c as any)?.assigned_to as string | null | undefined;
@@ -242,6 +262,16 @@ function VirksomhedsKort() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Sync tab with URL hash on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.replace("#", "");
+    if (["oversigt", "aktivitet", "lokationer", "relationer"].includes(hash)) {
+      setTab(hash as TabKey);
+    }
+  }, []);
+
 
 
   // Scroll to a specific activity if URL has #activity-<id>
