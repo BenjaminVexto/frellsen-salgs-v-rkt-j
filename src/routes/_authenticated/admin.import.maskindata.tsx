@@ -3,13 +3,17 @@ import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/hooks/useAuth";
 import { useServerFn } from "@tanstack/react-start";
-import { processEquipmentImport } from "@/lib/equipment-import.functions";
+import { processEquipmentImport, resetEquipmentData } from "@/lib/equipment-import.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, FileUp, Loader2, Wrench, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, FileUp, Loader2, Wrench, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/import/maskindata")({
   component: MaskindataImportSide,
