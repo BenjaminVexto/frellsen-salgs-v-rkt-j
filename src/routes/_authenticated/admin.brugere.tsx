@@ -131,7 +131,7 @@ function BrugerStyringSide() {
           ...createForm,
           region: createForm.region || null,
           salesperson_no:
-            createForm.role === "saelger" && createForm.salesperson_no.trim()
+            (createForm.role === "saelger" || createForm.role === "admin") && createForm.salesperson_no.trim()
               ? createForm.salesperson_no.trim()
               : null,
         },
@@ -168,7 +168,7 @@ function BrugerStyringSide() {
           role: editForm.role,
           region: editForm.region || null,
           salesperson_no:
-            editForm.role === "saelger" && editForm.salesperson_no.trim()
+            (editForm.role === "saelger" || editForm.role === "admin") && editForm.salesperson_no.trim()
               ? editForm.salesperson_no.trim()
               : null,
         },
@@ -359,7 +359,7 @@ function BrugerStyringSide() {
                 placeholder="fx Nordsjælland"
               />
             </div>
-            {createForm.role === "saelger" && (
+            {(createForm.role === "saelger" || createForm.role === "admin") && (
               <div>
                 <Label>Sælgernummer</Label>
                 <Input
@@ -418,7 +418,7 @@ function BrugerStyringSide() {
                   onChange={(e) => setEditForm({ ...editForm, region: e.target.value })}
                 />
               </div>
-              {editForm.role === "saelger" && (
+              {(editForm.role === "saelger" || editForm.role === "admin") && (
                 <div>
                   <Label>Sælgernummer</Label>
                   <Input
