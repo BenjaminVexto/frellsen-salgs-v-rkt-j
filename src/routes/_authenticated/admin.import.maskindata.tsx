@@ -3,13 +3,17 @@ import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/hooks/useAuth";
 import { useServerFn } from "@tanstack/react-start";
-import { processEquipmentImport } from "@/lib/equipment-import.functions";
+import { processEquipmentImport, resetEquipmentData } from "@/lib/equipment-import.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, FileUp, Loader2, Wrench, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, FileUp, Loader2, Wrench, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/import/maskindata")({
   component: MaskindataImportSide,
@@ -85,8 +89,10 @@ function MaskindataImportSide() {
   const [rentalRows, setRentalRows] = useState<RentalRow[]>([]);
   const [serviceRows, setServiceRows] = useState<ServiceRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ updated: number; created: number; unmatched: number } | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [result, setResult] = useState<{ updated: number; fallbackUpdated: number; created: number; unmatched: number } | null>(null);
   const processFn = useServerFn(processEquipmentImport);
+  const resetFn = useServerFn(resetEquipmentData);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -134,6 +140,19 @@ function MaskindataImportSide() {
       toast.error("Fejl under import: " + (e?.message ?? "ukendt fejl"));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runReset() {
+    setResetting(true);
+    try {
+      const res = await resetFn();
+      toast.success(`Nulstillede maskindata på ${res.reset} lokationer`);
+      setResult(null);
+    } catch (e: any) {
+      toast.error("Fejl under nulstilling: " + (e?.message ?? "ukendt fejl"));
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -209,12 +228,44 @@ function MaskindataImportSide() {
             <CheckCircle2 className="h-5 w-5" /> Import gennemført
           </h2>
           <ul className="text-sm space-y-1 text-emerald-900">
-            <li><strong>{result.updated}</strong> lokationer opdateret</li>
+            <li><strong>{result.updated}</strong> lokationer opdateret (exact match)</li>
+            <li><strong>{result.fallbackUpdated}</strong> lokationer opdateret (fallback match)</li>
             <li><strong>{result.created}</strong> nye lokationer oprettet</li>
             <li><strong>{result.unmatched}</strong> rækker kunne ikke matches (ingen lokation/virksomhed fundet)</li>
           </ul>
         </Card>
       )}
+
+      <Card className="p-6 mt-4 border-destructive/30">
+        <h2 className="font-semibold mb-1 text-destructive flex items-center gap-2">
+          <RotateCcw className="h-4 w-4" /> Nulstil maskindata
+        </h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Sletter alle udstyrsfelter (antal, aftaler, salgssignal) på samtlige lokationer, så du kan
+          importere rent forfra. Selve lokationerne og deres adresser bevares.
+        </p>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="sm" disabled={busy || resetting}>
+              {resetting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+              {resetting ? "Nulstiller…" : "Nulstil maskindata"}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Nulstil alle maskindata?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Alle equipment-felter på alle lokationer sættes til 0/null. Handlingen kan ikke fortrydes
+                — men du kan altid køre maskindata-importen igen bagefter.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annullér</AlertDialogCancel>
+              <AlertDialogAction onClick={runReset}>Ja, nulstil</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </Card>
     </div>
   );
 }

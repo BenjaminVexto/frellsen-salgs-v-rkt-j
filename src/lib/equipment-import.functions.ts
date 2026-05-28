@@ -14,6 +14,17 @@ async function ensureAdmin(userId: string) {
   if (!data) throw new Error("Forbidden: kun administratorer");
 }
 
+// ---- Normalisering af Visma-numre ----
+// xlsx kan give numbers; DB gemmer text. Trim whitespace og strip leading zeros
+// så "001810100", " 1810100 ", 1810100 alle bliver "1810100".
+function normalizeVismaNo(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  const s = String(val).trim();
+  if (!s) return "";
+  const stripped = s.replace(/^0+/, "");
+  return stripped || "0";
+}
+
 // ---- Kategorisering ----
 const COFFEE_KEYWORDS = [
   "wittenborg", "rex-royal", "rex royal", "bonamat", "animo",
@@ -85,16 +96,16 @@ function computeSalesSignal(
 
 // ---- Input shapes (rå rækker fra klient) ----
 const RentalRow = z.object({
-  fak: z.string(),
-  lev: z.string(),
+  fak: z.union([z.string(), z.number()]).optional().default(""),
+  lev: z.union([z.string(), z.number()]).optional().default(""),
   beskrivelse: z.string().optional().default(""),
   udlanstype: z.string().optional().default(""),
   varenr: z.string().optional().default(""),
   serienr: z.string().optional().default(""),
 });
 const ServiceRow = z.object({
-  fak: z.string(),
-  lev: z.string(),
+  fak: z.union([z.string(), z.number()]).optional().default(""),
+  lev: z.union([z.string(), z.number()]).optional().default(""),
   maskintype: z.string().optional().default(""),
   serienr: z.string().optional().default(""),
   aftaletype: z.string().optional().default(""),
@@ -102,8 +113,8 @@ const ServiceRow = z.object({
 });
 
 type LocAgg = {
-  fak: string;
-  lev: string;
+  fak: string; // normaliseret
+  lev: string; // normaliseret
   coffee: number;
   filters: number;
   cooling: number;
@@ -127,21 +138,15 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
 
-    const aggs = new Map<string, LocAgg>(); // key: `${fak}||${lev}`
+    const aggs = new Map<string, LocAgg>(); // key: `${fak}||${lev}` (normaliseret)
     const ensure = (fak: string, lev: string): LocAgg => {
       const k = `${fak}||${lev}`;
       let a = aggs.get(k);
       if (!a) {
         a = {
-          fak,
-          lev,
-          coffee: 0,
-          filters: 0,
-          cooling: 0,
-          total: 0,
-          service: 0,
-          freeLoan: false,
-          lease: false,
+          fak, lev,
+          coffee: 0, filters: 0, cooling: 0, total: 0, service: 0,
+          freeLoan: false, lease: false,
           agreementSet: new Set<string>(),
         };
         aggs.set(k, a);
@@ -151,8 +156,8 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
 
     // --- Fil A ---
     for (const r of data.rentalRows) {
-      const fak = String(r.fak ?? "").trim();
-      const lev = String(r.lev ?? "").trim();
+      const fak = normalizeVismaNo(r.fak);
+      const lev = normalizeVismaNo(r.lev);
       if (!lev) continue;
       const a = ensure(fak, lev);
       const cat = categorize(r.beskrivelse || "");
@@ -170,74 +175,120 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
 
     // --- Fil B ---
     for (const r of data.serviceRows) {
-      const fak = String(r.fak ?? "").trim();
-      const lev = String(r.lev ?? "").trim();
+      const fak = normalizeVismaNo(r.fak);
+      const lev = normalizeVismaNo(r.lev);
       if (!lev) continue;
       const a = ensure(fak, lev);
       a.service++;
     }
 
     if (aggs.size === 0) {
-      return { updated: 0, created: 0, unmatched: 0 };
+      return { updated: 0, fallbackUpdated: 0, created: 0, unmatched: 0 };
     }
 
-    // --- Hent eksisterende locations og companies ---
-    const allLevs = Array.from(new Set(Array.from(aggs.values()).map((a) => a.lev))).filter(Boolean);
-    const allFaks = Array.from(new Set(Array.from(aggs.values()).map((a) => a.fak))).filter(Boolean);
-
-    // locations: lev -> {id, company_id}
-    const locByLev = new Map<string, { id: string; company_id: string }>();
+    // --- Hent ALLE locations + companies så vi kan matche med normalisering ---
+    // (Datasættet er ikke større end at vi nemt kan holde det i memory.)
+    const locByNormDelivery = new Map<string, { id: string; company_id: string }>();
+    const locsByCompany = new Map<string, { id: string; visma_delivery_no: string | null }[]>();
     {
-      const CHUNK = 300;
-      for (let i = 0; i < allLevs.length; i += CHUNK) {
-        const slice = allLevs.slice(i, i + CHUNK);
-        const { data: locs, error } = await supabaseAdmin
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data: rows, error } = await supabaseAdmin
           .from("locations")
           .select("id, company_id, visma_delivery_no")
-          .in("visma_delivery_no", slice);
+          .range(from, from + PAGE - 1);
         if (error) throw new Error(error.message);
-        (locs ?? []).forEach((l: any) => {
-          if (l.visma_delivery_no) locByLev.set(String(l.visma_delivery_no), { id: l.id, company_id: l.company_id });
-        });
+        if (!rows || rows.length === 0) break;
+        for (const l of rows as any[]) {
+          if (l.visma_delivery_no) {
+            const k = normalizeVismaNo(l.visma_delivery_no);
+            if (k && !locByNormDelivery.has(k)) {
+              locByNormDelivery.set(k, { id: l.id, company_id: l.company_id });
+            }
+          }
+          const arr = locsByCompany.get(l.company_id) ?? [];
+          arr.push({ id: l.id, visma_delivery_no: l.visma_delivery_no });
+          locsByCompany.set(l.company_id, arr);
+        }
+        if (rows.length < PAGE) break;
+        from += PAGE;
       }
     }
 
-    // companies by visma_id (fak) -> id (+ last_purchase_date + visma_delivery_id)
-    const compByFak = new Map<string, { id: string; last_purchase_date: string | null; visma_delivery_id: string | null }>();
+    // companies: visma_id (Fak. kundenr) -> {id, last_purchase_date}
+    const compByNormFak = new Map<string, { id: string; last_purchase_date: string | null }>();
     {
-      const CHUNK = 300;
-      for (let i = 0; i < allFaks.length; i += CHUNK) {
-        const slice = allFaks.slice(i, i + CHUNK);
-        const { data: cs, error } = await supabaseAdmin
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data: rows, error } = await supabaseAdmin
           .from("companies")
-          .select("id, visma_id, last_purchase_date, visma_delivery_id")
-          .in("visma_id", slice);
+          .select("id, visma_id, last_purchase_date")
+          .range(from, from + PAGE - 1);
         if (error) throw new Error(error.message);
-        (cs ?? []).forEach((c: any) => {
-          if (c.visma_id) compByFak.set(String(c.visma_id), {
-            id: c.id,
-            last_purchase_date: c.last_purchase_date,
-            visma_delivery_id: c.visma_delivery_id,
-          });
-        });
+        if (!rows || rows.length === 0) break;
+        for (const c of rows as any[]) {
+          if (c.visma_id) {
+            const k = normalizeVismaNo(c.visma_id);
+            if (k && !compByNormFak.has(k)) {
+              compByNormFak.set(k, { id: c.id, last_purchase_date: c.last_purchase_date });
+            }
+          }
+        }
+        if (rows.length < PAGE) break;
+        from += PAGE;
       }
     }
 
-    let updated = 0;
+    let exactUpdated = 0;
+    let fallbackUpdated = 0;
     let created = 0;
     let unmatched = 0;
 
-    // Saml updates + inserts
-    type LocUpdate = { id: string; payload: Record<string, any> };
-    type LocInsert = { company_id: string; visma_delivery_no: string; payload: Record<string, any> };
+    type LocUpdate = { id: string; companyId: string; payload: Record<string, any> };
+    type LocInsert = { payload: Record<string, any> };
     const updates: LocUpdate[] = [];
     const inserts: LocInsert[] = [];
+    // Track så samme lokation ikke opdateres dobbelt (Fil A + Fil B aggregeres allerede,
+    // men fallbacks kan tilfældigvis pege på samme lokation fra forskellige aggs).
+    const usedLocationIds = new Set<string>();
 
     for (const a of aggs.values()) {
-      const company = compByFak.get(a.fak);
-      let loc = locByLev.get(a.lev);
+      const company = compByNormFak.get(a.fak);
 
-      // Hvis ingen lokation findes — kræver vi en company-match for at oprette
+      // Prøv exact match på delivery_no
+      let loc = locByNormDelivery.get(a.lev);
+      let matchKind: "exact" | "fallback" | "none" = loc ? "exact" : "none";
+
+      // Fallback A: company-match + lokation hvor delivery_no = fak (primær lokation)
+      if (!loc && company) {
+        const candidates = locsByCompany.get(company.id) ?? [];
+        const hit = candidates.find(
+          (l) => l.visma_delivery_no && normalizeVismaNo(l.visma_delivery_no) === a.fak,
+        );
+        if (hit) {
+          loc = { id: hit.id, company_id: company.id };
+          matchKind = "fallback";
+        }
+      }
+      // Fallback B: virksomheden har præcis én lokation
+      if (!loc && company) {
+        const candidates = locsByCompany.get(company.id) ?? [];
+        if (candidates.length === 1) {
+          loc = { id: candidates[0].id, company_id: company.id };
+          matchKind = "fallback";
+        }
+      }
+
+      // Sikrer vi ikke skriver til samme lokation to gange via fallbacks
+      if (loc && usedLocationIds.has(loc.id)) {
+        // Spring over yderligere agg der mapper til samme lokation; den allerede
+        // tilføjede update får ikke aggregeret videre — accepteret tradeoff.
+        loc = undefined as any;
+        matchKind = "none";
+      }
+
       if (!loc && !company) {
         unmatched++;
         continue;
@@ -245,10 +296,8 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
 
       const agreementTypes = a.agreementSet.size > 0 ? Array.from(a.agreementSet).join(", ") : null;
       const summary = buildSummary(a.coffee, a.filters, a.cooling, a.service);
-      const lastPurchase = (loc
-        ? null // we'll fetch via separate map below if needed
-        : company?.last_purchase_date) ?? company?.last_purchase_date ?? null;
-      const signal = computeSalesSignal(a.freeLoan, a.service, a.total, lastPurchase);
+      const lpd = company?.last_purchase_date ?? null;
+      const signal = computeSalesSignal(a.freeLoan, a.service, a.total, lpd);
 
       const payload: Record<string, any> = {
         equipment_frellsen_owned: a.total,
@@ -265,11 +314,13 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       };
 
       if (loc) {
-        updates.push({ id: loc.id, payload });
+        usedLocationIds.add(loc.id);
+        updates.push({ id: loc.id, companyId: loc.company_id, payload });
+        if (matchKind === "exact") exactUpdated++;
+        else fallbackUpdated++;
       } else if (company) {
+        // Fallback C: opret ny lokation
         inserts.push({
-          company_id: company.id,
-          visma_delivery_no: a.lev,
           payload: {
             ...payload,
             company_id: company.id,
@@ -277,34 +328,6 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
             is_primary: false,
           },
         });
-      }
-    }
-
-    // For at få korrekt last_purchase_date på eksisterende locations skal vi
-    // hente company.last_purchase_date for hvert update — gør det via companies-map
-    // ved at slå op på loc.company_id.
-    if (updates.length) {
-      const companyIds = Array.from(new Set(updates.map((u) => locByLev_findCompanyId(locByLev, u.id)).filter((x): x is string => !!x)));
-      const lpdByCompany = new Map<string, string | null>();
-      const CHUNK = 300;
-      for (let i = 0; i < companyIds.length; i += CHUNK) {
-        const slice = companyIds.slice(i, i + CHUNK);
-        const { data: cs } = await supabaseAdmin
-          .from("companies")
-          .select("id, last_purchase_date")
-          .in("id", slice);
-        (cs ?? []).forEach((c: any) => lpdByCompany.set(c.id, c.last_purchase_date));
-      }
-      // Genberegn sales_signal per update
-      for (const u of updates) {
-        const companyId = locByLev_findCompanyId(locByLev, u.id);
-        const lpd = companyId ? lpdByCompany.get(companyId) ?? null : null;
-        u.payload.sales_signal = computeSalesSignal(
-          !!u.payload.has_free_loan,
-          Number(u.payload.equipment_service_contracts || 0),
-          Number(u.payload.equipment_frellsen_owned || 0),
-          lpd,
-        );
       }
     }
 
@@ -325,9 +348,7 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
           const { error } = await supabaseAdmin.from("locations").update(payload).in("id", slice);
           if (error) {
             console.error("Equipment update fejl:", error.message);
-            continue;
           }
-          updated += slice.length;
         }
       }
     }
@@ -349,15 +370,38 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       }
     }
 
-    return { updated, created, unmatched };
+    return {
+      updated: exactUpdated,
+      fallbackUpdated,
+      created,
+      unmatched,
+    };
   });
 
-function locByLev_findCompanyId(
-  locByLev: Map<string, { id: string; company_id: string }>,
-  locationId: string,
-): string | null {
-  for (const v of locByLev.values()) {
-    if (v.id === locationId) return v.company_id;
-  }
-  return null;
-}
+// Nulstil ALLE equipment-felter på alle lokationer
+export const resetEquipmentData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureAdmin(context.userId);
+    const { error, count } = await supabaseAdmin
+      .from("locations")
+      .update(
+        {
+          equipment_frellsen_owned: 0,
+          equipment_coffee_machines: 0,
+          equipment_filters: 0,
+          equipment_cooling: 0,
+          equipment_service_contracts: 0,
+          has_lease_agreement: false,
+          has_free_loan: false,
+          agreement_types: null,
+          equipment_summary: null,
+          sales_signal: null,
+          equipment_updated_at: null,
+        },
+        { count: "exact" },
+      )
+      .not("id", "is", null);
+    if (error) throw new Error(error.message);
+    return { reset: count ?? 0 };
+  });
