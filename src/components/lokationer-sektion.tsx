@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { MapPin, Plus, ChevronDown, ChevronUp, User } from "lucide-react";
+import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 export type Location = {
@@ -27,6 +27,17 @@ export type Location = {
   contact_person: string | null;
   is_primary: boolean;
   created_at: string;
+  equipment_frellsen_owned?: number | null;
+  equipment_coffee_machines?: number | null;
+  equipment_filters?: number | null;
+  equipment_cooling?: number | null;
+  equipment_service_contracts?: number | null;
+  has_lease_agreement?: boolean | null;
+  has_free_loan?: boolean | null;
+  agreement_types?: string | null;
+  equipment_summary?: string | null;
+  sales_signal?: string | null;
+  equipment_updated_at?: string | null;
 };
 
 export type LocationContact = {
