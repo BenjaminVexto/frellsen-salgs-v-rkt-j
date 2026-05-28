@@ -449,6 +449,7 @@ function VirksomhedsKort() {
             company.visma_id ||
             (company as any).visma_delivery_id ||
             (company as any).contact_person ||
+            (company as any).visma_notes ||
             (company as any).main_branch_text ||
             (company as any).main_branch_code ||
             (company as any).bi_branch_1_code) && (
