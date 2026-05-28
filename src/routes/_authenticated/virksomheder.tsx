@@ -122,7 +122,7 @@ function VirksomhederListe() {
   const [assignmentMap, setAssignmentMap] = useState<Map<string, string[]>>(
     new Map(),
   );
-  const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null; zip: string | null }[]>>(
+  const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null; zip: string | null; visma_delivery_no: string | null }[]>>(
     new Map(),
   );
   const [recentIds, setRecentIds] = useState<string[] | null>(null);
