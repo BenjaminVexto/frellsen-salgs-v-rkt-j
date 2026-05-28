@@ -449,6 +449,7 @@ function VirksomhedsKort() {
             company.visma_id ||
             (company as any).visma_delivery_id ||
             (company as any).contact_person ||
+            (company as any).visma_notes ||
             (company as any).main_branch_text ||
             (company as any).main_branch_code ||
             (company as any).bi_branch_1_code) && (
@@ -515,6 +516,14 @@ function VirksomhedsKort() {
                   )}
                   {(company as any).contact_person && (
                     <KV label="Kontaktperson" value={(company as any).contact_person} />
+                  )}
+                  {(company as any).visma_notes && (
+                    <div className="pt-1">
+                      <div className="text-muted-foreground text-xs mb-1">Bemærkninger (Visma)</div>
+                      <div className="whitespace-pre-line text-sm bg-muted/40 rounded-md px-2 py-1.5">
+                        {(company as any).visma_notes}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

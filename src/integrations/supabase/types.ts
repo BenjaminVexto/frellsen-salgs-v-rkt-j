@@ -127,6 +127,7 @@ export type Database = {
           turnover_12m: number | null
           visma_delivery_id: string | null
           visma_id: string | null
+          visma_notes: string | null
           website: string | null
           zip: string | null
         }
@@ -171,6 +172,7 @@ export type Database = {
           turnover_12m?: number | null
           visma_delivery_id?: string | null
           visma_id?: string | null
+          visma_notes?: string | null
           website?: string | null
           zip?: string | null
         }
@@ -215,6 +217,7 @@ export type Database = {
           turnover_12m?: number | null
           visma_delivery_id?: string | null
           visma_id?: string | null
+          visma_notes?: string | null
           website?: string | null
           zip?: string | null
         }

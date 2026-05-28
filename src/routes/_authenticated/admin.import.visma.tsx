@@ -495,6 +495,13 @@ function ImportSide() {
           ? existingNameMap.get(`${String(data.name).toLowerCase()}|${(data.zip as string) ?? ""}`) ?? null
           : null;
       const hasError = !data.name;
+      // Visma-noter: saml "Adresselinje 1" og "Bem. Intern" i ét felt
+      const adrLinje1 = (r["Adresselinje 1"] ?? "").trim();
+      const bemIntern = (r["Bem. Intern"] ?? r["Bem Intern"] ?? r["Bemærkning intern"] ?? "").trim();
+      const notesParts: string[] = [];
+      if (adrLinje1) notesParts.push(`Adresselinje 1: ${adrLinje1}`);
+      if (bemIntern) notesParts.push(`Bem. intern: ${bemIntern}`);
+      if (notesParts.length) (data as any).visma_notes = notesParts.join("\n");
       return {
         raw: r,
         cvr,
@@ -585,6 +592,7 @@ function ImportSide() {
       "visma_id", "visma_delivery_id", "created_in_visma",
       "turnover_12m", "last_purchase_date",
       "customer_segment_1", "customer_segment_2", "customer_segment_3",
+      "visma_notes",
     ]);
 
     // 1) Hent ALLE eksisterende rækker for berørte CVR'er + name-match-IDs i bulk
