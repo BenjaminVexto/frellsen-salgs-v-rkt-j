@@ -517,6 +517,14 @@ function VirksomhedsKort() {
                   {(company as any).contact_person && (
                     <KV label="Kontaktperson" value={(company as any).contact_person} />
                   )}
+                  {(company as any).visma_notes && (
+                    <div className="pt-1">
+                      <div className="text-muted-foreground text-xs mb-1">Bemærkninger (Visma)</div>
+                      <div className="whitespace-pre-line text-sm bg-muted/40 rounded-md px-2 py-1.5">
+                        {(company as any).visma_notes}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
