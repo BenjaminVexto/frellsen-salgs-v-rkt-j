@@ -878,23 +878,7 @@ function ImportSide() {
 
     skipped = prepared.length - toImport.length;
 
-    // Auto-tildel sælger direkte på virksomheden ud fra Visma-sælgernummer
-    const sellerAssignments = Object.entries(sellerByCompany)
-      .filter(([, sid]) => !!sid)
-      .map(([company_id, seller_id]) => ({ company_id, seller_id: seller_id as string }));
-    if (sellerAssignments.length) {
-      importRunner.setLabel(`Tildeler sælgere til ${sellerAssignments.length} virksomheder…`);
-      try {
-        const res = await assignSellers({ data: { assignments: sellerAssignments } });
-        if (res.failed) {
-          console.warn(`Sælger-tildeling: ${res.failed} fejlede`);
-        }
-      } catch (e) {
-        console.error("Auto-tildeling af sælgere fejlede", e);
-        toast.error("Auto-tildeling af sælgere fejlede – kør Trin 5 manuelt");
-      }
-    }
-
+    skipped = prepared.length - toImport.length;
 
     if (companyIds.length) {
       try {
@@ -908,25 +892,13 @@ function ImportSide() {
       } catch (e: any) {
         console.error("Kunne ikke registrere import-batch", e);
       }
-
-      // CVR-berigelse køres fire-and-forget efter importRunner.finish()
-
     }
-
 
     // 4) Opret lokationer pr. unikt Lev.kund-nr. (visma_delivery_id) pr. CVR.
     // Den række hvor Lev. kund == Fakt. kunde markeres som primær.
+    // cvrToCompanyId blev bygget løbende under upsert/update — ingen genfetch.
     let companiesWithMultipleLocations = 0;
     try {
-      const cvrToCompanyId = new Map<string, string>();
-      // Hent CVR for de oprettede/opdaterede company-id'er
-      for (let i = 0; i < companyIds.length; i += 500) {
-        const slice = companyIds.slice(i, i + 500);
-        const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
-        (data ?? []).forEach((r: any) => { if (r.cvr) cvrToCompanyId.set(r.cvr, r.id); });
-      }
-
-      // Grupper rækker pr. CVR for at finde unikke leveringsnumre
       type LocRow = { delivery: string; faktKunde: string | null; loc: Record<string, string | null> };
       const byCvr = new Map<string, LocRow[]>();
       for (const r of rows) {
@@ -984,39 +956,36 @@ function ImportSide() {
       console.error("Kunne ikke oprette lokationer", e);
     }
 
-    // Byg per-række tildelinger (company + lokation + sælger) til Trin 5
-    const rowAssignments: { company_id: string; location_id: string | null; seller_id: string | null }[] = [];
+    // Hent location-map ÉN gang — bruges af både rowAssignments og kontaktpersoner
+    importRunner.setLabel("Henter lokationsdata…");
+    const locIdMap = new Map<string, { id: string; is_primary: boolean }>();
     try {
-      // Hent location id-map (company_id, visma_delivery_no) -> location_id
-      const locIdMap = new Map<string, string>();
       for (let i = 0; i < companyIds.length; i += 500) {
         const slice = companyIds.slice(i, i + 500);
         const { data } = await (supabase as any)
           .from("locations")
-          .select("id, company_id, visma_delivery_no")
+          .select("id, company_id, visma_delivery_no, is_primary")
           .in("company_id", slice);
         (data ?? []).forEach((l: any) => {
           if (l.visma_delivery_no) {
-            locIdMap.set(`${l.company_id}|${l.visma_delivery_no}`, l.id);
+            locIdMap.set(`${l.company_id}|${l.visma_delivery_no}`, { id: l.id, is_primary: !!l.is_primary });
           }
         });
       }
+    } catch (e) {
+      console.error("Kunne ikke hente lokationer", e);
+    }
 
-      // Byg cvr -> company_id map
-      const cvrToCompanyId = new Map<string, string>();
-      for (let i = 0; i < companyIds.length; i += 500) {
-        const slice = companyIds.slice(i, i + 500);
-        const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
-        (data ?? []).forEach((c: any) => { if (c.cvr) cvrToCompanyId.set(c.cvr, c.id); });
-      }
-
+    // Byg per-række tildelinger (company + lokation + sælger) til Trin 5
+    const rowAssignments: { company_id: string; location_id: string | null; seller_id: string | null }[] = [];
+    try {
       const seen = new Set<string>();
       for (const r of rows) {
         const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
         const companyId = cvr ? cvrToCompanyId.get(cvr) : null;
         if (!companyId) continue;
         const delivery = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
-        const locationId = delivery ? (locIdMap.get(`${companyId}|${delivery}`) ?? null) : null;
+        const locationId = delivery ? (locIdMap.get(`${companyId}|${delivery}`)?.id ?? null) : null;
         const sellerRaw = mapping.salesperson_no ? (r[mapping.salesperson_no] ?? "").trim() : "";
         const sellerId = sellerRaw ? (salespersonMap.get(sellerRaw) ?? null) : (sellerByCompany[companyId] ?? null);
         const key = `${companyId}|${locationId ?? ""}`;
@@ -1031,27 +1000,6 @@ function ImportSide() {
     // 5) Opret kontaktpersoner fra "Ref person" pr. lokation
     try {
       if (mapping.location_contact_person && mapping.visma_delivery_id) {
-        // Genopbyg cvr->companyId og locIdMap (lokal scope)
-        const cvrToCompanyId2 = new Map<string, string>();
-        for (let i = 0; i < companyIds.length; i += 500) {
-          const slice = companyIds.slice(i, i + 500);
-          const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
-          (data ?? []).forEach((c: any) => { if (c.cvr) cvrToCompanyId2.set(c.cvr, c.id); });
-        }
-        const locIdMap2 = new Map<string, { id: string; is_primary: boolean }>();
-        for (let i = 0; i < companyIds.length; i += 500) {
-          const slice = companyIds.slice(i, i + 500);
-          const { data } = await (supabase as any)
-            .from("locations")
-            .select("id, company_id, visma_delivery_no, is_primary")
-            .in("company_id", slice);
-          (data ?? []).forEach((l: any) => {
-            if (l.visma_delivery_no) {
-              locIdMap2.set(`${l.company_id}|${l.visma_delivery_no}`, { id: l.id, is_primary: !!l.is_primary });
-            }
-          });
-        }
-
         type ContactRow = {
           company_id: string;
           location_id: string;
@@ -1065,11 +1013,11 @@ function ImportSide() {
         for (const r of rows) {
           const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
           if (!cvr) continue;
-          const companyId = cvrToCompanyId2.get(cvr);
+          const companyId = cvrToCompanyId.get(cvr);
           if (!companyId) continue;
           const delivery = (r[mapping.visma_delivery_id!] ?? "").trim();
           if (!delivery) continue;
-          const loc = locIdMap2.get(`${companyId}|${delivery}`);
+          const loc = locIdMap.get(`${companyId}|${delivery}`);
           if (!loc) continue; // kun lokationer der faktisk blev oprettet (Model B: 2+)
           const name = (r[mapping.location_contact_person!] ?? "").trim();
           if (!name) continue;
@@ -1096,6 +1044,25 @@ function ImportSide() {
     } catch (e) {
       console.error("Kunne ikke oprette kontaktpersoner", e);
     }
+
+    // Auto-tildel sælger direkte på virksomheden ud fra Visma-sælgernummer
+    // (gøres EFTER lokationer/kontakter og INDEN finish så UI viser korrekt progress)
+    const sellerAssignments = Object.entries(sellerByCompany)
+      .filter(([, sid]) => !!sid)
+      .map(([company_id, seller_id]) => ({ company_id, seller_id: seller_id as string }));
+    if (sellerAssignments.length) {
+      importRunner.setLabel(`Tildeler sælgere til ${sellerAssignments.length} virksomheder…`);
+      try {
+        const res = await assignSellers({ data: { assignments: sellerAssignments } });
+        if (res.failed) {
+          console.warn(`Sælger-tildeling: ${res.failed} fejlede`);
+        }
+      } catch (e) {
+        console.error("Auto-tildeling af sælgere fejlede", e);
+        toast.error("Auto-tildeling af sælgere fejlede – kør Trin 5 manuelt");
+      }
+    }
+
 
     const resultPayload = {
       created, updated, skipped, failed, enriched, noCvrCount,
