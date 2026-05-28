@@ -857,6 +857,8 @@ function ImportSide() {
         slice.forEach((j) => {
           if (okSet.has(j.id)) {
             companyIds.push(j.id);
+            const cvr = (j.payload as any)?.cvr;
+            if (cvr) cvrToCompanyId.set(String(cvr), j.id);
             if (j.sellerId) sellerByCompany[j.id] = j.sellerId;
             updated++;
             if (j.isNoCvr) noCvrCount++;
