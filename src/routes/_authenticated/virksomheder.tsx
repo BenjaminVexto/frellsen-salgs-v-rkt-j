@@ -352,11 +352,14 @@ function VirksomhederListe() {
           (r.address ?? "").toLowerCase().includes(qq) ||
           (r.city ?? "").toLowerCase().includes(qq) ||
           (r.zip ?? "").includes(rawQuery) ||
+          ((r as any).visma_id ?? "").toLowerCase().includes(qq) ||
+          ((r as any).visma_delivery_id ?? "").toLowerCase().includes(qq) ||
           locs.some(
             (l) =>
               (l.city ?? "").toLowerCase().includes(qq) ||
               (l.address ?? "").toLowerCase().includes(qq) ||
-              (l.zip ?? "").includes(rawQuery),
+              (l.zip ?? "").includes(rawQuery) ||
+              (l.visma_delivery_no ?? "").toLowerCase().includes(qq),
           );
         if (!hit) return false;
       }
