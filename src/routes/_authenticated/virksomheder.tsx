@@ -122,7 +122,7 @@ function VirksomhederListe() {
   const [assignmentMap, setAssignmentMap] = useState<Map<string, string[]>>(
     new Map(),
   );
-  const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null; zip: string | null }[]>>(
+  const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null; zip: string | null; visma_delivery_no: string | null }[]>>(
     new Map(),
   );
   const [recentIds, setRecentIds] = useState<string[] | null>(null);
@@ -167,7 +167,7 @@ function VirksomhederListe() {
   const loadCompanies = async () => {
     setLoading(true);
     const cols =
-      "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,assigned_to";
+      "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,assigned_to,visma_id,visma_delivery_id";
     if (recentIds && recentIds.length) {
       const { data } = await supabase
         .from("companies")
@@ -229,16 +229,16 @@ function VirksomhederListe() {
     if (!rows.length) return;
     (async () => {
       const ids = rows.map((r) => r.id);
-      const m = new Map<string, { city: string | null; address: string | null; zip: string | null }[]>();
+      const m = new Map<string, { city: string | null; address: string | null; zip: string | null; visma_delivery_no: string | null }[]>();
       for (let i = 0; i < ids.length; i += 500) {
         const slice = ids.slice(i, i + 500);
         const { data } = await (supabase as any)
           .from("locations")
-          .select("company_id, city, address, zip")
+          .select("company_id, city, address, zip, visma_delivery_no")
           .in("company_id", slice);
         (data ?? []).forEach((l: any) => {
           const arr = m.get(l.company_id) ?? [];
-          arr.push({ city: l.city, address: l.address, zip: l.zip });
+          arr.push({ city: l.city, address: l.address, zip: l.zip, visma_delivery_no: l.visma_delivery_no });
           m.set(l.company_id, arr);
         });
       }
@@ -352,11 +352,14 @@ function VirksomhederListe() {
           (r.address ?? "").toLowerCase().includes(qq) ||
           (r.city ?? "").toLowerCase().includes(qq) ||
           (r.zip ?? "").includes(rawQuery) ||
+          ((r as any).visma_id ?? "").toLowerCase().includes(qq) ||
+          ((r as any).visma_delivery_id ?? "").toLowerCase().includes(qq) ||
           locs.some(
             (l) =>
               (l.city ?? "").toLowerCase().includes(qq) ||
               (l.address ?? "").toLowerCase().includes(qq) ||
-              (l.zip ?? "").includes(rawQuery),
+              (l.zip ?? "").includes(rawQuery) ||
+              (l.visma_delivery_no ?? "").toLowerCase().includes(qq),
           );
         if (!hit) return false;
       }
