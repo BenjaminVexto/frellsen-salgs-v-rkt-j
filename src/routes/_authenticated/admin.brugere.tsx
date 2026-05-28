@@ -418,7 +418,7 @@ function BrugerStyringSide() {
                   onChange={(e) => setEditForm({ ...editForm, region: e.target.value })}
                 />
               </div>
-              {editForm.role === "saelger" && (
+              {(editForm.role === "saelger" || editForm.role === "admin") && (
                 <div>
                   <Label>Sælgernummer</Label>
                   <Input
