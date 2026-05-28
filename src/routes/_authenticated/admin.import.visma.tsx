@@ -894,9 +894,10 @@ function ImportSide() {
       }
     }
 
-    // 4) Opret lokationer pr. unikt Lev.kund-nr. (visma_delivery_id) pr. CVR.
+    // 4) Byg lokationsrækker IN-MEMORY (ingen DB-kald).
+    // Model B: kun virksomheder med 2+ leveringsadresser får lokationer.
     // Den række hvor Lev. kund == Fakt. kunde markeres som primær.
-    // cvrToCompanyId blev bygget løbende under upsert/update — ingen genfetch.
+    const locRows: any[] = [];
     let companiesWithMultipleLocations = 0;
     try {
       type LocRow = { delivery: string; faktKunde: string | null; loc: Record<string, string | null> };
@@ -920,9 +921,8 @@ function ImportSide() {
         byCvr.set(cvr, list);
       }
 
-      const locRows: any[] = [];
       for (const [cvr, list] of byCvr.entries()) {
-        if (list.length < 2) continue; // Model B: kun virksomheder med 2+ leveringsadresser får lokationer
+        if (list.length < 2) continue;
         companiesWithMultipleLocations++;
         const companyId = cvrToCompanyId.get(cvr)!;
         for (const row of list) {
@@ -939,77 +939,24 @@ function ImportSide() {
           });
         }
       }
-      // Upsert pr. (company_id, visma_delivery_no) — server-side
-      if (locRows.length) {
-        try {
-          await upsertLocations({ data: { rows: locRows } });
-        } catch (e) {
-          console.error("Lokationer-upsert fejl", e);
-        }
-      }
-      if (companiesWithMultipleLocations > 0) {
-        toast.success(
-          `${companiesWithMultipleLocations} virksomheder fik flere lokationer registreret`,
-        );
-      }
     } catch (e) {
-      console.error("Kunne ikke oprette lokationer", e);
+      console.error("Kunne ikke bygge lokationsrækker", e);
     }
 
-    // Hent location-map ÉN gang — bruges af både rowAssignments og kontaktpersoner
-    importRunner.setLabel("Henter lokationsdata…");
-    const locIdMap = new Map<string, { id: string; is_primary: boolean }>();
-    try {
-      for (let i = 0; i < companyIds.length; i += 500) {
-        const slice = companyIds.slice(i, i + 500);
-        const { data } = await (supabase as any)
-          .from("locations")
-          .select("id, company_id, visma_delivery_no, is_primary")
-          .in("company_id", slice);
-        (data ?? []).forEach((l: any) => {
-          if (l.visma_delivery_no) {
-            locIdMap.set(`${l.company_id}|${l.visma_delivery_no}`, { id: l.id, is_primary: !!l.is_primary });
-          }
-        });
-      }
-    } catch (e) {
-      console.error("Kunne ikke hente lokationer", e);
-    }
-
-    // Byg per-række tildelinger (company + lokation + sælger) til Trin 5
-    const rowAssignments: { company_id: string; location_id: string | null; seller_id: string | null }[] = [];
-    try {
-      const seen = new Set<string>();
-      for (const r of rows) {
-        const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
-        const companyId = cvr ? cvrToCompanyId.get(cvr) : null;
-        if (!companyId) continue;
-        const delivery = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
-        const locationId = delivery ? (locIdMap.get(`${companyId}|${delivery}`)?.id ?? null) : null;
-        const sellerRaw = mapping.salesperson_no ? (r[mapping.salesperson_no] ?? "").trim() : "";
-        const sellerId = sellerRaw ? (salespersonMap.get(sellerRaw) ?? null) : (sellerByCompany[companyId] ?? null);
-        const key = `${companyId}|${locationId ?? ""}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        rowAssignments.push({ company_id: companyId, location_id: locationId, seller_id: sellerId });
-      }
-    } catch (e) {
-      console.error("Kunne ikke bygge per-række tildelinger", e);
-    }
-
-    // 5) Opret kontaktpersoner fra "Ref person" pr. lokation
+    // 5) Byg kontaktrækker IN-MEMORY med delivery_no (ingen location_id endnu).
+    type ContactRow = {
+      company_id: string;
+      delivery_no: string;
+      location_id: string | null;
+      name: string;
+      phone: string | null;
+      email: string | null;
+      is_primary: boolean;
+    };
+    const contactRows: ContactRow[] = [];
     try {
       if (mapping.location_contact_person && mapping.visma_delivery_id) {
-        type ContactRow = {
-          company_id: string;
-          location_id: string;
-          name: string;
-          phone: string | null;
-          email: string | null;
-          is_primary: boolean;
-        };
         const seenKeys = new Set<string>();
-        const contactRows: ContactRow[] = [];
         for (const r of rows) {
           const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
           if (!cvr) continue;
@@ -1017,36 +964,34 @@ function ImportSide() {
           if (!companyId) continue;
           const delivery = (r[mapping.visma_delivery_id!] ?? "").trim();
           if (!delivery) continue;
-          const loc = locIdMap.get(`${companyId}|${delivery}`);
-          if (!loc) continue; // kun lokationer der faktisk blev oprettet (Model B: 2+)
           const name = (r[mapping.location_contact_person!] ?? "").trim();
           if (!name) continue;
-          const key = `${companyId}|${loc.id}|${name.toLowerCase()}`;
+          const key = `${companyId}|${delivery}|${name.toLowerCase()}`;
           if (seenKeys.has(key)) continue;
           seenKeys.add(key);
           contactRows.push({
             company_id: companyId,
-            location_id: loc.id,
+            delivery_no: delivery,
+            location_id: null,
             name,
             phone: mapping.location_phone ? ((r[mapping.location_phone] ?? "").trim() || null) : null,
             email: mapping.location_email ? ((r[mapping.location_email] ?? "").trim() || null) : null,
-            is_primary: loc.is_primary,
+            is_primary: false,
           });
-        }
-
-        if (contactRows.length) {
-          const res = await upsertContacts({ data: { rows: contactRows } });
-          if (res?.inserted) {
-            toast.success(`${res.inserted} kontaktpersoner oprettet/opdateret`);
-          }
         }
       }
     } catch (e) {
-      console.error("Kunne ikke oprette kontaktpersoner", e);
+      console.error("Kunne ikke bygge kontaktrækker", e);
     }
 
-    // Auto-tildel sælger direkte på virksomheden ud fra Visma-sælgernummer
-    // (gøres EFTER lokationer/kontakter og INDEN finish så UI viser korrekt progress)
+    // Simpel rowAssignments uden DB-opslag — location_id udfyldes i baggrunden hvis nødvendigt
+    const rowAssignments = companyIds.map((id) => ({
+      company_id: id,
+      location_id: null as string | null,
+      seller_id: sellerByCompany[id] ?? null,
+    }));
+
+    // Auto-tildel sælger direkte på virksomheden ud fra Visma-sælgernummer (INDEN finish)
     const sellerAssignments = Object.entries(sellerByCompany)
       .filter(([, sid]) => !!sid)
       .map(([company_id, seller_id]) => ({ company_id, seller_id: seller_id as string }));
@@ -1063,7 +1008,6 @@ function ImportSide() {
       }
     }
 
-
     const resultPayload = {
       created, updated, skipped, failed, enriched, noCvrCount,
       importSource,
@@ -1078,24 +1022,92 @@ function ImportSide() {
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
     toast.success("Import gennemført");
+    if (companiesWithMultipleLocations > 0) {
+      toast.success(
+        `${companiesWithMultipleLocations} virksomheder fik flere lokationer registreret`,
+      );
+    }
 
-    // Fire-and-forget CVR-berigelse efter import er meldt færdig
-    if (companyIds.length) {
-      setTimeout(() => {
-        (async () => {
-          const ENRICH_CHUNK = 500;
-          for (let i = 0; i < companyIds.length; i += ENRICH_CHUNK) {
+    // Fire-and-forget baggrunds-opgaver: lokationer, kontakter, CVR-berigelse
+    setTimeout(() => {
+      (async () => {
+        try {
+          // Lokationer: upsert pre-byggede locRows
+          if (locRows.length) {
+            importRunner.setLabel("Opretter lokationer i baggrunden…");
             try {
-              await enrichFn({
-                data: { company_ids: companyIds.slice(i, i + ENRICH_CHUNK) },
-              });
+              await upsertLocations({ data: { rows: locRows } });
             } catch (e) {
-              console.error("CVR enrichment fejl:", e);
+              console.error("Lokationer-upsert fejl", e);
             }
           }
-        })();
-      }, 0);
-    }
+
+          // Kontakter: hent locIdMap kun for virksomheder med lokationer
+          if (
+            contactRows.length > 0 &&
+            mapping.location_contact_person &&
+            mapping.visma_delivery_id
+          ) {
+            const companiesWithLocs = [...new Set(locRows.map((r) => r.company_id))];
+            const locIdMap = new Map<string, { id: string; is_primary: boolean }>();
+            for (let i = 0; i < companiesWithLocs.length; i += 500) {
+              const slice = companiesWithLocs.slice(i, i + 500);
+              const { data } = await (supabase as any)
+                .from("locations")
+                .select("id, company_id, visma_delivery_no, is_primary")
+                .in("company_id", slice);
+              (data ?? []).forEach((l: any) => {
+                if (l.visma_delivery_no) {
+                  locIdMap.set(`${l.company_id}|${l.visma_delivery_no}`, {
+                    id: l.id,
+                    is_primary: !!l.is_primary,
+                  });
+                }
+              });
+            }
+
+            const resolvedContacts = contactRows
+              .map((c) => {
+                const loc = locIdMap.get(`${c.company_id}|${c.delivery_no}`);
+                if (!loc) return null;
+                return {
+                  company_id: c.company_id,
+                  location_id: loc.id,
+                  name: c.name,
+                  phone: c.phone,
+                  email: c.email,
+                  is_primary: loc.is_primary,
+                };
+              })
+              .filter((x): x is NonNullable<typeof x> => x !== null);
+
+            if (resolvedContacts.length) {
+              try {
+                await upsertContacts({ data: { rows: resolvedContacts } });
+              } catch (e) {
+                console.error("Kontakter-upsert fejl", e);
+              }
+            }
+          }
+
+          // CVR-berigelse
+          if (companyIds.length) {
+            const ENRICH_CHUNK = 500;
+            for (let i = 0; i < companyIds.length; i += ENRICH_CHUNK) {
+              try {
+                await enrichFn({
+                  data: { company_ids: companyIds.slice(i, i + ENRICH_CHUNK) },
+                });
+              } catch (e) {
+                console.error("CVR enrichment fejl:", e);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Baggrunds-opgave fejl:", e);
+        }
+      })();
+    }, 0);
   }
 
 
