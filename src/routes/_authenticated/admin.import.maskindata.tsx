@@ -89,8 +89,10 @@ function MaskindataImportSide() {
   const [rentalRows, setRentalRows] = useState<RentalRow[]>([]);
   const [serviceRows, setServiceRows] = useState<ServiceRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ updated: number; created: number; unmatched: number } | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [result, setResult] = useState<{ updated: number; fallbackUpdated: number; created: number; unmatched: number } | null>(null);
   const processFn = useServerFn(processEquipmentImport);
+  const resetFn = useServerFn(resetEquipmentData);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
