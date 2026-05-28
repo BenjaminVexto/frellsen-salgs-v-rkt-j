@@ -131,7 +131,7 @@ function BrugerStyringSide() {
           ...createForm,
           region: createForm.region || null,
           salesperson_no:
-            createForm.role === "saelger" && createForm.salesperson_no.trim()
+            (createForm.role === "saelger" || createForm.role === "admin") && createForm.salesperson_no.trim()
               ? createForm.salesperson_no.trim()
               : null,
         },
