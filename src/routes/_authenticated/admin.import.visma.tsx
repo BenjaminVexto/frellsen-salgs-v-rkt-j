@@ -797,6 +797,7 @@ function ImportSide() {
           const id = j.payload.id ?? byCvr.get(j.payload.cvr);
           if (id) {
             companyIds.push(id);
+            if (j.payload.cvr) cvrToCompanyId.set(j.payload.cvr, id);
             if (j.sellerId) sellerByCompany[id] = j.sellerId;
             if (j.isUpdate) {
               updated++;
