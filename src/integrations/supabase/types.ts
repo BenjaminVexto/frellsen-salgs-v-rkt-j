@@ -625,40 +625,73 @@ export type Database = {
       locations: {
         Row: {
           address: string | null
+          agreement_types: string | null
           city: string | null
           company_id: string
           contact_person: string | null
           created_at: string
           email: string | null
+          equipment_coffee_machines: number | null
+          equipment_cooling: number | null
+          equipment_filters: number | null
+          equipment_frellsen_owned: number | null
+          equipment_service_contracts: number | null
+          equipment_summary: string | null
+          equipment_updated_at: string | null
+          has_free_loan: boolean | null
+          has_lease_agreement: boolean | null
           id: string
           is_primary: boolean
           phone: string | null
+          sales_signal: string | null
           visma_delivery_no: string | null
           zip: string | null
         }
         Insert: {
           address?: string | null
+          agreement_types?: string | null
           city?: string | null
           company_id: string
           contact_person?: string | null
           created_at?: string
           email?: string | null
+          equipment_coffee_machines?: number | null
+          equipment_cooling?: number | null
+          equipment_filters?: number | null
+          equipment_frellsen_owned?: number | null
+          equipment_service_contracts?: number | null
+          equipment_summary?: string | null
+          equipment_updated_at?: string | null
+          has_free_loan?: boolean | null
+          has_lease_agreement?: boolean | null
           id?: string
           is_primary?: boolean
           phone?: string | null
+          sales_signal?: string | null
           visma_delivery_no?: string | null
           zip?: string | null
         }
         Update: {
           address?: string | null
+          agreement_types?: string | null
           city?: string | null
           company_id?: string
           contact_person?: string | null
           created_at?: string
           email?: string | null
+          equipment_coffee_machines?: number | null
+          equipment_cooling?: number | null
+          equipment_filters?: number | null
+          equipment_frellsen_owned?: number | null
+          equipment_service_contracts?: number | null
+          equipment_summary?: string | null
+          equipment_updated_at?: string | null
+          has_free_loan?: boolean | null
+          has_lease_agreement?: boolean | null
           id?: string
           is_primary?: boolean
           phone?: string | null
+          sales_signal?: string | null
           visma_delivery_no?: string | null
           zip?: string | null
         }

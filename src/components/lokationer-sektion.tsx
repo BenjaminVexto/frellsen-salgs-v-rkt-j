@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { MapPin, Plus, ChevronDown, ChevronUp, User } from "lucide-react";
+import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 export type Location = {
@@ -27,6 +27,17 @@ export type Location = {
   contact_person: string | null;
   is_primary: boolean;
   created_at: string;
+  equipment_frellsen_owned?: number | null;
+  equipment_coffee_machines?: number | null;
+  equipment_filters?: number | null;
+  equipment_cooling?: number | null;
+  equipment_service_contracts?: number | null;
+  has_lease_agreement?: boolean | null;
+  has_free_loan?: boolean | null;
+  agreement_types?: string | null;
+  equipment_summary?: string | null;
+  sales_signal?: string | null;
+  equipment_updated_at?: string | null;
 };
 
 export type LocationContact = {
@@ -262,6 +273,7 @@ function LokationRow({
               Lev.nr. {location.visma_delivery_no}
             </div>
           )}
+          <EquipmentBox location={location} />
           <div className="pt-2">
             <Button size="sm" variant="outline" onClick={onRegister}>
               Registrér aktivitet her
@@ -270,6 +282,51 @@ function LokationRow({
         </div>
       )}
     </li>
+  );
+}
+
+function EquipmentBox({ location }: { location: Location }) {
+  const owned = location.equipment_frellsen_owned ?? 0;
+  const service = location.equipment_service_contracts ?? 0;
+  const summary = (location.equipment_summary ?? "").trim();
+  const signal = (location.sales_signal ?? "").trim();
+
+  // Skjul boks hvis intet udstyr og intet service
+  if (owned === 0 && service === 0) return null;
+  // Skjul boks hvis hverken summary eller signal — men kun hvis owned/service ER 0 (allerede dækket)
+  if (!summary && !signal) return null;
+
+  return (
+    <div className="mt-3 rounded-md border bg-muted/30 p-3 space-y-2">
+      <div className="flex items-center gap-1.5 text-xs font-medium">
+        <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
+        Udstyr (Visma)
+      </div>
+      {summary && <div className="text-xs text-muted-foreground">{summary}</div>}
+      <div className="flex flex-wrap gap-1.5">
+        {location.has_lease_agreement && (
+          <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100 border-emerald-200">
+            Leje
+          </Badge>
+        )}
+        {location.has_free_loan && (
+          <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-200">
+            Gratis udlån
+          </Badge>
+        )}
+        {service > 0 && (
+          <Badge className="bg-blue-100 text-blue-900 hover:bg-blue-100 border-blue-200">
+            Serviceaftale
+          </Badge>
+        )}
+      </div>
+      {signal && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+          <span>{signal}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
