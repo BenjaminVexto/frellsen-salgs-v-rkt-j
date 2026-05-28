@@ -229,16 +229,16 @@ function VirksomhederListe() {
     if (!rows.length) return;
     (async () => {
       const ids = rows.map((r) => r.id);
-      const m = new Map<string, { city: string | null; address: string | null; zip: string | null }[]>();
+      const m = new Map<string, { city: string | null; address: string | null; zip: string | null; visma_delivery_no: string | null }[]>();
       for (let i = 0; i < ids.length; i += 500) {
         const slice = ids.slice(i, i + 500);
         const { data } = await (supabase as any)
           .from("locations")
-          .select("company_id, city, address, zip")
+          .select("company_id, city, address, zip, visma_delivery_no")
           .in("company_id", slice);
         (data ?? []).forEach((l: any) => {
           const arr = m.get(l.company_id) ?? [];
-          arr.push({ city: l.city, address: l.address, zip: l.zip });
+          arr.push({ city: l.city, address: l.address, zip: l.zip, visma_delivery_no: l.visma_delivery_no });
           m.set(l.company_id, arr);
         });
       }
