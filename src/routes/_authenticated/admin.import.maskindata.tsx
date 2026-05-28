@@ -143,6 +143,19 @@ function MaskindataImportSide() {
     }
   }
 
+  async function runReset() {
+    setResetting(true);
+    try {
+      const res = await resetFn();
+      toast.success(`Nulstillede maskindata på ${res.reset} lokationer`);
+      setResult(null);
+    } catch (e: any) {
+      toast.error("Fejl under nulstilling: " + (e?.message ?? "ukendt fejl"));
+    } finally {
+      setResetting(false);
+    }
+  }
+
   if (auth.loading || auth.role !== "admin") {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
