@@ -578,6 +578,8 @@ function ImportSide() {
     const nowIso = new Date().toISOString();
     const companyIds: string[] = [];
     const sellerByCompany: Record<string, string> = {};
+    // Bygges løbende under upsert/update så vi undgår at re-fetche companies bagefter
+    const cvrToCompanyId = new Map<string, string>();
 
     const VISMA_OVERWRITE = new Set([
       "visma_id", "visma_delivery_id", "created_in_visma",
