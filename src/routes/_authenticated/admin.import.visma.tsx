@@ -585,6 +585,7 @@ function ImportSide() {
       "visma_id", "visma_delivery_id", "created_in_visma",
       "turnover_12m", "last_purchase_date",
       "customer_segment_1", "customer_segment_2", "customer_segment_3",
+      "visma_notes",
     ]);
 
     // 1) Hent ALLE eksisterende rækker for berørte CVR'er + name-match-IDs i bulk
