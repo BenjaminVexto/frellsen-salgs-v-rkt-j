@@ -359,7 +359,7 @@ function BrugerStyringSide() {
                 placeholder="fx Nordsjælland"
               />
             </div>
-            {createForm.role === "saelger" && (
+            {(createForm.role === "saelger" || createForm.role === "admin") && (
               <div>
                 <Label>Sælgernummer</Label>
                 <Input
