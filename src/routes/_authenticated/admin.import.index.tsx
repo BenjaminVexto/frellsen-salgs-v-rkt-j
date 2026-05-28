@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Database, FileSpreadsheet, Loader2, Search } from "lucide-react";
+import { ArrowRight, Database, FileSpreadsheet, Loader2, Search, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/import/")({
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/admin/import/")({
 });
 
 type Valg = {
-  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden";
+  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata";
   icon: React.ComponentType<{ className?: string }>;
   emoji: string;
   title: string;
@@ -45,6 +45,15 @@ const VALG: Valg[] = [
     description:
       "Importér fra en hvilken som helst CSV-fil. Du matcher selv kolonnerne til systemets felter.",
     hint: "Brug dette til Excel-lister, messekontakter eller andre kilder",
+  },
+  {
+    to: "/admin/import/maskindata",
+    icon: Wrench,
+    emoji: "🔧",
+    title: "Maskindata (Visma)",
+    description:
+      "Opdatér udstyrsoverblik på lokationer fra rå Visma-udtræk. Upload leje/udlån og/eller serviceaftaler.",
+    hint: "Brug dette til at synkronisere maskinpark og aftaletyper pr. lokation",
   },
 ];
 
