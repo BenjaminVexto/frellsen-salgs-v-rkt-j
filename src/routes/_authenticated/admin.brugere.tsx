@@ -168,7 +168,7 @@ function BrugerStyringSide() {
           role: editForm.role,
           region: editForm.region || null,
           salesperson_no:
-            editForm.role === "saelger" && editForm.salesperson_no.trim()
+            (editForm.role === "saelger" || editForm.role === "admin") && editForm.salesperson_no.trim()
               ? editForm.salesperson_no.trim()
               : null,
         },
