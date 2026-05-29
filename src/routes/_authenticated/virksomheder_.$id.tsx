@@ -62,6 +62,8 @@ import {
   FileText,
   ClipboardList,
   Trash2,
+  AlertTriangle,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
