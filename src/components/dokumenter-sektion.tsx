@@ -74,7 +74,7 @@ export function DokumenterSektion({
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [openingId, setOpeningId] = useState<string | null>(null);
+  const [viewDoc, setViewDoc] = useState<{ id: string; filename: string } | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const uploadFn = useServerFn(uploadCompanyDocument);
