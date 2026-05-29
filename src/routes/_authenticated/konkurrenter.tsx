@@ -105,7 +105,7 @@ function KonkurrenterPage() {
     const { data: comps, error } = await supabase
       .from("competitors")
       .select(
-        "id, name, notes, created_at, competitor_type, city, employee_count, equipment_brands",
+        "id, name, notes, created_at, competitor_type, city, employee_count, equipment_brands, notes_updated_at, notes_updated_by",
       )
       .order("name");
     if (error) {
