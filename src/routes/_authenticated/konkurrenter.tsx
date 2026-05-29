@@ -521,14 +521,38 @@ function CompetitorDetail({
   competitor,
   details,
   detailsLoading,
+  canWrite,
+  onEditNote,
 }: {
   competitor: Competitor;
   details: AssignmentRow[];
   detailsLoading: boolean;
+  canWrite: boolean;
+  onEditNote: () => void;
 }) {
   const typeKey = competitor.competitor_type;
   const type = typeKey ? COMPETITOR_TYPES[typeKey] : null;
-  const Icon = typeKey ? COMPETITOR_TYPE_ICON[typeKey] : null;
+  const Icon = typeKey ? COMPETITOR_ICON_FALLBACK(typeKey) : null;
+  const [authorName, setAuthorName] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!competitor.notes_updated_by) {
+      setAuthorName("");
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", competitor.notes_updated_by!)
+        .maybeSingle();
+      if (!cancelled) setAuthorName(data?.full_name ?? "");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [competitor.notes_updated_by]);
 
   return (
     <div>
