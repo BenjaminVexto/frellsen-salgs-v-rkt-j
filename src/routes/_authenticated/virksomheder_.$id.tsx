@@ -1306,3 +1306,42 @@ function AddCvrInline({ companyId, onAdded }: { companyId: string; onAdded: (cvr
     </div>
   );
 }
+
+function AgreementCardSection({ segment1 }: { segment1: string | null }) {
+  const kp1 = segment1?.match(/^(\d+)/)?.[1] ?? null;
+  const getByKp1 = useServerFn(getAgreementByKp1);
+  const q = useQuery({
+    enabled: !!kp1,
+    queryKey: ["agreement-by-kp1", kp1],
+    queryFn: () =>
+      getByKp1({ data: { kp1: kp1! } }) as Promise<
+        { id: string; name: string; is_public_sector: boolean } | null
+      >,
+  });
+  if (!kp1 || !q.data) return null;
+  const a = q.data;
+  return (
+    <div className="border-t mt-4 pt-4 text-sm">
+      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+        Aftale
+      </div>
+      <Link
+        to="/aftaler/$id"
+        params={{ id: a.id }}
+        className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2 hover:bg-accent/50 transition-colors"
+      >
+        <span className="font-medium truncate">{a.name}</span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+      </Link>
+      {a.is_public_sector && (
+        <div className="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-warning-foreground shrink-0 mt-0.5" />
+          <span>
+            <strong>Offentlig aftale</strong> — kunden må kun bestille varer
+            i aftalen.
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
