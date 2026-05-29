@@ -37,7 +37,6 @@ import { da } from "date-fns/locale";
 import {
   uploadCompanyDocument,
   deleteCompanyDocument,
-  getDocumentSignedUrl,
   downloadCompanyDocument,
 } from "@/lib/admin-companies.functions";
 
