@@ -357,6 +357,8 @@ function KonkurrenterPage() {
                 competitor={selectedCompetitor}
                 details={details}
                 detailsLoading={detailsLoading}
+                canWrite={canWrite}
+                onEditNote={() => setEditTarget(selectedCompetitor)}
               />
             )}
           </Card>
