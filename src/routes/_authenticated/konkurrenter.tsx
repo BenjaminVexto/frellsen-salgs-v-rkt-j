@@ -532,7 +532,7 @@ function CompetitorDetail({
 }) {
   const typeKey = competitor.competitor_type;
   const type = typeKey ? COMPETITOR_TYPES[typeKey] : null;
-  const Icon = typeKey ? COMPETITOR_ICON_FALLBACK(typeKey) : null;
+  const Icon = typeKey ? COMPETITOR_TYPE_ICON[typeKey] : null;
   const [authorName, setAuthorName] = useState<string>("");
 
   useEffect(() => {
