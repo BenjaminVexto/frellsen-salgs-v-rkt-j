@@ -598,6 +598,37 @@ function CompetitorDetail({
         )}
       </div>
 
+      <div className="p-5 border-b border-border">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold">Noter</h3>
+          {canWrite && (
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={onEditNote}>
+              <Pencil className="h-3.5 w-3.5 mr-1" />
+              {competitor.notes ? "Rediger" : "Tilføj"}
+            </Button>
+          )}
+        </div>
+        {competitor.notes ? (
+          <>
+            <p className="text-sm whitespace-pre-wrap">{competitor.notes}</p>
+            {(competitor.notes_updated_at || authorName) && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {authorName && <>Senest opdateret af {authorName}</>}
+                {competitor.notes_updated_at && (
+                  <>
+                    {authorName ? " · " : "Senest opdateret "}
+                    {format(parseISO(competitor.notes_updated_at), "d. MMM yyyy 'kl.' HH:mm", { locale: da })}
+                  </>
+                )}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground italic">Ingen noter endnu.</p>
+        )}
+      </div>
+
+
       {typeKey && type && Icon && (
         <div className="p-5 border-b border-border">
           <div
