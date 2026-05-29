@@ -558,4 +558,3 @@ function CompaniesTab({
 }
 
 // Silence unused import warning in some builds.
-void useNavigate;
