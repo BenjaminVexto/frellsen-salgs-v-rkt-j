@@ -97,16 +97,17 @@ function DashboardPage() {
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-expiring-agreements"],
+    queryKey: ["dashboard-expiring-agreements", userId, auth.role],
     queryFn: async () => {
       const in90 = new Date();
       in90.setDate(in90.getDate() + 90);
       const to = in90.toISOString().slice(0, 10);
+      const isAdmin = auth.role === "admin";
 
       const [docsRes, compRes] = await Promise.all([
         supabase
           .from("company_documents")
-          .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
+          .select("id, filename, document_type, expires_at, company_id, companies(id, name, city, assigned_to)")
           .not("expires_at", "is", null)
           .gte("expires_at", today)
           .lte("expires_at", to)
@@ -114,7 +115,7 @@ function DashboardPage() {
         supabase
           .from("competitor_assignments")
           .select(
-            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
+            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city, assigned_to)",
           )
           .not("contract_expires_at", "is", null)
           .gte("contract_expires_at", today)
@@ -125,24 +126,28 @@ function DashboardPage() {
       if (docsRes.error) throw docsRes.error;
       if (compRes.error) throw compRes.error;
 
-      const docs = (docsRes.data ?? []).map((d: any) => ({
-        kind: "doc" as const,
-        id: `doc-${d.id}`,
-        date: d.expires_at as string,
-        companyId: d.company_id as string,
-        companyName: d.companies?.name ?? "Ukendt",
-        title: d.filename as string,
-        subtitle: d.document_type as string,
-      }));
-      const comps = (compRes.data ?? []).map((c: any) => ({
-        kind: "competitor" as const,
-        id: `comp-${c.id}`,
-        date: c.contract_expires_at as string,
-        companyId: c.company_id as string,
-        companyName: c.companies?.name ?? "Ukendt",
-        title: c.competitors?.name ?? "Konkurrent",
-        subtitle: "Konkurrentaftale",
-      }));
+      const docs = (docsRes.data ?? [])
+        .filter((d: any) => isAdmin || d.companies?.assigned_to === userId)
+        .map((d: any) => ({
+          kind: "doc" as const,
+          id: `doc-${d.id}`,
+          date: d.expires_at as string,
+          companyId: d.company_id as string,
+          companyName: d.companies?.name ?? "Ukendt",
+          title: d.filename as string,
+          subtitle: d.document_type as string,
+        }));
+      const comps = (compRes.data ?? [])
+        .filter((c: any) => isAdmin || c.companies?.assigned_to === userId)
+        .map((c: any) => ({
+          kind: "competitor" as const,
+          id: `comp-${c.id}`,
+          date: c.contract_expires_at as string,
+          companyId: c.company_id as string,
+          companyName: c.companies?.name ?? "Ukendt",
+          title: c.competitors?.name ?? "Konkurrent",
+          subtitle: "Konkurrentaftale",
+        }));
       return [...docs, ...comps]
         .sort((a, b) => a.date.localeCompare(b.date))
         .slice(0, 10);
@@ -303,9 +308,22 @@ function DashboardPage() {
                   {item.kind === "doc" ? "Vores aftale" : "Konkurrentvindue"}
                 </span>
               </div>
-              <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/15 text-warning-foreground whitespace-nowrap">
-                {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
-              </span>
+              {(() => {
+                const days = Math.ceil(
+                  (parseISO(item.date).getTime() - Date.now()) / 86400000,
+                );
+                const tone =
+                  days <= 14
+                    ? "bg-destructive/15 text-destructive"
+                    : days <= 30
+                      ? "bg-warning/15 text-warning-foreground"
+                      : "bg-success/15 text-success";
+                return (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap ${tone}`}>
+                    {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
+                  </span>
+                );
+              })()}
             </Link>
           ))}
         </PanelCard>

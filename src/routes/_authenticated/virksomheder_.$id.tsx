@@ -34,10 +34,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import {
   getCompanyDeletionStats,
   adminDeleteCompany,
 } from "@/lib/admin-companies.functions";
+import { getAgreementByKp1 } from "@/lib/agreements.functions";
 import {
   Select,
   SelectContent,
@@ -60,6 +62,8 @@ import {
   FileText,
   ClipboardList,
   Trash2,
+  AlertTriangle,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -440,6 +444,8 @@ function VirksomhedsKort() {
             {(company as any).parent_cvr && company.cvr && <KV label="Overordnet CVR" value={(company as any).parent_cvr} />}
             {company.source && <KV label="Kilde" value={company.source} />}
           </div>
+
+          <AgreementCardSection segment1={(company as any).customer_segment_1 ?? null} />
 
           {((company as any).created_in_visma ||
             company.last_purchase_date ||
@@ -1297,6 +1303,45 @@ function AddCvrInline({ companyId, onAdded }: { companyId: string; onAdded: (cvr
       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpen(false)}>
         Annullér
       </Button>
+    </div>
+  );
+}
+
+function AgreementCardSection({ segment1 }: { segment1: string | null }) {
+  const kp1 = segment1?.match(/^(\d+)/)?.[1] ?? null;
+  const getByKp1 = useServerFn(getAgreementByKp1);
+  const q = useQuery({
+    enabled: !!kp1,
+    queryKey: ["agreement-by-kp1", kp1],
+    queryFn: () =>
+      getByKp1({ data: { kp1: kp1! } }) as Promise<
+        { id: string; name: string; is_public_sector: boolean } | null
+      >,
+  });
+  if (!kp1 || !q.data) return null;
+  const a = q.data;
+  return (
+    <div className="border-t mt-4 pt-4 text-sm">
+      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+        Aftale
+      </div>
+      <Link
+        to="/aftaler/$id"
+        params={{ id: a.id }}
+        className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2 hover:bg-accent/50 transition-colors"
+      >
+        <span className="font-medium truncate">{a.name}</span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+      </Link>
+      {a.is_public_sector && (
+        <div className="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-warning-foreground shrink-0 mt-0.5" />
+          <span>
+            <strong>Offentlig aftale</strong> — kunden må kun bestille varer
+            i aftalen.
+          </span>
+        </div>
+      )}
     </div>
   );
 }
