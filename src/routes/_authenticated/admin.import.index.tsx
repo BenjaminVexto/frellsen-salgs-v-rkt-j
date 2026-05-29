@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Database, FileSpreadsheet, Loader2, Search, Wrench } from "lucide-react";
+import { ArrowRight, Database, FileSpreadsheet, FileText, Loader2, Search, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/import/")({
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/admin/import/")({
 });
 
 type Valg = {
-  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata";
+  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata" | "/admin/import/aftale-emner";
   icon: React.ComponentType<{ className?: string }>;
   emoji: string;
   title: string;
@@ -54,6 +54,15 @@ const VALG: Valg[] = [
     description:
       "Opdatér udstyrsoverblik på lokationer fra rå Visma-udtræk. Upload leje/udlån og/eller serviceaftaler.",
     hint: "Brug dette til at synkronisere maskinpark og aftaletyper pr. lokation",
+  },
+  {
+    to: "/admin/import/aftale-emner",
+    icon: FileText,
+    emoji: "📋",
+    title: "Aftale-emner (CVR-liste)",
+    description:
+      "Importér en CVR-liste fra en aftalepartner (fx Dansk Erhverv). Eksisterende virksomheder matches, nye oprettes og alle tildeles en ny kontaktliste.",
+    hint: "Brug dette når en aftale leverer en liste af medlemmer/emner",
   },
 ];
 

@@ -32,6 +32,7 @@ import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_aut
 import { Route as AuthenticatedAdminImportMaskindataRouteImport } from './routes/_authenticated/admin.import.maskindata'
 import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authenticated/admin.import.cvr'
 import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
+import { Route as AuthenticatedAdminImportAftaleEmnerRouteImport } from './routes/_authenticated/admin.import.aftale-emner'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -165,6 +166,12 @@ const AuthenticatedAdminImportAndenRoute =
     path: '/anden',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
+const AuthenticatedAdminImportAftaleEmnerRoute =
+  AuthenticatedAdminImportAftaleEmnerRouteImport.update({
+    id: '/aftale-emner',
+    path: '/aftale-emner',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -184,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/aftaler/': typeof AuthenticatedAftalerIndexRoute
+  '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
@@ -207,6 +215,7 @@ export interface FileRoutesByTo {
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/aftaler': typeof AuthenticatedAftalerIndexRoute
+  '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
@@ -233,6 +242,7 @@ export interface FileRoutesById {
   '/_authenticated/kontaktlister_/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
   '/_authenticated/aftaler/': typeof AuthenticatedAftalerIndexRoute
+  '/_authenticated/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
   '/_authenticated/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/_authenticated/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/_authenticated/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/kontaktlister/$id'
     | '/virksomheder/$id'
     | '/aftaler/'
+    | '/admin/import/aftale-emner'
     | '/admin/import/anden'
     | '/admin/import/cvr'
     | '/admin/import/maskindata'
@@ -282,6 +293,7 @@ export interface FileRouteTypes {
     | '/kontaktlister/$id'
     | '/virksomheder/$id'
     | '/aftaler'
+    | '/admin/import/aftale-emner'
     | '/admin/import/anden'
     | '/admin/import/cvr'
     | '/admin/import/maskindata'
@@ -307,6 +319,7 @@ export interface FileRouteTypes {
     | '/_authenticated/kontaktlister_/$id'
     | '/_authenticated/virksomheder_/$id'
     | '/_authenticated/aftaler/'
+    | '/_authenticated/admin/import/aftale-emner'
     | '/_authenticated/admin/import/anden'
     | '/_authenticated/admin/import/cvr'
     | '/_authenticated/admin/import/maskindata'
@@ -483,10 +496,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportAndenRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
+    '/_authenticated/admin/import/aftale-emner': {
+      id: '/_authenticated/admin/import/aftale-emner'
+      path: '/aftale-emner'
+      fullPath: '/admin/import/aftale-emner'
+      preLoaderRoute: typeof AuthenticatedAdminImportAftaleEmnerRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
   }
 }
 
 interface AuthenticatedAdminImportRouteChildren {
+  AuthenticatedAdminImportAftaleEmnerRoute: typeof AuthenticatedAdminImportAftaleEmnerRoute
   AuthenticatedAdminImportAndenRoute: typeof AuthenticatedAdminImportAndenRoute
   AuthenticatedAdminImportCvrRoute: typeof AuthenticatedAdminImportCvrRoute
   AuthenticatedAdminImportMaskindataRoute: typeof AuthenticatedAdminImportMaskindataRoute
@@ -496,6 +517,8 @@ interface AuthenticatedAdminImportRouteChildren {
 
 const AuthenticatedAdminImportRouteChildren: AuthenticatedAdminImportRouteChildren =
   {
+    AuthenticatedAdminImportAftaleEmnerRoute:
+      AuthenticatedAdminImportAftaleEmnerRoute,
     AuthenticatedAdminImportAndenRoute: AuthenticatedAdminImportAndenRoute,
     AuthenticatedAdminImportCvrRoute: AuthenticatedAdminImportCvrRoute,
     AuthenticatedAdminImportMaskindataRoute:
