@@ -206,3 +206,83 @@ export const getAgreementDocumentUrl = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { url: signed.signedUrl, filename: row.document_filename };
   });
+
+// ============================================================
+// Agreement detail + companies + lookup by KP1
+// ============================================================
+
+export const getAgreement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: row, error } = await supabaseAdmin
+      .from("agreements")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("Aftale ikke fundet");
+    return row;
+  });
+
+export const listAgreementCompanies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: agr, error: aErr } = await supabaseAdmin
+      .from("agreements")
+      .select("kp1_code")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (aErr) throw new Error(aErr.message);
+    if (!agr?.kp1_code) return [];
+    const code = String(agr.kp1_code).trim();
+    const { data: rows, error } = await supabaseAdmin
+      .from("companies")
+      .select(
+        "id, name, city, zip, assigned_to, customer_segment_1, customer_segment_2, last_purchase_date",
+      )
+      .or(
+        `customer_segment_1.eq.${code},customer_segment_1.ilike.${code} %,customer_segment_1.ilike.${code}[%,customer_segment_1.ilike.${code}\t%`,
+      )
+      .order("name", { ascending: true })
+      .limit(5000);
+    if (error) throw new Error(error.message);
+
+    const sellerIds = Array.from(
+      new Set((rows ?? []).map((r: any) => r.assigned_to).filter(Boolean)),
+    );
+    const sellerMap: Record<string, string> = {};
+    if (sellerIds.length) {
+      const { data: profs } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", sellerIds);
+      (profs ?? []).forEach((p: any) => {
+        sellerMap[p.id] = p.full_name;
+      });
+    }
+    return (rows ?? []).map((r: any) => ({
+      ...r,
+      seller_name: r.assigned_to ? sellerMap[r.assigned_to] ?? null : null,
+    }));
+  });
+
+export const getAgreementByKp1 = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ kp1: z.string().trim().min(1).max(50) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: row, error } = await supabaseAdmin
+      .from("agreements")
+      .select("id, name, is_public_sector")
+      .eq("kp1_code", data.kp1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return row;
+  });
