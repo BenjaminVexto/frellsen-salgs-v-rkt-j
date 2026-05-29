@@ -73,6 +73,8 @@ type Competitor = {
   city: string | null;
   employee_count: number | null;
   equipment_brands: string[] | null;
+  notes_updated_at: string | null;
+  notes_updated_by: string | null;
 };
 
 type AssignmentRow = {
