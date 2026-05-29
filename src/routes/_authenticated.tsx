@@ -24,6 +24,7 @@ import {
   Loader2,
   ShieldAlert,
   BrainCircuit,
+  FileText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
