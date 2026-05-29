@@ -418,6 +418,15 @@ function DocumentTab({
           Kunne ikke indlæse dokument.
         </p>
       )}
+      <PDFViewerDialog
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        filename={agreement.document_filename ?? "Aftaledokument"}
+        fetcher={async () => {
+          const r = await downloadFn({ data: { agreement_id: agreement.id } });
+          return r as { base64: string; filename: string; content_type: string };
+        }}
+      />
     </Card>
   );
 }
