@@ -39,6 +39,7 @@ import {
   deleteCompanyDocument,
   downloadCompanyDocument,
 } from "@/lib/admin-companies.functions";
+import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
 
 type DocType = "aftale" | "kontrakt" | "tilbud" | "maskine" | "andet";
 
