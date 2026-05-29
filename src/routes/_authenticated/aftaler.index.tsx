@@ -48,7 +48,7 @@ import {
   deleteAgreement,
 } from "@/lib/agreements.functions";
 
-export const Route = createFileRoute("/_authenticated/aftaler")({
+export const Route = createFileRoute("/_authenticated/aftaler/")({
   component: AftalerPage,
 });
 

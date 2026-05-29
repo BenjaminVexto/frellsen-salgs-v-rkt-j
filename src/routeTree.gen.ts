@@ -18,7 +18,7 @@ import { Route as AuthenticatedSalgsintelligensRouteImport } from './routes/_aut
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedAftalerRouteImport } from './routes/_authenticated/aftaler'
+import { Route as AuthenticatedAftalerIndexRouteImport } from './routes/_authenticated/aftaler.index'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
 import { Route as AuthenticatedKontaktlisterIdRouteImport } from './routes/_authenticated/kontaktlister_.$id'
 import { Route as AuthenticatedAftalerIdRouteImport } from './routes/_authenticated/aftaler.$id'
@@ -82,11 +82,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAftalerRoute = AuthenticatedAftalerRouteImport.update({
-  id: '/aftaler',
-  path: '/aftaler',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+const AuthenticatedAftalerIndexRoute =
+  AuthenticatedAftalerIndexRouteImport.update({
+    id: '/aftaler/',
+    path: '/aftaler/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedVirksomhederIdRoute =
   AuthenticatedVirksomhederIdRouteImport.update({
     id: '/virksomheder_/$id',
@@ -100,9 +101,9 @@ const AuthenticatedKontaktlisterIdRoute =
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAftalerIdRoute = AuthenticatedAftalerIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AuthenticatedAftalerRoute,
+  id: '/aftaler/$id',
+  path: '/aftaler/$id',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAdminOverblikRoute =
   AuthenticatedAdminOverblikRouteImport.update({
@@ -168,7 +169,6 @@ const AuthenticatedAdminImportAndenRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/aftaler': typeof AuthenticatedAftalerRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
@@ -183,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
+  '/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
@@ -192,7 +193,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/aftaler': typeof AuthenticatedAftalerRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
@@ -206,6 +206,7 @@ export interface FileRoutesByTo {
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
+  '/aftaler': typeof AuthenticatedAftalerIndexRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
@@ -217,7 +218,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
-  '/_authenticated/aftaler': typeof AuthenticatedAftalerRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
@@ -232,6 +232,7 @@ export interface FileRoutesById {
   '/_authenticated/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/_authenticated/kontaktlister_/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
+  '/_authenticated/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/_authenticated/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/_authenticated/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/_authenticated/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
@@ -243,7 +244,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
-    | '/aftaler'
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
@@ -258,6 +258,7 @@ export interface FileRouteTypes {
     | '/aftaler/$id'
     | '/kontaktlister/$id'
     | '/virksomheder/$id'
+    | '/aftaler/'
     | '/admin/import/anden'
     | '/admin/import/cvr'
     | '/admin/import/maskindata'
@@ -267,7 +268,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
-    | '/aftaler'
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
@@ -281,6 +281,7 @@ export interface FileRouteTypes {
     | '/aftaler/$id'
     | '/kontaktlister/$id'
     | '/virksomheder/$id'
+    | '/aftaler'
     | '/admin/import/anden'
     | '/admin/import/cvr'
     | '/admin/import/maskindata'
@@ -291,7 +292,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/login'
-    | '/_authenticated/aftaler'
     | '/_authenticated/dashboard'
     | '/_authenticated/konkurrenter'
     | '/_authenticated/kontaktlister'
@@ -306,6 +306,7 @@ export interface FileRouteTypes {
     | '/_authenticated/aftaler/$id'
     | '/_authenticated/kontaktlister_/$id'
     | '/_authenticated/virksomheder_/$id'
+    | '/_authenticated/aftaler/'
     | '/_authenticated/admin/import/anden'
     | '/_authenticated/admin/import/cvr'
     | '/_authenticated/admin/import/maskindata'
@@ -384,11 +385,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/aftaler': {
-      id: '/_authenticated/aftaler'
+    '/_authenticated/aftaler/': {
+      id: '/_authenticated/aftaler/'
       path: '/aftaler'
-      fullPath: '/aftaler'
-      preLoaderRoute: typeof AuthenticatedAftalerRouteImport
+      fullPath: '/aftaler/'
+      preLoaderRoute: typeof AuthenticatedAftalerIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/virksomheder_/$id': {
@@ -407,10 +408,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/aftaler/$id': {
       id: '/_authenticated/aftaler/$id'
-      path: '/$id'
+      path: '/aftaler/$id'
       fullPath: '/aftaler/$id'
       preLoaderRoute: typeof AuthenticatedAftalerIdRouteImport
-      parentRoute: typeof AuthenticatedAftalerRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/overblik': {
       id: '/_authenticated/admin/overblik'
@@ -485,17 +486,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedAftalerRouteChildren {
-  AuthenticatedAftalerIdRoute: typeof AuthenticatedAftalerIdRoute
-}
-
-const AuthenticatedAftalerRouteChildren: AuthenticatedAftalerRouteChildren = {
-  AuthenticatedAftalerIdRoute: AuthenticatedAftalerIdRoute,
-}
-
-const AuthenticatedAftalerRouteWithChildren =
-  AuthenticatedAftalerRoute._addFileChildren(AuthenticatedAftalerRouteChildren)
-
 interface AuthenticatedAdminImportRouteChildren {
   AuthenticatedAdminImportAndenRoute: typeof AuthenticatedAdminImportAndenRoute
   AuthenticatedAdminImportCvrRoute: typeof AuthenticatedAdminImportCvrRoute
@@ -520,7 +510,6 @@ const AuthenticatedAdminImportRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedAftalerRoute: typeof AuthenticatedAftalerRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedKonkurrenterRoute: typeof AuthenticatedKonkurrenterRoute
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
@@ -532,12 +521,13 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRouteWithChildren
   AuthenticatedAdminImporthistorikRoute: typeof AuthenticatedAdminImporthistorikRoute
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
+  AuthenticatedAftalerIdRoute: typeof AuthenticatedAftalerIdRoute
   AuthenticatedKontaktlisterIdRoute: typeof AuthenticatedKontaktlisterIdRoute
   AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRoute
+  AuthenticatedAftalerIndexRoute: typeof AuthenticatedAftalerIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAftalerRoute: AuthenticatedAftalerRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedKonkurrenterRoute: AuthenticatedKonkurrenterRoute,
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
@@ -549,8 +539,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRouteWithChildren,
   AuthenticatedAdminImporthistorikRoute: AuthenticatedAdminImporthistorikRoute,
   AuthenticatedAdminOverblikRoute: AuthenticatedAdminOverblikRoute,
+  AuthenticatedAftalerIdRoute: AuthenticatedAftalerIdRoute,
   AuthenticatedKontaktlisterIdRoute: AuthenticatedKontaktlisterIdRoute,
   AuthenticatedVirksomhederIdRoute: AuthenticatedVirksomhederIdRoute,
+  AuthenticatedAftalerIndexRoute: AuthenticatedAftalerIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
