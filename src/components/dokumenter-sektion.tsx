@@ -37,7 +37,11 @@ import { da } from "date-fns/locale";
 import {
   uploadCompanyDocument,
   deleteCompanyDocument,
+import {
+  uploadCompanyDocument,
+  deleteCompanyDocument,
   getDocumentSignedUrl,
+  downloadCompanyDocument,
 } from "@/lib/admin-companies.functions";
 
 type DocType = "aftale" | "kontrakt" | "tilbud" | "maskine" | "andet";
