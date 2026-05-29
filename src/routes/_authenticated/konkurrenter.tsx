@@ -814,11 +814,13 @@ function CompetitorDialog({
         notes: newNotes,
       };
       if (existing) {
-        const updatePayload: Record<string, unknown> = { ...payload };
-        if (notesChanged) {
-          updatePayload.notes_updated_at = new Date().toISOString();
-          updatePayload.notes_updated_by = currentUserId;
-        }
+        const updatePayload = notesChanged
+          ? {
+              ...payload,
+              notes_updated_at: new Date().toISOString(),
+              notes_updated_by: currentUserId,
+            }
+          : payload;
         const { error } = await supabase
           .from("competitors")
           .update(updatePayload)
