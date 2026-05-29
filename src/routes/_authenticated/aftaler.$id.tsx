@@ -371,13 +371,9 @@ function DocumentTab({
           </div>
         </div>
         <div className="flex gap-2">
-          {blobUrl && (
-            <Button asChild variant="outline" size="sm">
-              <a href={blobUrl} target="_blank" rel="noopener noreferrer">
-                <Download className="h-4 w-4 mr-1.5" /> Åbn
-              </a>
-            </Button>
-          )}
+          <Button variant="outline" size="sm" onClick={() => setViewerOpen(true)}>
+            <ExternalLink className="h-4 w-4 mr-1.5" /> Åbn
+          </Button>
           {isAdmin && (
             <>
               <input
