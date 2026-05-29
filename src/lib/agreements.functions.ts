@@ -49,11 +49,12 @@ export const listAgreements = createServerFn({ method: "GET" })
         }
         const code = String(a.kp1_code).trim();
         // Matcher fx "112 [Techno]" eller "112 ..." eller præcis "112"
+        // Matcher "112", "112 ...", "112\t..." — dvs. koden efterfulgt af whitespace eller exakt match
         const { count, error: cErr } = await supabaseAdmin
           .from("companies")
           .select("id", { count: "exact", head: true })
           .or(
-            `customer_segment_1.ilike.${code} %,customer_segment_1.ilike.${code}\t%,customer_segment_1.ilike.${code} [%,customer_segment_1.eq.${code}`,
+            `customer_segment_1.eq.${code},customer_segment_1.ilike.${code} %,customer_segment_1.ilike.${code}\t%`,
           );
         if (cErr) {
           counts[a.id] = 0;
