@@ -39,7 +39,7 @@ import { da } from "date-fns/locale";
 import {
   getAgreement,
   listAgreementCompanies,
-  getAgreementDocumentUrl,
+  downloadAgreementDocument,
   uploadAgreementDocument,
 } from "@/lib/agreements.functions";
 
