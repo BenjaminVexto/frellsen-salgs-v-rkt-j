@@ -803,24 +803,33 @@ function CompetitorDialog({
     }
     setBusy(true);
     try {
+      const newNotes = notes.trim() || null;
+      const notesChanged = (existing?.notes ?? null) !== newNotes;
       const payload = {
         name: name.trim(),
         competitor_type: competitorType || null,
         city: city.trim() || null,
         employee_count: empCount,
         equipment_brands: brands.length > 0 ? brands : null,
-        notes: notes.trim() || null,
+        notes: newNotes,
       };
       if (existing) {
+        const updatePayload: Record<string, unknown> = { ...payload };
+        if (notesChanged) {
+          updatePayload.notes_updated_at = new Date().toISOString();
+          updatePayload.notes_updated_by = currentUserId;
+        }
         const { error } = await supabase
           .from("competitors")
-          .update(payload)
+          .update(updatePayload)
           .eq("id", existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("competitors").insert({
           ...payload,
           created_by: currentUserId,
+          notes_updated_at: newNotes ? new Date().toISOString() : null,
+          notes_updated_by: newNotes ? currentUserId : null,
         });
         if (error) throw error;
       }
