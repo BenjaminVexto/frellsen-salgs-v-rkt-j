@@ -85,6 +85,75 @@ export type Database = {
           },
         ]
       }
+      agreements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_filename: string | null
+          document_path: string | null
+          governing_party_company_id: string | null
+          governing_party_name: string | null
+          id: string
+          is_public_sector: boolean
+          kp1_code: string | null
+          kp2_code: string | null
+          name: string
+          notes: string | null
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_filename?: string | null
+          document_path?: string | null
+          governing_party_company_id?: string | null
+          governing_party_name?: string | null
+          id?: string
+          is_public_sector?: boolean
+          kp1_code?: string | null
+          kp2_code?: string | null
+          name: string
+          notes?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_filename?: string | null
+          document_path?: string | null
+          governing_party_company_id?: string | null
+          governing_party_name?: string | null
+          id?: string
+          is_public_sector?: boolean
+          kp1_code?: string | null
+          kp2_code?: string | null
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agreements_governing_party_company_id_fkey"
+            columns: ["governing_party_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null
