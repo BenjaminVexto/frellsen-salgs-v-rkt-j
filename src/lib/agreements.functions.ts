@@ -286,3 +286,162 @@ export const getAgreementByKp1 = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return row;
   });
+
+// ============================================================
+// Import af aftale-emner: CVR-liste → opretter/matcher virksomheder,
+// opretter kontaktliste og tildeler alle til listen
+// ============================================================
+
+function normCvr(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const digits = String(v).replace(/\D/g, "");
+  return digits.length >= 8 ? digits.slice(0, 8) : null;
+}
+
+export const previewAgreementProspects = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      cvrs: z.array(z.string()).min(1).max(20000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const normalized = Array.from(
+      new Set(data.cvrs.map((c) => normCvr(c)).filter((v): v is string => !!v)),
+    );
+    if (!normalized.length) return { existing: [], missing: [], total: 0 };
+    const existing = new Set<string>();
+    for (let i = 0; i < normalized.length; i += 500) {
+      const slice = normalized.slice(i, i + 500);
+      const { data: rows, error } = await supabaseAdmin
+        .from("companies")
+        .select("cvr")
+        .in("cvr", slice);
+      if (error) throw new Error(error.message);
+      (rows ?? []).forEach((r: any) => r.cvr && existing.add(r.cvr));
+    }
+    const missing = normalized.filter((c) => !existing.has(c));
+    return {
+      existing: Array.from(existing),
+      missing,
+      total: normalized.length,
+    };
+  });
+
+export const importAgreementProspects = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      agreement_id: z.string().uuid(),
+      list_name: z.string().trim().min(1).max(255),
+      rows: z.array(z.object({
+        cvr: z.string(),
+        name: z.string().trim().max(255).optional(),
+      })).min(1).max(20000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+
+    const { data: agr, error: aErr } = await supabaseAdmin
+      .from("agreements")
+      .select("kp1_code, is_public_sector")
+      .eq("id", data.agreement_id)
+      .maybeSingle();
+    if (aErr) throw new Error(aErr.message);
+
+    const seen = new Set<string>();
+    const incoming: { cvr: string; name: string | null }[] = [];
+    for (const r of data.rows) {
+      const cvr = normCvr(r.cvr);
+      if (!cvr || seen.has(cvr)) continue;
+      seen.add(cvr);
+      incoming.push({ cvr, name: r.name?.trim() || null });
+    }
+    if (!incoming.length) {
+      throw new Error("Ingen gyldige CVR-numre i filen");
+    }
+
+    const allCvrs = incoming.map((r) => r.cvr);
+    const existingMap = new Map<string, string>();
+    for (let i = 0; i < allCvrs.length; i += 500) {
+      const slice = allCvrs.slice(i, i + 500);
+      const { data: rows, error } = await supabaseAdmin
+        .from("companies")
+        .select("id, cvr")
+        .in("cvr", slice);
+      if (error) throw new Error(error.message);
+      (rows ?? []).forEach((r: any) => existingMap.set(r.cvr, r.id));
+    }
+
+    const toInsert = incoming
+      .filter((r) => !existingMap.has(r.cvr))
+      .map((r) => ({
+        cvr: r.cvr,
+        name: r.name || `CVR ${r.cvr}`,
+        customer_segment_1: agr?.kp1_code ?? null,
+        is_public: agr?.is_public_sector ?? false,
+        sources: ["aftale-import"],
+        source: "aftale-import",
+        source_created_by: context.userId,
+      }));
+
+    let createdCount = 0;
+    if (toInsert.length) {
+      for (let i = 0; i < toInsert.length; i += 500) {
+        const slice = toInsert.slice(i, i + 500);
+        const { data: inserted, error } = await supabaseAdmin
+          .from("companies")
+          .insert(slice as any)
+          .select("id, cvr");
+        if (error) throw new Error(error.message);
+        (inserted ?? []).forEach((r: any) => {
+          existingMap.set(r.cvr, r.id);
+          createdCount++;
+        });
+      }
+    }
+
+    const { data: list, error: listErr } = await supabaseAdmin
+      .from("contact_lists")
+      .insert({
+        name: data.list_name,
+        description: "Auto-oprettet fra aftale-emne import",
+        purpose: "aftale-emner",
+        created_by: context.userId,
+        is_active: true,
+      })
+      .select("id")
+      .single();
+    if (listErr) throw new Error(listErr.message);
+
+    const assignments = incoming
+      .map((r) => existingMap.get(r.cvr))
+      .filter((id): id is string => !!id)
+      .map((company_id) => ({
+        contact_list_id: list.id,
+        company_id,
+        status: "ny" as const,
+        priority: "middel" as const,
+      }));
+
+    let assigned = 0;
+    for (let i = 0; i < assignments.length; i += 500) {
+      const slice = assignments.slice(i, i + 500);
+      const { error, count } = await supabaseAdmin
+        .from("contact_list_assignments")
+        .insert(slice as any, { count: "exact" });
+      if (error) throw new Error(error.message);
+      assigned += count ?? slice.length;
+    }
+
+    return {
+      list_id: list.id as string,
+      total: incoming.length,
+      created: createdCount,
+      matched: incoming.length - createdCount,
+      assigned,
+      company_ids: Array.from(existingMap.values()),
+    };
+  });
