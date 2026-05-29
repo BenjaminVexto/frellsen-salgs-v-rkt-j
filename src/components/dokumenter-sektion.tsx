@@ -37,7 +37,7 @@ import { da } from "date-fns/locale";
 import {
   uploadCompanyDocument,
   deleteCompanyDocument,
-  getDocumentSignedUrl,
+  downloadCompanyDocument,
 } from "@/lib/admin-companies.functions";
 
 type DocType = "aftale" | "kontrakt" | "tilbud" | "maskine" | "andet";
@@ -78,7 +78,7 @@ export function DokumenterSektion({
 
   const uploadFn = useServerFn(uploadCompanyDocument);
   const deleteFn = useServerFn(deleteCompanyDocument);
-  const signedUrlFn = useServerFn(getDocumentSignedUrl);
+  const downloadDocFn = useServerFn(downloadCompanyDocument);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,11 +111,21 @@ export function DokumenterSektion({
     void load();
   }, [load]);
 
+  const fetchAsBlobUrl = async (id: string) => {
+    const result = await downloadDocFn({ data: { document_id: id } });
+    const bytes = atob(result.base64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    const blob = new Blob([arr], { type: result.content_type });
+    return { blobUrl: URL.createObjectURL(blob), filename: result.filename };
+  };
+
   const handleOpen = async (id: string) => {
     setOpeningId(id);
     try {
-      const { url } = await signedUrlFn({ data: { document_id: id } });
-      window.open(url, "_blank", "noopener,noreferrer");
+      const { blobUrl } = await fetchAsBlobUrl(id);
+      window.open(blobUrl, "_blank");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke åbne dokument");
     } finally {
@@ -126,13 +136,14 @@ export function DokumenterSektion({
   const handleDownload = async (id: string, filename: string) => {
     setDownloadingId(id);
     try {
-      const { url } = await signedUrlFn({ data: { document_id: id } });
+      const { blobUrl, filename: srvName } = await fetchAsBlobUrl(id);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
+      a.href = blobUrl;
+      a.download = filename || srvName;
       document.body.appendChild(a);
       a.click();
       a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke downloade dokument");
     } finally {

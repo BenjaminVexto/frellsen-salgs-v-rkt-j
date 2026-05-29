@@ -39,7 +39,7 @@ import { da } from "date-fns/locale";
 import {
   getAgreement,
   listAgreementCompanies,
-  getAgreementDocumentUrl,
+  downloadAgreementDocument,
   uploadAgreementDocument,
 } from "@/lib/agreements.functions";
 
@@ -253,24 +253,38 @@ function DocumentTab({
   isAdmin: boolean;
   onChanged: () => void;
 }) {
-  const getUrlFn = useServerFn(getAgreementDocumentUrl);
+  const downloadFn = useServerFn(downloadAgreementDocument);
   const uploadFn = useServerFn(uploadAgreementDocument);
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState(false);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!agreement.document_path) {
-      setSignedUrl(null);
+      setBlobUrl(null);
       return;
     }
+    let revoked: string | null = null;
     setLoadingUrl(true);
-    getUrlFn({ data: { agreement_id: agreement.id } })
-      .then((r: any) => setSignedUrl(r.url))
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Kunne ikke hente dokument"))
+    downloadFn({ data: { agreement_id: agreement.id } })
+      .then((r: { base64: string; content_type: string }) => {
+        const bytes = atob(r.base64);
+        const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        const blob = new Blob([arr], { type: r.content_type });
+        const url = URL.createObjectURL(blob);
+        revoked = url;
+        setBlobUrl(url);
+      })
+      .catch((e: unknown) =>
+        toast.error(e instanceof Error ? e.message : "Kunne ikke hente dokument"),
+      )
       .finally(() => setLoadingUrl(false));
-  }, [agreement.id, agreement.document_path, getUrlFn]);
+    return () => {
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [agreement.id, agreement.document_path, downloadFn]);
 
   const handleFile = async (file: File) => {
     if (file.type !== "application/pdf") {
@@ -355,9 +369,9 @@ function DocumentTab({
           </div>
         </div>
         <div className="flex gap-2">
-          {signedUrl && (
+          {blobUrl && (
             <Button asChild variant="outline" size="sm">
-              <a href={signedUrl} target="_blank" rel="noopener noreferrer">
+              <a href={blobUrl} target="_blank" rel="noopener noreferrer">
                 <Download className="h-4 w-4 mr-1.5" /> Åbn
               </a>
             </Button>
@@ -395,9 +409,9 @@ function DocumentTab({
         <div className="h-[70vh] flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : signedUrl ? (
+      ) : blobUrl ? (
         <iframe
-          src={signedUrl}
+          src={blobUrl}
           title={agreement.document_filename ?? "Aftaledokument"}
           className="w-full h-[70vh] rounded border bg-muted"
         />

@@ -207,6 +207,36 @@ export const getAgreementDocumentUrl = createServerFn({ method: "POST" })
     return { url: signed.signedUrl, filename: row.document_filename };
   });
 
+export const downloadAgreementDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ agreement_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: row } = await supabaseAdmin
+      .from("agreements")
+      .select("document_path, document_filename")
+      .eq("id", data.agreement_id)
+      .maybeSingle();
+    if (!row?.document_path) throw new Error("Intet dokument");
+    const { data: file, error } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .download(row.document_path);
+    if (error || !file) throw new Error(error?.message ?? "Kunne ikke hente fil");
+    const buf = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < buf.length; i += chunk) {
+      binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+    }
+    const base64 = btoa(binary);
+    return {
+      base64,
+      filename: row.document_filename ?? "aftale.pdf",
+      content_type: "application/pdf",
+    };
+  });
+
 // ============================================================
 // Agreement detail + companies + lookup by KP1
 // ============================================================
