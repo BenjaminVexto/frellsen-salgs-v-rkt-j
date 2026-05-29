@@ -42,6 +42,7 @@ import {
   downloadAgreementDocument,
   uploadAgreementDocument,
 } from "@/lib/agreements.functions";
+import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
 
 export const Route = createFileRoute("/_authenticated/aftaler/$id")({
   component: AgreementDetail,
