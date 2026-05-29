@@ -461,6 +461,8 @@ export type Database = {
           identifying_question: string | null
           name: string
           notes: string | null
+          notes_updated_at: string | null
+          notes_updated_by: string | null
         }
         Insert: {
           city?: string | null
@@ -474,6 +476,8 @@ export type Database = {
           identifying_question?: string | null
           name: string
           notes?: string | null
+          notes_updated_at?: string | null
+          notes_updated_by?: string | null
         }
         Update: {
           city?: string | null
@@ -487,11 +491,20 @@ export type Database = {
           identifying_question?: string | null
           name?: string
           notes?: string | null
+          notes_updated_at?: string | null
+          notes_updated_by?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "competitors_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitors_notes_updated_by_fkey"
+            columns: ["notes_updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
