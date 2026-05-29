@@ -253,24 +253,38 @@ function DocumentTab({
   isAdmin: boolean;
   onChanged: () => void;
 }) {
-  const getUrlFn = useServerFn(getAgreementDocumentUrl);
+  const downloadFn = useServerFn(downloadAgreementDocument);
   const uploadFn = useServerFn(uploadAgreementDocument);
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState(false);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!agreement.document_path) {
-      setSignedUrl(null);
+      setBlobUrl(null);
       return;
     }
+    let revoked: string | null = null;
     setLoadingUrl(true);
-    getUrlFn({ data: { agreement_id: agreement.id } })
-      .then((r: any) => setSignedUrl(r.url))
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Kunne ikke hente dokument"))
+    downloadFn({ data: { agreement_id: agreement.id } })
+      .then((r: { base64: string; content_type: string }) => {
+        const bytes = atob(r.base64);
+        const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        const blob = new Blob([arr], { type: r.content_type });
+        const url = URL.createObjectURL(blob);
+        revoked = url;
+        setBlobUrl(url);
+      })
+      .catch((e: unknown) =>
+        toast.error(e instanceof Error ? e.message : "Kunne ikke hente dokument"),
+      )
       .finally(() => setLoadingUrl(false));
-  }, [agreement.id, agreement.document_path, getUrlFn]);
+    return () => {
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [agreement.id, agreement.document_path, downloadFn]);
 
   const handleFile = async (file: File) => {
     if (file.type !== "application/pdf") {
