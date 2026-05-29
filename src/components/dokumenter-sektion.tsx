@@ -39,6 +39,7 @@ import {
   deleteCompanyDocument,
   downloadCompanyDocument,
 } from "@/lib/admin-companies.functions";
+import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
 
 type DocType = "aftale" | "kontrakt" | "tilbud" | "maskine" | "andet";
 
@@ -73,7 +74,7 @@ export function DokumenterSektion({
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [openingId, setOpeningId] = useState<string | null>(null);
+  const [viewDoc, setViewDoc] = useState<{ id: string; filename: string } | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const uploadFn = useServerFn(uploadCompanyDocument);
@@ -120,23 +121,8 @@ export function DokumenterSektion({
     return { blobUrl: URL.createObjectURL(blob), filename: result.filename };
   };
 
-  const handleOpen = async (id: string) => {
-    const popup = window.open("", "_blank", "noopener,noreferrer");
-    setOpeningId(id);
-    try {
-      const { blobUrl } = await fetchAsBlobUrl(id);
-      if (popup) {
-        popup.location.href = blobUrl;
-      } else {
-        window.location.href = blobUrl;
-      }
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-    } catch (e) {
-      popup?.close();
-      toast.error(e instanceof Error ? e.message : "Kunne ikke åbne dokument");
-    } finally {
-      setOpeningId(null);
-    }
+  const handleOpen = (id: string, filename: string) => {
+    setViewDoc({ id, filename });
   };
 
   const handleDownload = async (id: string, filename: string) => {
@@ -234,12 +220,8 @@ export function DokumenterSektion({
                   )}
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <Button size="sm" variant="outline" onClick={() => handleOpen(d.id)} disabled={openingId === d.id}>
-                    {openingId === d.id ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                    ) : (
-                      <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                    )}
+                  <Button size="sm" variant="outline" onClick={() => handleOpen(d.id, d.filename)}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
                     Åbn
                   </Button>
                   <Button
@@ -295,6 +277,18 @@ export function DokumenterSektion({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {viewDoc && (
+        <PDFViewerDialog
+          open={!!viewDoc}
+          onClose={() => setViewDoc(null)}
+          filename={viewDoc.filename}
+          fetcher={async () => {
+            const r = await downloadDocFn({ data: { document_id: viewDoc.id } });
+            return r as { base64: string; filename: string; content_type: string };
+          }}
+        />
+      )}
 
     </Card>
   );

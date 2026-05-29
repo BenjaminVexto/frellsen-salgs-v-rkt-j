@@ -42,6 +42,7 @@ import {
   downloadAgreementDocument,
   uploadAgreementDocument,
 } from "@/lib/agreements.functions";
+import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
 
 export const Route = createFileRoute("/_authenticated/aftaler/$id")({
   component: AgreementDetail,
@@ -259,6 +260,7 @@ function DocumentTab({
   const [loadingUrl, setLoadingUrl] = useState(false);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   useEffect(() => {
     if (!agreement.document_path) {
@@ -369,13 +371,9 @@ function DocumentTab({
           </div>
         </div>
         <div className="flex gap-2">
-          {blobUrl && (
-            <Button asChild variant="outline" size="sm">
-              <a href={blobUrl} target="_blank" rel="noopener noreferrer">
-                <Download className="h-4 w-4 mr-1.5" /> Åbn
-              </a>
-            </Button>
-          )}
+          <Button variant="outline" size="sm" onClick={() => setViewerOpen(true)}>
+            <ExternalLink className="h-4 w-4 mr-1.5" /> Åbn
+          </Button>
           {isAdmin && (
             <>
               <input
@@ -420,6 +418,15 @@ function DocumentTab({
           Kunne ikke indlæse dokument.
         </p>
       )}
+      <PDFViewerDialog
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        filename={agreement.document_filename ?? "Aftaledokument"}
+        fetcher={async () => {
+          const r = await downloadFn({ data: { agreement_id: agreement.id } });
+          return r as { base64: string; filename: string; content_type: string };
+        }}
+      />
     </Card>
   );
 }
