@@ -121,12 +121,18 @@ export function DokumenterSektion({
   };
 
   const handleOpen = async (id: string) => {
+    const popup = window.open("", "_blank", "noopener,noreferrer");
     setOpeningId(id);
     try {
       const { blobUrl } = await fetchAsBlobUrl(id);
-      window.open(blobUrl, "_blank");
+      if (popup) {
+        popup.location.href = blobUrl;
+      } else {
+        window.location.href = blobUrl;
+      }
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (e) {
+      popup?.close();
       toast.error(e instanceof Error ? e.message : "Kunne ikke åbne dokument");
     } finally {
       setOpeningId(null);
