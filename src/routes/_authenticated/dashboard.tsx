@@ -308,9 +308,22 @@ function DashboardPage() {
                   {item.kind === "doc" ? "Vores aftale" : "Konkurrentvindue"}
                 </span>
               </div>
-              <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/15 text-warning-foreground whitespace-nowrap">
-                {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
-              </span>
+              {(() => {
+                const days = Math.ceil(
+                  (parseISO(item.date).getTime() - Date.now()) / 86400000,
+                );
+                const tone =
+                  days <= 14
+                    ? "bg-destructive/15 text-destructive"
+                    : days <= 30
+                      ? "bg-warning/15 text-warning-foreground"
+                      : "bg-success/15 text-success";
+                return (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap ${tone}`}>
+                    {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
+                  </span>
+                );
+              })()}
             </Link>
           ))}
         </PanelCard>
