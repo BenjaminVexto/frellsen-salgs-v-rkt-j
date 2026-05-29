@@ -369,9 +369,9 @@ function DocumentTab({
           </div>
         </div>
         <div className="flex gap-2">
-          {signedUrl && (
+          {blobUrl && (
             <Button asChild variant="outline" size="sm">
-              <a href={signedUrl} target="_blank" rel="noopener noreferrer">
+              <a href={blobUrl} target="_blank" rel="noopener noreferrer">
                 <Download className="h-4 w-4 mr-1.5" /> Åbn
               </a>
             </Button>
@@ -409,9 +409,9 @@ function DocumentTab({
         <div className="h-[70vh] flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : signedUrl ? (
+      ) : blobUrl ? (
         <iframe
-          src={signedUrl}
+          src={blobUrl}
           title={agreement.document_filename ?? "Aftaledokument"}
           className="w-full h-[70vh] rounded border bg-muted"
         />
