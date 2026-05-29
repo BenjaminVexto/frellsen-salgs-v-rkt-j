@@ -220,12 +220,8 @@ export function DokumenterSektion({
                   )}
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <Button size="sm" variant="outline" onClick={() => handleOpen(d.id)} disabled={openingId === d.id}>
-                    {openingId === d.id ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                    ) : (
-                      <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                    )}
+                  <Button size="sm" variant="outline" onClick={() => handleOpen(d.id, d.filename)}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
                     Åbn
                   </Button>
                   <Button
