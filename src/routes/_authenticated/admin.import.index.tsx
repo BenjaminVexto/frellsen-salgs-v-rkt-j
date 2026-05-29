@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Database, FileSpreadsheet, Loader2, Search, Wrench } from "lucide-react";
+import { ArrowRight, Database, FileSpreadsheet, FileText, Loader2, Search, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/import/")({
