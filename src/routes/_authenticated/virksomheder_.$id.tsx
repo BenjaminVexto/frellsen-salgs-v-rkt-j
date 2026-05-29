@@ -34,10 +34,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import {
   getCompanyDeletionStats,
   adminDeleteCompany,
 } from "@/lib/admin-companies.functions";
+import { getAgreementByKp1 } from "@/lib/agreements.functions";
 import {
   Select,
   SelectContent,
