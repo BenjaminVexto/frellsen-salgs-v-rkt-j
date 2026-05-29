@@ -55,6 +55,15 @@ const VALG: Valg[] = [
       "Opdatér udstyrsoverblik på lokationer fra rå Visma-udtræk. Upload leje/udlån og/eller serviceaftaler.",
     hint: "Brug dette til at synkronisere maskinpark og aftaletyper pr. lokation",
   },
+  {
+    to: "/admin/import/aftale-emner",
+    icon: FileText,
+    emoji: "📋",
+    title: "Aftale-emner (CVR-liste)",
+    description:
+      "Importér en CVR-liste fra en aftalepartner (fx Dansk Erhverv). Eksisterende virksomheder matches, nye oprettes og alle tildeles en ny kontaktliste.",
+    hint: "Brug dette når en aftale leverer en liste af medlemmer/emner",
+  },
 ];
 
 function ImportValgSide() {
