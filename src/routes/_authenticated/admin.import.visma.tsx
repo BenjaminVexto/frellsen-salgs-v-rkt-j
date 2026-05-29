@@ -520,7 +520,16 @@ function ImportSide() {
     });
   }, [rows, mapping, existingCvrs, existingEanMap, existingNameMap, salespersonMap]);
 
+  function isClosedName(name: unknown): boolean {
+    if (!name) return false;
+    // Matcher fx "LUKKET/ Firma", "LUKKET / Firma", "LUK/ Firma", "LUK / Firma"
+    // (case-insensitive, ekstra whitespace tilladt foran og rundt om skråstreg)
+    return /^\s*luk(?:ket)?\s*\/\s*/i.test(String(name));
+  }
+
   function isFilteredByVisma(p: PreparedRow): boolean {
+    // Altid: filtrér virksomheder hvis navn er markeret som lukket i Visma
+    if (isClosedName(p.data.name)) return true;
     if (vismaFilters.excludeInternal) {
       const seg1 = String(p.data.customer_segment_1 ?? "").toLowerCase();
       if (seg1.includes("personale") || seg1.includes("interne")) return true;
