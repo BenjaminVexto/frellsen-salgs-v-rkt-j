@@ -80,6 +80,7 @@ export function DokumenterSektion({
   const uploadFn = useServerFn(uploadCompanyDocument);
   const deleteFn = useServerFn(deleteCompanyDocument);
   const signedUrlFn = useServerFn(getDocumentSignedUrl);
+  const downloadDocFn = useServerFn(downloadCompanyDocument);
 
   const load = useCallback(async () => {
     setLoading(true);
