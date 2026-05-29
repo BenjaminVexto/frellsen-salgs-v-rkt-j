@@ -278,6 +278,18 @@ export function DokumenterSektion({
         </AlertDialogContent>
       </AlertDialog>
 
+      {viewDoc && (
+        <PDFViewerDialog
+          open={!!viewDoc}
+          onClose={() => setViewDoc(null)}
+          filename={viewDoc.filename}
+          fetcher={async () => {
+            const r = await downloadDocFn({ data: { document_id: viewDoc.id } });
+            return r as { base64: string; filename: string; content_type: string };
+          }}
+        />
+      )}
+
     </Card>
   );
 }
