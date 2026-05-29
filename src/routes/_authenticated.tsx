@@ -65,6 +65,7 @@ function AuthenticatedLayout() {
     { to: "/dashboard", label: "Mit overblik", shortLabel: "Overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", shortLabel: "Firmaer", icon: Building2 },
     { to: "/salgsintelligens", label: "Salgsintelligens", shortLabel: "Intel", icon: BrainCircuit },
+    { to: "/aftaler", label: "Aftaler", shortLabel: "Aftaler", icon: FileText },
     { to: "/kontaktlister", label: "Kontaktlister", shortLabel: "Lister", icon: ListChecks },
     { to: "/konkurrenter", label: "Konkurrenter", shortLabel: "Konkur.", icon: ShieldAlert },
     { to: "/salgsmuligheder", label: "Salgsmuligheder", shortLabel: "Salg", icon: Target },
