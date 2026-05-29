@@ -260,6 +260,7 @@ function DocumentTab({
   const [loadingUrl, setLoadingUrl] = useState(false);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   useEffect(() => {
     if (!agreement.document_path) {
