@@ -73,6 +73,8 @@ type Competitor = {
   city: string | null;
   employee_count: number | null;
   equipment_brands: string[] | null;
+  notes_updated_at: string | null;
+  notes_updated_by: string | null;
 };
 
 type AssignmentRow = {
@@ -103,7 +105,7 @@ function KonkurrenterPage() {
     const { data: comps, error } = await supabase
       .from("competitors")
       .select(
-        "id, name, notes, created_at, competitor_type, city, employee_count, equipment_brands",
+        "id, name, notes, created_at, competitor_type, city, employee_count, equipment_brands, notes_updated_at, notes_updated_by",
       )
       .order("name");
     if (error) {
@@ -355,6 +357,8 @@ function KonkurrenterPage() {
                 competitor={selectedCompetitor}
                 details={details}
                 detailsLoading={detailsLoading}
+                canWrite={canWrite}
+                onEditNote={() => setEditTarget(selectedCompetitor)}
               />
             )}
           </Card>
@@ -517,14 +521,38 @@ function CompetitorDetail({
   competitor,
   details,
   detailsLoading,
+  canWrite,
+  onEditNote,
 }: {
   competitor: Competitor;
   details: AssignmentRow[];
   detailsLoading: boolean;
+  canWrite: boolean;
+  onEditNote: () => void;
 }) {
   const typeKey = competitor.competitor_type;
   const type = typeKey ? COMPETITOR_TYPES[typeKey] : null;
   const Icon = typeKey ? COMPETITOR_TYPE_ICON[typeKey] : null;
+  const [authorName, setAuthorName] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!competitor.notes_updated_by) {
+      setAuthorName("");
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", competitor.notes_updated_by!)
+        .maybeSingle();
+      if (!cancelled) setAuthorName(data?.full_name ?? "");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [competitor.notes_updated_by]);
 
   return (
     <div>
@@ -569,6 +597,37 @@ function CompetitorDetail({
           </div>
         )}
       </div>
+
+      <div className="p-5 border-b border-border">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold">Noter</h3>
+          {canWrite && (
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={onEditNote}>
+              <Pencil className="h-3.5 w-3.5 mr-1" />
+              {competitor.notes ? "Rediger" : "Tilføj"}
+            </Button>
+          )}
+        </div>
+        {competitor.notes ? (
+          <>
+            <p className="text-sm whitespace-pre-wrap">{competitor.notes}</p>
+            {(competitor.notes_updated_at || authorName) && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {authorName && <>Senest opdateret af {authorName}</>}
+                {competitor.notes_updated_at && (
+                  <>
+                    {authorName ? " · " : "Senest opdateret "}
+                    {format(parseISO(competitor.notes_updated_at), "d. MMM yyyy 'kl.' HH:mm", { locale: da })}
+                  </>
+                )}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground italic">Ingen noter endnu.</p>
+        )}
+      </div>
+
 
       {typeKey && type && Icon && (
         <div className="p-5 border-b border-border">
@@ -744,24 +803,35 @@ function CompetitorDialog({
     }
     setBusy(true);
     try {
+      const newNotes = notes.trim() || null;
+      const notesChanged = (existing?.notes ?? null) !== newNotes;
       const payload = {
         name: name.trim(),
         competitor_type: competitorType || null,
         city: city.trim() || null,
         employee_count: empCount,
         equipment_brands: brands.length > 0 ? brands : null,
-        notes: notes.trim() || null,
+        notes: newNotes,
       };
       if (existing) {
+        const updatePayload = notesChanged
+          ? {
+              ...payload,
+              notes_updated_at: new Date().toISOString(),
+              notes_updated_by: currentUserId,
+            }
+          : payload;
         const { error } = await supabase
           .from("competitors")
-          .update(payload)
+          .update(updatePayload)
           .eq("id", existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("competitors").insert({
           ...payload,
           created_by: currentUserId,
+          notes_updated_at: newNotes ? new Date().toISOString() : null,
+          notes_updated_by: newNotes ? currentUserId : null,
         });
         if (error) throw error;
       }
