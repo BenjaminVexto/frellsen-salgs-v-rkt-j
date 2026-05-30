@@ -171,12 +171,12 @@ export const listImportBatches = createServerFn({ method: "GET" })
     await ensureAdmin(context.userId);
     const { data: batches, error } = await supabaseAdmin
       .from("import_batches")
-      .select("id, filename, created_at, created_by, company_count")
+      .select("id, filename, created_at, created_by, company_count, kind, item_count")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(300);
     if (error) throw new Error(error.message);
 
-    const userIds = Array.from(new Set((batches ?? []).map((b) => b.created_by)));
+    const userIds = Array.from(new Set((batches ?? []).map((b: any) => b.created_by)));
     const nameMap = new Map<string, string>();
     if (userIds.length) {
       const { data: profs } = await supabaseAdmin
@@ -186,13 +186,15 @@ export const listImportBatches = createServerFn({ method: "GET" })
       (profs ?? []).forEach((p: any) => nameMap.set(p.id, p.full_name || "(uden navn)"));
     }
 
-    // Filtrér batches der ikke længere har nogen tilknyttede virksomheder
-    const batchIds = (batches ?? []).map((b) => b.id);
+    // For 'companies' batches: filtrér batches der ikke længere har tilknyttede virksomheder
+    const companyBatchIds = (batches ?? [])
+      .filter((b: any) => (b.kind ?? "companies") === "companies")
+      .map((b: any) => b.id);
     const existingBatchIds = new Set<string>();
-    if (batchIds.length) {
+    if (companyBatchIds.length) {
       const CHUNK = 200;
-      for (let i = 0; i < batchIds.length; i += CHUNK) {
-        const slice = batchIds.slice(i, i + CHUNK);
+      for (let i = 0; i < companyBatchIds.length; i += CHUNK) {
+        const slice = companyBatchIds.slice(i, i + CHUNK);
         const { data: rows, error: cErr } = await supabaseAdmin
           .from("companies")
           .select("import_batch_id")
@@ -206,14 +208,24 @@ export const listImportBatches = createServerFn({ method: "GET" })
     }
 
     return (batches ?? [])
-      .filter((b) => existingBatchIds.has(b.id))
-      .map((b) => ({
-        id: b.id,
-        filename: b.filename,
-        created_at: b.created_at,
-        created_by_name: nameMap.get(b.created_by) ?? "Ukendt",
-        company_count: b.company_count,
-      }));
+      .filter((b: any) => {
+        const kind = b.kind ?? "companies";
+        if (kind === "companies") return existingBatchIds.has(b.id);
+        return true;
+      })
+      .map((b: any) => {
+        const kind = (b.kind ?? "companies") as "companies" | "maskindata" | "agreement";
+        const count = kind === "companies" ? b.company_count : (b.item_count ?? 0);
+        return {
+          id: b.id,
+          filename: b.filename,
+          created_at: b.created_at,
+          created_by_name: nameMap.get(b.created_by) ?? "Ukendt",
+          company_count: b.company_count,
+          kind,
+          item_count: count,
+        };
+      });
   });
 
 export const getImportBatchBreakdown = createServerFn({ method: "POST" })
