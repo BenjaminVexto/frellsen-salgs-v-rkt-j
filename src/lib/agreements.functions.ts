@@ -89,6 +89,17 @@ export const createAgreement = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+
+    // Registrér i importhistorik så aftalen kan slettes derfra
+    await supabaseAdmin.from("import_batches").insert({
+      kind: "agreement",
+      filename: `Aftale: ${data.name}`,
+      created_by: context.userId,
+      company_count: 0,
+      item_count: 1,
+      payload: { agreement_id: row.id } as any,
+    });
+
     return { id: row.id };
   });
 

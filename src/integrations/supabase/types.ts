@@ -690,6 +690,9 @@ export type Database = {
           created_by: string
           filename: string | null
           id: string
+          item_count: number
+          kind: string
+          payload: Json | null
         }
         Insert: {
           company_count?: number
@@ -697,6 +700,9 @@ export type Database = {
           created_by: string
           filename?: string | null
           id?: string
+          item_count?: number
+          kind?: string
+          payload?: Json | null
         }
         Update: {
           company_count?: number
@@ -704,6 +710,9 @@ export type Database = {
           created_by?: string
           filename?: string | null
           id?: string
+          item_count?: number
+          kind?: string
+          payload?: Json | null
         }
         Relationships: []
       }

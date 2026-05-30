@@ -171,12 +171,12 @@ export const listImportBatches = createServerFn({ method: "GET" })
     await ensureAdmin(context.userId);
     const { data: batches, error } = await supabaseAdmin
       .from("import_batches")
-      .select("id, filename, created_at, created_by, company_count")
+      .select("id, filename, created_at, created_by, company_count, kind, item_count")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(300);
     if (error) throw new Error(error.message);
 
-    const userIds = Array.from(new Set((batches ?? []).map((b) => b.created_by)));
+    const userIds = Array.from(new Set((batches ?? []).map((b: any) => b.created_by)));
     const nameMap = new Map<string, string>();
     if (userIds.length) {
       const { data: profs } = await supabaseAdmin
@@ -186,13 +186,15 @@ export const listImportBatches = createServerFn({ method: "GET" })
       (profs ?? []).forEach((p: any) => nameMap.set(p.id, p.full_name || "(uden navn)"));
     }
 
-    // Filtrér batches der ikke længere har nogen tilknyttede virksomheder
-    const batchIds = (batches ?? []).map((b) => b.id);
+    // For 'companies' batches: filtrér batches der ikke længere har tilknyttede virksomheder
+    const companyBatchIds = (batches ?? [])
+      .filter((b: any) => (b.kind ?? "companies") === "companies")
+      .map((b: any) => b.id);
     const existingBatchIds = new Set<string>();
-    if (batchIds.length) {
+    if (companyBatchIds.length) {
       const CHUNK = 200;
-      for (let i = 0; i < batchIds.length; i += CHUNK) {
-        const slice = batchIds.slice(i, i + CHUNK);
+      for (let i = 0; i < companyBatchIds.length; i += CHUNK) {
+        const slice = companyBatchIds.slice(i, i + CHUNK);
         const { data: rows, error: cErr } = await supabaseAdmin
           .from("companies")
           .select("import_batch_id")
@@ -206,14 +208,24 @@ export const listImportBatches = createServerFn({ method: "GET" })
     }
 
     return (batches ?? [])
-      .filter((b) => existingBatchIds.has(b.id))
-      .map((b) => ({
-        id: b.id,
-        filename: b.filename,
-        created_at: b.created_at,
-        created_by_name: nameMap.get(b.created_by) ?? "Ukendt",
-        company_count: b.company_count,
-      }));
+      .filter((b: any) => {
+        const kind = b.kind ?? "companies";
+        if (kind === "companies") return existingBatchIds.has(b.id);
+        return true;
+      })
+      .map((b: any) => {
+        const kind = (b.kind ?? "companies") as "companies" | "maskindata" | "agreement";
+        const count = kind === "companies" ? b.company_count : (b.item_count ?? 0);
+        return {
+          id: b.id,
+          filename: b.filename,
+          created_at: b.created_at,
+          created_by_name: nameMap.get(b.created_by) ?? "Ukendt",
+          company_count: b.company_count,
+          kind,
+          item_count: count,
+        };
+      });
   });
 
 export const getImportBatchBreakdown = createServerFn({ method: "POST" })
@@ -1169,4 +1181,176 @@ export const enrichCompaniesFromCvr = createServerFn({ method: "POST" })
     }
 
     return { enriched };
+  });
+
+// ============================================================
+// Generic import-batch detalje + sletning (maskindata, agreement)
+// ============================================================
+
+export const getImportBatchInfo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ batch_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const { data: batch, error } = await supabaseAdmin
+      .from("import_batches")
+      .select("id, filename, created_at, created_by, company_count, kind, item_count, payload")
+      .eq("id", data.batch_id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!batch) throw new Error("Batch ikke fundet");
+
+    const kind = ((batch as any).kind ?? "companies") as
+      | "companies"
+      | "maskindata"
+      | "agreement";
+
+    if (kind === "maskindata") {
+      const payload = ((batch as any).payload ?? {}) as {
+        snapshot?: { id: string; before: Record<string, any> }[];
+        created_location_ids?: string[];
+      };
+      const locIds = [
+        ...(payload.snapshot ?? []).map((s) => s.id),
+        ...(payload.created_location_ids ?? []),
+      ];
+      const locInfo: { id: string; address: string | null; city: string | null; company_name: string | null }[] = [];
+      if (locIds.length) {
+        const CHUNK = 300;
+        for (let i = 0; i < locIds.length; i += CHUNK) {
+          const slice = locIds.slice(i, i + CHUNK);
+          const { data: rows } = await supabaseAdmin
+            .from("locations")
+            .select("id, address, city, company_id")
+            .in("id", slice);
+          const cIds = Array.from(new Set((rows ?? []).map((r: any) => r.company_id).filter(Boolean)));
+          const nameMap = new Map<string, string>();
+          if (cIds.length) {
+            const { data: comps } = await supabaseAdmin
+              .from("companies")
+              .select("id, name")
+              .in("id", cIds);
+            (comps ?? []).forEach((c: any) => nameMap.set(c.id, c.name));
+          }
+          (rows ?? []).forEach((r: any) =>
+            locInfo.push({
+              id: r.id,
+              address: r.address,
+              city: r.city,
+              company_name: nameMap.get(r.company_id) ?? null,
+            }),
+          );
+        }
+      }
+      return {
+        batch,
+        kind,
+        maskindata: {
+          updated_count: (payload.snapshot ?? []).length,
+          created_count: (payload.created_location_ids ?? []).length,
+          locations: locInfo.slice(0, 500),
+          total_locations: locInfo.length,
+        },
+      };
+    }
+
+    if (kind === "agreement") {
+      const payload = ((batch as any).payload ?? {}) as { agreement_id?: string };
+      let agreement: any = null;
+      if (payload.agreement_id) {
+        const { data: row } = await supabaseAdmin
+          .from("agreements")
+          .select("id, name, kp1_code, kp2_code, valid_from, valid_to, document_filename, is_public_sector, governing_party_name")
+          .eq("id", payload.agreement_id)
+          .maybeSingle();
+        agreement = row;
+      }
+      return { batch, kind, agreement };
+    }
+
+    return { batch, kind };
+  });
+
+export const deleteImportBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ batch_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+
+    const { data: batch, error } = await supabaseAdmin
+      .from("import_batches")
+      .select("id, kind, payload")
+      .eq("id", data.batch_id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!batch) throw new Error("Batch ikke fundet");
+
+    const kind = ((batch as any).kind ?? "companies") as
+      | "companies"
+      | "maskindata"
+      | "agreement";
+
+    if (kind === "maskindata") {
+      const payload = ((batch as any).payload ?? {}) as {
+        snapshot?: { id: string; before: Record<string, any> }[];
+        created_location_ids?: string[];
+      };
+      // Genskriv snapshot pr. lokation (forskellige payloads, så én ad gangen)
+      for (const snap of payload.snapshot ?? []) {
+        const { error: uErr } = await supabaseAdmin
+          .from("locations")
+          .update(snap.before as any)
+          .eq("id", snap.id);
+        if (uErr) console.error("Rollback fejl for lokation", snap.id, uErr.message);
+      }
+      // Slet lokationer der blev oprettet ved importen — kun hvis de stadig kun har equipment-data
+      const created = payload.created_location_ids ?? [];
+      if (created.length) {
+        const CHUNK = 300;
+        for (let i = 0; i < created.length; i += CHUNK) {
+          const slice = created.slice(i, i + CHUNK);
+          await supabaseAdmin.from("locations").delete().in("id", slice);
+        }
+      }
+      await supabaseAdmin.from("import_batches").delete().eq("id", batch.id);
+      return { ok: true, kind, rolled_back: (payload.snapshot ?? []).length, deleted_locations: created.length };
+    }
+
+    if (kind === "agreement") {
+      const payload = ((batch as any).payload ?? {}) as { agreement_id?: string };
+      if (payload.agreement_id) {
+        const { data: agr } = await supabaseAdmin
+          .from("agreements")
+          .select("document_path")
+          .eq("id", payload.agreement_id)
+          .maybeSingle();
+        if (agr?.document_path) {
+          await supabaseAdmin.storage.from("agreement-documents").remove([agr.document_path]);
+        }
+        await supabaseAdmin.from("agreements").delete().eq("id", payload.agreement_id);
+      }
+      await supabaseAdmin.from("import_batches").delete().eq("id", batch.id);
+      return { ok: true, kind };
+    }
+
+    // companies: slet både uberørte og delvist berørte
+    const companies = (await fetchAllCompaniesForBatch(batch.id, "id")) as Array<{ id: string }>;
+    const ids = companies.map((c) => c.id);
+    if (!ids.length) {
+      await supabaseAdmin.from("import_batches").delete().eq("id", batch.id);
+      return { ok: true, kind, deleted: 0 };
+    }
+    const [actSet, oppSet, qSet] = await Promise.all([
+      fetchRelatedCompanyIds("activities", ids),
+      fetchRelatedCompanyIds("sales_opportunities", ids),
+      fetchRelatedCompanyIds("quotes", ids),
+    ]);
+    const activeSet = new Set<string>([...actSet, ...oppSet, ...qSet]);
+    const toDelete = ids.filter((id) => !activeSet.has(id));
+    await cascadeDeleteCompanies(toDelete);
+    return { ok: true, kind, deleted: toDelete.length, skipped_active: ids.length - toDelete.length };
   });
