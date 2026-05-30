@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +6,8 @@ import {
   listImportBatches,
   getImportBatchBreakdown,
   deleteBatchGroup,
+  getImportBatchInfo,
+  deleteImportBatch,
 } from "@/lib/admin-companies.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,11 +34,12 @@ import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import { toast } from "sonner";
-import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/admin/importhistorik")({
   component: ImporthistorikSide,
 });
+
+type BatchKind = "companies" | "maskindata" | "agreement";
 
 type Batch = {
   id: string;
@@ -44,6 +47,8 @@ type Batch = {
   created_at: string;
   created_by_name: string;
   company_count: number;
+  kind: BatchKind;
+  item_count: number;
 };
 
 type CompanyRow = { id: string; name: string; cvr: string; city: string | null };
@@ -61,12 +66,18 @@ type Breakdown = {
   active: CompanyRow[];
 };
 
+const KIND_LABEL: Record<BatchKind, string> = {
+  companies: "Virksomheder",
+  maskindata: "Maskindata",
+  agreement: "Aftale",
+};
+
 function ImporthistorikSide() {
   const auth = useAuth();
   const navigate = useNavigate();
   const fetchBatches = useServerFn(listImportBatches);
   const [batches, setBatches] = useState<Batch[] | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Batch | null>(null);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -75,12 +86,17 @@ function ImporthistorikSide() {
     }
   }, [auth.loading, auth.role, navigate]);
 
+  const reload = () => {
+    fetchBatches()
+      .then((b: any) => setBatches(b as Batch[]))
+      .catch((e: any) => toast.error("Kunne ikke hente importer: " + e.message));
+  };
+
   useEffect(() => {
     if (auth.role !== "admin") return;
-    fetchBatches()
-      .then((b: Batch[]) => setBatches(b))
-      .catch((e: any) => toast.error("Kunne ikke hente importer: " + e.message));
-  }, [auth.role, fetchBatches]);
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.role]);
 
   if (auth.loading || auth.role !== "admin") {
     return (
@@ -90,11 +106,25 @@ function ImporthistorikSide() {
     );
   }
 
-  if (selectedId) {
+  if (selected) {
+    if (selected.kind === "companies") {
+      return (
+        <BatchDetalje
+          batchId={selected.id}
+          onBack={() => {
+            setSelected(null);
+            reload();
+          }}
+        />
+      );
+    }
     return (
-      <BatchDetalje
-        batchId={selectedId}
-        onBack={() => setSelectedId(null)}
+      <GenericBatchDetalje
+        batch={selected}
+        onBack={() => {
+          setSelected(null);
+          reload();
+        }}
       />
     );
   }
@@ -103,7 +133,7 @@ function ImporthistorikSide() {
     <div className="px-4 md:px-8 py-8 max-w-5xl mx-auto pb-24 md:pb-8">
       <h1 className="text-2xl md:text-3xl font-semibold mb-2">Importhistorik</h1>
       <p className="text-sm text-muted-foreground mb-6">
-        Oversigt over tidligere CSV-imports. Klik på en import for at se og oprydde.
+        Oversigt over alle imports — virksomheder, maskindata og aftaler. Klik på en import for at se og slette.
       </p>
 
       <Card className="overflow-x-auto">
@@ -118,8 +148,9 @@ function ImporthistorikSide() {
             <TableHeader>
               <TableRow>
                 <TableHead>Dato</TableHead>
-                <TableHead>Filnavn</TableHead>
-                <TableHead className="text-right">Virksomheder</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Beskrivelse</TableHead>
+                <TableHead className="text-right">Antal</TableHead>
                 <TableHead>Importeret af</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -129,13 +160,16 @@ function ImporthistorikSide() {
                 <TableRow
                   key={b.id}
                   className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => setSelectedId(b.id)}
+                  onClick={() => setSelected(b)}
                 >
                   <TableCell className="whitespace-nowrap">
                     {format(new Date(b.created_at), "d. MMM yyyy HH:mm", { locale: da })}
                   </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{KIND_LABEL[b.kind]}</Badge>
+                  </TableCell>
                   <TableCell className="text-sm">{b.filename ?? "—"}</TableCell>
-                  <TableCell className="text-right font-medium">{b.company_count}</TableCell>
+                  <TableCell className="text-right font-medium">{b.item_count}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{b.created_by_name}</TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground">Se →</TableCell>
                 </TableRow>
@@ -147,6 +181,186 @@ function ImporthistorikSide() {
     </div>
   );
 }
+
+// -------------------- Maskindata + Aftale detaljevisning --------------------
+
+function GenericBatchDetalje({ batch, onBack }: { batch: Batch; onBack: () => void }) {
+  const fetchInfo = useServerFn(getImportBatchInfo);
+  const deleteBatch = useServerFn(deleteImportBatch);
+  const [info, setInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [confirm, setConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    fetchInfo({ data: { batch_id: batch.id } })
+      .then((r: any) => setInfo(r))
+      .catch((e: any) => {
+        toast.error("Kunne ikke hente: " + e.message);
+        onBack();
+      })
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batch.id]);
+
+  async function runDelete() {
+    setDeleting(true);
+    try {
+      await deleteBatch({ data: { batch_id: batch.id } });
+      toast.success(
+        batch.kind === "maskindata"
+          ? "Maskindata-importen er rullet tilbage"
+          : "Aftalen og dens dokument er slettet",
+      );
+      onBack();
+    } catch (e: any) {
+      toast.error("Sletning fejlede: " + e.message);
+      setDeleting(false);
+    }
+  }
+
+  if (loading || !info) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 md:px-8 py-8 max-w-5xl mx-auto pb-24 md:pb-8">
+      <button
+        onClick={onBack}
+        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center mb-4"
+      >
+        <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til importhistorik
+      </button>
+      <div className="flex items-center gap-2 mb-1">
+        <Badge variant="secondary">{KIND_LABEL[batch.kind]}</Badge>
+      </div>
+      <h1 className="text-2xl md:text-3xl font-semibold mb-1">{batch.filename ?? "Import"}</h1>
+      <p className="text-sm text-muted-foreground mb-6">
+        {format(new Date(batch.created_at), "d. MMMM yyyy 'kl.' HH:mm", { locale: da })}
+        {" · "}importeret af {batch.created_by_name}
+      </p>
+
+      {batch.kind === "maskindata" && (
+        <Card className="p-5 mb-4">
+          <h2 className="font-semibold mb-2">Berørte lokationer</h2>
+          <p className="text-sm text-muted-foreground mb-3">
+            {info.maskindata.updated_count} lokation(er) opdateret,{" "}
+            {info.maskindata.created_count} ny(e) oprettet.
+          </p>
+          {info.maskindata.locations.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Ingen lokationer i snapshot.</p>
+          ) : (
+            <div className="max-h-72 overflow-y-auto border rounded-md bg-card divide-y">
+              {info.maskindata.locations.map((l: any) => (
+                <div key={l.id} className="px-3 py-2 text-sm">
+                  <div className="font-medium">{l.company_name ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {[l.address, l.city].filter(Boolean).join(", ") || "Ingen adresse"}
+                  </div>
+                </div>
+              ))}
+              {info.maskindata.total_locations > info.maskindata.locations.length && (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  Viser de første {info.maskindata.locations.length} af {info.maskindata.total_locations}.
+                </p>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {batch.kind === "agreement" && (
+        <Card className="p-5 mb-4">
+          <h2 className="font-semibold mb-2">Aftale</h2>
+          {info.agreement ? (
+            <div className="text-sm space-y-1">
+              <div>
+                <strong>{info.agreement.name}</strong>
+              </div>
+              {info.agreement.kp1_code && (
+                <div className="text-muted-foreground">KP1: {info.agreement.kp1_code}</div>
+              )}
+              {info.agreement.kp2_code && (
+                <div className="text-muted-foreground">KP2: {info.agreement.kp2_code}</div>
+              )}
+              {(info.agreement.valid_from || info.agreement.valid_to) && (
+                <div className="text-muted-foreground">
+                  Gyldig: {info.agreement.valid_from ?? "—"} → {info.agreement.valid_to ?? "—"}
+                </div>
+              )}
+              {info.agreement.document_filename && (
+                <div className="text-muted-foreground">
+                  Dokument: {info.agreement.document_filename}
+                </div>
+              )}
+              <Link
+                to="/aftaler/$id"
+                params={{ id: info.agreement.id }}
+                className="text-primary text-xs hover:underline inline-block mt-2"
+              >
+                Åbn aftalen →
+              </Link>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Aftalen er allerede slettet uden for importhistorikken.
+            </p>
+          )}
+        </Card>
+      )}
+
+      <Card className="p-5 border-destructive/40 bg-destructive/5">
+        <h2 className="font-semibold mb-1 text-destructive flex items-center gap-2">
+          <Trash2 className="h-4 w-4" />
+          {batch.kind === "maskindata" ? "Rul maskindata tilbage" : "Slet aftalen"}
+        </h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          {batch.kind === "maskindata"
+            ? "Genskriver alle berørte lokationer til deres tilstand før importen og sletter lokationer der blev oprettet under importen."
+            : "Sletter aftalen og dens uploadede dokument permanent. Virksomheder beholder deres customer_segment_1-felt."}
+        </p>
+        <Button variant="destructive" size="sm" onClick={() => setConfirm(true)} disabled={deleting}>
+          <Trash2 className="h-4 w-4 mr-2" />
+          {batch.kind === "maskindata" ? "Rul importen tilbage" : "Slet aftalen"}
+        </Button>
+      </Card>
+
+      <AlertDialog open={confirm} onOpenChange={(o) => !o && !deleting && setConfirm(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {batch.kind === "maskindata" ? "Rul maskindata-import tilbage?" : "Slet aftalen?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {batch.kind === "maskindata"
+                ? "Alle equipment-felter på de berørte lokationer genskrives til deres tilstand før importen. Dette kan ikke fortrydes."
+                : "Aftalen og dens uploadede dokument slettes permanent. Dette kan ikke fortrydes."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annullér</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                runDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Arbejder…" : "Bekræft"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// -------------------- Virksomhedsbatch-detalje (uændret) --------------------
 
 function BatchDetalje({ batchId, onBack }: { batchId: string; onBack: () => void }) {
   const fetchBreakdown = useServerFn(getImportBatchBreakdown);
