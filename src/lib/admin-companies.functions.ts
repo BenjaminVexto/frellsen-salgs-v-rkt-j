@@ -1303,7 +1303,7 @@ export const deleteImportBatch = createServerFn({ method: "POST" })
       for (const snap of payload.snapshot ?? []) {
         const { error: uErr } = await supabaseAdmin
           .from("locations")
-          .update(snap.before)
+          .update(snap.before as any)
           .eq("id", snap.id);
         if (uErr) console.error("Rollback fejl for lokation", snap.id, uErr.message);
       }
