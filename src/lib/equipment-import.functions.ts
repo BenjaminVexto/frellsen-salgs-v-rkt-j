@@ -331,6 +331,38 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       }
     }
 
+    // ---- Snapshot af lokationer FØR opdatering, til rollback ----
+    const SNAPSHOT_FIELDS = [
+      "equipment_frellsen_owned",
+      "equipment_coffee_machines",
+      "equipment_filters",
+      "equipment_cooling",
+      "equipment_service_contracts",
+      "has_lease_agreement",
+      "has_free_loan",
+      "agreement_types",
+      "equipment_summary",
+      "sales_signal",
+      "equipment_updated_at",
+    ];
+    const affectedLocIds = Array.from(usedLocationIds);
+    const snapshot: { id: string; before: Record<string, any> }[] = [];
+    if (affectedLocIds.length) {
+      const CHUNK = 300;
+      for (let i = 0; i < affectedLocIds.length; i += CHUNK) {
+        const slice = affectedLocIds.slice(i, i + CHUNK);
+        const { data: rows, error } = await supabaseAdmin
+          .from("locations")
+          .select(`id, ${SNAPSHOT_FIELDS.join(", ")}`)
+          .in("id", slice);
+        if (error) throw new Error(error.message);
+        (rows ?? []).forEach((r: any) => {
+          const { id, ...before } = r;
+          snapshot.push({ id, before });
+        });
+      }
+    }
+
     // Bulk update — gruppér efter identisk payload
     if (updates.length) {
       const stable = (o: any): string => JSON.stringify(o, Object.keys(o).sort());
@@ -354,6 +386,7 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
     }
 
     // Inserts
+    const createdIds: string[] = [];
     if (inserts.length) {
       const CHUNK = 300;
       for (let i = 0; i < inserts.length; i += CHUNK) {
@@ -366,8 +399,26 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
           console.error("Equipment insert fejl:", error.message);
           continue;
         }
-        created += (res ?? []).length;
+        const ids = (res ?? []).map((r: any) => r.id);
+        createdIds.push(...ids);
+        created += ids.length;
       }
+    }
+
+    // Registrér batch i importhistorik (til rollback)
+    const totalAffected = snapshot.length + createdIds.length;
+    if (totalAffected > 0) {
+      await supabaseAdmin.from("import_batches").insert({
+        kind: "maskindata",
+        filename: `Maskindata-import (${data.rentalRows.length} leje/udlån + ${data.serviceRows.length} service)`,
+        created_by: context.userId,
+        company_count: 0,
+        item_count: totalAffected,
+        payload: {
+          snapshot,
+          created_location_ids: createdIds,
+        } as any,
+      });
     }
 
     return {
