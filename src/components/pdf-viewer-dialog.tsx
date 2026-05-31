@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Download, X, FileText } from "lucide-react";
 
@@ -13,28 +13,24 @@ interface Props {
 }
 
 export function PDFViewerDialog({ open, onClose, filename, fetcher }: Props) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const [pdfContentType, setPdfContentType] = useState<string>("application/pdf");
   const [serverFilename, setServerFilename] = useState<string>(filename);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    let url: string | null = null;
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setBlobUrl(null);
+    setPdfBase64(null);
 
     fetcher()
       .then((r) => {
         if (cancelled) return;
-        const bytes = atob(r.base64);
-        const arr = new Uint8Array(bytes.length);
-        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-        const blob = new Blob([arr], { type: r.content_type });
-        url = URL.createObjectURL(blob);
-        setBlobUrl(url);
+        setPdfBase64(r.base64);
+        setPdfContentType(r.content_type || "application/pdf");
         setServerFilename(r.filename || filename);
       })
       .catch((e: unknown) => {
@@ -45,37 +41,41 @@ export function PDFViewerDialog({ open, onClose, filename, fetcher }: Props) {
 
     return () => {
       cancelled = true;
-      if (url) {
-        const u = url;
-        setTimeout(() => URL.revokeObjectURL(u), 1000);
-      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const handleDownload = async () => {
     try {
-      let url = blobUrl;
+      let base64 = pdfBase64;
       let name = serverFilename;
-      if (!url) {
+      let contentType = pdfContentType;
+
+      if (!base64) {
         const r = await fetcher();
-        const bytes = atob(r.base64);
-        const arr = new Uint8Array(bytes.length);
-        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-        const blob = new Blob([arr], { type: r.content_type });
-        url = URL.createObjectURL(blob);
+        base64 = r.base64;
         name = r.filename || filename;
+        contentType = r.content_type || "application/pdf";
       }
+
+      const bytes = atob(base64);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      const blob = new Blob([arr], { type: contentType });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = name || filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
       // ignore
     }
   };
+
+  const dataUrl = pdfBase64 ? `data:application/pdf;base64,${pdfBase64}` : null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -83,6 +83,10 @@ export function PDFViewerDialog({ open, onClose, filename, fetcher }: Props) {
         className="max-w-4xl w-[95vw] h-[85vh] p-0 flex flex-col gap-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
+        <DialogTitle className="sr-only">{serverFilename || filename}</DialogTitle>
+        <DialogDescription className="sr-only">
+          PDF-visning af dokumentet {serverFilename || filename} med mulighed for download.
+        </DialogDescription>
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b">
           <div className="flex items-center gap-2 min-w-0">
             <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -111,12 +115,22 @@ export function PDFViewerDialog({ open, onClose, filename, fetcher }: Props) {
                 <Download className="h-4 w-4 mr-1.5" /> Download
               </Button>
             </div>
-          ) : blobUrl ? (
-            <iframe
-              src={blobUrl}
-              title={serverFilename || filename}
-              className="w-full h-full border-0"
-            />
+          ) : dataUrl ? (
+            <object
+              data={dataUrl}
+              type="application/pdf"
+              aria-label={serverFilename || filename}
+              className="w-full h-full"
+            >
+              <div className="h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Din browser kan ikke vise PDF&apos;en direkte.
+                </p>
+                <Button size="sm" onClick={handleDownload}>
+                  <Download className="h-4 w-4 mr-1.5" /> Download
+                </Button>
+              </div>
+            </object>
           ) : null}
         </div>
       </DialogContent>
