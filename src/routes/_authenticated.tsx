@@ -64,7 +64,6 @@ function AuthenticatedLayout() {
   const navItems = [
     { to: "/dashboard", label: "Mit overblik", shortLabel: "Overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", shortLabel: "Firmaer", icon: Building2 },
-    { to: "/salgsintelligens", label: "Salgsintelligens", shortLabel: "Intel", icon: BrainCircuit },
     { to: "/aftaler", label: "Aftaler", shortLabel: "Aftaler", icon: FileText },
     { to: "/kontaktlister", label: "Kontaktlister", shortLabel: "Lister", icon: ListChecks },
     { to: "/konkurrenter", label: "Konkurrenter", shortLabel: "Konkur.", icon: ShieldAlert },
@@ -72,6 +71,7 @@ function AuthenticatedLayout() {
   ];
 
   const adminItems = [
+    { to: "/salgsintelligens", label: "Salgsintelligens", icon: BrainCircuit },
     { to: "/admin/import", label: "Import", icon: Upload },
     { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
@@ -186,7 +186,7 @@ function AuthenticatedLayout() {
         <Outlet />
         {/* Mobile bottom nav */}
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-5 z-20"
+          className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-6 z-20"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           {navItems.map((item) => {
