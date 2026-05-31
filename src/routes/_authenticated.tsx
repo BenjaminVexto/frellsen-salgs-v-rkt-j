@@ -64,7 +64,6 @@ function AuthenticatedLayout() {
   const navItems = [
     { to: "/dashboard", label: "Mit overblik", shortLabel: "Overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", shortLabel: "Firmaer", icon: Building2 },
-    { to: "/salgsintelligens", label: "Salgsintelligens", shortLabel: "Intel", icon: BrainCircuit },
     { to: "/aftaler", label: "Aftaler", shortLabel: "Aftaler", icon: FileText },
     { to: "/kontaktlister", label: "Kontaktlister", shortLabel: "Lister", icon: ListChecks },
     { to: "/konkurrenter", label: "Konkurrenter", shortLabel: "Konkur.", icon: ShieldAlert },
@@ -72,6 +71,7 @@ function AuthenticatedLayout() {
   ];
 
   const adminItems = [
+    { to: "/salgsintelligens", label: "Salgsintelligens", icon: BrainCircuit },
     { to: "/admin/import", label: "Import", icon: Upload },
     { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
