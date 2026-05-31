@@ -71,7 +71,7 @@ function AuthenticatedLayout() {
   ];
 
   const adminItems = [
-    { to: "/salgsintelligens", label: "Salgsintelligens", icon: BrainCircuit },
+    { to: "/salgsintelligens", label: "Salgsintelligens", icon: Lightbulb },
     { to: "/admin/import", label: "Import", icon: Upload },
     { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
