@@ -73,14 +73,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Frellsen Salg" },
+      { name: "description", content: "Nyt arbejdsværktøj" },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Frellsen Salg" },
+      { property: "og:description", content: "Nyt arbejdsværktøj" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Frellsen Salg" },
+      { name: "twitter:description", content: "Nyt arbejdsværktøj" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4417895b-23d8-4846-8ff4-bed41cf9a83a/id-preview-b2f27393--b71c8e7d-6902-4ef2-ab3f-38be7c88bb6d.lovable.app-1780255276459.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4417895b-23d8-4846-8ff4-bed41cf9a83a/id-preview-b2f27393--b71c8e7d-6902-4ef2-ab3f-38be7c88bb6d.lovable.app-1780255276459.png" },
     ],
     links: [
       {
