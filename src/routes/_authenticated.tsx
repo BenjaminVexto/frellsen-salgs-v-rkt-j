@@ -23,7 +23,7 @@ import {
   LogOut,
   Loader2,
   ShieldAlert,
-  BrainCircuit,
+  Lightbulb,
   FileText,
 } from "lucide-react";
 
