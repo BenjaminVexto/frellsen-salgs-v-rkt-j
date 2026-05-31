@@ -445,7 +445,7 @@ function VirksomhedsKort() {
             {company.source && <KV label="Kilde" value={company.source} />}
           </div>
 
-          <AgreementCardSection segment1={(company as any).customer_segment_1 ?? null} />
+          
 
           {((company as any).created_in_visma ||
             company.last_purchase_date ||
