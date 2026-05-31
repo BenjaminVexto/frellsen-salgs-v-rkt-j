@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  BrainCircuit,
+  Lightbulb,
   Download,
   Loader2,
   Phone,
@@ -48,7 +48,11 @@ function SalgsintelligensPage() {
     <div className="px-4 md:px-6 py-6 max-w-[1400px] mx-auto pb-24 md:pb-6">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <BrainCircuit className="h-6 w-6 text-primary" /> Salgsintelligens
+          <span className="relative inline-flex h-6 w-6 items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-warning/30 blur-md animate-pulse" aria-hidden="true" />
+            <Lightbulb className="relative h-6 w-6 text-warning drop-shadow-[0_0_6px_var(--warning)]" />
+          </span>
+          Salgsintelligens
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Find skjulte salgsmuligheder i din portefølje.
