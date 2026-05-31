@@ -445,7 +445,7 @@ function VirksomhedsKort() {
             {company.source && <KV label="Kilde" value={company.source} />}
           </div>
 
-          <AgreementCardSection segment1={(company as any).customer_segment_1 ?? null} />
+          
 
           {((company as any).created_in_visma ||
             company.last_purchase_date ||
@@ -693,8 +693,9 @@ function VirksomhedsKort() {
               />
             </TabsContent>
 
-            {/* FANE: Dokumenter */}
+            {/* FANE: Aftaler */}
             <TabsContent value="aftaler" className="space-y-6 mt-4">
+              <AgreementCardSection segment1={(company as any).customer_segment_1 ?? null} variant="top" />
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
               <div className="border-t border-border" />
               <KonkurrentaftaleSektion companyId={company.id} />
@@ -1307,7 +1308,7 @@ function AddCvrInline({ companyId, onAdded }: { companyId: string; onAdded: (cvr
   );
 }
 
-function AgreementCardSection({ segment1 }: { segment1: string | null }) {
+function AgreementCardSection({ segment1, variant = "panel" }: { segment1: string | null; variant?: "panel" | "top" }) {
   const kp1 = segment1?.match(/^(\d+)/)?.[1] ?? null;
   const getByKp1 = useServerFn(getAgreementByKp1);
   const q = useQuery({
@@ -1321,9 +1322,9 @@ function AgreementCardSection({ segment1 }: { segment1: string | null }) {
   if (!kp1 || !q.data) return null;
   const a = q.data;
   return (
-    <div className="border-t mt-4 pt-4 text-sm">
+    <div className={variant === "top" ? "text-sm" : "border-t mt-4 pt-4 text-sm"}>
       <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
-        Aftale
+        Tilknyttet aftale
       </div>
       <Link
         to="/aftaler/$id"
