@@ -23,7 +23,7 @@ import {
   LogOut,
   Loader2,
   ShieldAlert,
-  BrainCircuit,
+  Lightbulb,
   FileText,
 } from "lucide-react";
 
@@ -71,7 +71,7 @@ function AuthenticatedLayout() {
   ];
 
   const adminItems = [
-    { to: "/salgsintelligens", label: "Salgsintelligens", icon: BrainCircuit },
+    { to: "/salgsintelligens", label: "Salgsintelligens", icon: Lightbulb },
     { to: "/admin/import", label: "Import", icon: Upload },
     { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
