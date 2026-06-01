@@ -1008,9 +1008,11 @@ function ImportSide() {
       if (mapping.location_contact_person && mapping.visma_delivery_id) {
         const seenKeys = new Set<string>();
         for (const r of rows) {
-          const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
-          if (!cvr) continue;
-          const companyId = cvrToCompanyId.get(cvr);
+          const compName = mapping.name ? (r[mapping.name] ?? "").trim() : "";
+          const compVismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
+          const k = companyKey(compName, compVismaId);
+          if (!k) continue;
+          const companyId = keyToCompanyId.get(k);
           if (!companyId) continue;
           const delivery = (r[mapping.visma_delivery_id!] ?? "").trim();
           if (!delivery) continue;
