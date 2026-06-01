@@ -433,12 +433,14 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       }
     }
 
-    // Inserts
+    // Inserts (nye lokationer) — behold mapping fra payload til units
     const createdIds: string[] = [];
+    const createdUnitsByLocId = new Map<string, UnitRow[]>();
     if (inserts.length) {
       const CHUNK = 300;
       for (let i = 0; i < inserts.length; i += CHUNK) {
-        const slice = inserts.slice(i, i + CHUNK).map((x) => x.payload);
+        const sliceInserts = inserts.slice(i, i + CHUNK);
+        const slice = sliceInserts.map((x) => x.payload);
         const { data: res, error } = await supabaseAdmin
           .from("locations")
           .insert(slice as any)
@@ -448,10 +450,55 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
           continue;
         }
         const ids = (res ?? []).map((r: any) => r.id);
+        ids.forEach((id: string, idx: number) => {
+          createdUnitsByLocId.set(id, sliceInserts[idx].units);
+        });
         createdIds.push(...ids);
         created += ids.length;
       }
     }
+
+    // ---- Idempotent erstatning af enheds-rækker pr. berørt lokation ----
+    const batchId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? (crypto as any).randomUUID()
+        : null;
+    const allAffectedLocIds = [...affectedLocIds, ...createdIds];
+    if (allAffectedLocIds.length) {
+      const CHUNK_DEL = 300;
+      for (let i = 0; i < allAffectedLocIds.length; i += CHUNK_DEL) {
+        const slice = allAffectedLocIds.slice(i, i + CHUNK_DEL);
+        const { error } = await supabaseAdmin
+          .from("location_equipment_units")
+          .delete()
+          .in("location_id", slice);
+        if (error) console.error("Equipment units delete fejl:", error.message);
+      }
+    }
+
+    // Saml unit-rækker fra updates + nye lokationer
+    const unitRows: Record<string, any>[] = [];
+    for (const u of updates) {
+      for (const unit of u.units) {
+        unitRows.push({ ...unit, location_id: u.id, import_batch_id: batchId });
+      }
+    }
+    for (const [locId, units] of createdUnitsByLocId.entries()) {
+      for (const unit of units) {
+        unitRows.push({ ...unit, location_id: locId, import_batch_id: batchId });
+      }
+    }
+    if (unitRows.length) {
+      const CHUNK_INS = 500;
+      for (let i = 0; i < unitRows.length; i += CHUNK_INS) {
+        const slice = unitRows.slice(i, i + CHUNK_INS);
+        const { error } = await supabaseAdmin
+          .from("location_equipment_units")
+          .insert(slice as any);
+        if (error) console.error("Equipment units insert fejl:", error.message);
+      }
+    }
+
 
     // Registrér batch i importhistorik (til rollback)
     const totalAffected = snapshot.length + createdIds.length;
