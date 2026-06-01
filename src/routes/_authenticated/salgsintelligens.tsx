@@ -38,8 +38,6 @@ function SalgsintelligensPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "mersalg", label: "Flere afdelinger" },
     { key: "tvillinger", label: "Tvillinger" },
-    { key: "sovende", label: "Sovende kunder" },
-    { key: "tidligere", label: "Tidligere kunder" },
   ];
 
   return (
