@@ -285,16 +285,161 @@ function LokationRow({
   );
 }
 
+type EquipmentUnit = {
+  id: string;
+  source: "rental" | "service";
+  is_filter: boolean;
+  machine_type: string | null;
+  serial_no: string | null;
+  sub_location: string | null;
+  agreement_type: string | null;
+  is_free_loan: boolean;
+  has_service_contract: boolean;
+};
+
 function EquipmentBox({ location }: { location: Location }) {
-  const owned = location.equipment_frellsen_owned ?? 0;
-  const service = location.equipment_service_contracts ?? 0;
-  const summary = (location.equipment_summary ?? "").trim();
+  const [units, setUnits] = useState<EquipmentUnit[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [openType, setOpenType] = useState<string | null>(null);
   const signal = (location.sales_signal ?? "").trim();
 
-  // Skjul boks hvis intet udstyr og intet service
-  if (owned === 0 && service === 0) return null;
-  // Skjul boks hvis hverken summary eller signal — men kun hvis owned/service ER 0 (allerede dækket)
-  if (!summary && !signal) return null;
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("location_equipment_units")
+        .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract")
+        .eq("location_id", location.id)
+        .order("is_filter", { ascending: true })
+        .order("machine_type", { ascending: true });
+      if (!cancelled) {
+        setUnits((data ?? []) as EquipmentUnit[]);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.id]);
+
+  if (loading && units === null) {
+    return (
+      <div className="mt-3 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+        Henter udstyr …
+      </div>
+    );
+  }
+  if (!units || units.length === 0) {
+    if (!signal) return null;
+    return (
+      <div className="mt-3 rounded-md border bg-muted/30 p-3">
+        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+          <span>{signal}</span>
+        </div>
+      </div>
+    );
+  }
+
+  const machines = units.filter((u) => !u.is_filter);
+  const filters = units.filter((u) => u.is_filter);
+
+  // Gruppér efter machine_type
+  const groupBy = (list: EquipmentUnit[]) => {
+    const m = new Map<string, EquipmentUnit[]>();
+    for (const u of list) {
+      const k = (u.machine_type ?? "Ukendt").trim() || "Ukendt";
+      const arr = m.get(k) ?? [];
+      arr.push(u);
+      m.set(k, arr);
+    }
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0], "da"));
+  };
+
+  const machineGroups = groupBy(machines);
+  const filterGroups = groupBy(filters);
+  const filtersFreeLoan = filters.some((f) => f.is_free_loan);
+
+  const renderGroup = (
+    type: string,
+    list: EquipmentUnit[],
+    opts: { isFilter?: boolean } = {},
+  ) => {
+    const subLocs = Array.from(
+      new Set(list.map((u) => u.sub_location?.trim()).filter(Boolean) as string[]),
+    );
+    const hasService = list.some((u) => u.has_service_contract);
+    const hasFree = list.some((u) => u.is_free_loan);
+    const key = `${opts.isFilter ? "f" : "m"}::${type}`;
+    const open = openType === key;
+    return (
+      <div key={key} className="rounded-md border bg-background">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpenType(open ? null : key);
+          }}
+          className="w-full flex items-start justify-between gap-2 p-2 text-left hover:bg-muted/40 rounded-md"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+              <span className="truncate">{type}</span>
+              <span className="text-xs text-muted-foreground">×{list.length}</span>
+              {opts.isFilter && (
+                <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-100 border-slate-200 text-xs">
+                  Filteraftale
+                </Badge>
+              )}
+              {!opts.isFilter && hasService && (
+                <Badge className="bg-blue-100 text-blue-900 hover:bg-blue-100 border-blue-200 text-xs">
+                  Serviceaftale
+                </Badge>
+              )}
+              {!opts.isFilter && hasFree && (
+                <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-200 text-xs">
+                  Gratis udlån
+                </Badge>
+              )}
+            </div>
+            {opts.isFilter ? (
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Kundeejet maskine · filter lejet af os
+              </div>
+            ) : (
+              subLocs.length > 0 && (
+                <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {subLocs.join(", ")}
+                </div>
+              )
+            )}
+          </div>
+          {open ? (
+            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+          )}
+        </button>
+        {open && (
+          <ul className="border-t divide-y text-xs">
+            {list.map((u) => {
+              const parts = [
+                u.serial_no ? `Serienr ${u.serial_no}` : "Uden serienr",
+                u.sub_location,
+                u.agreement_type,
+              ].filter(Boolean);
+              return (
+                <li key={u.id} className="px-2 py-1.5 text-muted-foreground">
+                  {parts.join(" · ")}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="mt-3 rounded-md border bg-muted/30 p-3 space-y-2">
@@ -302,24 +447,25 @@ function EquipmentBox({ location }: { location: Location }) {
         <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
         Udstyr (Visma)
       </div>
-      {summary && <div className="text-xs text-muted-foreground">{summary}</div>}
-      <div className="flex flex-wrap gap-1.5">
-        {location.has_lease_agreement && (
-          <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100 border-emerald-200">
-            Leje
-          </Badge>
-        )}
-        {location.has_free_loan && (
-          <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-200">
-            Gratis udlån
-          </Badge>
-        )}
-        {service > 0 && (
-          <Badge className="bg-blue-100 text-blue-900 hover:bg-blue-100 border-blue-200">
-            Serviceaftale
-          </Badge>
-        )}
-      </div>
+
+      {machines.length > 0 ? (
+        <>
+          <div className="space-y-1.5">
+            {machineGroups.map(([type, list]) => renderGroup(type, list))}
+          </div>
+          {filters.length > 0 && (
+            <div className="text-xs text-muted-foreground pl-1">
+              inkl. {filters.length} {filters.length === 1 ? "filter" : "filtre"}
+              {filtersFreeLoan ? " (gratis udlån)" : ""}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="space-y-1.5">
+          {filterGroups.map(([type, list]) => renderGroup(type, list, { isFilter: true }))}
+        </div>
+      )}
+
       {signal && (
         <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
           <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
