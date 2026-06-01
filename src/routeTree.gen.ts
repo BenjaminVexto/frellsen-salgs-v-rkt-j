@@ -28,6 +28,7 @@ import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authenticated/admin.cvr-debug'
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
+import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
 import { Route as AuthenticatedAdminImportMaskindataRouteImport } from './routes/_authenticated/admin.import.maskindata'
 import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authenticated/admin.import.cvr'
@@ -142,6 +143,12 @@ const AuthenticatedAdminImportIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
+const ApiPublicHooksProcessCvrEnrichmentRoute =
+  ApiPublicHooksProcessCvrEnrichmentRouteImport.update({
+    id: '/api/public/hooks/process-cvr-enrichment',
+    path: '/api/public/hooks/process-cvr-enrichment',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedAdminImportVismaRoute =
   AuthenticatedAdminImportVismaRouteImport.update({
     id: '/visma',
@@ -196,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
+  '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRoutesByTo {
@@ -220,6 +228,7 @@ export interface FileRoutesByTo {
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
+  '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/admin/import': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRoutesById {
@@ -247,6 +256,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/_authenticated/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/_authenticated/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
+  '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/_authenticated/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRouteTypes {
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
     | '/admin/import/cvr'
     | '/admin/import/maskindata'
     | '/admin/import/visma'
+    | '/api/public/hooks/process-cvr-enrichment'
     | '/admin/import/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -298,6 +309,7 @@ export interface FileRouteTypes {
     | '/admin/import/cvr'
     | '/admin/import/maskindata'
     | '/admin/import/visma'
+    | '/api/public/hooks/process-cvr-enrichment'
     | '/admin/import'
   id:
     | '__root__'
@@ -324,6 +336,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import/cvr'
     | '/_authenticated/admin/import/maskindata'
     | '/_authenticated/admin/import/visma'
+    | '/api/public/hooks/process-cvr-enrichment'
     | '/_authenticated/admin/import/'
   fileRoutesById: FileRoutesById
 }
@@ -331,6 +344,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ApiPublicHooksProcessCvrEnrichmentRoute: typeof ApiPublicHooksProcessCvrEnrichmentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -468,6 +482,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportIndexRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
+    '/api/public/hooks/process-cvr-enrichment': {
+      id: '/api/public/hooks/process-cvr-enrichment'
+      path: '/api/public/hooks/process-cvr-enrichment'
+      fullPath: '/api/public/hooks/process-cvr-enrichment'
+      preLoaderRoute: typeof ApiPublicHooksProcessCvrEnrichmentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/import/visma': {
       id: '/_authenticated/admin/import/visma'
       path: '/visma'
@@ -576,6 +597,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiPublicHooksProcessCvrEnrichmentRoute:
+    ApiPublicHooksProcessCvrEnrichmentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
