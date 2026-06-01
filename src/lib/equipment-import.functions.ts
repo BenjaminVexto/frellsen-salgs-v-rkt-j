@@ -60,6 +60,21 @@ function simplifyAgreement(s: string): string {
   return t;
 }
 
+// Rydder Visma's "N [tekst]"-format på maskintype-felter (Maskin type G2 i serviceudtræk).
+// Tallet foran er en Visma-gruppeindex og må ALDRIG vises som del af maskintypen.
+// "6 [9100 R&G]" -> "Wittenborg 9100 R&G"
+function cleanMachineType(raw: string): string {
+  const t = (raw || "").trim();
+  if (!t) return "";
+  const m = t.match(/^\d+\s*\[(.+)\]\s*$/);
+  if (m) {
+    const inner = m[1].trim();
+    return /^wittenborg\b/i.test(inner) ? inner : `Wittenborg ${inner}`;
+  }
+  return t;
+}
+
+
 function buildSummary(coffee: number, filters: number, cooling: number, service: number): string {
   const parts: string[] = [];
   if (coffee > 0) parts.push(`${coffee} ${coffee === 1 ? "kaffemaskine" : "kaffemaskiner"}`);
