@@ -163,17 +163,17 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
     const aggs = new Map<string, LocAgg>(); // key: `${fak}||${lev}` (normaliseret)
     const ensure = (fak: string, lev: string): LocAgg => {
       const k = `${fak}||${lev}`;
-      let a = aggs.get(k);
-      if (!a) {
-        a = {
-          fak, lev,
-          coffee: 0, filters: 0, cooling: 0, total: 0, service: 0,
-          freeLoan: false, lease: false,
-          agreementSet: new Set<string>(),
-        };
-        aggs.set(k, a);
-      }
-      return a;
+      const existing = aggs.get(k);
+      if (existing) return existing;
+      const created: LocAgg = {
+        fak, lev,
+        coffee: 0, filters: 0, cooling: 0, total: 0, service: 0,
+        freeLoan: false, lease: false,
+        agreementSet: new Set<string>(),
+        units: [],
+      };
+      aggs.set(k, created);
+      return created;
     };
 
     // --- Fil A ---
@@ -182,17 +182,29 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       const lev = normalizeVismaNo(r.lev);
       if (!lev) continue;
       const a = ensure(fak, lev);
-      const cat = categorize(r.beskrivelse || "");
+      const desc = r.beskrivelse || "";
+      const cat = categorize(desc);
       if (cat === "coffee") a.coffee++;
       else if (cat === "filter") a.filters++;
       else if (cat === "cooling") a.cooling++;
       a.total++;
       const ut = (r.udlanstype || "").toLowerCase();
-      if (FREE_LOAN_TOKENS.some((t) => ut.includes(t))) a.freeLoan = true;
+      const isFree = FREE_LOAN_TOKENS.some((t) => ut.includes(t));
+      if (isFree) a.freeLoan = true;
       if (LEASE_TOKENS.some((t) => ut.includes(t))) a.lease = true;
-      if (r.udlanstype && r.udlanstype.trim()) {
-        a.agreementSet.add(simplifyAgreement(r.udlanstype));
-      }
+      const agreementShort = r.udlanstype && r.udlanstype.trim() ? simplifyAgreement(r.udlanstype) : null;
+      if (agreementShort) a.agreementSet.add(agreementShort);
+      a.units.push({
+        source: "rental",
+        is_filter: isFilterUnit(desc),
+        machine_type: desc.trim() || null,
+        serial_no: r.serienr?.trim() || null,
+        sub_location: r.adresselinje2?.trim() || null,
+        agreement_type: agreementShort,
+        is_free_loan: isFree,
+        has_service_contract: false,
+        varenr: r.varenr?.trim() || null,
+      });
     }
 
     // --- Fil B ---
@@ -202,7 +214,20 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       if (!lev) continue;
       const a = ensure(fak, lev);
       a.service++;
+      const mt = r.maskintype || "";
+      a.units.push({
+        source: "service",
+        is_filter: isFilterUnit(mt),
+        machine_type: mt.trim() || null,
+        serial_no: r.serienr?.trim() || null,
+        sub_location: r.placering?.trim() || null,
+        agreement_type: r.aftaletype?.trim() || null,
+        is_free_loan: false,
+        has_service_contract: true,
+        varenr: null,
+      });
     }
+
 
     if (aggs.size === 0) {
       return { updated: 0, fallbackUpdated: 0, created: 0, unmatched: 0 };
