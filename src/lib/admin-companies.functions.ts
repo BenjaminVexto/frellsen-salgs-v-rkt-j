@@ -1091,97 +1091,58 @@ export const enrichCompaniesFromCvr = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
-
-    const { data: companies } = await supabaseAdmin
-      .from("companies")
-      .select("id, cvr, name")
-      .in("id", data.company_ids)
-      .not("cvr", "is", null);
-
-    if (!companies?.length) return { enriched: 0 };
-
-    const user = process.env.CVR_USERNAME;
-    const pass = process.env.CVR_PASSWORD;
-    if (!user || !pass) throw new Error("CVR credentials mangler");
-    const auth = Buffer.from(`${user}:${pass}`).toString("base64");
-
-    const CHUNK = 500;
-    let enriched = 0;
-
-    for (let i = 0; i < companies.length; i += CHUNK) {
-      const slice = companies.slice(i, i + CHUNK);
-      const cvrs = slice
-        .map((c) => parseInt(c.cvr!, 10))
-        .filter((n) => !Number.isNaN(n));
-
-      const payload = {
-        _source: ["Vrvirksomhed.cvrNummer", "Vrvirksomhed.virksomhedMetadata"],
-        query: { terms: { "Vrvirksomhed.cvrNummer": cvrs } },
-        size: CHUNK,
-      };
-
-      const res = await fetch(
-        "http://distribution.virk.dk/cvr-permanent/virksomhed/_search",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Basic ${auth}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-      if (!res.ok) continue;
-      const json: any = await res.json();
-      const hits = json?.hits?.hits ?? [];
-
-      // Saml enrichment-data for hele chunken
-      const enrichmentRows: any[] = [];
-      for (const hit of hits) {
-        const v = hit._source?.Vrvirksomhed;
-        if (!v) continue;
-        const cvr = String(v.cvrNummer);
-        const company = slice.find((c) => c.cvr === cvr);
-        if (!company) continue;
-        const meta = v.virksomhedMetadata ?? {};
-        enrichmentRows.push({
-          id: company.id,
-          name: company.name,
-          employees:
-            meta.nyesteErstMaanedsbeskaeftigelse?.antalAnsatte ??
-            meta.nyesteMaanedsbeskaeftigelse?.antalAnsatte ??
-            meta.nyesteKvartalsbeskaeftigelse?.antalAnsatte ??
-            meta.nyesteAarsbeskaeftigelse?.antalAnsatte ??
-            null,
-          municipality:
-            meta.nyesteBeliggenhedsadresse?.kommune?.kommuneNavn ?? null,
-          main_branch_code: meta.nyesteHovedbranche?.branchekode ?? null,
-          main_branch_text: meta.nyesteHovedbranche?.branchetekst ?? null,
-          bi_branch_1_code: meta.nyesteBibranche1?.branchekode ?? null,
-          bi_branch_2_code: meta.nyesteBibranche2?.branchekode ?? null,
-          bi_branch_3_code: meta.nyesteBibranche3?.branchekode ?? null,
-          cvr_p_enhed_count: meta.antalPenheder ?? null,
-        });
-      }
-
-      // ÉT bulk upsert for hele chunken
-      if (enrichmentRows.length) {
-        const { error } = await supabaseAdmin
-          .from("companies")
-          .upsert(enrichmentRows, {
-            onConflict: "id",
-            ignoreDuplicates: false,
-          });
-        if (error) {
-          console.error("Enrichment bulk upsert fejl:", error.message);
-        } else {
-          enriched += enrichmentRows.length;
-        }
-      }
-    }
-
-    return { enriched };
+    const { enrichCompaniesByIds } = await import("./cvr-enrichment.server");
+    const res = await enrichCompaniesByIds(data.company_ids);
+    if (res.error) throw new Error(res.error);
+    return { enriched: res.enriched };
   });
+
+// Læg et batch af virksomhedsIDs i kø til baggrundsberigelse.
+// Chunkes i 500 ad gangen — én job-række pr. chunk.
+export const enqueueCvrEnrichment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      company_ids: z.array(z.string().uuid()).min(1).max(50000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const CHUNK = 500;
+    const rows: { company_ids: string[] }[] = [];
+    for (let i = 0; i < data.company_ids.length; i += CHUNK) {
+      rows.push({ company_ids: data.company_ids.slice(i, i + CHUNK) });
+    }
+    if (!rows.length) return { jobs: 0 };
+    const { error } = await supabaseAdmin
+      .from("cvr_enrichment_jobs")
+      .insert(rows as any);
+    if (error) throw new Error(error.message);
+    return { jobs: rows.length };
+  });
+
+// Lille status-opslag til UI-badge.
+export const getCvrEnrichmentQueueStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureAdmin(context.userId);
+    const { data, error } = await supabaseAdmin
+      .from("cvr_enrichment_jobs")
+      .select("status, company_ids")
+      .in("status", ["pending", "processing", "failed"]);
+    if (error) throw new Error(error.message);
+    let pending = 0, processing = 0, failed = 0;
+    for (const r of data ?? []) {
+      const n = Array.isArray((r as any).company_ids)
+        ? (r as any).company_ids.length
+        : 0;
+      if ((r as any).status === "pending") pending += n;
+      else if ((r as any).status === "processing") processing += n;
+      else if ((r as any).status === "failed") failed += n;
+    }
+    return { pending, processing, failed };
+  });
+
 
 // ============================================================
 // Generic import-batch detalje + sletning (maskindata, agreement)
