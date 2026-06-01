@@ -375,18 +375,44 @@ function ImportSide() {
 
   // Trin 3: Forbered rækker + slå dubletter og sælgernumre op
   async function gotoPreview() {
-    // Hent eksisterende CVR'er for at vise dubletter
+    // Hent eksisterende CVR'er (kun for preview-info — CVR er ikke længere dedup-nøgle)
     const cvrs = mapping.cvr
       ? rows.map((r) => normCvr(r[mapping.cvr!])).filter((v): v is string => !!v)
       : [];
-    const unique = Array.from(new Set(cvrs));
+    const uniqueCvrs = Array.from(new Set(cvrs));
     const dupSet = new Set<string>();
-    for (let i = 0; i < unique.length; i += 500) {
-      const slice = unique.slice(i, i + 500);
+    for (let i = 0; i < uniqueCvrs.length; i += 500) {
+      const slice = uniqueCvrs.slice(i, i + 500);
       const { data } = await supabase.from("companies").select("cvr").in("cvr", slice);
       (data ?? []).forEach((d) => { if (d.cvr) dupSet.add(d.cvr); });
     }
     setExistingCvrs(dupSet);
+
+    // Hent eksisterende (navn, visma_id)-par for dedup-tjek.
+    // En "dublet" = eksisterende virksomhed med samme navn og samme Fakt. kunde.
+    // Vi henter pr. visma_id (mindre univers) og bygger nøgler client-side.
+    const keySet = new Set<string>();
+    if (mapping.visma_id && mapping.name) {
+      const vismaIds = Array.from(
+        new Set(
+          rows
+            .map((r) => (r[mapping.visma_id!] ?? "").trim())
+            .filter((v) => !!v),
+        ),
+      );
+      for (let i = 0; i < vismaIds.length; i += 500) {
+        const slice = vismaIds.slice(i, i + 500);
+        const { data } = await supabase
+          .from("companies")
+          .select("name, visma_id")
+          .in("visma_id", slice);
+        (data ?? []).forEach((d: any) => {
+          const k = companyKey(d.name, d.visma_id);
+          if (k) keySet.add(k);
+        });
+      }
+    }
+    setExistingCompanyKeys(keySet);
 
     // Slå navne+postnr op for rækker uden CVR/EAN (soft-match)
     const nameMap = new Map<string, string>();
