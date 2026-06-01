@@ -528,7 +528,8 @@ function ImportSide() {
         seg3.includes("region");
       const isPublic = data.is_public === true || isPublicFromSegment;
       (data as any).is_public = isPublic;
-      const isDuplicate = !!cvr && existingCvrs.has(cvr);
+      const key = companyKey(data.name as string | null, data.visma_id as string | null);
+      const isDuplicate = !!key && existingCompanyKeys.has(key);
       const eanMatchId = null;
       const nameMatchId =
         !cvr && !ean && data.name
