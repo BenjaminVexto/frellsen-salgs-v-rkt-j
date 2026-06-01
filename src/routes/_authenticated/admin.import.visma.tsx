@@ -940,30 +940,22 @@ function ImportSide() {
     }
 
     // 4) Byg lokationsrækker IN-MEMORY (ingen DB-kald).
-    // Model B: kun virksomheder med 2+ leveringsadresser får lokationer.
-    // Primær = den ENE lokation hvor leveringsnr = virksomhedens Visma kundenr.
+    // Gruppér pr. (navn, visma_id) — én virksomhed pr. nøgle, én lokation pr. lev.nr.
+    // Primær = den lokation hvor lev.nr == virksomhedens visma_id (faktKunde).
     const locRows: any[] = [];
     let companiesWithMultipleLocations = 0;
     try {
-      // Map cvr → virksomhedens kundenr (det første visma_id vi har set for denne cvr).
-      // Dette matcher det visma_id der upsertes på companies, så præcis én lokation pr.
-      // virksomhed kan markeres primær.
-      const cvrToCompanyVismaId = new Map<string, string>();
-      for (const p of prepared) {
-        if (!p.cvr) continue;
-        const vid = (p.data as any).visma_id as string | undefined;
-        if (!vid) continue;
-        if (!cvrToCompanyVismaId.has(p.cvr)) cvrToCompanyVismaId.set(p.cvr, vid);
-      }
-
-      type LocRow = { delivery: string; faktKunde: string | null; loc: Record<string, string | null> };
-      const byCvr = new Map<string, LocRow[]>();
+      type LocRow = { delivery: string; loc: Record<string, string | null> };
+      const byKey = new Map<string, { companyId: string; companyKundenr: string; list: LocRow[] }>();
       for (const r of rows) {
-        const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
-        if (!cvr || !cvrToCompanyId.has(cvr)) continue;
+        const name = mapping.name ? (r[mapping.name] ?? "").trim() : "";
+        const vismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
+        const k = companyKey(name, vismaId);
+        if (!k) continue;
+        const companyId = keyToCompanyId.get(k);
+        if (!companyId) continue;
         const delivery = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
         if (!delivery) continue;
-        const faktKunde = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : null;
         const loc: Record<string, string | null> = {
           address: mapping.location_address ? (r[mapping.location_address] ?? "").trim() || null : null,
           zip: mapping.location_zip ? (r[mapping.location_zip] ?? "").trim() || null : null,
@@ -972,16 +964,17 @@ function ImportSide() {
           email: mapping.location_email ? (r[mapping.location_email] ?? "").trim() || null : null,
           contact_person: mapping.location_contact_person ? (r[mapping.location_contact_person] ?? "").trim() || null : null,
         };
-        const list = byCvr.get(cvr) ?? [];
-        if (!list.find((x) => x.delivery === delivery)) list.push({ delivery, faktKunde, loc });
-        byCvr.set(cvr, list);
+        const entry = byKey.get(k) ?? { companyId, companyKundenr: vismaId, list: [] };
+        if (!entry.list.find((x) => x.delivery === delivery)) {
+          entry.list.push({ delivery, loc });
+        }
+        byKey.set(k, entry);
       }
 
-      for (const [cvr, list] of byCvr.entries()) {
-        if (list.length < 2) continue;
-        companiesWithMultipleLocations++;
-        const companyId = cvrToCompanyId.get(cvr)!;
-        const companyKundenr = cvrToCompanyVismaId.get(cvr) ?? null;
+      for (const { companyId, companyKundenr, list } of byKey.values()) {
+        // Opret ALLE lev.nr. som lokationer — også enkelt-lokations virksomheder
+        // (triggeren laver én primær, denne upsert udfylder data/markerer primær korrekt).
+        if (list.length >= 2) companiesWithMultipleLocations++;
         for (const row of list) {
           locRows.push({
             company_id: companyId,
@@ -992,11 +985,10 @@ function ImportSide() {
             phone: row.loc.phone,
             email: row.loc.email,
             contact_person: row.loc.contact_person,
-            is_primary: companyKundenr !== null && row.delivery === companyKundenr,
+            is_primary: !!companyKundenr && row.delivery === companyKundenr,
           });
         }
       }
-
     } catch (e) {
       console.error("Kunne ikke bygge lokationsrækker", e);
     }
