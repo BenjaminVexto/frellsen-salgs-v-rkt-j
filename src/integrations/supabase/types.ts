@@ -662,6 +662,7 @@ export type Database = {
       cvr_enrichment_jobs: {
         Row: {
           attempts: number
+          campaign_id: string | null
           company_ids: string[]
           created_at: string
           enriched_count: number | null
@@ -673,6 +674,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          campaign_id?: string | null
           company_ids: string[]
           created_at?: string
           enriched_count?: number | null
@@ -684,6 +686,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          campaign_id?: string | null
           company_ids?: string[]
           created_at?: string
           enriched_count?: number | null

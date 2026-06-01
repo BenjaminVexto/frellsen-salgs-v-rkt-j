@@ -1,0 +1,2 @@
+ALTER TABLE public.cvr_enrichment_jobs ADD COLUMN IF NOT EXISTS campaign_id uuid;
+CREATE INDEX IF NOT EXISTS cvr_enrichment_jobs_campaign_id_idx ON public.cvr_enrichment_jobs (campaign_id, created_at DESC);
