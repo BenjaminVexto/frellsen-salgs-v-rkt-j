@@ -102,6 +102,7 @@ const RentalRow = z.object({
   udlanstype: z.string().optional().default(""),
   varenr: z.string().optional().default(""),
   serienr: z.string().optional().default(""),
+  adresselinje2: z.string().optional().default(""),
 });
 const ServiceRow = z.object({
   fak: z.union([z.string(), z.number()]).optional().default(""),
@@ -110,7 +111,27 @@ const ServiceRow = z.object({
   serienr: z.string().optional().default(""),
   aftaletype: z.string().optional().default(""),
   status: z.string().optional().default(""),
+  placering: z.string().optional().default(""),
 });
+
+// Unit-level filter klassifikation (uafhængig af gamle FILTER_KEYWORDS)
+const UNIT_FILTER_KEYWORDS = ["brita", "purity", "flowmeter", "iq meter", "filterkurv"];
+function isFilterUnit(text: string): boolean {
+  const s = (text || "").toLowerCase();
+  return UNIT_FILTER_KEYWORDS.some((k) => s.includes(k));
+}
+
+type UnitRow = {
+  source: "rental" | "service";
+  is_filter: boolean;
+  machine_type: string | null;
+  serial_no: string | null;
+  sub_location: string | null;
+  agreement_type: string | null;
+  is_free_loan: boolean;
+  has_service_contract: boolean;
+  varenr: string | null;
+};
 
 type LocAgg = {
   fak: string; // normaliseret
@@ -123,6 +144,7 @@ type LocAgg = {
   freeLoan: boolean;
   lease: boolean;
   agreementSet: Set<string>;
+  units: UnitRow[];
 };
 
 export const processEquipmentImport = createServerFn({ method: "POST" })
@@ -141,17 +163,17 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
     const aggs = new Map<string, LocAgg>(); // key: `${fak}||${lev}` (normaliseret)
     const ensure = (fak: string, lev: string): LocAgg => {
       const k = `${fak}||${lev}`;
-      let a = aggs.get(k);
-      if (!a) {
-        a = {
-          fak, lev,
-          coffee: 0, filters: 0, cooling: 0, total: 0, service: 0,
-          freeLoan: false, lease: false,
-          agreementSet: new Set<string>(),
-        };
-        aggs.set(k, a);
-      }
-      return a;
+      const existing = aggs.get(k);
+      if (existing) return existing;
+      const created: LocAgg = {
+        fak, lev,
+        coffee: 0, filters: 0, cooling: 0, total: 0, service: 0,
+        freeLoan: false, lease: false,
+        agreementSet: new Set<string>(),
+        units: [],
+      };
+      aggs.set(k, created);
+      return created;
     };
 
     // --- Fil A ---
@@ -160,17 +182,29 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       const lev = normalizeVismaNo(r.lev);
       if (!lev) continue;
       const a = ensure(fak, lev);
-      const cat = categorize(r.beskrivelse || "");
+      const desc = r.beskrivelse || "";
+      const cat = categorize(desc);
       if (cat === "coffee") a.coffee++;
       else if (cat === "filter") a.filters++;
       else if (cat === "cooling") a.cooling++;
       a.total++;
       const ut = (r.udlanstype || "").toLowerCase();
-      if (FREE_LOAN_TOKENS.some((t) => ut.includes(t))) a.freeLoan = true;
+      const isFree = FREE_LOAN_TOKENS.some((t) => ut.includes(t));
+      if (isFree) a.freeLoan = true;
       if (LEASE_TOKENS.some((t) => ut.includes(t))) a.lease = true;
-      if (r.udlanstype && r.udlanstype.trim()) {
-        a.agreementSet.add(simplifyAgreement(r.udlanstype));
-      }
+      const agreementShort = r.udlanstype && r.udlanstype.trim() ? simplifyAgreement(r.udlanstype) : null;
+      if (agreementShort) a.agreementSet.add(agreementShort);
+      a.units.push({
+        source: "rental",
+        is_filter: isFilterUnit(desc),
+        machine_type: desc.trim() || null,
+        serial_no: r.serienr?.trim() || null,
+        sub_location: r.adresselinje2?.trim() || null,
+        agreement_type: agreementShort,
+        is_free_loan: isFree,
+        has_service_contract: false,
+        varenr: r.varenr?.trim() || null,
+      });
     }
 
     // --- Fil B ---
@@ -180,7 +214,20 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       if (!lev) continue;
       const a = ensure(fak, lev);
       a.service++;
+      const mt = r.maskintype || "";
+      a.units.push({
+        source: "service",
+        is_filter: isFilterUnit(mt),
+        machine_type: mt.trim() || null,
+        serial_no: r.serienr?.trim() || null,
+        sub_location: r.placering?.trim() || null,
+        agreement_type: r.aftaletype?.trim() || null,
+        is_free_loan: false,
+        has_service_contract: true,
+        varenr: null,
+      });
     }
+
 
     if (aggs.size === 0) {
       return { updated: 0, fallbackUpdated: 0, created: 0, unmatched: 0 };
@@ -246,8 +293,8 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
     let created = 0;
     let unmatched = 0;
 
-    type LocUpdate = { id: string; companyId: string; payload: Record<string, any> };
-    type LocInsert = { payload: Record<string, any> };
+    type LocUpdate = { id: string; companyId: string; payload: Record<string, any>; units: UnitRow[] };
+    type LocInsert = { payload: Record<string, any>; units: UnitRow[] };
     const updates: LocUpdate[] = [];
     const inserts: LocInsert[] = [];
     // Track så samme lokation ikke opdateres dobbelt (Fil A + Fil B aggregeres allerede,
@@ -315,7 +362,7 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
 
       if (loc) {
         usedLocationIds.add(loc.id);
-        updates.push({ id: loc.id, companyId: loc.company_id, payload });
+        updates.push({ id: loc.id, companyId: loc.company_id, payload, units: a.units });
         if (matchKind === "exact") exactUpdated++;
         else fallbackUpdated++;
       } else if (company) {
@@ -327,6 +374,7 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
             visma_delivery_no: a.lev,
             is_primary: false,
           },
+          units: a.units,
         });
       }
     }
@@ -385,12 +433,14 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       }
     }
 
-    // Inserts
+    // Inserts (nye lokationer) — behold mapping fra payload til units
     const createdIds: string[] = [];
+    const createdUnitsByLocId = new Map<string, UnitRow[]>();
     if (inserts.length) {
       const CHUNK = 300;
       for (let i = 0; i < inserts.length; i += CHUNK) {
-        const slice = inserts.slice(i, i + CHUNK).map((x) => x.payload);
+        const sliceInserts = inserts.slice(i, i + CHUNK);
+        const slice = sliceInserts.map((x) => x.payload);
         const { data: res, error } = await supabaseAdmin
           .from("locations")
           .insert(slice as any)
@@ -400,10 +450,55 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
           continue;
         }
         const ids = (res ?? []).map((r: any) => r.id);
+        ids.forEach((id: string, idx: number) => {
+          createdUnitsByLocId.set(id, sliceInserts[idx].units);
+        });
         createdIds.push(...ids);
         created += ids.length;
       }
     }
+
+    // ---- Idempotent erstatning af enheds-rækker pr. berørt lokation ----
+    const batchId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? (crypto as any).randomUUID()
+        : null;
+    const allAffectedLocIds = [...affectedLocIds, ...createdIds];
+    if (allAffectedLocIds.length) {
+      const CHUNK_DEL = 300;
+      for (let i = 0; i < allAffectedLocIds.length; i += CHUNK_DEL) {
+        const slice = allAffectedLocIds.slice(i, i + CHUNK_DEL);
+        const { error } = await supabaseAdmin
+          .from("location_equipment_units")
+          .delete()
+          .in("location_id", slice);
+        if (error) console.error("Equipment units delete fejl:", error.message);
+      }
+    }
+
+    // Saml unit-rækker fra updates + nye lokationer
+    const unitRows: Record<string, any>[] = [];
+    for (const u of updates) {
+      for (const unit of u.units) {
+        unitRows.push({ ...unit, location_id: u.id, import_batch_id: batchId });
+      }
+    }
+    for (const [locId, units] of createdUnitsByLocId.entries()) {
+      for (const unit of units) {
+        unitRows.push({ ...unit, location_id: locId, import_batch_id: batchId });
+      }
+    }
+    if (unitRows.length) {
+      const CHUNK_INS = 500;
+      for (let i = 0; i < unitRows.length; i += CHUNK_INS) {
+        const slice = unitRows.slice(i, i + CHUNK_INS);
+        const { error } = await supabaseAdmin
+          .from("location_equipment_units")
+          .insert(slice as any);
+        if (error) console.error("Equipment units insert fejl:", error.message);
+      }
+    }
+
 
     // Registrér batch i importhistorik (til rollback)
     const totalAffected = snapshot.length + createdIds.length;
@@ -434,6 +529,14 @@ export const resetEquipmentData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
+    // Slet alle enheds-rækker først
+    {
+      const { error } = await supabaseAdmin
+        .from("location_equipment_units")
+        .delete()
+        .not("id", "is", null);
+      if (error) console.error("Equipment units reset fejl:", error.message);
+    }
     const { error, count } = await supabaseAdmin
       .from("locations")
       .update(

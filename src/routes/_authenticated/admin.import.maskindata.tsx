@@ -26,6 +26,7 @@ type RentalRow = {
   udlanstype: string;
   varenr: string;
   serienr: string;
+  adresselinje2: string;
 };
 type ServiceRow = {
   fak: string;
@@ -34,6 +35,7 @@ type ServiceRow = {
   serienr: string;
   aftaletype: string;
   status: string;
+  placering: string;
 };
 
 function readXlsx(file: File): Promise<Record<string, any>[]> {
@@ -64,6 +66,7 @@ function parseRentalRows(rows: Record<string, any>[]): RentalRow[] {
       udlanstype: String(r["Udlånstype (Transgr2)"] ?? "").trim(),
       varenr: String(r["Vare nr"] ?? "").trim(),
       serienr: String(r["SerienrWit"] ?? "").trim(),
+      adresselinje2: String(r["Adresselinje 2"] ?? "").trim(),
     }))
     .filter((r) => r.lev);
 }
@@ -77,6 +80,7 @@ function parseServiceRows(rows: Record<string, any>[]): ServiceRow[] {
       serienr: String(r["Serie.nr."] ?? "").trim(),
       aftaletype: String(r["Aftale Type (G4)"] ?? "").trim(),
       status: String(r["Status"] ?? "").trim(),
+      placering: String(r["Placering"] ?? "").trim(),
     }))
     .filter((r) => r.lev);
 }
