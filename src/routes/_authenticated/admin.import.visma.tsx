@@ -637,6 +637,8 @@ function ImportSide() {
     const sellerByCompany: Record<string, string> = {};
     // Bygges løbende under upsert/update så vi undgår at re-fetche companies bagefter
     const cvrToCompanyId = new Map<string, string>();
+    // Ny: (lower(name), visma_id) → company_id. Bruges af lokations- og kontakt-byggeren.
+    const keyToCompanyId = new Map<string, string>();
 
     const VISMA_OVERWRITE = new Set([
       "visma_id", "visma_delivery_id", "created_in_visma",
@@ -645,37 +647,39 @@ function ImportSide() {
       "visma_notes",
     ]);
 
-    // 1) Hent ALLE eksisterende rækker for berørte CVR'er + name-match-IDs i bulk
-    const cvrsToFetch = Array.from(
-      new Set(toImport.map((p) => p.cvr).filter((v): v is string => !!v)),
-    );
-    const eanMatchIdSet = new Set(
-      toImport.map((p) => p.eanMatchId).filter((v): v is string => !!v),
+    // 1) Hent eksisterende virksomheder via (name, visma_id)-par.
+    // Strategi: hent alle companies for de visma_id'er der optræder i toImport,
+    // og byg så `existingByKey` client-side. Det er færre rækker end at hente på CVR
+    // (mange CSV-rækker pr. visma_id = samme virksomhed).
+    const vismaIdsToFetch = Array.from(
+      new Set(
+        toImport
+          .map((p) => (p.data.visma_id as string | undefined)?.toString().trim())
+          .filter((v): v is string => !!v),
+      ),
     );
     const nameMatchIds = Array.from(
-      new Set([
-        ...toImport.map((p) => p.nameMatchId).filter((v): v is string => !!v),
-        ...eanMatchIdSet,
-      ]),
+      new Set(toImport.map((p) => p.nameMatchId).filter((v): v is string => !!v)),
     );
 
-    const existingByCvr = new Map<string, any>();
+    const existingByKey = new Map<string, any>();
     const existingById = new Map<string, any>();
 
     importRunner.setLabel("Henter eksisterende virksomheder…");
-    for (let i = 0; i < cvrsToFetch.length; i += CHUNK) {
-      const slice = cvrsToFetch.slice(i, i + CHUNK);
+    for (let i = 0; i < vismaIdsToFetch.length; i += CHUNK) {
+      const slice = vismaIdsToFetch.slice(i, i + CHUNK);
       const { data, error } = await supabase
         .from("companies")
         .select("*")
-        .in("cvr", slice);
+        .in("visma_id", slice);
       if (error) {
         toast.error("Kunne ikke hente eksisterende: " + error.message);
         importRunner.fail(progressLabel || "Import afbrudt");
         return;
       }
       (data ?? []).forEach((r: any) => {
-        if (r.cvr) existingByCvr.set(r.cvr, r);
+        const k = companyKey(r.name, r.visma_id);
+        if (k) existingByKey.set(k, r);
         existingById.set(r.id, r);
       });
       await yieldUI();
@@ -695,7 +699,8 @@ function ImportSide() {
       await yieldUI();
     }
 
-    // 2) Klassificér rækker i: upserts m. cvr, updates by id (name-match), pure inserts
+    // 2) Hjælper: merge eksisterende + incoming så vi ikke overskriver felter
+    //    med tomme værdier.
     const buildMerged = (existing: any, incoming: Record<string, any>) => {
       const payload: Record<string, any> = { id: existing.id };
       for (const [k, v] of Object.entries(incoming)) {
@@ -711,9 +716,7 @@ function ImportSide() {
         ? existingSources
         : [...existingSources, importSource];
       payload.source_updated_at = nowIso;
-      // Sikring: NOT NULL-felter skal ALTID være sat i payload'en — ellers
-      // fejler upsert hvis Supabase falder tilbage på INSERT-vejen (fx ved
-      // duplikerede CVR'er i samme batch). Brug eksisterende værdi som fallback.
+      // Sikring: NOT NULL-felter skal være sat.
       if (payload.name == null || payload.name === "") {
         payload.name = existing.name ?? (incoming as any).name ?? "(uden navn)";
       }
@@ -723,186 +726,167 @@ function ImportSide() {
       return payload;
     };
 
+    // 3) Gruppér rækker pr. virksomheds-nøgle. Flere lev.nr.-rækker med samme
+    //    (navn, visma_id) er én virksomhed med flere lokationer.
+    type Group = {
+      key: string | null; // null = ingen nøgle (intet visma_id), behandles individuelt
+      mainRow: typeof toImport[number];
+      sellerId: string | null;
+    };
 
+    // Foretrækker primær-rækken (visma_id == visma_delivery_id, dvs. faktKunde-rækken)
+    // som hovedrække for virksomheden.
+    const isPrimary = (p: typeof toImport[number]): boolean => {
+      const vid = (p.data.visma_id as string | undefined)?.toString().trim();
+      const did = (p.data.visma_delivery_id as string | undefined)?.toString().trim();
+      return !!vid && !!did && vid === did;
+    };
+
+    const groupsByKey = new Map<string, Group>();
+    const ungrouped: Group[] = []; // rækker uden nøgle
+    for (const p of toImport) {
+      const k = companyKey(p.data.name as string, p.data.visma_id as string);
+      if (!k) {
+        ungrouped.push({ key: null, mainRow: p, sellerId: p.matchedSellerId });
+        continue;
+      }
+      const existing = groupsByKey.get(k);
+      if (!existing) {
+        groupsByKey.set(k, { key: k, mainRow: p, sellerId: p.matchedSellerId });
+      } else {
+        // Foretræk primær-rækken som hovedrække
+        if (isPrimary(p) && !isPrimary(existing.mainRow)) {
+          existing.mainRow = p;
+        }
+        // Behold den første ikke-null sellerId
+        if (!existing.sellerId && p.matchedSellerId) existing.sellerId = p.matchedSellerId;
+      }
+    }
+
+    // 4) Klassificér grupper i: updates (eksisterende match) vs. inserts (nye).
+    //    Postgres har ikke unique constraint på (name, visma_id) endnu, så vi
+    //    bruger ikke ON CONFLICT — vi gør lookup → insert/update i stedet.
     type Job =
-      | { kind: "upsert_cvr"; payload: Record<string, any>; sellerId: string | null; isUpdate: boolean; isEnrich: boolean; isNoCvr: boolean }
-      | { kind: "update_id"; id: string; payload: Record<string, any>; sellerId: string | null; isNoCvr: boolean }
-      | { kind: "insert_no_cvr"; payload: Record<string, any>; sellerId: string | null };
+      | { kind: "update_id"; id: string; payload: Record<string, any>; sellerId: string | null; key: string | null; isNewCompany: boolean; isEnrich: boolean }
+      | { kind: "insert_new"; payload: Record<string, any>; sellerId: string | null; key: string | null; isNoCvr: boolean };
 
     const jobs: Job[] = [];
 
-    for (const p of toImport) {
+    const classifyGroup = (g: Group) => {
+      const p = g.mainRow;
       const incoming = stripUndef(p.data) as Record<string, any>;
-      if (p.cvr) {
-        const existing = existingByCvr.get(p.cvr);
+
+      // 1) Primær match: (name, visma_id) — eksisterende virksomhed
+      if (g.key) {
+        const existing = existingByKey.get(g.key);
         if (existing) {
           const merged = buildMerged(existing, incoming);
-          merged.cvr = p.cvr;
           jobs.push({
-            kind: "upsert_cvr",
+            kind: "update_id",
+            id: existing.id,
             payload: merged,
-            sellerId: p.matchedSellerId,
-            isUpdate: true,
+            sellerId: g.sellerId,
+            key: g.key,
+            isNewCompany: false,
             isEnrich: importSource === "cvr",
-            isNoCvr: false,
           });
-        } else {
-          jobs.push({
-            kind: "upsert_cvr",
-            payload: {
-              ...incoming,
-              cvr: p.cvr,
-              sources: [importSource],
-              source_updated_at: nowIso,
-            },
-            sellerId: p.matchedSellerId,
-            isUpdate: false,
-            isEnrich: false,
-            isNoCvr: false,
-          });
+          return;
         }
-      } else if (p.eanMatchId && existingById.has(p.eanMatchId)) {
-        const existing = existingById.get(p.eanMatchId);
-        const merged = buildMerged(existing, incoming);
+        // Ny virksomhed med nøgle
         jobs.push({
-          kind: "update_id",
-          id: existing.id,
-          payload: merged,
-          sellerId: p.matchedSellerId,
+          kind: "insert_new",
+          payload: {
+            ...incoming,
+            sources: [importSource],
+            source_updated_at: nowIso,
+          },
+          sellerId: g.sellerId,
+          key: g.key,
           isNoCvr: !p.cvr,
         });
-      } else if (p.nameMatchId && existingById.has(p.nameMatchId)) {
+        return;
+      }
+
+      // 2) Ingen nøgle: fald tilbage til name-match (samme adfærd som før)
+      if (p.nameMatchId && existingById.has(p.nameMatchId)) {
         const existing = existingById.get(p.nameMatchId);
         const merged = buildMerged(existing, incoming);
         jobs.push({
           kind: "update_id",
           id: existing.id,
           payload: merged,
-          sellerId: p.matchedSellerId,
-          isNoCvr: true,
+          sellerId: g.sellerId,
+          key: null,
+          isNewCompany: false,
+          isEnrich: false,
         });
-      } else {
-        jobs.push({
-          kind: "insert_no_cvr",
-          payload: {
-            ...incoming,
-            cvr: null,
-            source: "csv_uden_cvr",
-            sources: [importSource],
-            source_updated_at: nowIso,
-          },
-          sellerId: p.matchedSellerId,
-        });
+        return;
       }
-    }
 
-    // 3) Eksekvér i batches
-    // Dedupér upserts pr. CVR — Postgres' ON CONFLICT kan ikke ramme samme række
-    // to gange i samme batch, og ét duplikat ville ellers fejle hele chunken.
-    const upsertsRaw = jobs.filter((j) => j.kind === "upsert_cvr") as Extract<Job, { kind: "upsert_cvr" }>[];
-    const upsertsByCvr = new Map<string, Extract<Job, { kind: "upsert_cvr" }>>();
-    let dedupedCvrDuplicates = 0;
-    const isPrimaryRow = (j: Extract<Job, { kind: "upsert_cvr" }>) => {
-      const k = j.payload.visma_id;
-      const d = j.payload.visma_delivery_id;
-      return !!k && !!d && String(k).trim() === String(d).trim();
+      // 3) Ingen nøgle, intet match: ny insert
+      jobs.push({
+        kind: "insert_new",
+        payload: {
+          ...incoming,
+          source: p.cvr ? undefined : "csv_uden_cvr",
+          sources: [importSource],
+          source_updated_at: nowIso,
+        },
+        sellerId: g.sellerId,
+        key: null,
+        isNoCvr: !p.cvr,
+      });
     };
-    for (const j of upsertsRaw) {
-      const key = j.payload.cvr as string;
-      const existing = upsertsByCvr.get(key);
-      if (!existing) {
-        upsertsByCvr.set(key, j);
-      } else {
-        dedupedCvrDuplicates++;
-        // Foretræk primær-rækken (Visma Kundenr == Visma Lev.nr) som hovedkort.
-        // Ellers behold den første forekomst.
-        if (isPrimaryRow(j) && !isPrimaryRow(existing)) {
-          upsertsByCvr.set(key, j);
-        }
-      }
-    }
-    const upserts = Array.from(upsertsByCvr.values());
-    if (dedupedCvrDuplicates > 0) {
-      console.warn(`Dedupliceret ${dedupedCvrDuplicates} dublerede CVR-rækker i upload (primær-række valgt til hovedkort)`);
-    }
+
+    for (const g of groupsByKey.values()) classifyGroup(g);
+    for (const g of ungrouped) classifyGroup(g);
+
+    const inserts = jobs.filter((j) => j.kind === "insert_new") as Extract<Job, { kind: "insert_new" }>[];
     const updates = jobs.filter((j) => j.kind === "update_id") as Extract<Job, { kind: "update_id" }>[];
-    const inserts = jobs.filter((j) => j.kind === "insert_no_cvr") as Extract<Job, { kind: "insert_no_cvr" }>[];
 
     const totalBatches =
-      Math.ceil(upserts.length / CHUNK) +
-      Math.ceil(updates.length / CHUNK) +
-      Math.ceil(inserts.length / CHUNK);
+      Math.ceil(inserts.length / CHUNK) +
+      Math.ceil(updates.length / CHUNK);
     let batchIdx = 0;
     let processed = 0;
 
-    const tick = (label: string, doneRows: number) => {
+    const tick = (_label: string, doneRows: number) => {
       batchIdx++;
       processed += doneRows;
-      importRunner.setProgress(Math.round((processed / toImport.length) * 100));
+      const denom = inserts.length + updates.length;
+      importRunner.setProgress(denom ? Math.round((processed / denom) * 100) : 100);
       importRunner.setLabel(
-        `Importerer batch ${batchIdx} af ${totalBatches}… (${processed.toLocaleString("da-DK")} / ${toImport.length.toLocaleString("da-DK")})`,
+        `Importerer batch ${batchIdx} af ${totalBatches}… (${processed.toLocaleString("da-DK")} / ${denom.toLocaleString("da-DK")})`,
       );
     };
 
-    // 3a) Bulk upsert (cvr conflict) — kører server-side via service role
-    for (let i = 0; i < upserts.length; i += CHUNK) {
-      const slice = upserts.slice(i, i + CHUNK);
-      const payloads = slice.map((j) => j.payload);
-      try {
-        const res = await upsertByCvr({ data: { rows: payloads } });
-        const byCvr = new Map(res.results.map((r) => [r.cvr, r.id]));
-        slice.forEach((j) => {
-          const id = j.payload.id ?? byCvr.get(j.payload.cvr);
-          if (id) {
-            companyIds.push(id);
-            if (j.payload.cvr) cvrToCompanyId.set(j.payload.cvr, id);
-            if (j.sellerId) sellerByCompany[id] = j.sellerId;
-            if (j.isUpdate) {
-              updated++;
-              if (j.isEnrich) enriched++;
-            } else {
-              created++;
-            }
-          } else {
-            failed++;
-          }
-        });
-        if (res.failed) failed += res.failed;
-        if (res.errors.length) {
-          toast.error(`Batch fejl: ${res.errors[0]}`);
-        }
-      } catch (e: any) {
-        console.error("Bulk upsert server-fn fejl", e);
-        toast.error(`Batch fejlede (${slice.length} rækker): ${e?.message ?? e}`);
-        failed += slice.length;
-      }
-      tick("upsert", slice.length);
-      await yieldUI();
-    }
-
-    // 3b) Bulk insert (no-cvr nye) — server-side
+    // 5a) Bulk insert af nye virksomheder
     for (let i = 0; i < inserts.length; i += CHUNK) {
       const slice = inserts.slice(i, i + CHUNK);
       const payloads = slice.map((j) => j.payload);
       try {
         const res = await insertNoCvr({ data: { rows: payloads } });
         res.results.forEach((r, idx) => {
+          const j = slice[idx];
           companyIds.push(r.id);
-          const sid = slice[idx]?.sellerId;
-          if (sid) sellerByCompany[r.id] = sid;
+          if (j?.sellerId) sellerByCompany[r.id] = j.sellerId;
+          if (j?.key) keyToCompanyId.set(j.key, r.id);
+          const cvr = (j?.payload as any)?.cvr;
+          if (cvr) cvrToCompanyId.set(String(cvr), r.id);
           created++;
-          noCvrCount++;
+          if (j?.isNoCvr) noCvrCount++;
         });
         if (res.failed) failed += res.failed;
       } catch (e: any) {
         console.error("Bulk insert server-fn fejl", e);
+        toast.error(`Batch fejlede (${slice.length} rækker): ${e?.message ?? e}`);
         failed += slice.length;
       }
       tick("insert", slice.length);
       await yieldUI();
     }
 
-    // 3c) Name-match updates (per id) — server-side
+    // 5b) Bulk update af eksisterende virksomheder (per id)
     for (let i = 0; i < updates.length; i += CHUNK) {
       const slice = updates.slice(i, i + CHUNK);
       try {
@@ -915,11 +899,12 @@ function ImportSide() {
         slice.forEach((j) => {
           if (okSet.has(j.id)) {
             companyIds.push(j.id);
+            if (j.key) keyToCompanyId.set(j.key, j.id);
             const cvr = (j.payload as any)?.cvr;
             if (cvr) cvrToCompanyId.set(String(cvr), j.id);
             if (j.sellerId) sellerByCompany[j.id] = j.sellerId;
             updated++;
-            if (j.isNoCvr) noCvrCount++;
+            if (j.isEnrich) enriched++;
           } else {
             failed++;
           }
@@ -931,6 +916,8 @@ function ImportSide() {
       tick("update", slice.length);
       await yieldUI();
     }
+
+
 
 
 
