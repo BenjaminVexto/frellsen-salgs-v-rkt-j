@@ -529,6 +529,14 @@ export const resetEquipmentData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
+    // Slet alle enheds-rækker først
+    {
+      const { error } = await supabaseAdmin
+        .from("location_equipment_units")
+        .delete()
+        .not("id", "is", null);
+      if (error) console.error("Equipment units reset fejl:", error.message);
+    }
     const { error, count } = await supabaseAdmin
       .from("locations")
       .update(
