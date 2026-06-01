@@ -26,6 +26,7 @@ type RentalRow = {
   udlanstype: string;
   varenr: string;
   serienr: string;
+  adresselinje2: string;
 };
 type ServiceRow = {
   fak: string;
@@ -34,6 +35,7 @@ type ServiceRow = {
   serienr: string;
   aftaletype: string;
   status: string;
+  placering: string;
 };
 
 function readXlsx(file: File): Promise<Record<string, any>[]> {
