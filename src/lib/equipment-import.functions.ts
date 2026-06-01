@@ -102,6 +102,7 @@ const RentalRow = z.object({
   udlanstype: z.string().optional().default(""),
   varenr: z.string().optional().default(""),
   serienr: z.string().optional().default(""),
+  adresselinje2: z.string().optional().default(""),
 });
 const ServiceRow = z.object({
   fak: z.union([z.string(), z.number()]).optional().default(""),
@@ -110,7 +111,27 @@ const ServiceRow = z.object({
   serienr: z.string().optional().default(""),
   aftaletype: z.string().optional().default(""),
   status: z.string().optional().default(""),
+  placering: z.string().optional().default(""),
 });
+
+// Unit-level filter klassifikation (uafhængig af gamle FILTER_KEYWORDS)
+const UNIT_FILTER_KEYWORDS = ["brita", "purity", "flowmeter", "iq meter", "filterkurv"];
+function isFilterUnit(text: string): boolean {
+  const s = (text || "").toLowerCase();
+  return UNIT_FILTER_KEYWORDS.some((k) => s.includes(k));
+}
+
+type UnitRow = {
+  source: "rental" | "service";
+  is_filter: boolean;
+  machine_type: string | null;
+  serial_no: string | null;
+  sub_location: string | null;
+  agreement_type: string | null;
+  is_free_loan: boolean;
+  has_service_contract: boolean;
+  varenr: string | null;
+};
 
 type LocAgg = {
   fak: string; // normaliseret
@@ -123,6 +144,7 @@ type LocAgg = {
   freeLoan: boolean;
   lease: boolean;
   agreementSet: Set<string>;
+  units: UnitRow[];
 };
 
 export const processEquipmentImport = createServerFn({ method: "POST" })
