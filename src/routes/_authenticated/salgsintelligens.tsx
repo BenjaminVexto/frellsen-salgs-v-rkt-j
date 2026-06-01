@@ -38,7 +38,7 @@ function SalgsintelligensPage() {
   const [tab, setTab] = useState<Tab>("mersalg");
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "mersalg", label: "Horisontal mersalg" },
+    { key: "mersalg", label: "Flere afdelinger" },
     { key: "tvillinger", label: "Tvillinger" },
     { key: "sovende", label: "Sovende kunder" },
     { key: "tidligere", label: "Tidligere kunder" },
