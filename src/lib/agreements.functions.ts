@@ -282,17 +282,24 @@ export const listAgreementCompanies = createServerFn({ method: "POST" })
     if (aErr) throw new Error(aErr.message);
     if (!agr?.kp1_code) return [];
     const code = String(agr.kp1_code).trim();
-    const { data: rows, error } = await supabaseAdmin
-      .from("companies")
-      .select(
-        "id, name, city, zip, assigned_to, customer_segment_1, customer_segment_2, last_purchase_date",
-      )
-      .or(
-        `customer_segment_1.eq.${code},customer_segment_1.ilike.${code} %,customer_segment_1.ilike.${code}[%,customer_segment_1.ilike.${code}\t%`,
-      )
-      .order("name", { ascending: true })
-      .limit(5000);
-    if (error) throw new Error(error.message);
+    const PAGE = 1000;
+    const rows: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error } = await supabaseAdmin
+        .from("companies")
+        .select(
+          "id, name, city, zip, assigned_to, customer_segment_1, customer_segment_2, last_purchase_date",
+        )
+        .or(
+          `customer_segment_1.eq.${code},customer_segment_1.ilike.${code} %,customer_segment_1.ilike.${code}[%,customer_segment_1.ilike.${code}\t%`,
+        )
+        .order("name", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(error.message);
+      if (!page?.length) break;
+      rows.push(...page);
+      if (page.length < PAGE) break;
+    }
 
     const sellerIds = Array.from(
       new Set((rows ?? []).map((r: any) => r.assigned_to).filter(Boolean)),
