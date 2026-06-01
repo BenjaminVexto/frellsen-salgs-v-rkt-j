@@ -19,10 +19,8 @@ import {
   Lightbulb,
   Download,
   Loader2,
-  Phone,
   Search,
   TrendingUp,
-  Users,
   AlertTriangle,
 } from "lucide-react";
 import { cvrSearchTwins } from "@/lib/cvr-lookup.functions";
