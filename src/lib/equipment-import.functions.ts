@@ -293,8 +293,8 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
     let created = 0;
     let unmatched = 0;
 
-    type LocUpdate = { id: string; companyId: string; payload: Record<string, any> };
-    type LocInsert = { payload: Record<string, any> };
+    type LocUpdate = { id: string; companyId: string; payload: Record<string, any>; units: UnitRow[] };
+    type LocInsert = { payload: Record<string, any>; units: UnitRow[] };
     const updates: LocUpdate[] = [];
     const inserts: LocInsert[] = [];
     // Track så samme lokation ikke opdateres dobbelt (Fil A + Fil B aggregeres allerede,
@@ -362,7 +362,7 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
 
       if (loc) {
         usedLocationIds.add(loc.id);
-        updates.push({ id: loc.id, companyId: loc.company_id, payload });
+        updates.push({ id: loc.id, companyId: loc.company_id, payload, units: a.units });
         if (matchKind === "exact") exactUpdated++;
         else fallbackUpdated++;
       } else if (company) {
@@ -374,6 +374,7 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
             visma_delivery_no: a.lev,
             is_primary: false,
           },
+          units: a.units,
         });
       }
     }
