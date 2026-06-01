@@ -1256,7 +1256,7 @@ function ImportSide() {
         CSV-eksport fra Visma Debitorliste. Kolonner auto-mappes — du behøver ikke matche manuelt.
       </p>
       <div className="mb-6">
-        <CvrEnrichmentQueueBadge />
+        <CvrEnrichmentQueueBadge variant="compact" />
       </div>
 
       <Stepper step={step} />

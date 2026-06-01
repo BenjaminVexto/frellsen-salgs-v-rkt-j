@@ -1099,6 +1099,8 @@ export const enrichCompaniesFromCvr = createServerFn({ method: "POST" })
 
 // Læg et batch af virksomhedsIDs i kø til baggrundsberigelse.
 // Chunkes i 500 ad gangen — én job-række pr. chunk.
+// Hver enqueue starter en ny "kampagne" (campaign_id), så fremgangslinjen
+// kan vise korrekt procent mod den oprindelige total.
 export const enqueueCvrEnrichment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -1109,38 +1111,105 @@ export const enqueueCvrEnrichment = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
     const CHUNK = 500;
-    const rows: { company_ids: string[] }[] = [];
+    const campaignId = crypto.randomUUID();
+    const rows: { company_ids: string[]; campaign_id: string }[] = [];
     for (let i = 0; i < data.company_ids.length; i += CHUNK) {
-      rows.push({ company_ids: data.company_ids.slice(i, i + CHUNK) });
+      rows.push({
+        company_ids: data.company_ids.slice(i, i + CHUNK),
+        campaign_id: campaignId,
+      });
     }
-    if (!rows.length) return { jobs: 0 };
+    if (!rows.length) return { jobs: 0, campaign_id: campaignId };
     const { error } = await supabaseAdmin
       .from("cvr_enrichment_jobs")
       .insert(rows as any);
     if (error) throw new Error(error.message);
-    return { jobs: rows.length };
+    return { jobs: rows.length, campaign_id: campaignId };
   });
 
-// Lille status-opslag til UI-badge.
+// Status til UI-fremgangslinje: kigger kun på den seneste kampagne, så
+// procenten regnes mod den oprindelige total (antal lagt i kø).
+// "processed" = done + failed, så linjen når 100% når køen er tømt.
 export const getCvrEnrichmentQueueStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
-    const { data, error } = await supabaseAdmin
+    const { data: latest, error: latestErr } = await supabaseAdmin
       .from("cvr_enrichment_jobs")
-      .select("status, company_ids")
-      .in("status", ["pending", "processing", "failed"]);
-    if (error) throw new Error(error.message);
-    let pending = 0, processing = 0, failed = 0;
-    for (const r of data ?? []) {
-      const n = Array.isArray((r as any).company_ids)
-        ? (r as any).company_ids.length
-        : 0;
-      if ((r as any).status === "pending") pending += n;
-      else if ((r as any).status === "processing") processing += n;
-      else if ((r as any).status === "failed") failed += n;
+      .select("campaign_id, created_at")
+      .not("campaign_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestErr) throw new Error(latestErr.message);
+    if (!latest?.campaign_id) {
+      return {
+        campaign_id: null as string | null,
+        total: 0, done: 0, failed: 0, pending: 0, processing: 0,
+        started_at: null as string | null,
+        finished_at: null as string | null,
+      };
     }
-    return { pending, processing, failed };
+    const { data: jobs, error } = await supabaseAdmin
+      .from("cvr_enrichment_jobs")
+      .select("status, company_ids, created_at, finished_at")
+      .eq("campaign_id", latest.campaign_id);
+    if (error) throw new Error(error.message);
+    let total = 0, done = 0, failed = 0, pending = 0, processing = 0;
+    let startedAt: string | null = null;
+    let finishedAt: string | null = null;
+    let allDoneOrFailed = true;
+    for (const r of jobs ?? []) {
+      const n = Array.isArray((r as any).company_ids) ? (r as any).company_ids.length : 0;
+      const s = (r as any).status as string;
+      total += n;
+      if (s === "done") done += n;
+      else if (s === "failed") failed += n;
+      else if (s === "pending") { pending += n; allDoneOrFailed = false; }
+      else if (s === "processing") { processing += n; allDoneOrFailed = false; }
+      const created = (r as any).created_at as string | null;
+      const finished = (r as any).finished_at as string | null;
+      if (created && (!startedAt || created < startedAt)) startedAt = created;
+      if (finished && (!finishedAt || finished > finishedAt)) finishedAt = finished;
+    }
+    return {
+      campaign_id: latest.campaign_id as string,
+      total, done, failed, pending, processing,
+      started_at: startedAt,
+      finished_at: allDoneOrFailed ? finishedAt : null,
+    };
+  });
+
+// Re-køer kun fejlede jobs (3 retries opbrugt) i seneste kampagne.
+// Nulstiller attempts og last_error så worker-cron tager dem igen.
+// Rører IKKE done eller processing jobs.
+export const requeueFailedCvrEnrichment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureAdmin(context.userId);
+    const { data: latest, error: latestErr } = await supabaseAdmin
+      .from("cvr_enrichment_jobs")
+      .select("campaign_id")
+      .not("campaign_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestErr) throw new Error(latestErr.message);
+    if (!latest?.campaign_id) return { requeued: 0 };
+    const { data: updated, error } = await supabaseAdmin
+      .from("cvr_enrichment_jobs")
+      .update({
+        status: "pending",
+        attempts: 0,
+        last_error: null,
+        started_at: null,
+        finished_at: null,
+      })
+      .eq("campaign_id", latest.campaign_id)
+      .eq("status", "failed")
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { requeued: updated?.length ?? 0 };
   });
 
 
