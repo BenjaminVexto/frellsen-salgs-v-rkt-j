@@ -73,8 +73,6 @@ function SalgsintelligensPage() {
 
       {tab === "mersalg" && <HorisontalMersalg />}
       {tab === "tvillinger" && <Tvillinger />}
-      {tab === "sovende" && <SovendeKunder />}
-      {tab === "tidligere" && <TidligereKunder />}
     </div>
   );
 }
