@@ -1144,17 +1144,19 @@ function ImportSide() {
             }
           }
 
-          // CVR-berigelse
+          // CVR-berigelse: læg i server-styret kø (kører via pg_cron)
           if (companyIds.length) {
-            const ENRICH_CHUNK = 500;
-            for (let i = 0; i < companyIds.length; i += ENRICH_CHUNK) {
-              try {
-                await enrichFn({
-                  data: { company_ids: companyIds.slice(i, i + ENRICH_CHUNK) },
-                });
-              } catch (e) {
-                console.error("CVR enrichment fejl:", e);
-              }
+            try {
+              const res = await enqueueEnrich({
+                data: { company_ids: companyIds },
+              });
+              toast.success(
+                `${companyIds.length.toLocaleString("da-DK")} virksomheder lagt i CVR-berigelseskø (${res.jobs} jobs). Køen tømmes automatisk i baggrunden — du kan trygt lukke fanen.`,
+                { duration: 8000 },
+              );
+            } catch (e: any) {
+              console.error("Kunne ikke lægge i CVR-kø:", e);
+              toast.error("Kunne ikke lægge virksomheder i CVR-berigelseskø: " + (e?.message ?? e));
             }
           }
         } catch (e) {
