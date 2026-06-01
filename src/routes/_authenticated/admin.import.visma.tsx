@@ -913,10 +913,21 @@ function ImportSide() {
 
     // 4) Byg lokationsrækker IN-MEMORY (ingen DB-kald).
     // Model B: kun virksomheder med 2+ leveringsadresser får lokationer.
-    // Den række hvor Lev. kund == Fakt. kunde markeres som primær.
+    // Primær = den ENE lokation hvor leveringsnr = virksomhedens Visma kundenr.
     const locRows: any[] = [];
     let companiesWithMultipleLocations = 0;
     try {
+      // Map cvr → virksomhedens kundenr (det første visma_id vi har set for denne cvr).
+      // Dette matcher det visma_id der upsertes på companies, så præcis én lokation pr.
+      // virksomhed kan markeres primær.
+      const cvrToCompanyVismaId = new Map<string, string>();
+      for (const p of prepared) {
+        if (!p.cvr) continue;
+        const vid = (p.data as any).visma_id as string | undefined;
+        if (!vid) continue;
+        if (!cvrToCompanyVismaId.has(p.cvr)) cvrToCompanyVismaId.set(p.cvr, vid);
+      }
+
       type LocRow = { delivery: string; faktKunde: string | null; loc: Record<string, string | null> };
       const byCvr = new Map<string, LocRow[]>();
       for (const r of rows) {
@@ -942,6 +953,7 @@ function ImportSide() {
         if (list.length < 2) continue;
         companiesWithMultipleLocations++;
         const companyId = cvrToCompanyId.get(cvr)!;
+        const companyKundenr = cvrToCompanyVismaId.get(cvr) ?? null;
         for (const row of list) {
           locRows.push({
             company_id: companyId,
@@ -952,10 +964,11 @@ function ImportSide() {
             phone: row.loc.phone,
             email: row.loc.email,
             contact_person: row.loc.contact_person,
-            is_primary: row.faktKunde !== null && row.faktKunde === row.delivery,
+            is_primary: companyKundenr !== null && row.delivery === companyKundenr,
           });
         }
       }
+
     } catch (e) {
       console.error("Kunne ikke bygge lokationsrækker", e);
     }
