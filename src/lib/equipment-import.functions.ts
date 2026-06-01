@@ -230,10 +230,12 @@ export const processEquipmentImport = createServerFn({ method: "POST" })
       const a = ensure(fak, lev);
       a.service++;
       const mt = r.maskintype || "";
+      const mtClean = cleanMachineType(mt);
       a.units.push({
         source: "service",
         is_filter: isFilterUnit(mt),
-        machine_type: mt.trim() || null,
+        machine_type: mtClean || null,
+
         serial_no: r.serienr?.trim() || null,
         sub_location: r.placering?.trim() || null,
         agreement_type: r.aftaletype?.trim() || null,
