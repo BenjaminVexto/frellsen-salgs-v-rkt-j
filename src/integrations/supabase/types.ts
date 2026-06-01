@@ -716,6 +716,62 @@ export type Database = {
         }
         Relationships: []
       }
+      location_equipment_units: {
+        Row: {
+          agreement_type: string | null
+          created_at: string
+          has_service_contract: boolean
+          id: string
+          import_batch_id: string | null
+          is_filter: boolean
+          is_free_loan: boolean
+          location_id: string
+          machine_type: string | null
+          serial_no: string | null
+          source: string
+          sub_location: string | null
+          varenr: string | null
+        }
+        Insert: {
+          agreement_type?: string | null
+          created_at?: string
+          has_service_contract?: boolean
+          id?: string
+          import_batch_id?: string | null
+          is_filter?: boolean
+          is_free_loan?: boolean
+          location_id: string
+          machine_type?: string | null
+          serial_no?: string | null
+          source: string
+          sub_location?: string | null
+          varenr?: string | null
+        }
+        Update: {
+          agreement_type?: string | null
+          created_at?: string
+          has_service_contract?: boolean
+          id?: string
+          import_batch_id?: string | null
+          is_filter?: boolean
+          is_free_loan?: boolean
+          location_id?: string
+          machine_type?: string | null
+          serial_no?: string | null
+          source?: string
+          sub_location?: string | null
+          varenr?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_equipment_units_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null
