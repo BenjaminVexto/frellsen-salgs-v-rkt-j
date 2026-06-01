@@ -133,9 +133,12 @@ function ImporthistorikSide() {
   return (
     <div className="px-4 md:px-8 py-8 max-w-5xl mx-auto pb-24 md:pb-8">
       <h1 className="text-2xl md:text-3xl font-semibold mb-2">Importhistorik</h1>
-      <p className="text-sm text-muted-foreground mb-6">
+      <p className="text-sm text-muted-foreground mb-4">
         Oversigt over alle imports — virksomheder, maskindata og aftaler. Klik på en import for at se og slette.
       </p>
+      <div className="mb-6">
+        <CvrEnrichmentQueueBadge />
+      </div>
 
       <Card className="overflow-x-auto">
         {batches === null ? (
