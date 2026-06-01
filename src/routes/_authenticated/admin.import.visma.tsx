@@ -12,8 +12,10 @@ import {
   importInsertLocations,
   importAssignSellersToCompanies,
   importUpsertContacts,
-  enrichCompaniesFromCvr,
+  enqueueCvrEnrichment,
+  getCvrEnrichmentQueueStatus,
 } from "@/lib/admin-companies.functions";
+import { CvrEnrichmentQueueBadge } from "@/components/cvr-enrichment-queue-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -311,7 +313,8 @@ function ImportSide() {
   const upsertLocations = useServerFn(importInsertLocations);
   const assignSellers = useServerFn(importAssignSellersToCompanies);
   const upsertContacts = useServerFn(importUpsertContacts);
-  const enrichFn = useServerFn(enrichCompaniesFromCvr);
+  const enqueueEnrich = useServerFn(enqueueCvrEnrichment);
+  const fetchQueueStatus = useServerFn(getCvrEnrichmentQueueStatus);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -1142,17 +1145,19 @@ function ImportSide() {
             }
           }
 
-          // CVR-berigelse
+          // CVR-berigelse: læg i server-styret kø (kører via pg_cron)
           if (companyIds.length) {
-            const ENRICH_CHUNK = 500;
-            for (let i = 0; i < companyIds.length; i += ENRICH_CHUNK) {
-              try {
-                await enrichFn({
-                  data: { company_ids: companyIds.slice(i, i + ENRICH_CHUNK) },
-                });
-              } catch (e) {
-                console.error("CVR enrichment fejl:", e);
-              }
+            try {
+              const res = await enqueueEnrich({
+                data: { company_ids: companyIds },
+              });
+              toast.success(
+                `${companyIds.length.toLocaleString("da-DK")} virksomheder lagt i CVR-berigelseskø (${res.jobs} jobs). Køen tømmes automatisk i baggrunden — du kan trygt lukke fanen.`,
+                { duration: 8000 },
+              );
+            } catch (e: any) {
+              console.error("Kunne ikke lægge i CVR-kø:", e);
+              toast.error("Kunne ikke lægge virksomheder i CVR-berigelseskø: " + (e?.message ?? e));
             }
           }
         } catch (e) {
@@ -1247,9 +1252,12 @@ function ImportSide() {
         <ArrowLeft className="h-4 w-4 mr-1" /> Vælg anden importtype
       </Link>
       <h1 className="text-2xl md:text-3xl font-semibold mb-2">Visma-import</h1>
-      <p className="text-sm text-muted-foreground mb-6">
+      <p className="text-sm text-muted-foreground mb-4">
         CSV-eksport fra Visma Debitorliste. Kolonner auto-mappes — du behøver ikke matche manuelt.
       </p>
+      <div className="mb-6">
+        <CvrEnrichmentQueueBadge />
+      </div>
 
       <Stepper step={step} />
 
