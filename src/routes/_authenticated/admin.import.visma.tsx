@@ -15,6 +15,7 @@ import {
   enqueueCvrEnrichment,
   getCvrEnrichmentQueueStatus,
 } from "@/lib/admin-companies.functions";
+import { CvrEnrichmentQueueBadge } from "@/components/cvr-enrichment-queue-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
