@@ -1251,9 +1251,12 @@ function ImportSide() {
         <ArrowLeft className="h-4 w-4 mr-1" /> Vælg anden importtype
       </Link>
       <h1 className="text-2xl md:text-3xl font-semibold mb-2">Visma-import</h1>
-      <p className="text-sm text-muted-foreground mb-6">
+      <p className="text-sm text-muted-foreground mb-4">
         CSV-eksport fra Visma Debitorliste. Kolonner auto-mappes — du behøver ikke matche manuelt.
       </p>
+      <div className="mb-6">
+        <CvrEnrichmentQueueBadge />
+      </div>
 
       <Stepper step={step} />
 
