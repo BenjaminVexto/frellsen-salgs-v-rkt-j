@@ -522,13 +522,25 @@ function ImportSide() {
         }
       }
       const missingCvr = !cvr;
-      const seg3 = String(data.customer_segment_3 ?? "").toLowerCase();
-      const isPublicFromSegment =
-        seg3.includes("offentlig") ||
-        seg3.includes("udbudskunder") ||
-        seg3.includes("aftale kunder") ||
-        seg3.includes("kommune") ||
-        seg3.includes("region");
+      const segCombined = [
+        data.customer_segment_1,
+        data.customer_segment_2,
+        data.customer_segment_3,
+      ]
+        .map((s) => String(s ?? "").toLowerCase())
+        .join(" | ");
+      const PUBLIC_KEYWORDS = [
+        "offentlig",
+        "kommune",
+        "region",
+        "udbud",
+        "aftale kunder",
+        "ski",
+        "statslig",
+        "ministeri",
+        "styrelse",
+      ];
+      const isPublicFromSegment = PUBLIC_KEYWORDS.some((k) => segCombined.includes(k));
       const isPublic = data.is_public === true || isPublicFromSegment;
       (data as any).is_public = isPublic;
       const key = companyKey(data.name as string | null, data.visma_id as string | null);
