@@ -1,67 +1,58 @@
 ## Mål
+Tøm kundekartoteket helt, kør Visma-import på ny, og kør derefter maskindata-import (begge filer) — så systemet afspejler de nyeste udtræk 1:1.
 
-På virksomhedens Lokationer-fane skal hver lokation vise sine maskiner og filtre på enhedsniveau (serienr + sub-placering), grupperet pr. maskintype og talt sammen — i stedet for det nuværende aggregerede "Udstyr (Visma)"-resumé.
+## Vigtigt at vide før vi starter
+Når vi sletter `companies`, ryger følgende afhængige data med (cascade eller via samme rensning):
+- `locations` (inkl. `location_equipment_units`)
+- `contacts`
+- `activities`, `company_briefings`, `company_documents`
+- `contact_list_assignments`
+- `sales_opportunities`, `quotes`
+- `competitor_assignments`
 
-## Datamodel
+Det betyder: noter, aktiviteter, kontaktlister-tildelinger, salgsmuligheder, tilbud, dokumenter og konkurrentaftaler **forsvinder**. Kontaktlisterne (`contact_lists`), konkurrenterne (`competitors`), aftalerne (`agreements`) og brugerne bevares.
 
-**Ny tabel `location_equipment_units`** — én række pr. importeret enhed:
+Hvis det er for hårdt, sig til — så kører vi i stedet ren upsert på `visma_id` uden sletning.
 
-| Felt | Type | Beskrivelse |
-|---|---|---|
-| `id` | uuid PK | |
-| `location_id` | uuid → locations | |
-| `source` | text | `'rental'` (fil A) eller `'service'` (fil B) |
-| `is_filter` | bool | true hvis beskrivelse/maskintype matcher filter-nøgleord |
-| `machine_type` | text | Beskrivelse (fil A) / Maskin type (fil B) |
-| `serial_no` | text | SerienrWit / Serie.nr. (kan være tom) |
-| `sub_location` | text | Adresselinje 2 / Placering — vises som undertekst |
-| `agreement_type` | text | Udlånstype / Aftaletype, kort form |
-| `is_free_loan` | bool | true ved "Leje u/b", "Udlån", "Midlertidigt", "Prøveopsætning" |
-| `has_service_contract` | bool | true for rækker fra service-filen |
-| `varenr` | text | kun fra fil A |
-| `import_batch_id` | uuid | reference til import_batches |
-| `created_at` | timestamptz | |
+## Fremgangsmåde (når du siger go)
 
-**Filter-klassifikation:** `is_filter = true` hvis machine_type (lowercased) indeholder ét af: `brita`, `purity`, `flowmeter`, `iq meter`, `filterkurv`. Alt andet er en maskine. Erstatter den gamle FILTER_KEYWORDS-liste i import-funktionen.
+### Trin 1 — Backup-snapshot (sikkerhedsnet)
+Jeg dumper en CSV med antal pr. tabel før sletning, så vi kan verificere genimporten bagefter:
+- companies, locations, contacts, activities, contact_list_assignments, sales_opportunities, competitor_assignments, location_equipment_units
 
-RLS: samme mønster som `locations` — alle authenticated kan læse; admin sletter; import-koden bruger service role.
+### Trin 2 — Hard reset af kundedata
+Én SQL-kørsel der i rækkefølge tømmer:
+```text
+location_equipment_units → locations → contacts → activities →
+contact_list_assignments → sales_opportunities → quotes →
+competitor_assignments → company_briefings → company_documents →
+companies
+```
+Trigger'en `ensure_primary_location` sikrer at hver ny company automatisk får én lokation = Visma kundenr/leveringsnr ved næste import (den ændring vi lavede tidligere).
 
-## Import-ændringer (`equipment-import.functions.ts` + `admin.import.maskindata.tsx`)
+### Trin 3 — Visma-kundeimport
+Du går til **Admin → Import → Visma-import**, uploader nyeste Visma-CSV og kører importen. Hver række opretter:
+- 1 row i `companies`
+- 1 row i `locations` (automatisk via trigger, så alle har minimum én lokation)
 
-1. **Parser** i `admin.import.maskindata.tsx`: udvid `RentalRow`/`ServiceRow` med `adresselinje2` (fil A) og `placering` (fil B). Felterne læses fra `"Adresselinje 2"` hhv. `"Placering"`.
-2. **Server-fn `processEquipmentImport`**:
-   - Behold eksisterende lokationsmatching pr. `lev` (kundenr) — *lokationsidentitet ændrer sig ikke*.
-   - For hver matchet/oprettet lokation: opbyg listen af enheder fra fil A + fil B med klassifikation ovenfor.
-   - **Idempotent erstatning:** Saml `affectedLocationIds`. Inden insert: `DELETE FROM location_equipment_units WHERE location_id IN (…)`. Derefter bulk-insert nye enheder med `import_batch_id`.
-   - Aggregerede tal på `locations` (equipment_frellsen_owned, equipment_filters osv.) opdateres fortsat som i dag — øvrige skærme afhænger af dem.
-3. **`resetEquipmentData`**: udvides til også at `DELETE FROM location_equipment_units` for alle lokationer.
+### Trin 4 — Maskindata-import (begge filer)
+Du går til **Admin → Import → Maskindata**, uploader begge XLSX-filer (leje/udlån + serviceaftaler) og trykker Importér. Importen er idempotent: den matcher på `Lev. kundenr` → company/location, nulstiller `location_equipment_units` på berørte lokationer, og indsætter enhederne på ny. Adresselinje 2 / Placering gemmes som sub-placering pr. enhed.
 
-## UI-ændringer (`lokationer-sektion.tsx`)
+### Trin 5 — Verifikation
+Jeg kører hurtigt op antal pr. tabel + stikprøver:
+- Antal companies vs. forventet fra Visma-fil
+- Andel companies uden lokation (skal være 0)
+- Antal `location_equipment_units` opdelt på filtre/maskiner
+- 3-5 stikprøver på lokationer hvor vi tidligere så fejl, for at bekræfte at adresselinje 2 / placering vises korrekt på Lokationer-fanen
 
-`EquipmentBox` skrives om:
+## Teknisk (kan springes over)
+- Sletning sker via `supabase--insert`-tool (DELETE) i én samlet transaktion — ikke en migration, da det er data-operation.
+- Visma- og maskindata-import bruger eksisterende serverfunktioner (`processVismaImport`, `processEquipmentImport`); ingen kodeændringer nødvendige.
+- `ensure_primary_location`-trigger er allerede på plads fra tidligere migration (20260601064454_…).
+- Ingen kodeændringer i denne plan — kun data-operationer + manuelle uploads.
 
-1. Hent `location_equipment_units` for åbnet lokation (lazy: kun når rækken foldes ud).
-2. Split i `machines` (is_filter=false) og `filters` (is_filter=true).
-3. **Hvis `machines.length > 0`:**
-   - Gruppér maskiner efter `machine_type` → vis fx `Wittenborg 9100 2xB2C ×6` som overskrift.
-   - Undertekst: unikke `sub_location`-værdier komma-separeret.
-   - Badges pr. gruppe: `Serviceaftale` (hvis nogen i gruppen har `has_service_contract`), `Gratis udlån` (hvis nogen har `is_free_loan`).
-   - Klikbar/foldbar → liste af enkelt-enheder: `Serienr · sub_location · aftaletype`.
-   - Diskret grå footer-linje hvis `filters.length > 0`: `inkl. N filtre (gratis udlån)` (gratis-udlån-noten kun hvis nogen filter har `is_free_loan`).
-4. **Hvis `machines.length === 0` og `filters.length > 0`:**
-   - Vis hvert filter (eller filter-gruppe pr. type) som egen linje med badge `Filteraftale` og tekst `Kundeejet maskine · filter lejet af os`.
-5. Behold eksisterende `sales_signal`-banner (bygges fortsat på de aggregerede tal).
-6. Fjern den gamle "Udstyr (Visma)"-resumé-tekst (`equipment_summary`) — erstattes af den nye visning.
+## Hvad jeg behøver fra dig før Trin 1
+1. Bekræft at du har Visma-CSV'en + de to maskindata-XLSX'er klar lokalt.
+2. Bekræft at du accepterer tab af aktiviteter, noter, kontaktliste-tildelinger, salgsmuligheder, tilbud, dokumenter og konkurrentaftaler.
 
-## Filer der ændres
-
-- `supabase/migrations/<ny>.sql` — opretter `location_equipment_units` + indeks + RLS + GRANTs.
-- `src/lib/equipment-import.functions.ts` — udvid input-skema, klassifikation, idempotent erstatning af enheder, ryd ved reset.
-- `src/routes/_authenticated/admin.import.maskindata.tsx` — udvid `parseRentalRows`/`parseServiceRows` til at læse Adresselinje 2 / Placering.
-- `src/components/lokationer-sektion.tsx` — ny `EquipmentBox` der grupperer pr. maskintype, viser filter-undertekst eller filter-linjer.
-
-## Out of scope
-
-- Ingen ændring af lokations-tabellens identitet (Adresselinje 2 forbliver pr. enhed, ikke pr. lokation).
-- Ingen ændring af salgsintelligens, kontaktlister eller andre skærme der bruger `locations.equipment_*`-felterne.
-- Ingen ny historik for udskiftede enheder — re-import nulstiller blot enhedslisten på berørte lokationer.
+Når du svarer "kør", starter jeg med Trin 1 + 2 og guider dig gennem Trin 3 og 4.
