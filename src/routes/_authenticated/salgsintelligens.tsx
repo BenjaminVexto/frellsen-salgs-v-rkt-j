@@ -38,7 +38,7 @@ function SalgsintelligensPage() {
   const [tab, setTab] = useState<Tab>("mersalg");
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "mersalg", label: "Horisontal mersalg" },
+    { key: "mersalg", label: "Flere afdelinger" },
     { key: "tvillinger", label: "Tvillinger" },
     { key: "sovende", label: "Sovende kunder" },
     { key: "tidligere", label: "Tidligere kunder" },
@@ -139,36 +139,59 @@ function HorisontalMersalg() {
 
   async function analyse() {
     setLoading(true);
-    const { data } = await supabase
-      .from("companies")
-      .select("id, name, city, cvr, cvr_p_enhed_count, assigned_to, locations(count)")
-      .eq("is_public", false)
-      .not("cvr", "is", null)
-      .not("cvr_p_enhed_count", "is", null)
-      .contains("sources", ["visma"])
-      .order("cvr_p_enhed_count", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, name, city, cvr, cvr_p_enhed_count, assigned_to, locations(count)")
+        .eq("is_public", false)
+        .not("cvr", "is", null)
+        .not("cvr_p_enhed_count", "is", null)
+        .contains("sources", ["visma"])
+        .order("cvr_p_enhed_count", { ascending: false })
+        .limit(1000);
 
-    const mapped: MersalgRow[] = ((data ?? []) as any[])
-      .map((c) => {
-        const ourLocations = Array.isArray(c.locations) ? c.locations[0]?.count ?? 0 : 0;
-        const cvrLocations = c.cvr_p_enhed_count ?? 0;
-        return {
-          id: c.id,
-          name: c.name,
-          city: c.city,
-          cvr: c.cvr,
-          ourLocations,
-          cvrLocations,
-          potential: cvrLocations - ourLocations,
-          assigned_to: c.assigned_to,
-        };
-      })
-      .filter((c) => c.potential > 0)
-      .sort((a, b) => b.potential - a.potential);
+      if (error) {
+        toast.error("Kunne ikke hente data: " + error.message);
+        setLoading(false);
+        return;
+      }
 
-    setRows(mapped);
-    setDidAnalyze(true);
-    setLoading(false);
+      const raw = (data ?? []) as any[];
+      if (raw.length === 0) {
+        toast.warning(
+          "Ingen virksomheder er beriget med CVR-data endnu. Kør en Visma-import for at hente antal P-enheder fra CVR.",
+          { duration: 8000 },
+        );
+      }
+
+      const mapped: MersalgRow[] = raw
+        .map((c) => {
+          const ourLocations = Array.isArray(c.locations) ? c.locations[0]?.count ?? 0 : 0;
+          const cvrLocations = c.cvr_p_enhed_count ?? 0;
+          return {
+            id: c.id,
+            name: c.name,
+            city: c.city,
+            cvr: c.cvr,
+            ourLocations,
+            cvrLocations,
+            potential: cvrLocations - ourLocations,
+            assigned_to: c.assigned_to,
+          };
+        })
+        .filter((c) => c.potential > 0)
+        .sort((a, b) => b.potential - a.potential);
+
+      setRows(mapped);
+      setDidAnalyze(true);
+      if (raw.length > 0) {
+        toast.success(`Fandt ${mapped.length} virksomheder med flere afdelinger ifølge CVR.`);
+      }
+    } catch (e: any) {
+      toast.error("Fejl ved analyse: " + (e?.message ?? String(e)));
+    } finally {
+      setLoading(false);
+    }
   }
 
   const filtered = useMemo(
