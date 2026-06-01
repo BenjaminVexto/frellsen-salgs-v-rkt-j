@@ -34,15 +34,24 @@ export async function enrichCompaniesByIds(
 
   for (let i = 0; i < companies.length; i += CHUNK) {
     const slice = companies.slice(i, i + CHUNK);
-    const cvrs = slice
-      .map((c) => parseInt((c.cvr as string) ?? "", 10))
+    // Byg map: cvr -> alle companies med den cvr (kan være mange søsterselskaber)
+    const byCvr = new Map<string, typeof slice>();
+    for (const c of slice) {
+      const key = String(c.cvr ?? "");
+      if (!key) continue;
+      const arr = byCvr.get(key);
+      if (arr) arr.push(c);
+      else byCvr.set(key, [c]);
+    }
+    const cvrs = Array.from(byCvr.keys())
+      .map((s) => parseInt(s, 10))
       .filter((n) => !Number.isNaN(n));
     if (!cvrs.length) continue;
 
     const payload = {
       _source: ["Vrvirksomhed.cvrNummer", "Vrvirksomhed.virksomhedMetadata"],
       query: { terms: { "Vrvirksomhed.cvrNummer": cvrs } },
-      size: CHUNK,
+      size: cvrs.length,
     };
 
     const res = await fetch(CVR_URL, {
@@ -67,12 +76,10 @@ export async function enrichCompaniesByIds(
       const v = hit._source?.Vrvirksomhed;
       if (!v) continue;
       const cvr = String(v.cvrNummer);
-      const company = slice.find((c) => c.cvr === cvr);
-      if (!company) continue;
+      const matches = byCvr.get(cvr);
+      if (!matches?.length) continue;
       const meta = v.virksomhedMetadata ?? {};
-      rows.push({
-        id: company.id,
-        name: company.name,
+      const enrichment = {
         employees:
           meta.nyesteErstMaanedsbeskaeftigelse?.antalAnsatte ??
           meta.nyesteMaanedsbeskaeftigelse?.antalAnsatte ??
@@ -88,7 +95,11 @@ export async function enrichCompaniesByIds(
         bi_branch_3_code: meta.nyesteBibranche3?.branchekode ?? null,
         cvr_p_enhed_count: meta.antalPenheder ?? null,
         source_updated_at: new Date().toISOString(),
-      });
+      };
+      // Én række pr. søsterselskab med samme CVR
+      for (const company of matches) {
+        rows.push({ id: company.id, name: company.name, ...enrichment });
+      }
     }
 
     if (rows.length) {
