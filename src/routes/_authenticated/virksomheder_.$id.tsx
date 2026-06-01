@@ -436,7 +436,11 @@ function VirksomhedsKort() {
           </div>
 
           <div className="border-t mt-4 pt-4 space-y-2 text-sm">
-            {company.industry && <KV label="Branche" value={company.industry} />}
+            {(company as any).main_branch_text ? (
+              <KV label="Branche" value={(company as any).main_branch_text} />
+            ) : (company as any).main_branch_code ? (
+              <KV label="Branchekode" value={(company as any).main_branch_code} />
+            ) : null}
             {company.employees != null && <KV label="Medarbejdere" value={String(company.employees)} />}
             {company.turnover_12m != null && (
               <KV label="Omsætning (12 mdr.)" value={`${Number(company.turnover_12m).toLocaleString("da-DK")} kr.`} />
