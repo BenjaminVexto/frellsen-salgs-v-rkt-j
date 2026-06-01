@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/salgsintelligens")({
   component: SalgsintelligensPage,
 });
 
-type Tab = "mersalg" | "tvillinger" | "sovende" | "tidligere";
+type Tab = "mersalg" | "tvillinger";
 
 function SalgsintelligensPage() {
   const [tab, setTab] = useState<Tab>("mersalg");
