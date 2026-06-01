@@ -659,6 +659,42 @@ export type Database = {
           },
         ]
       }
+      cvr_enrichment_jobs: {
+        Row: {
+          attempts: number
+          company_ids: string[]
+          created_at: string
+          enriched_count: number | null
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          company_ids: string[]
+          created_at?: string
+          enriched_count?: number | null
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          company_ids?: string[]
+          created_at?: string
+          enriched_count?: number | null
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       filter_templates: {
         Row: {
           created_at: string
