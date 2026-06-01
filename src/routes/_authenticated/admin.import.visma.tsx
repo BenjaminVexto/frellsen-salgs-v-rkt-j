@@ -214,6 +214,19 @@ function normEan(v: string | undefined | null): string | null {
   return digits.length >= 8 ? digits : null;
 }
 
+// Virksomheds-nøgle = (lower(name), visma_id). Bruges som dedup-nøgle ved import.
+// Returnerer null hvis navn eller visma_id mangler — så falder vi tilbage til
+// name-match eller insert-uden-nøgle.
+function companyKey(
+  name: string | null | undefined,
+  vismaId: string | null | undefined,
+): string | null {
+  const n = (name ?? "").trim().toLowerCase();
+  const v = (vismaId ?? "").trim();
+  if (!n || !v) return null;
+  return `${n}|${v}`;
+}
+
 type ParsedRow = Record<string, string>;
 
 interface PreparedRow {
