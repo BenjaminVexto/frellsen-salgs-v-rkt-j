@@ -276,49 +276,60 @@ function DashboardPage() {
           emptyText="Ingen aftaler udløber inden for 90 dage."
           loading={expiringDocsQuery.isLoading}
         >
-          {(expiringDocsQuery.data ?? []).map((item) => (
-            <Link
-              key={item.id}
-              to="/virksomheder/$id"
-              params={{ id: item.companyId }}
-              className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
+        {(["customers", "prospects"] as const).map((bucket) => {
+          const items = expiringDocsQuery.data?.[bucket] ?? [];
+          const isCustomers = bucket === "customers";
+          return (
+            <PanelCard
+              key={bucket}
+              title={isCustomers ? "Nuværende kunder – aftaler udløber" : "Potentielle emner – konkurrentaftaler udløber"}
+              icon={<FileText className="h-5 w-5" />}
+              tone={isCustomers ? "default" : "warning"}
+              count={items.length}
+              emptyText={
+                isCustomers
+                  ? "Ingen kundeaftaler udløber inden for 90 dage."
+                  : "Ingen konkurrentaftaler udløber inden for 90 dage."
+              }
+              loading={expiringDocsQuery.isLoading}
             >
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
-                  <span>{item.kind === "doc" ? "📄" : "☕"}</span>
-                  <span className="truncate">{item.companyName}</span>
-                </div>
-                <div className="text-xs text-muted-foreground truncate mt-0.5">
-                  {item.title}
-                </div>
-                <span
-                  className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded mt-1 ${
-                    item.kind === "doc"
-                      ? "bg-success/15 text-success-foreground border border-success/30"
-                      : "bg-warning/15 text-warning-foreground border border-warning/30"
-                  }`}
+              {items.map((item) => (
+                <Link
+                  key={item.id}
+                  to="/virksomheder/$id"
+                  params={{ id: item.companyId }}
+                  className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
                 >
-                  {item.kind === "doc" ? "Vores aftale" : "Konkurrentvindue"}
-                </span>
-              </div>
-              {(() => {
-                const days = Math.ceil(
-                  (parseISO(item.date).getTime() - Date.now()) / 86400000,
-                );
-                const tone =
-                  days <= 14
-                    ? "bg-destructive/15 text-destructive"
-                    : days <= 30
-                      ? "bg-warning/15 text-warning-foreground"
-                      : "bg-success/15 text-success";
-                return (
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap ${tone}`}>
-                    {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
-                  </span>
-                );
-              })()}
-            </Link>
-          ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                      <span>{item.kind === "doc" ? "📄" : "☕"}</span>
+                      <span className="truncate">{item.companyName}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                      {item.title}
+                    </div>
+                  </div>
+                  {(() => {
+                    const days = Math.ceil(
+                      (parseISO(item.date).getTime() - Date.now()) / 86400000,
+                    );
+                    const tone =
+                      days <= 14
+                        ? "bg-destructive/15 text-destructive"
+                        : days <= 30
+                          ? "bg-warning/15 text-warning-foreground"
+                          : "bg-success/15 text-success";
+                    return (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap ${tone}`}>
+                        {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
+                      </span>
+                    );
+                  })()}
+                </Link>
+              ))}
+            </PanelCard>
+          );
+        })}
         </PanelCard>
 
       </div>
