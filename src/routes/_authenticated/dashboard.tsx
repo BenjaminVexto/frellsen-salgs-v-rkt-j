@@ -268,14 +268,6 @@ function DashboardPage() {
           })}
         </PanelCard>
 
-        <PanelCard
-          title="Aftaler der udløber snart"
-          icon={<FileText className="h-5 w-5" />}
-          tone="warning"
-          count={expiringDocsQuery.data?.length ?? 0}
-          emptyText="Ingen aftaler udløber inden for 90 dage."
-          loading={expiringDocsQuery.isLoading}
-        >
         {(["customers", "prospects"] as const).map((bucket) => {
           const items = expiringDocsQuery.data?.[bucket] ?? [];
           const isCustomers = bucket === "customers";
@@ -284,7 +276,7 @@ function DashboardPage() {
               key={bucket}
               title={isCustomers ? "Nuværende kunder – aftaler udløber" : "Potentielle emner – konkurrentaftaler udløber"}
               icon={<FileText className="h-5 w-5" />}
-              tone={isCustomers ? "default" : "warning"}
+              tone={isCustomers ? "success" : "warning"}
               count={items.length}
               emptyText={
                 isCustomers
@@ -330,7 +322,6 @@ function DashboardPage() {
             </PanelCard>
           );
         })}
-        </PanelCard>
 
       </div>
 
