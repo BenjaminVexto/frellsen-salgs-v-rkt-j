@@ -97,17 +97,16 @@ function DashboardPage() {
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-expiring-agreements", userId, auth.role],
+    queryKey: ["dashboard-expiring-agreements", userId],
     queryFn: async () => {
       const in90 = new Date();
       in90.setDate(in90.getDate() + 90);
       const to = in90.toISOString().slice(0, 10);
-      const isAdmin = auth.role === "admin";
 
       const [docsRes, compRes] = await Promise.all([
         supabase
           .from("company_documents")
-          .select("id, filename, document_type, expires_at, company_id, companies(id, name, city, assigned_to)")
+          .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
           .not("expires_at", "is", null)
           .gte("expires_at", today)
           .lte("expires_at", to)
@@ -115,7 +114,7 @@ function DashboardPage() {
         supabase
           .from("competitor_assignments")
           .select(
-            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city, assigned_to)",
+            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
           )
           .not("contract_expires_at", "is", null)
           .gte("contract_expires_at", today)
@@ -126,31 +125,25 @@ function DashboardPage() {
       if (docsRes.error) throw docsRes.error;
       if (compRes.error) throw compRes.error;
 
-      const docs = (docsRes.data ?? [])
-        .filter((d: any) => isAdmin || d.companies?.assigned_to === userId)
-        .map((d: any) => ({
-          kind: "doc" as const,
-          id: `doc-${d.id}`,
-          date: d.expires_at as string,
-          companyId: d.company_id as string,
-          companyName: d.companies?.name ?? "Ukendt",
-          title: d.filename as string,
-          subtitle: d.document_type as string,
-        }));
-      const comps = (compRes.data ?? [])
-        .filter((c: any) => isAdmin || c.companies?.assigned_to === userId)
-        .map((c: any) => ({
-          kind: "competitor" as const,
-          id: `comp-${c.id}`,
-          date: c.contract_expires_at as string,
-          companyId: c.company_id as string,
-          companyName: c.companies?.name ?? "Ukendt",
-          title: c.competitors?.name ?? "Konkurrent",
-          subtitle: "Konkurrentaftale",
-        }));
-      return [...docs, ...comps]
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(0, 10);
+      const customers = (docsRes.data ?? []).map((d: any) => ({
+        kind: "doc" as const,
+        id: `doc-${d.id}`,
+        date: d.expires_at as string,
+        companyId: d.company_id as string,
+        companyName: d.companies?.name ?? "Ukendt",
+        title: d.filename as string,
+        subtitle: d.document_type as string,
+      })).slice(0, 10);
+      const prospects = (compRes.data ?? []).map((c: any) => ({
+        kind: "competitor" as const,
+        id: `comp-${c.id}`,
+        date: c.contract_expires_at as string,
+        companyId: c.company_id as string,
+        companyName: c.companies?.name ?? "Ukendt",
+        title: c.competitors?.name ?? "Konkurrent",
+        subtitle: "Konkurrentaftale",
+      })).slice(0, 10);
+      return { customers, prospects };
     },
   });
 
@@ -275,58 +268,60 @@ function DashboardPage() {
           })}
         </PanelCard>
 
-        <PanelCard
-          title="Aftaler der udløber snart"
-          icon={<FileText className="h-5 w-5" />}
-          tone="warning"
-          count={expiringDocsQuery.data?.length ?? 0}
-          emptyText="Ingen aftaler udløber inden for 90 dage."
-          loading={expiringDocsQuery.isLoading}
-        >
-          {(expiringDocsQuery.data ?? []).map((item) => (
-            <Link
-              key={item.id}
-              to="/virksomheder/$id"
-              params={{ id: item.companyId }}
-              className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
+        {(["customers", "prospects"] as const).map((bucket) => {
+          const items = expiringDocsQuery.data?.[bucket] ?? [];
+          const isCustomers = bucket === "customers";
+          return (
+            <PanelCard
+              key={bucket}
+              title={isCustomers ? "Nuværende kunder – aftaler udløber" : "Potentielle emner – konkurrentaftaler udløber"}
+              icon={<FileText className="h-5 w-5" />}
+              tone={isCustomers ? "success" : "warning"}
+              count={items.length}
+              emptyText={
+                isCustomers
+                  ? "Ingen kundeaftaler udløber inden for 90 dage."
+                  : "Ingen konkurrentaftaler udløber inden for 90 dage."
+              }
+              loading={expiringDocsQuery.isLoading}
             >
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
-                  <span>{item.kind === "doc" ? "📄" : "☕"}</span>
-                  <span className="truncate">{item.companyName}</span>
-                </div>
-                <div className="text-xs text-muted-foreground truncate mt-0.5">
-                  {item.title}
-                </div>
-                <span
-                  className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded mt-1 ${
-                    item.kind === "doc"
-                      ? "bg-success/15 text-success-foreground border border-success/30"
-                      : "bg-warning/15 text-warning-foreground border border-warning/30"
-                  }`}
+              {items.map((item) => (
+                <Link
+                  key={item.id}
+                  to="/virksomheder/$id"
+                  params={{ id: item.companyId }}
+                  className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
                 >
-                  {item.kind === "doc" ? "Vores aftale" : "Konkurrentvindue"}
-                </span>
-              </div>
-              {(() => {
-                const days = Math.ceil(
-                  (parseISO(item.date).getTime() - Date.now()) / 86400000,
-                );
-                const tone =
-                  days <= 14
-                    ? "bg-destructive/15 text-destructive"
-                    : days <= 30
-                      ? "bg-warning/15 text-warning-foreground"
-                      : "bg-success/15 text-success";
-                return (
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap ${tone}`}>
-                    {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
-                  </span>
-                );
-              })()}
-            </Link>
-          ))}
-        </PanelCard>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                      <span>{item.kind === "doc" ? "📄" : "☕"}</span>
+                      <span className="truncate">{item.companyName}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                      {item.title}
+                    </div>
+                  </div>
+                  {(() => {
+                    const days = Math.ceil(
+                      (parseISO(item.date).getTime() - Date.now()) / 86400000,
+                    );
+                    const tone =
+                      days <= 14
+                        ? "bg-destructive/15 text-destructive"
+                        : days <= 30
+                          ? "bg-warning/15 text-warning-foreground"
+                          : "bg-success/15 text-success";
+                    return (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap ${tone}`}>
+                        {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
+                      </span>
+                    );
+                  })()}
+                </Link>
+              ))}
+            </PanelCard>
+          );
+        })}
 
       </div>
 
