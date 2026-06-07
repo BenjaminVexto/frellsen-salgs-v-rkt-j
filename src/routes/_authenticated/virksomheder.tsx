@@ -436,7 +436,7 @@ function VirksomhederListe() {
       filters.zipTo !== "" ||
       filters.lastPurchase.length > 0 ||
       filters.employeeRanges.length > 0 ||
-      filters.sector !== "all"
+      filters.binding !== "all"
     );
   }, [filters]);
 
@@ -781,11 +781,11 @@ function VirksomhederListe() {
                   }
                 />
                 <div>
-                  <Label className="text-xs uppercase text-muted-foreground">Sektor</Label>
+                  <Label className="text-xs uppercase text-muted-foreground">Binding</Label>
                   <Select
-                    value={filters.sector}
+                    value={filters.binding}
                     onValueChange={(v) =>
-                      setFilters((f) => ({ ...f, sector: v as FilterState["sector"] }))
+                      setFilters((f) => ({ ...f, binding: v as FilterState["binding"] }))
                     }
                   >
                     <SelectTrigger className="mt-1">
@@ -793,8 +793,9 @@ function VirksomhederListe() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Alle</SelectItem>
-                      <SelectItem value="private">Private virksomheder</SelectItem>
-                      <SelectItem value="public">Offentlige institutioner</SelectItem>
+                      <SelectItem value="frit_salg">Frit salg</SelectItem>
+                      <SelectItem value="offentlig_aftale">Offentlig aftale</SelectItem>
+                      <SelectItem value="intern_privat">Intern / privat</SelectItem>
                       <SelectItem value="unknown">Ukendt</SelectItem>
                     </SelectContent>
                   </Select>
@@ -917,11 +918,8 @@ function VirksomhederListe() {
                           Ikke tildelt
                         </Badge>
                       )}
-                       {r.is_public && (
-                         <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5 text-[10px] md:text-xs">
-                           Offentlig
-                         </Badge>
-                       )}
+                       <BindingStatusBadge status={r.binding_status} size="sm" />
+                       <CustomerCategoryBadge category={r.customer_category} size="sm" />
                        <CustomerStatusBadge type={r.customer_type} />
 
                     </div>
