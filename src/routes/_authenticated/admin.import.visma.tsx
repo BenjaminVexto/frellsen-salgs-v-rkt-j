@@ -49,6 +49,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { importRunner, useImportRunner } from "@/lib/import-runner";
+import {
+  deriveBindingStatus,
+  deriveCustomerCategory,
+} from "@/lib/customer-segment-mapping";
 
 export const Route = createFileRoute("/_authenticated/admin/import/visma")({
   component: ImportSide,
@@ -552,7 +556,7 @@ function ImportSide() {
         matchedSellerId,
         isDuplicate,
         missingCvr,
-        isPublic,
+        isPublic: (data as any).is_public === true,
         nameMatchId,
         eanMatchId,
         hasError,
