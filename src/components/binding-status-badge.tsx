@@ -24,8 +24,7 @@ export function BindingStatusBadge({
         ? "bg-success/10 text-success border-success/30"
         : "bg-muted text-muted-foreground border-border";
 
-        ? "bg-success/10 text-success border-success/30"
-        : "bg-muted text-muted-foreground border-border";
+
 
   return (
     <Badge
