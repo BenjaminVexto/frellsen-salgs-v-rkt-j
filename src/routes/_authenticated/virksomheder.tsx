@@ -872,8 +872,8 @@ function VirksomhederListe() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm md:text-base">{r.name}</span>
-                        <SourceBadges sources={r.sources} size="sm" />
                       </div>
+
                       <div className="text-xs text-muted-foreground mt-0.5">
                         CVR {r.cvr ?? "—"}
                         {r.city ? ` · ${r.city}` : ""}
@@ -921,8 +921,8 @@ function VirksomhederListe() {
                         </Badge>
                       )}
                        <BindingStatusBadge status={r.binding_status} size="sm" />
-                       <CustomerCategoryBadge category={r.customer_category} size="sm" />
                        <CustomerStatusBadge type={r.customer_type} />
+
 
                     </div>
                   </Link>

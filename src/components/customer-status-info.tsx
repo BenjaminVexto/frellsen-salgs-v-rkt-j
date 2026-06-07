@@ -90,21 +90,50 @@ export function CustomerStatusBadge({
   type,
   variant = "secondary",
   className,
+  showInfoIcon = false,
 }: {
   type: string;
   variant?: "default" | "secondary" | "outline" | "destructive";
   className?: string;
+  showInfoIcon?: boolean;
 }) {
   const def = CUSTOMER_STATUS_DEFS[type as CustomerStatusKey];
+  const badge = (
+    <Badge variant={variant} className={className + " cursor-help"}>
+      {def?.label ?? type}
+    </Badge>
+  );
+  if (!def) {
+    return showInfoIcon ? (
+      <span className="inline-flex items-center gap-1">
+        {badge}
+        <CustomerStatusInfoIcon type={type} />
+      </span>
+    ) : (
+      badge
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1">
-      <Badge variant={variant} className={className}>
-        {def?.label ?? type}
-      </Badge>
-      <CustomerStatusInfoIcon type={type} />
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span onClick={(e) => e.stopPropagation()}>{badge}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs">
+            <span className="font-medium">
+              {def.emoji} {def.label}
+            </span>
+            <br />
+            {def.long}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {showInfoIcon && <CustomerStatusInfoIcon type={type} />}
     </span>
   );
 }
+
 
 export function CustomerStatusLegend({ className }: { className?: string }) {
   const items: CustomerStatusKey[] = [
