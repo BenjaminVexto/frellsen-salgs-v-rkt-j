@@ -830,10 +830,11 @@ function VirksomhedsKort() {
   );
 }
 
-function ActivityRow({ a, locations }: { a: Activity; locations: Location[] }) {
+function ActivityRow({ a, locations, userNames }: { a: Activity; locations: Location[]; userNames: Record<string, string> }) {
   const loc = (a as any).location_id
     ? locations.find((l) => l.id === (a as any).location_id)
     : null;
+  const authorName = (a as any).created_by ? userNames[(a as any).created_by] : null;
   return (
     <div
       id={`activity-${a.id}`}
@@ -865,9 +866,15 @@ function ActivityRow({ a, locations }: { a: Activity; locations: Location[] }) {
             </Badge>
           )}
         </div>
-        <span className="text-xs text-muted-foreground">
-          {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
-        </span>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {authorName && (
+            <span className="inline-flex items-center gap-1">
+              <User className="h-3 w-3" />
+              {authorName}
+            </span>
+          )}
+          <span>{format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}</span>
+        </div>
       </div>
       {a.note && <NoteWithMentions text={a.note} />}
       {(a.next_action || a.next_followup_date) && (
