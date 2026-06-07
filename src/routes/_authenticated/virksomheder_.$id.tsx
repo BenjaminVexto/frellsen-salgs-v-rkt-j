@@ -71,6 +71,8 @@ import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
+import { BindingStatusBadge } from "@/components/binding-status-badge";
+import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
@@ -354,14 +356,13 @@ function VirksomhedsKort() {
             <h1 className="text-xl font-semibold leading-tight">{company.name}</h1>
           </div>
           <SourceBadges sources={(company as any).sources} />
-          {(company as any).is_public && (
-            <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5 mt-2">
-              Offentlig institution
-            </Badge>
-          )}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            <BindingStatusBadge status={(company as any).binding_status} />
+            <CustomerCategoryBadge category={(company as any).customer_category} />
+          </div>
           {company.cvr ? (
             <p className="text-xs text-muted-foreground mb-4 mt-1">CVR {company.cvr}</p>
-          ) : (company as any).is_public ? (
+          ) : ((company as any).binding_status === "offentlig_aftale") ? (
             <div className="mt-2 mb-4 space-y-1 text-xs text-muted-foreground">
               {(company as any).ean_number && <div>EAN {(company as any).ean_number}</div>}
               {(company as any).parent_cvr && (
