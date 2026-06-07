@@ -442,15 +442,36 @@ function VirksomhedsKort() {
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">
                 Tildelt sælger
               </div>
-              <div className="text-sm font-medium truncate mt-0.5">
-                {assignedSellerName ?? (
-                  <span className="text-muted-foreground italic font-normal">
-                    Ikke tildelt
-                  </span>
-                )}
-              </div>
+              {isAdmin ? (
+                <div className="mt-1">
+                  <Select
+                    value={(company as any).assigned_to ?? "__none"}
+                    onValueChange={(v) => reassignSeller(v === "__none" ? null : v)}
+                    disabled={savingAssignee}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Vælg sælger" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Ikke tildelt</SelectItem>
+                      {sellers.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="text-sm font-medium truncate mt-0.5">
+                  {assignedSellerName ?? (
+                    <span className="text-muted-foreground italic font-normal">
+                      Ikke tildelt
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
+
 
 
           <div className="space-y-3 text-sm">
