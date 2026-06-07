@@ -1,90 +1,35 @@
-# Plan: Bindingsmærkat + Kundetype-mærkat
+## Ændringer på /virksomheder → Filtre
 
-## 1. Datamodel (migration)
+### 1. "Binding" → "Kundetype"
+Ren UI-omdøbning. Filterets værdier (Frit salg / Offentlig aftale / Intern-privat / Ukendt) og den underliggende kolonne `binding_status` bevares uændret — det er kun labelen i filterpanelet der ændres.
 
-Tilføj to nye kolonner på `companies` — begge auto-udledt fra `customer_segment_3`, IKKE redigerbare i UI:
+### 2. Maskinstatus — nyt, korrekt filter
+Det nuværende "Maskinstatus" filtrerer på tekstfeltet `companies.customer_segment_2`, som ikke afspejler de maskiner der reelt er uploadet via maskinlister. Det erstattes af et filter der ser på `location_equipment_units` (joinet via `locations.company_id`).
 
-- `binding_status text` — enum-lignende værdier: `offentlig_aftale`, `frit_salg`, `intern_privat`, eller `NULL` (ukendt).
-- `customer_category text` — den rene kategori uden talkode (fx `HoReCa (Hotel, Rest. og Café)`, `Firma Kunder (Almindelige)`).
+**Nyt filter "Maskiner" (multi-select, OR-logik):**
+- Har leje-maskiner — `agreement_type` indeholder "Leje" og `is_free_loan = false`
+- Har gratis udlån — `is_free_loan = true`
+- Har serviceaftale — `has_service_contract = true`
+- Ingen registreret maskine — virksomheden har ingen rækker i `location_equipment_units`
 
-Indeks på `binding_status` til filter. `is_public` beholdes i schema men markeres som deprecated (ikke skrives længere, ikke læses i UI).
+Filteret er additivt: vælger man flere, vises virksomheder der matcher mindst én.
 
-## 2. Mapping (én kilde — nem at udvide)
+**Maskintype (valgfri sekundær filtrering):**
+Et fritekst-søgefelt "Maskintype indeholder…" der matcher på `machine_type` (case-insensitive substring, fx "Bonamat", "Rex-Royal", "Wittenborg"). Grunden er at `machine_type` i dataen er fulde produktnavne (fx "Bonamat B20 HW L/R/2") — der findes ikke en ren kategori-kolonne, så en dropdown med faste typer ville være misvisende. Fritekst er den ærlige løsning indtil maskiner evt. får en kategori.
 
-Ny fil `src/lib/customer-segment-mapping.ts`:
+### Tekniske detaljer
 
-```ts
-// Parser "40 [Offentlige Udbudskunder]" → { code: "40", category: "Offentlige Udbudskunder" }
-// Mapping fra category → binding_status
-export const BINDING_BY_CATEGORY: Record<string, BindingStatus> = {
-  "Offentlige Udbudskunder": "offentlig_aftale",
-  "Offentlige aftale kunder": "offentlig_aftale",
-  "Firma Kunder (Almindelige)": "frit_salg",
-  "Kantinefirmaer": "frit_salg",
-  "HoReCa (Hotel, Rest. og Café)": "frit_salg",
-  "Indkøbsforeninger": "frit_salg",
-  "Koncern og Kædeaftaler": "frit_salg",
-  "Grossister, bagere og andet videresalg": "frit_salg",
-  "Interne": "intern_privat",
-  "Personaleforeninger, kaffeklubber, privatkøb": "intern_privat",
-};
-export function parseSegment3(raw): { category, code }
-export function deriveBinding(raw): BindingStatus | null
-```
+- Filer: kun `src/routes/_authenticated/virksomheder.tsx`.
+- `FilterState`: omdøb intern `machineStatus` → `machines: string[]`, tilføj `machineTypeQuery: string`. `binding` beholder sit navn (kun label ændres).
+- Data-load: efter `rows` er hentet, lav én batched select på `locations(id, company_id)` + `location_equipment_units(location_id, agreement_type, is_free_loan, has_service_contract, machine_type)` for de viste company-ids og byg et `Map<companyId, EquipmentSummary>` i state. EquipmentSummary er pr. virksomhed: `{ hasLeased, hasFreeLoan, hasService, hasAny, machineTypes: string[] }`.
+- Filter-prædikat: erstat `matchesMachineStatus(customer_segment_2,…)` med `matchesMachines(equipmentMap.get(r.id), filters.machines)` + en `machineTypeQuery`-substring-check.
+- Fjern `customer_segment_2` fra select-listen og `Row`-typen hvis det ikke bruges andre steder (det bruges kun her).
+- `DEFAULT_FILTERS`, `isFilterActive`, filter-template apply/save og reset opdateres til de nye felter.
+- Behold bagudkompatibilitet for gemte `filter_templates`: ved load, map evt. gammel `machineStatus` til den nye `machines` (`leased`→"leased", `none`→"none", ellers ignorer).
 
-Faktiske værdier i DB (bekræftet):
-```
-40 [Offentlige Udbudskunder]                   8937  → offentlig_aftale
-45 [Offentlige aftale kunder]                  1514  → offentlig_aftale
-25 [Firma Kunder (Almindelige)]                3495  → frit_salg
-20 [HoReCa (Hotel, Rest. og Café)]              631  → frit_salg
-35 [Indkøbsforeninger]                          494  → frit_salg
-30 [Koncern og Kædeaftaler]                     143  → frit_salg
-15 [Kantinefirmaer]                             141  → frit_salg
-50 [Grossister, bagere og andet videresalg]      60  → frit_salg
-10 [Personaleforeninger, ...privatkøb]          305  → intern_privat
- 5 [Interne]                                     39  → intern_privat
- 1 [Kund-UnderGrp 01]                             6  → NULL (ukendt)
-```
+### Spørgsmål før build
+Du nævnte også "selv ejer". Det findes der ikke et tydeligt signal for i `location_equipment_units` — alle rækker er aftaler (leje / udlån / service). Hvis en virksomhed ejer sin egen maskine, er den typisk slet ikke i listen. Derfor er "Ingen registreret maskine" det tætteste vi kommer — som ofte betyder "ejer selv eller har slet ingen". Skal jeg:
+- (A) bruge "Ingen registreret maskine" som proxy for "ejer selv", eller
+- (B) tilføje et eksplicit "Ejer selv"-felt på virksomheden (kræver migration + manuel pleje)?
 
-## 3. Import (Visma)
-
-I `admin.import.visma.tsx`: ved hver række beregnes `binding_status` + `customer_category` via mapping og skrives på companies. `is_public`-skrivning fjernes. Køres på hver reimport → felterne opdateres altid.
-
-Backfill: UPDATE alle eksisterende rækker via mapping.
-
-## 4. UI-komponenter
-
-Ny `src/components/binding-status-badge.tsx`:
-- `offentlig_aftale` → rød/destructive badge "Offentlig aftale" (advarsel-tone, ikon)
-- `frit_salg` → neutral grøn/success "Frit salg"
-- `intern_privat` → muted "Intern / privat"
-- `null` → render intet
-
-Ny `src/components/customer-category-badge.tsx`:
-- Viser `customer_category` som outline-badge med neutral styling. Intet hvis NULL.
-
-## 5. Visning
-
-Erstat eksisterende `is_public`-rendering (typisk "Offentlig institution"-badge) i:
-- `virksomheder_.$id.tsx` (detalje/kort)
-- `virksomheder.tsx` (liste/søgeresultater) — vis begge badges i hver række
-- `soesterselskaber-sektion.tsx`
-- `salgsintelligens.tsx`
-- `aftaler.index.tsx` / `aftaler.$id.tsx` / `kontaktlister.tsx` / `admin.import.*` — fjern eller skift til `binding_status`
-
-## 6. Filter
-
-I `virksomheder.tsx` (og evt. salgsintelligens): erstat eksisterende "kun offentlige"/is_public-filter med dropdown på `binding_status` (Alle / Offentlig aftale / Frit salg / Intern / privat / Ukendt). `admin-companies.functions.ts` + `agreements.functions.ts` skal acceptere parameteren og filtrere på `binding_status` i stedet for `is_public`.
-
-## 7. Udførelse
-
-1. Migration: tilføj kolonner + indeks.
-2. Tilføj mapping-modul.
-3. Tilføj badge-komponenter.
-4. Opdater Visma-import til at skrive nye felter (fjern is_public-skrivning).
-5. Kør backfill (UPDATE via mapping) i én batch.
-6. Skift alle læse-/filtersteder fra `is_public` til `binding_status`.
-7. Verificér på Vodskov Skole TF (forventet `offentlig_aftale`) og en HoReCa-kunde (`frit_salg` + kategori "HoReCa (Hotel, Rest. og Café)").
-
-Skal jeg køre planen?
+Plan ovenfor antager (A). Sig til hvis du vil have (B) i stedet.

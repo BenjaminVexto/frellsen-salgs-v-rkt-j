@@ -75,7 +75,8 @@ type FilterState = {
   sources: string[];
   assignment: "all" | "unassigned" | "assigned" | "specific";
   assignedToUserId: string;
-  machineStatus: string[];
+  machines: string[];
+  machineTypeQuery: string;
   city: string;
   municipality: string;
   zipFrom: string;
@@ -90,7 +91,8 @@ const DEFAULT_FILTERS: FilterState = {
   sources: [],
   assignment: "all",
   assignedToUserId: "",
-  machineStatus: [],
+  machines: [],
+  machineTypeQuery: "",
   city: "",
   municipality: "",
   zipFrom: "",
@@ -98,6 +100,14 @@ const DEFAULT_FILTERS: FilterState = {
   lastPurchase: [],
   employeeRanges: [],
   binding: "all",
+};
+
+type EquipmentSummary = {
+  hasLeased: boolean;
+  hasFreeLoan: boolean;
+  hasService: boolean;
+  hasAny: boolean;
+  machineTypes: string[];
 };
 
 const customerTypeLabel: Record<string, string> = {
@@ -127,6 +137,9 @@ function VirksomhederListe() {
     new Map(),
   );
   const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null; zip: string | null; visma_delivery_no: string | null }[]>>(
+    new Map(),
+  );
+  const [equipmentMap, setEquipmentMap] = useState<Map<string, EquipmentSummary>>(
     new Map(),
   );
   const [recentIds, setRecentIds] = useState<string[] | null>(null);
@@ -250,6 +263,52 @@ function VirksomhederListe() {
     })();
   }, [rows]);
 
+  // Maskinaftaler pr. virksomhed (fra location_equipment_units via locations)
+  useEffect(() => {
+    if (!rows.length) return;
+    (async () => {
+      const ids = rows.map((r) => r.id);
+      const locToCompany = new Map<string, string>();
+      for (let i = 0; i < ids.length; i += 500) {
+        const slice = ids.slice(i, i + 500);
+        const { data: locs } = await (supabase as any)
+          .from("locations")
+          .select("id, company_id")
+          .in("company_id", slice);
+        (locs ?? []).forEach((l: any) => locToCompany.set(l.id, l.company_id));
+      }
+      const locIds = Array.from(locToCompany.keys());
+      const summary = new Map<string, EquipmentSummary>();
+      for (let i = 0; i < locIds.length; i += 500) {
+        const slice = locIds.slice(i, i + 500);
+        const { data: eq } = await (supabase as any)
+          .from("location_equipment_units")
+          .select("location_id, agreement_type, is_free_loan, has_service_contract, machine_type")
+          .in("location_id", slice);
+        (eq ?? []).forEach((u: any) => {
+          const companyId = locToCompany.get(u.location_id);
+          if (!companyId) return;
+          const cur = summary.get(companyId) ?? {
+            hasLeased: false,
+            hasFreeLoan: false,
+            hasService: false,
+            hasAny: false,
+            machineTypes: [],
+          };
+          cur.hasAny = true;
+          if (u.is_free_loan) cur.hasFreeLoan = true;
+          if (u.has_service_contract) cur.hasService = true;
+          const at = (u.agreement_type ?? "").toLowerCase();
+          if (!u.is_free_loan && /leje/.test(at)) cur.hasLeased = true;
+          if (u.machine_type) cur.machineTypes.push(String(u.machine_type));
+          summary.set(companyId, cur);
+        });
+      }
+      setEquipmentMap(summary);
+    })();
+  }, [rows]);
+
+
   // Sælgere
   useEffect(() => {
     if (!isAdmin) return;
@@ -291,15 +350,16 @@ function VirksomhederListe() {
     loadTemplates();
   }, [isAdmin]);
 
-  const matchesMachineStatus = (val: string | null, modes: string[]) => {
+  const matchesMachines = (
+    eq: EquipmentSummary | undefined,
+    modes: string[],
+  ) => {
     if (!modes.length) return true;
-    const v = (val ?? "").toLowerCase();
-    const hasLeased = /udlån|leje/.test(v);
-    const isEmpty = !v.trim();
     return modes.some((m) => {
-      if (m === "leased") return hasLeased;
-      if (m === "none") return isEmpty;
-      if (m === "unknown") return !isEmpty && !hasLeased;
+      if (m === "leased") return !!eq?.hasLeased;
+      if (m === "free_loan") return !!eq?.hasFreeLoan;
+      if (m === "service") return !!eq?.hasService;
+      if (m === "none") return !eq || !eq.hasAny;
       return false;
     });
   };
@@ -389,8 +449,13 @@ function VirksomhederListe() {
         )
           return false;
       }
-      if (!matchesMachineStatus(r.customer_segment_2, filters.machineStatus))
-        return false;
+      const eq = equipmentMap.get(r.id);
+      if (!matchesMachines(eq, filters.machines)) return false;
+      if (filters.machineTypeQuery.trim()) {
+        const needle = filters.machineTypeQuery.trim().toLowerCase();
+        const types = eq?.machineTypes ?? [];
+        if (!types.some((t) => t.toLowerCase().includes(needle))) return false;
+      }
       if (filters.city && !(r.city ?? "").toLowerCase().includes(filters.city.toLowerCase()))
         return false;
       if (filters.municipality && r.municipality !== filters.municipality)
@@ -411,7 +476,7 @@ function VirksomhederListe() {
       }
       return true;
     });
-  }, [rows, q, filters, assignmentMap, locationMap]);
+  }, [rows, q, filters, assignmentMap, locationMap, equipmentMap]);
 
   // Reset til side 0 når filtre ændrer sig
   useEffect(() => {
@@ -431,7 +496,8 @@ function VirksomhederListe() {
       filters.customerTypes.length > 0 ||
       filters.sources.length > 0 ||
       filters.assignment !== "all" ||
-      filters.machineStatus.length > 0 ||
+      filters.machines.length > 0 ||
+      filters.machineTypeQuery.trim() !== "" ||
       filters.city.trim() !== "" ||
       filters.municipality !== "" ||
       filters.zipFrom !== "" ||
@@ -477,7 +543,15 @@ function VirksomhederListe() {
   const applyTemplate = (tplId: string) => {
     const t = templates.find((x) => x.id === tplId);
     if (!t) return;
-    setFilters({ ...DEFAULT_FILTERS, ...(t.filter_config ?? {}) });
+    const cfg = { ...(t.filter_config ?? {}) } as any;
+    // Bagudkompat: gammelt felt machineStatus → nyt machines
+    if (Array.isArray(cfg.machineStatus) && !cfg.machines) {
+      cfg.machines = cfg.machineStatus.filter((v: string) =>
+        ["leased", "none"].includes(v),
+      );
+      delete cfg.machineStatus;
+    }
+    setFilters({ ...DEFAULT_FILTERS, ...cfg });
     setFiltersOpen(true);
     toast.success(`Skabelon "${t.name}" indlæst`);
   };
@@ -691,18 +765,37 @@ function VirksomhederListe() {
                     </Select>
                   )}
                 </div>
-                <FilterGroup
-                  label="Maskinstatus (segment 2)"
-                  options={[
-                    { v: "none", l: "Har IKKE maskine" },
-                    { v: "leased", l: "Har udlån/leje" },
-                    { v: "unknown", l: "Ukendt" },
-                  ]}
-                  values={filters.machineStatus}
-                  onChange={(v) =>
-                    setFilters((f) => ({ ...f, machineStatus: v }))
-                  }
-                />
+                <div className="space-y-2">
+                  <FilterGroup
+                    label="Maskiner"
+                    options={[
+                      { v: "leased", l: "Har leje-maskiner" },
+                      { v: "free_loan", l: "Har gratis udlån" },
+                      { v: "service", l: "Har serviceaftale" },
+                      { v: "none", l: "Ingen registreret maskine" },
+                    ]}
+                    values={filters.machines}
+                    onChange={(v) =>
+                      setFilters((f) => ({ ...f, machines: v }))
+                    }
+                  />
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Maskintype indeholder…
+                    </Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="Fx Bonamat, Rex-Royal, Wittenborg"
+                      value={filters.machineTypeQuery}
+                      onChange={(e) =>
+                        setFilters((f) => ({
+                          ...f,
+                          machineTypeQuery: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
                 <div>
                   <Label className="text-xs uppercase text-muted-foreground">
                     Geografi
@@ -783,7 +876,7 @@ function VirksomhederListe() {
                   }
                 />
                 <div>
-                  <Label className="text-xs uppercase text-muted-foreground">Binding</Label>
+                  <Label className="text-xs uppercase text-muted-foreground">Kundetype</Label>
                   <Select
                     value={filters.binding}
                     onValueChange={(v) =>
