@@ -62,6 +62,8 @@ type Row = {
   last_purchase_date: string | null;
   employees: number | null;
   is_public: boolean | null;
+  binding_status: string | null;
+  customer_category: string | null;
 };
 
 type Assignment = { company_id: string; assigned_to: string | null };
@@ -78,7 +80,7 @@ type FilterState = {
   zipTo: string;
   lastPurchase: string[];
   employeeRanges: string[];
-  sector: "all" | "private" | "public" | "unknown";
+  binding: "all" | "offentlig_aftale" | "frit_salg" | "intern_privat" | "unknown";
 };
 
 const DEFAULT_FILTERS: FilterState = {
@@ -93,7 +95,7 @@ const DEFAULT_FILTERS: FilterState = {
   zipTo: "",
   lastPurchase: [],
   employeeRanges: [],
-  sector: "all",
+  binding: "all",
 };
 
 const customerTypeLabel: Record<string, string> = {
@@ -167,7 +169,7 @@ function VirksomhederListe() {
   const loadCompanies = async () => {
     setLoading(true);
     const cols =
-      "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,assigned_to,visma_id,visma_delivery_id";
+      "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,binding_status,customer_category,assigned_to,visma_id,visma_delivery_id";
     if (recentIds && recentIds.length) {
       const { data } = await supabase
         .from("companies")
@@ -400,12 +402,10 @@ function VirksomhederListe() {
       if (!matchesLastPurchase(r.last_purchase_date, filters.lastPurchase))
         return false;
       if (!matchesEmployees(r.employees, filters.employeeRanges)) return false;
-      if (filters.sector !== "all") {
-        const pub = r.is_public === true;
-        const hasCvr = !!r.cvr;
-        if (filters.sector === "public" && !pub) return false;
-        if (filters.sector === "private" && (pub || !hasCvr)) return false;
-        if (filters.sector === "unknown" && (pub || hasCvr)) return false;
+      if (filters.binding !== "all") {
+        const b = r.binding_status;
+        if (filters.binding === "unknown" && b) return false;
+        if (filters.binding !== "unknown" && b !== filters.binding) return false;
       }
       return true;
     });
