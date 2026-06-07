@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
+import { BindingStatusBadge } from "@/components/binding-status-badge";
+import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -62,6 +64,8 @@ type Row = {
   last_purchase_date: string | null;
   employees: number | null;
   is_public: boolean | null;
+  binding_status: string | null;
+  customer_category: string | null;
 };
 
 type Assignment = { company_id: string; assigned_to: string | null };
@@ -78,7 +82,7 @@ type FilterState = {
   zipTo: string;
   lastPurchase: string[];
   employeeRanges: string[];
-  sector: "all" | "private" | "public" | "unknown";
+  binding: "all" | "offentlig_aftale" | "frit_salg" | "intern_privat" | "unknown";
 };
 
 const DEFAULT_FILTERS: FilterState = {
@@ -93,7 +97,7 @@ const DEFAULT_FILTERS: FilterState = {
   zipTo: "",
   lastPurchase: [],
   employeeRanges: [],
-  sector: "all",
+  binding: "all",
 };
 
 const customerTypeLabel: Record<string, string> = {
@@ -167,7 +171,7 @@ function VirksomhederListe() {
   const loadCompanies = async () => {
     setLoading(true);
     const cols =
-      "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,assigned_to,visma_id,visma_delivery_id";
+      "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,binding_status,customer_category,assigned_to,visma_id,visma_delivery_id";
     if (recentIds && recentIds.length) {
       const { data } = await supabase
         .from("companies")
@@ -400,12 +404,10 @@ function VirksomhederListe() {
       if (!matchesLastPurchase(r.last_purchase_date, filters.lastPurchase))
         return false;
       if (!matchesEmployees(r.employees, filters.employeeRanges)) return false;
-      if (filters.sector !== "all") {
-        const pub = r.is_public === true;
-        const hasCvr = !!r.cvr;
-        if (filters.sector === "public" && !pub) return false;
-        if (filters.sector === "private" && (pub || !hasCvr)) return false;
-        if (filters.sector === "unknown" && (pub || hasCvr)) return false;
+      if (filters.binding !== "all") {
+        const b = r.binding_status;
+        if (filters.binding === "unknown" && b) return false;
+        if (filters.binding !== "unknown" && b !== filters.binding) return false;
       }
       return true;
     });
@@ -436,7 +438,7 @@ function VirksomhederListe() {
       filters.zipTo !== "" ||
       filters.lastPurchase.length > 0 ||
       filters.employeeRanges.length > 0 ||
-      filters.sector !== "all"
+      filters.binding !== "all"
     );
   }, [filters]);
 
@@ -781,11 +783,11 @@ function VirksomhederListe() {
                   }
                 />
                 <div>
-                  <Label className="text-xs uppercase text-muted-foreground">Sektor</Label>
+                  <Label className="text-xs uppercase text-muted-foreground">Binding</Label>
                   <Select
-                    value={filters.sector}
+                    value={filters.binding}
                     onValueChange={(v) =>
-                      setFilters((f) => ({ ...f, sector: v as FilterState["sector"] }))
+                      setFilters((f) => ({ ...f, binding: v as FilterState["binding"] }))
                     }
                   >
                     <SelectTrigger className="mt-1">
@@ -793,8 +795,9 @@ function VirksomhederListe() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Alle</SelectItem>
-                      <SelectItem value="private">Private virksomheder</SelectItem>
-                      <SelectItem value="public">Offentlige institutioner</SelectItem>
+                      <SelectItem value="frit_salg">Frit salg</SelectItem>
+                      <SelectItem value="offentlig_aftale">Offentlig aftale</SelectItem>
+                      <SelectItem value="intern_privat">Intern / privat</SelectItem>
                       <SelectItem value="unknown">Ukendt</SelectItem>
                     </SelectContent>
                   </Select>
@@ -917,11 +920,8 @@ function VirksomhederListe() {
                           Ikke tildelt
                         </Badge>
                       )}
-                       {r.is_public && (
-                         <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5 text-[10px] md:text-xs">
-                           Offentlig
-                         </Badge>
-                       )}
+                       <BindingStatusBadge status={r.binding_status} size="sm" />
+                       <CustomerCategoryBadge category={r.customer_category} size="sm" />
                        <CustomerStatusBadge type={r.customer_type} />
 
                     </div>

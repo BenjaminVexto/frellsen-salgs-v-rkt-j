@@ -137,7 +137,7 @@ function HorisontalMersalg() {
       const { data, error } = await supabase
         .from("companies")
         .select("id, name, city, cvr, cvr_p_enhed_count, assigned_to, locations(count)")
-        .eq("is_public", false)
+        .or("binding_status.is.null,binding_status.neq.offentlig_aftale")
         .not("cvr", "is", null)
         .not("cvr_p_enhed_count", "is", null)
         .contains("sources", ["visma"])

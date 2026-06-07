@@ -44,6 +44,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { importRunner, useImportRunner } from "@/lib/import-runner";
+import {
+  deriveBindingStatus,
+  deriveCustomerCategory,
+} from "@/lib/customer-segment-mapping";
 
 export const Route = createFileRoute("/_authenticated/admin/import/anden")({
   component: ImportSide,
@@ -423,14 +427,10 @@ function ImportSide() {
         }
       }
       const missingCvr = !cvr;
-      const seg3 = String(data.customer_segment_3 ?? "").toLowerCase();
-      const isPublicFromSegment =
-        seg3.includes("offentlig") ||
-        seg3.includes("udbudskunder") ||
-        seg3.includes("aftale kunder") ||
-        seg3.includes("kommune") ||
-        seg3.includes("region");
-      const isPublic = data.is_public === true || isPublicFromSegment;
+      const seg3Raw = data.customer_segment_3 as string | null | undefined;
+      (data as any).binding_status = deriveBindingStatus(seg3Raw);
+      (data as any).customer_category = deriveCustomerCategory(seg3Raw);
+      const isPublic = (data as any).binding_status === "offentlig_aftale";
       (data as any).is_public = isPublic;
       const isDuplicate = !!cvr && existingCvrs.has(cvr);
       const eanMatchId = null;

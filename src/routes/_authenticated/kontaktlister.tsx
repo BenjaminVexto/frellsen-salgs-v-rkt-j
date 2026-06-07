@@ -538,9 +538,11 @@ function OpretListeDialog({
     else if (filterMachine === "yes")
       qq = qq.ilike("customer_segment_2", "%udlån/leje%");
     else if (filterMachine === "unknown") qq = qq.is("customer_segment_2", null);
-    if (filterSector === "public") qq = qq.eq("is_public", true);
-    else if (filterSector === "private") qq = qq.eq("is_public", false).not("cvr", "is", null);
-    else if (filterSector === "unknown") qq = qq.eq("is_public", false).is("cvr", null);
+    if (filterSector === "public") qq = qq.eq("binding_status", "offentlig_aftale");
+    else if (filterSector === "private")
+      qq = qq.neq("binding_status", "offentlig_aftale").not("cvr", "is", null);
+    else if (filterSector === "unknown")
+      qq = qq.neq("binding_status", "offentlig_aftale").is("cvr", null);
     return qq;
   };
 
