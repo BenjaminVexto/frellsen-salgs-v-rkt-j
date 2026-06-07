@@ -31,6 +31,12 @@ import {
   CustomerStatusBadge,
   CustomerStatusLegend,
 } from "@/components/customer-status-info";
+import {
+  CompanyFilterBar,
+  CompanyFilterPanel,
+  DEFAULT_FILTERS,
+  useCompanyFilter,
+} from "@/components/company-filter";
 
 import { toast } from "sonner";
 
