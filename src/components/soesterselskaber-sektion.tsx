@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Users2, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
+import { BindingStatusBadge } from "@/components/binding-status-badge";
 
 type Sister = {
   id: string;
@@ -16,6 +17,7 @@ type Sister = {
   visma_delivery_id: string | null;
   customer_type: string;
   is_public: boolean | null;
+  binding_status: string | null;
 };
 
 const INITIAL_LIMIT = 8;
@@ -43,7 +45,7 @@ export function SoesterselskaberSektion({
     (async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("id,name,city,visma_id,visma_delivery_id,customer_type,is_public")
+        .select("id,name,city,visma_id,visma_delivery_id,customer_type,is_public,binding_status")
         .eq("cvr", cvrClean)
         .order("customer_type", { ascending: true })
         .order("name", { ascending: true });
@@ -154,14 +156,7 @@ export function SoesterselskaberSektion({
                 </div>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
-                {r.is_public && (
-                  <Badge
-                    variant="outline"
-                    className="border-primary/40 text-primary bg-primary/5 text-[10px]"
-                  >
-                    Offentlig
-                  </Badge>
-                )}
+                <BindingStatusBadge status={r.binding_status} size="sm" />
                 <CustomerStatusBadge type={r.customer_type} />
               </div>
             </div>
