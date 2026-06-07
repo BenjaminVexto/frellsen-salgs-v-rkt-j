@@ -44,6 +44,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { importRunner, useImportRunner } from "@/lib/import-runner";
+import {
+  deriveBindingStatus,
+  deriveCustomerCategory,
+} from "@/lib/customer-segment-mapping";
 
 export const Route = createFileRoute("/_authenticated/admin/import/anden")({
   component: ImportSide,
