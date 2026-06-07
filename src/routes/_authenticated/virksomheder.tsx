@@ -75,7 +75,8 @@ type FilterState = {
   sources: string[];
   assignment: "all" | "unassigned" | "assigned" | "specific";
   assignedToUserId: string;
-  machineStatus: string[];
+  machines: string[];
+  machineTypeQuery: string;
   city: string;
   municipality: string;
   zipFrom: string;
@@ -90,7 +91,8 @@ const DEFAULT_FILTERS: FilterState = {
   sources: [],
   assignment: "all",
   assignedToUserId: "",
-  machineStatus: [],
+  machines: [],
+  machineTypeQuery: "",
   city: "",
   municipality: "",
   zipFrom: "",
@@ -98,6 +100,14 @@ const DEFAULT_FILTERS: FilterState = {
   lastPurchase: [],
   employeeRanges: [],
   binding: "all",
+};
+
+type EquipmentSummary = {
+  hasLeased: boolean;
+  hasFreeLoan: boolean;
+  hasService: boolean;
+  hasAny: boolean;
+  machineTypes: string[];
 };
 
 const customerTypeLabel: Record<string, string> = {
@@ -291,15 +301,16 @@ function VirksomhederListe() {
     loadTemplates();
   }, [isAdmin]);
 
-  const matchesMachineStatus = (val: string | null, modes: string[]) => {
+  const matchesMachines = (
+    eq: EquipmentSummary | undefined,
+    modes: string[],
+  ) => {
     if (!modes.length) return true;
-    const v = (val ?? "").toLowerCase();
-    const hasLeased = /udlån|leje/.test(v);
-    const isEmpty = !v.trim();
     return modes.some((m) => {
-      if (m === "leased") return hasLeased;
-      if (m === "none") return isEmpty;
-      if (m === "unknown") return !isEmpty && !hasLeased;
+      if (m === "leased") return !!eq?.hasLeased;
+      if (m === "free_loan") return !!eq?.hasFreeLoan;
+      if (m === "service") return !!eq?.hasService;
+      if (m === "none") return !eq || !eq.hasAny;
       return false;
     });
   };
