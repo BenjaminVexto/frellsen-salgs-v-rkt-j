@@ -757,18 +757,37 @@ function VirksomhederListe() {
                     </Select>
                   )}
                 </div>
-                <FilterGroup
-                  label="Maskinstatus (segment 2)"
-                  options={[
-                    { v: "none", l: "Har IKKE maskine" },
-                    { v: "leased", l: "Har udlån/leje" },
-                    { v: "unknown", l: "Ukendt" },
-                  ]}
-                  values={filters.machineStatus}
-                  onChange={(v) =>
-                    setFilters((f) => ({ ...f, machineStatus: v }))
-                  }
-                />
+                <div className="space-y-2">
+                  <FilterGroup
+                    label="Maskiner"
+                    options={[
+                      { v: "leased", l: "Har leje-maskiner" },
+                      { v: "free_loan", l: "Har gratis udlån" },
+                      { v: "service", l: "Har serviceaftale" },
+                      { v: "none", l: "Ingen registreret maskine" },
+                    ]}
+                    values={filters.machines}
+                    onChange={(v) =>
+                      setFilters((f) => ({ ...f, machines: v }))
+                    }
+                  />
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Maskintype indeholder…
+                    </Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="Fx Bonamat, Rex-Royal, Wittenborg"
+                      value={filters.machineTypeQuery}
+                      onChange={(e) =>
+                        setFilters((f) => ({
+                          ...f,
+                          machineTypeQuery: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
                 <div>
                   <Label className="text-xs uppercase text-muted-foreground">
                     Geografi
@@ -849,7 +868,7 @@ function VirksomhederListe() {
                   }
                 />
                 <div>
-                  <Label className="text-xs uppercase text-muted-foreground">Binding</Label>
+                  <Label className="text-xs uppercase text-muted-foreground">Kundetype</Label>
                   <Select
                     value={filters.binding}
                     onValueChange={(v) =>
