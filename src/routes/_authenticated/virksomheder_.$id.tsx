@@ -168,6 +168,7 @@ function VirksomhedsKort() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [docCount, setDocCount] = useState(0);
   const [assignedSellerName, setAssignedSellerName] = useState<string | null>(null);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [locationReloadKey, setLocationReloadKey] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
   const [presetLocationId, setPresetLocationId] = useState<string | null>(null);
@@ -264,6 +265,24 @@ function VirksomhedsKort() {
     setLocations(((locs ?? []) as Location[]));
     setOpportunities((opps ?? []) as Opportunity[]);
     setDocCount(dcount ?? 0);
+
+    // Hent navne på aktivitetsskrivere
+    const creatorIds = Array.from(
+      new Set((a ?? []).map((x: any) => x.created_by).filter(Boolean)),
+    ) as string[];
+    if (creatorIds.length > 0) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", creatorIds);
+      const map: Record<string, string> = {};
+      (profs ?? []).forEach((p: any) => {
+        map[p.id] = p.full_name || "Ukendt bruger";
+      });
+      setUserNames(map);
+    } else {
+      setUserNames({});
+    }
 
     // Hent navnet på den tildelte sælger (companies.assigned_to)
     const assignedId = (c as any)?.assigned_to as string | null | undefined;
@@ -588,7 +607,7 @@ function VirksomhedsKort() {
                 ) : (
                   <div className="space-y-3">
                     {activities.slice(0, 3).map((a) => (
-                      <ActivityRow key={a.id} a={a} locations={locations} />
+                      <ActivityRow key={a.id} a={a} locations={locations} userNames={userNames} />
                     ))}
                   </div>
                 )}
@@ -655,7 +674,7 @@ function VirksomhedsKort() {
                 ) : (
                   <div className="space-y-4">
                     {activities.map((a) => (
-                      <ActivityRow key={a.id} a={a} locations={locations} />
+                      <ActivityRow key={a.id} a={a} locations={locations} userNames={userNames} />
                     ))}
                   </div>
                 )}
@@ -811,10 +830,11 @@ function VirksomhedsKort() {
   );
 }
 
-function ActivityRow({ a, locations }: { a: Activity; locations: Location[] }) {
+function ActivityRow({ a, locations, userNames }: { a: Activity; locations: Location[]; userNames: Record<string, string> }) {
   const loc = (a as any).location_id
     ? locations.find((l) => l.id === (a as any).location_id)
     : null;
+  const authorName = (a as any).created_by ? userNames[(a as any).created_by] : null;
   return (
     <div
       id={`activity-${a.id}`}
@@ -846,9 +866,15 @@ function ActivityRow({ a, locations }: { a: Activity; locations: Location[] }) {
             </Badge>
           )}
         </div>
-        <span className="text-xs text-muted-foreground">
-          {format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}
-        </span>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {authorName && (
+            <span className="inline-flex items-center gap-1">
+              <User className="h-3 w-3" />
+              {authorName}
+            </span>
+          )}
+          <span>{format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}</span>
+        </div>
       </div>
       {a.note && <NoteWithMentions text={a.note} />}
       {(a.next_action || a.next_followup_date) && (
