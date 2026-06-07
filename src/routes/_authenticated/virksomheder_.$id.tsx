@@ -266,6 +266,24 @@ function VirksomhedsKort() {
     setOpportunities((opps ?? []) as Opportunity[]);
     setDocCount(dcount ?? 0);
 
+    // Hent navne på aktivitetsskrivere
+    const creatorIds = Array.from(
+      new Set((a ?? []).map((x: any) => x.created_by).filter(Boolean)),
+    ) as string[];
+    if (creatorIds.length > 0) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", creatorIds);
+      const map: Record<string, string> = {};
+      (profs ?? []).forEach((p: any) => {
+        map[p.id] = p.full_name || "Ukendt bruger";
+      });
+      setUserNames(map);
+    } else {
+      setUserNames({});
+    }
+
     // Hent navnet på den tildelte sælger (companies.assigned_to)
     const assignedId = (c as any)?.assigned_to as string | null | undefined;
     if (assignedId) {
