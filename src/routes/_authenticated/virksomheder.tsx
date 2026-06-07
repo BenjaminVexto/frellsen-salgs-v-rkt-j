@@ -449,8 +449,13 @@ function VirksomhederListe() {
         )
           return false;
       }
-      if (!matchesMachineStatus(r.customer_segment_2, filters.machineStatus))
-        return false;
+      const eq = equipmentMap.get(r.id);
+      if (!matchesMachines(eq, filters.machines)) return false;
+      if (filters.machineTypeQuery.trim()) {
+        const needle = filters.machineTypeQuery.trim().toLowerCase();
+        const types = eq?.machineTypes ?? [];
+        if (!types.some((t) => t.toLowerCase().includes(needle))) return false;
+      }
       if (filters.city && !(r.city ?? "").toLowerCase().includes(filters.city.toLowerCase()))
         return false;
       if (filters.municipality && r.municipality !== filters.municipality)
@@ -471,7 +476,7 @@ function VirksomhederListe() {
       }
       return true;
     });
-  }, [rows, q, filters, assignmentMap, locationMap]);
+  }, [rows, q, filters, assignmentMap, locationMap, equipmentMap]);
 
   // Reset til side 0 når filtre ændrer sig
   useEffect(() => {
@@ -491,7 +496,8 @@ function VirksomhederListe() {
       filters.customerTypes.length > 0 ||
       filters.sources.length > 0 ||
       filters.assignment !== "all" ||
-      filters.machineStatus.length > 0 ||
+      filters.machines.length > 0 ||
+      filters.machineTypeQuery.trim() !== "" ||
       filters.city.trim() !== "" ||
       filters.municipality !== "" ||
       filters.zipFrom !== "" ||
