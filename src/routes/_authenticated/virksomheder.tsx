@@ -139,6 +139,9 @@ function VirksomhederListe() {
   const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null; zip: string | null; visma_delivery_no: string | null }[]>>(
     new Map(),
   );
+  const [equipmentMap, setEquipmentMap] = useState<Map<string, EquipmentSummary>>(
+    new Map(),
+  );
   const [recentIds, setRecentIds] = useState<string[] | null>(null);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
