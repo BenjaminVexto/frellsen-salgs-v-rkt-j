@@ -522,27 +522,12 @@ function ImportSide() {
         }
       }
       const missingCvr = !cvr;
-      const segCombined = [
-        data.customer_segment_1,
-        data.customer_segment_2,
-        data.customer_segment_3,
-      ]
-        .map((s) => String(s ?? "").toLowerCase())
-        .join(" | ");
-      const PUBLIC_KEYWORDS = [
-        "offentlig",
-        "kommune",
-        "region",
-        "udbud",
-        "aftale kunder",
-        "ski",
-        "statslig",
-        "ministeri",
-        "styrelse",
-      ];
-      const isPublicFromSegment = PUBLIC_KEYWORDS.some((k) => segCombined.includes(k));
-      const isPublic = data.is_public === true || isPublicFromSegment;
-      (data as any).is_public = isPublic;
+      // Udled binding_status + customer_category fra Kundeprisgruppe 3
+      const seg3 = data.customer_segment_3 as string | null | undefined;
+      (data as any).binding_status = deriveBindingStatus(seg3);
+      (data as any).customer_category = deriveCustomerCategory(seg3);
+      // Behold is_public for bagudkompatibilitet — sand når binding er offentlig aftale
+      (data as any).is_public = (data as any).binding_status === "offentlig_aftale";
       const key = companyKey(data.name as string | null, data.visma_id as string | null);
       const isDuplicate = !!key && existingCompanyKeys.has(key);
       const eanMatchId = null;
