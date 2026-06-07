@@ -263,6 +263,52 @@ function VirksomhederListe() {
     })();
   }, [rows]);
 
+  // Maskinaftaler pr. virksomhed (fra location_equipment_units via locations)
+  useEffect(() => {
+    if (!rows.length) return;
+    (async () => {
+      const ids = rows.map((r) => r.id);
+      const locToCompany = new Map<string, string>();
+      for (let i = 0; i < ids.length; i += 500) {
+        const slice = ids.slice(i, i + 500);
+        const { data: locs } = await (supabase as any)
+          .from("locations")
+          .select("id, company_id")
+          .in("company_id", slice);
+        (locs ?? []).forEach((l: any) => locToCompany.set(l.id, l.company_id));
+      }
+      const locIds = Array.from(locToCompany.keys());
+      const summary = new Map<string, EquipmentSummary>();
+      for (let i = 0; i < locIds.length; i += 500) {
+        const slice = locIds.slice(i, i + 500);
+        const { data: eq } = await (supabase as any)
+          .from("location_equipment_units")
+          .select("location_id, agreement_type, is_free_loan, has_service_contract, machine_type")
+          .in("location_id", slice);
+        (eq ?? []).forEach((u: any) => {
+          const companyId = locToCompany.get(u.location_id);
+          if (!companyId) return;
+          const cur = summary.get(companyId) ?? {
+            hasLeased: false,
+            hasFreeLoan: false,
+            hasService: false,
+            hasAny: false,
+            machineTypes: [],
+          };
+          cur.hasAny = true;
+          if (u.is_free_loan) cur.hasFreeLoan = true;
+          if (u.has_service_contract) cur.hasService = true;
+          const at = (u.agreement_type ?? "").toLowerCase();
+          if (!u.is_free_loan && /leje/.test(at)) cur.hasLeased = true;
+          if (u.machine_type) cur.machineTypes.push(String(u.machine_type));
+          summary.set(companyId, cur);
+        });
+      }
+      setEquipmentMap(summary);
+    })();
+  }, [rows]);
+
+
   // Sælgere
   useEffect(() => {
     if (!isAdmin) return;
