@@ -297,6 +297,60 @@ type EquipmentUnit = {
   has_service_contract: boolean;
 };
 
+// Ejerskab udledes af (source, agreement_type, is_free_loan).
+// "kundeejet"     → kunden ejer maskinen (service-import)
+// "leje"          → Frellsen ejer, kunden betaler leje
+// "gratis_udlaan" → Frellsen ejer, ingen betaling
+// "midlertidigt"  → midlertidig opsætning / prøve / bytte (vis rå type)
+// "ukendt"        → fallback
+type Ownership = "kundeejet" | "leje" | "gratis_udlaan" | "midlertidigt" | "ukendt";
+
+function deriveOwnership(u: {
+  source: string | null;
+  agreement_type: string | null;
+  is_free_loan: boolean | null;
+}): { kind: Ownership; label: string } {
+  if (u.source === "service") return { kind: "kundeejet", label: "Kundeejet" };
+  const t = (u.agreement_type ?? "").trim();
+  const lower = t.toLowerCase();
+  if (lower === "leje" || lower.startsWith("leje /")) {
+    return { kind: "leje", label: "Leje" };
+  }
+  if (u.is_free_loan || lower.includes("udlån") || lower.includes("leje u/b")) {
+    // Midlertidigt / prøveopsætning / bytteservice → vis rå type
+    if (
+      lower.includes("midlertidig") ||
+      lower.includes("prøve") ||
+      lower.includes("bytte")
+    ) {
+      return { kind: "midlertidigt", label: t || "Midlertidigt" };
+    }
+    return { kind: "gratis_udlaan", label: "Gratis udlån" };
+  }
+  if (lower.includes("midlertidig") || lower.includes("prøve") || lower.includes("bytte")) {
+    return { kind: "midlertidigt", label: t };
+  }
+  return { kind: "ukendt", label: t || "Ukendt ejerskab" };
+}
+
+function OwnershipBadge({ kind, label }: { kind: Ownership; label: string }) {
+  const tone =
+    kind === "kundeejet"
+      ? "bg-emerald-100 text-emerald-900 border-emerald-200"
+      : kind === "leje"
+        ? "bg-violet-100 text-violet-900 border-violet-200"
+        : kind === "gratis_udlaan"
+          ? "bg-amber-100 text-amber-900 border-amber-200"
+          : kind === "midlertidigt"
+            ? "bg-sky-100 text-sky-900 border-sky-200"
+            : "bg-slate-100 text-slate-800 border-slate-200";
+  return (
+    <Badge className={`${tone} hover:${tone} text-xs font-medium`}>
+      {label}
+    </Badge>
+  );
+}
+
 function EquipmentBox({ location }: { location: Location }) {
   const [units, setUnits] = useState<EquipmentUnit[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -345,6 +399,22 @@ function EquipmentBox({ location }: { location: Location }) {
   const machines = units.filter((u) => !u.is_filter);
   const filters = units.filter((u) => u.is_filter);
 
+  // Optælling pr. ejerskab (kun maskiner — filtre tælles separat)
+  const ownershipCounts = machines.reduce(
+    (acc, u) => {
+      const o = deriveOwnership(u);
+      acc[o.kind] = (acc[o.kind] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<Ownership, number>,
+  );
+  const summaryParts: string[] = [];
+  if (ownershipCounts.kundeejet) summaryParts.push(`${ownershipCounts.kundeejet} kundeejede`);
+  if (ownershipCounts.leje) summaryParts.push(`${ownershipCounts.leje} leje`);
+  if (ownershipCounts.gratis_udlaan) summaryParts.push(`${ownershipCounts.gratis_udlaan} gratis udlån`);
+  if (ownershipCounts.midlertidigt) summaryParts.push(`${ownershipCounts.midlertidigt} midlertidigt`);
+  if (ownershipCounts.ukendt) summaryParts.push(`${ownershipCounts.ukendt} ukendt`);
+
   // Gruppér efter machine_type
   const groupBy = (list: EquipmentUnit[]) => {
     const m = new Map<string, EquipmentUnit[]>();
@@ -370,7 +440,15 @@ function EquipmentBox({ location }: { location: Location }) {
       new Set(list.map((u) => u.sub_location?.trim()).filter(Boolean) as string[]),
     );
     const hasService = list.some((u) => u.has_service_contract);
-    const hasFree = list.some((u) => u.is_free_loan);
+    // Unikke ejerskabs-mærkater i gruppen
+    const ownerships = Array.from(
+      new Map(
+        list.map((u) => {
+          const o = deriveOwnership(u);
+          return [`${o.kind}:${o.label}`, o] as const;
+        }),
+      ).values(),
+    );
     const key = `${opts.isFilter ? "f" : "m"}::${type}`;
     const open = openType === key;
     return (
@@ -387,20 +465,21 @@ function EquipmentBox({ location }: { location: Location }) {
             <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
               <span className="truncate">{type}</span>
               <span className="text-xs text-muted-foreground">×{list.length}</span>
-              {opts.isFilter && (
+              {opts.isFilter ? (
                 <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-100 border-slate-200 text-xs">
                   Filteraftale
                 </Badge>
-              )}
-              {!opts.isFilter && hasService && (
-                <Badge className="bg-blue-100 text-blue-900 hover:bg-blue-100 border-blue-200 text-xs">
-                  Serviceaftale
-                </Badge>
-              )}
-              {!opts.isFilter && hasFree && (
-                <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-200 text-xs">
-                  Gratis udlån
-                </Badge>
+              ) : (
+                <>
+                  {ownerships.map((o) => (
+                    <OwnershipBadge key={`${o.kind}:${o.label}`} kind={o.kind} label={o.label} />
+                  ))}
+                  {hasService && (
+                    <Badge className="bg-blue-100 text-blue-900 hover:bg-blue-100 border-blue-200 text-xs">
+                      Serviceaftale
+                    </Badge>
+                  )}
+                </>
               )}
             </div>
             {opts.isFilter ? (
@@ -424,14 +503,21 @@ function EquipmentBox({ location }: { location: Location }) {
         {open && (
           <ul className="border-t divide-y text-xs">
             {list.map((u) => {
-              const parts = [
-                u.serial_no ? `Serienr ${u.serial_no}` : "Uden serienr",
-                u.sub_location,
-                u.agreement_type,
-              ].filter(Boolean);
+              const o = deriveOwnership(u);
               return (
                 <li key={u.id} className="px-2 py-1.5 text-muted-foreground">
-                  {parts.join(" · ")}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <OwnershipBadge kind={o.kind} label={o.label} />
+                    <span>
+                      {[
+                        u.serial_no ? `Serienr ${u.serial_no}` : "Uden serienr",
+                        u.sub_location,
+                        u.agreement_type,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </div>
                 </li>
               );
             })}
@@ -443,9 +529,16 @@ function EquipmentBox({ location }: { location: Location }) {
 
   return (
     <div className="mt-3 rounded-md border bg-muted/30 p-3 space-y-2">
-      <div className="flex items-center gap-1.5 text-xs font-medium">
-        <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
-        Udstyr (Visma)
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-medium">
+          <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
+          Udstyr (Visma)
+        </div>
+        {summaryParts.length > 0 && (
+          <div className="text-xs text-muted-foreground">
+            {summaryParts.join(" · ")}
+          </div>
+        )}
       </div>
 
       {machines.length > 0 ? (
