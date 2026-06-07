@@ -921,8 +921,8 @@ function VirksomhederListe() {
                         </Badge>
                       )}
                        <BindingStatusBadge status={r.binding_status} size="sm" />
-                       <CustomerCategoryBadge category={r.customer_category} size="sm" />
                        <CustomerStatusBadge type={r.customer_type} />
+
 
                     </div>
                   </Link>
