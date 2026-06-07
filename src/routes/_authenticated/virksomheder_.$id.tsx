@@ -168,6 +168,8 @@ function VirksomhedsKort() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [docCount, setDocCount] = useState(0);
   const [assignedSellerName, setAssignedSellerName] = useState<string | null>(null);
+  const [sellers, setSellers] = useState<Array<{ id: string; full_name: string }>>([]);
+  const [savingAssignee, setSavingAssignee] = useState(false);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [locationReloadKey, setLocationReloadKey] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
@@ -303,6 +305,40 @@ function VirksomhedsKort() {
     load();
   }, [load]);
 
+  // Load sellers list (admin only) for reassignment
+  useEffect(() => {
+    if (!isAdmin) return;
+    (async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .in("role", ["saelger", "admin"] as any);
+      const ids = Array.from(new Set((roles ?? []).map((r: any) => r.user_id)));
+      if (ids.length === 0) { setSellers([]); return; }
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids);
+      const list = (profs ?? [])
+        .map((p: any) => ({ id: p.id as string, full_name: (p.full_name as string) || "Uden navn" }))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name, "da"));
+      setSellers(list);
+    })();
+  }, [isAdmin]);
+
+  async function reassignSeller(newId: string | null) {
+    setSavingAssignee(true);
+    const { error } = await supabase
+      .from("companies")
+      .update({ assigned_to: newId } as any)
+      .eq("id", id);
+    setSavingAssignee(false);
+    if (error) { toast.error("Kunne ikke tildele: " + error.message); return; }
+    toast.success("Tildeling opdateret");
+    await load();
+  }
+
+
   // Sync tab with URL hash on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -406,15 +442,36 @@ function VirksomhedsKort() {
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">
                 Tildelt sælger
               </div>
-              <div className="text-sm font-medium truncate mt-0.5">
-                {assignedSellerName ?? (
-                  <span className="text-muted-foreground italic font-normal">
-                    Ikke tildelt
-                  </span>
-                )}
-              </div>
+              {isAdmin ? (
+                <div className="mt-1">
+                  <Select
+                    value={(company as any).assigned_to ?? "__none"}
+                    onValueChange={(v) => reassignSeller(v === "__none" ? null : v)}
+                    disabled={savingAssignee}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Vælg sælger" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Ikke tildelt</SelectItem>
+                      {sellers.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="text-sm font-medium truncate mt-0.5">
+                  {assignedSellerName ?? (
+                    <span className="text-muted-foreground italic font-normal">
+                      Ikke tildelt
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
+
 
 
           <div className="space-y-3 text-sm">

@@ -239,6 +239,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
       sources,
       source_created_by: auth.user?.id ?? null,
       source_updated_at: new Date().toISOString(),
+      assigned_to: auth.user?.id ?? null,
     };
     const { data, error } = await supabase
       .from("companies")
