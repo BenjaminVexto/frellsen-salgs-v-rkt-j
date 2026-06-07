@@ -305,6 +305,40 @@ function VirksomhedsKort() {
     load();
   }, [load]);
 
+  // Load sellers list (admin only) for reassignment
+  useEffect(() => {
+    if (!isAdmin) return;
+    (async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .in("role", ["saelger", "admin"] as any);
+      const ids = Array.from(new Set((roles ?? []).map((r: any) => r.user_id)));
+      if (ids.length === 0) { setSellers([]); return; }
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids);
+      const list = (profs ?? [])
+        .map((p: any) => ({ id: p.id as string, full_name: (p.full_name as string) || "Uden navn" }))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name, "da"));
+      setSellers(list);
+    })();
+  }, [isAdmin]);
+
+  async function reassignSeller(newId: string | null) {
+    setSavingAssignee(true);
+    const { error } = await supabase
+      .from("companies")
+      .update({ assigned_to: newId } as any)
+      .eq("id", id);
+    setSavingAssignee(false);
+    if (error) { toast.error("Kunne ikke tildele: " + error.message); return; }
+    toast.success("Tildeling opdateret");
+    await load();
+  }
+
+
   // Sync tab with URL hash on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
