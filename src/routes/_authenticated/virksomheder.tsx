@@ -7,16 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
 import { BindingStatusBadge } from "@/components/binding-status-badge";
-import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   Select,
   SelectContent,
@@ -31,91 +25,23 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  X,
-  Filter as FilterIcon,
-  ChevronDown,
-  Save,
-  Trash2,
-  Loader2,
-  Search,
-} from "lucide-react";
-import { SourceBadges } from "@/components/source-badges";
+import { Plus, X, Loader2 } from "lucide-react";
 import { OpretVirksomhedDialog } from "@/components/opret-virksomhed-dialog";
 import { AssignToListDialog } from "@/components/assign-to-list-dialog";
+import {
+  CompanyFilterBar,
+  CompanyFilterPanel,
+  DEFAULT_FILTERS,
+  FilterState,
+  FilterTemplate,
+  normalizeFilterConfig,
+  useCompanyFilter,
+} from "@/components/company-filter";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/virksomheder")({
   component: VirksomhederListe,
 });
-
-type Row = {
-  id: string;
-  name: string;
-  cvr: string | null;
-  address: string | null;
-  city: string | null;
-  zip: string | null;
-  municipality: string | null;
-  customer_type: string;
-  sources: string[] | null;
-  customer_segment_2: string | null;
-  last_purchase_date: string | null;
-  employees: number | null;
-  is_public: boolean | null;
-  binding_status: string | null;
-  customer_category: string | null;
-};
-
-type Assignment = { company_id: string; assigned_to: string | null };
-
-type FilterState = {
-  customerTypes: string[];
-  sources: string[];
-  assignment: "all" | "unassigned" | "assigned" | "specific";
-  assignedToUserId: string;
-  machines: string[];
-  machineTypeQuery: string;
-  city: string;
-  municipality: string;
-  zipFrom: string;
-  zipTo: string;
-  lastPurchase: string[];
-  employeeRanges: string[];
-  binding: "all" | "offentlig_aftale" | "frit_salg" | "intern_privat" | "unknown";
-};
-
-const DEFAULT_FILTERS: FilterState = {
-  customerTypes: [],
-  sources: [],
-  assignment: "all",
-  assignedToUserId: "",
-  machines: [],
-  machineTypeQuery: "",
-  city: "",
-  municipality: "",
-  zipFrom: "",
-  zipTo: "",
-  lastPurchase: [],
-  employeeRanges: [],
-  binding: "all",
-};
-
-type EquipmentSummary = {
-  hasLeased: boolean;
-  hasFreeLoan: boolean;
-  hasService: boolean;
-  hasAny: boolean;
-  machineTypes: string[];
-};
-
-const customerTypeLabel: Record<string, string> = {
-  nyt_emne: "Nyt emne",
-  aktiv_kunde: "Aktiv kunde",
-  sovende_kunde: "Sovende kunde",
-  tidligere_kunde: "Tidligere kunde",
-};
 
 const RECENT_KEY = "recently_imported_ids";
 const PAGE_SIZE = 50;
@@ -130,39 +56,9 @@ const firstFilled = (...values: Array<string | null | undefined>) => {
 function VirksomhederListe() {
   const auth = useAuth();
   const navigate = useNavigate();
-  const [rows, setRows] = useState<Row[]>([]);
-  const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [assignmentMap, setAssignmentMap] = useState<Map<string, string[]>>(
-    new Map(),
-  );
-  const [locationMap, setLocationMap] = useState<Map<string, { city: string | null; address: string | null; zip: string | null; visma_delivery_no: string | null }[]>>(
-    new Map(),
-  );
-  const [equipmentMap, setEquipmentMap] = useState<Map<string, EquipmentSummary>>(
-    new Map(),
-  );
-  const [recentIds, setRecentIds] = useState<string[] | null>(null);
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(0);
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [templates, setTemplates] = useState<
-    { id: string; name: string; filter_config: any }[]
-  >([]);
-  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
-  const [reassignOpen, setReassignOpen] = useState(false);
-
-  // Sælgere til "specifik sælger" filter
-  const [sellers, setSellers] = useState<
-    { id: string; full_name: string }[]
-  >([]);
-  const [municipalities, setMunicipalities] = useState<string[]>([]);
-
   const isAdmin = auth.role === "admin";
 
-  // Læs nyligt importerede fra sessionStorage
+  const [recentIds, setRecentIds] = useState<string[] | null>(null);
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(RECENT_KEY);
@@ -181,163 +77,29 @@ function VirksomhederListe() {
     } catch {}
   }, []);
 
-  const loadCompanies = async () => {
-    setLoading(true);
-    const cols =
-      "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,binding_status,customer_category,assigned_to,visma_id,visma_delivery_id";
-    if (recentIds && recentIds.length) {
-      const { data } = await supabase
-        .from("companies")
-        .select(cols)
-        .in("id", recentIds)
-        .order("name");
-      setRows((data ?? []) as any);
-      setLoading(false);
-      return;
-    }
-    // Paginér forbi Supabase' 1000-rækkers grænse pr. request
-    const PAGE = 1000;
-    const all: any[] = [];
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabase
-        .from("companies")
-        .select(cols)
-        .order("name", { ascending: true })
-        .range(from, from + PAGE - 1);
-      if (error) break;
-      const batch = data ?? [];
-      all.push(...batch);
-      if (batch.length < PAGE) break;
-    }
-    setRows(all as any);
-    setLoading(false);
-  };
+  const {
+    rows,
+    filtered,
+    loading,
+    q,
+    setQ,
+    filters,
+    setFilters,
+    assignmentMap,
+    locationMap,
+    sellers,
+    municipalities,
+    isFilterActive,
+  } = useCompanyFilter({ isAdmin, restrictToIds: recentIds });
 
-  useEffect(() => {
-    loadCompanies();
-  }, [recentIds]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(0);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [templates, setTemplates] = useState<FilterTemplate[]>([]);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [reassignOpen, setReassignOpen] = useState(false);
 
-  // Tildelinger (alle) — gemmes som map company_id -> assigned_to[]
-  // Kombinerer direkte companies.assigned_to (Visma-auto-tildeling) med contact_list_assignments.
-  useEffect(() => {
-    if (!isAdmin) return;
-    (async () => {
-      const { data } = await supabase
-        .from("contact_list_assignments")
-        .select("company_id, assigned_to")
-        .limit(10000);
-      const m = new Map<string, string[]>();
-      // Direkte sælger på virksomheden (fra Visma-import)
-      for (const r of rows as any[]) {
-        if (r.assigned_to) m.set(r.id, [r.assigned_to]);
-      }
-      // Tildelinger via kontaktlister (kan tilføje flere sælgere)
-      (data ?? []).forEach((a: Assignment) => {
-        const arr = m.get(a.company_id) ?? [];
-        if (a.assigned_to && !arr.includes(a.assigned_to)) arr.push(a.assigned_to);
-        m.set(a.company_id, arr);
-      });
-      setAssignmentMap(m);
-    })();
-  }, [isAdmin, rows]);
-
-  // Lokationer for alle virksomheder — bruges til fritekstsøgning
-  useEffect(() => {
-    if (!rows.length) return;
-    (async () => {
-      const ids = rows.map((r) => r.id);
-      const m = new Map<string, { city: string | null; address: string | null; zip: string | null; visma_delivery_no: string | null }[]>();
-      for (let i = 0; i < ids.length; i += 500) {
-        const slice = ids.slice(i, i + 500);
-        const { data } = await (supabase as any)
-          .from("locations")
-          .select("company_id, city, address, zip, visma_delivery_no")
-          .in("company_id", slice);
-        (data ?? []).forEach((l: any) => {
-          const arr = m.get(l.company_id) ?? [];
-          arr.push({ city: l.city, address: l.address, zip: l.zip, visma_delivery_no: l.visma_delivery_no });
-          m.set(l.company_id, arr);
-        });
-      }
-      setLocationMap(m);
-    })();
-  }, [rows]);
-
-  // Maskinaftaler pr. virksomhed (fra location_equipment_units via locations)
-  useEffect(() => {
-    if (!rows.length) return;
-    (async () => {
-      const ids = rows.map((r) => r.id);
-      const locToCompany = new Map<string, string>();
-      for (let i = 0; i < ids.length; i += 500) {
-        const slice = ids.slice(i, i + 500);
-        const { data: locs } = await (supabase as any)
-          .from("locations")
-          .select("id, company_id")
-          .in("company_id", slice);
-        (locs ?? []).forEach((l: any) => locToCompany.set(l.id, l.company_id));
-      }
-      const locIds = Array.from(locToCompany.keys());
-      const summary = new Map<string, EquipmentSummary>();
-      for (let i = 0; i < locIds.length; i += 500) {
-        const slice = locIds.slice(i, i + 500);
-        const { data: eq } = await (supabase as any)
-          .from("location_equipment_units")
-          .select("location_id, agreement_type, is_free_loan, has_service_contract, machine_type")
-          .in("location_id", slice);
-        (eq ?? []).forEach((u: any) => {
-          const companyId = locToCompany.get(u.location_id);
-          if (!companyId) return;
-          const cur = summary.get(companyId) ?? {
-            hasLeased: false,
-            hasFreeLoan: false,
-            hasService: false,
-            hasAny: false,
-            machineTypes: [],
-          };
-          cur.hasAny = true;
-          if (u.is_free_loan) cur.hasFreeLoan = true;
-          if (u.has_service_contract) cur.hasService = true;
-          const at = (u.agreement_type ?? "").toLowerCase();
-          if (!u.is_free_loan && /leje/.test(at)) cur.hasLeased = true;
-          if (u.machine_type) cur.machineTypes.push(String(u.machine_type));
-          summary.set(companyId, cur);
-        });
-      }
-      setEquipmentMap(summary);
-    })();
-  }, [rows]);
-
-
-  // Sælgere
-  useEffect(() => {
-    if (!isAdmin) return;
-    (async () => {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "saelger");
-      const ids = (roles ?? []).map((r) => r.user_id);
-      if (!ids.length) return;
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", ids)
-        .eq("is_active", true);
-      setSellers(profs ?? []);
-    })();
-  }, [isAdmin]);
-
-  // Unique kommuner
-  useEffect(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => {
-      if (r.municipality) set.add(r.municipality);
-    });
-    setMunicipalities(Array.from(set).sort());
-  }, [rows]);
-
-  // Filter templates
   const loadTemplates = async () => {
     if (!isAdmin) return;
     const { data } = await (supabase as any)
@@ -350,135 +112,6 @@ function VirksomhederListe() {
     loadTemplates();
   }, [isAdmin]);
 
-  const matchesMachines = (
-    eq: EquipmentSummary | undefined,
-    modes: string[],
-  ) => {
-    if (!modes.length) return true;
-    return modes.some((m) => {
-      if (m === "leased") return !!eq?.hasLeased;
-      if (m === "free_loan") return !!eq?.hasFreeLoan;
-      if (m === "service") return !!eq?.hasService;
-      if (m === "none") return !eq || !eq.hasAny;
-      return false;
-    });
-  };
-
-  const matchesLastPurchase = (date: string | null, modes: string[]) => {
-    if (!modes.length) return true;
-    if (!date) return modes.includes("never");
-    const d = new Date(date);
-    const months = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
-    return modes.some((m) => {
-      switch (m) {
-        case "never":
-          return false;
-        case "0-3":
-          return months < 3;
-        case "3-6":
-          return months >= 3 && months < 6;
-        case "6-12":
-          return months >= 6 && months < 12;
-        case "12-18":
-          return months >= 12 && months < 18;
-        case "18+":
-          return months >= 18;
-        default:
-          return false;
-      }
-    });
-  };
-
-  const matchesEmployees = (n: number | null, ranges: string[]) => {
-    if (!ranges.length) return true;
-    return ranges.some((r) => {
-      if (r === "unknown") return n == null;
-      if (n == null) return false;
-      if (r === "lt10") return n < 10;
-      if (r === "10-49") return n >= 10 && n <= 49;
-      if (r === "50-199") return n >= 50 && n <= 199;
-      if (r === "200+") return n >= 200;
-      return false;
-    });
-  };
-
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      // søgetekst
-      if (q) {
-        const rawQuery = q.trim();
-        if (!rawQuery) return true;
-        const qq = rawQuery.toLowerCase();
-        const locs = locationMap.get(r.id) ?? [];
-        const hit =
-          r.name.toLowerCase().includes(qq) ||
-          (r.cvr ?? "").includes(rawQuery) ||
-          (r.address ?? "").toLowerCase().includes(qq) ||
-          (r.city ?? "").toLowerCase().includes(qq) ||
-          (r.zip ?? "").includes(rawQuery) ||
-          ((r as any).visma_id ?? "").toLowerCase().includes(qq) ||
-          ((r as any).visma_delivery_id ?? "").toLowerCase().includes(qq) ||
-          locs.some(
-            (l) =>
-              (l.city ?? "").toLowerCase().includes(qq) ||
-              (l.address ?? "").toLowerCase().includes(qq) ||
-              (l.zip ?? "").includes(rawQuery) ||
-              (l.visma_delivery_no ?? "").toLowerCase().includes(qq),
-          );
-        if (!hit) return false;
-      }
-      if (
-        filters.customerTypes.length &&
-        !filters.customerTypes.includes(r.customer_type)
-      )
-        return false;
-      if (filters.sources.length) {
-        const src = r.sources ?? [];
-        if (!filters.sources.some((s) => src.includes(s))) return false;
-      }
-      if (filters.assignment !== "all") {
-        const assigns = assignmentMap.get(r.id) ?? [];
-        if (filters.assignment === "unassigned" && assigns.length > 0)
-          return false;
-        if (filters.assignment === "assigned" && assigns.length === 0)
-          return false;
-        if (
-          filters.assignment === "specific" &&
-          (!filters.assignedToUserId ||
-            !assigns.includes(filters.assignedToUserId))
-        )
-          return false;
-      }
-      const eq = equipmentMap.get(r.id);
-      if (!matchesMachines(eq, filters.machines)) return false;
-      if (filters.machineTypeQuery.trim()) {
-        const needle = filters.machineTypeQuery.trim().toLowerCase();
-        const types = eq?.machineTypes ?? [];
-        if (!types.some((t) => t.toLowerCase().includes(needle))) return false;
-      }
-      if (filters.city && !(r.city ?? "").toLowerCase().includes(filters.city.toLowerCase()))
-        return false;
-      if (filters.municipality && r.municipality !== filters.municipality)
-        return false;
-      if (filters.zipFrom || filters.zipTo) {
-        const z = parseInt(r.zip ?? "");
-        if (Number.isNaN(z)) return false;
-        if (filters.zipFrom && z < parseInt(filters.zipFrom)) return false;
-        if (filters.zipTo && z > parseInt(filters.zipTo)) return false;
-      }
-      if (!matchesLastPurchase(r.last_purchase_date, filters.lastPurchase))
-        return false;
-      if (!matchesEmployees(r.employees, filters.employeeRanges)) return false;
-      if (filters.binding !== "all") {
-        const b = r.binding_status;
-        if (filters.binding === "unknown" && b) return false;
-        if (filters.binding !== "unknown" && b !== filters.binding) return false;
-      }
-      return true;
-    });
-  }, [rows, q, filters, assignmentMap, locationMap, equipmentMap]);
-
-  // Reset til side 0 når filtre ændrer sig
   useEffect(() => {
     setPage(0);
   }, [filters, q, recentIds]);
@@ -490,23 +123,6 @@ function VirksomhederListe() {
     sessionStorage.removeItem(RECENT_KEY);
     setRecentIds(null);
   };
-
-  const isFilterActive = useMemo(() => {
-    return (
-      filters.customerTypes.length > 0 ||
-      filters.sources.length > 0 ||
-      filters.assignment !== "all" ||
-      filters.machines.length > 0 ||
-      filters.machineTypeQuery.trim() !== "" ||
-      filters.city.trim() !== "" ||
-      filters.municipality !== "" ||
-      filters.zipFrom !== "" ||
-      filters.zipTo !== "" ||
-      filters.lastPurchase.length > 0 ||
-      filters.employeeRanges.length > 0 ||
-      filters.binding !== "all"
-    );
-  }, [filters]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -543,15 +159,7 @@ function VirksomhederListe() {
   const applyTemplate = (tplId: string) => {
     const t = templates.find((x) => x.id === tplId);
     if (!t) return;
-    const cfg = { ...(t.filter_config ?? {}) } as any;
-    // Bagudkompat: gammelt felt machineStatus → nyt machines
-    if (Array.isArray(cfg.machineStatus) && !cfg.machines) {
-      cfg.machines = cfg.machineStatus.filter((v: string) =>
-        ["leased", "none"].includes(v),
-      );
-      delete cfg.machineStatus;
-    }
-    setFilters({ ...DEFAULT_FILTERS, ...cfg });
+    setFilters(normalizeFilterConfig(t.filter_config));
     setFiltersOpen(true);
     toast.success(`Skabelon "${t.name}" indlæst`);
   };
@@ -594,314 +202,35 @@ function VirksomhederListe() {
         </Card>
       )}
 
-      {/* Søg + filter toggle — sticky på mobil for hurtig adgang */}
       <div className="sticky top-12 md:static z-10 -mx-3 md:mx-0 px-3 md:px-0 py-2 md:py-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:bg-transparent md:backdrop-blur-none border-b md:border-0 mb-3">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1 md:max-w-md">
-            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Søg navn, by, CVR, postnr…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="pl-9 h-10 md:h-9 text-base md:text-sm"
-              type="search"
-              inputMode="search"
-              autoComplete="off"
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
-                aria-label="Ryd søgning"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {isAdmin && (
-              <Button
-                variant={filtersOpen || isFilterActive ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFiltersOpen((v) => !v)}
-              >
-                <FilterIcon className="h-4 w-4 mr-1" />
-                Filtre
-                {isFilterActive && (
-                  <Badge variant="secondary" className="ml-2">
-                    Aktiv
-                  </Badge>
-                )}
-                <ChevronDown
-                  className={`h-4 w-4 ml-1 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
-                />
-              </Button>
-            )}
-            {isAdmin && isFilterActive && (
-              <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setFilters(DEFAULT_FILTERS)}
-                >
-                  <X className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Nulstil filtre</span><span className="sm:hidden">Nulstil</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSaveTemplateOpen(true)}
-                  className="hidden sm:inline-flex"
-                >
-                  <Save className="h-4 w-4 mr-1" /> Gem filter som skabelon
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+        <CompanyFilterBar
+          q={q}
+          onQChange={setQ}
+          filtersOpen={filtersOpen}
+          setFiltersOpen={setFiltersOpen}
+          isFilterActive={isFilterActive}
+          onReset={() => setFilters(DEFAULT_FILTERS)}
+          onSaveTemplate={
+            isAdmin ? () => setSaveTemplateOpen(true) : undefined
+          }
+          showFilterButton={isAdmin}
+        />
       </div>
 
-      {/* Filter panel */}
       {isAdmin && (
-        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <CollapsibleContent>
-            <Card className="p-4 mb-3 space-y-4">
-              {templates.length > 0 && (
-                <div>
-                  <Label className="text-xs uppercase text-muted-foreground">
-                    Skabeloner
-                  </Label>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {templates.map((t) => (
-                      <div
-                        key={t.id}
-                        className="inline-flex items-center gap-1 border rounded-md px-2 py-1 text-sm bg-muted/30"
-                      >
-                        <button
-                          className="hover:underline"
-                          onClick={() => applyTemplate(t.id)}
-                        >
-                          {t.name}
-                        </button>
-                        <button
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteTemplate(t.id)}
-                          title="Slet skabelon"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <FilterGroup
-                  label="Kundestatus"
-                  options={[
-                    { v: "aktiv_kunde", l: "Aktiv kunde" },
-                    { v: "sovende_kunde", l: "Sovende kunde" },
-                    { v: "tidligere_kunde", l: "Tidligere kunde" },
-                    { v: "nyt_emne", l: "Nyt emne" },
-                  ]}
-                  values={filters.customerTypes}
-                  onChange={(v) =>
-                    setFilters((f) => ({ ...f, customerTypes: v }))
-                  }
-                />
-                <FilterGroup
-                  label="Kilde"
-                  options={[
-                    { v: "visma", l: "Visma-kunde" },
-                    { v: "cvr", l: "CVR-beriget" },
-                    { v: "manuel", l: "Manuelt oprettet" },
-                  ]}
-                  values={filters.sources}
-                  onChange={(v) => setFilters((f) => ({ ...f, sources: v }))}
-                />
-                <div>
-                  <Label className="text-xs uppercase text-muted-foreground">
-                    Tildeling
-                  </Label>
-                  <Select
-                    value={filters.assignment}
-                    onValueChange={(v) =>
-                      setFilters((f) => ({
-                        ...f,
-                        assignment: v as FilterState["assignment"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Alle</SelectItem>
-                      <SelectItem value="unassigned">Ikke tildelt</SelectItem>
-                      <SelectItem value="assigned">Tildelt</SelectItem>
-                      <SelectItem value="specific">
-                        Tildelt til specifik sælger
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {filters.assignment === "specific" && (
-                    <Select
-                      value={filters.assignedToUserId}
-                      onValueChange={(v) =>
-                        setFilters((f) => ({ ...f, assignedToUserId: v }))
-                      }
-                    >
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Vælg sælger…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sellers.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.full_name || "Uden navn"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <FilterGroup
-                    label="Maskiner"
-                    options={[
-                      { v: "leased", l: "Har leje-maskiner" },
-                      { v: "free_loan", l: "Har gratis udlån" },
-                      { v: "service", l: "Har serviceaftale" },
-                      { v: "none", l: "Ingen registreret maskine" },
-                    ]}
-                    values={filters.machines}
-                    onChange={(v) =>
-                      setFilters((f) => ({ ...f, machines: v }))
-                    }
-                  />
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Maskintype indeholder…
-                    </Label>
-                    <Input
-                      className="mt-1"
-                      placeholder="Fx Bonamat, Rex-Royal, Wittenborg"
-                      value={filters.machineTypeQuery}
-                      onChange={(e) =>
-                        setFilters((f) => ({
-                          ...f,
-                          machineTypeQuery: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs uppercase text-muted-foreground">
-                    Geografi
-                  </Label>
-                  <Input
-                    className="mt-1"
-                    placeholder="By…"
-                    value={filters.city}
-                    onChange={(e) =>
-                      setFilters((f) => ({ ...f, city: e.target.value }))
-                    }
-                  />
-                  <Select
-                    value={filters.municipality || "__all"}
-                    onValueChange={(v) =>
-                      setFilters((f) => ({
-                        ...f,
-                        municipality: v === "__all" ? "" : v,
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Alle kommuner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all">Alle kommuner</SelectItem>
-                      {municipalities.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <Input
-                      placeholder="Postnr fra"
-                      value={filters.zipFrom}
-                      onChange={(e) =>
-                        setFilters((f) => ({ ...f, zipFrom: e.target.value }))
-                      }
-                    />
-                    <Input
-                      placeholder="Postnr til"
-                      value={filters.zipTo}
-                      onChange={(e) =>
-                        setFilters((f) => ({ ...f, zipTo: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-                <FilterGroup
-                  label="Seneste varekøb"
-                  options={[
-                    { v: "never", l: "Aldrig købt" },
-                    { v: "0-3", l: "Inden for 3 måneder" },
-                    { v: "3-6", l: "3–6 måneder siden" },
-                    { v: "6-12", l: "6–12 måneder siden" },
-                    { v: "12-18", l: "12–18 måneder siden" },
-                    { v: "18+", l: "Over 18 måneder siden" },
-                  ]}
-                  values={filters.lastPurchase}
-                  onChange={(v) =>
-                    setFilters((f) => ({ ...f, lastPurchase: v }))
-                  }
-                />
-                <FilterGroup
-                  label="Antal ansatte"
-                  options={[
-                    { v: "lt10", l: "Under 10" },
-                    { v: "10-49", l: "10–49" },
-                    { v: "50-199", l: "50–199" },
-                    { v: "200+", l: "200+" },
-                    { v: "unknown", l: "Ukendt" },
-                  ]}
-                  values={filters.employeeRanges}
-                  onChange={(v) =>
-                    setFilters((f) => ({ ...f, employeeRanges: v }))
-                  }
-                />
-                <div>
-                  <Label className="text-xs uppercase text-muted-foreground">Kundetype</Label>
-                  <Select
-                    value={filters.binding}
-                    onValueChange={(v) =>
-                      setFilters((f) => ({ ...f, binding: v as FilterState["binding"] }))
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Alle</SelectItem>
-                      <SelectItem value="frit_salg">Frit salg</SelectItem>
-                      <SelectItem value="offentlig_aftale">Offentlig aftale</SelectItem>
-                      <SelectItem value="intern_privat">Intern / privat</SelectItem>
-                      <SelectItem value="unknown">Ukendt</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
+        <CompanyFilterPanel
+          open={filtersOpen}
+          filters={filters}
+          setFilters={setFilters}
+          sellers={sellers}
+          municipalities={municipalities}
+          isAdmin={isAdmin}
+          templates={templates}
+          onApplyTemplate={applyTemplate}
+          onDeleteTemplate={deleteTemplate}
+        />
       )}
 
-      {/* Resultat-tæller */}
       <div className="text-sm text-muted-foreground mb-2">
         <strong className="text-foreground">{filtered.length}</strong>{" "}
         virksomheder matcher
@@ -964,7 +293,9 @@ function VirksomhederListe() {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm md:text-base">{r.name}</span>
+                        <span className="font-medium text-sm md:text-base">
+                          {r.name}
+                        </span>
                       </div>
 
                       <div className="text-xs text-muted-foreground mt-0.5">
@@ -979,10 +310,15 @@ function VirksomhederListe() {
                         const qq = rawQuery.toLowerCase();
                         const nameHit = r.name.toLowerCase().includes(qq);
                         const cvrHit = (r.cvr ?? "").includes(rawQuery);
-                        const addrHit = (r.address ?? "").toLowerCase().includes(qq);
-                        const cityHit = (r.city ?? "").toLowerCase().includes(qq);
+                        const addrHit = (r.address ?? "")
+                          .toLowerCase()
+                          .includes(qq);
+                        const cityHit = (r.city ?? "")
+                          .toLowerCase()
+                          .includes(qq);
                         const zipHit = (r.zip ?? "").includes(rawQuery);
-                        if (nameHit || cvrHit || addrHit || cityHit || zipHit) return null;
+                        if (nameHit || cvrHit || addrHit || cityHit || zipHit)
+                          return null;
                         const locs = locationMap.get(r.id) ?? [];
                         const match = locs.find(
                           (l) =>
@@ -993,7 +329,9 @@ function VirksomhederListe() {
                         if (!match) return null;
                         const parts = [
                           firstFilled(match.address),
-                          [firstFilled(match.zip), firstFilled(match.city)].filter(Boolean).join(" "),
+                          [firstFilled(match.zip), firstFilled(match.city)]
+                            .filter(Boolean)
+                            .join(" "),
                         ]
                           .filter((p) => p && p.trim())
                           .join(", ");
@@ -1013,10 +351,11 @@ function VirksomhederListe() {
                           Ikke tildelt
                         </Badge>
                       )}
-                       <BindingStatusBadge status={r.binding_status} size="sm" />
-                       <CustomerStatusBadge type={r.customer_type} />
-
-
+                      <BindingStatusBadge
+                        status={r.binding_status}
+                        size="sm"
+                      />
+                      <CustomerStatusBadge type={r.customer_type} />
                     </div>
                   </Link>
                 </div>
@@ -1026,7 +365,6 @@ function VirksomhederListe() {
         )}
       </Card>
 
-      {/* Pagination */}
       {filtered.length > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-3 text-sm">
           <Button
@@ -1051,15 +389,12 @@ function VirksomhederListe() {
         </div>
       )}
 
-      {/* Sticky bulk action bar */}
       {isAdmin && selected.size > 0 && (
         <div
           className="fixed left-2 right-2 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-16 md:bottom-4 z-50 bg-background border shadow-lg rounded-2xl md:rounded-full px-3 md:px-4 py-2 flex flex-wrap items-center justify-center gap-2 md:gap-3"
           style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         >
-          <span className="text-sm font-medium">
-            {selected.size} valgt
-          </span>
+          <span className="text-sm font-medium">{selected.size} valgt</span>
           <div className="hidden md:block h-5 w-px bg-border" />
           <Button size="sm" onClick={() => setAssignOpen(true)}>
             <span className="md:hidden">Tildel liste</span>
@@ -1088,20 +423,9 @@ function VirksomhederListe() {
         open={assignOpen}
         onOpenChange={setAssignOpen}
         companies={selectedCompanies}
-        onAssigned={async () => {
+        onAssigned={() => {
           setSelected(new Set());
-          // Refresh assignment map
-          const { data } = await supabase
-            .from("contact_list_assignments")
-            .select("company_id, assigned_to")
-            .limit(10000);
-          const m = new Map<string, string[]>();
-          (data ?? []).forEach((a: Assignment) => {
-            const arr = m.get(a.company_id) ?? [];
-            if (a.assigned_to) arr.push(a.assigned_to);
-            m.set(a.company_id, arr);
-          });
-          setAssignmentMap(m);
+          navigate({ to: "/kontaktlister" });
         }}
       />
 
@@ -1120,17 +444,6 @@ function VirksomhederListe() {
         onDone={async () => {
           setSelected(new Set());
           setReassignOpen(false);
-          const { data } = await supabase
-            .from("contact_list_assignments")
-            .select("company_id, assigned_to")
-            .limit(10000);
-          const m = new Map<string, string[]>();
-          (data ?? []).forEach((a: Assignment) => {
-            const arr = m.get(a.company_id) ?? [];
-            if (a.assigned_to) arr.push(a.assigned_to);
-            m.set(a.company_id, arr);
-          });
-          setAssignmentMap(m);
           toast.success("Ansvarlig sælger opdateret");
         }}
       />
@@ -1138,43 +451,6 @@ function VirksomhederListe() {
   );
 }
 
-// ---------- Filter group component ----------
-function FilterGroup({
-  label,
-  options,
-  values,
-  onChange,
-}: {
-  label: string;
-  options: { v: string; l: string }[];
-  values: string[];
-  onChange: (v: string[]) => void;
-}) {
-  const toggle = (v: string) => {
-    onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v]);
-  };
-  return (
-    <div>
-      <Label className="text-xs uppercase text-muted-foreground">{label}</Label>
-      <div className="mt-1 space-y-1.5">
-        {options.map((o) => (
-          <label
-            key={o.v}
-            className="flex items-center gap-2 text-sm cursor-pointer"
-          >
-            <Checkbox
-              checked={values.includes(o.v)}
-              onCheckedChange={() => toggle(o.v)}
-            />
-            {o.l}
-          </label>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ---------- Save template dialog ----------
 function SaveTemplateDialog({
   open,
   onOpenChange,
@@ -1240,7 +516,6 @@ function SaveTemplateDialog({
   );
 }
 
-// ---------- Reassign seller dialog ----------
 function ReassignSellerDialog({
   open,
   onOpenChange,

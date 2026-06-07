@@ -31,6 +31,12 @@ import {
   CustomerStatusBadge,
   CustomerStatusLegend,
 } from "@/components/customer-status-info";
+import {
+  CompanyFilterBar,
+  CompanyFilterPanel,
+  DEFAULT_FILTERS,
+  useCompanyFilter,
+} from "@/components/company-filter";
 
 import { toast } from "sonner";
 
@@ -421,23 +427,6 @@ function KontaktlisterOversigt() {
 
 // ---------- Create dialog ----------
 type Seller = { id: string; full_name: string };
-type Company = {
-  id: string;
-  name: string;
-  cvr: string | null;
-  city: string | null;
-  industry: string | null;
-  employees: number | null;
-  municipality: string | null;
-  customer_type: string;
-};
-
-const CUSTOMER_TYPES: { value: string; label: string }[] = [
-  { value: "aktiv_kunde", label: "Aktiv kunde" },
-  { value: "sovende_kunde", label: "Sovende kunde" },
-  { value: "tidligere_kunde", label: "Tidligere kunde" },
-  { value: "nyt_emne", label: "Nyt emne" },
-];
 
 const TABLE_PREVIEW_LIMIT = 500;
 
@@ -457,56 +446,41 @@ function OpretListeDialog({
   const [step, setStep] = useState<1 | 2>(1);
   const [saving, setSaving] = useState(false);
 
-  // step 2 filters
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterIndustry, setFilterIndustry] = useState("");
-  const [filterCity, setFilterCity] = useState("");
-  const [filterMunicipality, setFilterMunicipality] = useState("");
-  const [filterCustomerTypes, setFilterCustomerTypes] = useState<string[]>([]);
-  const [filterUnassigned, setFilterUnassigned] = useState(false);
-  const [filterMachine, setFilterMachine] = useState<string>("");
-  const [filterSector, setFilterSector] = useState<string>(""); // "" | private | public | unknown
-  const [minEmployees, setMinEmployees] = useState("");
+  // Shared company filter — samme komponent som /virksomheder
+  const {
+    filtered,
+    loading: loadingCompanies,
+    q,
+    setQ,
+    filters,
+    setFilters,
+    sellers: filterSellers,
+    municipalities,
+    isFilterActive,
+  } = useCompanyFilter({
+    isAdmin: true,
+    restrictToIds: preselectedCompanyIds ?? null,
+  });
 
-  const [companies, setCompanies] = useState<Company[]>([]); // preview rows (max 500)
-  const [totalMatched, setTotalMatched] = useState(0);
-  const [allMatchedIds, setAllMatchedIds] = useState<string[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [searching, setSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-
-  // Preselect virksomheder (fx fra CVR-import-flow)
-  useEffect(() => {
-    if (!preselectedCompanyIds || !preselectedCompanyIds.length) return;
-    (async () => {
-      const ids = preselectedCompanyIds;
-      // Hent preview-data for de forvalgte
-      const { data } = await supabase
-        .from("companies")
-        .select("id, name, cvr, city, industry, employees, municipality, customer_type")
-        .in("id", ids.slice(0, TABLE_PREVIEW_LIMIT));
-      setCompanies(data ?? []);
-      setAllMatchedIds(ids);
-      setTotalMatched(ids.length);
-      setSelectedIds(new Set(ids));
-      setHasSearched(true);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  const [userTouchedSelection, setUserTouchedSelection] = useState(false);
 
   // First-time tip (vises max 3 gange)
   const [showTip, setShowTip] = useState(false);
   useEffect(() => {
     if (step !== 2) return;
-    const seen = parseInt(localStorage.getItem("kontaktliste:filter-tip-seen") ?? "0", 10);
+    const seen = parseInt(
+      localStorage.getItem("kontaktliste:filter-tip-seen") ?? "0",
+      10,
+    );
     if (seen < 3) {
       setShowTip(true);
       localStorage.setItem("kontaktliste:filter-tip-seen", String(seen + 1));
     }
   }, [step]);
 
-
+  // Hent sælgere til step 1 (ansvarlig sælger)
   useEffect(() => {
     (async () => {
       const { data: roles } = await supabase
@@ -523,99 +497,17 @@ function OpretListeDialog({
     })();
   }, []);
 
-  const applyFilters = <T,>(q: T): T => {
-    let qq: any = q;
-    if (searchTerm)
-      qq = qq.or(`name.ilike.%${searchTerm}%,cvr.ilike.%${searchTerm}%`);
-    if (filterIndustry) qq = qq.ilike("industry", `%${filterIndustry}%`);
-    if (filterCity) qq = qq.ilike("city", `%${filterCity}%`);
-    if (filterMunicipality) qq = qq.ilike("municipality", `%${filterMunicipality}%`);
-    if (filterCustomerTypes.length)
-      qq = qq.in("customer_type", filterCustomerTypes);
-    if (minEmployees) qq = qq.gte("employees", parseInt(minEmployees));
-    if (filterMachine === "no")
-      qq = qq.ilike("customer_segment_2", "%har ikke maskine%");
-    else if (filterMachine === "yes")
-      qq = qq.ilike("customer_segment_2", "%udlån/leje%");
-    else if (filterMachine === "unknown") qq = qq.is("customer_segment_2", null);
-    if (filterSector === "public") qq = qq.eq("binding_status", "offentlig_aftale");
-    else if (filterSector === "private")
-      qq = qq.neq("binding_status", "offentlig_aftale").not("cvr", "is", null);
-    else if (filterSector === "unknown")
-      qq = qq.neq("binding_status", "offentlig_aftale").is("cvr", null);
-    return qq;
-  };
+  // Auto-vælg alle matchede når filteret ændrer sig, indtil brugeren manuelt klikker
+  useEffect(() => {
+    if (userTouchedSelection) return;
+    setSelectedIds(new Set(filtered.map((c) => c.id)));
+  }, [filtered, userTouchedSelection]);
 
-  const runSearch = async () => {
-    setSearching(true);
-
-    // 1) Fetch preview rows (limited for table render)
-    const preview = applyFilters(
-      supabase
-        .from("companies")
-        .select("id, name, cvr, city, industry, employees, municipality, customer_type")
-        .order("name")
-        .limit(TABLE_PREVIEW_LIMIT),
-    );
-    const { data: previewData, error: pErr } = await preview;
-    if (pErr) {
-      toast.error("Søgefejl: " + pErr.message);
-      setCompanies([]);
-      setAllMatchedIds([]);
-      setTotalMatched(0);
-      setHasSearched(true);
-      setSearching(false);
-      return;
-    }
-
-    // 2) Fetch ALL matching ids (no row limit) for select-all
-    let allIds: string[] = [];
-    const PAGE = 1000;
-    let from = 0;
-    // safety cap at 100k
-    for (let i = 0; i < 100; i++) {
-      const pageQ = applyFilters(
-        supabase.from("companies").select("id").order("name").range(from, from + PAGE - 1),
-      );
-      const { data, error } = await pageQ;
-      if (error) break;
-      const chunk = (data ?? []).map((r: any) => r.id as string);
-      allIds = allIds.concat(chunk);
-      if (chunk.length < PAGE) break;
-      from += PAGE;
-    }
-
-    // 3) Optionally filter to "ikke tildelt"
-    let matchedIds = allIds;
-    if (filterUnassigned && allIds.length) {
-      const assignedSet = new Set<string>();
-      // chunk through .in() to avoid URL limits
-      for (let i = 0; i < allIds.length; i += 1000) {
-        const slice = allIds.slice(i, i + 1000);
-        const { data: aRows } = await supabase
-          .from("contact_list_assignments")
-          .select("company_id")
-          .in("company_id", slice);
-        (aRows ?? []).forEach((r: any) => assignedSet.add(r.company_id));
-      }
-      matchedIds = allIds.filter((id) => !assignedSet.has(id));
-    }
-
-    const matchedSet = new Set(matchedIds);
-    const previewFiltered = (previewData ?? []).filter((c: any) =>
-      matchedSet.has(c.id),
-    );
-
-    setCompanies(previewFiltered);
-    setAllMatchedIds(matchedIds);
-    setTotalMatched(matchedIds.length);
-    // Auto-select all matches so brugeren ikke skal huske at klikke "Vælg alle"
-    setSelectedIds(new Set(matchedIds));
-    setHasSearched(true);
-    setSearching(false);
-  };
+  const totalMatched = filtered.length;
+  const previewRows = filtered.slice(0, TABLE_PREVIEW_LIMIT);
 
   const toggleCompany = (id: string) => {
+    setUserTouchedSelection(true);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -625,13 +517,14 @@ function OpretListeDialog({
   };
 
   const allMatchedSelected =
-    allMatchedIds.length > 0 && allMatchedIds.every((id) => selectedIds.has(id));
+    totalMatched > 0 && filtered.every((c) => selectedIds.has(c.id));
 
   const toggleSelectAllMatched = (v: boolean) => {
+    setUserTouchedSelection(true);
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (v) allMatchedIds.forEach((id) => next.add(id));
-      else allMatchedIds.forEach((id) => next.delete(id));
+      if (v) filtered.forEach((c) => next.add(c.id));
+      else filtered.forEach((c) => next.delete(c.id));
       return next;
     });
   };
@@ -670,14 +563,15 @@ function OpretListeDialog({
         assigned_to: responsibleSeller,
         status: "ny" as const,
       }));
-      // chunk insert
       for (let i = 0; i < rows.length; i += 500) {
         const slice = rows.slice(i, i + 500);
         const { error: aErr } = await supabase
           .from("contact_list_assignments")
           .insert(slice);
         if (aErr) {
-          toast.error("Liste oprettet, men kunne ikke tildele alle: " + aErr.message);
+          toast.error(
+            "Liste oprettet, men kunne ikke tildele alle: " + aErr.message,
+          );
           setSaving(false);
           onCreated();
           return;
@@ -687,12 +581,6 @@ function OpretListeDialog({
     toast.success(`Kontaktliste oprettet med ${ids.length} virksomheder`);
     setSaving(false);
     onCreated();
-  };
-
-  const toggleCustomerType = (value: string, checked: boolean) => {
-    setFilterCustomerTypes((prev) =>
-      checked ? [...prev, value] : prev.filter((v) => v !== value),
-    );
   };
 
   return (
@@ -748,8 +636,9 @@ function OpretListeDialog({
             {showTip && (
               <div className="flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
                 <span>
-                  💡 <strong>Tip:</strong> Brug filtrene til at finde de rigtige virksomheder.
-                  Kundestatus beregnes automatisk ud fra sidste varekøb i Visma.
+                  💡 <strong>Tip:</strong> Brug filtrene til at finde de
+                  rigtige virksomheder. Kundestatus beregnes automatisk ud fra
+                  sidste varekøb i Visma.
                 </span>
                 <button
                   type="button"
@@ -761,103 +650,36 @@ function OpretListeDialog({
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              <Input
-                placeholder="Søg navn eller CVR"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Input
-                placeholder="Branche"
-                value={filterIndustry}
-                onChange={(e) => setFilterIndustry(e.target.value)}
-              />
-              <Input
-                placeholder="By"
-                value={filterCity}
-                onChange={(e) => setFilterCity(e.target.value)}
-              />
-              <Input
-                placeholder="Kommune"
-                value={filterMunicipality}
-                onChange={(e) => setFilterMunicipality(e.target.value)}
-              />
-              <Input
-                placeholder="Min. ansatte"
-                type="number"
-                value={minEmployees}
-                onChange={(e) => setMinEmployees(e.target.value)}
-              />
-              <select
-                className="border rounded-md px-3 text-sm bg-background"
-                value={filterMachine}
-                onChange={(e) => setFilterMachine(e.target.value)}
-              >
-                <option value="">Maskinstatus: Alle</option>
-                <option value="no">Har IKKE maskine</option>
-                <option value="yes">Har udlån/leje maskine</option>
-                <option value="unknown">Ukendt</option>
-              </select>
-              <select
-                className="border rounded-md px-3 text-sm bg-background"
-                value={filterSector}
-                onChange={(e) => setFilterSector(e.target.value)}
-              >
-                <option value="">Sektor: Alle</option>
-                <option value="private">Private virksomheder</option>
-                <option value="public">Offentlige institutioner</option>
-                <option value="unknown">Ukendt</option>
-              </select>
-            </div>
+            <CompanyFilterBar
+              q={q}
+              onQChange={setQ}
+              filtersOpen={filtersOpen}
+              setFiltersOpen={setFiltersOpen}
+              isFilterActive={isFilterActive}
+              onReset={() => setFilters(DEFAULT_FILTERS)}
+              searchPlaceholder="Søg navn eller CVR…"
+            />
 
-            <div>
-              <Label className="text-xs">Kundestatus</Label>
-              <div className="flex flex-wrap gap-3 mt-1">
-                {CUSTOMER_TYPES.map((t) => (
-                  <label
-                    key={t.value}
-                    className="flex items-center gap-1.5 text-sm cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={filterCustomerTypes.includes(t.value)}
-                      onCheckedChange={(v) => toggleCustomerType(t.value, !!v)}
-                    />
-                    {t.label}
-                  </label>
-                ))}
-                <label className="flex items-center gap-1.5 text-sm cursor-pointer ml-4 border-l pl-4">
-                  <Checkbox
-                    checked={filterUnassigned}
-                    onCheckedChange={(v) => setFilterUnassigned(!!v)}
-                  />
-                  Kun ikke tildelte
-                </label>
-              </div>
-              <CustomerStatusLegend className="mt-2" />
-            </div>
+            <CompanyFilterPanel
+              open={filtersOpen}
+              filters={filters}
+              setFilters={setFilters}
+              sellers={filterSellers}
+              municipalities={municipalities}
+              isAdmin={true}
+            />
 
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={runSearch} variant="secondary" size="sm" disabled={searching}>
-                <Search className="h-4 w-4 mr-2" />
-                {searching ? "Søger…" : "Søg virksomheder"}
-              </Button>
-              {minEmployees && (
-                <span className="text-xs text-muted-foreground">
-                  Bemærk: "Min. ansatte" skjuler virksomheder uden registreret medarbejderantal.
-                </span>
-              )}
-            </div>
+            <CustomerStatusLegend />
 
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span className="text-muted-foreground">
-                {hasSearched
-                  ? `${totalMatched} virksomheder matcher dit filter${
+                {loadingCompanies
+                  ? "Indlæser virksomheder…"
+                  : `${totalMatched} virksomheder matcher dit filter${
                       totalMatched > TABLE_PREVIEW_LIMIT
                         ? ` (viser kun de første ${TABLE_PREVIEW_LIMIT} i tabellen)`
                         : ""
-                    }`
-                  : "Klik 'Søg virksomheder' for at hente liste"}
+                    }`}
               </span>
               <span className="inline-flex items-center gap-2 font-medium">
                 <Users className="h-4 w-4" />
@@ -865,9 +687,10 @@ function OpretListeDialog({
               </span>
             </div>
 
-            {hasSearched && totalMatched === 0 && !searching && (
+            {!loadingCompanies && totalMatched === 0 && (
               <div className="border rounded-md p-8 text-center text-sm text-muted-foreground">
-                Ingen virksomheder matchede dine filtre. Prøv at fjerne et eller flere filtre.
+                Ingen virksomheder matchede dine filtre. Prøv at fjerne et
+                eller flere filtre.
               </div>
             )}
 
@@ -879,8 +702,10 @@ function OpretListeDialog({
                     onCheckedChange={(v) => toggleSelectAllMatched(!!v)}
                   />
                   <span>
-                    Vælg alle <strong>{totalMatched}</strong> virksomheder der matcher dit filter
-                    {totalMatched > TABLE_PREVIEW_LIMIT && " (ikke kun de viste)"}
+                    Vælg alle <strong>{totalMatched}</strong> virksomheder der
+                    matcher dit filter
+                    {totalMatched > TABLE_PREVIEW_LIMIT &&
+                      " (ikke kun de viste)"}
                   </span>
                 </div>
                 <div className="border rounded-md max-h-80 overflow-y-auto">
@@ -896,7 +721,7 @@ function OpretListeDialog({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {companies.map((c) => {
+                      {previewRows.map((c) => {
                         const checked = selectedIds.has(c.id);
                         return (
                           <TableRow key={c.id}>
@@ -907,7 +732,9 @@ function OpretListeDialog({
                               />
                             </TableCell>
                             <TableCell>{c.name}</TableCell>
-                            <TableCell className="text-xs">{c.cvr ?? "—"}</TableCell>
+                            <TableCell className="text-xs">
+                              {c.cvr ?? "—"}
+                            </TableCell>
                             <TableCell>{c.city ?? "—"}</TableCell>
                             <TableCell>{c.employees ?? "—"}</TableCell>
                             <TableCell className="text-xs">
@@ -917,7 +744,6 @@ function OpretListeDialog({
                                 className="text-xs"
                               />
                             </TableCell>
-
                           </TableRow>
                         );
                       })}
@@ -946,7 +772,6 @@ function OpretListeDialog({
                     return;
                   }
                   setStep(2);
-                  if (!hasSearched) runSearch();
                 }}
               >
                 Næste: Tilføj virksomheder
