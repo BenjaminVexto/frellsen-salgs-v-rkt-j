@@ -161,10 +161,12 @@ export type Database = {
           bi_branch_1_code: string | null
           bi_branch_2_code: string | null
           bi_branch_3_code: string | null
+          binding_status: string | null
           city: string | null
           contact_person: string | null
           created_at: string
           created_in_visma: string | null
+          customer_category: string | null
           customer_segment_1: string | null
           customer_segment_2: string | null
           customer_segment_3: string | null
@@ -206,10 +208,12 @@ export type Database = {
           bi_branch_1_code?: string | null
           bi_branch_2_code?: string | null
           bi_branch_3_code?: string | null
+          binding_status?: string | null
           city?: string | null
           contact_person?: string | null
           created_at?: string
           created_in_visma?: string | null
+          customer_category?: string | null
           customer_segment_1?: string | null
           customer_segment_2?: string | null
           customer_segment_3?: string | null
@@ -251,10 +255,12 @@ export type Database = {
           bi_branch_1_code?: string | null
           bi_branch_2_code?: string | null
           bi_branch_3_code?: string | null
+          binding_status?: string | null
           city?: string | null
           contact_person?: string | null
           created_at?: string
           created_in_visma?: string | null
+          customer_category?: string | null
           customer_segment_1?: string | null
           customer_segment_2?: string | null
           customer_segment_3?: string | null
