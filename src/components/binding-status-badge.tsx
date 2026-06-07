@@ -19,10 +19,12 @@ export function BindingStatusBadge({
 
   const toneClass =
     s === "offentlig_aftale"
-      ? "bg-destructive/15 text-destructive border-destructive/40"
+      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40"
       : s === "frit_salg"
         ? "bg-success/10 text-success border-success/30"
         : "bg-muted text-muted-foreground border-border";
+
+
 
   return (
     <Badge
