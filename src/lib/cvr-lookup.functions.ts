@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveKommuneKode } from "./cvr-kommuner";
 
 const CVR_ES_URL =
@@ -185,6 +186,7 @@ const InputSchema = z.discriminatedUnion("type", [
 ]);
 
 export const cvrLookup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<CvrResponse> => {
     try {
@@ -364,6 +366,7 @@ const TwinsInput = z.object({
 });
 
 export const cvrSearchTwins = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => TwinsInput.parse(input))
   .handler(async ({ data }): Promise<CvrResponse> => {
     try {
