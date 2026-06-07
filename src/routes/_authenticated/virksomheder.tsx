@@ -543,7 +543,15 @@ function VirksomhederListe() {
   const applyTemplate = (tplId: string) => {
     const t = templates.find((x) => x.id === tplId);
     if (!t) return;
-    setFilters({ ...DEFAULT_FILTERS, ...(t.filter_config ?? {}) });
+    const cfg = { ...(t.filter_config ?? {}) } as any;
+    // Bagudkompat: gammelt felt machineStatus → nyt machines
+    if (Array.isArray(cfg.machineStatus) && !cfg.machines) {
+      cfg.machines = cfg.machineStatus.filter((v: string) =>
+        ["leased", "none"].includes(v),
+      );
+      delete cfg.machineStatus;
+    }
+    setFilters({ ...DEFAULT_FILTERS, ...cfg });
     setFiltersOpen(true);
     toast.success(`Skabelon "${t.name}" indlæst`);
   };
