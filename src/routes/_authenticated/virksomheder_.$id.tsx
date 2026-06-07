@@ -168,6 +168,7 @@ function VirksomhedsKort() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [docCount, setDocCount] = useState(0);
   const [assignedSellerName, setAssignedSellerName] = useState<string | null>(null);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [locationReloadKey, setLocationReloadKey] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
   const [presetLocationId, setPresetLocationId] = useState<string | null>(null);
