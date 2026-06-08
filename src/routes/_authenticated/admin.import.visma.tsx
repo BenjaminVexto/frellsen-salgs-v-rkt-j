@@ -8,6 +8,7 @@ import {
   createImportBatch,
   importUpsertCompaniesByCvr,
   importInsertCompaniesNoCvr,
+  importUpsertCompaniesByVismaId,
   importUpdateCompaniesById,
   importInsertLocations,
   importAssignSellersToCompanies,
@@ -312,6 +313,7 @@ function ImportSide() {
   const createBatch = useServerFn(createImportBatch);
   const upsertByCvr = useServerFn(importUpsertCompaniesByCvr);
   const insertNoCvr = useServerFn(importInsertCompaniesNoCvr);
+  const upsertByVismaId = useServerFn(importUpsertCompaniesByVismaId);
   const updateById = useServerFn(importUpdateCompaniesById);
   const upsertLocations = useServerFn(importInsertLocations);
   const assignSellers = useServerFn(importAssignSellersToCompanies);
@@ -847,8 +849,11 @@ function ImportSide() {
     const inserts = jobs.filter((j) => j.kind === "insert_new") as Extract<Job, { kind: "insert_new" }>[];
     const updates = jobs.filter((j) => j.kind === "update_id") as Extract<Job, { kind: "update_id" }>[];
 
+    const insertsWithVismaCount = inserts.filter((j) => !!(j.payload as any)?.visma_id).length;
+    const insertsNoVismaCount = inserts.length - insertsWithVismaCount;
     const totalBatches =
-      Math.ceil(inserts.length / CHUNK) +
+      Math.ceil(insertsWithVismaCount / CHUNK) +
+      Math.ceil(insertsNoVismaCount / CHUNK) +
       Math.ceil(updates.length / CHUNK);
     let batchIdx = 0;
     let processed = 0;
@@ -863,9 +868,48 @@ function ImportSide() {
       );
     };
 
-    // 5a) Bulk insert af nye virksomheder
-    for (let i = 0; i < inserts.length; i += CHUNK) {
-      const slice = inserts.slice(i, i + CHUNK);
+    // 5a) Bulk insert af nye virksomheder.
+    // Rækker MED visma_id går via upsert(onConflict=visma_id) — race-safe mod
+    // det unique partial index på companies(visma_id), så samtidige importer
+    // eller stale lookups ikke skaber dubletter.
+    // Rækker UDEN visma_id (edge case: navn-baseret nøgle) bruger ren INSERT.
+    const insertsWithVisma = inserts.filter((j) => !!(j.payload as any)?.visma_id);
+    const insertsNoVisma = inserts.filter((j) => !(j.payload as any)?.visma_id);
+
+    for (let i = 0; i < insertsWithVisma.length; i += CHUNK) {
+      const slice = insertsWithVisma.slice(i, i + CHUNK);
+      const payloads = slice.map((j) => j.payload);
+      try {
+        const res = await upsertByVismaId({ data: { rows: payloads } });
+        // upsert returnerer (id, visma_id) — map tilbage til jobs via visma_id
+        const idByVisma = new Map(res.results.map((r) => [String(r.visma_id ?? ""), r.id]));
+        slice.forEach((j) => {
+          const vid = String((j.payload as any)?.visma_id ?? "");
+          const id = idByVisma.get(vid);
+          if (!id) {
+            failed++;
+            return;
+          }
+          companyIds.push(id);
+          if (j.sellerId) sellerByCompany[id] = j.sellerId;
+          if (j.key) keyToCompanyId.set(j.key, id);
+          const cvr = (j.payload as any)?.cvr;
+          if (cvr) cvrToCompanyId.set(String(cvr), id);
+          created++;
+          if (j.isNoCvr) noCvrCount++;
+        });
+        if (res.failed) failed += res.failed;
+      } catch (e: any) {
+        console.error("Bulk upsert (visma_id) server-fn fejl", e);
+        toast.error(`Batch fejlede (${slice.length} rækker): ${e?.message ?? e}`);
+        failed += slice.length;
+      }
+      tick("insert", slice.length);
+      await yieldUI();
+    }
+
+    for (let i = 0; i < insertsNoVisma.length; i += CHUNK) {
+      const slice = insertsNoVisma.slice(i, i + CHUNK);
       const payloads = slice.map((j) => j.payload);
       try {
         const res = await insertNoCvr({ data: { rows: payloads } });

@@ -1,62 +1,96 @@
-# Skift grupperings-nøgle: CVR → Fakt. kunde (visma_id)
 
-## Mål
-Én virksomhed = én Fakt. kunde (visma_id). Lev. kund (visma_delivery_no) = lokation under virksomheden. CVR = berigelse, aldrig nøgle.
+# Re-import af kundefil (Fakt. kunde / visma_id)
 
-## 1) Database
+Samme chunked async-mønster som faktura-importen, men nu låst til den nye datamodel hvor `visma_id` er den eneste grupperings-nøgle.
 
-**Migration** (`supabase/migrations/...`):
-- Tilføj `UNIQUE (visma_id) WHERE visma_id IS NOT NULL` på `companies`.
-- Konsolidér eksisterende duplikater:
-  - For hver `visma_id` med >1 companies: vælg "canonical" = den hvor en lokation har `visma_delivery_no = visma_id` (primær), fallback laveste `created_at`.
-  - Flyt `locations`, `activities`, `contacts`, `agreements`, `contact_list_assignments`, `sales_opportunities`, `company_documents`, `company_briefings`, `location_equipment_units` (via location), `notifications`, `quotes` til canonical company_id.
-  - Berig canonical med CVR/adresse/navn fra primær-record hvis tomt.
-  - Slet de tomme dubletter.
-- Sørg for at `locations.visma_delivery_no` er unik pr. company_id (allerede tilfældet via upsert-nøgle — verificér constraint).
-- Markér lokation som `is_primary=true` hvor `visma_delivery_no = companies.visma_id`.
+## Bekræftelser på dine tre krav
 
-## 2) Import-flow (`admin.import.visma.tsx` + `admin.import.anden.tsx`)
+**1) Upsert kun OPDATERER eksisterende canonical-virksomheder og TILFØJER de manglende ~1.956 — uden at røre re-pointede aktiviteter/noter.**
 
-Skift `companyKey()` fra `(lower(name), visma_id)` → `visma_id` alene:
-- Dedup-opslag: `select companies where visma_id IN (...)` — match på visma_id only.
-- Navn/CVR/adresse på company tages fra hoved-record (`Lev. kund == Fakt. kunde`), fallback laveste Lev. kund.
-- Rækker uden visma_id → falder tilbage til navn-baseret nøgle (som i dag, edge case).
-- Lokationer bygges uændret pr. unik `visma_delivery_no` under company_id.
+Sandt, fordi:
+- Upserten kører på `companies (visma_id)` via det unique partial index migrationen lagde (`companies_visma_id_unique`). Conflict → `UPDATE` på canonical rækken, ingen ny række.
+- `UPDATE` på companies rører kun kolonner i payload (name, cvr, address, zip, city, municipality, …). FK-relationer (activities.company_id, contacts.company_id, briefings, quotes, agreements, …) er kolonner på de *andre* tabeller — de røres aldrig af en companies-upsert.
+- Vi merger felter med `COALESCE(existing, incoming)`-logik kun for tomme felter (samme `buildMerged` som i dag), så manuelt indtastede data overskrives ikke af et tomt Visma-felt.
 
-## 3) CVR-håndtering
-- CVR fjernes som grupperings-nøgle overalt.
-- Frellsen-blocklist (25340604) bevares — CVR sættes bare ikke på company.
-- Søsterselskaber: query på `cvr` på tværs af `visma_id` (forslag, ikke auto-merge) — eksisterende UI bevares.
+**2) Lokationer tilføjes under den rigtige virksomhed via Fakt. kunde — ikke som separate companies.**
 
-## 4) Salgs-kobling
-- Salgsfilens `Kundenr` = `visma_delivery_no` → lokation → company via `location.company_id`. Allerede korrekt, verificeres efter migration.
+Sandt, fordi:
+- `companyKey()` returnerer nu kun `visma_id` (Fakt. kunde) → alle rækker med samme Fakt. kunde grupperes til samme company_id i én lookup-tabel før location-byg.
+- Lokationer upsertes på `locations (company_id, visma_delivery_no)` (det eksisterende unique index). Eksisterende lokationer opdateres, manglende oprettes — aldrig som nyt company.
+- Lokationer hvor `visma_delivery_no = company.visma_id` markeres `is_primary=true` (samme regel som migrationen brugte).
 
-## 5) Bevares uændret
-Bindingsstatus-logik, udstyrs-bokse, salgsvisning, statuslogik, Frellsen-blocklist, CVR-berigelse, søsterselskabs-forslag.
+**3) Kommune udledes fra postnr på nye lokationer/virksomheder.**
+
+Sandt på company-niveau (det er der `companies.municipality` lever). `locations`-tabellen har ingen `municipality`-kolonne — kun zip/city — så kommune er pr. design en company-property der bruges af RLS/region-filtre. For nye companies (de ~1.956): hvis Visma-rækken mangler kommune, slår vi op via zip→kommune-tabellen før insert (samme helper som tidligere fix).
+
+## Re-import flow
+
+```text
+fil (16.091 rækker)
+  │
+  ├─ parse + map (Papa stream, in-memory)
+  ├─ companyKey = visma_id  →  ~16.091 grupper
+  │
+  ├─ chunk 500: SELECT companies WHERE visma_id IN (...)
+  │     ├─ found → klassificér som UPDATE (canonical id)
+  │     └─ ikke fundet → klassificér som INSERT (ny)
+  │
+  ├─ chunk 500: bulk upsert companies onConflict=visma_id
+  │     ├─ kommune-fallback fra zip hvis tom (kun for INSERT-rækker)
+  │     └─ retry pr. række ved batch-fejl (samme fallback som i dag)
+  │
+  ├─ chunk 500: bulk upsert locations onConflict=(company_id, visma_delivery_no)
+  │     ├─ is_primary=true hvor delivery_no = company.visma_id
+  │     └─ resten = false
+  │
+  ├─ kontaktpersoner: upsert pr. company (uændret)
+  └─ batch-log: import_batches række med company_ids
+```
+
+UI: `importRunner` viser "Importerer batch X af Y… (N / 16.091)" + progress bar — præcis som faktura-importen.
 
 ## Tekniske detaljer
 
-**Filer:**
-- ny migration: konsolidering + unique constraint
-- `src/routes/_authenticated/admin.import.visma.tsx` — `companyKey()` + dedup-opslag
-- `src/routes/_authenticated/admin.import.anden.tsx` — samme
-- evt. `src/lib/admin-companies.functions.ts` hvis det rører dedup
+**Filer der røres:**
+- `src/lib/admin-companies.functions.ts` — ny server-fn `importUpsertCompaniesByVismaId` (analog til `importUpsertCompaniesByCvr` men `onConflict: "visma_id"`). Beholder den gamle CVR-variant til legacy "Anden kilde"-import.
+- `src/routes/_authenticated/admin.import.visma.tsx` — flow ændres:
+  - dedup-lookup på `visma_id` (ikke CVR)
+  - upsert-kald skifter til `importUpsertCompaniesByVismaId`
+  - kommune-fallback fra zip indsættes før insert-payload bygges
 
-**Konsoliderings-SQL (skitse):**
-```sql
-WITH dup AS (
-  SELECT visma_id, array_agg(id ORDER BY 
-    (EXISTS(SELECT 1 FROM locations l WHERE l.company_id=c.id AND l.visma_delivery_no=c.visma_id)) DESC,
-    created_at ASC) ids
-  FROM companies c WHERE visma_id IS NOT NULL GROUP BY visma_id HAVING count(*)>1
-)
--- canonical = ids[1]; for each other id, UPDATE child tables SET company_id = canonical, DELETE company
+**Server-fn signatur (skitse):**
+```ts
+importUpsertCompaniesByVismaId({ rows })
+  // dedupliker pr. visma_id (sidste række vinder)
+  // chunk 500
+  // .upsert(slice, { onConflict: "visma_id" }).select("id, visma_id")
+  // fallback pr. række ved batch-fejl
+  // returnerer { results: [{id, visma_id}], failed, errors }
 ```
 
-## Verifikation
-- Aalborg Handelsskole: 1 virksomhed, 7 lokationer efter re-import.
-- 16.091 unikke virksomheder forventet ved fuld re-import af kundedata.
-- Salg ruller stadig korrekt op fra lokation til virksomhed.
+**Idempotens:** Re-kør samme fil → samme visma_id'er → samme rækker UPDATE'es med identisk payload. Ingen duplikater, ingen nye companies, ingen FK-data tabt.
+
+**Chunk-størrelser:** 500 (samme som faktura/eksisterende Visma-import). yieldUI() mellem chunks så browseren forbliver responsiv.
+
+**Retry/fejlhåndtering:** Batch-fejl → fallback til per-række upsert (samme mønster som `importUpsertCompaniesByCvr`). Fejlede rækker tælles og rapporteres i UI; importen fortsætter.
+
+## Verifikation efter kørsel
+
+```sql
+SELECT count(*), count(DISTINCT visma_id) FROM companies;
+-- forventet: ~16.091 / ~16.091
+
+SELECT count(*) FROM activities;
+-- skal stadig være 3 (ingen aktiviteter tabt under upsert)
+
+SELECT count(*) FROM locations;
+-- skal være >= 18.268 (nye lokationer tilføjet, ingen slettet)
+```
+
+## Hvad der IKKE ændres
+
+`importInsertLocations`, `importUpsertContacts`, salgs-rollup, bindingsstatus, udstyrs-bokse, Frellsen-CVR-blocklist, sælgertildeling, kontaktliste-flow. Kun company-upsert-nøglen skifter fra CVR til visma_id.
 
 ## Risiko
-Migration er destruktiv (sletter dublet-companies). Foreign keys til companies skal alle re-pointes først — kortlæg alle FK'er i migrationen før delete.
+
+Lav. Datamodellen er allerede konsistent (14.135 unikke visma_id, 0 orphans, unique constraint aktiv). Værste fald ved kørsel: enkelte rækker fejler validering → de logges, resten importeres, og du kan re-køre filen idempotent.

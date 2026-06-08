@@ -413,6 +413,59 @@ export const importInsertCompaniesNoCvr = createServerFn({ method: "POST" })
     return { results, failed };
   });
 
+// Upsert pr. visma_id (Fakt. kunde). Race-safe og idempotent: hvis canonical
+// allerede findes, UPDATE'es kun de medsendte felter; ellers INSERT.
+// Bruges ved kunde-re-import hvor visma_id er den autoritative grupperings-nøgle.
+export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      rows: z.array(CompanyRow).min(1).max(25000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    // Dedupliker pr. visma_id (sidste række vinder — samme mønster som CVR-varianten)
+    const byVismaId = new Map<string, any>();
+    for (const r of data.rows) {
+      const v = (r as any)?.visma_id;
+      if (!v) continue;
+      byVismaId.set(String(v), r);
+    }
+    const deduped = [...byVismaId.values()];
+    const CHUNK = 500;
+    const results: Array<{ id: string; visma_id: string | null }> = [];
+    let failed = 0;
+    const errors: string[] = [];
+    for (let i = 0; i < deduped.length; i += CHUNK) {
+      const slice = deduped.slice(i, i + CHUNK);
+      const { data: res, error } = await supabaseAdmin
+        .from("companies")
+        .upsert(slice as any, { onConflict: "visma_id" })
+        .select("id, visma_id");
+      if (error) {
+        console.error("Import upsert (visma_id) fejl:", error.message);
+        errors.push(error.message);
+        // Fallback pr. række
+        for (const row of slice) {
+          const { data: one, error: oneErr } = await supabaseAdmin
+            .from("companies")
+            .upsert(row as any, { onConflict: "visma_id" })
+            .select("id, visma_id")
+            .maybeSingle();
+          if (oneErr || !one) {
+            failed++;
+            continue;
+          }
+          results.push({ id: one.id, visma_id: one.visma_id });
+        }
+        continue;
+      }
+      (res ?? []).forEach((r: any) => results.push({ id: r.id, visma_id: r.visma_id }));
+    }
+    return { results, failed, errors };
+  });
+
 export const importUpdateCompaniesById = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
