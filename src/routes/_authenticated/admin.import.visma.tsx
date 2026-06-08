@@ -220,17 +220,16 @@ function normEan(v: string | undefined | null): string | null {
   return digits.length >= 8 ? digits : null;
 }
 
-// Virksomheds-nøgle = (lower(name), visma_id). Bruges som dedup-nøgle ved import.
-// Returnerer null hvis navn eller visma_id mangler — så falder vi tilbage til
-// name-match eller insert-uden-nøgle.
+// Virksomheds-nøgle = visma_id (Fakt. kunde). Eneste grupperings-nøgle.
+// CVR er berigelse, ikke nøgle. Navn er beskrivelse, ikke nøgle.
+// Returnerer null hvis visma_id mangler — så falder vi tilbage til name-match
+// eller insert-uden-nøgle.
 function companyKey(
-  name: string | null | undefined,
+  _name: string | null | undefined,
   vismaId: string | null | undefined,
 ): string | null {
-  const n = (name ?? "").trim().toLowerCase();
   const v = (vismaId ?? "").trim();
-  if (!n || !v) return null;
-  return `${n}|${v}`;
+  return v || null;
 }
 
 type ParsedRow = Record<string, string>;
