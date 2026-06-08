@@ -64,6 +64,15 @@ const VALG: Valg[] = [
       "Importér en CVR-liste fra en aftalepartner (fx Dansk Erhverv). Eksisterende virksomheder matches, nye oprettes og alle tildeles en ny kontaktliste.",
     hint: "Brug dette når en aftale leverer en liste af medlemmer/emner",
   },
+  {
+    to: "/admin/import/faktura",
+    icon: Receipt,
+    emoji: "💰",
+    title: "Faktura/salgsdata",
+    description:
+      "Importér rå fakturajournal fra Visma. Aggregeres automatisk pr. lev.nr. × måned × produktgruppe. Idempotent: kør samme periode flere gange uden dubletter.",
+    hint: "Brug dette til at opdatere salgstal og top-varer pr. lokation",
+  },
 ];
 
 function ImportValgSide() {
