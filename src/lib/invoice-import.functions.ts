@@ -24,14 +24,30 @@ export type ImportInvoicePayload = {
   topProducts: TopProductRow[];
 };
 
-export type ImportInvoiceResult = {
-  monthlyUpserted: number;
-  topProductsUpserted: number;
-  locationsMatched: number;
-  deliveryNosWithoutMatch: string[];
+export type InvoiceImportJobStatus = {
+  id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  total_monthly: number;
+  total_top: number;
+  saved_monthly: number;
+  saved_top: number;
+  locations_matched: number;
+  unmatched_delivery_nos: string[];
+  error_message: string | null;
+  updated_at: string;
 };
 
-export const upsertInvoiceAggregates = createServerFn({ method: "POST" })
+async function assertAdmin(supabase: any, userId: string) {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (error || !data) throw new Error("Kun administratorer kan importere salgsdata");
+}
+
+export const startInvoiceImportJob = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: ImportInvoicePayload) => {
     if (!input || !Array.isArray(input.monthly) || !Array.isArray(input.topProducts)) {
@@ -39,125 +55,68 @@ export const upsertInvoiceAggregates = createServerFn({ method: "POST" })
     }
     return input;
   })
-  .handler(async ({ data, context }): Promise<ImportInvoiceResult> => {
-    // Admin gate
-    const { data: roleRow, error: roleErr } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (roleErr || !roleRow) throw new Error("Kun administratorer kan importere salgsdata");
-
+  .handler(async ({ data, context }): Promise<{ jobId: string }> => {
+    await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Build delivery_no -> {location_id, company_id} map
-    const deliveryNos = Array.from(
-      new Set(
-        [
-          ...data.monthly.map((m) => m.visma_delivery_no),
-          ...data.topProducts.map((t) => t.visma_delivery_no),
-        ].filter(Boolean),
-      ),
-    );
-
-    const lookup = new Map<string, { location_id: string; company_id: string | null }>();
-    for (let i = 0; i < deliveryNos.length; i += 500) {
-      const slice = deliveryNos.slice(i, i + 500);
-      const { data: locs, error } = await supabaseAdmin
-        .from("locations")
-        .select("id, company_id, visma_delivery_no")
-        .in("visma_delivery_no", slice);
-      if (error) throw error;
-      (locs ?? []).forEach((l: any) => {
-        if (l.visma_delivery_no && !lookup.has(l.visma_delivery_no)) {
-          lookup.set(l.visma_delivery_no, {
-            location_id: l.id,
-            company_id: l.company_id ?? null,
-          });
-        }
-      });
-    }
-
-    const unmatched = new Set<string>();
-    deliveryNos.forEach((d) => {
-      if (!lookup.has(d)) unmatched.add(d);
-    });
-
-    // --- sales_monthly upsert ---
-    const monthlyRows = data.monthly
-      .map((m) => {
-        const hit = lookup.get(m.visma_delivery_no);
-        if (!hit) return null;
-        return {
-          visma_delivery_no: m.visma_delivery_no,
-          period: m.period,
-          product_group_1: m.product_group_1,
-          revenue: m.revenue,
-          quantity: m.quantity,
-          contribution: m.contribution,
-          order_count: m.order_count,
-          location_id: hit.location_id,
-          company_id: hit.company_id,
-          updated_at: new Date().toISOString(),
-        };
+    const { data: job, error } = await supabaseAdmin
+      .from("invoice_import_jobs")
+      .insert({
+        user_id: context.userId,
+        status: "queued",
+        total_monthly: data.monthly.length,
+        total_top: data.topProducts.length,
+        payload: data as any,
       })
-      .filter(Boolean) as any[];
+      .select("id")
+      .single();
+    if (error || !job) throw new Error(error?.message ?? "Kunne ikke oprette job");
 
-    let monthlyUpserted = 0;
-    for (let i = 0; i < monthlyRows.length; i += 500) {
-      const chunk = monthlyRows.slice(i, i + 500);
-      const { error } = await supabaseAdmin
-        .from("sales_monthly")
-        .upsert(chunk, { onConflict: "visma_delivery_no,period,product_group_1" });
-      if (error) throw error;
-      monthlyUpserted += chunk.length;
-    }
+    // Fire-and-forget kick-off of the background worker.
+    const { getRequestHost } = await import("@tanstack/react-start/server");
+    const host = getRequestHost();
+    const proto = host.includes("localhost") ? "http" : "https";
+    const url = `${proto}://${host}/api/public/hooks/process-invoice-import`;
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    // Don't await — let the worker start immediately and return jobId to client.
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-cron-secret": secret },
+      body: JSON.stringify({ jobId: job.id }),
+    }).catch((e) => console.error("[invoice-import] kick-off failed", e));
 
-    // --- sales_top_products: delete then insert for affected delivery_nos ---
-    const affectedDeliveries = Array.from(
-      new Set(data.topProducts.map((t) => t.visma_delivery_no).filter((d) => lookup.has(d))),
-    );
+    return { jobId: job.id };
+  });
 
-    for (let i = 0; i < affectedDeliveries.length; i += 500) {
-      const slice = affectedDeliveries.slice(i, i + 500);
-      const { error } = await supabaseAdmin
-        .from("sales_top_products")
-        .delete()
-        .in("visma_delivery_no", slice);
-      if (error) throw error;
-    }
-
-    const topRows = data.topProducts
-      .map((t) => {
-        const hit = lookup.get(t.visma_delivery_no);
-        if (!hit) return null;
-        return {
-          visma_delivery_no: t.visma_delivery_no,
-          varenr: t.varenr,
-          description: t.description,
-          revenue: t.revenue,
-          quantity: t.quantity,
-          location_id: hit.location_id,
-          updated_at: new Date().toISOString(),
-        };
-      })
-      .filter(Boolean) as any[];
-
-    let topProductsUpserted = 0;
-    for (let i = 0; i < topRows.length; i += 500) {
-      const chunk = topRows.slice(i, i + 500);
-      const { error } = await supabaseAdmin
-        .from("sales_top_products")
-        .upsert(chunk, { onConflict: "visma_delivery_no,varenr" });
-      if (error) throw error;
-      topProductsUpserted += chunk.length;
-    }
-
+export const getInvoiceImportJobStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { jobId: string }) => {
+    if (!input?.jobId) throw new Error("jobId mangler");
+    return input;
+  })
+  .handler(async ({ data, context }): Promise<InvoiceImportJobStatus> => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("invoice_import_jobs")
+      .select(
+        "id, status, total_monthly, total_top, saved_monthly, saved_top, locations_matched, unmatched_delivery_nos, error_message, updated_at",
+      )
+      .eq("id", data.jobId)
+      .maybeSingle();
+    if (error || !row) throw new Error(error?.message ?? "Job ikke fundet");
     return {
-      monthlyUpserted,
-      topProductsUpserted,
-      locationsMatched: deliveryNos.length - unmatched.size,
-      deliveryNosWithoutMatch: Array.from(unmatched).slice(0, 50),
+      ...(row as any),
+      unmatched_delivery_nos: Array.isArray((row as any).unmatched_delivery_nos)
+        ? ((row as any).unmatched_delivery_nos as string[])
+        : [],
     };
   });
+
+/** Kept for backwards compat in case anything still imports it. */
+export type ImportInvoiceResult = {
+  monthlyUpserted: number;
+  topProductsUpserted: number;
+  locationsMatched: number;
+  deliveryNosWithoutMatch: string[];
+};
