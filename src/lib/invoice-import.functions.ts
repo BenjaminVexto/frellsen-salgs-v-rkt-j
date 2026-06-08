@@ -83,7 +83,7 @@ export const startInvoiceImportJob = createServerFn({ method: "POST" })
         total_monthly: data.monthly.length,
         total_top: data.topProducts.length,
         payload_path: payloadPath,
-      });
+      } as any);
     if (insErr) throw new Error(insErr.message);
 
     // Fire-and-forget kick-off of the background worker.
