@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Database, FileSpreadsheet, FileText, Loader2, Search, Wrench } from "lucide-react";
+import { ArrowRight, Database, FileSpreadsheet, FileText, Loader2, Receipt, Search, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/import/")({
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/admin/import/")({
 });
 
 type Valg = {
-  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata" | "/admin/import/aftale-emner";
+  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata" | "/admin/import/aftale-emner" | "/admin/import/faktura";
   icon: React.ComponentType<{ className?: string }>;
   emoji: string;
   title: string;
@@ -63,6 +63,15 @@ const VALG: Valg[] = [
     description:
       "Importér en CVR-liste fra en aftalepartner (fx Dansk Erhverv). Eksisterende virksomheder matches, nye oprettes og alle tildeles en ny kontaktliste.",
     hint: "Brug dette når en aftale leverer en liste af medlemmer/emner",
+  },
+  {
+    to: "/admin/import/faktura",
+    icon: Receipt,
+    emoji: "💰",
+    title: "Faktura/salgsdata",
+    description:
+      "Importér rå fakturajournal fra Visma. Aggregeres automatisk pr. lev.nr. × måned × produktgruppe. Idempotent: kør samme periode flere gange uden dubletter.",
+    hint: "Brug dette til at opdatere salgstal og top-varer pr. lokation",
   },
 ];
 

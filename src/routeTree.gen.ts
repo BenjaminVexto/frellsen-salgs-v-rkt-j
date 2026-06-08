@@ -31,6 +31,7 @@ import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_aut
 import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
 import { Route as AuthenticatedAdminImportMaskindataRouteImport } from './routes/_authenticated/admin.import.maskindata'
+import { Route as AuthenticatedAdminImportFakturaRouteImport } from './routes/_authenticated/admin.import.faktura'
 import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authenticated/admin.import.cvr'
 import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
 import { Route as AuthenticatedAdminImportAftaleEmnerRouteImport } from './routes/_authenticated/admin.import.aftale-emner'
@@ -161,6 +162,12 @@ const AuthenticatedAdminImportMaskindataRoute =
     path: '/maskindata',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
+const AuthenticatedAdminImportFakturaRoute =
+  AuthenticatedAdminImportFakturaRouteImport.update({
+    id: '/faktura',
+    path: '/faktura',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
 const AuthenticatedAdminImportCvrRoute =
   AuthenticatedAdminImportCvrRouteImport.update({
     id: '/cvr',
@@ -201,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
+  '/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
@@ -226,6 +234,7 @@ export interface FileRoutesByTo {
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
+  '/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
@@ -254,6 +263,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
   '/_authenticated/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/_authenticated/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
+  '/_authenticated/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
   '/_authenticated/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/_authenticated/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
@@ -282,6 +292,7 @@ export interface FileRouteTypes {
     | '/admin/import/aftale-emner'
     | '/admin/import/anden'
     | '/admin/import/cvr'
+    | '/admin/import/faktura'
     | '/admin/import/maskindata'
     | '/admin/import/visma'
     | '/api/public/hooks/process-cvr-enrichment'
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | '/admin/import/aftale-emner'
     | '/admin/import/anden'
     | '/admin/import/cvr'
+    | '/admin/import/faktura'
     | '/admin/import/maskindata'
     | '/admin/import/visma'
     | '/api/public/hooks/process-cvr-enrichment'
@@ -334,6 +346,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import/aftale-emner'
     | '/_authenticated/admin/import/anden'
     | '/_authenticated/admin/import/cvr'
+    | '/_authenticated/admin/import/faktura'
     | '/_authenticated/admin/import/maskindata'
     | '/_authenticated/admin/import/visma'
     | '/api/public/hooks/process-cvr-enrichment'
@@ -503,6 +516,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportMaskindataRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
+    '/_authenticated/admin/import/faktura': {
+      id: '/_authenticated/admin/import/faktura'
+      path: '/faktura'
+      fullPath: '/admin/import/faktura'
+      preLoaderRoute: typeof AuthenticatedAdminImportFakturaRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
     '/_authenticated/admin/import/cvr': {
       id: '/_authenticated/admin/import/cvr'
       path: '/cvr'
@@ -531,6 +551,7 @@ interface AuthenticatedAdminImportRouteChildren {
   AuthenticatedAdminImportAftaleEmnerRoute: typeof AuthenticatedAdminImportAftaleEmnerRoute
   AuthenticatedAdminImportAndenRoute: typeof AuthenticatedAdminImportAndenRoute
   AuthenticatedAdminImportCvrRoute: typeof AuthenticatedAdminImportCvrRoute
+  AuthenticatedAdminImportFakturaRoute: typeof AuthenticatedAdminImportFakturaRoute
   AuthenticatedAdminImportMaskindataRoute: typeof AuthenticatedAdminImportMaskindataRoute
   AuthenticatedAdminImportVismaRoute: typeof AuthenticatedAdminImportVismaRoute
   AuthenticatedAdminImportIndexRoute: typeof AuthenticatedAdminImportIndexRoute
@@ -542,6 +563,7 @@ const AuthenticatedAdminImportRouteChildren: AuthenticatedAdminImportRouteChildr
       AuthenticatedAdminImportAftaleEmnerRoute,
     AuthenticatedAdminImportAndenRoute: AuthenticatedAdminImportAndenRoute,
     AuthenticatedAdminImportCvrRoute: AuthenticatedAdminImportCvrRoute,
+    AuthenticatedAdminImportFakturaRoute: AuthenticatedAdminImportFakturaRoute,
     AuthenticatedAdminImportMaskindataRoute:
       AuthenticatedAdminImportMaskindataRoute,
     AuthenticatedAdminImportVismaRoute: AuthenticatedAdminImportVismaRoute,
@@ -603,13 +625,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
