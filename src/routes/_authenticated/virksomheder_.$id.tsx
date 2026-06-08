@@ -627,6 +627,7 @@ function VirksomhedsKort() {
               {[
                 { v: "oversigt", label: "Oversigt" },
                 { v: "aktivitet", label: "Aktivitet" },
+                { v: "salg", label: "Salg" },
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
                 { v: "aftaler", label: "Aftaler" },
