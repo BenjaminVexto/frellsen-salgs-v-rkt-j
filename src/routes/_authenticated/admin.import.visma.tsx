@@ -313,6 +313,7 @@ function ImportSide() {
   const createBatch = useServerFn(createImportBatch);
   const upsertByCvr = useServerFn(importUpsertCompaniesByCvr);
   const insertNoCvr = useServerFn(importInsertCompaniesNoCvr);
+  const upsertByVismaId = useServerFn(importUpsertCompaniesByVismaId);
   const updateById = useServerFn(importUpdateCompaniesById);
   const upsertLocations = useServerFn(importInsertLocations);
   const assignSellers = useServerFn(importAssignSellersToCompanies);
