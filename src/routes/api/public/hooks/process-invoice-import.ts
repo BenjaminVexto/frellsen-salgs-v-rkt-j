@@ -70,17 +70,48 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
           return Response.json({ status: job.status });
         }
 
-        const payload = job.payload as { monthly: MonthlyRow[]; topProducts: TopProductRow[] };
-        const monthly = payload?.monthly ?? [];
-        const topProducts = payload?.topProducts ?? [];
+        const payloadPath = (job as any).payload_path as string | null;
+        if (!payloadPath) {
+          await supabaseAdmin
+            .from("invoice_import_jobs")
+            .update({ status: "failed", error_message: "payload_path mangler" })
+            .eq("id", jobId);
+          return Response.json({ error: "payload_path mangler" }, { status: 500 });
+        }
+
+        async function loadPayload() {
+          const { data: blob, error } = await supabaseAdmin.storage
+            .from("invoice-imports")
+            .download(payloadPath!);
+          if (error || !blob) throw new Error("Kunne ikke hente payload: " + (error?.message ?? ""));
+          const text = await blob.text();
+          return JSON.parse(text) as {
+            monthly: Array<MonthlyRow & { location_id?: string; company_id?: string | null }>;
+            topProducts: Array<TopProductRow & { location_id?: string }>;
+          };
+        }
+
+        async function savePayload(obj: unknown) {
+          const { error } = await supabaseAdmin.storage
+            .from("invoice-imports")
+            .upload(payloadPath!, JSON.stringify(obj), {
+              contentType: "application/json",
+              upsert: true,
+            });
+          if (error) throw new Error("Kunne ikke gemme payload: " + error.message);
+        }
 
         try {
-          // First-run setup: build delivery_no -> location map and stash unmatched info.
+          // First-run setup: build delivery_no -> location map and bake into payload.
           if (job.status === "queued") {
             await supabaseAdmin
               .from("invoice_import_jobs")
               .update({ status: "running" })
               .eq("id", jobId);
+
+            const raw = await loadPayload();
+            const monthly = raw.monthly ?? [];
+            const topProducts = raw.topProducts ?? [];
 
             const deliveryNos = Array.from(
               new Set(
@@ -114,8 +145,6 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
               if (!lookup.has(d)) unmatched.push(d);
             });
 
-            // Rewrite payload with location_id / company_id baked in so subsequent
-            // invocations don't need to re-query locations.
             const monthlyResolved = monthly
               .map((m) => {
                 const hit = lookup.get(m.visma_delivery_no);
@@ -132,10 +161,11 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
               })
               .filter(Boolean);
 
+            await savePayload({ monthly: monthlyResolved, topProducts: topResolved });
+
             await supabaseAdmin
               .from("invoice_import_jobs")
               .update({
-                payload: { monthly: monthlyResolved, topProducts: topResolved } as any,
                 total_monthly: monthlyResolved.length,
                 total_top: topResolved.length,
                 locations_matched: deliveryNos.length - unmatched.length,
@@ -143,17 +173,17 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
               })
               .eq("id", jobId);
 
-            // Re-trigger with resolved payload.
             await reTrigger(jobId, host, expected);
             return Response.json({ status: "running", phase: "resolved" });
           }
 
-          // Re-fetch (resolved) payload state
-          const resolvedMonthly = (payload?.monthly ?? []) as Array<MonthlyRow & {
+          // Subsequent invocations: load resolved payload from storage
+          const resolved = await loadPayload();
+          const resolvedMonthly = (resolved.monthly ?? []) as Array<MonthlyRow & {
             location_id: string;
             company_id: string | null;
           }>;
-          const resolvedTop = (payload?.topProducts ?? []) as Array<TopProductRow & {
+          const resolvedTop = (resolved.topProducts ?? []) as Array<TopProductRow & {
             location_id: string;
           }>;
 

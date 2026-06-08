@@ -59,18 +59,32 @@ export const startInvoiceImportJob = createServerFn({ method: "POST" })
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: job, error } = await supabaseAdmin
+    // Generate the job id up-front so we can name the storage object after it.
+    const jobId = crypto.randomUUID();
+    const payloadPath = `${context.userId}/${jobId}.json`;
+
+    // Upload payload to Storage instead of stuffing ~10-20 MB jsonb into Postgres
+    // (which trips the statement timeout on large invoice journals).
+    const json = JSON.stringify(data);
+    const { error: uploadErr } = await supabaseAdmin.storage
+      .from("invoice-imports")
+      .upload(payloadPath, json, {
+        contentType: "application/json",
+        upsert: true,
+      });
+    if (uploadErr) throw new Error("Kunne ikke uploade payload: " + uploadErr.message);
+
+    const { error: insErr } = await supabaseAdmin
       .from("invoice_import_jobs")
       .insert({
+        id: jobId,
         user_id: context.userId,
         status: "queued",
         total_monthly: data.monthly.length,
         total_top: data.topProducts.length,
-        payload: data as any,
-      })
-      .select("id")
-      .single();
-    if (error || !job) throw new Error(error?.message ?? "Kunne ikke oprette job");
+        payload_path: payloadPath,
+      } as any);
+    if (insErr) throw new Error(insErr.message);
 
     // Fire-and-forget kick-off of the background worker.
     const { getRequestHost } = await import("@tanstack/react-start/server");
@@ -78,14 +92,13 @@ export const startInvoiceImportJob = createServerFn({ method: "POST" })
     const proto = host.includes("localhost") ? "http" : "https";
     const url = `${proto}://${host}/api/public/hooks/process-invoice-import`;
     const secret = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    // Don't await — let the worker start immediately and return jobId to client.
     fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-cron-secret": secret },
-      body: JSON.stringify({ jobId: job.id }),
+      body: JSON.stringify({ jobId }),
     }).catch((e) => console.error("[invoice-import] kick-off failed", e));
 
-    return { jobId: job.id };
+    return { jobId };
   });
 
 export const getInvoiceImportJobStatus = createServerFn({ method: "POST" })
