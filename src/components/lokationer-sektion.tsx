@@ -313,6 +313,7 @@ function LokationRow({
               Lev.nr. {location.visma_delivery_no}
             </div>
           )}
+          <LocationSalesStrip locationId={location.id} isAdmin={!!isAdmin} />
           <EquipmentBox location={location} />
           <div className="pt-2">
             <Button size="sm" variant="outline" onClick={onRegister}>
