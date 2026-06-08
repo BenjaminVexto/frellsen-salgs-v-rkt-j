@@ -214,6 +214,7 @@ export function LokationerSektion({
 function LokationRow({
   location,
   isPrimary,
+  isAdmin,
   open,
   onToggle,
   onRegister,
@@ -224,6 +225,7 @@ function LokationRow({
 }: {
   location: Location;
   isPrimary?: boolean;
+  isAdmin?: boolean;
   open: boolean;
   onToggle: () => void;
   onRegister: () => void;
