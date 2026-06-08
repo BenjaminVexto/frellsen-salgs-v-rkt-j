@@ -740,6 +740,15 @@ function VirksomhedsKort() {
               </Card>
             </TabsContent>
 
+            {/* FANE: Salg */}
+            <TabsContent value="salg" className="mt-4">
+              <CompanySalesTab
+                companyId={company.id}
+                totalLocations={locations.length}
+                locationIds={locations.map((l) => l.id)}
+              />
+            </TabsContent>
+
             {/* FANE: Lokationer */}
             <TabsContent value="lokationer" className="space-y-4 mt-4">
               <LokationerSektion
