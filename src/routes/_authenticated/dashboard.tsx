@@ -160,7 +160,7 @@ function DashboardPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
-      <PersonalGreeting fullName={auth.fullName ?? null} />
+      <PersonalGreeting firstName={auth.fullName ? auth.fullName.split(" ")[0] : null} followupsToday={todays.length} />
 
       <div className="mb-6 md:mb-8">
         <MyMonthZone />
