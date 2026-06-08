@@ -8,6 +8,7 @@ import {
   createImportBatch,
   importUpsertCompaniesByCvr,
   importInsertCompaniesNoCvr,
+  importUpsertCompaniesByVismaId,
   importUpdateCompaniesById,
   importInsertLocations,
   importAssignSellersToCompanies,
