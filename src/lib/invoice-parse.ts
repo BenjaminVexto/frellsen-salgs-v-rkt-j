@@ -96,7 +96,10 @@ type TopProductAcc = {
   description: string;
   revenue: number;
   quantity: number;
+  contribution: number;
+  group: string;
 };
+
 
 export async function parseAndAggregate(file: File): Promise<{
   monthly: MonthlyRow[];
@@ -181,13 +184,16 @@ export async function parseAndAggregate(file: File): Promise<{
       const tkey = `${delivery}|${varenr}`;
       let t = topMap.get(tkey);
       if (!t) {
-        t = { delivery, varenr, description: desc, revenue: 0, quantity: 0 };
+        t = { delivery, varenr, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
         topMap.set(tkey, t);
       }
       t.revenue += revenue;
       t.quantity += qty;
+      t.contribution += db;
       if (!t.description && desc) t.description = desc;
+      if ((!t.group || t.group === "0") && group1) t.group = group1;
     }
+
   }
 
   stats.uniqueDeliveryNos = deliverySet.size;
@@ -221,9 +227,12 @@ export async function parseAndAggregate(file: File): Promise<{
         description: t.description,
         revenue: Math.round(t.revenue * 100) / 100,
         quantity: Math.round(t.quantity * 1000) / 1000,
+        contribution: Math.round(t.contribution * 100) / 100,
+        product_group_1: t.group,
       });
     });
   });
+
 
   return { monthly, topProducts, stats };
 }

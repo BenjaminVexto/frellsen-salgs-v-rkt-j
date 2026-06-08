@@ -1186,9 +1186,11 @@ export type Database = {
       }
       sales_top_products: {
         Row: {
+          contribution: number
           description: string | null
           id: string
           location_id: string | null
+          product_group_1: string | null
           quantity: number
           revenue: number
           updated_at: string
@@ -1196,9 +1198,11 @@ export type Database = {
           visma_delivery_no: string
         }
         Insert: {
+          contribution?: number
           description?: string | null
           id?: string
           location_id?: string | null
+          product_group_1?: string | null
           quantity?: number
           revenue?: number
           updated_at?: string
@@ -1206,9 +1210,11 @@ export type Database = {
           visma_delivery_no: string
         }
         Update: {
+          contribution?: number
           description?: string | null
           id?: string
           location_id?: string | null
+          product_group_1?: string | null
           quantity?: number
           revenue?: number
           updated_at?: string

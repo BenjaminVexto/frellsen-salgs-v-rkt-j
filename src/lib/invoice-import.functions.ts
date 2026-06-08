@@ -17,7 +17,10 @@ export type TopProductRow = {
   description: string;
   revenue: number;
   quantity: number;
+  contribution: number;
+  product_group_1: string;
 };
+
 
 export type ResolvedMonthlyRow = MonthlyRow & {
   location_id: string | null;

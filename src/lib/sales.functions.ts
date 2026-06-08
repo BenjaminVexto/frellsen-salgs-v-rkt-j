@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { SalesMonthlyRow, TopProductRow } from "./sales-utils";
+import { parseProductGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
+
 
 async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
   const { data } = await supabase
@@ -96,6 +97,67 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
       isAdmin,
     };
   });
+
+export type CategoryTopProduct = {
+  varenr: string;
+  description: string;
+  revenue: number;
+  quantity: number;
+  contribution: number | null;
+};
+
+export const getTopProductsForCompanyCategory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { companyId: string; categoryLabel: string }) => {
+    if (!input?.companyId || !input?.categoryLabel) throw new Error("input krævet");
+    return input;
+  })
+  .handler(async ({ data, context }): Promise<{ topProducts: CategoryTopProduct[]; isAdmin: boolean }> => {
+    const isAdmin = await isAdminUser(context.supabase, context.userId);
+    const { data: locs, error: lerr } = await context.supabase
+      .from("locations")
+      .select("id")
+      .eq("company_id", data.companyId);
+    if (lerr) throw lerr;
+    const locIds = (locs ?? []).map((l: any) => l.id).filter(Boolean);
+    if (!locIds.length) return { topProducts: [], isAdmin };
+
+    const rows: any[] = [];
+    for (let i = 0; i < locIds.length; i += 200) {
+      const slice = locIds.slice(i, i + 200);
+      const { data: r, error } = await context.supabase
+        .from("sales_top_products")
+        .select("varenr, description, revenue, quantity, contribution, product_group_1")
+        .in("location_id", slice);
+      if (error) throw error;
+      rows.push(...(r ?? []));
+    }
+
+    const target = data.categoryLabel;
+    const filtered = rows.filter((r) => parseProductGroup(r.product_group_1) === target);
+
+    const map = new Map<string, { varenr: string; description: string; revenue: number; quantity: number; contribution: number }>();
+    for (const r of filtered) {
+      const cur = map.get(r.varenr) ?? { varenr: r.varenr, description: r.description ?? "", revenue: 0, quantity: 0, contribution: 0 };
+      cur.revenue += Number(r.revenue) || 0;
+      cur.quantity += Number(r.quantity) || 0;
+      cur.contribution += Number(r.contribution) || 0;
+      if (!cur.description && r.description) cur.description = r.description;
+      map.set(r.varenr, cur);
+    }
+    const top = Array.from(map.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10)
+      .map((t) => ({
+        varenr: t.varenr,
+        description: t.description,
+        revenue: t.revenue,
+        quantity: t.quantity,
+        contribution: isAdmin ? t.contribution : null,
+      }));
+    return { topProducts: top, isAdmin };
+  });
+
 
 export const getLocationSalesSummary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

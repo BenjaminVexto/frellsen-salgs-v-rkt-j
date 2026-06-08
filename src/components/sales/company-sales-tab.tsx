@@ -69,7 +69,7 @@ export function CompanySalesTab({
       />
       <SalesSignalBox rows={rows} />
       <div className="grid gap-4 md:grid-cols-2">
-        <CategoryBars rows={rows} />
+        <CategoryBars rows={rows} companyId={companyId} />
         <RevenueSparkline rows={rows} />
       </div>
     </div>
