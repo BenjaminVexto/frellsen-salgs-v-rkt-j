@@ -123,7 +123,7 @@ export function LokationerSektion({
 
   return (
     <Card className="p-5">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
           <MapPin className="h-4 w-4" /> Lokationer
           {locations.length > 0 && (
@@ -132,11 +132,24 @@ export function LokationerSektion({
             </span>
           )}
         </h2>
-        {isAdmin && (
-          <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Tilføj
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {locations.length > 1 && (
+            <Select value={sortMode} onValueChange={(v) => setSortMode(v as any)}>
+              <SelectTrigger className="h-8 text-xs w-auto min-w-[180px]">
+                <SelectValue placeholder="Sortering" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Primær / by</SelectItem>
+                <SelectItem value="revenue">Omsætning (høj→lav)</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Tilføj
+            </Button>
+          )}
+        </div>
       </div>
 
       {locations.length === 0 ? (
@@ -149,6 +162,7 @@ export function LokationerSektion({
                 key={l.id}
                 location={l}
                 isPrimary={l.is_primary}
+                isAdmin={isAdmin}
                 open={openId === l.id}
                 onToggle={() => setOpenId(openId === l.id ? null : l.id)}
                 contacts={contactsByLocation?.get(l.id) ?? []}
