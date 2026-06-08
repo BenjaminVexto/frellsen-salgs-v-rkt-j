@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Database, FileSpreadsheet, FileText, Loader2, Search, Wrench } from "lucide-react";
+import { ArrowRight, Database, FileSpreadsheet, FileText, Loader2, Receipt, Search, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/import/")({
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/admin/import/")({
 });
 
 type Valg = {
-  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata" | "/admin/import/aftale-emner";
+  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata" | "/admin/import/aftale-emner" | "/admin/import/faktura";
   icon: React.ComponentType<{ className?: string }>;
   emoji: string;
   title: string;
