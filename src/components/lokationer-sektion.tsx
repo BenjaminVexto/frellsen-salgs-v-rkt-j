@@ -82,6 +82,7 @@ export function LokationerSektion({
   const [expanded, setExpanded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [sortMode, setSortMode] = useState<"default" | "revenue">("default");
 
   const load = async () => {
     const { data } = await (supabase as any)
@@ -97,10 +98,28 @@ export function LokationerSektion({
     load();
   }, [companyId, reloadKey]);
 
+  const summaryFn = useServerFn(getLocationSalesSummary);
+  const summaryQ = useQuery({
+    enabled: locations.length > 0,
+    queryKey: ["location-sales-summary", locations.map((l) => l.id).sort().join(",")],
+    queryFn: () => summaryFn({ data: { locationIds: locations.map((l) => l.id) } }),
+  });
+
+  const sortedLocations = useMemo(() => {
+    if (sortMode !== "revenue") return locations;
+    const summary = summaryQ.data ?? {};
+    return [...locations].sort((a, b) => {
+      const ra = summary[a.id]?.revenue12m ?? 0;
+      const rb = summary[b.id]?.revenue12m ?? 0;
+      if (rb !== ra) return rb - ra;
+      return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
+    });
+  }, [locations, sortMode, summaryQ.data]);
+
   // Always render the section (header) when admin; hide entirely if no data and no write
   if (locations.length === 0 && !isAdmin) return null;
 
-  const visible = expanded ? locations : locations.slice(0, 3);
+  const visible = expanded ? sortedLocations : sortedLocations.slice(0, 3);
 
   return (
     <Card className="p-5">
