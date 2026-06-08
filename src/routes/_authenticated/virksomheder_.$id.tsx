@@ -74,6 +74,7 @@ import { SourceBadges } from "@/components/source-badges";
 import { BindingStatusBadge } from "@/components/binding-status-badge";
 import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
+import { CompanySalesTab } from "@/components/sales/company-sales-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
@@ -143,7 +144,7 @@ type Activity = Database["public"]["Tables"]["activities"]["Row"];
 type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"];
 type Opportunity = Database["public"]["Tables"]["sales_opportunities"]["Row"];
 
-type TabKey = "oversigt" | "aktivitet" | "lokationer" | "relationer" | "aftaler";
+type TabKey = "oversigt" | "aktivitet" | "salg" | "lokationer" | "relationer" | "aftaler";
 
 
 const firstFilled = (...values: Array<string | null | undefined>) => {
@@ -627,6 +628,7 @@ function VirksomhedsKort() {
               {[
                 { v: "oversigt", label: "Oversigt" },
                 { v: "aktivitet", label: "Aktivitet" },
+                { v: "salg", label: "Salg" },
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
                 { v: "aftaler", label: "Aftaler" },
@@ -736,6 +738,15 @@ function VirksomhedsKort() {
                   </div>
                 )}
               </Card>
+            </TabsContent>
+
+            {/* FANE: Salg */}
+            <TabsContent value="salg" className="mt-4">
+              <CompanySalesTab
+                companyId={company.id}
+                totalLocations={locations.length}
+                locationIds={locations.map((l) => l.id)}
+              />
             </TabsContent>
 
             {/* FANE: Lokationer */}

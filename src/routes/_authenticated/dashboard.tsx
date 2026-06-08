@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { format, isToday, parseISO, addDays } from "date-fns";
 import { da } from "date-fns/locale";
+import { PersonalGreeting } from "@/components/sales/personal-greeting";
+import { MyMonthZone } from "@/components/sales/my-month-zone";
+import { ChurningCustomersCard } from "@/components/sales/churning-customers-card";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,

@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +14,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
+import { getLocationSalesSummary } from "@/lib/sales.functions";
 
 export type Location = {
   id: string;
@@ -77,6 +82,7 @@ export function LokationerSektion({
   const [expanded, setExpanded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [sortMode, setSortMode] = useState<"default" | "revenue">("default");
 
   const load = async () => {
     const { data } = await (supabase as any)
@@ -92,14 +98,32 @@ export function LokationerSektion({
     load();
   }, [companyId, reloadKey]);
 
+  const summaryFn = useServerFn(getLocationSalesSummary);
+  const summaryQ = useQuery({
+    enabled: locations.length > 0,
+    queryKey: ["location-sales-summary", locations.map((l) => l.id).sort().join(",")],
+    queryFn: () => summaryFn({ data: { locationIds: locations.map((l) => l.id) } }),
+  });
+
+  const sortedLocations = useMemo(() => {
+    if (sortMode !== "revenue") return locations;
+    const summary = summaryQ.data ?? {};
+    return [...locations].sort((a, b) => {
+      const ra = summary[a.id]?.revenue12m ?? 0;
+      const rb = summary[b.id]?.revenue12m ?? 0;
+      if (rb !== ra) return rb - ra;
+      return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
+    });
+  }, [locations, sortMode, summaryQ.data]);
+
   // Always render the section (header) when admin; hide entirely if no data and no write
   if (locations.length === 0 && !isAdmin) return null;
 
-  const visible = expanded ? locations : locations.slice(0, 3);
+  const visible = expanded ? sortedLocations : sortedLocations.slice(0, 3);
 
   return (
     <Card className="p-5">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
           <MapPin className="h-4 w-4" /> Lokationer
           {locations.length > 0 && (
@@ -108,11 +132,24 @@ export function LokationerSektion({
             </span>
           )}
         </h2>
-        {isAdmin && (
-          <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Tilføj
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {locations.length > 1 && (
+            <Select value={sortMode} onValueChange={(v) => setSortMode(v as any)}>
+              <SelectTrigger className="h-8 text-xs w-auto min-w-[180px]">
+                <SelectValue placeholder="Sortering" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Primær / by</SelectItem>
+                <SelectItem value="revenue">Omsætning (høj→lav)</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Tilføj
+            </Button>
+          )}
+        </div>
       </div>
 
       {locations.length === 0 ? (
@@ -125,6 +162,7 @@ export function LokationerSektion({
                 key={l.id}
                 location={l}
                 isPrimary={l.is_primary}
+                isAdmin={isAdmin}
                 open={openId === l.id}
                 onToggle={() => setOpenId(openId === l.id ? null : l.id)}
                 contacts={contactsByLocation?.get(l.id) ?? []}
@@ -176,6 +214,7 @@ export function LokationerSektion({
 function LokationRow({
   location,
   isPrimary,
+  isAdmin,
   open,
   onToggle,
   onRegister,
@@ -186,6 +225,7 @@ function LokationRow({
 }: {
   location: Location;
   isPrimary?: boolean;
+  isAdmin?: boolean;
   open: boolean;
   onToggle: () => void;
   onRegister: () => void;
@@ -273,6 +313,7 @@ function LokationRow({
               Lev.nr. {location.visma_delivery_no}
             </div>
           )}
+          <LocationSalesStrip locationId={location.id} isAdmin={!!isAdmin} />
           <EquipmentBox location={location} />
           <div className="pt-2">
             <Button size="sm" variant="outline" onClick={onRegister}>
