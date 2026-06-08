@@ -761,6 +761,57 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_import_jobs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          locations_matched: number
+          payload: Json
+          saved_monthly: number
+          saved_top: number
+          status: string
+          top_deleted: boolean
+          total_monthly: number
+          total_top: number
+          unmatched_delivery_nos: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          locations_matched?: number
+          payload: Json
+          saved_monthly?: number
+          saved_top?: number
+          status?: string
+          top_deleted?: boolean
+          total_monthly?: number
+          total_top?: number
+          unmatched_delivery_nos?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          locations_matched?: number
+          payload?: Json
+          saved_monthly?: number
+          saved_top?: number
+          status?: string
+          top_deleted?: boolean
+          total_monthly?: number
+          total_top?: number
+          unmatched_delivery_nos?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       location_equipment_units: {
         Row: {
           agreement_type: string | null
