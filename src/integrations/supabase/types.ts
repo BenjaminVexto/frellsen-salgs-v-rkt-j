@@ -1020,6 +1020,63 @@ export type Database = {
           },
         ]
       }
+      sales_monthly: {
+        Row: {
+          company_id: string | null
+          contribution: number
+          id: string
+          location_id: string | null
+          order_count: number
+          period: string
+          product_group_1: string
+          quantity: number
+          revenue: number
+          updated_at: string
+          visma_delivery_no: string
+        }
+        Insert: {
+          company_id?: string | null
+          contribution?: number
+          id?: string
+          location_id?: string | null
+          order_count?: number
+          period: string
+          product_group_1: string
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          visma_delivery_no: string
+        }
+        Update: {
+          company_id?: string | null
+          contribution?: number
+          id?: string
+          location_id?: string | null
+          order_count?: number
+          period?: string
+          product_group_1?: string
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          visma_delivery_no?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_monthly_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_monthly_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_opportunities: {
         Row: {
           assigned_to: string | null
@@ -1072,6 +1129,47 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_top_products: {
+        Row: {
+          description: string | null
+          id: string
+          location_id: string | null
+          quantity: number
+          revenue: number
+          updated_at: string
+          varenr: string
+          visma_delivery_no: string
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          varenr: string
+          visma_delivery_no: string
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          varenr?: string
+          visma_delivery_no?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_top_products_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
