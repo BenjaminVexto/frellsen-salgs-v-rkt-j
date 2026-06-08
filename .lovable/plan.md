@@ -1,140 +1,112 @@
-# Faktura/salgsdata-import med server-side aggregering
+# Visning af salgsdata
 
-## Mål
-Ny importtype der læser rå Visma fakturajournal (xlsx/csv, ~184k+ linjer, ISO-8859-1, ingen header, position-baseret) og aggregerer salgstal i to nye tabeller. Idempotent: kører man samme periode igen overskrives tallene. DB (contribution) er kun synligt for admin.
+Tre visninger oven på eksisterende UI. Rolle-styret: sælgere ser omsætning/antal, admin ser desuden DB + DG.
 
-## Nye tabeller (migration)
+## Delt fundament
 
-**`sales_monthly`** — aggregeret pr. lev.nr. × måned × produktgruppe
-- `id uuid pk`, `location_id uuid null fk locations`, `company_id uuid fk companies`
-- `visma_delivery_no text not null`
-- `period date not null` (1. i måneden)
-- `product_group_1 text not null` (rå værdi, fx "2 [Kaffe]"; "0" beholdes)
-- `revenue numeric`, `quantity numeric`, `contribution numeric`, `order_count int`
-- `updated_at timestamptz default now()`
-- UNIQUE `(visma_delivery_no, period, product_group_1)` → upsert
-- Index på `(company_id, period)`, `(location_id, period)`
+### Ny serverFn `getSalesForCompany(companyId)` — `src/lib/sales.functions.ts`
+- `requireSupabaseAuth` middleware
+- Henter `sales_monthly` rows for company (RLS sikrer adgang). Returnerer rå rækker + admin-flag.
+- `contribution` returneres KUN hvis brugeren er admin (filtreres serverside via `has_role`).
+- Aggregerer ikke — UI laver alle udregninger fra rækkerne.
 
-**`sales_top_products`** — top 15 varer pr. lokation (rullende 12 mdr)
-- `id uuid pk`, `location_id uuid fk locations`, `visma_delivery_no text`
-- `varenr text`, `description text`, `revenue numeric`, `quantity numeric`
-- `updated_at timestamptz`
-- UNIQUE `(visma_delivery_no, varenr)`
+### Ny serverFn `getSalesForLocation(locationId)` — samme fil
+- Henter `sales_monthly` for lokation + `sales_top_products` (top 15)
+- Samme admin-filter på contribution
 
-**RLS / GRANTs**
-- GRANT SELECT,INSERT,UPDATE,DELETE til `authenticated`; ALL til `service_role`
-- Policies: `authenticated` kan læse rækker hvor `can_access_company(auth.uid(), company_id)` returnerer true (genbrug eksisterende SECURITY DEFINER funktion). Top_products: via join på locations.company_id.
-- `contribution` skjules ikke i DB — admin-only filtreres i UI/serverFn (server returnerer kun feltet hvis `is_admin`).
+### Ny serverFn `getMyMonthlySales()` — for sælger
+- Henter sum af `sales_monthly` for indeværende måned for virksomheder hvor `assigned_to = auth.uid()` ELLER assignet via `contact_list_assignments`
+- Returnerer totalRevenue + count companies
 
-## Import-flow
+### Ny serverFn `getMyChurningCustomers()` — for sælger
+- Henter sælgerens tildelte companies med deres `sales_monthly`
+- Filtrer: havde mindst 3 måneder med revenue tidligere, men ingen revenue seneste 60+ dage
+- Returnerer top 10 efter historisk omsætning
 
-### 1. UI: ny menupost i `admin.import.index.tsx`
-- Tilføj kort "💰 Faktura/salgsdata" → ny route `/admin/import/faktura`
+### Delt komponent `SalesKpiStrip` — `src/components/sales/sales-kpi-strip.tsx`
+- Inputs: `rows: SalesMonthlyRow[]`, `isAdmin: boolean`, `locationsTotal/active?`
+- Beregner: omsætning 12 mdr, vs forrige 12 mdr (%), DB+DG (admin), sidste køb-dato, aktive lokationer
+- 4 kort i grid, admin-kort har dashed border + ADMIN-badge
 
-### 2. Ny route `src/routes/_authenticated/admin.import.faktura.tsx`
-- Upload-felt (xlsx/csv), drag-drop, samme look som maskindata-import
-- Sender filen base64-encoded til serverFn `importInvoiceJournal` (chunked upload hvis >5MB? — nej, send som FormData via server route i stedet for at undgå serverFn-størrelsesgrænse)
+### Delt komponent `CategoryBars` — vandrette bjælker pr. `product_group_1` (top 5-6 + "Øvrigt")
 
-### 3. Server route `src/routes/api/public/hooks/import-invoice-journal.ts`
-(Admin-only route med session-bearer check; eller bedre: brug en autentificeret serverFn route. Vi bruger `/api/...` ikke public — laver en almindelig auth-beskyttet TSS route.)
+### Delt komponent `RevenueSparkline` — 12-måneders søjler (simpel SVG/divs, ingen lib)
 
-Faktisk: Brug **ikke** public. Brug en autentificeret TSS route `src/routes/api/admin/import-invoice.ts`:
-- Læs `Authorization` header, validér via supabase, tjek `has_role(user, 'admin')`
-- Modtag FormData med fil
-- Parse, aggregér, upsert i baggrund (await færdig før response — frontend viser progress-runner via `importRunner`)
+### Helper `parseProductGroup` — "2 [Kaffe]" → label "Kaffe", "0" → "Øvrigt/ukategoriseret"
 
-### 4. Parser (`src/lib/invoice-import.server.ts`)
+## 1. Virksomhedskort — ny fane "Salg"
 
-**Filformat**: csv eller xlsx. For csv:
-- Læs som bytes, decode ISO-8859-1 → UTF-8 (`new TextDecoder('iso-8859-1')`)
-- Parse med `papaparse`: `delimiter: ' '`, `quoteChar: '"'`, `header: false`, `skipEmptyLines: true`
-- For xlsx: brug `xlsx` lib (allerede i projektet via maskindata-import) — læs som array of arrays uden header
+Fil: `src/routes/_authenticated/virksomheder_.$id.tsx`
+- Tilføj "Salg" tab mellem eksisterende tabs (find tab-listen)
+- Tab indhold:
+  - `<SalesKpiStrip>` (4 kort: 12-mdr omsætning + trend-pil, DB+DG admin-only, sidste køb, aktive lokationer X/Y)
+  - `<CategoryBars>`
+  - `<RevenueSparkline>` 12 mdr
+  - Salgssignal-amber-boks når sum seneste 3 mdr < samme 3 mdr året før (skjul hvis ingen 2025-data)
+- Henter via `getSalesForCompany` + tæller lokationer fra eksisterende locations-query
 
-**Pr. linje (18 kolonner, 0-indekseret)**:
-```
-order_no = row[2]
-date     = parseDate(row[3])    // DD-MM-YYYY eller ISO
-delivery = row[4].trim()
-varenr   = row[8]
-desc     = row[9]
-qty      = parseNum(row[10])
-group1   = row[11] || "0"
-revenue  = parseNum(row[15])
-db       = parseNum(row[16])
-```
+## 2. Pr. lokation — udvid Lokationer-fane
 
-**`parseNum`**: strip mellemrum, hvis indeholder både `.` og `,` antag dansk (1.234,56 → 1234.56); hvis kun `,` og 2 decimaler → dansk; ellers parseFloat.
+Fil: `src/components/lokationer-sektion.tsx` (læs først)
+- Tilføj `<LocationSalesStrip locationId>` over/ved udstyr-boksen for hver lokation
+- Strip viser: Køb 12 mdr · Sidste køb · Top-kategori · (admin: DB + DG)
+- Foldbar "Mest købte varer her" (Collapsible) → `sales_top_products` top 15 (beskrivelse, kr, antal) — default closed
+- Tilføj sorterings-dropdown øverst i Lokationer-fane: "Omsætning (høj→lav)" som ekstra option
+  - Kræver at vi henter `sales_monthly`-sum pr. lokation i én batch — ny serverFn `getLocationSalesSummary(locationIds[])` returnerer `{location_id, revenue12m, lastPurchase}[]`
+  - Sortering ændrer rækkefølgen lokalt før rendering
 
-**`parseDate`**: regex `^(\d{2})-(\d{2})-(\d{4})$` (DD-MM-YYYY) ellers `new Date(iso)`.
+## 3. Sælgerens overblik (Dashboard)
 
-### 5. Aggregering (in-memory)
+Fil: `src/routes/_authenticated/dashboard.tsx`
 
-```ts
-type Key = `${delivery}|${YYYY-MM-01}|${group1}`
-map: Map<Key, { revenue, qty, db, orderSet: Set<string>, isInternalOnly: boolean }>
-```
+### Top: personlig hilsen
+- "Godmorgen/Goddag/Godaften, [fornavn]" baseret på klokken
+- Dato (da-DK lang format)
+- "X opfølgninger i dag" — count af aktiviteter/opgaver med follow-up dato = i dag (genbrug eksisterende kilde hvis findes)
 
-For hver linje:
-- Hvis `revenue === 0 && db !== 0` → marker som intern service-postering: tæl `db` med i contribution, MEN tæl ikke order_no med i orderSet og spring revenue/qty over.
-- Ellers: læg revenue/qty til, læg db til, tilføj order_no til Set.
+### ZONE "Din måned" (3 kort)
+1. **Budget** — placeholder hvis ingen budget-data for sælger:
+   - "Sæt et månedsmål for at se fremdrift"
+   - Når data findes: progress bar + "X% af [mål] kr." + forventet-marker (dag i måneden / dage i måneden) + "På sporet"/"Bagud"
+   - Budgets-tabel findes ikke endnu — vi viser placeholder + lille note "(kommer)". Ingen migration i denne prompt.
+2. **Nye aktiviteter denne måned** — count fra `activities` hvor `created_by = auth.uid()` AND created_at i denne måned
+3. **Min omsætning denne måned** — fra `getMyMonthlySales`
 
-Efter parsing: konvertér til rækker, `order_count = orderSet.size`.
+### ZONE "Dagens arbejde"
+- Behold eksisterende kort uændret
+- Tilføj nyt kort **"Kunder på vej væk"** via `getMyChurningCustomers`
+  - Liste: virksomhedsnavn (Link til /virksomheder/$id) + "intet køb N dage · før: ~X køb/md"
+  - Tomt: "Ingen kunder på vej væk lige nu — godt arbejde 🌱"
+  - Skjul/vis placeholder hvis ingen 2025-data findes (count = 0 + ingen historik)
 
-### 6. Lookup location_id
+## Rolle-detektion
+- Genbrug `useAuth().role === "admin"` i komponenterne
+- Server-side: tjek `has_role(userId, 'admin')` før contribution returneres
 
-- Hent alle relevante `locations` i én query: `select id, company_id, visma_delivery_no from locations where visma_delivery_no in (<unique set>)`
-- Byg `Map<delivery_no, {location_id, company_id}>`
-- For rækker uden match: log i preview-counter, spring upsert over.
+## Filer der oprettes
+- `src/lib/sales.functions.ts` — alle serverFns
+- `src/lib/sales-utils.ts` — `parseProductGroup`, KPI-udregninger
+- `src/components/sales/sales-kpi-strip.tsx`
+- `src/components/sales/category-bars.tsx`
+- `src/components/sales/revenue-sparkline.tsx`
+- `src/components/sales/sales-signal-box.tsx`
+- `src/components/sales/location-sales-strip.tsx`
+- `src/components/sales/company-sales-tab.tsx`
+- `src/components/sales/churning-customers-card.tsx`
+- `src/components/sales/personal-greeting.tsx`
+- `src/components/sales/budget-card.tsx`
+- `src/components/sales/my-month-zone.tsx`
 
-### 7. Upsert i chunks á 500
-
-```ts
-for (chunk of chunks(rows, 500)) {
-  await supabaseAdmin.from('sales_monthly').upsert(chunk, {
-    onConflict: 'visma_delivery_no,period,product_group_1'
-  })
-}
-```
-
-**`sales_top_products`**: i samme job, beregn top 15 pr. lokation for seneste 12 mdr:
-- Gruppér rå linjer på `(delivery, varenr)`, sum revenue/qty, hvor `date >= today - 12 months`
-- For hver lokation: sortér efter revenue desc, behold top 15
-- Slet eksisterende rækker for de berørte `visma_delivery_no` først (atomicity), så upsert
-
-### 8. Response (preview-tal)
-
-```json
-{
-  linesRead, locationsMatched, deliveryNosWithoutMatch: string[],
-  totalRevenue, periodFrom, periodTo, monthlyRows, topProductRows
-}
-```
-
-Frontend viser disse tal + liste over unmatched lev.nr. (begrænset til 50).
-
-## Frontend-detaljer
-
-- `importRunner.start("anden")` → progress fra fetch-stream eller fast polling
-- Realistisk: vis "Uploader…" → "Aggregerer…" → "Gemmer X rækker…" → "Færdig"
-- Vis ingen `contribution`-felter for ikke-admins (hentes ikke fra serverFn for non-admin)
-
-## Performance
-
-- 184k linjer → ~5–15k aggregerede `sales_monthly`-rækker → ~30 upsert-chunks
-- Kør hele jobbet i selve request-handleren (Cloudflare Worker timeout: 30s for HTTP, men her bruger vi await indtil færdig). Hvis filen er for stor, kan vi senere splitte i Workers-baggrundsjob — første version: synkron.
-- Stream filen aldrig ind via JSON; brug `request.formData()` for at undgå base64-blowup.
+## Filer der ændres
+- `src/routes/_authenticated/virksomheder_.$id.tsx` — ny tab "Salg"
+- `src/components/lokationer-sektion.tsx` — strip + collapsible + sortering
+- `src/routes/_authenticated/dashboard.tsx` — greeting + Din måned-zone + Kunder på vej væk
 
 ## Hvad der IKKE ændres
-- Eksisterende importtyper, locations, companies, aktivitetslog, udstyr-bokse, virksomheds-/lokationsvisninger.
-- Drill-down UI i virksomhedsvisning er ikke en del af dette plan — kun import + lagring. Brug af `sales_monthly`/`sales_top_products` i UI kommer i senere prompt.
+- Eksisterende faner/sektioner, udstyr-bokse, sidebar, Visma-data-blok, aktivitetslog, AI-briefing, andre dashboardkort.
+- Ingen DB-ændringer (budgetter er placeholder; tabel kan tilføjes i senere prompt).
 
-## Filer der oprettes/ændres
-1. Migration: `sales_monthly` + `sales_top_products` + indeks + RLS + GRANTs
-2. `src/routes/_authenticated/admin.import.faktura.tsx` (ny)
-3. `src/routes/_authenticated/admin.import.index.tsx` (tilføj kort)
-4. `src/routes/api/admin/import-invoice.ts` (ny auth-beskyttet TSS route)
-5. `src/lib/invoice-import.server.ts` (parser + aggregator)
-6. (evt.) `src/lib/invoice-import.functions.ts` hvis vi vil have en serverFn-wrapper til status
-
-## Åbne spørgsmål
-- Skal jeg også bygge en simpel "se salgsdata pr. virksomhed"-visning nu, eller vente til senere prompt? (Planen ovenfor inkluderer KUN import + lagring.)
+## Performance-noter
+- Virksomhedsside: én serverFn-kald → typisk <500 rækker (én virksomhed × 12 mdr × ~10 grupper)
+- Dashboard: church-customers-fn kan blive tung; begrænser til sælgerens tildelte companies (typisk <500) og laver én `sales_monthly`-query med `IN`-filter
+- Lokations-sortering: én batch-query for alle synlige lokationer (typisk <50)
