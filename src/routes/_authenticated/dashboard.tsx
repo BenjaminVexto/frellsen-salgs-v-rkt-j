@@ -160,15 +160,17 @@ function DashboardPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
-      <header className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-          Mit overblik
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {auth.fullName ? `Hej ${auth.fullName.split(" ")[0]} · ` : ""}
-          {format(new Date(), "EEEE d. MMMM yyyy", { locale: da })}
-        </p>
-      </header>
+      <PersonalGreeting fullName={auth.fullName ?? null} />
+
+      <div className="mb-6 md:mb-8">
+        <MyMonthZone />
+      </div>
+
+      <div className="mb-6 md:mb-8">
+        <ChurningCustomersCard />
+      </div>
+
+
 
       <div className="grid gap-4 md:gap-6 md:grid-cols-2">
         <PanelCard
