@@ -74,6 +74,7 @@ import { SourceBadges } from "@/components/source-badges";
 import { BindingStatusBadge } from "@/components/binding-status-badge";
 import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
+import { CompanySalesTab } from "@/components/sales/company-sales-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
