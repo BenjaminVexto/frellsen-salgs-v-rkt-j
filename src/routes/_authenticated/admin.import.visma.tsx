@@ -849,8 +849,11 @@ function ImportSide() {
     const inserts = jobs.filter((j) => j.kind === "insert_new") as Extract<Job, { kind: "insert_new" }>[];
     const updates = jobs.filter((j) => j.kind === "update_id") as Extract<Job, { kind: "update_id" }>[];
 
+    const insertsWithVismaCount = inserts.filter((j) => !!(j.payload as any)?.visma_id).length;
+    const insertsNoVismaCount = inserts.length - insertsWithVismaCount;
     const totalBatches =
-      Math.ceil(inserts.length / CHUNK) +
+      Math.ceil(insertsWithVismaCount / CHUNK) +
+      Math.ceil(insertsNoVismaCount / CHUNK) +
       Math.ceil(updates.length / CHUNK);
     let batchIdx = 0;
     let processed = 0;
