@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { parseProductGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
+import { getCompaniesSuppliedByOthers } from "./relations.functions";
 
 
 async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
