@@ -177,6 +177,7 @@ function SuggestionRow({
     to_company_id: string | null;
     to_company_name: string | null;
     to_company_city: string | null;
+    via_location_label: string | null;
     source_text: string | null;
   };
   onConfirm: (t: RelationType) => Promise<void>;
@@ -208,6 +209,11 @@ function SuggestionRow({
           <span className="text-xs text-warning ml-2">(virksomhed ikke fundet i systemet)</span>
         )}
       </div>
+      {suggestion.via_location_label && (
+        <div className="text-xs text-primary mt-1">
+          Matchet via leveringsnr {suggestion.to_visma_id}: {suggestion.via_location_label}
+        </div>
+      )}
       {suggestion.source_text && (
         <div className="text-xs text-muted-foreground mt-1 italic">
           Fundet i bemærkning: "{suggestion.source_text.slice(0, 160)}
