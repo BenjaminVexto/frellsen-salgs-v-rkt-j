@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getSalesForCompany } from "@/lib/sales.functions";
+import { getCompanyRelations } from "@/lib/relations.functions";
 import { SalesKpiStrip } from "./sales-kpi-strip";
 import { CategoryBars } from "./category-bars";
 import { RevenueSparkline } from "./revenue-sparkline";
