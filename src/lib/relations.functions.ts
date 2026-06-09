@@ -164,7 +164,7 @@ export const getCompanyRelations = createServerFn({ method: "GET" })
       };
     });
 
-    return { confirmed, suggestions };
+    return { confirmed: deduped, suggestions };
   });
 
 // ---------- WRITE ----------
