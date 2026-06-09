@@ -428,7 +428,12 @@ export const getMyChurningCustomers = createServerFn({ method: "GET" })
       }
     }
 
-    const filtered = candidates.filter((c) => !dismissedSet.has(c.company_id));
+    // Exclude companies that are supplied via another company (kantine-mønster)
+    const suppliedSet = await getCompaniesSuppliedByOthers(context.supabase, candIds);
+
+    const filtered = candidates.filter(
+      (c) => !dismissedSet.has(c.company_id) && !suppliedSet.has(c.company_id),
+    );
     filtered.sort((a, b) => b.monthlyAverageRevenue - a.monthlyAverageRevenue);
     const top = filtered.slice(0, 10);
     if (!top.length) return { customers: [], hasData: true };
