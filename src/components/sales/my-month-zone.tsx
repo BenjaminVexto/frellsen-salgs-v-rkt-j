@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Target, Activity, Wallet, Loader2 } from "lucide-react";
+import { Target, Activity, Wallet, Loader2, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { getMyMonthlySales, getMyNewActivitiesCount } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
 
