@@ -72,6 +72,21 @@ export type ScatterPoint = {
   revenue12m: number;
 };
 
+export type SignalRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  revenue12m: number;
+  revenue12mPrior: number;
+  daysSinceConsumable: number | null;
+  consumableAvgPerMonth: number | null;
+  missingGroups: string[]; // whitespace tags
+  growthPct: number | null;
+  expiresAt: string | null;
+  expiryLabel: string | null;
+  expirySubtitle: string | null;
+};
+
 export type PortfolioPayload = {
   isAdmin: boolean;
   appliedSellerId: string | null;
@@ -90,12 +105,20 @@ export type PortfolioPayload = {
   monthLabels: { period: string; label: string }[]; // last 5
   companies: PortfolioCompanyRow[];
   rankings: {
-    topRevenue: RankingRow[]; // top 25 by revenue
-    bottomRevenueActive: RankingRow[]; // bottom 25 active only
-    topContribution: RankingRow[] | null; // admin only, top 25 DB
-    potential: RankingRow[]; // active+private+employees, lowest ratio first
+    topRevenue: RankingRow[];
+    bottomRevenueActive: RankingRow[];
+    topContribution: RankingRow[] | null;
+    potential: RankingRow[];
     potentialScatter: ScatterPoint[];
     potentialMissingEmployees: number;
+  };
+  signals: {
+    machineNoCoffee: SignalRow[];
+    whiteSpace: SignalRow[];
+    growing: SignalRow[];
+    declining: SignalRow[];
+    expiringAgreements: SignalRow[];
+    expiringCompetitor: SignalRow[];
   };
 };
 
