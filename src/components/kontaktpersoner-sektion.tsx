@@ -58,15 +58,6 @@ export function KontaktpersonerSektion({
     email: string | null;
     locationId: string | null;
   } | null>(null);
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<ContactRow | null>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [mailFor, setMailFor] = useState<{
-    name: string;
-    email: string | null;
-    locationId: string | null;
-  } | null>(null);
 
   const locMap = new Map(locations.map((l) => [l.id, l]));
 
