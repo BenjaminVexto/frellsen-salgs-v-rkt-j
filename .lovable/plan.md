@@ -1,62 +1,59 @@
-# Plan — "Sidste køb" på Salg-fanen
+## Mål
 
-## Diagnose (kørt mod live DB lige nu)
+Når en virksomhed (fx Centrica) har maskiner men forbrugsvarerne købes via en anden konto (fx Serwiz/kantineoperatør), skal vi kunne registrere koblingen så Centrica IKKE fejlagtigt vises som "kunde på vej væk", og så salg-fanen viser "Forbrugsvarer leveres via Serwiz". Parser foreslår — admin/sælger bekræfter type.
 
-Ejner Hessel A/S (`86e25023…`):
+## 1) Database (1 migration)
 
-```
-period      | revenue
-2025-04-01  |  48.552
-…
-2026-01-01  | 265.012
-2026-02-01  |  83.933
-2026-03-01  |  62.662
-2026-04-01  | 152.741
-2026-05-01  |  73.581
-2026-06-01  |       0   (4 rows, alle revenue=0 — sandsynligvis kreditnota/service)
-```
+**Ny tabel `company_relations`** (bekræftede relationer — fælles fakta):
+- `from_company_id`, `to_company_id`, `relation_type` enum (`forsynes_af`, `leverer_til`, `maskiner_paa`, `efterfoelger`), `note`, `created_by`, `created_at`
+- Unik(from, to, relation_type)
+- RLS: alle authenticated kan læse; INSERT/UPDATE/DELETE for authenticated (sælgere må også oprette — fælles fakta)
+- Når man opretter `forsynes_af A→B`, opret automatisk den inverse `leverer_til B→A` (i serverFn, ikke trigger)
 
-Konklusioner:
+**Ny tabel `company_relation_suggestions`** (parser-forslag, afventer bekræftelse):
+- `from_company_id`, `to_visma_id` (rå kundenr fundet), `to_company_id` (matchet hvis muligt), `source_text` (rå bemærkning), `status` (`pending`/`confirmed`/`rejected`), `resolved_by`, `resolved_at`
+- RLS: alle authenticated read/write
+- Unik(from_company_id, to_visma_id) for at undgå dubletter
 
-1. **2026-data er IKKE overskrevet.** Alle måneder 2026-01 … 2026-06 har egne rækker.
-2. **Period-nøglen indeholder allerede år.** Unique-index er:
-   `sales_monthly_unique (visma_delivery_no, period, product_group_1)`
-   hvor `period` er en `date` (`2026-04-01` osv.). Ingen rod-årsag der.
-3. **`companies.last_purchase_date` = `2026-06-01`** → sidebar "1. jun." er korrekt.
-4. **`MAX(period) WHERE revenue>0` = `2026-05-01`** → KPI "Sidste køb" bør vise `maj 2026`. Ikke `mar. 2026`.
+## 2) Parser (`src/lib/relation-suggestions.server.ts`)
 
-Med andre ord: skemaet og data er konsistente. "mar. 2026" matcher ikke nuværende DB-tilstand — det peger på en **stale React Query-cache** i din browser (siden 2026-importen blev færdiggjort efter screenshottet).
+Funktion `extractKundenrReferences(notesText, ownVismaId)` → returnerer array af unikke 6-7-cifrede kundenumre (ikke ownVismaId). Regex matcher mønstre: `\b(?:nr\.?|K-|kund(?:e)?\s*nr\.?|via|på)\s*[K\-]?\s*(\d{6,7})\b` samt løs `\b(\d{7})\b` i sætninger med "varer", "maskine", "kantine", "forbrugsvar". Returnerer matches.
 
-## Foreslåede ændringer (små, præsentations-lag)
+**Hvor køres parser:** Tilføj en serverFn `rescanRelationSuggestions` (admin) der scanner alle `companies.visma_notes` og opretter pending suggestions. Kald den også fra CVR/Visma-importflows efter upsert (best-effort, ikke-blokerende). For nu: én admin-knap på Importhistorik eller admin/overblik. **Minimal scope:** kun den admin-knap + manuel kørsel.
 
-Selv efter cache-refresh er der to reelle små uoverensstemmelser tilbage:
+## 3) ServerFns (`src/lib/relations.functions.ts`)
 
-### A. Salg-fanen og sidebar uenige om "sidste køb"
+- `getCompanyRelations(companyId)` — returnerer både bekræftede relationer (in/out) + pending suggestions for virksomheden, med modpart navn/by/visma_id
+- `confirmRelationSuggestion({suggestionId, relationType})` — opretter row i `company_relations`, opretter inverse hvis `forsynes_af`/`leverer_til`, sætter suggestion status=confirmed
+- `rejectRelationSuggestion(suggestionId)` — status=rejected
+- `deleteCompanyRelation(relationId)` — fjerner + inverse
+- `rescanRelationSuggestions()` (admin) — kører parser over alle virksomheder, upsert nye pending forslag
+- `getCompaniesSuppliedByOthers(companyIds)` — hjælper: returnerer Set af company_ids som har bekræftet `forsynes_af`
 
-- Sidebar bruger `companies.last_purchase_date` = `2026-06-01` (rå Visma-felt).
-- Salg-fanen bruger `lastPurchasePeriod(rows)` som filtrerer `revenue > 0` væk → returnerer `2026-05-01`.
+## 4) Churning-undtagelse (`src/lib/sales.functions.ts`)
 
-Fix: lad `lastPurchasePeriod` betragte en måned som "købsmåned" hvis **`revenue > 0` ELLER `quantity > 0` ELLER `order_count > 0`**. Så fanges service-/kreditnota-måneder (juni 2026) også, og fanen lander på `jun 2026` ligesom sidebaren.
+I `getMyChurningCustomers`: efter candidates-listen, hent confirmed `forsynes_af` relationer for `candIds`. Fjern dem fra listen — sammen med dismissals.
 
-Fil: `src/lib/sales-utils.ts` — udvid betingelsen i `lastPurchasePeriod`.
+## 5) UI
 
-### B. Falsk "Faldende omsætning"-advarsel (forebyggelse)
+**Relationer-fane (`virksomheder_.$id.tsx`):** ny komponent `<ForsyningsRelationerSektion companyId />`:
+- Top: "Forslag fra import" — liste af pending suggestions med "Fundet i bemærkning: '…'", dropdown for type + Bekræft/Afvis-knapper
+- Under: "Forsynings-relationer" — bekræftede in/out, med link til den anden virksomhed og slet-knap
+- Tom-state hvis intet
 
-Med korrekt data udløses den ikke i dag (apr+maj+jun 2026 = 226k > apr+maj+jun 2025 = 148k). Men logikken sammenligner blindt "seneste 3 kalender-mdr." vs. samme periode året før — hvis den nyeste måned er en service-/0-måned (som juni 2026), trækker den gennemsnittet ned.
+**Salg-fanen:** I `company-sales-tab.tsx`, hvis virksomheden har `forsynes_af X`, vis banner: "ℹ️ Forbrugsvarer leveres via [X] (kantineoperatør)" med link.
 
-Fix: kræv at YoY-sammenligningen har **mindst 2 måneder med faktisk omsætning** i recent-vinduet, ellers vis ikke advarslen. Forhindrer falske positiver i månedsovergange.
+**Admin (kort):** I `admin.overblik.tsx` eller `admin.importhistorik.tsx` knap "Scan bemærkninger for relations-forslag" → kalder `rescanRelationSuggestions` + viser toast med antal nye forslag.
 
-Fil: `src/components/sales/sales-signal-box.tsx`.
+## 6) Hvad der ikke ændres
 
-## Hvad der IKKE ændres
+- Salgstal/gruppering uændret (kaffe bogføres fortsat på Serwiz)
+- Churning grundberegning uændret — kun undtagelse for `forsynes_af`-koblede tilføjes
+- Søsterselskaber/kontaktpersoner på Relationer-fanen forbliver
 
-- Ingen migration. `sales_monthly`-skemaet er allerede korrekt (period = fuld dato, unique inkl. år).
-- Ingen re-import nødvendig.
-- Kategori-fordeling, KPI-omsætning, sparkline, sales-allocation: urørt.
+## Tekniske detaljer
 
-## Næste skridt for dig
-
-1. Hard-refresh `/virksomheder/86e25023…` (cmd/ctrl-shift-R). Hvis "Sidste køb" nu viser `maj 2026` og ingen advarsel — så var det udelukkende cache.
-2. Sig til hvis du vil have ovenstående A+B fix oveni, så fanen og sidebaren altid matcher.
-
-Bekræft inden jeg implementerer: skal A+B med, eller stopper vi her efter diagnosen?
+- Parser kører IKKE ved hver page load — kun via admin-knap (senere kan integreres i import-pipelines)
+- Match `to_visma_id` → `to_company_id` via `companies.visma_id` lookup når forslag oprettes; gem også når companies ændres senere (best-effort: hvis null vises forslag stadig med rå kundenr)
+- Auto-opret inverse relation: `forsynes_af A→B` ⇒ også `leverer_til B→A` (samme metadata, så de altid følges ad ved sletning)
+- Visma-notater allerede i `companies.visma_notes` (text-felt)
