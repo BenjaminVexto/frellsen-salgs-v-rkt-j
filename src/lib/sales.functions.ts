@@ -267,28 +267,51 @@ async function getSellerCompanyIds(supabase: any, userId: string): Promise<strin
 
 export const getMyMonthlySales = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ revenue: number; companies: number; period: string }> => {
+  .handler(async ({ context }): Promise<{
+    revenue: number;
+    companies: number;
+    period: string;
+    revenueLastYear: number;
+    periodLastYear: string;
+    comparisonMode: "full_month";
+  }> => {
     const companyIds = await getSellerCompanyIds(context.supabase, context.userId);
     const d = new Date();
     const period = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-    if (!companyIds.length) return { revenue: 0, companies: 0, period };
+    const periodLastYear = `${d.getUTCFullYear() - 1}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+    if (!companyIds.length) {
+      return { revenue: 0, companies: 0, period, revenueLastYear: 0, periodLastYear, comparisonMode: "full_month" };
+    }
 
     let revenue = 0;
+    let revenueLastYear = 0;
     const compsWithSales = new Set<string>();
     const rows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
       context.supabase
         .from("sales_monthly")
-        .select("company_id, revenue")
+        .select("company_id, period, revenue")
         .in("company_id", slice)
-        .eq("period", period)
+        .in("period", [period, periodLastYear])
         .range(from, to),
     );
     rows.forEach((r: any) => {
-      revenue += Number(r.revenue) || 0;
-      if (r.company_id) compsWithSales.add(r.company_id);
+      const rev = Number(r.revenue) || 0;
+      if (r.period === period) {
+        revenue += rev;
+        if (r.company_id) compsWithSales.add(r.company_id);
+      } else if (r.period === periodLastYear) {
+        revenueLastYear += rev;
+      }
     });
 
-    return { revenue, companies: compsWithSales.size, period };
+    return {
+      revenue,
+      companies: compsWithSales.size,
+      period,
+      revenueLastYear,
+      periodLastYear,
+      comparisonMode: "full_month",
+    };
   });
 
 export const getMyNewActivitiesCount = createServerFn({ method: "GET" })

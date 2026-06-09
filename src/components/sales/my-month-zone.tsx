@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Target, Activity, Wallet, Loader2 } from "lucide-react";
+import { Target, Activity, Wallet, Loader2, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { getMyMonthlySales, getMyNewActivitiesCount } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
 
@@ -33,6 +33,14 @@ export function MyMonthZone() {
           sub={
             salesQ.data && salesQ.data.companies > 0
               ? `${salesQ.data.companies} ${salesQ.data.companies === 1 ? "kunde" : "kunder"} med køb`
+              : undefined
+          }
+          comparison={
+            salesQ.data
+              ? {
+                  current: salesQ.data.revenue,
+                  lastYear: salesQ.data.revenueLastYear,
+                }
               : undefined
           }
           loading={salesQ.isLoading}
@@ -76,12 +84,14 @@ function MetricCard({
   label,
   value,
   sub,
+  comparison,
   loading,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   sub?: string;
+  comparison?: { current: number; lastYear: number };
   loading?: boolean;
 }) {
   return (
@@ -94,6 +104,25 @@ function MetricCard({
         {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : value}
       </div>
       {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
+      {comparison && !loading && <YoYLine current={comparison.current} lastYear={comparison.lastYear} />}
     </Card>
+  );
+}
+
+function YoYLine({ current, lastYear }: { current: number; lastYear: number }) {
+  const diff = current - lastYear;
+  const pct = lastYear !== 0 ? Math.round((diff / Math.abs(lastYear)) * 100) : null;
+  const up = diff > 0;
+  const down = diff < 0;
+  const Icon = up ? ArrowUp : down ? ArrowDown : Minus;
+  const colorCls = up ? "text-emerald-600 dark:text-emerald-500" : "text-muted-foreground";
+  return (
+    <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
+      <span className={`inline-flex items-center gap-0.5 ${colorCls}`}>
+        <Icon className="h-3 w-3" />
+        {pct === null ? "—" : `${Math.abs(pct)} %`}
+      </span>
+      <span>· fuld måned sidste år: {fmtKr(lastYear)}</span>
+    </div>
   );
 }
