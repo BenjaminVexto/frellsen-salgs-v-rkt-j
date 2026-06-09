@@ -136,8 +136,9 @@ function ImporthistorikSide() {
       <p className="text-sm text-muted-foreground mb-4">
         Oversigt over alle imports — virksomheder, maskindata og aftaler. Klik på en import for at se og slette.
       </p>
-      <div className="mb-6">
+      <div className="mb-6 flex items-center gap-3 flex-wrap">
         <CvrEnrichmentQueueBadge />
+        <RescanRelationSuggestionsButton />
       </div>
 
       <Card className="overflow-x-auto">
