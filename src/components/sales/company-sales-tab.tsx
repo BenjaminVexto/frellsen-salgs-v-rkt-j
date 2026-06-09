@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getSalesForCompany } from "@/lib/sales.functions";
+import { getCompanyRelations } from "@/lib/relations.functions";
 import { SalesKpiStrip } from "./sales-kpi-strip";
 import { CategoryBars } from "./category-bars";
 import { RevenueSparkline } from "./revenue-sparkline";
@@ -24,6 +25,14 @@ export function CompanySalesTab({
     queryKey: ["sales-company", companyId],
     queryFn: () => fetchFn({ data: { companyId } }),
   });
+  const relationsFn = useServerFn(getCompanyRelations);
+  const relationsQ = useQuery({
+    queryKey: ["relations", companyId],
+    queryFn: () => relationsFn({ data: { companyId } }),
+  });
+  const isSuppliedVia = ((relationsQ.data?.confirmed ?? []) as any[]).some(
+    (r) => r.direction === "out" && r.relation_type === "forsynes_af",
+  );
 
   if (q.isLoading) {
     return (
@@ -78,7 +87,7 @@ export function CompanySalesTab({
         locationsTotal={totalLocations}
         locationsActive={knownActive}
       />
-      <SalesSignalBox rows={rows} hasActiveEquipment={hasActiveEquipment} />
+      <SalesSignalBox rows={rows} hasActiveEquipment={hasActiveEquipment} isSuppliedVia={isSuppliedVia} />
       <div className="grid gap-4 md:grid-cols-2">
         <CategoryBars rows={last12Rows} companyId={companyId} title="Kategorifordeling (12 mdr.)" />
         <RevenueSparkline rows={rows} />
