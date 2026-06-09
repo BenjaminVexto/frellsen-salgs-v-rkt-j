@@ -16,6 +16,15 @@ export function SalesSignalBox({ rows }: { rows: SalesMonthlyRow[] }) {
 
   if (yoy.revenue <= 0) return null; // no comparison data
   if (recent.revenue >= yoy.revenue) return null;
+  // Kræv mindst 2 måneder med faktisk omsætning i recent-vinduet —
+  // ellers giver en enkelt service-/0-måned falsk "faldende"-advarsel
+  // i månedsovergange.
+  const recentMonthsWithRevenue = new Set(
+    filterByPeriod(rows, m3, nextMonth)
+      .filter((r) => (Number(r.revenue) || 0) > 0)
+      .map((r) => r.period),
+  ).size;
+  if (recentMonthsWithRevenue < 2) return null;
   const drop = (yoy.revenue - recent.revenue) / yoy.revenue;
 
   return (

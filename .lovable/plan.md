@@ -1,96 +1,62 @@
+# Plan — "Sidste køb" på Salg-fanen
 
-# Re-import af kundefil (Fakt. kunde / visma_id)
+## Diagnose (kørt mod live DB lige nu)
 
-Samme chunked async-mønster som faktura-importen, men nu låst til den nye datamodel hvor `visma_id` er den eneste grupperings-nøgle.
+Ejner Hessel A/S (`86e25023…`):
 
-## Bekræftelser på dine tre krav
-
-**1) Upsert kun OPDATERER eksisterende canonical-virksomheder og TILFØJER de manglende ~1.956 — uden at røre re-pointede aktiviteter/noter.**
-
-Sandt, fordi:
-- Upserten kører på `companies (visma_id)` via det unique partial index migrationen lagde (`companies_visma_id_unique`). Conflict → `UPDATE` på canonical rækken, ingen ny række.
-- `UPDATE` på companies rører kun kolonner i payload (name, cvr, address, zip, city, municipality, …). FK-relationer (activities.company_id, contacts.company_id, briefings, quotes, agreements, …) er kolonner på de *andre* tabeller — de røres aldrig af en companies-upsert.
-- Vi merger felter med `COALESCE(existing, incoming)`-logik kun for tomme felter (samme `buildMerged` som i dag), så manuelt indtastede data overskrives ikke af et tomt Visma-felt.
-
-**2) Lokationer tilføjes under den rigtige virksomhed via Fakt. kunde — ikke som separate companies.**
-
-Sandt, fordi:
-- `companyKey()` returnerer nu kun `visma_id` (Fakt. kunde) → alle rækker med samme Fakt. kunde grupperes til samme company_id i én lookup-tabel før location-byg.
-- Lokationer upsertes på `locations (company_id, visma_delivery_no)` (det eksisterende unique index). Eksisterende lokationer opdateres, manglende oprettes — aldrig som nyt company.
-- Lokationer hvor `visma_delivery_no = company.visma_id` markeres `is_primary=true` (samme regel som migrationen brugte).
-
-**3) Kommune udledes fra postnr på nye lokationer/virksomheder.**
-
-Sandt på company-niveau (det er der `companies.municipality` lever). `locations`-tabellen har ingen `municipality`-kolonne — kun zip/city — så kommune er pr. design en company-property der bruges af RLS/region-filtre. For nye companies (de ~1.956): hvis Visma-rækken mangler kommune, slår vi op via zip→kommune-tabellen før insert (samme helper som tidligere fix).
-
-## Re-import flow
-
-```text
-fil (16.091 rækker)
-  │
-  ├─ parse + map (Papa stream, in-memory)
-  ├─ companyKey = visma_id  →  ~16.091 grupper
-  │
-  ├─ chunk 500: SELECT companies WHERE visma_id IN (...)
-  │     ├─ found → klassificér som UPDATE (canonical id)
-  │     └─ ikke fundet → klassificér som INSERT (ny)
-  │
-  ├─ chunk 500: bulk upsert companies onConflict=visma_id
-  │     ├─ kommune-fallback fra zip hvis tom (kun for INSERT-rækker)
-  │     └─ retry pr. række ved batch-fejl (samme fallback som i dag)
-  │
-  ├─ chunk 500: bulk upsert locations onConflict=(company_id, visma_delivery_no)
-  │     ├─ is_primary=true hvor delivery_no = company.visma_id
-  │     └─ resten = false
-  │
-  ├─ kontaktpersoner: upsert pr. company (uændret)
-  └─ batch-log: import_batches række med company_ids
+```
+period      | revenue
+2025-04-01  |  48.552
+…
+2026-01-01  | 265.012
+2026-02-01  |  83.933
+2026-03-01  |  62.662
+2026-04-01  | 152.741
+2026-05-01  |  73.581
+2026-06-01  |       0   (4 rows, alle revenue=0 — sandsynligvis kreditnota/service)
 ```
 
-UI: `importRunner` viser "Importerer batch X af Y… (N / 16.091)" + progress bar — præcis som faktura-importen.
+Konklusioner:
 
-## Tekniske detaljer
+1. **2026-data er IKKE overskrevet.** Alle måneder 2026-01 … 2026-06 har egne rækker.
+2. **Period-nøglen indeholder allerede år.** Unique-index er:
+   `sales_monthly_unique (visma_delivery_no, period, product_group_1)`
+   hvor `period` er en `date` (`2026-04-01` osv.). Ingen rod-årsag der.
+3. **`companies.last_purchase_date` = `2026-06-01`** → sidebar "1. jun." er korrekt.
+4. **`MAX(period) WHERE revenue>0` = `2026-05-01`** → KPI "Sidste køb" bør vise `maj 2026`. Ikke `mar. 2026`.
 
-**Filer der røres:**
-- `src/lib/admin-companies.functions.ts` — ny server-fn `importUpsertCompaniesByVismaId` (analog til `importUpsertCompaniesByCvr` men `onConflict: "visma_id"`). Beholder den gamle CVR-variant til legacy "Anden kilde"-import.
-- `src/routes/_authenticated/admin.import.visma.tsx` — flow ændres:
-  - dedup-lookup på `visma_id` (ikke CVR)
-  - upsert-kald skifter til `importUpsertCompaniesByVismaId`
-  - kommune-fallback fra zip indsættes før insert-payload bygges
+Med andre ord: skemaet og data er konsistente. "mar. 2026" matcher ikke nuværende DB-tilstand — det peger på en **stale React Query-cache** i din browser (siden 2026-importen blev færdiggjort efter screenshottet).
 
-**Server-fn signatur (skitse):**
-```ts
-importUpsertCompaniesByVismaId({ rows })
-  // dedupliker pr. visma_id (sidste række vinder)
-  // chunk 500
-  // .upsert(slice, { onConflict: "visma_id" }).select("id, visma_id")
-  // fallback pr. række ved batch-fejl
-  // returnerer { results: [{id, visma_id}], failed, errors }
-```
+## Foreslåede ændringer (små, præsentations-lag)
 
-**Idempotens:** Re-kør samme fil → samme visma_id'er → samme rækker UPDATE'es med identisk payload. Ingen duplikater, ingen nye companies, ingen FK-data tabt.
+Selv efter cache-refresh er der to reelle små uoverensstemmelser tilbage:
 
-**Chunk-størrelser:** 500 (samme som faktura/eksisterende Visma-import). yieldUI() mellem chunks så browseren forbliver responsiv.
+### A. Salg-fanen og sidebar uenige om "sidste køb"
 
-**Retry/fejlhåndtering:** Batch-fejl → fallback til per-række upsert (samme mønster som `importUpsertCompaniesByCvr`). Fejlede rækker tælles og rapporteres i UI; importen fortsætter.
+- Sidebar bruger `companies.last_purchase_date` = `2026-06-01` (rå Visma-felt).
+- Salg-fanen bruger `lastPurchasePeriod(rows)` som filtrerer `revenue > 0` væk → returnerer `2026-05-01`.
 
-## Verifikation efter kørsel
+Fix: lad `lastPurchasePeriod` betragte en måned som "købsmåned" hvis **`revenue > 0` ELLER `quantity > 0` ELLER `order_count > 0`**. Så fanges service-/kreditnota-måneder (juni 2026) også, og fanen lander på `jun 2026` ligesom sidebaren.
 
-```sql
-SELECT count(*), count(DISTINCT visma_id) FROM companies;
--- forventet: ~16.091 / ~16.091
+Fil: `src/lib/sales-utils.ts` — udvid betingelsen i `lastPurchasePeriod`.
 
-SELECT count(*) FROM activities;
--- skal stadig være 3 (ingen aktiviteter tabt under upsert)
+### B. Falsk "Faldende omsætning"-advarsel (forebyggelse)
 
-SELECT count(*) FROM locations;
--- skal være >= 18.268 (nye lokationer tilføjet, ingen slettet)
-```
+Med korrekt data udløses den ikke i dag (apr+maj+jun 2026 = 226k > apr+maj+jun 2025 = 148k). Men logikken sammenligner blindt "seneste 3 kalender-mdr." vs. samme periode året før — hvis den nyeste måned er en service-/0-måned (som juni 2026), trækker den gennemsnittet ned.
+
+Fix: kræv at YoY-sammenligningen har **mindst 2 måneder med faktisk omsætning** i recent-vinduet, ellers vis ikke advarslen. Forhindrer falske positiver i månedsovergange.
+
+Fil: `src/components/sales/sales-signal-box.tsx`.
 
 ## Hvad der IKKE ændres
 
-`importInsertLocations`, `importUpsertContacts`, salgs-rollup, bindingsstatus, udstyrs-bokse, Frellsen-CVR-blocklist, sælgertildeling, kontaktliste-flow. Kun company-upsert-nøglen skifter fra CVR til visma_id.
+- Ingen migration. `sales_monthly`-skemaet er allerede korrekt (period = fuld dato, unique inkl. år).
+- Ingen re-import nødvendig.
+- Kategori-fordeling, KPI-omsætning, sparkline, sales-allocation: urørt.
 
-## Risiko
+## Næste skridt for dig
 
-Lav. Datamodellen er allerede konsistent (14.135 unikke visma_id, 0 orphans, unique constraint aktiv). Værste fald ved kørsel: enkelte rækker fejler validering → de logges, resten importeres, og du kan re-køre filen idempotent.
+1. Hard-refresh `/virksomheder/86e25023…` (cmd/ctrl-shift-R). Hvis "Sidste køb" nu viser `maj 2026` og ingen advarsel — så var det udelukkende cache.
+2. Sig til hvis du vil have ovenstående A+B fix oveni, så fanen og sidebaren altid matcher.
+
+Bekræft inden jeg implementerer: skal A+B med, eller stopper vi her efter diagnosen?

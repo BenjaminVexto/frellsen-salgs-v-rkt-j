@@ -92,11 +92,17 @@ export function filterByPeriod(
   return rows.filter((r) => r.period >= fromInclusive && r.period < toExclusive);
 }
 
-// Last purchase date = max period across rows where revenue > 0
+// Last purchase date = max period across rows with any activity
+// (revenue, quantity, or order_count > 0). Fanger også service-/kreditnota-måneder
+// så Salg-fanen matcher companies.last_purchase_date i sidebaren.
 export function lastPurchasePeriod(rows: SalesMonthlyRow[]): string | null {
   let max: string | null = null;
   for (const r of rows) {
-    if ((Number(r.revenue) || 0) <= 0) continue;
+    const hasActivity =
+      (Number(r.revenue) || 0) > 0 ||
+      (Number(r.quantity) || 0) > 0 ||
+      (Number(r.order_count) || 0) > 0;
+    if (!hasActivity) continue;
     if (!max || r.period > max) max = r.period;
   }
   return max;
