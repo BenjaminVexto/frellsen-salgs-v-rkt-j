@@ -12,7 +12,7 @@ import {
 } from "./types";
 
 const COMPANY_COLS =
-  "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,employees,is_public,binding_status,customer_category,assigned_to,visma_id,visma_delivery_id";
+  "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,last_sales_date,last_consumable_sales_date,has_active_equipment,employees,is_public,binding_status,customer_category,assigned_to,visma_id,visma_delivery_id";
 
 function matchesMachines(eq: EquipmentSummary | undefined, modes: string[]) {
   if (!modes.length) return true;
@@ -325,7 +325,7 @@ export function useCompanyFilter({
         if (filters.zipFrom && z < parseInt(filters.zipFrom)) return false;
         if (filters.zipTo && z > parseInt(filters.zipTo)) return false;
       }
-      if (!matchesLastPurchase(r.last_purchase_date, filters.lastPurchase))
+      if (!matchesLastPurchase(r.last_sales_date ?? r.last_purchase_date, filters.lastPurchase))
         return false;
       if (!matchesEmployees(r.employees, filters.employeeRanges))
         return false;

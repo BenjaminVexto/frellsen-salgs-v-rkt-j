@@ -90,21 +90,29 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
     if (!input?.companyId) throw new Error("companyId krævet");
     return input;
   })
-  .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean }> => {
+  .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean; hasActiveEquipment: boolean }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
-    const rows = await fetchAllSalesMonthlyRows(async (from, to) => {
-      return await context.supabase
-        .from("sales_monthly")
-        .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
-        .eq("company_id", data.companyId)
-        .order("period", { ascending: true })
-        .order("visma_delivery_no", { ascending: true })
-        .order("product_group_1", { ascending: true })
-        .range(from, to);
-    });
+    const [rows, companyRes] = await Promise.all([
+      fetchAllSalesMonthlyRows(async (from, to) => {
+        return await context.supabase
+          .from("sales_monthly")
+          .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
+          .eq("company_id", data.companyId)
+          .order("period", { ascending: true })
+          .order("visma_delivery_no", { ascending: true })
+          .order("product_group_1", { ascending: true })
+          .range(from, to);
+      }),
+      context.supabase
+        .from("companies")
+        .select("has_active_equipment")
+        .eq("id", data.companyId)
+        .maybeSingle(),
+    ]);
     return {
       rows: isAdmin ? withContribution(rows ?? []) : stripContribution(rows ?? []),
       isAdmin,
+      hasActiveEquipment: !!(companyRes.data as any)?.has_active_equipment,
     };
   });
 
