@@ -52,11 +52,88 @@ export function KontaktpersonerSektion({
   const [openId, setOpenId] = useState<string | null>(null);
 
   const locMap = new Map(locations.map((l) => [l.id, l]));
-  const sorted = [...contacts].sort((a, b) => {
+
+  const norm = (v: string | null | undefined) =>
+    (v ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+  const normPhone = (v: string | null | undefined) =>
+    (v ?? "").replace(/\D/g, "");
+  const locLabel = (l: { city: string | null; address: string | null }) =>
+    l.city || l.address || "Lokation";
+
+  type UnifiedContact = {
+    key: string;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    location_id: string | null;
+    is_primary: boolean;
+    source: "contact" | "location";
+    contactRow: ContactRow | null;
+  };
+
+  // Build a set of (location_id|name|email|phone) keys for contacts already
+  // tracked in the contacts table, so we don't duplicate when deriving from locations.
+  const contactDedupKeys = new Set(
+    contacts.map(
+      (c) =>
+        `${c.location_id ?? ""}|${norm(c.name)}|${norm(c.email)}|${normPhone(c.phone)}`,
+    ),
+  );
+
+  const derived: UnifiedContact[] = [];
+
+  // 1. From contacts table (manual + previously synced)
+  for (const c of contacts) {
+    derived.push({
+      key: `c:${c.id}`,
+      name: c.name,
+      phone: c.phone,
+      email: c.email,
+      location_id: c.location_id,
+      is_primary: c.is_primary,
+      source: "contact",
+      contactRow: c,
+    });
+  }
+
+  // 2. From locations (Visma-imported contact_person/phone/email)
+  for (const l of locations) {
+    const hasAny =
+      (l.contact_person && l.contact_person.trim()) ||
+      (l.phone && l.phone.trim()) ||
+      (l.email && l.email.trim());
+    if (!hasAny) continue;
+    const name =
+      (l.contact_person && l.contact_person.trim()) ||
+      `Kontakt — ${locLabel(l)}`;
+    const key = `${l.id}|${norm(name)}|${norm(l.email)}|${normPhone(l.phone)}`;
+    if (contactDedupKeys.has(key)) continue;
+    derived.push({
+      key: `l:${l.id}`,
+      name,
+      phone: l.phone,
+      email: l.email,
+      location_id: l.id,
+      is_primary: false,
+      source: "location",
+      contactRow: null,
+    });
+  }
+
+  // Final dedup pass (same name+email+location twice)
+  const seen = new Set<string>();
+  const unified = derived.filter((u) => {
+    const k = `${u.location_id ?? ""}|${norm(u.name)}|${norm(u.email)}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  const sorted = unified.sort((a, b) => {
     if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
     return a.name.localeCompare(b.name, "da");
   });
-  const visible = expanded ? sorted : sorted.slice(0, 3);
+  const visible = expanded ? sorted : sorted.slice(0, 5);
 
   const handleLocationClick = (locationId: string) => {
     const el = document.getElementById(`location-${locationId}`);
@@ -72,9 +149,9 @@ export function KontaktpersonerSektion({
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold flex items-center gap-2">
           <User className="h-4 w-4" /> Kontaktpersoner
-          {contacts.length > 0 && (
+          {sorted.length > 0 && (
             <span className="text-xs text-muted-foreground font-normal">
-              ({contacts.length})
+              ({sorted.length})
             </span>
           )}
         </h2>
@@ -97,14 +174,16 @@ export function KontaktpersonerSektion({
           <ul className="divide-y">
             {visible.map((c) => {
               const loc = c.location_id ? locMap.get(c.location_id) : null;
-              const locName = loc ? loc.city || loc.address || "Lokation" : null;
-              const isOpen = openId === c.id;
+              const locLine = loc
+                ? `${locLabel(loc)}${loc.visma_delivery_no ? ` · Lev.nr. ${loc.visma_delivery_no}` : ""}`
+                : null;
+              const isOpen = openId === c.key;
               const summary = [c.name, c.phone].filter(Boolean).join(" · ");
               return (
-                <li key={c.id}>
+                <li key={c.key}>
                   <button
                     type="button"
-                    onClick={() => setOpenId(isOpen ? null : c.id)}
+                    onClick={() => setOpenId(isOpen ? null : c.key)}
                     className="w-full flex items-center justify-between gap-2 py-2.5 text-left hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors"
                   >
                     <span className="flex items-center gap-2 min-w-0">
@@ -124,17 +203,14 @@ export function KontaktpersonerSektion({
                   </button>
                   {isOpen && (
                     <div className="pl-6 pb-3 pt-1 space-y-1 text-sm">
-                      {c.title && (
-                        <div className="text-muted-foreground">{c.title}</div>
-                      )}
-                      {locName && c.location_id && (
+                      {locLine && c.location_id && (
                         <button
                           type="button"
                           onClick={() => handleLocationClick(c.location_id!)}
                           className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
                         >
                           <MapPin className="h-3.5 w-3.5" />
-                          {locName}
+                          {locLine}
                         </button>
                       )}
                       {c.email && (
@@ -147,25 +223,39 @@ export function KontaktpersonerSektion({
                           </a>
                         </div>
                       )}
-                      <div className="pt-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditing(c);
-                            setOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
-                        </Button>
-                      </div>
+                      {c.phone && (
+                        <div>
+                          <a href={`tel:${c.phone}`} className="hover:underline">
+                            {c.phone}
+                          </a>
+                        </div>
+                      )}
+                      {c.source === "contact" && c.contactRow && (
+                        <div className="pt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditing(c.contactRow);
+                              setOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
+                          </Button>
+                        </div>
+                      )}
+                      {c.source === "location" && (
+                        <div className="text-xs text-muted-foreground pt-1">
+                          Fra Visma-import (lokation)
+                        </div>
+                      )}
                     </div>
                   )}
                 </li>
               );
             })}
           </ul>
-          {sorted.length > 3 && (
+          {sorted.length > 5 && (
             <Button
               variant="ghost"
               size="sm"
@@ -186,6 +276,7 @@ export function KontaktpersonerSektion({
           )}
         </>
       )}
+
 
 
       <ContactDialog
