@@ -382,6 +382,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     const activeCompanies = companies.filter((c) => c.customer_type === "aktiv_kunde");
     const bottomRevenueActive = [...activeCompanies]
+      .filter((c) => c.revenue12m > 0)
       .sort((a, b) => a.revenue12m - b.revenue12m)
       .slice(0, 25)
       .map(toRanking);
