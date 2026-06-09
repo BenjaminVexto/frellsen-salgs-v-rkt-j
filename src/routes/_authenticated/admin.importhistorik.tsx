@@ -610,6 +610,7 @@ function GruppeKort({
 
 function RescanRelationSuggestionsButton() {
   const [busy, setBusy] = useState(false);
+  const fn = useServerFn(rescanRelationSuggestions);
   return (
     <Button
       variant="outline"
@@ -618,8 +619,7 @@ function RescanRelationSuggestionsButton() {
       onClick={async () => {
         setBusy(true);
         try {
-          const mod = await import("@/lib/relations.functions");
-          const res = await mod.rescanRelationSuggestions();
+          const res = await fn();
           toast.success(
             `Scannede ${res.scanned} virksomheder · ${res.newSuggestions} nye forslag (i alt ${res.totalReferencesFound} fundet)`,
           );
