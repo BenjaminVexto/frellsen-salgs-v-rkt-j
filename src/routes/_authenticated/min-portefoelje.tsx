@@ -38,6 +38,50 @@ type SortKey =
   | "consumable"
   | string; // "month:<period>"
 
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / 86400000);
+}
+
+function classifyKaffe(c: PortfolioCompanyRow): "green" | "yellow" | "red" | "via" {
+  if (c.supplied_via_id) return "via";
+  const d = daysSince(c.last_consumable_sales_date);
+  if (d === null) return "red";
+  if (d <= 45) return "green";
+  if (d <= 90) return "yellow";
+  return "red";
+}
+
+function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "paavejvaek" {
+  if (c.customer_type === "sovende_kunde") return "sovende";
+  if (c.customer_type === "aktiv_kunde") {
+    const d = daysSince(c.last_consumable_sales_date);
+    if (d !== null && d > 90 && !c.supplied_via_id) return "paavejvaek";
+    return "aktiv";
+  }
+  return "aktiv";
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  const w = 80;
+  const h = 24;
+  if (!values.length) return <svg width={w} height={h} />;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+  const step = values.length > 1 ? w / (values.length - 1) : w;
+  const pts = values
+    .map((v, i) => `${i * step},${h - ((v - min) / range) * h}`)
+    .join(" ");
+  return (
+    <svg width={w} height={h} className="text-primary">
+      <polyline fill="none" stroke="currentColor" strokeWidth="1.5" points={pts} />
+    </svg>
+  );
+}
+
 function PortfolioPage() {
   const fn = useServerFn(getMyPortfolio);
   const [sellerId, setSellerId] = useState<string | "all">("all");
