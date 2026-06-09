@@ -342,7 +342,6 @@ export const getMyChurningCustomers = createServerFn({ method: "GET" })
     const companyIds = await getSellerCompanyIds(context.supabase, context.userId);
     if (!companyIds.length) return { customers: [], hasData: false };
 
-    // Fetch all sales for these companies (last 24 months)
     const cutoff = new Date();
     cutoff.setUTCMonth(cutoff.getUTCMonth() - 24);
     cutoff.setUTCDate(1);
@@ -363,7 +362,6 @@ export const getMyChurningCustomers = createServerFn({ method: "GET" })
 
     if (!rows.length) return { customers: [], hasData: false };
 
-    // Group by company
     type Acc = { periods: Set<string>; lastPeriod: string | null; totalRevenue: number };
     const byCompany = new Map<string, Acc>();
     for (const r of rows) {
@@ -376,29 +374,62 @@ export const getMyChurningCustomers = createServerFn({ method: "GET" })
       byCompany.set(r.company_id, acc);
     }
 
-    // Filter: had >=3 months of purchases, and last purchase >60 days ago
     const cutoffDays = 60;
     const now = Date.now();
-    const candidates: { company_id: string; daysSinceLastPurchase: number; monthsWithPurchases: number; monthlyAverageRevenue: number }[] = [];
+    const candidates: { company_id: string; lastPeriod: string; daysSinceLastPurchase: number; monthsWithPurchases: number; monthlyAverageRevenue: number }[] = [];
     byCompany.forEach((acc, company_id) => {
       if (!acc.lastPeriod || acc.periods.size < 3) return;
       const last = new Date(acc.lastPeriod + "T00:00:00Z").getTime();
       const days = Math.floor((now - last) / 86400000);
-      // last purchase month already passed by 60+ days; check at month-end
       const monthEnd = new Date(acc.lastPeriod + "T00:00:00Z");
       monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
       const daysSinceMonthEnd = Math.floor((now - monthEnd.getTime()) / 86400000);
       if (daysSinceMonthEnd < cutoffDays) return;
       candidates.push({
         company_id,
+        lastPeriod: acc.lastPeriod,
         daysSinceLastPurchase: days,
         monthsWithPurchases: acc.periods.size,
         monthlyAverageRevenue: acc.totalRevenue / acc.periods.size,
       });
     });
 
-    candidates.sort((a, b) => b.monthlyAverageRevenue - a.monthlyAverageRevenue);
-    const top = candidates.slice(0, 10);
+    if (!candidates.length) return { customers: [], hasData: true };
+
+    // Filter out dismissed (reset rule: any consumable purchase after dismissal ignores it)
+    const candIds = candidates.map((c) => c.company_id);
+    const { data: dismissals } = await context.supabase
+      .from("churn_dismissals")
+      .select("company_id, reason, snooze_user_id, snooze_until, created_at")
+      .in("company_id", candIds);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const dismissedSet = new Set<string>();
+    for (const cand of candidates) {
+      const lastEndDate = new Date(cand.lastPeriod + "T00:00:00Z");
+      lastEndDate.setUTCMonth(lastEndDate.getUTCMonth() + 1);
+      const lastEndMs = lastEndDate.getTime();
+      const relevant = (dismissals ?? []).filter(
+        (d: any) =>
+          d.company_id === cand.company_id &&
+          new Date(d.created_at).getTime() >= lastEndMs,
+      );
+      for (const d of relevant) {
+        if (d.reason === "paused") {
+          if (d.snooze_user_id === context.userId && d.snooze_until && d.snooze_until >= today) {
+            dismissedSet.add(cand.company_id);
+            break;
+          }
+        } else {
+          dismissedSet.add(cand.company_id);
+          break;
+        }
+      }
+    }
+
+    const filtered = candidates.filter((c) => !dismissedSet.has(c.company_id));
+    filtered.sort((a, b) => b.monthlyAverageRevenue - a.monthlyAverageRevenue);
+    const top = filtered.slice(0, 10);
     if (!top.length) return { customers: [], hasData: true };
 
     const { data: comps, error: compErr } = await context.supabase
@@ -419,4 +450,86 @@ export const getMyChurningCustomers = createServerFn({ method: "GET" })
       })),
       hasData: true,
     };
+  });
+
+type DismissReason = "lost_competitor" | "lost_tender" | "closed" | "paused";
+
+export const dismissChurningCustomer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      company_id: string;
+      reason: DismissReason;
+      competitor_id?: string | null;
+      expected_date?: string | null;
+      snooze_days?: number | null;
+      notes?: string | null;
+    }) => input,
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    const payload: any = {
+      company_id: data.company_id,
+      reason: data.reason,
+      created_by: userId,
+      notes: data.notes ?? null,
+    };
+
+    if (data.reason === "lost_competitor" || data.reason === "lost_tender") {
+      if (!data.competitor_id) throw new Error("Konkurrent skal vælges");
+      payload.competitor_id = data.competitor_id;
+      payload.expected_date = data.expected_date ?? null;
+
+      const noteText =
+        data.reason === "lost_tender"
+          ? `Tabt udbud${data.notes ? ` — ${data.notes}` : ""}`
+          : `Tabt til konkurrent${data.notes ? ` — ${data.notes}` : ""}`;
+
+      const { data: existing } = await supabase
+        .from("competitor_assignments")
+        .select("id")
+        .eq("company_id", data.company_id)
+        .eq("competitor_id", data.competitor_id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("competitor_assignments")
+          .update({
+            contract_expires_at: data.expected_date ?? null,
+            notes: noteText,
+          })
+          .eq("id", existing.id);
+      } else {
+        await supabase.from("competitor_assignments").insert({
+          company_id: data.company_id,
+          competitor_id: data.competitor_id,
+          contract_expires_at: data.expected_date ?? null,
+          registered_by: userId,
+          notes: noteText,
+        });
+      }
+    } else if (data.reason === "paused") {
+      const days = data.snooze_days ?? 30;
+      const until = new Date();
+      until.setDate(until.getDate() + days);
+      payload.snooze_user_id = userId;
+      payload.snooze_until = until.toISOString().slice(0, 10);
+    }
+
+    const { error } = await supabase.from("churn_dismissals").insert(payload);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const listCompetitorsForSelect = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("competitors")
+      .select("id, name")
+      .order("name", { ascending: true });
+    if (error) throw error;
+    return { competitors: (data ?? []) as { id: string; name: string }[] };
   });
