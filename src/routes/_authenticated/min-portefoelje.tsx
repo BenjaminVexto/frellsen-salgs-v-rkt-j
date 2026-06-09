@@ -12,11 +12,13 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, ArrowUp, ArrowDown, Minus, ArrowUpDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   getMyPortfolio,
   type PortfolioCompanyRow,
   type RankingRow,
   type ScatterPoint,
+  type SignalRow,
 } from "@/lib/portfolio.functions";
 import { fmtKr } from "@/lib/sales-utils";
 
