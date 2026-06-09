@@ -87,7 +87,7 @@ export function CompanySalesTab({
         locationsTotal={totalLocations}
         locationsActive={knownActive}
       />
-      <SalesSignalBox rows={rows} hasActiveEquipment={hasActiveEquipment} />
+      <SalesSignalBox rows={rows} hasActiveEquipment={hasActiveEquipment} isSuppliedVia={isSuppliedVia} />
       <div className="grid gap-4 md:grid-cols-2">
         <CategoryBars rows={last12Rows} companyId={companyId} title="Kategorifordeling (12 mdr.)" />
         <RevenueSparkline rows={rows} />
