@@ -298,7 +298,7 @@ export const getMyMonthlySales = createServerFn({ method: "GET" })
       const rev = Number(r.revenue) || 0;
       if (r.period === period) {
         revenue += rev;
-        if (r.company_id && rev !== 0) compsWithSales.add(r.company_id);
+        if (r.company_id) compsWithSales.add(r.company_id);
       } else if (r.period === periodLastYear) {
         revenueLastYear += rev;
       }
