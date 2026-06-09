@@ -190,7 +190,7 @@ function AuthenticatedLayout() {
         <Outlet />
         {/* Mobile bottom nav */}
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-6 z-20"
+          className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-7 z-20"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           {navItems.map((item) => {
