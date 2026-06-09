@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User, Plus, MapPin, Pencil, ChevronDown, ChevronUp } from "lucide-react";
+import { User, Plus, MapPin, Pencil, ChevronDown, ChevronUp, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 import type { Location } from "@/components/lokationer-sektion";
 
 export type ContactRow = {
@@ -37,11 +38,13 @@ export type ContactRow = {
 
 export function KontaktpersonerSektion({
   companyId,
+  companyName,
   contacts,
   locations,
   onReload,
 }: {
   companyId: string;
+  companyName: string;
   contacts: ContactRow[];
   locations: Location[];
   onReload: () => void;
@@ -50,6 +53,11 @@ export function KontaktpersonerSektion({
   const [editing, setEditing] = useState<ContactRow | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [mailFor, setMailFor] = useState<{
+    name: string;
+    email: string | null;
+    locationId: string | null;
+  } | null>(null);
 
   const locMap = new Map(locations.map((l) => [l.id, l]));
 
@@ -230,8 +238,21 @@ export function KontaktpersonerSektion({
                           </a>
                         </div>
                       )}
-                      {c.source === "contact" && c.contactRow && (
-                        <div className="pt-2">
+                      <div className="pt-2 flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setMailFor({
+                              name: c.name,
+                              email: c.email,
+                              locationId: c.location_id,
+                            })
+                          }
+                        >
+                          <Mail className="h-3.5 w-3.5 mr-1.5" /> Skriv mail
+                        </Button>
+                        {c.source === "contact" && c.contactRow && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -242,8 +263,8 @@ export function KontaktpersonerSektion({
                           >
                             <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
                           </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                       {c.source === "location" && (
                         <div className="text-xs text-muted-foreground pt-1">
                           Fra Visma-import (lokation)
@@ -291,6 +312,16 @@ export function KontaktpersonerSektion({
           setEditing(null);
           onReload();
         }}
+      />
+      <SkrivMailDialog
+        open={!!mailFor}
+        onOpenChange={(v) => !v && setMailFor(null)}
+        companyId={companyId}
+        companyName={companyName}
+        contactName={mailFor?.name ?? null}
+        contactEmail={mailFor?.email ?? null}
+        locationId={mailFor?.locationId ?? null}
+        onLogged={onReload}
       />
     </Card>
   );
