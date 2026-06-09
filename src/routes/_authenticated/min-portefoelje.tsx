@@ -339,12 +339,182 @@ function PortfolioPage() {
               </TabsContent>
             </Tabs>
           </section>
+
+          {/* MULIGHEDER & TRUSLER — Lag 3 */}
+          <section className="mt-8">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Muligheder &amp; trusler
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-4">
+                <div className="text-xs font-medium text-muted-foreground">Muligheder</div>
+                <SignalList
+                  title="Maskine men ingen kaffe"
+                  description="Aktivt udstyr, ingen forbrugsvarekøb 60+ dage. Forsynes_af-kunder er ikke med."
+                  rows={data.signals.machineNoCoffee}
+                  kind="machine"
+                />
+                <SignalList
+                  title="White space — mangler et produktben"
+                  description="Køber kaffe, men mangler te, chokolade eller drikke/automatvarer."
+                  rows={data.signals.whiteSpace}
+                  kind="whitespace"
+                />
+                <SignalList
+                  title="I vækst — køber mere end sidste år"
+                  description="Omsætning 12 mdr. er højere end forrige 12 mdr. Værd at fastholde."
+                  rows={data.signals.growing}
+                  kind="growth"
+                />
+              </div>
+              <div className="space-y-4">
+                <div className="text-xs font-medium text-muted-foreground">Trusler</div>
+                <SignalList
+                  title="Faldende — køber mindre end sidste år"
+                  description="Omsætning er faldet, men kunden køber stadig. Tidlig advarsel."
+                  rows={data.signals.declining}
+                  kind="decline"
+                />
+                <SignalList
+                  title="Aftale udløber inden for 90 dage"
+                  description="Maskine- eller serviceaftaler tæt på udløb."
+                  rows={data.signals.expiringAgreements}
+                  kind="expiry"
+                />
+                <SignalList
+                  title="Konkurrentaftale udløber"
+                  description="Genvindings-muligheder — konkurrentaftaler nær udløb."
+                  rows={data.signals.expiringCompetitor}
+                  kind="expiry"
+                />
+              </div>
+            </div>
+          </section>
         </>
       )}
 
     </div>
   );
 }
+
+function SignalList({
+  title,
+  description,
+  rows,
+  kind,
+  initial = 10,
+}: {
+  title: string;
+  description: string;
+  rows: SignalRow[];
+  kind: "machine" | "whitespace" | "growth" | "decline" | "expiry";
+  initial?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? rows : rows.slice(0, initial);
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-4 py-3 border-b border-border">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <span className="text-xs text-muted-foreground tabular-nums">{rows.length}</span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+      </div>
+      {!rows.length ? (
+        <div className="px-4 py-6 text-center text-sm text-muted-foreground">Ingen kunder.</div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {shown.map((r) => (
+            <li key={r.id} className="px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-accent/30">
+              <div className="min-w-0">
+                <Link
+                  to="/virksomheder/$id"
+                  params={{ id: r.id }}
+                  className="font-medium text-sm hover:underline truncate block"
+                >
+                  {r.name}
+                </Link>
+                {r.city && <div className="text-xs text-muted-foreground">{r.city}</div>}
+              </div>
+              <div className="text-right text-xs text-muted-foreground shrink-0">
+                <SignalMeta row={r} kind={kind} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {rows.length > initial && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full px-4 py-2 text-xs text-muted-foreground hover:bg-accent/40 border-t border-border"
+        >
+          {expanded ? "Vis færre" : `Vis alle (${rows.length})`}
+        </button>
+      )}
+    </Card>
+  );
+}
+
+function SignalMeta({ row, kind }: { row: SignalRow; kind: string }) {
+  if (kind === "machine") {
+    return (
+      <div className="flex flex-col items-end gap-0.5">
+        <span className="tabular-nums">
+          {row.daysSinceConsumable === null ? "ingen køb" : `${row.daysSinceConsumable}d siden`}
+        </span>
+        {row.consumableAvgPerMonth && row.consumableAvgPerMonth > 0 && (
+          <span className="text-[11px]">
+            tidl. {fmtKr(row.consumableAvgPerMonth)}/md
+          </span>
+        )}
+      </div>
+    );
+  }
+  if (kind === "whitespace") {
+    return (
+      <div className="flex flex-wrap justify-end gap-1 max-w-[260px]">
+        {row.missingGroups.map((g) => (
+          <Badge key={g} variant="outline" className="text-[10px] font-normal">
+            mangler {g}
+          </Badge>
+        ))}
+        <div className="w-full text-right tabular-nums">{fmtKr(row.revenue12m)}</div>
+      </div>
+    );
+  }
+  if (kind === "growth" || kind === "decline") {
+    const pct = row.growthPct ?? 0;
+    const up = pct > 0;
+    const Icon = up ? ArrowUp : ArrowDown;
+    const cls = up ? "text-emerald-600 dark:text-emerald-500" : "text-destructive";
+    return (
+      <div className="flex flex-col items-end gap-0.5">
+        <span className={`inline-flex items-center gap-0.5 ${cls}`}>
+          <Icon className="h-3 w-3" />
+          {Math.abs(Math.round(pct))} %
+        </span>
+        <span className="tabular-nums text-[11px]">{fmtKr(row.revenue12m)}</span>
+      </div>
+    );
+  }
+  // expiry
+  const d = row.expiresAt ? new Date(row.expiresAt + "T00:00:00Z") : null;
+  const days = d ? Math.ceil((d.getTime() - Date.now()) / 86400000) : null;
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span className="tabular-nums">
+        {d ? d.toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+      </span>
+      <span className="text-[11px]">
+        {row.expiryLabel}
+        {days !== null && ` · om ${days}d`}
+      </span>
+    </div>
+  );
+}
+
 
 function Th({
   children,
