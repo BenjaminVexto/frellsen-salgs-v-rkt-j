@@ -28,7 +28,7 @@ async function fetchAllSalesMonthlyRows(
     if (page.length < SALES_PAGE_SIZE) break;
   }
   return rows;
- }
+}
 
 function stripContribution(rows: any[]): SalesMonthlyRow[] {
   return rows.map((r) => ({
@@ -66,16 +66,16 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
-    const rows = await fetchAllSalesMonthlyRows((from, to) =>
-      context.supabase
+    const rows = await fetchAllSalesMonthlyRows(async (from, to) => {
+      return await context.supabase
         .from("sales_monthly")
         .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
         .eq("company_id", data.companyId)
         .order("period", { ascending: true })
         .order("visma_delivery_no", { ascending: true })
         .order("product_group_1", { ascending: true })
-        .range(from, to),
-    );
+        .range(from, to);
+    });
     return {
       rows: isAdmin ? withContribution(rows ?? []) : stripContribution(rows ?? []),
       isAdmin,
@@ -91,16 +91,16 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; topProducts: TopProductRow[]; isAdmin: boolean }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
     const [monthlyRes, topRes] = await Promise.all([
-      fetchAllSalesMonthlyRows((from, to) =>
-        context.supabase
+      fetchAllSalesMonthlyRows(async (from, to) => {
+        return await context.supabase
           .from("sales_monthly")
           .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
           .eq("location_id", data.locationId)
           .order("period", { ascending: true })
           .order("visma_delivery_no", { ascending: true })
           .order("product_group_1", { ascending: true })
-          .range(from, to),
-      ),
+          .range(from, to);
+      }),
       context.supabase
         .from("sales_top_products")
         .select("visma_delivery_no, location_id, varenr, description, revenue, quantity")
