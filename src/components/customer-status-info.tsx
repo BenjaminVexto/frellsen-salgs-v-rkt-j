@@ -211,7 +211,7 @@ export function CustomerStatusHelpButton({ label = "Kundestatus" }: { label?: st
               );
             })}
             <p className="text-xs text-muted-foreground pt-2 border-t">
-              Statusserne beregnes automatisk ud fra "Sidste varekøb" importeret fra Visma.
+              Statusserne beregnes automatisk ud fra salgsdata (alle kategorier) + om der står aktivt udstyr hos kunden. En maskine hos kunden ⇒ altid Aktiv. Visma-debitorfeltet "Sidste Varekøb" bruges ikke som styrende kilde — det vises kun til reference.
             </p>
           </div>
         </DialogContent>
