@@ -10,6 +10,7 @@ import {
   deleteImportBatch,
 } from "@/lib/admin-companies.functions";
 import { CvrEnrichmentQueueBadge } from "@/components/cvr-enrichment-queue-badge";
+import { rescanRelationSuggestions } from "@/lib/relations.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
