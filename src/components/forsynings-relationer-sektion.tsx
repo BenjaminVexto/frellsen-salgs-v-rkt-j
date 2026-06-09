@@ -42,6 +42,7 @@ export function ForsyningsRelationerSektion({ companyId }: { companyId: string }
   const confirmFn = useServerFn(confirmRelationSuggestion);
   const rejectFn = useServerFn(rejectRelationSuggestion);
   const deleteFn = useServerFn(deleteCompanyRelation);
+  const [addOpen, setAddOpen] = useState(false);
 
   const q = useQuery({
     queryKey: ["relations", companyId],
@@ -55,9 +56,14 @@ export function ForsyningsRelationerSektion({ companyId }: { companyId: string }
 
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <Link2 className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold">Forsynings-relationer</h3>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Forsynings-relationer</h3>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Tilføj relation
+        </Button>
       </div>
 
       {suggestions.length > 0 && (
