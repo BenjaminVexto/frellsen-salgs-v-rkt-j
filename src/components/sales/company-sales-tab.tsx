@@ -71,6 +71,7 @@ export function CompanySalesTab({
 
   return (
     <div className="space-y-4">
+      <SuppliedViaBanner companyId={companyId} />
       <SalesKpiStrip
         rows={rows}
         isAdmin={isAdmin}
