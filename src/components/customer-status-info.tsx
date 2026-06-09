@@ -165,7 +165,7 @@ export function CustomerStatusLegend({ className }: { className?: string }) {
         })}
       </ul>
       <p className="text-muted-foreground pt-1 border-t border-border/50">
-        Baseret på "Sidste varekøb" fra Visma.
+        Beregnet fra salgsdata (alle kategorier) + aktivt udstyr hos kunden.
       </p>
     </div>
   );
