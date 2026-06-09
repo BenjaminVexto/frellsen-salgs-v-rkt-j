@@ -165,18 +165,26 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       ? (data.sellerId ?? null) // null = alle sælgere
       : userId;
 
-    // Determine portfolio company ids — paginate to avoid the 1000-row PostgREST cap
+    // Determine portfolio company ids — paginate to avoid the 1000-row PostgREST cap.
+    // Udeluk interne konti (Kundeprisgruppe 3 = "5 [Interne]") fra al statistik.
+    const INTERNAL_RE = /^\s*5\s*\[/;
     let companyIds: string[] = [];
     {
       for (let from = 0; ; from += PAGE) {
         const to = from + PAGE - 1;
-        let q = supabase.from("companies").select("id").range(from, to);
+        let q = supabase
+          .from("companies")
+          .select("id, customer_segment_3")
+          .range(from, to);
         if (appliedSellerId) q = q.eq("assigned_to", appliedSellerId);
         else q = q.not("assigned_to", "is", null);
         const { data: comps, error } = await q;
         if (error) throw error;
         const page = comps ?? [];
-        companyIds.push(...page.map((c: any) => c.id));
+        for (const c of page as any[]) {
+          if (c.customer_segment_3 && INTERNAL_RE.test(c.customer_segment_3)) continue;
+          companyIds.push(c.id);
+        }
         if (page.length < PAGE) break;
       }
     }
