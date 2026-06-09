@@ -60,6 +60,14 @@ export function CompanySalesTab({
     ? locationIds.filter((id) => activeLocIds.has(id)).length
     : activeLocIds.size;
 
+  // Single source of truth for "Omsætning (12 mdr.)" — KPI og kategorifordeling
+  // skal læse fra SAMME vindue, så de altid summerer til samme tal.
+  const now = new Date();
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+    .toISOString()
+    .slice(0, 10);
+  const last12Rows = filterByPeriod(rows, monthsAgo(11), nextMonth);
+
   return (
     <div className="space-y-4">
       <SalesKpiStrip
@@ -70,7 +78,7 @@ export function CompanySalesTab({
       />
       <SalesSignalBox rows={rows} hasActiveEquipment={hasActiveEquipment} />
       <div className="grid gap-4 md:grid-cols-2">
-        <CategoryBars rows={rows} companyId={companyId} />
+        <CategoryBars rows={last12Rows} companyId={companyId} title="Kategorifordeling (12 mdr.)" />
         <RevenueSparkline rows={rows} />
       </div>
     </div>
