@@ -154,6 +154,77 @@ export type Database = {
           },
         ]
       }
+      churn_dismissals: {
+        Row: {
+          company_id: string
+          competitor_id: string | null
+          created_at: string
+          created_by: string
+          expected_date: string | null
+          id: string
+          notes: string | null
+          reason: string
+          snooze_until: string | null
+          snooze_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          competitor_id?: string | null
+          created_at?: string
+          created_by: string
+          expected_date?: string | null
+          id?: string
+          notes?: string | null
+          reason: string
+          snooze_until?: string | null
+          snooze_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          competitor_id?: string | null
+          created_at?: string
+          created_by?: string
+          expected_date?: string | null
+          id?: string
+          notes?: string | null
+          reason?: string
+          snooze_until?: string | null
+          snooze_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "churn_dismissals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "churn_dismissals_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "churn_dismissals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "churn_dismissals_snooze_user_id_fkey"
+            columns: ["snooze_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null
