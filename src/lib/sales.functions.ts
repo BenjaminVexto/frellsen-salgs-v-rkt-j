@@ -13,6 +13,23 @@ async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
+const SALES_PAGE_SIZE = 1000;
+
+async function fetchAllSalesMonthlyRows(
+  queryPage: (from: number, to: number) => Promise<{ data: any[] | null; error: any }>,
+): Promise<any[]> {
+  const rows: any[] = [];
+  for (let from = 0; ; from += SALES_PAGE_SIZE) {
+    const to = from + SALES_PAGE_SIZE - 1;
+    const { data, error } = await queryPage(from, to);
+    if (error) throw error;
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < SALES_PAGE_SIZE) break;
+  }
+  return rows;
+ }
+
 function stripContribution(rows: any[]): SalesMonthlyRow[] {
   return rows.map((r) => ({
     visma_delivery_no: r.visma_delivery_no,
@@ -49,12 +66,16 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
-    const { data: rows, error } = await context.supabase
-      .from("sales_monthly")
-      .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
-      .eq("company_id", data.companyId)
-      .order("period", { ascending: true });
-    if (error) throw error;
+    const rows = await fetchAllSalesMonthlyRows((from, to) =>
+      context.supabase
+        .from("sales_monthly")
+        .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
+        .eq("company_id", data.companyId)
+        .order("period", { ascending: true })
+        .order("visma_delivery_no", { ascending: true })
+        .order("product_group_1", { ascending: true })
+        .range(from, to),
+    );
     return {
       rows: isAdmin ? withContribution(rows ?? []) : stripContribution(rows ?? []),
       isAdmin,
@@ -70,11 +91,16 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; topProducts: TopProductRow[]; isAdmin: boolean }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
     const [monthlyRes, topRes] = await Promise.all([
-      context.supabase
-        .from("sales_monthly")
-        .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
-        .eq("location_id", data.locationId)
-        .order("period", { ascending: true }),
+      fetchAllSalesMonthlyRows((from, to) =>
+        context.supabase
+          .from("sales_monthly")
+          .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
+          .eq("location_id", data.locationId)
+          .order("period", { ascending: true })
+          .order("visma_delivery_no", { ascending: true })
+          .order("product_group_1", { ascending: true })
+          .range(from, to),
+      ),
       context.supabase
         .from("sales_top_products")
         .select("visma_delivery_no, location_id, varenr, description, revenue, quantity")
@@ -82,10 +108,9 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
         .order("revenue", { ascending: false })
         .limit(15),
     ]);
-    if (monthlyRes.error) throw monthlyRes.error;
     if (topRes.error) throw topRes.error;
     return {
-      rows: isAdmin ? withContribution(monthlyRes.data ?? []) : stripContribution(monthlyRes.data ?? []),
+      rows: isAdmin ? withContribution(monthlyRes ?? []) : stripContribution(monthlyRes ?? []),
       topProducts: (topRes.data ?? []).map((t: any) => ({
         visma_delivery_no: t.visma_delivery_no,
         location_id: t.location_id,
