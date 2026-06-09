@@ -101,7 +101,6 @@ function VirksomhederListe() {
   const [reassignOpen, setReassignOpen] = useState(false);
 
   const loadTemplates = async () => {
-    if (!isAdmin) return;
     const { data } = await (supabase as any)
       .from("filter_templates")
       .select("id, name, filter_config")
@@ -210,26 +209,22 @@ function VirksomhederListe() {
           setFiltersOpen={setFiltersOpen}
           isFilterActive={isFilterActive}
           onReset={() => setFilters(DEFAULT_FILTERS)}
-          onSaveTemplate={
-            isAdmin ? () => setSaveTemplateOpen(true) : undefined
-          }
-          showFilterButton={isAdmin}
+          onSaveTemplate={() => setSaveTemplateOpen(true)}
+          showFilterButton={true}
         />
       </div>
 
-      {isAdmin && (
-        <CompanyFilterPanel
-          open={filtersOpen}
-          filters={filters}
-          setFilters={setFilters}
-          sellers={sellers}
-          municipalities={municipalities}
-          isAdmin={isAdmin}
-          templates={templates}
-          onApplyTemplate={applyTemplate}
-          onDeleteTemplate={deleteTemplate}
-        />
-      )}
+      <CompanyFilterPanel
+        open={filtersOpen}
+        filters={filters}
+        setFilters={setFilters}
+        sellers={sellers}
+        municipalities={municipalities}
+        isAdmin={isAdmin}
+        templates={templates}
+        onApplyTemplate={applyTemplate}
+        onDeleteTemplate={deleteTemplate}
+      />
 
       <div className="text-sm text-muted-foreground mb-2">
         <strong className="text-foreground">{filtered.length}</strong>{" "}
