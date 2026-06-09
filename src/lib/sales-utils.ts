@@ -92,12 +92,36 @@ export function filterByPeriod(
   return rows.filter((r) => r.period >= fromInclusive && r.period < toExclusive);
 }
 
-// Last purchase date = max period across rows with any activity
-// (revenue, quantity, or order_count > 0). Fanger også service-/kreditnota-måneder
-// så Salg-fanen matcher companies.last_purchase_date i sidebaren.
+// Sidste køb (alt) = max period på tværs af rækker med aktivitet
+// (revenue, quantity eller order_count > 0). Driver kundestatus.
 export function lastPurchasePeriod(rows: SalesMonthlyRow[]): string | null {
   let max: string | null = null;
   for (const r of rows) {
+    const hasActivity =
+      (Number(r.revenue) || 0) > 0 ||
+      (Number(r.quantity) || 0) > 0 ||
+      (Number(r.order_count) || 0) > 0;
+    if (!hasActivity) continue;
+    if (!max || r.period > max) max = r.period;
+  }
+  return max;
+}
+
+// Forbrugsvare-grupper: kaffe (2), te (4), drikke & automatvarer (6), chokolade (10).
+// Bruges til "kunde på vej væk"-signalet — IKKE til status.
+const CONSUMABLE_CODES = new Set(["2", "4", "6", "10"]);
+export function isConsumableGroup(raw: string | null | undefined): boolean {
+  const s = (raw ?? "").trim();
+  const m = s.match(/^(\d+)/);
+  if (!m) return false;
+  return CONSUMABLE_CODES.has(m[1]);
+}
+
+// Sidste forbrugsvarekøb (kaffe/te/chokolade/drikke).
+export function lastConsumablePurchasePeriod(rows: SalesMonthlyRow[]): string | null {
+  let max: string | null = null;
+  for (const r of rows) {
+    if (!isConsumableGroup(r.product_group_1)) continue;
     const hasActivity =
       (Number(r.revenue) || 0) > 0 ||
       (Number(r.quantity) || 0) > 0 ||
