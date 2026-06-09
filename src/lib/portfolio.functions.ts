@@ -72,6 +72,21 @@ export type ScatterPoint = {
   revenue12m: number;
 };
 
+export type SignalRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  revenue12m: number;
+  revenue12mPrior: number;
+  daysSinceConsumable: number | null;
+  consumableAvgPerMonth: number | null;
+  missingGroups: string[]; // whitespace tags
+  growthPct: number | null;
+  expiresAt: string | null;
+  expiryLabel: string | null;
+  expirySubtitle: string | null;
+};
+
 export type PortfolioPayload = {
   isAdmin: boolean;
   appliedSellerId: string | null;
@@ -90,12 +105,20 @@ export type PortfolioPayload = {
   monthLabels: { period: string; label: string }[]; // last 5
   companies: PortfolioCompanyRow[];
   rankings: {
-    topRevenue: RankingRow[]; // top 25 by revenue
-    bottomRevenueActive: RankingRow[]; // bottom 25 active only
-    topContribution: RankingRow[] | null; // admin only, top 25 DB
-    potential: RankingRow[]; // active+private+employees, lowest ratio first
+    topRevenue: RankingRow[];
+    bottomRevenueActive: RankingRow[];
+    topContribution: RankingRow[] | null;
+    potential: RankingRow[];
     potentialScatter: ScatterPoint[];
     potentialMissingEmployees: number;
+  };
+  signals: {
+    machineNoCoffee: SignalRow[];
+    whiteSpace: SignalRow[];
+    growing: SignalRow[];
+    declining: SignalRow[];
+    expiringAgreements: SignalRow[];
+    expiringCompetitor: SignalRow[];
   };
 };
 
@@ -177,6 +200,14 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       potentialScatter: [] as ScatterPoint[],
       potentialMissingEmployees: 0,
     };
+    const emptySignals = {
+      machineNoCoffee: [] as SignalRow[],
+      whiteSpace: [] as SignalRow[],
+      growing: [] as SignalRow[],
+      declining: [] as SignalRow[],
+      expiringAgreements: [] as SignalRow[],
+      expiringCompetitor: [] as SignalRow[],
+    };
 
     if (!companyIds.length) {
       return {
@@ -188,6 +219,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         monthLabels,
         companies: [],
         rankings: emptyRankings,
+        signals: emptySignals,
       };
     }
 
@@ -364,6 +396,157 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       revenue12m: c.revenue12m,
     }));
 
+    // --- Lag 3: Muligheder & trusler ---
+    // Per-company product-group set and consumable revenue in last 12 months
+    const groupsByCompany = new Map<string, Set<string>>();
+    const consumableRev = new Map<string, number>();
+    for (const r of salesRows) {
+      const cid = r.company_id as string;
+      if (!cid) continue;
+      const period = r.period as string;
+      if (!(period >= startCur && period <= thisMonth)) continue;
+      const raw = (r.product_group_1 ?? "").trim();
+      const m = raw.match(/^(\d+)/);
+      const code = m ? m[1] : null;
+      if (code) {
+        let s = groupsByCompany.get(cid);
+        if (!s) { s = new Set(); groupsByCompany.set(cid, s); }
+        s.add(code);
+        if (code === "2" || code === "4" || code === "6" || code === "10") {
+          consumableRev.set(cid, (consumableRev.get(cid) ?? 0) + (Number(r.revenue) || 0));
+        }
+      }
+    }
+
+    const blankSignal = (c: PortfolioCompanyRow): SignalRow => ({
+      id: c.id,
+      name: c.name,
+      city: c.city,
+      revenue12m: c.revenue12m,
+      revenue12mPrior: c.revenue12mPrior,
+      daysSinceConsumable: null,
+      consumableAvgPerMonth: null,
+      missingGroups: [],
+      growthPct: null,
+      expiresAt: null,
+      expiryLabel: null,
+      expirySubtitle: null,
+    });
+
+    // 1) Maskine men ingen kaffe
+    const machineNoCoffee: SignalRow[] = companies
+      .filter((c) =>
+        c.customer_type === "aktiv_kunde" &&
+        c.has_active_equipment &&
+        !c.supplied_via_id,
+      )
+      .map((c) => {
+        const last = c.last_consumable_sales_date;
+        const days = last
+          ? Math.floor((todayMs - new Date(last + "T00:00:00Z").getTime()) / 86400000)
+          : null;
+        return { c, days };
+      })
+      .filter(({ days }) => days === null || days > 60)
+      .map(({ c, days }) => ({
+        ...blankSignal(c),
+        daysSinceConsumable: days,
+        consumableAvgPerMonth: (consumableRev.get(c.id) ?? 0) / 12,
+      }))
+      .sort((a, b) => (b.daysSinceConsumable ?? 99999) - (a.daysSinceConsumable ?? 99999));
+
+    // 2) White space — køber kaffe men mangler te/chokolade/automat
+    const COMPLEMENT_LABEL: Record<string, string> = {
+      "4": "Te",
+      "10": "Chokolade",
+      "6": "Drikke & Automatvarer",
+    };
+    const whiteSpace: SignalRow[] = companies
+      .filter((c) => {
+        const s = groupsByCompany.get(c.id);
+        return s?.has("2");
+      })
+      .map((c) => {
+        const s = groupsByCompany.get(c.id)!;
+        const missing: string[] = [];
+        for (const code of ["4", "10", "6"]) {
+          if (!s.has(code)) missing.push(COMPLEMENT_LABEL[code]);
+        }
+        return { ...blankSignal(c), missingGroups: missing };
+      })
+      .filter((r) => r.missingGroups.length > 0)
+      .sort((a, b) => b.revenue12m - a.revenue12m);
+
+    // 3 / 4) I vækst / Faldende
+    const withTrend = companies
+      .filter((c) => c.revenue12mPrior > 0 && c.revenue12m > 0)
+      .map((c) => ({
+        ...blankSignal(c),
+        growthPct: ((c.revenue12m - c.revenue12mPrior) / c.revenue12mPrior) * 100,
+      }));
+    const growing = withTrend
+      .filter((r) => (r.growthPct ?? 0) > 0)
+      .sort((a, b) => (b.growthPct ?? 0) - (a.growthPct ?? 0));
+    const declining = withTrend
+      .filter((r) => (r.growthPct ?? 0) < 0)
+      .sort((a, b) => (a.growthPct ?? 0) - (b.growthPct ?? 0));
+
+    // 5 / 6) Udløb inden for 90 dage
+    const today = new Date();
+    const today_s = today.toISOString().slice(0, 10);
+    const in90 = new Date(today);
+    in90.setDate(in90.getDate() + 90);
+    const in90_s = in90.toISOString().slice(0, 10);
+    const compNameById = new Map(companies.map((c) => [c.id, c] as const));
+
+    const docRows = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
+      supabase
+        .from("company_documents")
+        .select("id, filename, document_type, expires_at, company_id")
+        .in("company_id", slice)
+        .not("expires_at", "is", null)
+        .gte("expires_at", today_s)
+        .lte("expires_at", in90_s)
+        .order("expires_at", { ascending: true })
+        .range(from, to),
+    );
+    const expiringAgreements: SignalRow[] = (docRows as any[])
+      .map((d) => {
+        const c = compNameById.get(d.company_id);
+        if (!c) return null;
+        return {
+          ...blankSignal(c),
+          expiresAt: d.expires_at as string,
+          expiryLabel: (d.filename as string) ?? "Aftale",
+          expirySubtitle: (d.document_type as string) ?? null,
+        };
+      })
+      .filter(Boolean) as SignalRow[];
+
+    const compAssRows = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
+      supabase
+        .from("competitor_assignments")
+        .select("id, contract_expires_at, company_id, competitors(name)")
+        .in("company_id", slice)
+        .not("contract_expires_at", "is", null)
+        .gte("contract_expires_at", today_s)
+        .lte("contract_expires_at", in90_s)
+        .order("contract_expires_at", { ascending: true })
+        .range(from, to),
+    );
+    const expiringCompetitor: SignalRow[] = (compAssRows as any[])
+      .map((r) => {
+        const c = compNameById.get(r.company_id);
+        if (!c) return null;
+        return {
+          ...blankSignal(c),
+          expiresAt: r.contract_expires_at as string,
+          expiryLabel: r.competitors?.name ?? "Konkurrent",
+          expirySubtitle: "Konkurrentaftale",
+        };
+      })
+      .filter(Boolean) as SignalRow[];
+
     return {
       isAdmin,
       appliedSellerId: isAdmin ? appliedSellerId : null,
@@ -388,6 +571,14 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         potential,
         potentialScatter,
         potentialMissingEmployees: missingEmployees,
+      },
+      signals: {
+        machineNoCoffee,
+        whiteSpace,
+        growing,
+        declining,
+        expiringAgreements,
+        expiringCompetitor,
       },
     };
   });
