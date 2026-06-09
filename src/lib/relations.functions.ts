@@ -175,7 +175,17 @@ export const confirmRelationSuggestion = createServerFn({ method: "POST" })
       if (match) toCompanyId = match.id;
     }
     if (!toCompanyId) {
-      throw new Error(`Ingen virksomhed fundet med kundenr ${sugg.to_visma_id}. Forslaget kan ikke bekræftes endnu.`);
+      // Try as Lev. kund (location delivery number) -> use that location's company
+      const { data: loc } = await supabase
+        .from("locations")
+        .select("company_id")
+        .eq("visma_delivery_no", sugg.to_visma_id)
+        .limit(1)
+        .maybeSingle();
+      if (loc) toCompanyId = loc.company_id;
+    }
+    if (!toCompanyId) {
+      throw new Error(`Ingen virksomhed eller lokation fundet med kundenr ${sugg.to_visma_id}.`);
     }
 
     const { error: insErr } = await supabase.from("company_relations").insert({
