@@ -30,6 +30,31 @@ async function fetchAllSalesMonthlyRows(
   return rows;
 }
 
+/**
+ * Fetch all rows for an `.in(column, ids)` query — chunks the id list to avoid
+ * URL-length limits AND paginates each chunk to bypass the 1000-row PostgREST cap.
+ */
+async function fetchAllInChunks(
+  ids: string[],
+  chunkSize: number,
+  queryPage: (slice: string[], from: number, to: number) => Promise<{ data: any[] | null; error: any }>,
+): Promise<any[]> {
+  const rows: any[] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const slice = ids.slice(i, i + chunkSize);
+    for (let from = 0; ; from += SALES_PAGE_SIZE) {
+      const to = from + SALES_PAGE_SIZE - 1;
+      const { data, error } = await queryPage(slice, from, to);
+      if (error) throw error;
+      const page = data ?? [];
+      rows.push(...page);
+      if (page.length < SALES_PAGE_SIZE) break;
+    }
+  }
+  return rows;
+}
+
+
 function stripContribution(rows: any[]): SalesMonthlyRow[] {
   return rows.map((r) => ({
     visma_delivery_no: r.visma_delivery_no,
