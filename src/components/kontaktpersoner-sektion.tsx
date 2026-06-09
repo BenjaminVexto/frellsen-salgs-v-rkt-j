@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User, Plus, MapPin, Pencil, ChevronDown, ChevronUp } from "lucide-react";
+import { User, Plus, MapPin, Pencil, ChevronDown, ChevronUp, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 import type { Location } from "@/components/lokationer-sektion";
 
 export type ContactRow = {
