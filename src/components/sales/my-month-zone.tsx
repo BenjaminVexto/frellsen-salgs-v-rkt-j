@@ -84,12 +84,14 @@ function MetricCard({
   label,
   value,
   sub,
+  comparison,
   loading,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   sub?: string;
+  comparison?: { current: number; lastYear: number };
   loading?: boolean;
 }) {
   return (
@@ -102,6 +104,25 @@ function MetricCard({
         {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : value}
       </div>
       {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
+      {comparison && !loading && <YoYLine current={comparison.current} lastYear={comparison.lastYear} />}
     </Card>
+  );
+}
+
+function YoYLine({ current, lastYear }: { current: number; lastYear: number }) {
+  const diff = current - lastYear;
+  const pct = lastYear !== 0 ? Math.round((diff / Math.abs(lastYear)) * 100) : null;
+  const up = diff > 0;
+  const down = diff < 0;
+  const Icon = up ? ArrowUp : down ? ArrowDown : Minus;
+  const colorCls = up ? "text-emerald-600 dark:text-emerald-500" : "text-muted-foreground";
+  return (
+    <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
+      <span className={`inline-flex items-center gap-0.5 ${colorCls}`}>
+        <Icon className="h-3 w-3" />
+        {pct === null ? "—" : `${Math.abs(pct)} %`}
+      </span>
+      <span>· fuld måned sidste år: {fmtKr(lastYear)}</span>
+    </div>
   );
 }
