@@ -35,6 +35,14 @@ export function MyMonthZone() {
               ? `${salesQ.data.companies} ${salesQ.data.companies === 1 ? "kunde" : "kunder"} med køb`
               : undefined
           }
+          comparison={
+            salesQ.data
+              ? {
+                  current: salesQ.data.revenue,
+                  lastYear: salesQ.data.revenueLastYear,
+                }
+              : undefined
+          }
           loading={salesQ.isLoading}
         />
       </div>
