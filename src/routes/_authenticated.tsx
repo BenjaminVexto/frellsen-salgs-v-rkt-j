@@ -25,7 +25,9 @@ import {
   ShieldAlert,
   Lightbulb,
   FileText,
+  TrendingUp,
 } from "lucide-react";
+
 
 import { Button } from "@/components/ui/button";
 import { GlobalImportIndicator } from "@/components/global-import-indicator";
@@ -64,11 +66,13 @@ function AuthenticatedLayout() {
   const navItems = [
     { to: "/dashboard", label: "Mit overblik", shortLabel: "Overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", shortLabel: "Firmaer", icon: Building2 },
+    { to: "/min-portefoelje", label: "Min salgsstatistik", shortLabel: "Statistik", icon: TrendingUp },
     { to: "/aftaler", label: "Aftaler", shortLabel: "Aftaler", icon: FileText },
     { to: "/kontaktlister", label: "Kontaktlister", shortLabel: "Lister", icon: ListChecks },
     { to: "/konkurrenter", label: "Konkurrenter", shortLabel: "Konkur.", icon: ShieldAlert },
     { to: "/salgsmuligheder", label: "Salgsmuligheder", shortLabel: "Salg", icon: Target },
   ];
+
 
   const adminItems = [
     { to: "/salgsintelligens", label: "Salgsintelligens", icon: Lightbulb },
@@ -186,7 +190,7 @@ function AuthenticatedLayout() {
         <Outlet />
         {/* Mobile bottom nav */}
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-6 z-20"
+          className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-7 z-20"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           {navItems.map((item) => {
