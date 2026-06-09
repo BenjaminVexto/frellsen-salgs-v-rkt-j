@@ -13,13 +13,15 @@ import {
 export function SalesSignalBox({
   rows,
   hasActiveEquipment,
+  isSuppliedVia,
 }: {
   rows: SalesMonthlyRow[];
   hasActiveEquipment?: boolean;
+  isSuppliedVia?: boolean;
 }) {
   return (
     <div className="space-y-2">
-      <ConsumableDropSignal rows={rows} hasActiveEquipment={hasActiveEquipment} />
+      <ConsumableDropSignal rows={rows} hasActiveEquipment={hasActiveEquipment} isSuppliedVia={isSuppliedVia} />
       <RevenueDropSignal rows={rows} />
     </div>
   );
@@ -28,10 +30,13 @@ export function SalesSignalBox({
 function ConsumableDropSignal({
   rows,
   hasActiveEquipment,
+  isSuppliedVia,
 }: {
   rows: SalesMonthlyRow[];
   hasActiveEquipment?: boolean;
+  isSuppliedVia?: boolean;
 }) {
+  if (isSuppliedVia) return null;
   const lastCons = lastConsumablePurchasePeriod(rows);
   if (!lastCons) {
     if (!hasActiveEquipment) return null;
