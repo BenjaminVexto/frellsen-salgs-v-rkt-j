@@ -25,6 +25,14 @@ export function CompanySalesTab({
     queryKey: ["sales-company", companyId],
     queryFn: () => fetchFn({ data: { companyId } }),
   });
+  const relationsFn = useServerFn(getCompanyRelations);
+  const relationsQ = useQuery({
+    queryKey: ["relations", companyId],
+    queryFn: () => relationsFn({ data: { companyId } }),
+  });
+  const isSuppliedVia = ((relationsQ.data?.confirmed ?? []) as any[]).some(
+    (r) => r.direction === "out" && r.relation_type === "forsynes_af",
+  );
 
   if (q.isLoading) {
     return (
