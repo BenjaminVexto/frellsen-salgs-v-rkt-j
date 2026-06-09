@@ -44,6 +44,13 @@ function PortfolioPage() {
   const [sortKey, setSortKey] = useState<SortKey>("month:last");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  // Filters
+  const [search, setSearch] = useState("");
+  const [kaffeFilter, setKaffeFilter] = useState<"all" | "green" | "yellow" | "red" | "via">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "aktiv" | "sovende" | "paavejvaek">("all");
+  const [showDB, setShowDB] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
+
   const q = useQuery({
     queryKey: ["portfolio", sellerId],
     queryFn: () =>
