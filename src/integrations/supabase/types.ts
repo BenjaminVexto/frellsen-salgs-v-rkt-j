@@ -479,6 +479,102 @@ export type Database = {
           },
         ]
       }
+      company_relation_suggestions: {
+        Row: {
+          created_at: string
+          from_company_id: string
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          source_text: string | null
+          status: Database["public"]["Enums"]["relation_suggestion_status"]
+          to_company_id: string | null
+          to_visma_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_company_id: string
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source_text?: string | null
+          status?: Database["public"]["Enums"]["relation_suggestion_status"]
+          to_company_id?: string | null
+          to_visma_id: string
+        }
+        Update: {
+          created_at?: string
+          from_company_id?: string
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source_text?: string | null
+          status?: Database["public"]["Enums"]["relation_suggestion_status"]
+          to_company_id?: string | null
+          to_visma_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_relation_suggestions_from_company_id_fkey"
+            columns: ["from_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_relation_suggestions_to_company_id_fkey"
+            columns: ["to_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_relations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          from_company_id: string
+          id: string
+          note: string | null
+          relation_type: Database["public"]["Enums"]["company_relation_type"]
+          to_company_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          from_company_id: string
+          id?: string
+          note?: string | null
+          relation_type: Database["public"]["Enums"]["company_relation_type"]
+          to_company_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          from_company_id?: string
+          id?: string
+          note?: string | null
+          relation_type?: Database["public"]["Enums"]["company_relation_type"]
+          to_company_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_relations_from_company_id_fkey"
+            columns: ["from_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_relations_to_company_id_fkey"
+            columns: ["to_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitor_assignments: {
         Row: {
           company_id: string
@@ -1384,6 +1480,11 @@ export type Database = {
         | "senere_emne"
         | "vundet"
         | "tabt"
+      company_relation_type:
+        | "forsynes_af"
+        | "leverer_til"
+        | "maskiner_paa"
+        | "efterfoelger"
       customer_type:
         | "nyt_emne"
         | "aktiv_kunde"
@@ -1415,6 +1516,7 @@ export type Database = {
         | "accepteret"
         | "afvist"
         | "udløbet"
+      relation_suggestion_status: "pending" | "confirmed" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1570,6 +1672,12 @@ export const Constants = {
         "vundet",
         "tabt",
       ],
+      company_relation_type: [
+        "forsynes_af",
+        "leverer_til",
+        "maskiner_paa",
+        "efterfoelger",
+      ],
       customer_type: [
         "nyt_emne",
         "aktiv_kunde",
@@ -1605,6 +1713,7 @@ export const Constants = {
         "afvist",
         "udløbet",
       ],
+      relation_suggestion_status: ["pending", "confirmed", "rejected"],
     },
   },
 } as const

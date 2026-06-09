@@ -79,6 +79,7 @@ import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
+import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion } from "@/components/ai-briefing-sektion";
 
@@ -779,6 +780,7 @@ function VirksomhedsKort() {
             {/* FANE: Relationer */}
             <TabsContent value="relationer" className="space-y-4 mt-4">
               <SoesterselskaberSektion companyId={company.id} cvr={company.cvr} />
+              <ForsyningsRelationerSektion companyId={company.id} />
               <KontaktpersonerSektion
                 companyId={company.id}
                 contacts={contacts as ContactRow[]}

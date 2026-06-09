@@ -10,6 +10,7 @@ import {
   deleteImportBatch,
 } from "@/lib/admin-companies.functions";
 import { CvrEnrichmentQueueBadge } from "@/components/cvr-enrichment-queue-badge";
+import { rescanRelationSuggestions } from "@/lib/relations.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -136,8 +137,9 @@ function ImporthistorikSide() {
       <p className="text-sm text-muted-foreground mb-4">
         Oversigt over alle imports — virksomheder, maskindata og aftaler. Klik på en import for at se og slette.
       </p>
-      <div className="mb-6">
+      <div className="mb-6 flex items-center gap-3 flex-wrap">
         <CvrEnrichmentQueueBadge />
+        <RescanRelationSuggestionsButton />
       </div>
 
       <Card className="overflow-x-auto">
@@ -604,5 +606,33 @@ function GruppeKort({
         </div>
       )}
     </Card>
+  );
+}
+
+function RescanRelationSuggestionsButton() {
+  const [busy, setBusy] = useState(false);
+  const fn = useServerFn(rescanRelationSuggestions);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const res = await fn();
+          toast.success(
+            `Scannede ${res.scanned} virksomheder · ${res.newSuggestions} nye forslag (i alt ${res.totalReferencesFound} fundet)`,
+          );
+        } catch (e: any) {
+          toast.error(e?.message ?? "Kunne ikke scanne");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+      Scan bemærkninger for relations-forslag
+    </Button>
   );
 }
