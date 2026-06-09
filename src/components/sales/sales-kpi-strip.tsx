@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { ArrowDown, ArrowUp, Calendar, MapPin, TrendingUp, Wallet } from "lucide-react";
+import { ArrowDown, ArrowUp, Calendar, Coffee, MapPin, TrendingUp, Wallet } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
 import {
@@ -10,6 +10,7 @@ import {
   filterByPeriod,
   sumRows,
   lastPurchasePeriod,
+  lastConsumablePurchasePeriod,
   type SalesMonthlyRow,
 } from "@/lib/sales-utils";
 
@@ -25,7 +26,6 @@ export function SalesKpiStrip({
   locationsActive?: number;
 }) {
   const now = new Date();
-  const periodNow = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
   // next-month exclusive for filter
   const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
     .toISOString()
@@ -39,7 +39,8 @@ export function SalesKpiStrip({
   const prev12Sum = sumRows(prev12);
 
   const trend = prev12Sum.revenue > 0 ? (last12Sum.revenue - prev12Sum.revenue) / prev12Sum.revenue : null;
-  const last = lastPurchasePeriod(rows);
+  const lastAll = lastPurchasePeriod(rows);
+  const lastCons = lastConsumablePurchasePeriod(rows);
 
   // DG = contribution / revenue
   const dg = isAdmin && last12Sum.contribution != null && last12Sum.revenue > 0
@@ -47,7 +48,7 @@ export function SalesKpiStrip({
     : null;
 
   return (
-    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3 lg:grid-cols-5" : "md:grid-cols-2 lg:grid-cols-4"}`}>
       <KpiCard
         icon={<TrendingUp className="h-4 w-4" />}
         label="Omsætning (12 mdr.)"
@@ -74,13 +75,25 @@ export function SalesKpiStrip({
       )}
       <KpiCard
         icon={<Calendar className="h-4 w-4" />}
-        label="Sidste køb"
-        value={last ? format(parseISO(last), "MMM yyyy", { locale: da }) : "—"}
+        label="Sidste køb (alt)"
+        value={lastAll ? format(parseISO(lastAll), "MMM yyyy", { locale: da }) : "—"}
         trail={
-          last ? (
-            <span className="text-xs text-muted-foreground">for {daysSince(last)} dage siden</span>
+          lastAll ? (
+            <span className="text-xs text-muted-foreground">for {daysSince(lastAll)} dage siden · alt salg + udstyr</span>
           ) : (
             <span className="text-xs text-muted-foreground">Ingen registreret køb</span>
+          )
+        }
+      />
+      <KpiCard
+        icon={<Coffee className="h-4 w-4" />}
+        label="Sidste varekøb (forbrug)"
+        value={lastCons ? format(parseISO(lastCons), "MMM yyyy", { locale: da }) : "—"}
+        trail={
+          lastCons ? (
+            <span className="text-xs text-muted-foreground">for {daysSince(lastCons)} dage siden · kaffe / te / chokolade / drikke</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">Ingen forbrugsvarekøb registreret</span>
           )
         }
       />
