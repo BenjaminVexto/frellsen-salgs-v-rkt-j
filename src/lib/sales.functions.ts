@@ -318,19 +318,18 @@ export const getMyChurningCustomers = createServerFn({ method: "GET" })
     const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
     type Row = { company_id: string; period: string; revenue: number };
-    const rows: Row[] = [];
-    for (let i = 0; i < companyIds.length; i += 200) {
-      const slice = companyIds.slice(i, i + 200);
-      const { data, error } = await context.supabase
+    const rawRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
+      context.supabase
         .from("sales_monthly")
         .select("company_id, period, revenue")
         .in("company_id", slice)
-        .gte("period", cutoffStr);
-      if (error) throw error;
-      (data ?? []).forEach((r: any) => {
-        if (r.company_id) rows.push({ company_id: r.company_id, period: r.period, revenue: Number(r.revenue) || 0 });
-      });
-    }
+        .gte("period", cutoffStr)
+        .range(from, to),
+    );
+    const rows: Row[] = rawRows
+      .filter((r: any) => r.company_id)
+      .map((r: any) => ({ company_id: r.company_id, period: r.period, revenue: Number(r.revenue) || 0 }));
+
     if (!rows.length) return { customers: [], hasData: false };
 
     // Group by company
