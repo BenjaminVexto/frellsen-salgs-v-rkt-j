@@ -10,9 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, ArrowUp, ArrowDown, Minus, ArrowUpDown } from "lucide-react";
-import { getMyPortfolio, type PortfolioCompanyRow } from "@/lib/portfolio.functions";
+import {
+  getMyPortfolio,
+  type PortfolioCompanyRow,
+  type RankingRow,
+  type ScatterPoint,
+} from "@/lib/portfolio.functions";
 import { fmtKr } from "@/lib/sales-utils";
+
 
 export const Route = createFileRoute("/_authenticated/min-portefoelje")({
   component: PortfolioPage,
