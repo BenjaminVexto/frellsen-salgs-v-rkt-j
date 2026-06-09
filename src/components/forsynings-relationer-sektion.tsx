@@ -148,6 +148,12 @@ export function ForsyningsRelationerSektion({ companyId }: { companyId: string }
           </div>
         </div>
       )}
+      <AddRelationDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        fromCompanyId={companyId}
+        onCreated={invalidate}
+      />
     </Card>
   );
 }
