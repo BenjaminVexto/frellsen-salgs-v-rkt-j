@@ -1,0 +1,4 @@
+CREATE POLICY "Sælgere ser egne filter_templates" ON public.filter_templates FOR SELECT TO authenticated USING (created_by = auth.uid());
+CREATE POLICY "Sælgere opretter egne filter_templates" ON public.filter_templates FOR INSERT TO authenticated WITH CHECK (created_by = auth.uid());
+CREATE POLICY "Sælgere opdaterer egne filter_templates" ON public.filter_templates FOR UPDATE TO authenticated USING (created_by = auth.uid()) WITH CHECK (created_by = auth.uid());
+CREATE POLICY "Sælgere sletter egne filter_templates" ON public.filter_templates FOR DELETE TO authenticated USING (created_by = auth.uid());
