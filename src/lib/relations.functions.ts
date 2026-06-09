@@ -111,6 +111,23 @@ export const getCompanyRelations = createServerFn({ method: "GET" })
       })),
     ];
 
+    // Dedupe inverse pairs: if A→B forsynes_af exists, the auto-created B→A
+    // leverer_til (which we see as direction="in") is the same logical relation.
+    // Keep the "out" row, drop the matching "in" inverse so the UI shows one entry.
+    const outKeys = new Set(
+      confirmed
+        .filter((r) => r.direction === "out")
+        .map((r) => `${r.other_company_id}|${r.relation_type}`),
+    );
+    const deduped = confirmed.filter((r) => {
+      if (r.direction === "out") return true;
+      const inverse = INVERSE[r.relation_type];
+      if (!inverse) return true;
+      // If the corresponding out-side exists, skip this in-side row.
+      return !outKeys.has(`${r.other_company_id}|${inverse}`);
+    });
+
+
     // Enrich suggestions: when no direct company match on visma_id, try locations.visma_delivery_no
     const unresolved = (sugg ?? []).filter((s: any) => !s.to_company_id);
     const unresolvedVismaIds = Array.from(new Set(unresolved.map((s: any) => s.to_visma_id)));
