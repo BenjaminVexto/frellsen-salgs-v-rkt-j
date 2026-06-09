@@ -5,6 +5,7 @@ import { SalesKpiStrip } from "./sales-kpi-strip";
 import { CategoryBars } from "./category-bars";
 import { RevenueSparkline } from "./revenue-sparkline";
 import { SalesSignalBox } from "./sales-signal-box";
+import { SuppliedViaBanner } from "./supplied-via-banner";
 import { Card } from "@/components/ui/card";
 import { Loader2, BarChart3 } from "lucide-react";
 import { monthsAgo, filterByPeriod, sumRows } from "@/lib/sales-utils";
