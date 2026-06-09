@@ -1,14 +1,19 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
-import { TrendingDown, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingDown, Loader2, X } from "lucide-react";
 import { getMyChurningCustomers } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
+import { DismissChurnDialog } from "./dismiss-churn-dialog";
 
 export function ChurningCustomersCard() {
   const fetchFn = useServerFn(getMyChurningCustomers);
   const q = useQuery({ queryKey: ["my-churning"], queryFn: () => fetchFn({}) });
+
+  const [dismiss, setDismiss] = useState<{ id: string; name: string } | null>(null);
 
   const loading = q.isLoading;
   const customers = q.data?.customers ?? [];
@@ -48,25 +53,50 @@ export function ChurningCustomersCard() {
         ) : (
           <div>
             {customers.map((c) => (
-              <Link
+              <div
                 key={c.company_id}
-                to="/virksomheder/$id"
-                params={{ id: c.company_id }}
                 className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
               >
-                <div className="min-w-0 flex-1">
+                <Link
+                  to="/virksomheder/$id"
+                  params={{ id: c.company_id }}
+                  className="min-w-0 flex-1"
+                >
                   <div className="text-sm font-medium text-foreground truncate">
                     {c.company_name}
                   </div>
                   <div className="text-xs text-muted-foreground truncate mt-0.5">
                     intet køb i {c.daysSinceLastPurchase} dage · før: ~{fmtKr(c.monthlyAverageRevenue)}/md
                   </div>
-                </div>
-              </Link>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDismiss({ id: c.company_id, name: c.company_name });
+                  }}
+                  aria-label="Fjern fra listen"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Fjern / markér
+                </Button>
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      {dismiss && (
+        <DismissChurnDialog
+          open={!!dismiss}
+          onOpenChange={(v) => !v && setDismiss(null)}
+          companyId={dismiss.id}
+          companyName={dismiss.name}
+        />
+      )}
     </Card>
   );
 }
