@@ -20,6 +20,7 @@ export type RelationSuggestion = {
   to_company_id: string | null;
   to_company_name: string | null;
   to_company_city: string | null;
+  via_location_label: string | null;
   source_text: string | null;
   created_at: string;
 };
