@@ -607,3 +607,31 @@ function GruppeKort({
     </Card>
   );
 }
+
+function RescanRelationSuggestionsButton() {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const mod = await import("@/lib/relations.functions");
+          const res = await mod.rescanRelationSuggestions();
+          toast.success(
+            `Scannede ${res.scanned} virksomheder · ${res.newSuggestions} nye forslag (i alt ${res.totalReferencesFound} fundet)`,
+          );
+        } catch (e: any) {
+          toast.error(e?.message ?? "Kunne ikke scanne");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+      Scan bemærkninger for relations-forslag
+    </Button>
+  );
+}
