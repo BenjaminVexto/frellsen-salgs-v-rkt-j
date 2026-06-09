@@ -991,3 +991,59 @@ function ScatterPlot({ points }: { points: ScatterPoint[] }) {
     </Card>
   );
 }
+
+function classifyKaffe(c: PortfolioCompanyRow): "green" | "yellow" | "red" | "via" {
+  if (c.supplied_via_id) return "via";
+  if (!c.last_consumable_sales_date) return "red";
+  const days = Math.floor(
+    (Date.now() - new Date(c.last_consumable_sales_date + "T00:00:00Z").getTime()) / 86400000,
+  );
+  return days <= 60 ? "green" : "yellow";
+}
+
+function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "paavejvaek" | "andet" {
+  if (c.customer_type === "aktiv_kunde") {
+    if (c.has_active_equipment && !c.supplied_via_id) {
+      const last = c.last_consumable_sales_date;
+      const days = last
+        ? Math.floor((Date.now() - new Date(last + "T00:00:00Z").getTime()) / 86400000)
+        : Infinity;
+      if (days > 60) return "paavejvaek";
+    }
+    return "aktiv";
+  }
+  if (c.customer_type === "sovende_kunde") return "sovende";
+  return "andet";
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  const w = 80;
+  const h = 22;
+  if (!values.length) return <span className="text-xs text-muted-foreground">—</span>;
+  const max = Math.max(...values, 1);
+  const min = 0;
+  const step = values.length > 1 ? w / (values.length - 1) : 0;
+  const points = values
+    .map((v, i) => {
+      const x = i * step;
+      const y = h - ((v - min) / (max - min || 1)) * h;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const first = values[0];
+  const last = values[values.length - 1];
+  const up = last >= first;
+  const color = up ? "stroke-emerald-500" : "stroke-destructive";
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block">
+      <polyline
+        fill="none"
+        strokeWidth={1.5}
+        className={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={points}
+      />
+    </svg>
+  );
+}
