@@ -267,19 +267,19 @@ export const getMyMonthlySales = createServerFn({ method: "GET" })
 
     let revenue = 0;
     const compsWithSales = new Set<string>();
-    for (let i = 0; i < companyIds.length; i += 200) {
-      const slice = companyIds.slice(i, i + 200);
-      const { data, error } = await context.supabase
+    const rows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
+      context.supabase
         .from("sales_monthly")
         .select("company_id, revenue")
         .in("company_id", slice)
-        .eq("period", period);
-      if (error) throw error;
-      (data ?? []).forEach((r: any) => {
-        revenue += Number(r.revenue) || 0;
-        if (r.company_id) compsWithSales.add(r.company_id);
-      });
-    }
+        .eq("period", period)
+        .range(from, to),
+    );
+    rows.forEach((r: any) => {
+      revenue += Number(r.revenue) || 0;
+      if (r.company_id) compsWithSales.add(r.company_id);
+    });
+
     return { revenue, companies: compsWithSales.size, period };
   });
 
