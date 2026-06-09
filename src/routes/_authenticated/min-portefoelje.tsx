@@ -64,7 +64,20 @@ function PortfolioPage() {
 
   const sortedCompanies = useMemo(() => {
     if (!data) return [] as PortfolioCompanyRow[];
-    const arr = [...data.companies];
+    const searchLc = search.trim().toLowerCase();
+    const filtered = data.companies.filter((c) => {
+      if (searchLc && !c.name.toLowerCase().includes(searchLc)) return false;
+      if (kaffeFilter !== "all") {
+        const cls = classifyKaffe(c);
+        if (cls !== kaffeFilter) return false;
+      }
+      if (statusFilter !== "all") {
+        const s = classifyStatus(c);
+        if (s !== statusFilter) return false;
+      }
+      return true;
+    });
+    const arr = [...filtered];
     const key = sortKey;
     const dir = sortDir === "asc" ? 1 : -1;
     const lastPeriod = data.monthLabels[data.monthLabels.length - 1]?.period;
@@ -95,7 +108,12 @@ function PortfolioPage() {
       return 0;
     });
     return arr;
-  }, [data, sortKey, sortDir]);
+  }, [data, sortKey, sortDir, search, kaffeFilter, statusFilter]);
+
+  // Reset pagination when filters/sort change
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [search, kaffeFilter, statusFilter, sortKey, sortDir, sellerId]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
