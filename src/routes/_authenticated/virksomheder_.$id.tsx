@@ -785,6 +785,7 @@ function VirksomhedsKort() {
               <ForsyningsRelationerSektion companyId={company.id} />
               <KontaktpersonerSektion
                 companyId={company.id}
+                companyName={company.name}
                 contacts={contacts as ContactRow[]}
                 locations={locations}
                 onReload={load}
