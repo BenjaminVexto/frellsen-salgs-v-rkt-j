@@ -200,6 +200,14 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       potentialScatter: [] as ScatterPoint[],
       potentialMissingEmployees: 0,
     };
+    const emptySignals = {
+      machineNoCoffee: [] as SignalRow[],
+      whiteSpace: [] as SignalRow[],
+      growing: [] as SignalRow[],
+      declining: [] as SignalRow[],
+      expiringAgreements: [] as SignalRow[],
+      expiringCompetitor: [] as SignalRow[],
+    };
 
     if (!companyIds.length) {
       return {
@@ -211,6 +219,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         monthLabels,
         companies: [],
         rankings: emptyRankings,
+        signals: emptySignals,
       };
     }
 
