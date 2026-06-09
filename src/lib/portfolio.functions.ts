@@ -45,7 +45,31 @@ export type PortfolioCompanyRow = {
   supplied_via_id: string | null;
   monthly: { period: string; revenue: number }[]; // last 5, oldest -> newest
   revenue12m: number;
+  revenue12mPrior: number;
   contribution12m: number | null;
+  employees: number | null;
+  is_public: boolean;
+};
+
+export type RankingRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  revenue12m: number;
+  revenue12mPrior: number;
+  contribution12m: number | null;
+  last_consumable_sales_date: string | null;
+  supplied_via_name: string | null;
+  supplied_via_id: string | null;
+  employees: number | null;
+  ratio: number | null; // kr/ansat
+};
+
+export type ScatterPoint = {
+  id: string;
+  name: string;
+  employees: number;
+  revenue12m: number;
 };
 
 export type PortfolioPayload = {
@@ -65,7 +89,16 @@ export type PortfolioPayload = {
   };
   monthLabels: { period: string; label: string }[]; // last 5
   companies: PortfolioCompanyRow[];
+  rankings: {
+    topRevenue: RankingRow[]; // top 25 by revenue
+    bottomRevenueActive: RankingRow[]; // bottom 25 active only
+    topContribution: RankingRow[] | null; // admin only, top 25 DB
+    potential: RankingRow[]; // active+private+employees, lowest ratio first
+    potentialScatter: ScatterPoint[];
+    potentialMissingEmployees: number;
+  };
 };
+
 
 function monthStart(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
