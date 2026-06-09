@@ -317,11 +317,7 @@ export function KontaktpersonerSektion({
         open={!!mailFor}
         onOpenChange={(v) => !v && setMailFor(null)}
         companyId={companyId}
-        companyName={
-          locations[0]?.city
-            ? locations[0]?.city
-            : "kunden"
-        }
+        companyName={companyName}
         contactName={mailFor?.name ?? null}
         contactEmail={mailFor?.email ?? null}
         locationId={mailFor?.locationId ?? null}
