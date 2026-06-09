@@ -311,6 +311,20 @@ export function KontaktpersonerSektion({
           onReload();
         }}
       />
+      <SkrivMailDialog
+        open={!!mailFor}
+        onOpenChange={(v) => !v && setMailFor(null)}
+        companyId={companyId}
+        companyName={
+          locations[0]?.city
+            ? locations[0]?.city
+            : "kunden"
+        }
+        contactName={mailFor?.name ?? null}
+        contactEmail={mailFor?.email ?? null}
+        locationId={mailFor?.locationId ?? null}
+        onLogged={onReload}
+      />
     </Card>
   );
 }
