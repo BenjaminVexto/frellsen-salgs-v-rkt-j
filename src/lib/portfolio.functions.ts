@@ -169,6 +169,15 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     const startPrior = shiftMonths(thisMonth, -23);
     const endPriorExcl = shiftMonths(thisMonth, -11); // exclusive
 
+    const emptyRankings = {
+      topRevenue: [] as RankingRow[],
+      bottomRevenueActive: [] as RankingRow[],
+      topContribution: isAdmin ? ([] as RankingRow[]) : null,
+      potential: [] as RankingRow[],
+      potentialScatter: [] as ScatterPoint[],
+      potentialMissingEmployees: 0,
+    };
+
     if (!companyIds.length) {
       return {
         isAdmin,
@@ -178,6 +187,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         statusCounts: { aktive: 0, sovende: 0, paaVejVaek: 0, total: 0 },
         monthLabels,
         companies: [],
+        rankings: emptyRankings,
       };
     }
 
@@ -185,7 +195,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     const compsMeta = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
       supabase
         .from("companies")
-        .select("id, name, city, customer_type, has_active_equipment, last_consumable_sales_date")
+        .select(
+          "id, name, city, customer_type, has_active_equipment, last_consumable_sales_date, employees, is_public",
+        )
         .in("id", slice)
         .range(from, to),
     );
@@ -221,6 +233,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     type Agg = {
       monthly: Map<string, number>;
       revenue12m: number;
+      revenue12mPrior: number;
       contribution12m: number;
     };
     const aggs = new Map<string, Agg>();
@@ -237,10 +250,11 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
 
+      const agg =
+        aggs.get(cid) ?? { monthly: new Map(), revenue12m: 0, revenue12mPrior: 0, contribution12m: 0 };
       if (inCurrent) {
         totalRev12 += rev;
         if (isAdmin) totalContrib += Number((r as any).contribution) || 0;
-        const agg = aggs.get(cid) ?? { monthly: new Map(), revenue12m: 0, contribution12m: 0 };
         agg.revenue12m += rev;
         if (isAdmin) agg.contribution12m += Number((r as any).contribution) || 0;
         if (last5Set.has(period)) {
@@ -249,6 +263,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         aggs.set(cid, agg);
       } else if (inPrior) {
         totalRevPrior += rev;
+        agg.revenue12mPrior += rev;
+        aggs.set(cid, agg);
       }
     }
 
@@ -268,7 +284,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         supplied_via_name: supplied?.name ?? null,
         monthly,
         revenue12m: agg?.revenue12m ?? 0,
+        revenue12mPrior: agg?.revenue12mPrior ?? 0,
         contribution12m: isAdmin ? (agg?.contribution12m ?? 0) : null,
+        employees: c.employees ?? null,
+        is_public: !!c.is_public,
       };
     });
 
@@ -295,6 +314,56 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       }
     }
 
+    // --- Rankings ---
+    const toRanking = (c: PortfolioCompanyRow): RankingRow => ({
+      id: c.id,
+      name: c.name,
+      city: c.city,
+      revenue12m: c.revenue12m,
+      revenue12mPrior: c.revenue12mPrior,
+      contribution12m: c.contribution12m,
+      last_consumable_sales_date: c.last_consumable_sales_date,
+      supplied_via_name: c.supplied_via_name,
+      supplied_via_id: c.supplied_via_id,
+      employees: c.employees,
+      ratio: c.employees && c.employees > 0 ? c.revenue12m / c.employees : null,
+    });
+
+    const topRevenue = [...companies]
+      .filter((c) => c.revenue12m > 0)
+      .sort((a, b) => b.revenue12m - a.revenue12m)
+      .slice(0, 25)
+      .map(toRanking);
+
+    const activeCompanies = companies.filter((c) => c.customer_type === "aktiv_kunde");
+    const bottomRevenueActive = [...activeCompanies]
+      .sort((a, b) => a.revenue12m - b.revenue12m)
+      .slice(0, 25)
+      .map(toRanking);
+
+    const topContribution: RankingRow[] | null = isAdmin
+      ? [...companies]
+          .filter((c) => (c.contribution12m ?? 0) > 0)
+          .sort((a, b) => (b.contribution12m ?? 0) - (a.contribution12m ?? 0))
+          .slice(0, 25)
+          .map(toRanking)
+      : null;
+
+    // Potentiale: active + private (ikke offentlig) + employees>0
+    const potentialPool = activeCompanies.filter((c) => !c.is_public);
+    const missingEmployees = potentialPool.filter((c) => !c.employees || c.employees <= 0).length;
+    const withEmployees = potentialPool.filter((c) => c.employees && c.employees > 0);
+    const potential = [...withEmployees]
+      .map(toRanking)
+      .sort((a, b) => (a.ratio ?? Infinity) - (b.ratio ?? Infinity))
+      .slice(0, 25);
+    const potentialScatter: ScatterPoint[] = withEmployees.map((c) => ({
+      id: c.id,
+      name: c.name,
+      employees: c.employees as number,
+      revenue12m: c.revenue12m,
+    }));
+
     return {
       isAdmin,
       appliedSellerId: isAdmin ? appliedSellerId : null,
@@ -312,5 +381,14 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       },
       monthLabels,
       companies,
+      rankings: {
+        topRevenue,
+        bottomRevenueActive,
+        topContribution,
+        potential,
+        potentialScatter,
+        potentialMissingEmployees: missingEmployees,
+      },
     };
   });
+
