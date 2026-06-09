@@ -110,8 +110,12 @@ function MetricCard({
 }
 
 function YoYLine({ current, lastYear }: { current: number; lastYear: number }) {
-  const diff = current - lastYear;
-  const pct = lastYear !== 0 ? Math.round((diff / Math.abs(lastYear)) * 100) : null;
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const proRataLastYear = lastYear * (dayOfMonth / daysInMonth);
+  const diff = current - proRataLastYear;
+  const pct = proRataLastYear !== 0 ? Math.round((diff / Math.abs(proRataLastYear)) * 100) : null;
   const up = diff > 0;
   const down = diff < 0;
   const Icon = up ? ArrowUp : down ? ArrowDown : Minus;
@@ -122,7 +126,7 @@ function YoYLine({ current, lastYear }: { current: number; lastYear: number }) {
         <Icon className="h-3 w-3" />
         {pct === null ? "—" : `${Math.abs(pct)} %`}
       </span>
-      <span>· fuld måned sidste år: {fmtKr(lastYear)}</span>
+      <span>· samme periode sidste år (est.): ~{fmtKr(Math.round(proRataLastYear))}</span>
     </div>
   );
 }
