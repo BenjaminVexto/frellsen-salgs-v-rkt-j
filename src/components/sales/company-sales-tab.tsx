@@ -36,8 +36,9 @@ export function CompanySalesTab({
   }
   const rows = q.data?.rows ?? [];
   const isAdmin = !!q.data?.isAdmin;
+  const hasActiveEquipment = !!q.data?.hasActiveEquipment;
 
-  if (!rows.length) {
+  if (!rows.length && !hasActiveEquipment) {
     return (
       <Card className="p-8 text-center text-muted-foreground">
         <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -67,7 +68,7 @@ export function CompanySalesTab({
         locationsTotal={totalLocations}
         locationsActive={knownActive}
       />
-      <SalesSignalBox rows={rows} />
+      <SalesSignalBox rows={rows} hasActiveEquipment={hasActiveEquipment} />
       <div className="grid gap-4 md:grid-cols-2">
         <CategoryBars rows={rows} companyId={companyId} />
         <RevenueSparkline rows={rows} />
