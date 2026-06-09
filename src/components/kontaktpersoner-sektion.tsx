@@ -236,8 +236,21 @@ export function KontaktpersonerSektion({
                           </a>
                         </div>
                       )}
-                      {c.source === "contact" && c.contactRow && (
-                        <div className="pt-2">
+                      <div className="pt-2 flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setMailFor({
+                              name: c.name,
+                              email: c.email,
+                              locationId: c.location_id,
+                            })
+                          }
+                        >
+                          <Mail className="h-3.5 w-3.5 mr-1.5" /> Skriv mail
+                        </Button>
+                        {c.source === "contact" && c.contactRow && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -248,8 +261,8 @@ export function KontaktpersonerSektion({
                           >
                             <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
                           </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                       {c.source === "location" && (
                         <div className="text-xs text-muted-foreground pt-1">
                           Fra Visma-import (lokation)
