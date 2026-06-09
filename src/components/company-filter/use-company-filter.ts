@@ -325,7 +325,7 @@ export function useCompanyFilter({
         if (filters.zipFrom && z < parseInt(filters.zipFrom)) return false;
         if (filters.zipTo && z > parseInt(filters.zipTo)) return false;
       }
-      if (!matchesLastPurchase(r.last_purchase_date, filters.lastPurchase))
+      if (!matchesLastPurchase(r.last_sales_date ?? r.last_purchase_date, filters.lastPurchase))
         return false;
       if (!matchesEmployees(r.employees, filters.employeeRanges))
         return false;
