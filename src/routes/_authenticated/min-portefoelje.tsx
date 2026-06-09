@@ -265,8 +265,81 @@ function PortfolioPage() {
               </table>
             </div>
           </Card>
+
+          {/* RANKINGS — Lag 2 */}
+          <section className="mt-8">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Top &amp; bund — rangeringer
+            </h2>
+            <Tabs defaultValue="revenue">
+              <TabsList>
+                <TabsTrigger value="revenue">Omsætning</TabsTrigger>
+                {isAdmin && <TabsTrigger value="db">Dækningsbidrag</TabsTrigger>}
+                <TabsTrigger value="potential">Potentiale-ratio</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="revenue" className="mt-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <RankingTable
+                    title="Top 25 — højest omsætning (12 mdr.)"
+                    rows={data.rankings.topRevenue}
+                    valueLabel="Omsætning"
+                    showTrend
+                  />
+                  <RankingTable
+                    title="Bund 25 — lavest omsætning blandt aktive kunder"
+                    rows={data.rankings.bottomRevenueActive}
+                    valueLabel="Omsætning"
+                    showTrend
+                    emptyText="Ingen aktive kunder i porteføljen."
+                  />
+                </div>
+              </TabsContent>
+
+              {isAdmin && data.rankings.topContribution && (
+                <TabsContent value="db" className="mt-4">
+                  <RankingTable
+                    title="Top 25 — mest profitable kunder (DB 12 mdr.)"
+                    rows={data.rankings.topContribution}
+                    valueLabel="DB"
+                    valueField="contribution12m"
+                    showTrend={false}
+                  />
+                </TabsContent>
+              )}
+
+              <TabsContent value="potential" className="mt-4 space-y-4">
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">
+                    Potentiale-ratio = omsætning 12 mdr. ÷ antal medarbejdere.
+                    Aktive privatkunder med kendt medarbejdertal. Offentlige kunder
+                    (kundeprisgruppe 40/45) er udeladt.
+                    {data.rankings.potentialMissingEmployees > 0 && (
+                      <>
+                        {" "}
+                        <span className="font-medium text-foreground">
+                          {data.rankings.potentialMissingEmployees}
+                        </span>{" "}
+                        kunder mangler medarbejdertal og indgår ikke.
+                      </>
+                    )}
+                  </div>
+                </Card>
+                <ScatterPlot points={data.rankings.potentialScatter} />
+                <RankingTable
+                  title="25 kunder med størst uudnyttet potentiale"
+                  rows={data.rankings.potential}
+                  valueLabel="kr./ansat"
+                  valueField="ratio"
+                  showEmployees
+                  showTrend={false}
+                />
+              </TabsContent>
+            </Tabs>
+          </section>
         </>
       )}
+
     </div>
   );
 }
