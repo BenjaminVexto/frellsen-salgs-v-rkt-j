@@ -222,25 +222,25 @@ export const getLocationSalesSummary = createServerFn({ method: "POST" })
     const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
     const out: Record<string, { revenue12m: number; lastPeriod: string | null }> = {};
-    for (let i = 0; i < data.locationIds.length; i += 200) {
-      const slice = data.locationIds.slice(i, i + 200);
-      const { data: rows, error } = await context.supabase
+    const rows = await fetchAllInChunks(data.locationIds, 100, (slice, from, to) =>
+      context.supabase
         .from("sales_monthly")
         .select("location_id, period, revenue")
         .in("location_id", slice)
-        .gte("period", cutoffStr);
-      if (error) throw error;
-      (rows ?? []).forEach((r: any) => {
-        if (!r.location_id) return;
-        const cur = out[r.location_id] ?? { revenue12m: 0, lastPeriod: null };
-        const rev = Number(r.revenue) || 0;
-        cur.revenue12m += rev;
-        if (rev > 0 && (!cur.lastPeriod || r.period > cur.lastPeriod)) cur.lastPeriod = r.period;
-        out[r.location_id] = cur;
-      });
-    }
+        .gte("period", cutoffStr)
+        .range(from, to),
+    );
+    rows.forEach((r: any) => {
+      if (!r.location_id) return;
+      const cur = out[r.location_id] ?? { revenue12m: 0, lastPeriod: null };
+      const rev = Number(r.revenue) || 0;
+      cur.revenue12m += rev;
+      if (rev > 0 && (!cur.lastPeriod || r.period > cur.lastPeriod)) cur.lastPeriod = r.period;
+      out[r.location_id] = cur;
+    });
     return out;
   });
+
 
 // --- Seller dashboard ---
 
