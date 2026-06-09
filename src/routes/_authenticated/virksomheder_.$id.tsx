@@ -563,7 +563,7 @@ function VirksomhedsKort() {
                   )}
                   {company.last_purchase_date && (
                     <KV
-                      label="Sidste varekøb"
+                      label="Sidste varekøb (iflg. Visma debitor)"
                       value={format(new Date(company.last_purchase_date), "d. MMM yyyy", { locale: da })}
                     />
                   )}
