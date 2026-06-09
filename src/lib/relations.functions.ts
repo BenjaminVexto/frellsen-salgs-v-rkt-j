@@ -111,15 +111,41 @@ export const getCompanyRelations = createServerFn({ method: "GET" })
       })),
     ];
 
-    const suggestions: RelationSuggestion[] = (sugg ?? []).map((s: any) => ({
-      id: s.id,
-      to_visma_id: s.to_visma_id,
-      to_company_id: s.to_company_id,
-      to_company_name: s.to?.name ?? null,
-      to_company_city: s.to?.city ?? null,
-      source_text: s.source_text,
-      created_at: s.created_at,
-    }));
+    // Enrich suggestions: when no direct company match on visma_id, try locations.visma_delivery_no
+    const unresolved = (sugg ?? []).filter((s: any) => !s.to_company_id);
+    const unresolvedVismaIds = Array.from(new Set(unresolved.map((s: any) => s.to_visma_id)));
+    const locMap = new Map<string, { company_id: string; company_name: string; company_city: string | null; location_label: string }>();
+    if (unresolvedVismaIds.length) {
+      const { data: locs } = await supabase
+        .from("locations")
+        .select("visma_delivery_no, address, city, zip, company:companies!locations_company_id_fkey(id, name, city)")
+        .in("visma_delivery_no", unresolvedVismaIds);
+      for (const l of (locs ?? []) as any[]) {
+        if (!l.visma_delivery_no || !l.company) continue;
+        if (locMap.has(l.visma_delivery_no)) continue;
+        const label = [l.company.name, l.city ?? l.zip ?? l.address].filter(Boolean).join(" — ");
+        locMap.set(l.visma_delivery_no, {
+          company_id: l.company.id,
+          company_name: l.company.name,
+          company_city: l.city ?? l.company.city ?? null,
+          location_label: label,
+        });
+      }
+    }
+
+    const suggestions: RelationSuggestion[] = (sugg ?? []).map((s: any) => {
+      const viaLoc = !s.to_company_id ? locMap.get(s.to_visma_id) : undefined;
+      return {
+        id: s.id,
+        to_visma_id: s.to_visma_id,
+        to_company_id: s.to_company_id ?? viaLoc?.company_id ?? null,
+        to_company_name: s.to?.name ?? viaLoc?.company_name ?? null,
+        to_company_city: s.to?.city ?? viaLoc?.company_city ?? null,
+        via_location_label: viaLoc?.location_label ?? null,
+        source_text: s.source_text,
+        created_at: s.created_at,
+      };
+    });
 
     return { confirmed, suggestions };
   });
