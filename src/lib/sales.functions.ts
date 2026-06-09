@@ -16,8 +16,9 @@ async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
 const SALES_PAGE_SIZE = 1000;
 
 async function fetchAllSalesMonthlyRows(
-  queryPage: (from: number, to: number) => Promise<{ data: any[] | null; error: any }>,
+  queryPage: (from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>,
 ): Promise<any[]> {
+
   const rows: any[] = [];
   for (let from = 0; ; from += SALES_PAGE_SIZE) {
     const to = from + SALES_PAGE_SIZE - 1;
