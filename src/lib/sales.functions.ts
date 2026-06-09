@@ -38,7 +38,7 @@ async function fetchAllSalesMonthlyRows(
 async function fetchAllInChunks(
   ids: string[],
   chunkSize: number,
-  queryPage: (slice: string[], from: number, to: number) => Promise<{ data: any[] | null; error: any }>,
+  queryPage: (slice: string[], from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>,
 ): Promise<any[]> {
   const rows: any[] = [];
   for (let i = 0; i < ids.length; i += chunkSize) {
