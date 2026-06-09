@@ -20,6 +20,7 @@ export type RelationSuggestion = {
   to_company_id: string | null;
   to_company_name: string | null;
   to_company_city: string | null;
+  via_location_label: string | null;
   source_text: string | null;
   created_at: string;
 };
@@ -110,15 +111,41 @@ export const getCompanyRelations = createServerFn({ method: "GET" })
       })),
     ];
 
-    const suggestions: RelationSuggestion[] = (sugg ?? []).map((s: any) => ({
-      id: s.id,
-      to_visma_id: s.to_visma_id,
-      to_company_id: s.to_company_id,
-      to_company_name: s.to?.name ?? null,
-      to_company_city: s.to?.city ?? null,
-      source_text: s.source_text,
-      created_at: s.created_at,
-    }));
+    // Enrich suggestions: when no direct company match on visma_id, try locations.visma_delivery_no
+    const unresolved = (sugg ?? []).filter((s: any) => !s.to_company_id);
+    const unresolvedVismaIds = Array.from(new Set(unresolved.map((s: any) => s.to_visma_id)));
+    const locMap = new Map<string, { company_id: string; company_name: string; company_city: string | null; location_label: string }>();
+    if (unresolvedVismaIds.length) {
+      const { data: locs } = await supabase
+        .from("locations")
+        .select("visma_delivery_no, address, city, zip, company:companies!locations_company_id_fkey(id, name, city)")
+        .in("visma_delivery_no", unresolvedVismaIds);
+      for (const l of (locs ?? []) as any[]) {
+        if (!l.visma_delivery_no || !l.company) continue;
+        if (locMap.has(l.visma_delivery_no)) continue;
+        const label = [l.company.name, l.city ?? l.zip ?? l.address].filter(Boolean).join(" — ");
+        locMap.set(l.visma_delivery_no, {
+          company_id: l.company.id,
+          company_name: l.company.name,
+          company_city: l.city ?? l.company.city ?? null,
+          location_label: label,
+        });
+      }
+    }
+
+    const suggestions: RelationSuggestion[] = (sugg ?? []).map((s: any) => {
+      const viaLoc = !s.to_company_id ? locMap.get(s.to_visma_id) : undefined;
+      return {
+        id: s.id,
+        to_visma_id: s.to_visma_id,
+        to_company_id: s.to_company_id ?? viaLoc?.company_id ?? null,
+        to_company_name: s.to?.name ?? viaLoc?.company_name ?? null,
+        to_company_city: s.to?.city ?? viaLoc?.company_city ?? null,
+        via_location_label: viaLoc?.location_label ?? null,
+        source_text: s.source_text,
+        created_at: s.created_at,
+      };
+    });
 
     return { confirmed, suggestions };
   });
@@ -148,7 +175,17 @@ export const confirmRelationSuggestion = createServerFn({ method: "POST" })
       if (match) toCompanyId = match.id;
     }
     if (!toCompanyId) {
-      throw new Error(`Ingen virksomhed fundet med kundenr ${sugg.to_visma_id}. Forslaget kan ikke bekræftes endnu.`);
+      // Try as Lev. kund (location delivery number) -> use that location's company
+      const { data: loc } = await supabase
+        .from("locations")
+        .select("company_id")
+        .eq("visma_delivery_no", sugg.to_visma_id)
+        .limit(1)
+        .maybeSingle();
+      if (loc) toCompanyId = loc.company_id;
+    }
+    if (!toCompanyId) {
+      throw new Error(`Ingen virksomhed eller lokation fundet med kundenr ${sugg.to_visma_id}.`);
     }
 
     const { error: insErr } = await supabase.from("company_relations").insert({
@@ -320,3 +357,107 @@ export async function getCompaniesSuppliedByOthers(
   }
   return result;
 }
+
+// ---------- MANUAL ADD ----------
+
+export type CompanySearchResult = {
+  id: string;
+  name: string;
+  city: string | null;
+  cvr: string | null;
+  visma_id: string | null;
+  match_via: "name" | "cvr" | "visma_id" | "delivery_no";
+  via_location_label: string | null;
+};
+
+export const searchCompaniesForRelation = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { query: string; excludeCompanyId?: string }) => d)
+  .handler(async ({ data, context }): Promise<CompanySearchResult[]> => {
+    const supabase = context.supabase;
+    const q = (data.query ?? "").trim();
+    if (q.length < 2) return [];
+
+    const out: CompanySearchResult[] = [];
+    const seen = new Set<string>();
+
+    // Direct match on companies (name ILIKE, cvr, visma_id)
+    const { data: byCompany } = await supabase
+      .from("companies")
+      .select("id, name, city, cvr, visma_id")
+      .or(`name.ilike.%${q}%,cvr.eq.${q},visma_id.eq.${q}`)
+      .limit(20);
+    for (const c of (byCompany ?? []) as any[]) {
+      if (data.excludeCompanyId && c.id === data.excludeCompanyId) continue;
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      const via: CompanySearchResult["match_via"] =
+        c.cvr === q ? "cvr" : c.visma_id === q ? "visma_id" : "name";
+      out.push({
+        id: c.id,
+        name: c.name,
+        city: c.city ?? null,
+        cvr: c.cvr ?? null,
+        visma_id: c.visma_id ?? null,
+        match_via: via,
+        via_location_label: null,
+      });
+    }
+
+    // Match on locations by visma_delivery_no
+    if (/^\d{4,8}$/.test(q)) {
+      const { data: byLoc } = await supabase
+        .from("locations")
+        .select("visma_delivery_no, address, city, zip, company:companies!locations_company_id_fkey(id, name, city, cvr, visma_id)")
+        .eq("visma_delivery_no", q)
+        .limit(10);
+      for (const l of (byLoc ?? []) as any[]) {
+        if (!l.company) continue;
+        if (data.excludeCompanyId && l.company.id === data.excludeCompanyId) continue;
+        if (seen.has(l.company.id)) continue;
+        seen.add(l.company.id);
+        const label = [l.company.name, l.city ?? l.zip ?? l.address].filter(Boolean).join(" — ");
+        out.push({
+          id: l.company.id,
+          name: l.company.name,
+          city: l.company.city ?? null,
+          cvr: l.company.cvr ?? null,
+          visma_id: l.company.visma_id ?? null,
+          match_via: "delivery_no",
+          via_location_label: label,
+        });
+      }
+    }
+
+    return out.slice(0, 30);
+  });
+
+export const createManualRelation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { fromCompanyId: string; toCompanyId: string; relationType: RelationType }) => d)
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    if (data.fromCompanyId === data.toCompanyId) {
+      throw new Error("En virksomhed kan ikke have en relation til sig selv");
+    }
+
+    const { error: insErr } = await supabase.from("company_relations").insert({
+      from_company_id: data.fromCompanyId,
+      to_company_id: data.toCompanyId,
+      relation_type: data.relationType,
+      created_by: context.userId,
+    });
+    if (insErr && !insErr.message?.includes("duplicate")) throw insErr;
+
+    const inverse = INVERSE[data.relationType];
+    if (inverse) {
+      const { error: invErr } = await supabase.from("company_relations").insert({
+        from_company_id: data.toCompanyId,
+        to_company_id: data.fromCompanyId,
+        relation_type: inverse,
+        created_by: context.userId,
+      });
+      if (invErr && !invErr.message?.includes("duplicate")) throw invErr;
+    }
+    return { ok: true };
+  });

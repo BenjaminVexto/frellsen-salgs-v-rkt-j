@@ -19,7 +19,8 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Link2, ExternalLink, Sparkles } from "lucide-react";
+import { Trash2, Link2, ExternalLink, Sparkles, Plus } from "lucide-react";
+import { AddRelationDialog } from "@/components/add-relation-dialog";
 
 const TYPE_LABEL: Record<RelationType, string> = {
   forsynes_af: "Forsynes af",
@@ -41,6 +42,7 @@ export function ForsyningsRelationerSektion({ companyId }: { companyId: string }
   const confirmFn = useServerFn(confirmRelationSuggestion);
   const rejectFn = useServerFn(rejectRelationSuggestion);
   const deleteFn = useServerFn(deleteCompanyRelation);
+  const [addOpen, setAddOpen] = useState(false);
 
   const q = useQuery({
     queryKey: ["relations", companyId],
@@ -54,9 +56,14 @@ export function ForsyningsRelationerSektion({ companyId }: { companyId: string }
 
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <Link2 className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold">Forsynings-relationer</h3>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Forsynings-relationer</h3>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Tilføj relation
+        </Button>
       </div>
 
       {suggestions.length > 0 && (
@@ -141,6 +148,12 @@ export function ForsyningsRelationerSektion({ companyId }: { companyId: string }
           </div>
         </div>
       )}
+      <AddRelationDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        fromCompanyId={companyId}
+        onCreated={invalidate}
+      />
     </Card>
   );
 }
@@ -164,6 +177,7 @@ function SuggestionRow({
     to_company_id: string | null;
     to_company_name: string | null;
     to_company_city: string | null;
+    via_location_label: string | null;
     source_text: string | null;
   };
   onConfirm: (t: RelationType) => Promise<void>;
@@ -195,6 +209,11 @@ function SuggestionRow({
           <span className="text-xs text-warning ml-2">(virksomhed ikke fundet i systemet)</span>
         )}
       </div>
+      {suggestion.via_location_label && (
+        <div className="text-xs text-primary mt-1">
+          Matchet via leveringsnr {suggestion.to_visma_id}: {suggestion.via_location_label}
+        </div>
+      )}
       {suggestion.source_text && (
         <div className="text-xs text-muted-foreground mt-1 italic">
           Fundet i bemærkning: "{suggestion.source_text.slice(0, 160)}
