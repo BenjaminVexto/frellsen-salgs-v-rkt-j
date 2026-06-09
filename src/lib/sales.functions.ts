@@ -172,16 +172,14 @@ export const getTopProductsForCompanyCategory = createServerFn({ method: "POST" 
     const locIds = (locs ?? []).map((l: any) => l.id).filter(Boolean);
     if (!locIds.length) return { topProducts: [], isAdmin };
 
-    const rows: any[] = [];
-    for (let i = 0; i < locIds.length; i += 200) {
-      const slice = locIds.slice(i, i + 200);
-      const { data: r, error } = await context.supabase
+    const rows = await fetchAllInChunks(locIds, 100, (slice, from, to) =>
+      context.supabase
         .from("sales_top_products")
         .select("varenr, description, revenue, quantity, contribution, product_group_1")
-        .in("location_id", slice);
-      if (error) throw error;
-      rows.push(...(r ?? []));
-    }
+        .in("location_id", slice)
+        .range(from, to),
+    );
+
 
     const target = data.categoryLabel;
     const filtered = rows.filter((r) => parseProductGroup(r.product_group_1) === target);
