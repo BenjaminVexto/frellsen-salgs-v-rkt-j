@@ -10,9 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, ArrowUp, ArrowDown, Minus, ArrowUpDown } from "lucide-react";
-import { getMyPortfolio, type PortfolioCompanyRow } from "@/lib/portfolio.functions";
+import {
+  getMyPortfolio,
+  type PortfolioCompanyRow,
+  type RankingRow,
+  type ScatterPoint,
+} from "@/lib/portfolio.functions";
 import { fmtKr } from "@/lib/sales-utils";
+
 
 export const Route = createFileRoute("/_authenticated/min-portefoelje")({
   component: PortfolioPage,
@@ -258,8 +265,81 @@ function PortfolioPage() {
               </table>
             </div>
           </Card>
+
+          {/* RANKINGS — Lag 2 */}
+          <section className="mt-8">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Top &amp; bund — rangeringer
+            </h2>
+            <Tabs defaultValue="revenue">
+              <TabsList>
+                <TabsTrigger value="revenue">Omsætning</TabsTrigger>
+                {isAdmin && <TabsTrigger value="db">Dækningsbidrag</TabsTrigger>}
+                <TabsTrigger value="potential">Potentiale-ratio</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="revenue" className="mt-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <RankingTable
+                    title="Top 25 — højest omsætning (12 mdr.)"
+                    rows={data.rankings.topRevenue}
+                    valueLabel="Omsætning"
+                    showTrend
+                  />
+                  <RankingTable
+                    title="Bund 25 — lavest omsætning blandt aktive kunder"
+                    rows={data.rankings.bottomRevenueActive}
+                    valueLabel="Omsætning"
+                    showTrend
+                    emptyText="Ingen aktive kunder i porteføljen."
+                  />
+                </div>
+              </TabsContent>
+
+              {isAdmin && data.rankings.topContribution && (
+                <TabsContent value="db" className="mt-4">
+                  <RankingTable
+                    title="Top 25 — mest profitable kunder (DB 12 mdr.)"
+                    rows={data.rankings.topContribution}
+                    valueLabel="DB"
+                    valueField="contribution12m"
+                    showTrend={false}
+                  />
+                </TabsContent>
+              )}
+
+              <TabsContent value="potential" className="mt-4 space-y-4">
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">
+                    Potentiale-ratio = omsætning 12 mdr. ÷ antal medarbejdere.
+                    Aktive privatkunder med kendt medarbejdertal. Offentlige kunder
+                    (kundeprisgruppe 40/45) er udeladt.
+                    {data.rankings.potentialMissingEmployees > 0 && (
+                      <>
+                        {" "}
+                        <span className="font-medium text-foreground">
+                          {data.rankings.potentialMissingEmployees}
+                        </span>{" "}
+                        kunder mangler medarbejdertal og indgår ikke.
+                      </>
+                    )}
+                  </div>
+                </Card>
+                <ScatterPlot points={data.rankings.potentialScatter} />
+                <RankingTable
+                  title="25 kunder med størst uudnyttet potentiale"
+                  rows={data.rankings.potential}
+                  valueLabel="kr./ansat"
+                  valueField="ratio"
+                  showEmployees
+                  showTrend={false}
+                />
+              </TabsContent>
+            </Tabs>
+          </section>
         </>
       )}
+
     </div>
   );
 }
@@ -425,6 +505,234 @@ function RevenueCard({
           {pct === null ? "—" : `${Math.abs(pct)} %`}
         </span>
         <span>· vs. samme periode sidste år (~{fmtKr(Math.round(priorAdjusted))})</span>
+      </div>
+    </Card>
+  );
+}
+
+function RankingTable({
+  title,
+  rows,
+  valueLabel,
+  valueField = "revenue12m",
+  showTrend = true,
+  showEmployees = false,
+  emptyText = "Ingen data.",
+}: {
+  title: string;
+  rows: RankingRow[];
+  valueLabel: string;
+  valueField?: "revenue12m" | "contribution12m" | "ratio";
+  showTrend?: boolean;
+  showEmployees?: boolean;
+  emptyText?: string;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-4 py-3 border-b border-border">
+        <h3 className="text-sm font-semibold">{title}</h3>
+      </div>
+      {!rows.length ? (
+        <div className="px-4 py-10 text-center text-sm text-muted-foreground">{emptyText}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left">#</th>
+                <th className="px-3 py-2 text-left">Kunde</th>
+                {showEmployees && <th className="px-3 py-2 text-right">Ansatte</th>}
+                <th className="px-3 py-2 text-right">{valueLabel}</th>
+                {showTrend && <th className="px-3 py-2 text-right">YoY</th>}
+                <th className="px-3 py-2 text-left">Kaffe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const value =
+                  valueField === "contribution12m"
+                    ? r.contribution12m ?? 0
+                    : valueField === "ratio"
+                    ? r.ratio ?? 0
+                    : r.revenue12m;
+                return (
+                  <tr key={r.id} className="border-t border-border hover:bg-accent/30">
+                    <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                    <td className="px-3 py-2">
+                      <Link
+                        to="/virksomheder/$id"
+                        params={{ id: r.id }}
+                        className="font-medium hover:underline"
+                      >
+                        {r.name}
+                      </Link>
+                      {r.city && <div className="text-xs text-muted-foreground">{r.city}</div>}
+                    </td>
+                    {showEmployees && (
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {r.employees?.toLocaleString("da-DK") ?? "—"}
+                      </td>
+                    )}
+                    <td className="px-3 py-2 text-right tabular-nums font-medium">
+                      {valueField === "ratio"
+                        ? `${fmtKr(value)} / ansat`
+                        : value > 0
+                        ? fmtKr(value)
+                        : "—"}
+                    </td>
+                    {showTrend && (
+                      <td className="px-3 py-2 text-right">
+                        <Trend current={r.revenue12m} prior={r.revenue12mPrior} />
+                      </td>
+                    )}
+                    <td className="px-3 py-2">
+                      <KaffeIndicator
+                        lastConsumableDate={r.last_consumable_sales_date}
+                        suppliedViaName={r.supplied_via_name}
+                        suppliedViaId={r.supplied_via_id}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Trend({ current, prior }: { current: number; prior: number }) {
+  if (prior <= 0 && current <= 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  const diff = current - prior;
+  const pct = prior !== 0 ? Math.round((diff / Math.abs(prior)) * 100) : null;
+  const up = diff > 0;
+  const down = diff < 0;
+  const Icon = up ? ArrowUp : down ? ArrowDown : Minus;
+  const cls = up
+    ? "text-emerald-600 dark:text-emerald-500"
+    : down
+    ? "text-destructive"
+    : "text-muted-foreground";
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs ${cls}`}>
+      <Icon className="h-3 w-3" />
+      {pct === null ? "ny" : `${Math.abs(pct)} %`}
+    </span>
+  );
+}
+
+function ScatterPlot({ points }: { points: ScatterPoint[] }) {
+  const width = 760;
+  const height = 360;
+  const pad = { top: 16, right: 16, bottom: 36, left: 64 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
+
+  if (!points.length) {
+    return (
+      <Card className="p-6 text-center text-sm text-muted-foreground">
+        Ingen datapunkter at vise — kræver aktive privatkunder med medarbejdertal.
+      </Card>
+    );
+  }
+
+  // Log-scale for both axes (employees and revenue span many orders of magnitude)
+  const xs = points.map((p) => Math.max(1, p.employees));
+  const ys = points.map((p) => Math.max(1, p.revenue12m));
+  const xMin = Math.min(...xs);
+  const xMax = Math.max(...xs);
+  const yMin = Math.min(...ys);
+  const yMax = Math.max(...ys);
+  const lx = (v: number) =>
+    pad.left + ((Math.log10(v) - Math.log10(xMin)) / (Math.log10(xMax) - Math.log10(xMin) || 1)) * innerW;
+  const ly = (v: number) =>
+    pad.top + innerH - ((Math.log10(v) - Math.log10(yMin)) / (Math.log10(yMax) - Math.log10(yMin) || 1)) * innerH;
+
+  // Median split — "potentiale-zonen" = nedre højre kvadrant (mange ansatte, lav omsætning)
+  const sortedX = [...xs].sort((a, b) => a - b);
+  const sortedY = [...ys].sort((a, b) => a - b);
+  const xMed = sortedX[Math.floor(sortedX.length / 2)];
+  const yMed = sortedY[Math.floor(sortedY.length / 2)];
+  const xMedPx = lx(xMed);
+  const yMedPx = ly(yMed);
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold">
+          Omsætning vs. medarbejdere ({points.length} kunder)
+        </h3>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <span className="h-3 w-3 rounded-sm bg-warning/30" /> Potentiale-zone
+          </span>
+        </div>
+      </div>
+      <div className="w-full overflow-x-auto">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+          {/* Potentiale-zone: nedre højre */}
+          <rect
+            x={xMedPx}
+            y={yMedPx}
+            width={pad.left + innerW - xMedPx}
+            height={pad.top + innerH - yMedPx}
+            className="fill-warning/20"
+          />
+          <text x={pad.left + innerW - 8} y={pad.top + innerH - 8} textAnchor="end" className="fill-warning-foreground text-[10px] font-medium">
+            Potentiale
+          </text>
+
+          {/* Axes */}
+          <line x1={pad.left} y1={pad.top} x2={pad.left} y2={pad.top + innerH} className="stroke-border" />
+          <line x1={pad.left} y1={pad.top + innerH} x2={pad.left + innerW} y2={pad.top + innerH} className="stroke-border" />
+
+          {/* Axis labels */}
+          <text x={pad.left + innerW / 2} y={height - 6} textAnchor="middle" className="fill-muted-foreground text-[11px]">
+            Antal medarbejdere (log)
+          </text>
+          <text
+            x={14}
+            y={pad.top + innerH / 2}
+            textAnchor="middle"
+            transform={`rotate(-90 14 ${pad.top + innerH / 2})`}
+            className="fill-muted-foreground text-[11px]"
+          >
+            Omsætning 12 mdr. (log)
+          </text>
+
+          {/* Ticks */}
+          <text x={pad.left} y={pad.top + innerH + 14} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+            {xMin}
+          </text>
+          <text x={pad.left + innerW} y={pad.top + innerH + 14} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+            {xMax.toLocaleString("da-DK")}
+          </text>
+          <text x={pad.left - 6} y={pad.top + innerH} textAnchor="end" className="fill-muted-foreground text-[10px]">
+            {fmtKr(yMin)}
+          </text>
+          <text x={pad.left - 6} y={pad.top + 8} textAnchor="end" className="fill-muted-foreground text-[10px]">
+            {fmtKr(yMax)}
+          </text>
+
+          {/* Points */}
+          {points.map((p) => (
+            <a key={p.id} href={`/virksomheder/${p.id}`}>
+              <circle
+                cx={lx(Math.max(1, p.employees))}
+                cy={ly(Math.max(1, p.revenue12m))}
+                r={4}
+                className="fill-primary/70 hover:fill-primary stroke-primary-foreground"
+                strokeWidth={1}
+              >
+                <title>{`${p.name} — ${p.employees.toLocaleString("da-DK")} ansatte · ${fmtKr(p.revenue12m)}`}</title>
+              </circle>
+            </a>
+          ))}
+        </svg>
       </div>
     </Card>
   );
