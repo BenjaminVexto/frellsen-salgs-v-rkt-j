@@ -19,7 +19,8 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Link2, ExternalLink, Sparkles } from "lucide-react";
+import { Trash2, Link2, ExternalLink, Sparkles, Plus } from "lucide-react";
+import { AddRelationDialog } from "@/components/add-relation-dialog";
 
 const TYPE_LABEL: Record<RelationType, string> = {
   forsynes_af: "Forsynes af",
