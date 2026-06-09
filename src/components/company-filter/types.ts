@@ -10,6 +10,9 @@ export type CompanyRow = {
   sources: string[] | null;
   customer_segment_2: string | null;
   last_purchase_date: string | null;
+  last_sales_date: string | null;
+  last_consumable_sales_date: string | null;
+  has_active_equipment: boolean | null;
   employees: number | null;
   is_public: boolean | null;
   binding_status: string | null;
