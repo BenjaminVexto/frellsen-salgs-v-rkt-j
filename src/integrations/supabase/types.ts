@@ -176,6 +176,7 @@ export type Database = {
           ean_number: string | null
           email: string | null
           employees: number | null
+          has_active_equipment: boolean
           id: string
           import_batch_date: string | null
           import_batch_id: string | null
@@ -184,7 +185,9 @@ export type Database = {
             | Database["public"]["Enums"]["institution_type"]
             | null
           is_public: boolean
+          last_consumable_sales_date: string | null
           last_purchase_date: string | null
+          last_sales_date: string | null
           main_branch_code: string | null
           main_branch_text: string | null
           municipality: string | null
@@ -223,6 +226,7 @@ export type Database = {
           ean_number?: string | null
           email?: string | null
           employees?: number | null
+          has_active_equipment?: boolean
           id?: string
           import_batch_date?: string | null
           import_batch_id?: string | null
@@ -231,7 +235,9 @@ export type Database = {
             | Database["public"]["Enums"]["institution_type"]
             | null
           is_public?: boolean
+          last_consumable_sales_date?: string | null
           last_purchase_date?: string | null
+          last_sales_date?: string | null
           main_branch_code?: string | null
           main_branch_text?: string | null
           municipality?: string | null
@@ -270,6 +276,7 @@ export type Database = {
           ean_number?: string | null
           email?: string | null
           employees?: number | null
+          has_active_equipment?: boolean
           id?: string
           import_batch_date?: string | null
           import_batch_id?: string | null
@@ -278,7 +285,9 @@ export type Database = {
             | Database["public"]["Enums"]["institution_type"]
             | null
           is_public?: boolean
+          last_consumable_sales_date?: string | null
           last_purchase_date?: string | null
+          last_sales_date?: string | null
           main_branch_code?: string | null
           main_branch_text?: string | null
           municipality?: string | null
@@ -1270,6 +1279,12 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_consumable_group: { Args: { _group: string }; Returns: boolean }
+      recompute_all_company_statuses: { Args: never; Returns: number }
+      recompute_company_status: {
+        Args: { _company_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       activity_type:
