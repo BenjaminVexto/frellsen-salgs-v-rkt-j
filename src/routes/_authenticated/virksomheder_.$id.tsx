@@ -860,6 +860,16 @@ function VirksomhedsKort() {
         userId={user?.id ?? ""}
         onSaved={load}
       />
+      <SkrivMailDialog
+        open={mailOpen}
+        onOpenChange={setMailOpen}
+        companyId={company.id}
+        companyName={company.name}
+        contactName={contacts.find((c) => c.is_primary)?.name ?? contacts[0]?.name ?? null}
+        contactEmail={contacts.find((c) => c.is_primary)?.email ?? contacts[0]?.email ?? null}
+        locationId={null}
+        onLogged={load}
+      />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
