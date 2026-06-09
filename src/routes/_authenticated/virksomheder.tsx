@@ -101,7 +101,6 @@ function VirksomhederListe() {
   const [reassignOpen, setReassignOpen] = useState(false);
 
   const loadTemplates = async () => {
-    if (!isAdmin) return;
     const { data } = await (supabase as any)
       .from("filter_templates")
       .select("id, name, filter_config")
