@@ -82,6 +82,7 @@ import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion } from "@/components/ai-briefing-sektion";
+import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 
 import { getActivityType, labelFor } from "@/lib/activity-types";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -176,6 +177,7 @@ function VirksomhedsKort() {
   const [locationReloadKey, setLocationReloadKey] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
   const [presetLocationId, setPresetLocationId] = useState<string | null>(null);
+  const [mailOpen, setMailOpen] = useState(false);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>("oversigt");
@@ -809,6 +811,9 @@ function VirksomhedsKort() {
           <div className="space-y-2">
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
+            </Button>
+            <Button variant="outline" className="w-full justify-start" onClick={() => setMailOpen(true)}>
+              <Mail className="h-4 w-4 mr-2" /> Skriv mail
             </Button>
             <Button variant="outline" className="w-full justify-start" onClick={() => setOpportunityOpen(true)}>
               <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
