@@ -11,8 +11,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, ArrowUp, ArrowDown, Minus, ArrowUpDown } from "lucide-react";
+import { Loader2, ArrowUp, ArrowDown, Minus, ArrowUpDown, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   getMyPortfolio,
   type PortfolioCompanyRow,
