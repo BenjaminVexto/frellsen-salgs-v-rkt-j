@@ -16,8 +16,9 @@ async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
 const SALES_PAGE_SIZE = 1000;
 
 async function fetchAllSalesMonthlyRows(
-  queryPage: (from: number, to: number) => Promise<{ data: any[] | null; error: any }>,
+  queryPage: (from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>,
 ): Promise<any[]> {
+
   const rows: any[] = [];
   for (let from = 0; ; from += SALES_PAGE_SIZE) {
     const to = from + SALES_PAGE_SIZE - 1;
@@ -29,6 +30,31 @@ async function fetchAllSalesMonthlyRows(
   }
   return rows;
 }
+
+/**
+ * Fetch all rows for an `.in(column, ids)` query — chunks the id list to avoid
+ * URL-length limits AND paginates each chunk to bypass the 1000-row PostgREST cap.
+ */
+async function fetchAllInChunks(
+  ids: string[],
+  chunkSize: number,
+  queryPage: (slice: string[], from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>,
+): Promise<any[]> {
+  const rows: any[] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const slice = ids.slice(i, i + chunkSize);
+    for (let from = 0; ; from += SALES_PAGE_SIZE) {
+      const to = from + SALES_PAGE_SIZE - 1;
+      const { data, error } = await queryPage(slice, from, to);
+      if (error) throw error;
+      const page = data ?? [];
+      rows.push(...page);
+      if (page.length < SALES_PAGE_SIZE) break;
+    }
+  }
+  return rows;
+}
+
 
 function stripContribution(rows: any[]): SalesMonthlyRow[] {
   return rows.map((r) => ({
@@ -147,16 +173,14 @@ export const getTopProductsForCompanyCategory = createServerFn({ method: "POST" 
     const locIds = (locs ?? []).map((l: any) => l.id).filter(Boolean);
     if (!locIds.length) return { topProducts: [], isAdmin };
 
-    const rows: any[] = [];
-    for (let i = 0; i < locIds.length; i += 200) {
-      const slice = locIds.slice(i, i + 200);
-      const { data: r, error } = await context.supabase
+    const rows = await fetchAllInChunks(locIds, 100, (slice, from, to) =>
+      context.supabase
         .from("sales_top_products")
         .select("varenr, description, revenue, quantity, contribution, product_group_1")
-        .in("location_id", slice);
-      if (error) throw error;
-      rows.push(...(r ?? []));
-    }
+        .in("location_id", slice)
+        .range(from, to),
+    );
+
 
     const target = data.categoryLabel;
     const filtered = rows.filter((r) => parseProductGroup(r.product_group_1) === target);
@@ -198,25 +222,25 @@ export const getLocationSalesSummary = createServerFn({ method: "POST" })
     const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
     const out: Record<string, { revenue12m: number; lastPeriod: string | null }> = {};
-    for (let i = 0; i < data.locationIds.length; i += 200) {
-      const slice = data.locationIds.slice(i, i + 200);
-      const { data: rows, error } = await context.supabase
+    const rows = await fetchAllInChunks(data.locationIds, 100, (slice, from, to) =>
+      context.supabase
         .from("sales_monthly")
         .select("location_id, period, revenue")
         .in("location_id", slice)
-        .gte("period", cutoffStr);
-      if (error) throw error;
-      (rows ?? []).forEach((r: any) => {
-        if (!r.location_id) return;
-        const cur = out[r.location_id] ?? { revenue12m: 0, lastPeriod: null };
-        const rev = Number(r.revenue) || 0;
-        cur.revenue12m += rev;
-        if (rev > 0 && (!cur.lastPeriod || r.period > cur.lastPeriod)) cur.lastPeriod = r.period;
-        out[r.location_id] = cur;
-      });
-    }
+        .gte("period", cutoffStr)
+        .range(from, to),
+    );
+    rows.forEach((r: any) => {
+      if (!r.location_id) return;
+      const cur = out[r.location_id] ?? { revenue12m: 0, lastPeriod: null };
+      const rev = Number(r.revenue) || 0;
+      cur.revenue12m += rev;
+      if (rev > 0 && (!cur.lastPeriod || r.period > cur.lastPeriod)) cur.lastPeriod = r.period;
+      out[r.location_id] = cur;
+    });
     return out;
   });
+
 
 // --- Seller dashboard ---
 
@@ -243,19 +267,19 @@ export const getMyMonthlySales = createServerFn({ method: "GET" })
 
     let revenue = 0;
     const compsWithSales = new Set<string>();
-    for (let i = 0; i < companyIds.length; i += 200) {
-      const slice = companyIds.slice(i, i + 200);
-      const { data, error } = await context.supabase
+    const rows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
+      context.supabase
         .from("sales_monthly")
         .select("company_id, revenue")
         .in("company_id", slice)
-        .eq("period", period);
-      if (error) throw error;
-      (data ?? []).forEach((r: any) => {
-        revenue += Number(r.revenue) || 0;
-        if (r.company_id) compsWithSales.add(r.company_id);
-      });
-    }
+        .eq("period", period)
+        .range(from, to),
+    );
+    rows.forEach((r: any) => {
+      revenue += Number(r.revenue) || 0;
+      if (r.company_id) compsWithSales.add(r.company_id);
+    });
+
     return { revenue, companies: compsWithSales.size, period };
   });
 
@@ -294,19 +318,18 @@ export const getMyChurningCustomers = createServerFn({ method: "GET" })
     const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
     type Row = { company_id: string; period: string; revenue: number };
-    const rows: Row[] = [];
-    for (let i = 0; i < companyIds.length; i += 200) {
-      const slice = companyIds.slice(i, i + 200);
-      const { data, error } = await context.supabase
+    const rawRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
+      context.supabase
         .from("sales_monthly")
         .select("company_id, period, revenue")
         .in("company_id", slice)
-        .gte("period", cutoffStr);
-      if (error) throw error;
-      (data ?? []).forEach((r: any) => {
-        if (r.company_id) rows.push({ company_id: r.company_id, period: r.period, revenue: Number(r.revenue) || 0 });
-      });
-    }
+        .gte("period", cutoffStr)
+        .range(from, to),
+    );
+    const rows: Row[] = rawRows
+      .filter((r: any) => r.company_id)
+      .map((r: any) => ({ company_id: r.company_id, period: r.period, revenue: Number(r.revenue) || 0 }));
+
     if (!rows.length) return { customers: [], hasData: false };
 
     // Group by company
