@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { parseProductGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
 import { getCompaniesSuppliedByOthers } from "./relations.functions";
+
+const SALES_COLS_BASE = "visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, order_count";
+const SALES_COLS_ADMIN = SALES_COLS_BASE + ", contribution";
 
 
 async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
