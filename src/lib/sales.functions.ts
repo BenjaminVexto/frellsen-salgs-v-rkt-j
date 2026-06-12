@@ -131,20 +131,25 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; topProducts: TopProductRow[]; isAdmin: boolean }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
+    const salesClient = isAdmin ? supabaseAdmin : context.supabase;
+    const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
+    const topCols = isAdmin
+      ? "visma_delivery_no, location_id, varenr, description, revenue, quantity, contribution"
+      : "visma_delivery_no, location_id, varenr, description, revenue, quantity";
     const [monthlyRes, topRes] = await Promise.all([
       fetchAllSalesMonthlyRows(async (from, to) => {
-        return await context.supabase
+        return await salesClient
           .from("sales_monthly")
-          .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
+          .select(cols)
           .eq("location_id", data.locationId)
           .order("period", { ascending: true })
           .order("visma_delivery_no", { ascending: true })
           .order("product_group_1", { ascending: true })
           .range(from, to);
       }),
-      context.supabase
+      salesClient
         .from("sales_top_products")
-        .select("visma_delivery_no, location_id, varenr, description, revenue, quantity")
+        .select(topCols)
         .eq("location_id", data.locationId)
         .order("revenue", { ascending: false })
         .limit(15),
