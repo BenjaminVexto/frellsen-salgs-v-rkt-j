@@ -423,18 +423,18 @@ function FollowupRow({
   return (
     <Link
       to={to}
-      className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
+      className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-foreground truncate">{company}</div>
         <div className="text-xs text-muted-foreground truncate">
           {meta ? `${meta} · ` : ""}
           {note ?? "Ingen note"}
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <span
-          className={`text-xs font-medium px-2 py-0.5 rounded ${
+          className={`text-[11px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap ${
             tone === "destructive"
               ? "bg-destructive/10 text-destructive"
               : "bg-success/10 text-success"
@@ -442,9 +442,10 @@ function FollowupRow({
         >
           {dateLabel}
         </span>
-        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+        <ArrowRight className="hidden sm:block h-4 w-4 text-muted-foreground" />
       </div>
     </Link>
+
   );
 }
 
