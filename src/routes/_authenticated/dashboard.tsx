@@ -328,18 +328,19 @@ function CompactStat({
       to={to}
       className="group"
     >
-      <Card className="px-4 py-3 h-[72px] flex items-center gap-3 hover:bg-accent/40 transition-colors">
-        <div className={`h-9 w-9 shrink-0 rounded-md flex items-center justify-center ${toneStyles[tone]}`}>
+      <Card className="px-3 py-2.5 sm:px-4 sm:py-3 min-h-[64px] sm:min-h-[72px] flex items-center gap-2 sm:gap-3 hover:bg-accent/40 transition-colors">
+        <div className={`h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-md flex items-center justify-center ${toneStyles[tone]}`}>
           {icon}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-xs text-muted-foreground truncate">{title}</div>
+          <div className="text-[11px] sm:text-xs text-muted-foreground leading-tight line-clamp-2 sm:truncate">{title}</div>
           <div className="text-sm font-semibold text-foreground tabular-nums">
             {loading ? "…" : `${count} ${count === 1 ? "post" : "poster"}`}
           </div>
         </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+        <ArrowRight className="hidden sm:block h-4 w-4 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
       </Card>
+
     </Link>
   );
 }
