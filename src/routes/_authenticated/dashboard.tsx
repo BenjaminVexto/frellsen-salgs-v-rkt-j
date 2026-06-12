@@ -370,16 +370,16 @@ function PanelCard({
     primary: "bg-primary/10 text-primary",
   };
   return (
-    <Card className="p-5 md:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+    <Card className="p-4 md:p-6">
+      <div className="flex items-center justify-between mb-3 md:mb-4">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <div
-            className={`h-9 w-9 rounded-md flex items-center justify-center ${toneStyles[tone]}`}
+            className={`h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-md flex items-center justify-center ${toneStyles[tone]}`}
           >
             {icon}
           </div>
-          <div>
-            <h2 className="text-base font-semibold text-foreground leading-tight">
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-semibold text-foreground leading-tight truncate">
               {title}
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -388,6 +388,7 @@ function PanelCard({
           </div>
         </div>
       </div>
+
       <div className="min-h-[60px]">
         {loading ? (
           <div className="space-y-2">
