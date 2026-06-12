@@ -56,7 +56,7 @@ export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?:
           </p>
         ) : (
           <div>
-            {customers.map((c) => (
+            {visible.map((c) => (
               <div
                 key={c.company_id}
                 className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
@@ -89,9 +89,23 @@ export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?:
                 </Button>
               </div>
             ))}
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-2 w-full flex items-center justify-center gap-1 text-xs font-medium text-primary hover:underline py-2"
+              >
+                {expanded ? (
+                  <>Vis færre <ChevronUp className="h-3.5 w-3.5" /></>
+                ) : (
+                  <>Se alle {count} <ChevronDown className="h-3.5 w-3.5" /></>
+                )}
+              </button>
+            )}
           </div>
         )}
       </div>
+
 
       {dismiss && (
         <DismissChurnDialog
