@@ -917,11 +917,27 @@ function VirksomhedsKort() {
   );
 }
 
-function ActivityRow({ a, locations, userNames }: { a: Activity; locations: Location[]; userNames: Record<string, string> }) {
+function ActivityRow({ a, locations, userNames, isAdmin, onDeleted }: { a: Activity; locations: Location[]; userNames: Record<string, string>; isAdmin?: boolean; onDeleted?: () => void }) {
   const loc = (a as any).location_id
     ? locations.find((l) => l.id === (a as any).location_id)
     : null;
   const authorName = (a as any).created_by ? userNames[(a as any).created_by] : null;
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    setDeleting(true);
+    const { error } = await supabase.from("activities").delete().eq("id", a.id);
+    setDeleting(false);
+    if (error) {
+      toast.error("Kunne ikke slette aktivitet: " + error.message);
+      return;
+    }
+    toast.success("Aktivitet slettet");
+    setConfirmOpen(false);
+    onDeleted?.();
+  }
+
   return (
     <div
       id={`activity-${a.id}`}
@@ -961,6 +977,17 @@ function ActivityRow({ a, locations, userNames }: { a: Activity; locations: Loca
             </span>
           )}
           <span>{format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}</span>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-muted-foreground hover:text-destructive"
+              onClick={() => setConfirmOpen(true)}
+              aria-label="Slet aktivitet"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
       {a.note && <NoteWithMentions text={a.note} />}
@@ -976,9 +1003,31 @@ function ActivityRow({ a, locations, userNames }: { a: Activity; locations: Loca
           )}
         </div>
       )}
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slet aktivitet?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Denne handling kan ikke fortrydes. Aktiviteten fjernes permanent fra virksomheden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annullér</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Sletter…" : "Slet"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
 
 function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
 
