@@ -97,11 +97,13 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean; hasActiveEquipment: boolean }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
+    const salesClient = isAdmin ? supabaseAdmin : context.supabase;
+    const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
     const [rows, companyRes] = await Promise.all([
       fetchAllSalesMonthlyRows(async (from, to) => {
-        return await context.supabase
+        return await salesClient
           .from("sales_monthly")
-          .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
+          .select(cols)
           .eq("company_id", data.companyId)
           .order("period", { ascending: true })
           .order("visma_delivery_no", { ascending: true })
