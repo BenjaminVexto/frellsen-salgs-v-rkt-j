@@ -1,52 +1,37 @@
 ## Mål
 
-1. Alle brugere kan selv skifte deres password (mens de er logget ind).
-2. Brugere der har glemt deres password kan nulstille det via mail-link fra login-siden.
-3. Admin ser **ikke** passwords (umuligt — Supabase gemmer kun bcrypt-hash. Dette er en hård sikkerhedsgrænse, ikke et Lovable-valg).
+På Dashboard (`/dashboard`) skal de to kort:
+- "Nuværende kunder – aftaler udløber"
+- "Potentielle emner – konkurrentaftaler udløber"
 
-## Hvad der bygges
+kun vise virksomheder, hvor `companies.assigned_to = den aktuelle bruger`.
+Admin ser fortsat alt (samme princip som Min Portefølje).
 
-### 1. Selvbetjening: skift password (logget ind)
-Ny side `/profil/password`:
-- Felter: Nyt password, Bekræft nyt password.
-- Validering: min. 8 tegn, de to felter skal matche.
-- Knapper: "Skift adgangskode" + "Annuller".
-- Kald `supabase.auth.updateUser({ password })`.
-- Toast ved success/fejl.
-- Link til siden tilføjes i top-nav user-menuen ("Skift adgangskode").
+I dag henter `expiringDocsQuery` i `dashboard.tsx` alle udløbsdokumenter og
+alle konkurrentaftaler uden at filtrere på sælger — derfor ser sælgeren også
+virksomheder, der hører til kolleger.
 
-### 2. "Glemt password?" på login
-- Tilføj link "Glemt adgangskode?" under login-formularen på `/login`.
-- Ny side `/glemt-password`:
-  - Mail-felt + knap "Send nulstillingsmail".
-  - Kald `supabase.auth.resetPasswordForEmail(email, { redirectTo: '${origin}/reset-password' })`.
-  - Viser bekræftelse: "Hvis kontoen findes, har vi sendt en mail."
-- Ny side `/reset-password` (offentlig, ikke bag auth-gate):
-  - Læser recovery-session fra URL'en automatisk (Supabase håndterer dette via `onAuthStateChange` event `PASSWORD_RECOVERY`).
-  - Viser nyt-password-formular → `supabase.auth.updateUser({ password })`.
-  - Efter success: redirect til `/dashboard`.
+## Ændring
 
-### 3. Hvad sker der med mailen?
-Supabase Auth sender automatisk standard reset-password-mail via Lovable Cloud — virker uden ekstra opsætning. Mailen kommer fra en `noreply@...lovable...`-adresse med standard-tekst på engelsk.
+Fil: `src/routes/_authenticated/dashboard.tsx`
 
-**Hvis I vil have mail fra `@frellsen.dk` med dansk tekst og logo**, kræver det et email-domæne (DNS-records på frellsen.dk) + branding af auth-templates. Det er et separat, valgfrit skridt jeg kan tage bagefter — sig til.
+1. Hent rolle fra `useAuth()` (allerede tilgængelig) — `isAdmin = auth.role === "admin"`.
+2. I `expiringDocsQuery`:
+   - For ikke-admin: hent først `companies.id` hvor `assigned_to = userId`
+     (pagineret som i `portfolio.functions.ts`, så vi ikke rammer 1000-loftet),
+     og tilføj `.in("company_id", ids)` på begge underforespørgsler
+     (`company_documents` og `competitor_assignments`).
+   - Hvis brugeren ingen tildelte virksomheder har, returnér tomme lister
+     uden at kalde de to forespørgsler.
+   - For admin: ingen ekstra filtrering (uændret adfærd).
+3. Tilføj `isAdmin` til `queryKey`, så cache er korrekt pr. rolle.
 
-### 4. Hvad Admin **kan** (og ikke kan)
-- **Kan ikke:** se klartekst-passwords. Hverken nu eller efter denne ændring. Passwords er hashed.
-- **Kan i dag (uændret):** oprette brugere, ændre rolle/region (admin/brugere-siden).
-- **Bygges ikke nu:** admin-knap til at sende reset-mail / sætte midlertidigt password (jf. svar "ingen admin-knap"). Hvis en bruger ikke kan logge ind, bruger de selv "Glemt adgangskode?"-flowet.
+Ingen ændringer i UI, ingen ændringer i `portfolio.functions.ts`
+(Min Portefølje er allerede korrekt scoped), ingen migrations.
 
-## Sikkerhed
-- Reset-password-siden er offentlig (skal være — brugeren er ikke logget ind endnu), men kræver gyldig recovery-token fra mail-linket. Uden token kan siden ikke ændre password.
-- `/profil/password` ligger under `_authenticated`.
-- Ingen ændring af RLS, tabeller eller server-funktioner.
+## Teknisk note
 
-## Tekniske detaljer
-- Filer der oprettes:
-  - `src/routes/_authenticated/profil.password.tsx`
-  - `src/routes/glemt-password.tsx`
-  - `src/routes/reset-password.tsx`
-- Filer der ændres:
-  - `src/routes/login.tsx` (tilføj "Glemt adgangskode?"-link)
-  - Top-nav komponenten (tilføj "Skift adgangskode"-link i bruger-menuen)
-- Ingen migrationer, ingen secrets.
+- Filtrering sker klient-side i samme query — RLS forhindrer ikke læsning på
+  tværs af sælgere på disse tabeller i dag, så vi laver eksplicit
+  sælger-scope i forespørgslen som i `portfolio.functions.ts`.
+- Vi bevarer `.slice(0, 10)` cap pr. liste.
