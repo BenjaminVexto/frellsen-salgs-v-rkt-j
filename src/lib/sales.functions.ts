@@ -144,9 +144,9 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
           .order("product_group_1", { ascending: true })
           .range(from, to);
       }),
-      salesClient
+      context.supabase
         .from("sales_top_products")
-        .select(topCols)
+        .select("visma_delivery_no, location_id, varenr, description, revenue, quantity")
         .eq("location_id", data.locationId)
         .order("revenue", { ascending: false })
         .limit(15),
