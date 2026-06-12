@@ -252,8 +252,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     const select = isAdmin
       ? "company_id, period, revenue, contribution, product_group_1"
       : "company_id, period, revenue, product_group_1";
+    const salesClient = isAdmin ? supabaseAdmin : supabase;
     const salesRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
-      supabase
+      salesClient
         .from("sales_monthly")
         .select(select)
         .in("company_id", slice)
