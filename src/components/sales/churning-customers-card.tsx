@@ -85,9 +85,10 @@ export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?:
                   }}
                   aria-label="Fjern fra listen"
                 >
-                  <X className="h-3.5 w-3.5 mr-1" />
-                  Fjern / markér
+                  <X className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Fjern / markér</span>
                 </Button>
+
               </div>
             ))}
             {hiddenCount > 0 && (
