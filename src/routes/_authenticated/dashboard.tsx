@@ -192,7 +192,7 @@ function DashboardPage() {
   const expiringProspects = expiringDocsQuery.data?.prospects ?? [];
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
+    <div className="px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
       <PersonalGreeting firstName={auth.fullName ? auth.fullName.split(" ")[0] : null} followupsToday={todays.length} />
 
       {/* 1. DIN MÅNED */}
