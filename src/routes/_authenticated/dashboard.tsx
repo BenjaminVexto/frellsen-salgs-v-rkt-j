@@ -251,7 +251,7 @@ function DashboardPage() {
       </div>
 
       {/* 4. KOMPAKT TÆLLER-RÆKKE */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
         <CompactStat
           to="/virksomheder"
           icon={<Flame className="h-4 w-4" />}
