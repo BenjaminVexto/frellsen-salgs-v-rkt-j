@@ -188,42 +188,20 @@ function DashboardPage() {
     (f) => f.next_followup_date === today
   );
 
+  const expiringCustomers = expiringDocsQuery.data?.customers ?? [];
+  const expiringProspects = expiringDocsQuery.data?.prospects ?? [];
+
   return (
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
       <PersonalGreeting firstName={auth.fullName ? auth.fullName.split(" ")[0] : null} followupsToday={todays.length} />
 
+      {/* 1. DIN MÅNED */}
       <div className="mb-6 md:mb-8">
         <MyMonthZone />
       </div>
 
-      <div className="mb-6 md:mb-8">
-        <ChurningCustomersCard />
-      </div>
-
-
-
-      <div className="grid gap-4 md:gap-6 md:grid-cols-2">
-        <PanelCard
-          title="Overskredet"
-          icon={<AlertTriangle className="h-5 w-5" />}
-          tone="destructive"
-          count={overdue.length}
-          emptyText="Ingen overskredne opfølgninger — flot!"
-          loading={followupsQuery.isLoading}
-        >
-          {overdue.slice(0, 8).map((item: any) => (
-            <FollowupRow
-              key={item.id}
-              company={item.company?.name ?? "Ukendt"}
-              meta={item.company?.city}
-              dateLabel={format(parseISO(item.next_followup_date), "d. MMM", { locale: da })}
-              note={item.next_action_note}
-              tone="destructive"
-              to="/virksomheder"
-            />
-          ))}
-        </PanelCard>
-
+      {/* 2. DAGENS OPFØLGNINGER */}
+      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8">
         <PanelCard
           title="Dagens fokus"
           icon={<CalendarCheck className="h-5 w-5" />}
@@ -246,118 +224,66 @@ function DashboardPage() {
         </PanelCard>
 
         <PanelCard
-          title="Varme muligheder"
-          icon={<Flame className="h-5 w-5" />}
-          tone="warning"
-          count={hotOppsQuery.data?.length ?? 0}
-          emptyText="Ingen åbne tilbud eller møder lige nu."
-          loading={hotOppsQuery.isLoading}
+          title="Overskredet"
+          icon={<AlertTriangle className="h-5 w-5" />}
+          tone="destructive"
+          count={overdue.length}
+          emptyText="Ingen overskredne opfølgninger — flot!"
+          loading={followupsQuery.isLoading}
         >
-          {(hotOppsQuery.data ?? []).slice(0, 8).map((opp: any) => (
-            <div
-              key={opp.id}
-              className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0"
-            >
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-foreground truncate">
-                  {opp.company?.name ?? "Ukendt virksomhed"}
-                </div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {opp.name} · {statusLabel(opp.status)}
-                </div>
-              </div>
-              <div className="text-sm font-medium text-foreground tabular-nums whitespace-nowrap">
-                {opp.estimated_value
-                  ? `${Number(opp.estimated_value).toLocaleString("da-DK")} kr.`
-                  : "—"}
-              </div>
-            </div>
+          {overdue.slice(0, 8).map((item: any) => (
+            <FollowupRow
+              key={item.id}
+              company={item.company?.name ?? "Ukendt"}
+              meta={item.company?.city}
+              dateLabel={format(parseISO(item.next_followup_date), "d. MMM", { locale: da })}
+              note={item.next_action_note}
+              tone="destructive"
+              to="/virksomheder"
+            />
           ))}
         </PanelCard>
+      </div>
 
-        <PanelCard
-          title="Mine kontaktlister"
-          icon={<ListChecks className="h-5 w-5" />}
+      {/* 3. KUNDER PÅ VEJ VÆK */}
+      <div className="mb-6 md:mb-8">
+        <ChurningCustomersCard initialVisible={2} />
+      </div>
+
+      {/* 4. KOMPAKT TÆLLER-RÆKKE */}
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <CompactStat
+          to="/virksomheder"
+          icon={<Flame className="h-4 w-4" />}
+          tone="warning"
+          title="Varme muligheder"
+          count={hotOppsQuery.data?.length ?? 0}
+          loading={hotOppsQuery.isLoading}
+        />
+        <CompactStat
+          to="/kontaktlister"
+          icon={<ListChecks className="h-4 w-4" />}
           tone="primary"
+          title="Mine kontaktlister"
           count={listsQuery.data?.length ?? 0}
-          emptyText="Du har ingen aktive kontaktlister."
           loading={listsQuery.isLoading}
-        >
-          {(listsQuery.data ?? []).map((list) => {
-            const pct = list.total ? Math.round((list.progressed / list.total) * 100) : 0;
-            return (
-              <Link
-                key={list.id}
-                to="/kontaktlister"
-                className="block py-3 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="text-sm font-medium text-foreground">{list.name}</div>
-                  <div className="text-xs text-muted-foreground tabular-nums">
-                    {list.progressed}/{list.total}
-                  </div>
-                </div>
-                <Progress value={pct} className="h-1.5" />
-              </Link>
-            );
-          })}
-        </PanelCard>
-
-        {(["customers", "prospects"] as const).map((bucket) => {
-          const items = expiringDocsQuery.data?.[bucket] ?? [];
-          const isCustomers = bucket === "customers";
-          return (
-            <PanelCard
-              key={bucket}
-              title={isCustomers ? "Nuværende kunder – aftaler udløber" : "Potentielle emner – konkurrentaftaler udløber"}
-              icon={<FileText className="h-5 w-5" />}
-              tone={isCustomers ? "success" : "warning"}
-              count={items.length}
-              emptyText={
-                isCustomers
-                  ? "Ingen kundeaftaler udløber inden for 90 dage."
-                  : "Ingen konkurrentaftaler udløber inden for 90 dage."
-              }
-              loading={expiringDocsQuery.isLoading}
-            >
-              {items.map((item) => (
-                <Link
-                  key={item.id}
-                  to="/virksomheder/$id"
-                  params={{ id: item.companyId }}
-                  className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
-                      <span>{item.kind === "doc" ? "📄" : "☕"}</span>
-                      <span className="truncate">{item.companyName}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate mt-0.5">
-                      {item.title}
-                    </div>
-                  </div>
-                  {(() => {
-                    const days = Math.ceil(
-                      (parseISO(item.date).getTime() - Date.now()) / 86400000,
-                    );
-                    const tone =
-                      days <= 14
-                        ? "bg-destructive/15 text-destructive"
-                        : days <= 30
-                          ? "bg-warning/15 text-warning-foreground"
-                          : "bg-success/15 text-success";
-                    return (
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap ${tone}`}>
-                        {format(parseISO(item.date), "d. MMM yyyy", { locale: da })}
-                      </span>
-                    );
-                  })()}
-                </Link>
-              ))}
-            </PanelCard>
-          );
-        })}
-
+        />
+        <CompactStat
+          to="/virksomheder"
+          icon={<FileText className="h-4 w-4" />}
+          tone="success"
+          title="Kunder – aftaler udløber"
+          count={expiringCustomers.length}
+          loading={expiringDocsQuery.isLoading}
+        />
+        <CompactStat
+          to="/virksomheder"
+          icon={<FileText className="h-4 w-4" />}
+          tone="warning"
+          title="Emner – konkurrentaftaler"
+          count={expiringProspects.length}
+          loading={expiringDocsQuery.isLoading}
+        />
       </div>
 
       {(followupsQuery.data?.length ?? 0) === 0 &&
@@ -375,6 +301,49 @@ function DashboardPage() {
     </div>
   );
 }
+
+function CompactStat({
+  to,
+  icon,
+  tone,
+  title,
+  count,
+  loading,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  tone: "destructive" | "success" | "warning" | "primary";
+  title: string;
+  count: number;
+  loading?: boolean;
+}) {
+  const toneStyles: Record<string, string> = {
+    destructive: "bg-destructive/10 text-destructive",
+    success: "bg-success/10 text-success",
+    warning: "bg-warning/15 text-warning-foreground",
+    primary: "bg-primary/10 text-primary",
+  };
+  return (
+    <Link
+      to={to}
+      className="group"
+    >
+      <Card className="px-4 py-3 h-[72px] flex items-center gap-3 hover:bg-accent/40 transition-colors">
+        <div className={`h-9 w-9 shrink-0 rounded-md flex items-center justify-center ${toneStyles[tone]}`}>
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs text-muted-foreground truncate">{title}</div>
+          <div className="text-sm font-semibold text-foreground tabular-nums">
+            {loading ? "…" : `${count} ${count === 1 ? "post" : "poster"}`}
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+      </Card>
+    </Link>
+  );
+}
+
 
 function PanelCard({
   title,
