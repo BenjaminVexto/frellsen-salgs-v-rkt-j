@@ -98,32 +98,61 @@ function DashboardPage() {
     },
   });
 
+  const isAdmin = auth.role === "admin";
+
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-expiring-agreements", userId],
+    queryKey: ["dashboard-expiring-agreements", userId, isAdmin],
     queryFn: async () => {
       const in90 = new Date();
       in90.setDate(in90.getDate() + 90);
       const to = in90.toISOString().slice(0, 10);
 
-      const [docsRes, compRes] = await Promise.all([
-        supabase
-          .from("company_documents")
-          .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
-          .not("expires_at", "is", null)
-          .gte("expires_at", today)
-          .lte("expires_at", to)
-          .order("expires_at", { ascending: true }),
-        supabase
-          .from("competitor_assignments")
-          .select(
-            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
-          )
-          .not("contract_expires_at", "is", null)
-          .gte("contract_expires_at", today)
-          .lte("contract_expires_at", to)
-          .order("contract_expires_at", { ascending: true }),
-      ]);
+      // Ikke-admin: begræns til brugerens egne tildelte virksomheder
+      let allowedCompanyIds: string[] | null = null;
+      if (!isAdmin) {
+        const PAGE = 1000;
+        const ids: string[] = [];
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await supabase
+            .from("companies")
+            .select("id")
+            .eq("assigned_to", userId!)
+            .range(from, from + PAGE - 1);
+          if (error) throw error;
+          const page = data ?? [];
+          for (const c of page as any[]) ids.push(c.id);
+          if (page.length < PAGE) break;
+        }
+        allowedCompanyIds = ids;
+        if (!ids.length) {
+          return { customers: [], prospects: [] };
+        }
+      }
+
+      let docsQ = supabase
+        .from("company_documents")
+        .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
+        .not("expires_at", "is", null)
+        .gte("expires_at", today)
+        .lte("expires_at", to)
+        .order("expires_at", { ascending: true });
+      let compQ = supabase
+        .from("competitor_assignments")
+        .select(
+          "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
+        )
+        .not("contract_expires_at", "is", null)
+        .gte("contract_expires_at", today)
+        .lte("contract_expires_at", to)
+        .order("contract_expires_at", { ascending: true });
+
+      if (allowedCompanyIds) {
+        docsQ = docsQ.in("company_id", allowedCompanyIds);
+        compQ = compQ.in("company_id", allowedCompanyIds);
+      }
+
+      const [docsRes, compRes] = await Promise.all([docsQ, compQ]);
 
       if (docsRes.error) throw docsRes.error;
       if (compRes.error) throw compRes.error;
@@ -149,6 +178,7 @@ function DashboardPage() {
       return { customers, prospects };
     },
   });
+
 
 
   const overdue = (followupsQuery.data ?? []).filter(
