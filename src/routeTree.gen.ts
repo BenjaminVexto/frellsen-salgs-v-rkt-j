@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as GlemtPasswordRouteImport } from './routes/glemt-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
@@ -21,6 +23,7 @@ import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authent
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAftalerIndexRouteImport } from './routes/_authenticated/aftaler.index'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
+import { Route as AuthenticatedProfilPasswordRouteImport } from './routes/_authenticated/profil.password'
 import { Route as AuthenticatedKontaktlisterIdRouteImport } from './routes/_authenticated/kontaktlister_.$id'
 import { Route as AuthenticatedAftalerIdRouteImport } from './routes/_authenticated/aftaler.$id'
 import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
@@ -37,9 +40,19 @@ import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authe
 import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
 import { Route as AuthenticatedAdminImportAftaleEmnerRouteImport } from './routes/_authenticated/admin.import.aftale-emner'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GlemtPasswordRoute = GlemtPasswordRouteImport.update({
+  id: '/glemt-password',
+  path: '/glemt-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -102,6 +115,12 @@ const AuthenticatedVirksomhederIdRoute =
   AuthenticatedVirksomhederIdRouteImport.update({
     id: '/virksomheder_/$id',
     path: '/virksomheder/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedProfilPasswordRoute =
+  AuthenticatedProfilPasswordRouteImport.update({
+    id: '/profil/password',
+    path: '/profil/password',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedKontaktlisterIdRoute =
@@ -196,7 +215,9 @@ const AuthenticatedAdminImportAftaleEmnerRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/glemt-password': typeof GlemtPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
@@ -211,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
+  '/profil/password': typeof AuthenticatedProfilPasswordRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -224,7 +246,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/glemt-password': typeof GlemtPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
@@ -238,6 +262,7 @@ export interface FileRoutesByTo {
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
+  '/profil/password': typeof AuthenticatedProfilPasswordRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/aftaler': typeof AuthenticatedAftalerIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -253,7 +278,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/glemt-password': typeof GlemtPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
@@ -268,6 +295,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/_authenticated/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/_authenticated/kontaktlister_/$id': typeof AuthenticatedKontaktlisterIdRoute
+  '/_authenticated/profil/password': typeof AuthenticatedProfilPasswordRoute
   '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
   '/_authenticated/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/_authenticated/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -283,7 +311,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/glemt-password'
     | '/login'
+    | '/reset-password'
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
@@ -298,6 +328,7 @@ export interface FileRouteTypes {
     | '/admin/overblik'
     | '/aftaler/$id'
     | '/kontaktlister/$id'
+    | '/profil/password'
     | '/virksomheder/$id'
     | '/aftaler/'
     | '/admin/import/aftale-emner'
@@ -311,7 +342,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/glemt-password'
     | '/login'
+    | '/reset-password'
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
@@ -325,6 +358,7 @@ export interface FileRouteTypes {
     | '/admin/overblik'
     | '/aftaler/$id'
     | '/kontaktlister/$id'
+    | '/profil/password'
     | '/virksomheder/$id'
     | '/aftaler'
     | '/admin/import/aftale-emner'
@@ -339,7 +373,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/glemt-password'
     | '/login'
+    | '/reset-password'
     | '/_authenticated/dashboard'
     | '/_authenticated/konkurrenter'
     | '/_authenticated/kontaktlister'
@@ -354,6 +390,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/overblik'
     | '/_authenticated/aftaler/$id'
     | '/_authenticated/kontaktlister_/$id'
+    | '/_authenticated/profil/password'
     | '/_authenticated/virksomheder_/$id'
     | '/_authenticated/aftaler/'
     | '/_authenticated/admin/import/aftale-emner'
@@ -369,17 +406,33 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  GlemtPasswordRoute: typeof GlemtPasswordRoute
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ApiPublicHooksProcessCvrEnrichmentRoute: typeof ApiPublicHooksProcessCvrEnrichmentRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/glemt-password': {
+      id: '/glemt-password'
+      path: '/glemt-password'
+      fullPath: '/glemt-password'
+      preLoaderRoute: typeof GlemtPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -457,6 +510,13 @@ declare module '@tanstack/react-router' {
       path: '/virksomheder/$id'
       fullPath: '/virksomheder/$id'
       preLoaderRoute: typeof AuthenticatedVirksomhederIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/profil/password': {
+      id: '/_authenticated/profil/password'
+      path: '/profil/password'
+      fullPath: '/profil/password'
+      preLoaderRoute: typeof AuthenticatedProfilPasswordRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/kontaktlister_/$id': {
@@ -610,6 +670,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
   AuthenticatedAftalerIdRoute: typeof AuthenticatedAftalerIdRoute
   AuthenticatedKontaktlisterIdRoute: typeof AuthenticatedKontaktlisterIdRoute
+  AuthenticatedProfilPasswordRoute: typeof AuthenticatedProfilPasswordRoute
   AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRoute
   AuthenticatedAftalerIndexRoute: typeof AuthenticatedAftalerIndexRoute
 }
@@ -629,6 +690,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminOverblikRoute: AuthenticatedAdminOverblikRoute,
   AuthenticatedAftalerIdRoute: AuthenticatedAftalerIdRoute,
   AuthenticatedKontaktlisterIdRoute: AuthenticatedKontaktlisterIdRoute,
+  AuthenticatedProfilPasswordRoute: AuthenticatedProfilPasswordRoute,
   AuthenticatedVirksomhederIdRoute: AuthenticatedVirksomhederIdRoute,
   AuthenticatedAftalerIndexRoute: AuthenticatedAftalerIndexRoute,
 }
@@ -640,7 +702,9 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  GlemtPasswordRoute: GlemtPasswordRoute,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ApiPublicHooksProcessCvrEnrichmentRoute:
     ApiPublicHooksProcessCvrEnrichmentRoute,
 }
