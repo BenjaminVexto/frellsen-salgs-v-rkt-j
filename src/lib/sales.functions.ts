@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { parseProductGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
 import { getCompaniesSuppliedByOthers } from "./relations.functions";
+
+const SALES_COLS_BASE = "visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, order_count";
+const SALES_COLS_ADMIN = SALES_COLS_BASE + ", contribution";
 
 
 async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
@@ -93,11 +97,13 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean; hasActiveEquipment: boolean }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
+    const salesClient = isAdmin ? supabaseAdmin : context.supabase;
+    const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
     const [rows, companyRes] = await Promise.all([
       fetchAllSalesMonthlyRows(async (from, to) => {
-        return await context.supabase
+        return await salesClient
           .from("sales_monthly")
-          .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
+          .select(cols)
           .eq("company_id", data.companyId)
           .order("period", { ascending: true })
           .order("visma_delivery_no", { ascending: true })
@@ -125,11 +131,13 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; topProducts: TopProductRow[]; isAdmin: boolean }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
+    const salesClient = isAdmin ? supabaseAdmin : context.supabase;
+    const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
     const [monthlyRes, topRes] = await Promise.all([
       fetchAllSalesMonthlyRows(async (from, to) => {
-        return await context.supabase
+        return await salesClient
           .from("sales_monthly")
-          .select("visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, contribution, order_count")
+          .select(cols)
           .eq("location_id", data.locationId)
           .order("period", { ascending: true })
           .order("visma_delivery_no", { ascending: true })
@@ -182,10 +190,14 @@ export const getTopProductsForCompanyCategory = createServerFn({ method: "POST" 
     const locIds = (locs ?? []).map((l: any) => l.id).filter(Boolean);
     if (!locIds.length) return { topProducts: [], isAdmin };
 
+    const topClient = isAdmin ? supabaseAdmin : context.supabase;
+    const topSelect = isAdmin
+      ? "varenr, description, revenue, quantity, contribution, product_group_1"
+      : "varenr, description, revenue, quantity, product_group_1";
     const rows = await fetchAllInChunks(locIds, 100, (slice, from, to) =>
-      context.supabase
+      topClient
         .from("sales_top_products")
-        .select("varenr, description, revenue, quantity, contribution, product_group_1")
+        .select(topSelect)
         .in("location_id", slice)
         .range(from, to),
     );
