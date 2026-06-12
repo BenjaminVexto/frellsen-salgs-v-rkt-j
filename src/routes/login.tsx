@@ -81,7 +81,12 @@ function LoginPage() {
               Log ind
             </Button>
           </form>
-          <p className="text-xs text-muted-foreground mt-6 text-center">
+          <p className="text-xs text-center mt-4">
+            <Link to="/glemt-password" className="text-muted-foreground hover:text-foreground underline">
+              Glemt adgangskode?
+            </Link>
+          </p>
+          <p className="text-xs text-muted-foreground mt-4 text-center">
             Har du brug for en konto? Kontakt din administrator.
           </p>
         </div>

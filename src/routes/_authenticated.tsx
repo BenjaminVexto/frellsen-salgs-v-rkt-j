@@ -26,6 +26,7 @@ import {
   Lightbulb,
   FileText,
   TrendingUp,
+  KeyRound,
 } from "lucide-react";
 
 
@@ -164,6 +165,16 @@ function AuthenticatedLayout() {
               />
             )}
           </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full mb-2"
+            asChild
+          >
+            <Link to="/profil/password">
+              <KeyRound className="h-4 w-4 mr-2" /> Skift adgangskode
+            </Link>
+          </Button>
           <Button
             variant="secondary"
             size="sm"
