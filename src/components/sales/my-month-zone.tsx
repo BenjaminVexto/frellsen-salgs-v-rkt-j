@@ -100,9 +100,10 @@ function MetricCard({
         {icon}
         <span>{label}</span>
       </div>
-      <div className="text-2xl font-semibold tabular-nums flex items-center gap-2">
+      <div className="text-xl md:text-2xl font-semibold tabular-nums flex items-center gap-2 break-all">
         {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : value}
       </div>
+
       {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
       {comparison && !loading && <YoYLine current={comparison.current} lastYear={comparison.lastYear} />}
     </Card>
