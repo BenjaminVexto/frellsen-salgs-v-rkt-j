@@ -737,7 +737,7 @@ function VirksomhedsKort() {
                 ) : (
                   <div className="space-y-4">
                     {activities.map((a) => (
-                      <ActivityRow key={a.id} a={a} locations={locations} userNames={userNames} />
+                      <ActivityRow key={a.id} a={a} locations={locations} userNames={userNames} isAdmin={isAdmin} onDeleted={load} />
                     ))}
                   </div>
                 )}
