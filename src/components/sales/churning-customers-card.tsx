@@ -25,14 +25,14 @@ export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?:
 
 
   return (
-    <Card className="p-5 md:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-md flex items-center justify-center bg-warning/15 text-warning-foreground">
-            <TrendingDown className="h-5 w-5" />
+    <Card className="p-4 md:p-6">
+      <div className="flex items-center justify-between mb-3 md:mb-4">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-md flex items-center justify-center bg-warning/15 text-warning-foreground">
+            <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
-          <div>
-            <h2 className="text-base font-semibold text-foreground leading-tight">
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-semibold text-foreground leading-tight truncate">
               Kunder på vej væk
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -41,6 +41,7 @@ export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?:
           </div>
         </div>
       </div>
+
       <div className="min-h-[60px]">
         {loading ? (
           <div className="flex items-center justify-center py-4">
