@@ -192,7 +192,7 @@ function DashboardPage() {
   const expiringProspects = expiringDocsQuery.data?.prospects ?? [];
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
+    <div className="px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
       <PersonalGreeting firstName={auth.fullName ? auth.fullName.split(" ")[0] : null} followupsToday={todays.length} />
 
       {/* 1. DIN MÅNED */}
@@ -251,7 +251,7 @@ function DashboardPage() {
       </div>
 
       {/* 4. KOMPAKT TÆLLER-RÆKKE */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
         <CompactStat
           to="/virksomheder"
           icon={<Flame className="h-4 w-4" />}
@@ -328,18 +328,19 @@ function CompactStat({
       to={to}
       className="group"
     >
-      <Card className="px-4 py-3 h-[72px] flex items-center gap-3 hover:bg-accent/40 transition-colors">
-        <div className={`h-9 w-9 shrink-0 rounded-md flex items-center justify-center ${toneStyles[tone]}`}>
+      <Card className="px-3 py-2.5 sm:px-4 sm:py-3 min-h-[64px] sm:min-h-[72px] flex items-center gap-2 sm:gap-3 hover:bg-accent/40 transition-colors">
+        <div className={`h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-md flex items-center justify-center ${toneStyles[tone]}`}>
           {icon}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-xs text-muted-foreground truncate">{title}</div>
+          <div className="text-[11px] sm:text-xs text-muted-foreground leading-tight line-clamp-2 sm:truncate">{title}</div>
           <div className="text-sm font-semibold text-foreground tabular-nums">
             {loading ? "…" : `${count} ${count === 1 ? "post" : "poster"}`}
           </div>
         </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+        <ArrowRight className="hidden sm:block h-4 w-4 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
       </Card>
+
     </Link>
   );
 }
@@ -369,16 +370,16 @@ function PanelCard({
     primary: "bg-primary/10 text-primary",
   };
   return (
-    <Card className="p-5 md:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+    <Card className="p-4 md:p-6">
+      <div className="flex items-center justify-between mb-3 md:mb-4">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <div
-            className={`h-9 w-9 rounded-md flex items-center justify-center ${toneStyles[tone]}`}
+            className={`h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-md flex items-center justify-center ${toneStyles[tone]}`}
           >
             {icon}
           </div>
-          <div>
-            <h2 className="text-base font-semibold text-foreground leading-tight">
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-semibold text-foreground leading-tight truncate">
               {title}
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -387,6 +388,7 @@ function PanelCard({
           </div>
         </div>
       </div>
+
       <div className="min-h-[60px]">
         {loading ? (
           <div className="space-y-2">
@@ -421,18 +423,18 @@ function FollowupRow({
   return (
     <Link
       to={to}
-      className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
+      className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-foreground truncate">{company}</div>
         <div className="text-xs text-muted-foreground truncate">
           {meta ? `${meta} · ` : ""}
           {note ?? "Ingen note"}
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <span
-          className={`text-xs font-medium px-2 py-0.5 rounded ${
+          className={`text-[11px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap ${
             tone === "destructive"
               ? "bg-destructive/10 text-destructive"
               : "bg-success/10 text-success"
@@ -440,9 +442,10 @@ function FollowupRow({
         >
           {dateLabel}
         </span>
-        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+        <ArrowRight className="hidden sm:block h-4 w-4 text-muted-foreground" />
       </div>
     </Link>
+
   );
 }
 
