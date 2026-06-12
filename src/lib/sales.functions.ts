@@ -133,9 +133,6 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
     const isAdmin = await isAdminUser(context.supabase, context.userId);
     const salesClient = isAdmin ? supabaseAdmin : context.supabase;
     const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
-    const topCols = isAdmin
-      ? "visma_delivery_no, location_id, varenr, description, revenue, quantity, contribution"
-      : "visma_delivery_no, location_id, varenr, description, revenue, quantity";
     const [monthlyRes, topRes] = await Promise.all([
       fetchAllSalesMonthlyRows(async (from, to) => {
         return await salesClient
