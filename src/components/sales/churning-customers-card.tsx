@@ -4,21 +4,25 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingDown, Loader2, X } from "lucide-react";
+import { TrendingDown, Loader2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { getMyChurningCustomers } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
 import { DismissChurnDialog } from "./dismiss-churn-dialog";
 
-export function ChurningCustomersCard() {
+export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?: number } = {}) {
   const fetchFn = useServerFn(getMyChurningCustomers);
   const q = useQuery({ queryKey: ["my-churning"], queryFn: () => fetchFn({}) });
 
   const [dismiss, setDismiss] = useState<{ id: string; name: string } | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const loading = q.isLoading;
   const customers = q.data?.customers ?? [];
   const hasData = q.data?.hasData ?? false;
   const count = customers.length;
+  const visible = expanded ? customers : customers.slice(0, initialVisible);
+  const hiddenCount = Math.max(0, count - initialVisible);
+
 
   return (
     <Card className="p-5 md:p-6">
@@ -52,7 +56,7 @@ export function ChurningCustomersCard() {
           </p>
         ) : (
           <div>
-            {customers.map((c) => (
+            {visible.map((c) => (
               <div
                 key={c.company_id}
                 className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
@@ -85,9 +89,23 @@ export function ChurningCustomersCard() {
                 </Button>
               </div>
             ))}
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-2 w-full flex items-center justify-center gap-1 text-xs font-medium text-primary hover:underline py-2"
+              >
+                {expanded ? (
+                  <>Vis færre <ChevronUp className="h-3.5 w-3.5" /></>
+                ) : (
+                  <>Se alle {count} <ChevronDown className="h-3.5 w-3.5" /></>
+                )}
+              </button>
+            )}
           </div>
         )}
       </div>
+
 
       {dismiss && (
         <DismissChurnDialog
