@@ -229,21 +229,8 @@ export const importMachines = createServerFn({ method: "POST" })
       const enrRows = Array.from(enrMap.values());
       console.log(`[machines-import] STEP 7: enrRows=${enrRows.length}`);
 
+      // Reaktivering-tælling sprang over (header-grænse).
       let enrichmentReactivated = 0;
-      if (enrRows.length > 0) {
-        const serienrs = enrRows.map((e) => e.serienr);
-        const CHUNK_IN = 500;
-        for (let i = 0; i < serienrs.length; i += CHUNK_IN) {
-          const slice = serienrs.slice(i, i + CHUNK_IN);
-          const { count, error } = await supabaseAdmin
-            .from("machine_enrichment" as any)
-            .select("serienr", { count: "exact", head: true })
-            .in("serienr", slice)
-            .eq("record_status", "udgaaet");
-          if (error) throw new Error(`count enr reakt chunk ${i}: ${JSON.stringify(error)}`);
-          enrichmentReactivated += count ?? 0;
-        }
-      }
 
       const { count: enrCountBefore } = await supabaseAdmin
         .from("machine_enrichment" as any)
