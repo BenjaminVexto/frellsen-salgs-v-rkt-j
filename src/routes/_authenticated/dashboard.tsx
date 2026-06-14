@@ -18,6 +18,7 @@ import { da } from "date-fns/locale";
 import { PersonalGreeting } from "@/components/sales/personal-greeting";
 import { MyMonthZone } from "@/components/sales/my-month-zone";
 import { ChurningCustomersCard } from "@/components/sales/churning-customers-card";
+import { fetchExpiringMachines } from "@/lib/expiring-machines";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -182,108 +183,9 @@ function DashboardPage() {
   const expiringMachinesQuery = useQuery({
     enabled: !!userId,
     queryKey: ["dashboard-expiring-machines", userId, isAdmin],
-    queryFn: async () => {
-      const todayS = today;
-      const in90D = new Date();
-      in90D.setDate(in90D.getDate() + 90);
-      const in90S = in90D.toISOString().slice(0, 10);
-
-      // 1. Enrichment-rækker hvor binding_ophor ELLER handlingsdato ligger i vinduet
-      const { data: enr, error: enrErr } = await (supabase as any)
-        .from("machine_enrichment")
-        .select("serienr, binding_ophor, handlingsdato")
-        .eq("record_status", "aktiv")
-        .or(
-          `and(binding_ophor.gte.${todayS},binding_ophor.lte.${in90S}),and(handlingsdato.gte.${todayS},handlingsdato.lte.${in90S})`,
-        );
-      if (enrErr) throw enrErr;
-      const serienrs = Array.from(
-        new Set(((enr ?? []) as any[]).map((e) => e.serienr).filter(Boolean)),
-      );
-      if (!serienrs.length) return [];
-
-      // 2. Maskiner for disse serienr (chunked IN)
-      const machines: any[] = [];
-      const CHUNK = 500;
-      for (let i = 0; i < serienrs.length; i += CHUNK) {
-        const slice = serienrs.slice(i, i + CHUNK);
-        const { data, error } = await (supabase as any)
-          .from("machines")
-          .select("serienr, fak_kundenr")
-          .eq("record_status", "aktiv")
-          .in("serienr", slice);
-        if (error) throw error;
-        machines.push(...(data ?? []));
-      }
-      if (!machines.length) return [];
-
-      const kundenrs = Array.from(
-        new Set(machines.map((m) => m.fak_kundenr).filter(Boolean) as string[]),
-      );
-      if (!kundenrs.length) return [];
-
-      // 3. Tilladte virksomheder (admin = alle; sælger = egne tildelte)
-      let compQ = supabase
-        .from("companies")
-        .select("id, name, visma_id")
-        .in("visma_id", kundenrs);
-      if (!isAdmin) compQ = compQ.eq("assigned_to", userId!);
-      const { data: companies, error: cErr } = await compQ;
-      if (cErr) throw cErr;
-      const compByVisma = new Map<string, { id: string; name: string }>();
-      (companies ?? []).forEach((c: any) =>
-        compByVisma.set(c.visma_id, { id: c.id, name: c.name }),
-      );
-      if (compByVisma.size === 0) return [];
-
-      // 4. Aggregér: pr. virksomhed = nærmeste dato + antal maskiner i vinduet
-      const enrBySerienr = new Map<string, any>();
-      ((enr ?? []) as any[]).forEach((e) => enrBySerienr.set(e.serienr, e));
-
-      type Earliest = {
-        companyId: string;
-        companyName: string;
-        date: string;
-        type: "binding" | "service";
-      };
-      const byCompany = new Map<string, { earliest: Earliest; count: number }>();
-
-      for (const m of machines) {
-        const comp = m.fak_kundenr ? compByVisma.get(m.fak_kundenr) : null;
-        if (!comp) continue;
-        const e = enrBySerienr.get(m.serienr);
-        if (!e) continue;
-
-        const cands: { date: string; type: "binding" | "service" }[] = [];
-        if (e.binding_ophor && e.binding_ophor >= todayS && e.binding_ophor <= in90S) {
-          cands.push({ date: e.binding_ophor, type: "binding" });
-        }
-        if (e.handlingsdato && e.handlingsdato >= todayS && e.handlingsdato <= in90S) {
-          cands.push({ date: e.handlingsdato, type: "service" });
-        }
-        if (!cands.length) continue;
-        cands.sort((a, b) => a.date.localeCompare(b.date));
-        const best = cands[0];
-
-        const existing = byCompany.get(comp.id);
-        if (!existing) {
-          byCompany.set(comp.id, {
-            earliest: { companyId: comp.id, companyName: comp.name, ...best },
-            count: 1,
-          });
-        } else {
-          existing.count++;
-          if (best.date < existing.earliest.date) {
-            existing.earliest = { companyId: comp.id, companyName: comp.name, ...best };
-          }
-        }
-      }
-
-      return Array.from(byCompany.values())
-        .map(({ earliest, count }) => ({ ...earliest, count }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-    },
+    queryFn: () => fetchExpiringMachines(userId!, isAdmin),
   });
+
 
 
 
@@ -358,25 +260,21 @@ function DashboardPage() {
         <ChurningCustomersCard initialVisible={2} />
       </div>
 
-      {/* 4. NUVÆRENDE KUNDER — AFTALER UDLØBER (binding / service efter regning) */}
+      {/* 4. NUVÆRENDE KUNDER — AFTALER UDLØBER (kompakt kort → dedikeret side) */}
       <div className="mb-6 md:mb-8">
-        <PanelCard
-          title="Nuværende kunder – aftaler udløber"
-          icon={<FileText className="h-5 w-5" />}
+        <CompactStat
+          to="/aftaler-udlober"
+          icon={<FileText className="h-4 w-4" />}
           tone="warning"
+          title="Nuværende kunder – aftaler udløber"
           count={expiringMachines.length}
-          emptyText="Ingen kundeaftaler udløber inden for 90 dage."
           loading={expiringMachinesQuery.isLoading}
-        >
-          {expiringMachines.slice(0, 10).map((row) => (
-            <ExpiringCustomerRow key={row.companyId} {...row} />
-          ))}
-        </PanelCard>
+        />
       </div>
 
 
       {/* 4. KOMPAKT TÆLLER-RÆKKE */}
-      <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-3">
         <CompactStat
           to="/virksomheder"
           icon={<Flame className="h-4 w-4" />}
@@ -396,20 +294,13 @@ function DashboardPage() {
         <CompactStat
           to="/virksomheder"
           icon={<FileText className="h-4 w-4" />}
-          tone="success"
-          title="Kunder – aftaler udløber"
-          count={expiringMachines.length}
-          loading={expiringMachinesQuery.isLoading}
-        />
-        <CompactStat
-          to="/virksomheder"
-          icon={<FileText className="h-4 w-4" />}
           tone="warning"
           title="Emner – konkurrentaftaler"
           count={expiringProspects.length}
           loading={expiringDocsQuery.isLoading}
         />
       </div>
+
 
       {(followupsQuery.data?.length ?? 0) === 0 &&
         (hotOppsQuery.data?.length ?? 0) === 0 &&
