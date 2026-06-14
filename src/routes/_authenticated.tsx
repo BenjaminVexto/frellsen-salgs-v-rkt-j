@@ -242,6 +242,7 @@ function AuthenticatedShell() {
       </div>
 
       <main className="flex-1 md:ml-0 pt-12 md:pt-0">
+        <ViewAsBanner />
         <Outlet />
         {/* Mobile bottom nav */}
         <nav
