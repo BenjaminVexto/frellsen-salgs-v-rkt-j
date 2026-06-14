@@ -356,7 +356,7 @@ function PortfolioPage() {
 
           {/* RANKINGS — Lag 2 */}
           <section className="mt-8">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                 Top &amp; bund — rangeringer
               </h2>
