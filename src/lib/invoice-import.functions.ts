@@ -51,7 +51,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.from("invoice_import_jobs").insert({
       id: jobId,
       user_id: context.userId,
-      status: "pending",
+      status: "queued",
       phase: "uploaded",
       file_path: data.filePath,
       total_monthly: 0,
