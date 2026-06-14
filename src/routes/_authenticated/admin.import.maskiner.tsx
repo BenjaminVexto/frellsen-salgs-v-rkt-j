@@ -226,7 +226,11 @@ function mapSheet(
     const obj: Record<string, any> = {};
     for (const [canonical, idx] of indexByCanonical) {
       const raw = r[idx];
-      if (FORCE_TEXT.has(canonical)) {
+      if (canonical === "bemaerkning_handlingsdato") {
+        const rawText = forceText(raw);
+        obj["handlingsdato_raw"] = rawText;
+        obj["handlingsdato"] = extractHandlingsdato(rawText);
+      } else if (FORCE_TEXT.has(canonical)) {
         obj[canonical] = forceText(raw);
       } else if (DATE_FIELDS.has(canonical)) {
         obj[canonical] = toIsoDate(raw);
