@@ -193,8 +193,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     // Month windows
     const now = new Date();
     const thisMonth = monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)));
+    // Trend = 5 SENESTE HELE måneder. Indeværende (ufuldstændige) måned udelades,
+    // ellers giver den et kunstigt fald på alle kunder.
     const last5: string[] = [];
-    for (let i = 4; i >= 0; i--) last5.push(shiftMonths(thisMonth, -i));
+    for (let i = 5; i >= 1; i--) last5.push(shiftMonths(thisMonth, -i));
     const monthLabels = last5.map((p) => ({
       period: p,
       label: new Date(p + "T00:00:00Z").toLocaleDateString("da-DK", { month: "short" }),
