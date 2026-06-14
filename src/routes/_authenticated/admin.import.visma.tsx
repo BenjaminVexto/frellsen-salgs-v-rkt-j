@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useServerFn } from "@tanstack/react-start";
@@ -341,9 +342,90 @@ function ImportSide() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Trin 1: Parse Visma-fil (altid semikolon-separator, UTF-8 m. BOM)
+  // Trin 1: Parse Visma-fil. Understøtter både CSV (semikolon, UTF-8 m. BOM)
+  // og Excel (xlsx/xls). Excel parses via XLSX og konverteres til samme
+  // header/row-form som CSV-flowet, så auto-mapping virker uændret.
+  function applyParsed(hdrs: string[], data: ParsedRow[]) {
+    setHeaders(hdrs);
+    setRows(data);
+    const auto: Partial<Record<SystemField, string>> = {};
+    const matchedHeaders: string[] = [];
+    const missingFields: string[] = [];
+    for (const [field, aliases] of Object.entries(VISMA_MAPPING) as [
+      SystemField,
+      string[],
+    ][]) {
+      const found = hdrs.find((h) =>
+        aliases.some((a) => h.toLowerCase() === a.toLowerCase()),
+      );
+      if (found) {
+        auto[field] = found;
+        matchedHeaders.push(found);
+      } else {
+        missingFields.push(aliases[0]);
+      }
+    }
+    setMapping(auto);
+    setAutoMatchReport({ matched: matchedHeaders, missing: missingFields });
+    toast.success(`${data.length} rækker indlæst`);
+    setStep(2);
+  }
+
+  function cellToString(v: unknown): string {
+    if (v == null) return "";
+    if (v instanceof Date) {
+      // Dansk dato-format DD-MM-YYYY, matches parseDanishDate
+      const d = v;
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yy = d.getFullYear();
+      return `${dd}-${mm}-${yy}`;
+    }
+    return String(v).trim();
+  }
+
   async function handleFile(f: File) {
     setFile(f);
+    const name = f.name.toLowerCase();
+    const isExcel = name.endsWith(".xlsx") || name.endsWith(".xls");
+
+    if (isExcel) {
+      try {
+        const buf = await f.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array", cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const grid = XLSX.utils.sheet_to_json<unknown[]>(ws, {
+          header: 1,
+          defval: "",
+          blankrows: false,
+          raw: true,
+        });
+        if (!grid.length) {
+          toast.error("Excel-arket er tomt");
+          return;
+        }
+        const hdrs = (grid[0] ?? []).map((h) => cellToString(h).replace(/^\uFEFF/, ""));
+        const data: ParsedRow[] = [];
+        for (let i = 1; i < grid.length; i++) {
+          const row = grid[i] ?? [];
+          const obj: ParsedRow = {};
+          let hasAny = false;
+          for (let c = 0; c < hdrs.length; c++) {
+            const key = hdrs[c];
+            if (!key) continue;
+            const val = cellToString(row[c]);
+            obj[key] = val;
+            if (val) hasAny = true;
+          }
+          if (hasAny) data.push(obj);
+        }
+        applyParsed(hdrs, data);
+      } catch (err: any) {
+        toast.error("Kunne ikke læse Excel-fil: " + (err?.message ?? String(err)));
+      }
+      return;
+    }
+
     Papa.parse<ParsedRow>(f, {
       delimiter: ";",
       header: true,
@@ -352,34 +434,12 @@ function ImportSide() {
       transformHeader: (h) => h.replace(/^\uFEFF/, "").trim(),
       complete: (res) => {
         const hdrs = res.meta.fields ?? [];
-        setHeaders(hdrs);
-        setRows(res.data);
-        // Auto-mapping baseret på eksakte Visma-headers
-        const auto: Partial<Record<SystemField, string>> = {};
-        const matchedHeaders: string[] = [];
-        const missingFields: string[] = [];
-        for (const [field, aliases] of Object.entries(VISMA_MAPPING) as [
-          SystemField,
-          string[],
-        ][]) {
-          const found = hdrs.find((h) =>
-            aliases.some((a) => h.toLowerCase() === a.toLowerCase()),
-          );
-          if (found) {
-            auto[field] = found;
-            matchedHeaders.push(found);
-          } else {
-            missingFields.push(aliases[0]);
-          }
-        }
-        setMapping(auto);
-        setAutoMatchReport({ matched: matchedHeaders, missing: missingFields });
-        toast.success(`${res.data.length} rækker indlæst`);
-        setStep(2);
+        applyParsed(hdrs, res.data);
       },
       error: (err: { message: string }) => toast.error("Kunne ikke læse CSV: " + err.message),
     });
   }
+
 
   // Trin 3: Forbered rækker + slå dubletter og sælgernumre op
   async function gotoPreview() {
@@ -1756,20 +1816,21 @@ function Trin1VismaUpload({ onFile }: { onFile: (f: File) => void }) {
         <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
           <FileUp className="h-6 w-6 text-muted-foreground" />
         </div>
-        <h2 className="font-semibold mb-1">Upload din CSV-eksport fra Visma</h2>
+        <h2 className="font-semibold mb-1">Upload din eksport fra Visma</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Filen skal være eksporteret som semikolon-separeret CSV fra Visma Debitorliste.
+          Excel-fil (.xlsx/.xls) eller semikolon-separeret CSV fra Visma Debitorliste.
         </p>
         <div className="max-w-sm mx-auto">
           <Input
             type="file"
-            accept=".csv,.txt,text/csv,text/plain"
+            accept=".xlsx,.xls,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) onFile(f);
             }}
           />
         </div>
+
       </div>
     </Card>
   );
