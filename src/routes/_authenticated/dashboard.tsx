@@ -295,6 +295,7 @@ function DashboardPage() {
 
   const expiringCustomers = expiringDocsQuery.data?.customers ?? [];
   const expiringProspects = expiringDocsQuery.data?.prospects ?? [];
+  const expiringMachines = expiringMachinesQuery.data ?? [];
 
   return (
     <div className="px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
