@@ -214,6 +214,13 @@ export const importMachines = createServerFn({ method: "POST" })
     for (const r of data.enrichmentRows) {
       const serienr = t(r.serienr);
       if (!serienr) continue;
+      // Saml alle ekstra (ikke-kolonne) felter i data jsonb
+      const extras: Record<string, any> = { ...(r.data && typeof r.data === "object" ? r.data : {}) };
+      for (const [k, v] of Object.entries(r as Record<string, any>)) {
+        if (ENRICHMENT_COLUMN_FIELDS.has(k) || k === "data") continue;
+        if (v == null || v === "") continue;
+        extras[k] = v;
+      }
       enrMap.set(serienr, {
         serienr,
         taelleraflaesning: r.taelleraflaesning || null,
@@ -221,7 +228,7 @@ export const importMachines = createServerFn({ method: "POST" })
         beregnet_slutdato: r.beregnet_slutdato || null,
         handlingsdato: r.handlingsdato || null,
         handlingsdato_raw: r.handlingsdato_raw || null,
-        data: r.data ?? null,
+        data: Object.keys(extras).length > 0 ? extras : null,
         record_status: "aktiv",
         last_seen_import: importedAt,
         udgaaet_dato: null,
