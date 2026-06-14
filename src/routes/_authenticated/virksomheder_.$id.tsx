@@ -77,6 +77,7 @@ import { LokationerSektion, type Location, type LocationContact } from "@/compon
 import { CompanySalesTab } from "@/components/sales/company-sales-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
+import { CompanyPricingSummary } from "@/components/company-pricing-summary";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
