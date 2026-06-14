@@ -32,6 +32,15 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
   const lookupFn = useServerFn(cvrLookup);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("search");
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Virksomheder kan ikke oprettes.`);
+      setOpen(false);
+    }
+  }, [open, isImpersonating, viewAsName]);
+
 
   // Søgning
   const [searchName, setSearchName] = useState("");
