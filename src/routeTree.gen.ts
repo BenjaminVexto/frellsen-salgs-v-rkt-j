@@ -35,6 +35,7 @@ import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_aut
 import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
 import { Route as AuthenticatedAdminMaskinerArkivRouteImport } from './routes/_authenticated/admin.maskiner.arkiv'
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
+import { Route as AuthenticatedAdminImportPrismatrixRouteImport } from './routes/_authenticated/admin.import.prismatrix'
 import { Route as AuthenticatedAdminImportMaskinerRouteImport } from './routes/_authenticated/admin.import.maskiner'
 import { Route as AuthenticatedAdminImportMaskindataRouteImport } from './routes/_authenticated/admin.import.maskindata'
 import { Route as AuthenticatedAdminImportFakturaRouteImport } from './routes/_authenticated/admin.import.faktura'
@@ -190,6 +191,12 @@ const AuthenticatedAdminImportVismaRoute =
     path: '/visma',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
+const AuthenticatedAdminImportPrismatrixRoute =
+  AuthenticatedAdminImportPrismatrixRouteImport.update({
+    id: '/prismatrix',
+    path: '/prismatrix',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
 const AuthenticatedAdminImportMaskinerRoute =
   AuthenticatedAdminImportMaskinerRouteImport.update({
     id: '/maskiner',
@@ -255,6 +262,7 @@ export interface FileRoutesByFullPath {
   '/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
+  '/admin/import/prismatrix': typeof AuthenticatedAdminImportPrismatrixRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
@@ -287,6 +295,7 @@ export interface FileRoutesByTo {
   '/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
+  '/admin/import/prismatrix': typeof AuthenticatedAdminImportPrismatrixRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
@@ -322,6 +331,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
   '/_authenticated/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/_authenticated/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
+  '/_authenticated/admin/import/prismatrix': typeof AuthenticatedAdminImportPrismatrixRoute
   '/_authenticated/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/_authenticated/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
@@ -357,6 +367,7 @@ export interface FileRouteTypes {
     | '/admin/import/faktura'
     | '/admin/import/maskindata'
     | '/admin/import/maskiner'
+    | '/admin/import/prismatrix'
     | '/admin/import/visma'
     | '/admin/maskiner/arkiv'
     | '/api/public/hooks/process-cvr-enrichment'
@@ -389,6 +400,7 @@ export interface FileRouteTypes {
     | '/admin/import/faktura'
     | '/admin/import/maskindata'
     | '/admin/import/maskiner'
+    | '/admin/import/prismatrix'
     | '/admin/import/visma'
     | '/admin/maskiner/arkiv'
     | '/api/public/hooks/process-cvr-enrichment'
@@ -423,6 +435,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import/faktura'
     | '/_authenticated/admin/import/maskindata'
     | '/_authenticated/admin/import/maskiner'
+    | '/_authenticated/admin/import/prismatrix'
     | '/_authenticated/admin/import/visma'
     | '/_authenticated/admin/maskiner/arkiv'
     | '/api/public/hooks/process-cvr-enrichment'
@@ -622,6 +635,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportVismaRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
+    '/_authenticated/admin/import/prismatrix': {
+      id: '/_authenticated/admin/import/prismatrix'
+      path: '/prismatrix'
+      fullPath: '/admin/import/prismatrix'
+      preLoaderRoute: typeof AuthenticatedAdminImportPrismatrixRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
     '/_authenticated/admin/import/maskiner': {
       id: '/_authenticated/admin/import/maskiner'
       path: '/maskiner'
@@ -674,6 +694,7 @@ interface AuthenticatedAdminImportRouteChildren {
   AuthenticatedAdminImportFakturaRoute: typeof AuthenticatedAdminImportFakturaRoute
   AuthenticatedAdminImportMaskindataRoute: typeof AuthenticatedAdminImportMaskindataRoute
   AuthenticatedAdminImportMaskinerRoute: typeof AuthenticatedAdminImportMaskinerRoute
+  AuthenticatedAdminImportPrismatrixRoute: typeof AuthenticatedAdminImportPrismatrixRoute
   AuthenticatedAdminImportVismaRoute: typeof AuthenticatedAdminImportVismaRoute
   AuthenticatedAdminImportIndexRoute: typeof AuthenticatedAdminImportIndexRoute
 }
@@ -689,6 +710,8 @@ const AuthenticatedAdminImportRouteChildren: AuthenticatedAdminImportRouteChildr
       AuthenticatedAdminImportMaskindataRoute,
     AuthenticatedAdminImportMaskinerRoute:
       AuthenticatedAdminImportMaskinerRoute,
+    AuthenticatedAdminImportPrismatrixRoute:
+      AuthenticatedAdminImportPrismatrixRoute,
     AuthenticatedAdminImportVismaRoute: AuthenticatedAdminImportVismaRoute,
     AuthenticatedAdminImportIndexRoute: AuthenticatedAdminImportIndexRoute,
   }
