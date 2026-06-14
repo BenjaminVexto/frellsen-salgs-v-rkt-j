@@ -9,6 +9,7 @@ import { getMyChurningCustomers } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
 import { DismissChurnDialog } from "./dismiss-churn-dialog";
 import { useViewAs } from "@/contexts/view-as-context";
+import { MutationGate } from "@/components/mutation-gate";
 
 export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?: number } = {}) {
   const fetchFn = useServerFn(getMyChurningCustomers);
