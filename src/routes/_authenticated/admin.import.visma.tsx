@@ -413,13 +413,17 @@ function ImportSide() {
     if (isExcel) {
       try {
         const buf = await f.arrayBuffer();
+        // raw:false → tal/identifikatorer kommer som formaterede tekst-strenge,
+        // så CVR/Fakt.kunde/Lev.kund/EAN bevarer ledende nuller (når kolonnen
+        // er formateret som tekst i Excel). cellDates:true giver stadig Date-
+        // objekter for dato-celler, som cellToString konverterer til DD-MM-YYYY.
         const wb = XLSX.read(buf, { type: "array", cellDates: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const grid = XLSX.utils.sheet_to_json<unknown[]>(ws, {
           header: 1,
           defval: "",
           blankrows: false,
-          raw: true,
+          raw: false,
         });
         if (!grid.length) {
           toast.error("Excel-arket er tomt");
@@ -433,6 +437,7 @@ function ImportSide() {
         for (const aliases of Object.values(VISMA_MAPPING)) {
           for (const a of aliases ?? []) anchorSet.add(a.toLowerCase());
         }
+        for (const a of VISMA_RAW_COLUMNS) anchorSet.add(a.toLowerCase());
         const SCAN = Math.min(grid.length, 25);
         let bestRow = 0;
         let bestScore = 0;
