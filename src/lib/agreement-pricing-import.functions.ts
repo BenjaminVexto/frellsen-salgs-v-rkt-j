@@ -37,16 +37,30 @@ function normDate(s: string | null | undefined): string | null {
   return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+// Matcher fx "HB", "H.B", "Rød HB 10x1", "ESP HB", "HB-bønner"
+// "HB" omgivet af ordgrænse/whitespace/separator — ikke som del af et større ord (fx "OHBA").
+const RE_HB = /(^|[\s\-_/(),.])h\.?b(?=$|[\s\-_/(),.0-9])/i;
+const RE_VAC = /(^|[\s\-_/(),.])vac(?=$|[\s\-_/(),.0-9])/i;
+const RE_INSTANT = /(^|[\s\-_/(),.])instant(?=$|[\s\-_/(),.0-9])/i;
+
+function matchKaffeKategori(s: string): string | null {
+  if (!s) return null;
+  if (RE_HB.test(s)) return "Hele bønner";
+  if (RE_VAC.test(s)) return "VAC kaffe";
+  if (RE_INSTANT.test(s)) return "Instant";
+  return null;
+}
+
 function deriveRabatKategori(
   pg3: string | null | undefined,
   pg2: string | null | undefined,
   beskrivelse: string | null | undefined,
 ): string {
-  const sources = [pg3, pg2, beskrivelse].map((s) => (s ?? "").toString());
-  const joined = sources.join(" ").toLowerCase();
-  if (/\bh\.?b\b/.test(joined) || /\bhb\b/.test(joined)) return "Hele bønner";
-  if (/vac/.test(joined)) return "VAC kaffe";
-  if (/instant/.test(joined)) return "Instant";
+  // Prioritet: pg3 → pg2 → beskrivelse
+  for (const src of [pg3, pg2, beskrivelse]) {
+    const hit = matchKaffeKategori((src ?? "").toString());
+    if (hit) return hit;
+  }
   // produktgruppe-kode 78 / 79 — i pg2 eller pg3
   const codeStr = ((pg2 ?? "") + " " + (pg3 ?? "")).trim();
   const codeMatch = codeStr.match(/(?:^|\D)(\d{2,3})(?:\D|$)/);
