@@ -262,7 +262,13 @@ const MACHINE_EXPECTED = [
   "status",
   "taellerstand",
 ];
-const ENRICHMENT_EXPECTED = ["serienr", "taelleraflaesning"];
+const ENRICHMENT_EXPECTED = [
+  "serienr",
+  "taelleraflaesning",
+  "binding_ophor",
+  "beregnet_slutdato",
+  "bemaerkning_handlingsdato",
+];
 
 type FileState = {
   file: File | null;
