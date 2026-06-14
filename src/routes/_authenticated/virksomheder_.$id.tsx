@@ -764,6 +764,7 @@ function VirksomhedsKort() {
                 companyId={company.id}
                 isAdmin={isAdmin}
                 reloadKey={locationReloadKey}
+                initialOpenLocationId={initialOpenLocationId}
                 companyFallbackAddress={company.address}
                 companyFallbackZip={company.zip}
                 companyFallbackCity={company.city}
