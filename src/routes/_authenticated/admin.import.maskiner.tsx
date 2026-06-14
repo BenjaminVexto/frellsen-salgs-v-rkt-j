@@ -75,8 +75,28 @@ const ENRICHMENT_ANCHORS = [
 ];
 
 const FORCE_TEXT = new Set(["serienr", "lev_kundenr", "fak_kundenr", "varenr"]);
-const DATE_FIELDS = new Set(["kobt_dato", "lease_leje_dato", "aendret_dato", "taelleraflaesning"]);
+const DATE_FIELDS = new Set([
+  "kobt_dato",
+  "lease_leje_dato",
+  "aendret_dato",
+  "taelleraflaesning",
+  "binding_ophor",
+  "beregnet_slutdato",
+]);
 const NUMBER_FIELDS = new Set(["taellerstand"]);
+
+// "2027-07 juli" / "2025-07 Juli - se aftale" / "2024-12" → "2024-12-01"
+// Værdier uden YYYY-MM i starten (fx "Leje", "Udlån") → null
+function extractHandlingsdato(raw: string | null): string | null {
+  if (!raw) return null;
+  const m = raw.trim().match(/^(\d{4})-(\d{1,2})\b/);
+  if (!m) return null;
+  const y = m[1];
+  const mo = m[2].padStart(2, "0");
+  const moNum = parseInt(mo, 10);
+  if (moNum < 1 || moNum > 12) return null;
+  return `${y}-${mo}-01`;
+}
 
 function readSheetGrid(file: File): Promise<any[][]> {
   return new Promise((resolve, reject) => {
