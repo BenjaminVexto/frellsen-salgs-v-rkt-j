@@ -58,6 +58,12 @@ const ENRICHMENT_ALIASES: Record<string, string> = {
   serienrwit: "serienr",
   senstetaelleraflaesningsdato: "taelleraflaesning",
   senestetaelleraflaesningsdato: "taelleraflaesning",
+  bindingophoer: "binding_ophor",
+  bindingsophoer: "binding_ophor",
+  beregnetslutdato: "beregnet_slutdato",
+  bemaerkning: "bemaerkning_handlingsdato",
+  bemaerkninghandlingsdato: "bemaerkning_handlingsdato",
+  handlingsdato: "bemaerkning_handlingsdato",
 };
 
 const MACHINE_ANCHORS = ["levkundenr", "fakkundenr", "serienr", "serienrwit", "varenr"];
