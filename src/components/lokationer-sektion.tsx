@@ -633,6 +633,10 @@ function EquipmentBox({ location }: { location: Location }) {
           <ul className="border-t divide-y text-xs">
             {list.map((u) => {
               const o = deriveOwnership(u);
+              const enr = u.serial_no ? enrichBySerial.get(u.serial_no.trim()) : null;
+              const today = new Date().toISOString().slice(0, 10);
+              const bindingPassed =
+                enr?.binding_ophor && enr.binding_ophor < today ? true : false;
               return (
                 <li key={u.id} className="px-2 py-1.5 text-muted-foreground">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -647,6 +651,30 @@ function EquipmentBox({ location }: { location: Location }) {
                         .join(" · ")}
                     </span>
                   </div>
+                  {enr && (
+                    <div className="mt-1 ml-1 space-y-0.5 text-[11px]">
+                      {enr.binding_ophor &&
+                        (bindingPassed ? (
+                          <div className="text-amber-700 font-medium">
+                            Fri opsigelse (binding udløb {fmtDa(enr.binding_ophor)})
+                          </div>
+                        ) : (
+                          <div>Binding til {fmtDa(enr.binding_ophor)}</div>
+                        ))}
+                      {enr.handlingsdato && (
+                        <div>Reservedele inkl. til {fmtDa(enr.handlingsdato)}</div>
+                      )}
+                      {enr.taellerstand != null && (
+                        <div>
+                          Tæller: {Number(enr.taellerstand).toLocaleString("da-DK")}
+                          {enr.taelleraflaesning
+                            ? ` (aflæst ${fmtDa(enr.taelleraflaesning)})`
+                            : ""}
+                        </div>
+                      )}
+                      {enr.respons && <div>Responstid: {enr.respons}</div>}
+                    </div>
+                  )}
                 </li>
               );
             })}
