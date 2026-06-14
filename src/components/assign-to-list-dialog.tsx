@@ -22,6 +22,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
+import { useViewAs } from "@/contexts/view-as-context";
 
 type Seller = { id: string; full_name: string; region: string | null };
 type ListOpt = { id: string; name: string };
@@ -51,6 +52,15 @@ export function AssignToListDialog({
 
   const [purpose, setPurpose] = useState("");
   const [saving, setSaving] = useState(false);
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Tildelinger ikke tilladt.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
+
 
   useEffect(() => {
     if (!open) return;
@@ -88,6 +98,10 @@ export function AssignToListDialog({
   };
 
   const save = async () => {
+    if (isImpersonating) {
+      toast.error("Read-only — handling ikke tilladt");
+      return;
+    }
     if (mode === "new" && !name.trim()) {
       toast.error("Listenavn er påkrævet");
       return;

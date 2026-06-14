@@ -17,6 +17,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { generateMailDraft, type MailPurpose } from "@/lib/mail-draft.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useViewAs } from "@/contexts/view-as-context";
 
 type PurposeOption = {
   key: MailPurpose;
@@ -70,6 +71,15 @@ export function SkrivMailDialog({
 }) {
   const { user } = useAuth();
   const generateFn = useServerFn(generateMailDraft);
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Mail kan ikke sendes.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
+
 
   const [purpose, setPurpose] = useState<MailPurpose | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -129,6 +139,10 @@ export function SkrivMailDialog({
   }
 
   async function openInOutlook() {
+    if (isImpersonating) {
+      toast.error("Read-only — handling ikke tilladt");
+      return;
+    }
     if (!recipient.trim()) {
       toast.error("Modtager mangler");
       return;

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useViewAs } from "@/contexts/view-as-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -55,6 +56,14 @@ export function AddRelationDialog({
   const [picked, setPicked] = useState<CompanySearchResult | null>(null);
   const [type, setType] = useState<RelationType | "">("");
   const [saving, setSaving] = useState(false);
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Relationer kan ikke oprettes.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
 
   const reset = () => {
     setQuery("");
@@ -78,6 +87,10 @@ export function AddRelationDialog({
 
   async function save() {
     if (!picked || !type) return;
+    if (isImpersonating) {
+      toast.error("Read-only — handling ikke tilladt");
+      return;
+    }
     setSaving(true);
     try {
       await createFn({

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useViewAs } from "@/contexts/view-as-context";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -63,6 +64,15 @@ export function DismissChurnDialog({
   const [picked, setPicked] = useState<CompanySearchResult | null>(null);
 
   const qc = useQueryClient();
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Kan ikke fjerne kunder.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
+
 
   const listFn = useServerFn(listCompetitorsForSelect);
   const competitorsQ = useQuery({
@@ -111,6 +121,7 @@ export function DismissChurnDialog({
 
   const mut = useMutation({
     mutationFn: async () => {
+      if (isImpersonating) throw new Error("Read-only — handling ikke tilladt");
       if (reason === "supplied_via") {
         // If an existing forsynes_af relation already exists, no need to create
         // another — the churning exclusion already applies. Just acknowledge.
