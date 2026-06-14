@@ -1100,10 +1100,17 @@ const ATTENTION_MIN_REVENUE_12M = 25000; // kun "større" kunder (top ~10%)
 const ATTENTION_DROP_KR = 3000; // mærkbart fald i kr fra start til slut af perioden
 const ATTENTION_DROP_PCT = 0.20; // ELLER fald på 20%+ for større kunder
 
-function Sparkline({ values, revenue12m = 0 }: { values: number[]; revenue12m?: number }) {
+function Sparkline({
+  months,
+  revenue12m = 0,
+}: {
+  months: { period: string; revenue: number }[];
+  revenue12m?: number;
+}) {
   const w = 80;
   const h = 22;
-  if (!values.length) return <span className="text-xs text-muted-foreground">—</span>;
+  if (!months.length) return <span className="text-xs text-muted-foreground">—</span>;
+  const values = months.map((m) => m.revenue);
   const max = Math.max(...values, 1);
   const min = 0;
   const step = values.length > 1 ? w / (values.length - 1) : 0;
@@ -1116,28 +1123,48 @@ function Sparkline({ values, revenue12m = 0 }: { values: number[]; revenue12m?: 
     .join(" ");
 
   // Default: neutral grå. Store kunder markeres rødt ved vedvarende fald,
-  // grønt ved vedvarende vækst — symmetriske tærskler.
+  // grønt ved vedvarende vækst — symmetriske tærskler beregnet på de samme
+  // to gennemsnit (1. halvdel vs 2. halvdel af trendperioden) som vises i tooltip.
   let color = "stroke-muted-foreground/60";
   let status: "down" | "up" | null = null;
   let tooltip: string | undefined;
   if (revenue12m >= ATTENTION_MIN_REVENUE_12M && values.length >= 3) {
-    const first = values[0];
-    const last = values[values.length - 1];
-    const diffKr = last - first; // positiv = vækst
-    const diffPct = first > 0 ? diffKr / first : 0;
     const mid = Math.floor(values.length / 2);
-    const avgEarly = values.slice(0, mid).reduce((s, v) => s + v, 0) / Math.max(1, mid);
-    const avgLate = values.slice(mid).reduce((s, v) => s + v, 0) / Math.max(1, values.length - mid);
+    const earlyMonths = months.slice(0, mid);
+    const lateMonths = months.slice(mid);
+    const avgEarly = earlyMonths.reduce((s, m) => s + m.revenue, 0) / Math.max(1, earlyMonths.length);
+    const avgLate = lateMonths.reduce((s, m) => s + m.revenue, 0) / Math.max(1, lateMonths.length);
+    const diffKr = avgLate - avgEarly; // positiv = vækst
+    const diffPct = avgEarly > 0 ? diffKr / avgEarly : 0;
     const fmtKr = (n: number) => Math.round(n).toLocaleString("da-DK") + " kr";
     const fmtPct = (n: number) => (n * 100).toFixed(0) + "%";
+    const mLabel = (p: string) =>
+      new Date(p + "T00:00:00Z").toLocaleDateString("da-DK", { month: "short" });
+    const earlyRange =
+      earlyMonths.length === 1
+        ? mLabel(earlyMonths[0].period)
+        : `${mLabel(earlyMonths[0].period)}–${mLabel(earlyMonths[earlyMonths.length - 1].period)}`;
+    const lateRange =
+      lateMonths.length === 1
+        ? mLabel(lateMonths[0].period)
+        : `${mLabel(lateMonths[0].period)}–${mLabel(lateMonths[lateMonths.length - 1].period)}`;
+
     if (avgLate < avgEarly && (-diffKr >= ATTENTION_DROP_KR || -diffPct >= ATTENTION_DROP_PCT)) {
       color = "stroke-destructive";
       status = "down";
-      tooltip = `Stor kunde med vedvarende fald\nSeneste mdr.: ${fmtKr(avgLate)} (gns)\nTidligere: ${fmtKr(avgEarly)} (gns)\nFald: ${fmtKr(-diffKr)} (${fmtPct(-diffPct)})`;
+      tooltip =
+        `Stor kunde med vedvarende fald\n` +
+        `Tidligere ${earlyMonths.length} mdr (${earlyRange}, gns/md): ${fmtKr(avgEarly)}\n` +
+        `Seneste ${lateMonths.length} mdr (${lateRange}, gns/md): ${fmtKr(avgLate)}\n` +
+        `Fald: ${fmtKr(-diffKr)} (${fmtPct(-diffPct)})`;
     } else if (avgLate > avgEarly && (diffKr >= ATTENTION_DROP_KR || diffPct >= ATTENTION_DROP_PCT)) {
       color = "stroke-emerald-600";
       status = "up";
-      tooltip = `Stor kunde i vækst\nSeneste mdr.: ${fmtKr(avgLate)} (gns)\nTidligere: ${fmtKr(avgEarly)} (gns)\nStigning: ${fmtKr(diffKr)} (${fmtPct(diffPct)})`;
+      tooltip =
+        `Stor kunde i vækst\n` +
+        `Tidligere ${earlyMonths.length} mdr (${earlyRange}, gns/md): ${fmtKr(avgEarly)}\n` +
+        `Seneste ${lateMonths.length} mdr (${lateRange}, gns/md): ${fmtKr(avgLate)}\n` +
+        `Stigning: ${fmtKr(diffKr)} (${fmtPct(diffPct)})`;
     }
   }
   return (
