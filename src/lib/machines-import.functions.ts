@@ -283,6 +283,238 @@ export const importMachines = createServerFn({ method: "POST" })
         console.log(`[machines-import] STEP 6: machinesMarkedUdgaaet=${machinesMarkedUdgaaet}`);
       }
 
+      // ============================================================
+      // STEP 6b: Fyld location_equipment_units + lokations-aggregater
+      // ud fra maskinlisten. Match lev_kundenr → locations.visma_delivery_no
+      // (normaliseret), fallback via virksomhed (fak_kundenr → companies.visma_id).
+      // ============================================================
+      let unitsLocationsUpdated = 0;
+      let unitsRowsInserted = 0;
+      let unitsUnmatched = 0;
+      if (data.machineRows.length > 0) {
+        type UnitAgg = {
+          coffee: number; filters: number; cooling: number; total: number;
+          freeLoan: boolean; lease: boolean;
+          agreementSet: Set<string>;
+          units: {
+            source: "rental";
+            is_filter: boolean;
+            machine_type: string | null;
+            serial_no: string | null;
+            sub_location: string | null;
+            agreement_type: string | null;
+            is_free_loan: boolean;
+            has_service_contract: boolean;
+            varenr: string | null;
+          }[];
+        };
+        const aggs = new Map<string, UnitAgg>(); // key: `${fak}||${lev}`
+        const ensure = (): UnitAgg => ({
+          coffee: 0, filters: 0, cooling: 0, total: 0,
+          freeLoan: false, lease: false,
+          agreementSet: new Set<string>(), units: [],
+        });
+
+        for (const r of data.machineRows) {
+          const fak = normalizeVismaNo(r.fak_kundenr);
+          const lev = normalizeVismaNo(r.lev_kundenr);
+          if (!lev) continue;
+          const k = `${fak}||${lev}`;
+          let a = aggs.get(k);
+          if (!a) { a = ensure(); aggs.set(k, a); }
+          const desc = (r.beskrivelse ?? "").toString();
+          const cat = categorize(desc);
+          if (cat === "coffee") a.coffee++;
+          else if (cat === "filter") a.filters++;
+          else if (cat === "cooling") a.cooling++;
+          a.total++;
+          const ut = (r.udlanstype ?? "").toString().toLowerCase();
+          const isFree = FREE_LOAN_TOKENS.some((tok) => ut.includes(tok));
+          if (isFree) a.freeLoan = true;
+          if (LEASE_TOKENS.some((tok) => ut.includes(tok))) a.lease = true;
+          const agreementShort =
+            r.udlanstype && String(r.udlanstype).trim()
+              ? simplifyAgreement(String(r.udlanstype))
+              : null;
+          if (agreementShort) a.agreementSet.add(agreementShort);
+          a.units.push({
+            source: "rental",
+            is_filter: isFilterUnit(desc),
+            machine_type: desc.trim() || null,
+            serial_no: (r.serienr ?? "").toString().trim() || null,
+            sub_location: (r.adresselinje2 ?? "").toString().trim() || null,
+            agreement_type: agreementShort,
+            is_free_loan: isFree,
+            has_service_contract: false,
+            varenr: (r.varenr ?? "").toString().trim() || null,
+          });
+        }
+        console.log(`[machines-import] STEP 6b: aggs=${aggs.size}`);
+
+        // Indlæs alle locations + companies (samme datasætstørrelse som equipment-import)
+        const locByNormDelivery = new Map<string, { id: string; company_id: string }>();
+        const locsByCompany = new Map<string, { id: string; visma_delivery_no: string | null }[]>();
+        {
+          const PAGE = 1000;
+          let from = 0;
+          while (true) {
+            const { data: rows, error } = await supabaseAdmin
+              .from("locations")
+              .select("id, company_id, visma_delivery_no")
+              .range(from, from + PAGE - 1);
+            if (error) throw new Error("locations select: " + error.message);
+            if (!rows || rows.length === 0) break;
+            for (const l of rows as any[]) {
+              if (l.visma_delivery_no) {
+                const kk = normalizeVismaNo(l.visma_delivery_no);
+                if (kk && !locByNormDelivery.has(kk)) {
+                  locByNormDelivery.set(kk, { id: l.id, company_id: l.company_id });
+                }
+              }
+              const arr = locsByCompany.get(l.company_id) ?? [];
+              arr.push({ id: l.id, visma_delivery_no: l.visma_delivery_no });
+              locsByCompany.set(l.company_id, arr);
+            }
+            if (rows.length < PAGE) break;
+            from += PAGE;
+          }
+        }
+        const compByNormFak = new Map<string, { id: string; last_purchase_date: string | null }>();
+        {
+          const PAGE = 1000;
+          let from = 0;
+          while (true) {
+            const { data: rows, error } = await supabaseAdmin
+              .from("companies")
+              .select("id, visma_id, last_purchase_date")
+              .range(from, from + PAGE - 1);
+            if (error) throw new Error("companies select: " + error.message);
+            if (!rows || rows.length === 0) break;
+            for (const c of rows as any[]) {
+              if (c.visma_id) {
+                const kk = normalizeVismaNo(c.visma_id);
+                if (kk && !compByNormFak.has(kk)) {
+                  compByNormFak.set(kk, { id: c.id, last_purchase_date: c.last_purchase_date });
+                }
+              }
+            }
+            if (rows.length < PAGE) break;
+            from += PAGE;
+          }
+        }
+        console.log(
+          `[machines-import] STEP 6b: locations=${locByNormDelivery.size} companies=${compByNormFak.size}`,
+        );
+
+        type LocUpdate = { id: string; payload: Record<string, any>; units: UnitAgg["units"] };
+        const updates: LocUpdate[] = [];
+        const usedLocationIds = new Set<string>();
+
+        for (const [key, a] of aggs.entries()) {
+          const [fak, lev] = key.split("||");
+          const company = compByNormFak.get(fak);
+          let loc = locByNormDelivery.get(lev);
+          if (!loc && company) {
+            const candidates = locsByCompany.get(company.id) ?? [];
+            const hit = candidates.find(
+              (l) => l.visma_delivery_no && normalizeVismaNo(l.visma_delivery_no) === fak,
+            );
+            if (hit) loc = { id: hit.id, company_id: company.id };
+          }
+          if (!loc && company) {
+            const candidates = locsByCompany.get(company.id) ?? [];
+            if (candidates.length === 1) loc = { id: candidates[0].id, company_id: company.id };
+          }
+          if (!loc) { unitsUnmatched++; continue; }
+          if (usedLocationIds.has(loc.id)) continue;
+          usedLocationIds.add(loc.id);
+
+          const agreementTypes = a.agreementSet.size > 0 ? Array.from(a.agreementSet).join(", ") : null;
+          const summary = buildSummary(a.coffee, a.filters, a.cooling, 0);
+          const lpd = company?.last_purchase_date ?? null;
+          const signal = computeSalesSignal(a.freeLoan, 0, a.total, lpd);
+          updates.push({
+            id: loc.id,
+            payload: {
+              equipment_frellsen_owned: a.total,
+              equipment_coffee_machines: a.coffee,
+              equipment_filters: a.filters,
+              equipment_cooling: a.cooling,
+              has_lease_agreement: a.lease,
+              has_free_loan: a.freeLoan,
+              agreement_types: agreementTypes,
+              equipment_summary: summary,
+              sales_signal: signal,
+              equipment_updated_at: new Date().toISOString(),
+            },
+            units: a.units,
+          });
+        }
+
+        // Bulk update — gruppér efter identisk payload
+        if (updates.length) {
+          const stable = (o: any): string => JSON.stringify(o, Object.keys(o).sort());
+          const groups = new Map<string, { payload: any; ids: string[] }>();
+          for (const u of updates) {
+            const kk = stable(u.payload);
+            const g = groups.get(kk);
+            if (g) g.ids.push(u.id);
+            else groups.set(kk, { payload: u.payload, ids: [u.id] });
+          }
+          const CHUNK_U = 300;
+          for (const { payload, ids } of groups.values()) {
+            for (let i = 0; i < ids.length; i += CHUNK_U) {
+              const slice = ids.slice(i, i + CHUNK_U);
+              const { error } = await supabaseAdmin.from("locations").update(payload).in("id", slice);
+              if (error) console.error("[machines-import] locations update fejl:", error.message);
+            }
+          }
+          unitsLocationsUpdated = updates.length;
+        }
+
+        // Idempotent: slet rental-units på berørte lokationer og indsæt på ny.
+        // Service-units (source='service') røres ikke — de stammer ikke fra denne import.
+        const affected = Array.from(usedLocationIds);
+        if (affected.length) {
+          const CHUNK_D = 300;
+          for (let i = 0; i < affected.length; i += CHUNK_D) {
+            const slice = affected.slice(i, i + CHUNK_D);
+            const { error } = await supabaseAdmin
+              .from("location_equipment_units")
+              .delete()
+              .eq("source", "rental")
+              .in("location_id", slice);
+            if (error) console.error("[machines-import] units delete fejl:", error.message);
+          }
+        }
+        const batchId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? (crypto as any).randomUUID()
+            : null;
+        const unitRows: Record<string, any>[] = [];
+        for (const u of updates) {
+          for (const unit of u.units) {
+            unitRows.push({ ...unit, location_id: u.id, import_batch_id: batchId });
+          }
+        }
+        if (unitRows.length) {
+          const CHUNK_I = 500;
+          for (let i = 0; i < unitRows.length; i += CHUNK_I) {
+            const slice = unitRows.slice(i, i + CHUNK_I);
+            const { error } = await supabaseAdmin
+              .from("location_equipment_units")
+              .insert(slice as any);
+            if (error) console.error("[machines-import] units insert fejl:", error.message);
+            else unitsRowsInserted += slice.length;
+          }
+        }
+        console.log(
+          `[machines-import] STEP 6b DONE: locUpdated=${unitsLocationsUpdated} unitsInserted=${unitsRowsInserted} unmatched=${unitsUnmatched}`,
+        );
+      }
+
+
+
       const enrMap = new Map<string, any>();
       for (const r of data.enrichmentRows) {
         const serienr = t(r.serienr);
