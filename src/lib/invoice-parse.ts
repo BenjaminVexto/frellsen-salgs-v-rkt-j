@@ -7,6 +7,7 @@ import Papa from "papaparse";
 import type { MonthlyRow, TopProductRow } from "./invoice-import.functions";
 
 const COL = {
+  FIRMA: 0,
   ORDER_NO: 2,
   DATE: 3,
   DELIVERY: 4,
@@ -17,6 +18,9 @@ const COL = {
   REVENUE: 15,
   DB: 16,
 } as const;
+
+// Kun firma 10 (Frellsen Kaffe) må importeres. Alt andet (20/30/40/50/70 …) springes over.
+const ALLOWED_FIRMA = "10";
 
 export function parseDanishNumber(raw: unknown): number {
   if (typeof raw === "number") return raw;
