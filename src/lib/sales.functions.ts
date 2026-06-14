@@ -367,10 +367,12 @@ export type ChurningCustomer = {
   monthsWithPurchases: number;
 };
 
-export const getMyChurningCustomers = createServerFn({ method: "GET" })
+export const getMyChurningCustomers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ customers: ChurningCustomer[]; hasData: boolean }> => {
-    const companyIds = await getSellerCompanyIds(context.supabase, context.userId);
+  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{ customers: ChurningCustomer[]; hasData: boolean }> => {
+    const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
+    const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
     if (!companyIds.length) return { customers: [], hasData: false };
 
     const cutoff = new Date();
