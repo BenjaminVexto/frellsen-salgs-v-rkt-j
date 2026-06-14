@@ -3,32 +3,44 @@ import { z } from "zod";
 import crypto from "node:crypto";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const MachineRow = z.object({
-  ordrenr: z.string().nullable().optional(),
-  varenr: z.string().nullable().optional(),
-  beskrivelse: z.string().nullable().optional(),
-  serienr: z.string().nullable().optional(),
-  udlanstype: z.string().nullable().optional(),
-  navn: z.string().nullable().optional(),
-  fak_kundenr: z.string().nullable().optional(),
-  lev_kundenr: z.string().nullable().optional(),
-  kobt_dato: z.string().nullable().optional(),
-  lease_leje_dato: z.string().nullable().optional(),
-  adresselinje2: z.string().nullable().optional(),
-  aendret_dato: z.string().nullable().optional(),
-  status: z.string().nullable().optional(),
-  taellerstand: z.number().nullable().optional(),
-});
+const MachineRow = z
+  .object({
+    ordrenr: z.string().nullable().optional(),
+    varenr: z.string().nullable().optional(),
+    beskrivelse: z.string().nullable().optional(),
+    serienr: z.string().nullable().optional(),
+    udlanstype: z.string().nullable().optional(),
+    navn: z.string().nullable().optional(),
+    fak_kundenr: z.string().nullable().optional(),
+    lev_kundenr: z.string().nullable().optional(),
+    adresselinje2: z.string().nullable().optional(),
+    aendret_dato: z.string().nullable().optional(),
+    status: z.string().nullable().optional(),
+  })
+  .passthrough();
 
-const EnrichmentRow = z.object({
-  serienr: z.string(),
-  taelleraflaesning: z.string().nullable().optional(),
-  binding_ophor: z.string().nullable().optional(),
-  beregnet_slutdato: z.string().nullable().optional(),
-  handlingsdato: z.string().nullable().optional(),
-  handlingsdato_raw: z.string().nullable().optional(),
-  data: z.record(z.any()).nullable().optional(),
-});
+// Strukturerede kolonner på machine_enrichment — alt andet havner i data jsonb.
+const ENRICHMENT_COLUMN_FIELDS = new Set([
+  "serienr",
+  "taelleraflaesning",
+  "binding_ophor",
+  "beregnet_slutdato",
+  "handlingsdato",
+  "handlingsdato_raw",
+]);
+
+const EnrichmentRow = z
+  .object({
+    serienr: z.string(),
+    taelleraflaesning: z.string().nullable().optional(),
+    binding_ophor: z.string().nullable().optional(),
+    beregnet_slutdato: z.string().nullable().optional(),
+    handlingsdato: z.string().nullable().optional(),
+    handlingsdato_raw: z.string().nullable().optional(),
+    data: z.record(z.any()).nullable().optional(),
+  })
+  .passthrough();
+
 
 const t = (s: unknown): string => (s == null ? "" : String(s).trim());
 
