@@ -292,9 +292,10 @@ async function getSellerCompanyIds(supabase: any, userId: string): Promise<strin
   return Array.from(ids);
 }
 
-export const getMyMonthlySales = createServerFn({ method: "GET" })
+export const getMyMonthlySales = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{
+  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{
     revenue: number;
     companies: number;
     period: string;
@@ -302,7 +303,8 @@ export const getMyMonthlySales = createServerFn({ method: "GET" })
     periodLastYear: string;
     comparisonMode: "full_month";
   }> => {
-    const companyIds = await getSellerCompanyIds(context.supabase, context.userId);
+    const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
+    const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
     const d = new Date();
     const period = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
     const periodLastYear = `${d.getUTCFullYear() - 1}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
