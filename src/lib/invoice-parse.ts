@@ -63,9 +63,22 @@ export function parseDanishDate(raw: unknown): Date | null {
     return isNaN(d.getTime()) ? null : d;
   }
 
+  // ISO-lignende datoer fra Visma: YYYY-MM-DD, men nogle filer giver YYYY-DD-MM.
+  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) {
+    const y = +iso[1];
+    let m = +iso[2];
+    let day = +iso[3];
+    if (m > 12 && day <= 12) [m, day] = [day, m];
+    if (m < 1 || m > 12 || day < 1 || day > 31) return null;
+    const d = new Date(Date.UTC(y, m - 1, day));
+    if (d.getUTCFullYear() !== y || d.getUTCMonth() !== m - 1 || d.getUTCDate() !== day) return null;
+    return d;
+  }
+
   // ISO YYYY-MM-DD eller andet parsbart
-  const iso = new Date(s);
-  return isNaN(iso.getTime()) ? null : iso;
+  const parsed = new Date(s);
+  return isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function monthStart(d: Date): string {
