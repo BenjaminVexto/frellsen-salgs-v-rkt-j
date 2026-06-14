@@ -593,6 +593,9 @@ export const importMachines = createServerFn({ method: "POST" })
         enrichmentMarkedUdgaaet,
         machinesReactivated,
         enrichmentReactivated,
+        unitsLocationsUpdated,
+        unitsRowsInserted,
+        unitsUnmatched,
         importedAt,
       };
     } catch (e: any) {
