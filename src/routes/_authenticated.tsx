@@ -28,6 +28,7 @@ import {
   TrendingUp,
   KeyRound,
   ChevronDown,
+  Eye,
 } from "lucide-react";
 
 
@@ -40,6 +41,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GlobalImportIndicator } from "@/components/global-import-indicator";
+import { ViewAsProvider, useViewAs } from "@/contexts/view-as-context";
+import { ViewAsBanner } from "@/components/view-as-banner";
+import { ViewAsPickerDialog } from "@/components/view-as-picker-dialog";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
