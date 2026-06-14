@@ -25,6 +25,18 @@ const PricingRow = z
 
 const t = (s: unknown): string => (s == null ? "" : String(s).trim());
 
+// Defensiv dato-normalisering: håndterer YYYY-MM-DD og YYYY-DD-MM (Visma).
+function normDate(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const m = String(s).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return null;
+  let mo = parseInt(m[2], 10);
+  let d = parseInt(m[3], 10);
+  if (mo > 12 && d <= 12) [mo, d] = [d, mo];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 function deriveRabatKategori(
   pg3: string | null | undefined,
   pg2: string | null | undefined,
