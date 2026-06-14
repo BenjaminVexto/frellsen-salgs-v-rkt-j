@@ -138,11 +138,14 @@ export async function parseAndAggregate(file: File): Promise<{
     linesRead: 0,
     internalServicePostings: 0,
     invalidLines: 0,
+    skippedFirma: 0,
+    skippedFirmaSamples: [],
     uniqueDeliveryNos: 0,
     periodFrom: null,
     periodTo: null,
     totalRevenue: 0,
   };
+  const firmaSampleSet = new Set<string>();
   const deliverySet = new Set<string>();
   let minDate: Date | null = null;
   let maxDate: Date | null = null;
@@ -150,6 +153,12 @@ export async function parseAndAggregate(file: File): Promise<{
   for (const row of rows) {
     if (!Array.isArray(row) || row.length < 17) {
       stats.invalidLines++;
+      continue;
+    }
+    const firma = String(row[COL.FIRMA] ?? "").trim();
+    if (firma && firma !== ALLOWED_FIRMA) {
+      stats.skippedFirma++;
+      if (firmaSampleSet.size < 10) firmaSampleSet.add(firma);
       continue;
     }
     const date = parseDanishDate(row[COL.DATE]);
