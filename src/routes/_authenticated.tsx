@@ -202,7 +202,7 @@ function AuthenticatedShell() {
               </Link>
             );
           })}
-          {isAdmin && (
+          {showAdminNav && (
             <>
               <div className="pt-4 pb-1 px-3 text-xs uppercase tracking-wider text-primary-foreground/40">
                 Admin
