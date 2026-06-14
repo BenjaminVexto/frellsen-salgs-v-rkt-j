@@ -175,32 +175,53 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   location_contact_person: ["ref_person", "kontaktperson_lev"],
 };
 
-// Visma debitorliste → systemfelter (eksakt headerne fra Visma CSV)
+// Visma debitorliste → systemfelter. Mapping bygger på BRUGER-VERIFICEREDE
+// kolonneoverskrifter (række 2 i Aktør-exporten). Kun eksakt navnematch:
+// ingen positions-antagelser, ingen fuzzy gæt. Hvis filen mangler en af
+// disse headers vises feltet som "ikke fundet" i mapping-preview.
 const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
-  cvr: ["CVR nr.", "CVR nr"],
+  cvr: ["CVR nr."],
   name: ["Navn"],
-  address: ["Adresselinje 2"],
+  address: ["Adresselinje 1"],
   zip: ["Postnr."],
   city: ["By"],
   phone: ["Telefonnr.1"],
   email: ["E-mailadresse"],
-  created_in_visma: ["Oprettet dato"],
   last_purchase_date: ["Sidste Varekøb"],
   customer_segment_1: ["Kundeprisgruppe 1"],
   customer_segment_2: ["Kundeprisgruppe 2"],
   customer_segment_3: ["Kundeprisgruppe 3"],
-  visma_id: ["Fakt. kunde", "Fakt. kunde nr", "Fakt. kundenr", "Fakturakunde nr"],
-  visma_delivery_id: ["Lev. kund", "Lev. kunde nr", "Lev. kundenr", "Leveringskunde nr"],
-  contact_person: ["Ref person"],
+  visma_id: ["Fakt. kunde"],
+  visma_delivery_id: ["Lev. kund"],
   salesperson_no: ["Sælger"],
   ean_number: ["EAN nr."],
   location_address: ["Adresselinje 2"],
   location_zip: ["Postnr."],
   location_city: ["By"],
-  location_contact_person: ["Ref person"],
-  location_phone: ["Telefonnr.1"],
+  location_phone: ["Telefonnr.2"],
   location_email: ["E-mailadresse"],
 };
+
+// Rå kolonner som læses direkte fra p.raw[...] (ikke mappet til DB-felt,
+// men brugt til filtrering og noter).
+const VISMA_RAW_COLUMNS = [
+  "Firma",
+  "Landnr.",
+  "Kreditspærre",
+  "Rute",
+  "Bem. Intern",
+  "Adresselinje 1",
+  "Adresselinje 2",
+] as const;
+
+// Felter hvor ledende nuller SKAL bevares — disse coerces eksplicit til
+// strenge på den rå celle og må aldrig konverteres via Number().
+const TEXT_PRESERVING_HEADERS = new Set<string>([
+  "CVR nr.",
+  "Fakt. kunde",
+  "Lev. kund",
+  "EAN nr.",
+]);
 
 type VismaFilters = {
   excludeInternal: boolean;
@@ -392,13 +413,17 @@ function ImportSide() {
     if (isExcel) {
       try {
         const buf = await f.arrayBuffer();
+        // raw:false → tal/identifikatorer kommer som formaterede tekst-strenge,
+        // så CVR/Fakt.kunde/Lev.kund/EAN bevarer ledende nuller (når kolonnen
+        // er formateret som tekst i Excel). cellDates:true giver stadig Date-
+        // objekter for dato-celler, som cellToString konverterer til DD-MM-YYYY.
         const wb = XLSX.read(buf, { type: "array", cellDates: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const grid = XLSX.utils.sheet_to_json<unknown[]>(ws, {
           header: 1,
           defval: "",
           blankrows: false,
-          raw: true,
+          raw: false,
         });
         if (!grid.length) {
           toast.error("Excel-arket er tomt");
@@ -412,6 +437,7 @@ function ImportSide() {
         for (const aliases of Object.values(VISMA_MAPPING)) {
           for (const a of aliases ?? []) anchorSet.add(a.toLowerCase());
         }
+        for (const a of VISMA_RAW_COLUMNS) anchorSet.add(a.toLowerCase());
         const SCAN = Math.min(grid.length, 25);
         let bestRow = 0;
         let bestScore = 0;
@@ -664,6 +690,13 @@ function ImportSide() {
     return /^\s*luk(?:ket)?\s*\/\s*/i.test(String(name));
   }
 
+  function isWrongFirma(p: PreparedRow): boolean {
+    // ALTID-filter: kun firma 10 (Frellsen Kaffe) må importeres.
+    // Tom firma = afvis (vi vil ikke importere ukendt firma-tilhørsforhold).
+    const firma = (p.raw["Firma"] ?? "").trim();
+    return firma !== "10";
+  }
+
   function isFilteredByVisma(p: PreparedRow): boolean {
     // Altid: filtrér virksomheder hvis navn er markeret som lukket i Visma
     if (isClosedName(p.data.name)) return true;
@@ -687,8 +720,11 @@ function ImportSide() {
   }
 
   const stats = useMemo(() => {
-    const kept = prepared.filter((p) => !isFilteredByVisma(p));
-    const filteredCount = prepared.length - kept.length;
+    // Firma-filter kører FØRST og er ufravigeligt — kun firma 10 fortsætter.
+    const firmaKept = prepared.filter((p) => !isWrongFirma(p));
+    const wrongFirmaCount = prepared.length - firmaKept.length;
+    const kept = firmaKept.filter((p) => !isFilteredByVisma(p));
+    const filteredCount = firmaKept.length - kept.length;
     const newCount = kept.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
     const dupCount = kept.filter((p) => p.isDuplicate).length;
     const missingCount = kept.filter((p) => p.missingCvr && !p.hasError).length;
@@ -702,6 +738,7 @@ function ImportSide() {
       missingCount,
       errorCount,
       filteredCount,
+      wrongFirmaCount,
       totalRows: prepared.length,
       unmatchedSalespersonNos: Array.from(unmatchedSp),
     };
@@ -721,6 +758,7 @@ function ImportSide() {
 
     let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0, noCvrCount = 0;
     const toImport = prepared.filter((p) => {
+      if (isWrongFirma(p)) return false; // ALDRIG firma ≠ 10
       if (p.hasError) return false;
       if (isFilteredByVisma(p)) return false;
       // Tillad rækker uden CVR hvis de har EAN, ellers respekter checkbox
@@ -1403,6 +1441,9 @@ function ImportSide() {
           filters={vismaFilters}
           setFilters={setVismaFilters}
           rowCount={rows.length}
+          headers={headers}
+          mapping={mapping}
+          sampleRows={rows.slice(0, 2)}
           onBack={() => setStep(1)}
           onNext={gotoPreview}
         />
@@ -1508,7 +1549,7 @@ function Trin3Preview({
   onNext,
 }: {
   prepared: PreparedRow[];
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   setIncludeMissingCvr: (v: boolean) => void;
   onBack: () => void;
@@ -1523,6 +1564,12 @@ function Trin3Preview({
         <StatCard label="Mangler CVR" value={stats.missingCount} tone="muted" />
         <StatCard label="Fejl" value={stats.errorCount} tone="destructive" />
       </div>
+
+      {stats.wrongFirmaCount > 0 && (
+        <Card className="p-4 border-primary/30 bg-primary/5 text-sm">
+          <span className="font-medium">{stats.wrongFirmaCount.toLocaleString("da-DK")} rækker</span> springes over fordi <span className="font-mono">Firma ≠ "10"</span> (kun Frellsen Kaffe importeres).
+        </Card>
+      )}
 
       {stats.missingCount > 0 && (
         <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start">
@@ -1614,7 +1661,7 @@ function Trin4Import({
   onAssignNow,
   onLater,
 }: {
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
@@ -1872,6 +1919,9 @@ function Trin2VismaConfirm({
   filters,
   setFilters,
   rowCount,
+  headers,
+  mapping,
+  sampleRows,
   onBack,
   onNext,
 }: {
@@ -1879,9 +1929,29 @@ function Trin2VismaConfirm({
   filters: { excludeInternal: boolean; excludeForeign: boolean; excludeCreditBlocked: boolean };
   setFilters: (f: { excludeInternal: boolean; excludeForeign: boolean; excludeCreditBlocked: boolean }) => void;
   rowCount: number;
+  headers: string[];
+  mapping: Partial<Record<SystemField, string>>;
+  sampleRows: ParsedRow[];
   onBack: () => void;
   onNext: () => void;
 }) {
+  // Bygger forhåndsvisning: hvert systemfelt → den header det blev koblet til
+  // → de to første rækkers værdi for den header. Brugeren kan visuelt verificere
+  // at fx cvr indeholder et 8-cifret tal, og name indeholder et virksomhedsnavn.
+  const mappingRows = SYSTEM_FIELDS.filter((f) => mapping[f.key]).map((f) => {
+    const hdr = mapping[f.key]!;
+    return {
+      field: f.key,
+      label: f.label,
+      header: hdr,
+      sample1: sampleRows[0]?.[hdr] ?? "",
+      sample2: sampleRows[1]?.[hdr] ?? "",
+    };
+  });
+  const firmaInHeaders = headers.includes("Firma");
+  const firmaSample1 = sampleRows[0]?.["Firma"] ?? "";
+  const firmaSample2 = sampleRows[1]?.["Firma"] ?? "";
+
   return (
     <div className="space-y-4">
       <Card className="p-6">
@@ -1896,6 +1966,56 @@ function Trin2VismaConfirm({
           </p>
         )}
       </Card>
+
+      <Card className="p-6">
+        <h2 className="font-semibold mb-1">Verificér kolonne-mapping</h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Tjek at <span className="font-medium">CVR</span> indeholder et 8-cifret tal, og at <span className="font-medium">Navn</span> indeholder virksomhedsnavnet, FØR du importerer.
+          Hvis en kolonne er koblet forkert, så ret kolonneoverskrifterne i Excel-filen og upload igen.
+        </p>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-56">Systemfelt</TableHead>
+                <TableHead className="w-56">Kolonne i fil</TableHead>
+                <TableHead>Eksempel række 1</TableHead>
+                <TableHead>Eksempel række 2</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {mappingRows.map((r) => (
+                <TableRow key={r.field}>
+                  <TableCell className="font-medium">{r.label}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.header}</TableCell>
+                  <TableCell className="text-xs">{r.sample1 || <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="text-xs">{r.sample2 || <span className="text-muted-foreground">—</span>}</TableCell>
+                </TableRow>
+              ))}
+              <TableRow className="bg-muted/30">
+                <TableCell className="font-medium">Firma (filter)</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {firmaInHeaders ? "Firma" : <span className="text-destructive">MANGLER</span>}
+                </TableCell>
+                <TableCell className="text-xs">{firmaSample1 || <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="text-xs">{firmaSample2 || <span className="text-muted-foreground">—</span>}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+        {!firmaInHeaders && (
+          <p className="text-xs text-destructive mt-3">
+            ⚠️ Kolonnen "Firma" findes ikke i filen — uden den vil ALLE rækker blive afvist af firma-filteret.
+          </p>
+        )}
+      </Card>
+
+      <Card className="p-4 border-primary/30 bg-primary/5">
+        <p className="text-sm">
+          <span className="font-medium">Ufravigeligt filter:</span> kun rækker hvor <span className="font-mono">Firma = "10"</span> (Frellsen Kaffe) importeres. Alle andre firma-koder springes over.
+        </p>
+      </Card>
+
 
       <Card className="p-6">
         <h2 className="font-semibold mb-3">Filtreringsindstillinger</h2>
