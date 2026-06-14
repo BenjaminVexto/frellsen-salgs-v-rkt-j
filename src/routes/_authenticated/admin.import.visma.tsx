@@ -690,6 +690,13 @@ function ImportSide() {
     return /^\s*luk(?:ket)?\s*\/\s*/i.test(String(name));
   }
 
+  function isWrongFirma(p: PreparedRow): boolean {
+    // ALTID-filter: kun firma 10 (Frellsen Kaffe) må importeres.
+    // Tom firma = afvis (vi vil ikke importere ukendt firma-tilhørsforhold).
+    const firma = (p.raw["Firma"] ?? "").trim();
+    return firma !== "10";
+  }
+
   function isFilteredByVisma(p: PreparedRow): boolean {
     // Altid: filtrér virksomheder hvis navn er markeret som lukket i Visma
     if (isClosedName(p.data.name)) return true;
@@ -713,8 +720,11 @@ function ImportSide() {
   }
 
   const stats = useMemo(() => {
-    const kept = prepared.filter((p) => !isFilteredByVisma(p));
-    const filteredCount = prepared.length - kept.length;
+    // Firma-filter kører FØRST og er ufravigeligt — kun firma 10 fortsætter.
+    const firmaKept = prepared.filter((p) => !isWrongFirma(p));
+    const wrongFirmaCount = prepared.length - firmaKept.length;
+    const kept = firmaKept.filter((p) => !isFilteredByVisma(p));
+    const filteredCount = firmaKept.length - kept.length;
     const newCount = kept.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
     const dupCount = kept.filter((p) => p.isDuplicate).length;
     const missingCount = kept.filter((p) => p.missingCvr && !p.hasError).length;
@@ -728,6 +738,7 @@ function ImportSide() {
       missingCount,
       errorCount,
       filteredCount,
+      wrongFirmaCount,
       totalRows: prepared.length,
       unmatchedSalespersonNos: Array.from(unmatchedSp),
     };
