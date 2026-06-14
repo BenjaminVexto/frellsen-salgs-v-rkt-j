@@ -38,7 +38,6 @@ import { Route as AuthenticatedAdminMaskinerArkivRouteImport } from './routes/_a
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
 import { Route as AuthenticatedAdminImportPrismatrixRouteImport } from './routes/_authenticated/admin.import.prismatrix'
 import { Route as AuthenticatedAdminImportMaskinerRouteImport } from './routes/_authenticated/admin.import.maskiner'
-import { Route as AuthenticatedAdminImportMaskindataRouteImport } from './routes/_authenticated/admin.import.maskindata'
 import { Route as AuthenticatedAdminImportFakturaRouteImport } from './routes/_authenticated/admin.import.faktura'
 import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authenticated/admin.import.cvr'
 import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
@@ -210,12 +209,6 @@ const AuthenticatedAdminImportMaskinerRoute =
     path: '/maskiner',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
-const AuthenticatedAdminImportMaskindataRoute =
-  AuthenticatedAdminImportMaskindataRouteImport.update({
-    id: '/maskindata',
-    path: '/maskindata',
-    getParentRoute: () => AuthenticatedAdminImportRoute,
-  } as any)
 const AuthenticatedAdminImportFakturaRoute =
   AuthenticatedAdminImportFakturaRouteImport.update({
     id: '/faktura',
@@ -267,7 +260,6 @@ export interface FileRoutesByFullPath {
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
-  '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
   '/admin/import/prismatrix': typeof AuthenticatedAdminImportPrismatrixRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
@@ -301,7 +293,6 @@ export interface FileRoutesByTo {
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
-  '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
   '/admin/import/prismatrix': typeof AuthenticatedAdminImportPrismatrixRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
@@ -338,7 +329,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/_authenticated/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/_authenticated/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
-  '/_authenticated/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/_authenticated/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
   '/_authenticated/admin/import/prismatrix': typeof AuthenticatedAdminImportPrismatrixRoute
   '/_authenticated/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
@@ -375,7 +365,6 @@ export interface FileRouteTypes {
     | '/admin/import/anden'
     | '/admin/import/cvr'
     | '/admin/import/faktura'
-    | '/admin/import/maskindata'
     | '/admin/import/maskiner'
     | '/admin/import/prismatrix'
     | '/admin/import/visma'
@@ -409,7 +398,6 @@ export interface FileRouteTypes {
     | '/admin/import/anden'
     | '/admin/import/cvr'
     | '/admin/import/faktura'
-    | '/admin/import/maskindata'
     | '/admin/import/maskiner'
     | '/admin/import/prismatrix'
     | '/admin/import/visma'
@@ -445,7 +433,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import/anden'
     | '/_authenticated/admin/import/cvr'
     | '/_authenticated/admin/import/faktura'
-    | '/_authenticated/admin/import/maskindata'
     | '/_authenticated/admin/import/maskiner'
     | '/_authenticated/admin/import/prismatrix'
     | '/_authenticated/admin/import/visma'
@@ -669,13 +656,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportMaskinerRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
-    '/_authenticated/admin/import/maskindata': {
-      id: '/_authenticated/admin/import/maskindata'
-      path: '/maskindata'
-      fullPath: '/admin/import/maskindata'
-      preLoaderRoute: typeof AuthenticatedAdminImportMaskindataRouteImport
-      parentRoute: typeof AuthenticatedAdminImportRoute
-    }
     '/_authenticated/admin/import/faktura': {
       id: '/_authenticated/admin/import/faktura'
       path: '/faktura'
@@ -712,7 +692,6 @@ interface AuthenticatedAdminImportRouteChildren {
   AuthenticatedAdminImportAndenRoute: typeof AuthenticatedAdminImportAndenRoute
   AuthenticatedAdminImportCvrRoute: typeof AuthenticatedAdminImportCvrRoute
   AuthenticatedAdminImportFakturaRoute: typeof AuthenticatedAdminImportFakturaRoute
-  AuthenticatedAdminImportMaskindataRoute: typeof AuthenticatedAdminImportMaskindataRoute
   AuthenticatedAdminImportMaskinerRoute: typeof AuthenticatedAdminImportMaskinerRoute
   AuthenticatedAdminImportPrismatrixRoute: typeof AuthenticatedAdminImportPrismatrixRoute
   AuthenticatedAdminImportVismaRoute: typeof AuthenticatedAdminImportVismaRoute
@@ -726,8 +705,6 @@ const AuthenticatedAdminImportRouteChildren: AuthenticatedAdminImportRouteChildr
     AuthenticatedAdminImportAndenRoute: AuthenticatedAdminImportAndenRoute,
     AuthenticatedAdminImportCvrRoute: AuthenticatedAdminImportCvrRoute,
     AuthenticatedAdminImportFakturaRoute: AuthenticatedAdminImportFakturaRoute,
-    AuthenticatedAdminImportMaskindataRoute:
-      AuthenticatedAdminImportMaskindataRoute,
     AuthenticatedAdminImportMaskinerRoute:
       AuthenticatedAdminImportMaskinerRoute,
     AuthenticatedAdminImportPrismatrixRoute:
