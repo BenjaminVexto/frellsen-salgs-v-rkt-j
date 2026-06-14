@@ -175,7 +175,6 @@ function toIsoDate(val: any): string | null {
   }
   const s = String(val).trim();
   if (!s) return null;
-  // ISO først — men nogle Visma-eksporter skriver YYYY-DD-MM. Hvis "month"-feltet > 12, swap.
   const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (iso) {
     let mo = parseInt(iso[2], 10);
@@ -186,7 +185,6 @@ function toIsoDate(val: any): string | null {
     }
     return null;
   }
-  // DK: DD-MM-YYYY / DD.MM.YYYY / DD/MM/YYYY
   const dk = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})/);
   if (dk) {
     let [, d, m, y] = dk;
