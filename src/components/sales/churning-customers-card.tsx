@@ -8,10 +8,15 @@ import { TrendingDown, Loader2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { getMyChurningCustomers } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
 import { DismissChurnDialog } from "./dismiss-churn-dialog";
+import { useViewAs } from "@/contexts/view-as-context";
 
 export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?: number } = {}) {
   const fetchFn = useServerFn(getMyChurningCustomers);
-  const q = useQuery({ queryKey: ["my-churning"], queryFn: () => fetchFn({}) });
+  const { viewAsUserId } = useViewAs();
+  const q = useQuery({
+    queryKey: ["my-churning", viewAsUserId],
+    queryFn: () => fetchFn({ data: { viewAsUserId } }),
+  });
 
   const [dismiss, setDismiss] = useState<{ id: string; name: string } | null>(null);
   const [expanded, setExpanded] = useState(false);
