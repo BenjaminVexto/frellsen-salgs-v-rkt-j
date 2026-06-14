@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         const { data: candidates, error: selErr } = await supabaseAdmin
           .from("invoice_import_jobs")
           .select("id, phase, attempts, file_path, aggregated_path, saved_monthly, saved_top, total_monthly, total_top")
-          .in("status", ["pending", "running"])
+          .in("status", ["queued", "running"])
           .neq("phase", "done")
           .order("created_at", { ascending: true })
           .limit(1);
@@ -152,7 +152,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
           await supabaseAdmin
             .from("invoice_import_jobs")
             .update({
-              status: finalFailed ? "failed" : "pending",
+              status: finalFailed ? "failed" : "queued",
               attempts: newAttempts,
               last_error: String(e?.message ?? e).slice(0, 2000),
               finished_at: finalFailed ? new Date().toISOString() : null,
