@@ -1441,6 +1441,9 @@ function ImportSide() {
           filters={vismaFilters}
           setFilters={setVismaFilters}
           rowCount={rows.length}
+          headers={headers}
+          mapping={mapping}
+          sampleRows={rows.slice(0, 2)}
           onBack={() => setStep(1)}
           onNext={gotoPreview}
         />
