@@ -52,6 +52,15 @@ export function AssignToListDialog({
 
   const [purpose, setPurpose] = useState("");
   const [saving, setSaving] = useState(false);
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Tildelinger ikke tilladt.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
+
 
   useEffect(() => {
     if (!open) return;
