@@ -358,25 +358,21 @@ function DashboardPage() {
         <ChurningCustomersCard initialVisible={2} />
       </div>
 
-      {/* 4. NUVÆRENDE KUNDER — AFTALER UDLØBER (binding / service efter regning) */}
+      {/* 4. NUVÆRENDE KUNDER — AFTALER UDLØBER (kompakt kort → dedikeret side) */}
       <div className="mb-6 md:mb-8">
-        <PanelCard
-          title="Nuværende kunder – aftaler udløber"
-          icon={<FileText className="h-5 w-5" />}
+        <CompactStat
+          to="/aftaler-udlober"
+          icon={<FileText className="h-4 w-4" />}
           tone="warning"
+          title="Nuværende kunder – aftaler udløber"
           count={expiringMachines.length}
-          emptyText="Ingen kundeaftaler udløber inden for 90 dage."
           loading={expiringMachinesQuery.isLoading}
-        >
-          {expiringMachines.slice(0, 10).map((row) => (
-            <ExpiringCustomerRow key={row.companyId} {...row} />
-          ))}
-        </PanelCard>
+        />
       </div>
 
 
       {/* 4. KOMPAKT TÆLLER-RÆKKE */}
-      <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-3">
         <CompactStat
           to="/virksomheder"
           icon={<Flame className="h-4 w-4" />}
@@ -396,20 +392,13 @@ function DashboardPage() {
         <CompactStat
           to="/virksomheder"
           icon={<FileText className="h-4 w-4" />}
-          tone="success"
-          title="Kunder – aftaler udløber"
-          count={expiringMachines.length}
-          loading={expiringMachinesQuery.isLoading}
-        />
-        <CompactStat
-          to="/virksomheder"
-          icon={<FileText className="h-4 w-4" />}
           tone="warning"
           title="Emner – konkurrentaftaler"
           count={expiringProspects.length}
           loading={expiringDocsQuery.isLoading}
         />
       </div>
+
 
       {(followupsQuery.data?.length ?? 0) === 0 &&
         (hotOppsQuery.data?.length ?? 0) === 0 &&
