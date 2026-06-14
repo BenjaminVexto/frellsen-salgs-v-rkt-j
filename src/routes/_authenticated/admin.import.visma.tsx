@@ -1267,10 +1267,13 @@ function ImportSide() {
     setImportedRowAssignments(rowAssignments);
     setResult(resultPayload);
     importRunner.finish(
-      `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`,
+      failed > 0
+        ? `Import afsluttet med fejl: ${companyIds.length.toLocaleString("da-DK")} virksomheder`
+        : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`,
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
-    toast.success("Import gennemført");
+    if (failed > 0) toast.error(`Import afsluttet med fejl (${failed.toLocaleString("da-DK")})`);
+    else toast.success("Import gennemført");
     if (companiesWithMultipleLocations > 0) {
       toast.success(
         `${companiesWithMultipleLocations} virksomheder fik flere lokationer registreret`,
@@ -1698,7 +1701,7 @@ function Trin4Import({
     return (
       <Card className="p-6 text-center">
         <CheckCircle2 className="h-10 w-10 text-success mx-auto mb-3" />
-        <h2 className="font-semibold mb-2">Import gennemført</h2>
+        <h2 className="font-semibold mb-2">{result.failed > 0 ? "Import afsluttet med fejl" : "Import gennemført"}</h2>
         <p className="text-sm text-muted-foreground mb-5 max-w-md mx-auto">
           {importedCount} virksomheder importeret. Vil du tildele dem til en kontaktliste og sælger nu, eller gøre det senere?
         </p>
