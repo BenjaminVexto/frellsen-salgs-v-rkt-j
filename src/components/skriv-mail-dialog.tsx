@@ -17,6 +17,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { generateMailDraft, type MailPurpose } from "@/lib/mail-draft.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useViewAs } from "@/contexts/view-as-context";
 
 type PurposeOption = {
   key: MailPurpose;
