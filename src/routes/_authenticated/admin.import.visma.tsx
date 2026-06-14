@@ -1816,20 +1816,21 @@ function Trin1VismaUpload({ onFile }: { onFile: (f: File) => void }) {
         <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
           <FileUp className="h-6 w-6 text-muted-foreground" />
         </div>
-        <h2 className="font-semibold mb-1">Upload din CSV-eksport fra Visma</h2>
+        <h2 className="font-semibold mb-1">Upload din eksport fra Visma</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Filen skal være eksporteret som semikolon-separeret CSV fra Visma Debitorliste.
+          Excel-fil (.xlsx/.xls) eller semikolon-separeret CSV fra Visma Debitorliste.
         </p>
         <div className="max-w-sm mx-auto">
           <Input
             type="file"
-            accept=".csv,.txt,text/csv,text/plain"
+            accept=".xlsx,.xls,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) onFile(f);
             }}
           />
         </div>
+
       </div>
     </Card>
   );
