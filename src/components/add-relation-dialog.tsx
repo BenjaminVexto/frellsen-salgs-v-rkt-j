@@ -87,6 +87,10 @@ export function AddRelationDialog({
 
   async function save() {
     if (!picked || !type) return;
+    if (isImpersonating) {
+      toast.error("Read-only — handling ikke tilladt");
+      return;
+    }
     setSaving(true);
     try {
       await createFn({
