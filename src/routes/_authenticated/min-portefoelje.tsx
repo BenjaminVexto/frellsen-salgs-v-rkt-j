@@ -776,6 +776,7 @@ function RankingTable({
   showTrend = true,
   showEmployees = false,
   emptyText = "Ingen data.",
+  limit,
 }: {
   title: string;
   rows: RankingRow[];
@@ -784,7 +785,9 @@ function RankingTable({
   showTrend?: boolean;
   showEmployees?: boolean;
   emptyText?: string;
+  limit?: number;
 }) {
+  const shown = typeof limit === "number" ? rows.slice(0, limit) : rows;
   return (
     <Card className="overflow-hidden">
       <div className="px-4 py-3 border-b border-border">
