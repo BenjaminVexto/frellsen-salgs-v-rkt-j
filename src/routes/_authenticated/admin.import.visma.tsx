@@ -733,10 +733,28 @@ function ImportSide() {
     const wrongFirmaCount = prepared.length - firmaKept.length;
     const kept = firmaKept.filter((p) => !isFilteredByVisma(p));
     const filteredCount = firmaKept.length - kept.length;
-    const newCount = kept.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
-    const dupCount = kept.filter((p) => p.isDuplicate).length;
-    const missingCount = kept.filter((p) => p.missingCvr && !p.hasError).length;
+
+    // RÆKKE-tællere — gensidigt eksklusive (én række falder i præcis ÉN kategori).
+    // Prioritet: fejl > dublet > mangler-cvr > ny.
     const errorCount = kept.filter((p) => p.hasError).length;
+    const dupCount = kept.filter((p) => !p.hasError && p.isDuplicate).length;
+    const missingCount = kept.filter((p) => !p.hasError && !p.isDuplicate && p.missingCvr).length;
+    const newCount = kept.filter((p) => !p.hasError && !p.isDuplicate && !p.missingCvr).length;
+
+    // UNIKKE VIRKSOMHEDER (Visma-filen har én række pr. leveringsadresse —
+    // mange rækker pr. virksomhed). Det er det tal brugeren faktisk ser i UI.
+    const uniqDup = new Set<string>();
+    const uniqMissing = new Set<string>();
+    const uniqNew = new Set<string>();
+    for (const p of kept) {
+      if (p.hasError) continue;
+      const k = companyKey(p.data.name as string | null, p.data.visma_id as string | null);
+      if (!k) continue;
+      if (p.isDuplicate) uniqDup.add(k);
+      else if (p.missingCvr) uniqMissing.add(k);
+      else uniqNew.add(k);
+    }
+
     const unmatchedSp = new Set(
       kept.filter((p) => p.salespersonNo && !p.matchedSellerId).map((p) => p.salespersonNo!),
     );
@@ -745,6 +763,9 @@ function ImportSide() {
       dupCount,
       missingCount,
       errorCount,
+      uniqNewCount: uniqNew.size,
+      uniqDupCount: uniqDup.size,
+      uniqMissingCount: uniqMissing.size,
       filteredCount,
       wrongFirmaCount,
       totalRows: prepared.length,
@@ -1567,7 +1588,7 @@ function Trin3Preview({
   onNext,
 }: {
   prepared: PreparedRow[];
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; uniqNewCount: number; uniqDupCount: number; uniqMissingCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   setIncludeMissingCvr: (v: boolean) => void;
   onBack: () => void;
@@ -1577,9 +1598,9 @@ function Trin3Preview({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Nye virksomheder" value={stats.newCount} tone="success" />
-        <StatCard label="CVR-dubletter (opdateres)" value={stats.dupCount} tone="warning" />
-        <StatCard label="Mangler CVR" value={stats.missingCount} tone="muted" />
+        <StatCard label="Nye virksomheder" value={stats.uniqNewCount} tone="success" />
+        <StatCard label="CVR-dubletter (opdateres)" value={stats.uniqDupCount} tone="warning" />
+        <StatCard label="Mangler CVR" value={stats.uniqMissingCount} tone="muted" />
         <StatCard label="Fejl" value={stats.errorCount} tone="destructive" />
       </div>
 
@@ -1589,12 +1610,12 @@ function Trin3Preview({
         </Card>
       )}
 
-      {stats.missingCount > 0 && (
+      {stats.uniqMissingCount > 0 && (
         <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start">
           <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium mb-1">
-              {stats.missingCount} rækker har intet CVR
+              {stats.uniqMissingCount} virksomheder har intet CVR
             </p>
             <p className="text-xs text-muted-foreground mb-3">
               Vælg om de skal importeres alligevel eller springes over.
@@ -1679,7 +1700,7 @@ function Trin4Import({
   onAssignNow,
   onLater,
 }: {
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; uniqNewCount: number; uniqDupCount: number; uniqMissingCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
@@ -1738,14 +1759,15 @@ function Trin4Import({
   }
 
   const willImport =
-    stats.newCount + stats.dupCount + (includeMissingCvr ? stats.missingCount : 0);
+    stats.uniqNewCount + stats.uniqDupCount + (includeMissingCvr ? stats.uniqMissingCount : 0);
   return (
     <Card className="p-6">
       <h2 className="font-semibold mb-1">Bekræft og importér</h2>
       <p className="text-sm text-muted-foreground mb-4">
-        {willImport} rækker importeres. {stats.dupCount} eksisterende opdateres, {stats.newCount} nye oprettes.
-        {!includeMissingCvr && stats.missingCount > 0 && (
-          <> {stats.missingCount} rækker uden CVR springes over.</>
+        {willImport} virksomheder importeres ({stats.uniqDupCount} eksisterende opdateres, {stats.uniqNewCount} nye oprettes
+        {includeMissingCvr && stats.uniqMissingCount > 0 ? `, ${stats.uniqMissingCount} uden CVR` : ""}).
+        {!includeMissingCvr && stats.uniqMissingCount > 0 && (
+          <> {stats.uniqMissingCount} virksomheder uden CVR springes over.</>
         )}
         {stats.errorCount > 0 && <> {stats.errorCount} rækker med fejl springes over.</>}
       </p>
