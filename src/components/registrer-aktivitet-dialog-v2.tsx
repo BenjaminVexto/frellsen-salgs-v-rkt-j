@@ -80,6 +80,10 @@ export function RegistrerAktivitetDialogV2({
 
   async function save() {
     if (!type) return;
+    if (isImpersonating) {
+      toast.error("Read-only — handling ikke tilladt");
+      return;
+    }
     setSaving(true);
     const trimmed = note.trim();
     const { data: inserted, error } = await supabase
