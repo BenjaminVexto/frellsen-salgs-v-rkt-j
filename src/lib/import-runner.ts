@@ -9,6 +9,7 @@ export type ImportRunnerState = {
   kind: ImportKind | null;
   startedAt: number | null;
   finishedAt: number | null;
+  aborted: boolean;
   // Arbitrary post-import payload (result + helper maps) so the
   // post-import UI (mass assignment etc.) survives navigation.
   postState: unknown | null;
