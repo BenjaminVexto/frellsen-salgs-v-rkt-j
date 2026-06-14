@@ -312,7 +312,7 @@ function PortfolioPage() {
                           />
                         </td>
                         <td className="px-3 py-2">
-                          <Sparkline values={c.monthly.map((m) => m.revenue)} />
+                          <Sparkline values={c.monthly.map((m) => m.revenue)} revenue12m={c.revenue12m} />
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {lastMonth > 0 ? fmtKr(lastMonth) : "—"}
@@ -1091,7 +1091,13 @@ function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "paavejva
   return "andet";
 }
 
-function Sparkline({ values }: { values: number[] }) {
+// Tærskler for hvornår en trend markeres som "kræver opmærksomhed".
+// Justér her for at kalibrere — små kunder/små udsving forbliver neutrale.
+const ATTENTION_MIN_REVENUE_12M = 25000; // kun "større" kunder (top ~10%)
+const ATTENTION_DROP_KR = 3000; // mærkbart fald i kr fra start til slut af perioden
+const ATTENTION_DROP_PCT = 0.20; // ELLER fald på 20%+ for større kunder
+
+function Sparkline({ values, revenue12m = 0 }: { values: number[]; revenue12m?: number }) {
   const w = 80;
   const h = 22;
   if (!values.length) return <span className="text-xs text-muted-foreground">—</span>;
@@ -1105,20 +1111,45 @@ function Sparkline({ values }: { values: number[] }) {
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
-  const first = values[0];
-  const last = values[values.length - 1];
-  const up = last >= first;
-  const color = up ? "stroke-emerald-500" : "stroke-destructive";
+
+  // Default: neutral grå. Kun store kunder med vedvarende/betydeligt fald markeres rødt.
+  let color = "stroke-muted-foreground/60";
+  let attention = false;
+  if (revenue12m >= ATTENTION_MIN_REVENUE_12M && values.length >= 3) {
+    const first = values[0];
+    const last = values[values.length - 1];
+    const dropKr = first - last;
+    const dropPct = first > 0 ? dropKr / first : 0;
+    // Vedvarende fald: gennemsnit af 2. halvdel < gennemsnit af 1. halvdel
+    const mid = Math.floor(values.length / 2);
+    const avgEarly = values.slice(0, mid).reduce((s, v) => s + v, 0) / Math.max(1, mid);
+    const avgLate = values.slice(mid).reduce((s, v) => s + v, 0) / Math.max(1, values.length - mid);
+    const sustained = avgLate < avgEarly;
+    const bigDrop = dropKr >= ATTENTION_DROP_KR || dropPct >= ATTENTION_DROP_PCT;
+    if (sustained && bigDrop) {
+      color = "stroke-destructive";
+      attention = true;
+    }
+  }
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block">
-      <polyline
-        fill="none"
-        strokeWidth={1.5}
-        className={color}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        points={points}
-      />
-    </svg>
+    <span className="inline-flex items-center gap-1.5" title={attention ? "Stor kunde med vedvarende fald" : undefined}>
+      <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block">
+        <polyline
+          fill="none"
+          strokeWidth={attention ? 2 : 1.5}
+          className={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={points}
+        />
+      </svg>
+      {attention && (
+        <span
+          className="inline-block h-1.5 w-1.5 rounded-full bg-destructive"
+          aria-label="Kræver opmærksomhed"
+        />
+      )}
+    </span>
   );
 }
+
