@@ -1129,22 +1129,34 @@ export type Database = {
       }
       machine_enrichment: {
         Row: {
+          beregnet_slutdato: string | null
+          binding_ophor: string | null
           created_at: string
           data: Json | null
+          handlingsdato: string | null
+          handlingsdato_raw: string | null
           serienr: string
           taelleraflaesning: string | null
           updated_at: string
         }
         Insert: {
+          beregnet_slutdato?: string | null
+          binding_ophor?: string | null
           created_at?: string
           data?: Json | null
+          handlingsdato?: string | null
+          handlingsdato_raw?: string | null
           serienr: string
           taelleraflaesning?: string | null
           updated_at?: string
         }
         Update: {
+          beregnet_slutdato?: string | null
+          binding_ophor?: string | null
           created_at?: string
           data?: Json | null
+          handlingsdato?: string | null
+          handlingsdato_raw?: string | null
           serienr?: string
           taelleraflaesning?: string | null
           updated_at?: string
