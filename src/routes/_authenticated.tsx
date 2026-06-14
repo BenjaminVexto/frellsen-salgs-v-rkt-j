@@ -111,10 +111,9 @@ function AuthenticatedShell() {
     navigate({ to: "/login" });
   };
 
-  const viewAs = useViewAs();
-  const [pickerOpen, setPickerOpen] = useState(false);
   // Skjul admin-værktøjer fra sidemenuen mens admin "ser som" sælger.
   const showAdminNav = isAdmin && !viewAs.isImpersonating;
+
 
   return (
     <div className="min-h-screen flex bg-background">
