@@ -7,6 +7,7 @@ import Papa from "papaparse";
 import type { MonthlyRow, TopProductRow } from "./invoice-import.functions";
 
 const COL = {
+  FIRMA: 0,
   ORDER_NO: 2,
   DATE: 3,
   DELIVERY: 4,
@@ -17,6 +18,9 @@ const COL = {
   REVENUE: 15,
   DB: 16,
 } as const;
+
+// Kun firma 10 (Frellsen Kaffe) må importeres. Alt andet (20/30/40/50/70 …) springes over.
+const ALLOWED_FIRMA = "10";
 
 export function parseDanishNumber(raw: unknown): number {
   if (typeof raw === "number") return raw;
@@ -74,6 +78,8 @@ export type ParseStats = {
   linesRead: number;
   internalServicePostings: number;
   invalidLines: number;
+  skippedFirma: number;
+  skippedFirmaSamples: string[];
   uniqueDeliveryNos: number;
   periodFrom: string | null;
   periodTo: string | null;
@@ -132,11 +138,14 @@ export async function parseAndAggregate(file: File): Promise<{
     linesRead: 0,
     internalServicePostings: 0,
     invalidLines: 0,
+    skippedFirma: 0,
+    skippedFirmaSamples: [],
     uniqueDeliveryNos: 0,
     periodFrom: null,
     periodTo: null,
     totalRevenue: 0,
   };
+  const firmaSampleSet = new Set<string>();
   const deliverySet = new Set<string>();
   let minDate: Date | null = null;
   let maxDate: Date | null = null;
@@ -144,6 +153,12 @@ export async function parseAndAggregate(file: File): Promise<{
   for (const row of rows) {
     if (!Array.isArray(row) || row.length < 17) {
       stats.invalidLines++;
+      continue;
+    }
+    const firma = String(row[COL.FIRMA] ?? "").trim();
+    if (firma && firma !== ALLOWED_FIRMA) {
+      stats.skippedFirma++;
+      if (firmaSampleSet.size < 10) firmaSampleSet.add(firma);
       continue;
     }
     const date = parseDanishDate(row[COL.DATE]);
@@ -213,6 +228,7 @@ export async function parseAndAggregate(file: File): Promise<{
   stats.uniqueDeliveryNos = deliverySet.size;
   stats.periodFrom = minDate ? monthStart(minDate) : null;
   stats.periodTo = maxDate ? monthStart(maxDate) : null;
+  stats.skippedFirmaSamples = Array.from(firmaSampleSet).sort();
 
   const monthly: MonthlyRow[] = Array.from(monthlyMap.values()).map((a) => ({
     visma_delivery_no: a.delivery,
