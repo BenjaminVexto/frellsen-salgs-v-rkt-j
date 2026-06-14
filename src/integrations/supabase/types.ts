@@ -1135,8 +1135,11 @@ export type Database = {
           data: Json | null
           handlingsdato: string | null
           handlingsdato_raw: string | null
+          last_seen_import: string | null
+          record_status: string
           serienr: string
           taelleraflaesning: string | null
+          udgaaet_dato: string | null
           updated_at: string
         }
         Insert: {
@@ -1146,8 +1149,11 @@ export type Database = {
           data?: Json | null
           handlingsdato?: string | null
           handlingsdato_raw?: string | null
+          last_seen_import?: string | null
+          record_status?: string
           serienr: string
           taelleraflaesning?: string | null
+          udgaaet_dato?: string | null
           updated_at?: string
         }
         Update: {
@@ -1157,8 +1163,11 @@ export type Database = {
           data?: Json | null
           handlingsdato?: string | null
           handlingsdato_raw?: string | null
+          last_seen_import?: string | null
+          record_status?: string
           serienr?: string
           taelleraflaesning?: string | null
+          udgaaet_dato?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1174,13 +1183,16 @@ export type Database = {
           fak_kundenr: string | null
           id: string
           kobt_dato: string | null
+          last_seen_import: string | null
           lease_leje_dato: string | null
           lev_kundenr: string | null
           navn: string | null
           ordrenr: string | null
+          record_status: string
           serienr: string | null
           status: string | null
           taellerstand: number | null
+          udgaaet_dato: string | null
           udlanstype: string | null
           updated_at: string
           varenr: string | null
@@ -1195,13 +1207,16 @@ export type Database = {
           fak_kundenr?: string | null
           id: string
           kobt_dato?: string | null
+          last_seen_import?: string | null
           lease_leje_dato?: string | null
           lev_kundenr?: string | null
           navn?: string | null
           ordrenr?: string | null
+          record_status?: string
           serienr?: string | null
           status?: string | null
           taellerstand?: number | null
+          udgaaet_dato?: string | null
           udlanstype?: string | null
           updated_at?: string
           varenr?: string | null
@@ -1216,13 +1231,16 @@ export type Database = {
           fak_kundenr?: string | null
           id?: string
           kobt_dato?: string | null
+          last_seen_import?: string | null
           lease_leje_dato?: string | null
           lev_kundenr?: string | null
           navn?: string | null
           ordrenr?: string | null
+          record_status?: string
           serienr?: string | null
           status?: string | null
           taellerstand?: number | null
+          udgaaet_dato?: string | null
           udlanstype?: string | null
           updated_at?: string
           varenr?: string | null

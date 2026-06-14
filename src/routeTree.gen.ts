@@ -33,6 +33,7 @@ import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
 import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
+import { Route as AuthenticatedAdminMaskinerArkivRouteImport } from './routes/_authenticated/admin.maskiner.arkiv'
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
 import { Route as AuthenticatedAdminImportMaskinerRouteImport } from './routes/_authenticated/admin.import.maskiner'
 import { Route as AuthenticatedAdminImportMaskindataRouteImport } from './routes/_authenticated/admin.import.maskindata'
@@ -177,6 +178,12 @@ const ApiPublicHooksProcessCvrEnrichmentRoute =
     path: '/api/public/hooks/process-cvr-enrichment',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedAdminMaskinerArkivRoute =
+  AuthenticatedAdminMaskinerArkivRouteImport.update({
+    id: '/admin/maskiner/arkiv',
+    path: '/admin/maskiner/arkiv',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminImportVismaRoute =
   AuthenticatedAdminImportVismaRouteImport.update({
     id: '/visma',
@@ -249,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
+  '/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
@@ -280,6 +288,7 @@ export interface FileRoutesByTo {
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
+  '/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/admin/import': typeof AuthenticatedAdminImportIndexRoute
 }
@@ -314,6 +323,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
   '/_authenticated/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
   '/_authenticated/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
+  '/_authenticated/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/_authenticated/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
@@ -348,6 +358,7 @@ export interface FileRouteTypes {
     | '/admin/import/maskindata'
     | '/admin/import/maskiner'
     | '/admin/import/visma'
+    | '/admin/maskiner/arkiv'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/admin/import/'
   fileRoutesByTo: FileRoutesByTo
@@ -379,6 +390,7 @@ export interface FileRouteTypes {
     | '/admin/import/maskindata'
     | '/admin/import/maskiner'
     | '/admin/import/visma'
+    | '/admin/maskiner/arkiv'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/admin/import'
   id:
@@ -412,6 +424,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import/maskindata'
     | '/_authenticated/admin/import/maskiner'
     | '/_authenticated/admin/import/visma'
+    | '/_authenticated/admin/maskiner/arkiv'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/_authenticated/admin/import/'
   fileRoutesById: FileRoutesById
@@ -595,6 +608,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksProcessCvrEnrichmentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/maskiner/arkiv': {
+      id: '/_authenticated/admin/maskiner/arkiv'
+      path: '/admin/maskiner/arkiv'
+      fullPath: '/admin/maskiner/arkiv'
+      preLoaderRoute: typeof AuthenticatedAdminMaskinerArkivRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/import/visma': {
       id: '/_authenticated/admin/import/visma'
       path: '/visma'
@@ -696,6 +716,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedProfilPasswordRoute: typeof AuthenticatedProfilPasswordRoute
   AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRoute
   AuthenticatedAftalerIndexRoute: typeof AuthenticatedAftalerIndexRoute
+  AuthenticatedAdminMaskinerArkivRoute: typeof AuthenticatedAdminMaskinerArkivRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -716,6 +737,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProfilPasswordRoute: AuthenticatedProfilPasswordRoute,
   AuthenticatedVirksomhederIdRoute: AuthenticatedVirksomhederIdRoute,
   AuthenticatedAftalerIndexRoute: AuthenticatedAftalerIndexRoute,
+  AuthenticatedAdminMaskinerArkivRoute: AuthenticatedAdminMaskinerArkivRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

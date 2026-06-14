@@ -287,6 +287,12 @@ function MaskinerImportSide() {
     enrichmentUpserted: number;
     machineRowsParsed: number;
     enrichmentRowsParsed: number;
+    machinesActiveBefore?: number;
+    enrichmentActiveBefore?: number;
+    machinesMarkedUdgaaet?: number;
+    enrichmentMarkedUdgaaet?: number;
+    machinesReactivated?: number;
+    enrichmentReactivated?: number;
   } | null>(null);
   const importFn = useServerFn(importMachines);
 
@@ -437,13 +443,30 @@ function MaskinerImportSide() {
           <ul className="text-sm space-y-1 text-emerald-900">
             <li>
               <strong>{result.machinesUpserted}</strong> rækker upsertet i <code>machines</code>{" "}
-              (parsed: {result.machineRowsParsed})
+              (parsed: {result.machineRowsParsed}, aktiv før: {result.machinesActiveBefore ?? "–"})
+            </li>
+            <li>
+              <strong>{result.machinesMarkedUdgaaet ?? 0}</strong> maskiner nyflagget{" "}
+              <em>udgået</em> · <strong>{result.machinesReactivated ?? 0}</strong> reaktiveret
             </li>
             <li>
               <strong>{result.enrichmentUpserted}</strong> rækker upsertet i{" "}
-              <code>machine_enrichment</code> (parsed: {result.enrichmentRowsParsed})
+              <code>machine_enrichment</code> (parsed: {result.enrichmentRowsParsed}, aktiv før:{" "}
+              {result.enrichmentActiveBefore ?? "–"})
+            </li>
+            <li>
+              <strong>{result.enrichmentMarkedUdgaaet ?? 0}</strong> enrichment-rækker nyflagget{" "}
+              <em>udgået</em> · <strong>{result.enrichmentReactivated ?? 0}</strong> reaktiveret
             </li>
           </ul>
+          <p className="text-xs text-emerald-800 mt-3">
+            Udgåede rækker slettes ikke — se{" "}
+            <Link to="/admin/maskiner/arkiv" className="underline">
+              arkivvisning
+            </Link>
+            .
+          </p>
+
         </Card>
       )}
     </div>
