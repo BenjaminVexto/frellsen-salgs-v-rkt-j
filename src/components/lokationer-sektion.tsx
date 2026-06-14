@@ -101,6 +101,26 @@ export function LokationerSektion({
     load();
   }, [companyId, reloadKey]);
 
+  // Auto-open + scroll til en bestemt lokation når URL'en peger på den
+  useEffect(() => {
+    if (!initialOpenLocationId) return;
+    if (!locations.some((l) => l.id === initialOpenLocationId)) return;
+    setExpanded(true);
+    setOpenId(initialOpenLocationId);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`location-${initialOpenLocationId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.classList.add("ring-2", "ring-primary", "rounded-md");
+        setTimeout(
+          () => el.classList.remove("ring-2", "ring-primary", "rounded-md"),
+          2500,
+        );
+      }
+    });
+  }, [initialOpenLocationId, locations]);
+
+
   const summaryFn = useServerFn(getLocationSalesSummary);
   const summaryQ = useQuery({
     enabled: locations.length > 0,
