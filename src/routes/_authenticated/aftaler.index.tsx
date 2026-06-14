@@ -88,8 +88,20 @@ function AftalerPage() {
   const isAdmin = auth.role === "admin";
   const listFn = useServerFn(listAgreements);
   const deleteFn = useServerFn(deleteAgreement);
+  const listKp2Fn = useServerFn(listPricingKp2Groups);
 
   const [rows, setRows] = useState<Agreement[]>([]);
+  const [kp2Groups, setKp2Groups] = useState<
+    {
+      code: string;
+      label: string;
+      raw: string;
+      count: number;
+      fra: string | null;
+      til: string | null;
+      agreement: { id: string } | null;
+    }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -100,8 +112,12 @@ function AftalerPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = (await listFn()) as Agreement[];
+      const [data, kp2s] = await Promise.all([
+        listFn() as Promise<Agreement[]>,
+        listKp2Fn() as Promise<typeof kp2Groups>,
+      ]);
       setRows(data);
+      setKp2Groups(kp2s);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke hente aftaler");
     } finally {
