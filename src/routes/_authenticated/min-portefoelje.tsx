@@ -846,13 +846,22 @@ function RankingTable({
   emptyText?: string;
   limit?: number;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   const shown = typeof limit === "number" ? rows.slice(0, limit) : rows;
   return (
     <Card className="overflow-hidden">
-      <div className="px-4 py-3 border-b border-border bg-muted/60">
-        <h3 className="text-base font-bold text-foreground">{title}</h3>
-      </div>
-      {!rows.length ? (
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className="w-full px-4 py-3 border-b border-border bg-muted/60 text-left hover:bg-muted flex items-center justify-between gap-2"
+      >
+        <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+          {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          {title}
+        </h3>
+        <span className="text-xs text-muted-foreground tabular-nums">{rows.length}</span>
+      </button>
+      {collapsed ? null : !rows.length ? (
         <div className="px-4 py-10 text-center text-sm text-muted-foreground">{emptyText}</div>
       ) : (
         <div className="overflow-x-auto">
