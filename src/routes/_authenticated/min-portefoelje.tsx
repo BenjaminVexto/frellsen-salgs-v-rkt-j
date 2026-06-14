@@ -264,7 +264,10 @@ function PortfolioPage() {
                     <Th onClick={() => toggleSort("consumable")} active={sortKey === "consumable"} dir={sortDir}>
                       Kaffe
                     </Th>
-                    <th className="px-3 py-2 text-left">Trend · 5 mdr.</th>
+                    <th className="px-3 py-2 text-left" title="Løbende forbrug (kaffe, drikke m.m.) pr. måned — ekskl. årlig maskinservice/-leje. 5 seneste hele måneder.">
+                      Trend · løbende forbrug
+                      <div className="text-[10px] font-normal text-muted-foreground">ekskl. maskinservice</div>
+                    </th>
                     <Th
                       onClick={() => toggleSort("month:last")}
                       active={sortKey === "month:last"}

@@ -290,6 +290,11 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     let totalRevPrior = 0;
     let totalContrib = 0;
     const last5Set = new Set(last5);
+    // Trend (monthly) måler LØBENDE FORBRUG = al omsætning UNDTAGEN
+    // produktgruppe "16 [Maskiner/Service]". Maskingruppen klumper i januar
+    // pga. årlig service-/leje-fakturering og giver ellers falske fald.
+    // revenue12m/contribution12m bevares som TOTAL (inkl. maskiner).
+    const MACHINE_RE = /^\s*16\s*\[/;
 
     for (const r of salesRows) {
       const cid = r.company_id as string;
@@ -298,6 +303,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const rev = Number(r.revenue) || 0;
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
+      const isMachine = MACHINE_RE.test(String((r as any).product_group_1 ?? ""));
 
       const agg =
         aggs.get(cid) ?? { monthly: new Map(), revenue12m: 0, revenue12mPrior: 0, contribution12m: 0 };
@@ -306,7 +312,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         if (isAdmin) totalContrib += Number((r as any).contribution) || 0;
         agg.revenue12m += rev;
         if (isAdmin) agg.contribution12m += Number((r as any).contribution) || 0;
-        if (last5Set.has(period)) {
+        if (last5Set.has(period) && !isMachine) {
           agg.monthly.set(period, (agg.monthly.get(period) ?? 0) + rev);
         }
         aggs.set(cid, agg);
