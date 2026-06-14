@@ -1115,41 +1115,53 @@ function Sparkline({ values, revenue12m = 0 }: { values: number[]; revenue12m?: 
     })
     .join(" ");
 
-  // Default: neutral grå. Kun store kunder med vedvarende/betydeligt fald markeres rødt.
+  // Default: neutral grå. Store kunder markeres rødt ved vedvarende fald,
+  // grønt ved vedvarende vækst — symmetriske tærskler.
   let color = "stroke-muted-foreground/60";
-  let attention = false;
+  let status: "down" | "up" | null = null;
+  let tooltip: string | undefined;
   if (revenue12m >= ATTENTION_MIN_REVENUE_12M && values.length >= 3) {
     const first = values[0];
     const last = values[values.length - 1];
-    const dropKr = first - last;
-    const dropPct = first > 0 ? dropKr / first : 0;
-    // Vedvarende fald: gennemsnit af 2. halvdel < gennemsnit af 1. halvdel
+    const diffKr = last - first; // positiv = vækst
+    const diffPct = first > 0 ? diffKr / first : 0;
     const mid = Math.floor(values.length / 2);
     const avgEarly = values.slice(0, mid).reduce((s, v) => s + v, 0) / Math.max(1, mid);
     const avgLate = values.slice(mid).reduce((s, v) => s + v, 0) / Math.max(1, values.length - mid);
-    const sustained = avgLate < avgEarly;
-    const bigDrop = dropKr >= ATTENTION_DROP_KR || dropPct >= ATTENTION_DROP_PCT;
-    if (sustained && bigDrop) {
+    const fmtKr = (n: number) => Math.round(n).toLocaleString("da-DK") + " kr";
+    const fmtPct = (n: number) => (n * 100).toFixed(0) + "%";
+    if (avgLate < avgEarly && (-diffKr >= ATTENTION_DROP_KR || -diffPct >= ATTENTION_DROP_PCT)) {
       color = "stroke-destructive";
-      attention = true;
+      status = "down";
+      tooltip = `Stor kunde med vedvarende fald\nSeneste mdr.: ${fmtKr(avgLate)} (gns)\nTidligere: ${fmtKr(avgEarly)} (gns)\nFald: ${fmtKr(-diffKr)} (${fmtPct(-diffPct)})`;
+    } else if (avgLate > avgEarly && (diffKr >= ATTENTION_DROP_KR || diffPct >= ATTENTION_DROP_PCT)) {
+      color = "stroke-emerald-600";
+      status = "up";
+      tooltip = `Stor kunde i vækst\nSeneste mdr.: ${fmtKr(avgLate)} (gns)\nTidligere: ${fmtKr(avgEarly)} (gns)\nStigning: ${fmtKr(diffKr)} (${fmtPct(diffPct)})`;
     }
   }
   return (
-    <span className="inline-flex items-center gap-1.5" title={attention ? "Stor kunde med vedvarende fald" : undefined}>
+    <span className="inline-flex items-center gap-1.5" title={tooltip}>
       <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block">
         <polyline
           fill="none"
-          strokeWidth={attention ? 2 : 1.5}
+          strokeWidth={status ? 2 : 1.5}
           className={color}
           strokeLinecap="round"
           strokeLinejoin="round"
           points={points}
         />
       </svg>
-      {attention && (
+      {status === "down" && (
         <span
           className="inline-block h-1.5 w-1.5 rounded-full bg-destructive"
           aria-label="Kræver opmærksomhed"
+        />
+      )}
+      {status === "up" && (
+        <span
+          className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-600"
+          aria-label="I vækst"
         />
       )}
     </span>
