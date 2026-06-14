@@ -411,17 +411,29 @@ function fmtDa(iso?: string | null): string {
   }
 }
 
-function pickRespons(data: any): string | null {
+function pickFromData(data: any, names: string[]): string | null {
   if (!data || typeof data !== "object") return null;
+  const norm = (s: string) => s.toLowerCase().replace(/[\s._-]/g, "");
+  const wanted = new Set(names.map(norm));
   for (const k of Object.keys(data)) {
-    const kn = k.toLowerCase().replace(/[\s._-]/g, "");
-    if (kn === "respons" || kn === "responstid") {
+    if (wanted.has(norm(k))) {
       const v = data[k];
-      if (v == null || String(v).trim() === "") return null;
+      if (v == null || String(v).trim() === "") continue;
       return String(v).trim();
     }
   }
   return null;
+}
+
+function pickRespons(data: any): string | null {
+  return pickFromData(data, ["respons", "responstid"]);
+}
+
+function pickTaellerstand(data: any): number | null {
+  const v = pickFromData(data, ["taellerstand", "tællerstand", "taeller", "tæller"]);
+  if (v == null) return null;
+  const n = Number(String(v).replace(/[^\d.,-]/g, "").replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
 }
 
 function EquipmentBox({ location }: { location: Location }) {
@@ -467,34 +479,22 @@ function EquipmentBox({ location }: { location: Location }) {
     }
     let cancelled = false;
     (async () => {
-      const [enrRes, machRes] = await Promise.all([
-        (supabase as any)
-          .from("machine_enrichment")
-          .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data")
-          .eq("record_status", "aktiv")
-          .in("serienr", serials),
-        (supabase as any)
-          .from("machines")
-          .select("serienr, taellerstand, data")
-          .eq("record_status", "aktiv")
-          .in("serienr", serials),
-      ]);
+      // serienr er text i begge tabeller — .in() sammenligner som text,
+      // så ledende nuller bevares korrekt.
+      const { data: enrData } = await (supabase as any)
+        .from("machine_enrichment")
+        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data")
+        .eq("record_status", "aktiv")
+        .in("serienr", serials);
       if (cancelled) return;
       const m = new Map<string, EnrichmentInfo>();
-      for (const e of (enrRes.data ?? []) as any[]) {
-        m.set(e.serienr, {
+      for (const e of (enrData ?? []) as any[]) {
+        m.set(String(e.serienr), {
           binding_ophor: e.binding_ophor ?? null,
           handlingsdato: e.handlingsdato ?? null,
           taelleraflaesning: e.taelleraflaesning ?? null,
+          taellerstand: pickTaellerstand(e.data),
           respons: pickRespons(e.data),
-        });
-      }
-      for (const x of (machRes.data ?? []) as any[]) {
-        const prev = m.get(x.serienr) ?? {};
-        m.set(x.serienr, {
-          ...prev,
-          taellerstand: x.taellerstand ?? null,
-          respons: prev.respons ?? pickRespons(x.data),
         });
       }
       setEnrichBySerial(m);
