@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/admin/import/")({
 });
 
 type Valg = {
-  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata" | "/admin/import/maskiner" | "/admin/import/aftale-emner" | "/admin/import/faktura";
+  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata" | "/admin/import/maskiner" | "/admin/import/aftale-emner" | "/admin/import/faktura" | "/admin/import/prismatrix";
   icon: React.ComponentType<{ className?: string }>;
   emoji: string;
   title: string;
