@@ -1913,6 +1913,9 @@ function Trin2VismaConfirm({
   filters,
   setFilters,
   rowCount,
+  headers,
+  mapping,
+  sampleRows,
   onBack,
   onNext,
 }: {
@@ -1920,9 +1923,29 @@ function Trin2VismaConfirm({
   filters: { excludeInternal: boolean; excludeForeign: boolean; excludeCreditBlocked: boolean };
   setFilters: (f: { excludeInternal: boolean; excludeForeign: boolean; excludeCreditBlocked: boolean }) => void;
   rowCount: number;
+  headers: string[];
+  mapping: Partial<Record<SystemField, string>>;
+  sampleRows: ParsedRow[];
   onBack: () => void;
   onNext: () => void;
 }) {
+  // Bygger forhåndsvisning: hvert systemfelt → den header det blev koblet til
+  // → de to første rækkers værdi for den header. Brugeren kan visuelt verificere
+  // at fx cvr indeholder et 8-cifret tal, og name indeholder et virksomhedsnavn.
+  const mappingRows = SYSTEM_FIELDS.filter((f) => mapping[f.key]).map((f) => {
+    const hdr = mapping[f.key]!;
+    return {
+      field: f.key,
+      label: f.label,
+      header: hdr,
+      sample1: sampleRows[0]?.[hdr] ?? "",
+      sample2: sampleRows[1]?.[hdr] ?? "",
+    };
+  });
+  const firmaInHeaders = headers.includes("Firma");
+  const firmaSample1 = sampleRows[0]?.["Firma"] ?? "";
+  const firmaSample2 = sampleRows[1]?.["Firma"] ?? "";
+
   return (
     <div className="space-y-4">
       <Card className="p-6">
@@ -1937,6 +1960,56 @@ function Trin2VismaConfirm({
           </p>
         )}
       </Card>
+
+      <Card className="p-6">
+        <h2 className="font-semibold mb-1">Verificér kolonne-mapping</h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Tjek at <span className="font-medium">CVR</span> indeholder et 8-cifret tal, og at <span className="font-medium">Navn</span> indeholder virksomhedsnavnet, FØR du importerer.
+          Hvis en kolonne er koblet forkert, så ret kolonneoverskrifterne i Excel-filen og upload igen.
+        </p>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-56">Systemfelt</TableHead>
+                <TableHead className="w-56">Kolonne i fil</TableHead>
+                <TableHead>Eksempel række 1</TableHead>
+                <TableHead>Eksempel række 2</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {mappingRows.map((r) => (
+                <TableRow key={r.field}>
+                  <TableCell className="font-medium">{r.label}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.header}</TableCell>
+                  <TableCell className="text-xs">{r.sample1 || <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="text-xs">{r.sample2 || <span className="text-muted-foreground">—</span>}</TableCell>
+                </TableRow>
+              ))}
+              <TableRow className="bg-muted/30">
+                <TableCell className="font-medium">Firma (filter)</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {firmaInHeaders ? "Firma" : <span className="text-destructive">MANGLER</span>}
+                </TableCell>
+                <TableCell className="text-xs">{firmaSample1 || <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="text-xs">{firmaSample2 || <span className="text-muted-foreground">—</span>}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+        {!firmaInHeaders && (
+          <p className="text-xs text-destructive mt-3">
+            ⚠️ Kolonnen "Firma" findes ikke i filen — uden den vil ALLE rækker blive afvist af firma-filteret.
+          </p>
+        )}
+      </Card>
+
+      <Card className="p-4 border-primary/30 bg-primary/5">
+        <p className="text-sm">
+          <span className="font-medium">Ufravigeligt filter:</span> kun rækker hvor <span className="font-mono">Firma = "10"</span> (Frellsen Kaffe) importeres. Alle andre firma-koder springes over.
+        </p>
+      </Card>
+
 
       <Card className="p-6">
         <h2 className="font-semibold mb-3">Filtreringsindstillinger</h2>
