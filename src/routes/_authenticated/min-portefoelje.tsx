@@ -315,7 +315,7 @@ function PortfolioPage() {
                           />
                         </td>
                         <td className="px-3 py-2">
-                          <Sparkline values={c.monthly.map((m) => m.revenue)} revenue12m={c.revenue12m} />
+                          <Sparkline months={c.monthly} revenue12m={c.revenue12m} />
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {lastMonth > 0 ? fmtKr(lastMonth) : "—"}
