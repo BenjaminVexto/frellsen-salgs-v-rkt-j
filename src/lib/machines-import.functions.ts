@@ -56,6 +56,74 @@ function normDate(s: string | null | undefined): string | null {
   return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+// ---- Helpers til at fylde location_equipment_units fra maskinlisten ----
+// Speglet fra equipment-import.functions.ts så Maskiner-importen kan stå alene.
+function normalizeVismaNo(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  const s = String(val).trim();
+  if (!s) return "";
+  const stripped = s.replace(/^0+/, "");
+  return stripped || "0";
+}
+const COFFEE_KEYWORDS = [
+  "wittenborg", "rex-royal", "rex royal", "bonamat", "animo",
+  "schaerer", "franke", "krea", "optivend", "optimed", "jura",
+  "profitec", "egro", "mondo", "racilio", "bravilor",
+];
+const FILTER_KEYWORDS = ["brita", "purity", "filter", "bwt", "quell", "st komplet"];
+const COOLING_KEYWORDS = ["køl", "vitrifrigo", "mælkekøler", "fridge", "kølesk"];
+const GRINDER_KEYWORDS = ["kværn"];
+type Category = "coffee" | "filter" | "cooling" | "grinder" | "other";
+function categorize(desc: string): Category {
+  const s = (desc || "").toLowerCase();
+  if (COFFEE_KEYWORDS.some((k) => s.includes(k))) return "coffee";
+  if (FILTER_KEYWORDS.some((k) => s.includes(k))) return "filter";
+  if (COOLING_KEYWORDS.some((k) => s.includes(k))) return "cooling";
+  if (GRINDER_KEYWORDS.some((k) => s.includes(k))) return "grinder";
+  return "other";
+}
+const FREE_LOAN_TOKENS = ["u/b", "4 [udlån]", "udlån", "6 [midlertidigt", "8 [prøve"];
+const LEASE_TOKENS = ["3 [leje / leasing]", "leje / leasing"];
+function simplifyAgreement(s: string): string {
+  const x = s.trim();
+  const lower = x.toLowerCase();
+  if (lower.includes("5 [leje u/b]")) return "Gratis udlån (Leje u/b)";
+  if (lower.includes("3 [leje / leasing]")) return "Leje";
+  if (lower.includes("4 [udlån]")) return "Udlån";
+  if (lower.includes("6 [midlertidigt")) return "Midlertidigt udlån";
+  if (lower.includes("8 [prøveopsætning]")) return "Prøveopsætning";
+  if (lower.includes("7 [bytteservice]")) return "Bytteservice";
+  return x;
+}
+const UNIT_FILTER_KEYWORDS = ["brita", "purity", "flowmeter", "iq meter", "filterkurv"];
+function isFilterUnit(text: string): boolean {
+  const s = (text || "").toLowerCase();
+  return UNIT_FILTER_KEYWORDS.some((k) => s.includes(k));
+}
+function buildSummary(coffee: number, filters: number, cooling: number, service: number): string {
+  const parts: string[] = [];
+  if (coffee > 0) parts.push(`${coffee} ${coffee === 1 ? "kaffemaskine" : "kaffemaskiner"}`);
+  if (filters > 0) parts.push(`${filters} ${filters === 1 ? "filter" : "filtre"}`);
+  if (cooling > 0) parts.push(`${cooling} ${cooling === 1 ? "køl" : "køl"}`);
+  if (service > 0) parts.push(`${service} service (kundeejet)`);
+  return parts.join(", ");
+}
+function computeSalesSignal(
+  hasFreeLoan: boolean,
+  serviceContracts: number,
+  frellsenOwned: number,
+  lastPurchaseDate: string | null,
+): string | null {
+  const today = new Date();
+  const last = lastPurchaseDate ? new Date(lastPurchaseDate) : null;
+  const daysSince = last ? Math.floor((today.getTime() - last.getTime()) / 86400000) : null;
+  if (hasFreeLoan && (last === null || (daysSince !== null && daysSince > 365))) return "Gratis udlån — intet/gammelt køb";
+  if (hasFreeLoan && daysSince !== null && daysSince > 180) return "Gratis udlån — lav aktivitet";
+  if (hasFreeLoan && daysSince !== null && daysSince > 90) return "Gratis udlån — opfølgning";
+  if (serviceContracts > 0 && frellsenOwned === 0) return "Serviceaftale — konverteringspotentiale";
+  return null;
+}
+
 export const importMachines = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
