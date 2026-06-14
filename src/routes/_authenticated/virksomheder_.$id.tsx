@@ -802,6 +802,7 @@ function VirksomhedsKort() {
             {/* FANE: Aftaler */}
             <TabsContent value="aftaler" className="space-y-6 mt-4">
               <AgreementCardSection segment1={(company as any).customer_segment_1 ?? null} variant="top" />
+              <CompanyPricingSummary companyId={company.id} />
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
               <div className="border-t border-border" />
               <KonkurrentaftaleSektion companyId={company.id} />
