@@ -508,6 +508,81 @@ function ExpiringCustomerRow({
   );
 }
 
+function ExpiringCustomersCard({
+  customers,
+  loading,
+  initialVisible = 2,
+}: {
+  customers: { companyId: string; companyName: string; earliestDate: string; machines: unknown[] }[];
+  loading: boolean;
+  initialVisible?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const count = customers.length;
+  const visible = expanded ? customers : customers.slice(0, initialVisible);
+  const hiddenCount = Math.max(0, count - initialVisible);
+
+  return (
+    <Card className="p-4 md:p-6">
+      <div className="flex items-center justify-between mb-3 md:mb-4">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-md flex items-center justify-center bg-warning/15 text-warning-foreground">
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-semibold text-foreground leading-tight truncate">
+              Nuværende kunder – aftaler udløber
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {loading ? "Henter…" : `${count} ${count === 1 ? "kunde" : "kunder"}`}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="min-h-[60px]">
+        {loading ? (
+          <div className="space-y-2">
+            <div className="h-10 bg-muted/60 rounded animate-pulse" />
+            <div className="h-10 bg-muted/60 rounded animate-pulse" />
+          </div>
+        ) : count === 0 ? (
+          <p className="text-sm text-muted-foreground py-2">
+            Ingen kundeaftaler udløber inden for 90 dage.
+          </p>
+        ) : (
+          <div>
+            {visible.map((g) => (
+              <ExpiringCustomerRow
+                key={g.companyId}
+                companyId={g.companyId}
+                companyName={g.companyName}
+                date={g.earliestDate}
+                count={g.machines.length}
+              />
+            ))}
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-2 w-full flex items-center justify-center gap-1 text-xs font-medium text-primary hover:underline py-2"
+              >
+                {expanded ? (
+                  <>Vis færre <ChevronUp className="h-3.5 w-3.5" /></>
+                ) : (
+                  <>Se alle {count} <ChevronDown className="h-3.5 w-3.5" /></>
+                )}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+
+
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {
