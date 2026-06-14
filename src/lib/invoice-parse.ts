@@ -40,12 +40,26 @@ export function parseDanishDate(raw: unknown): Date | null {
   if (raw == null) return null;
   if (raw instanceof Date) return raw;
   const s = String(raw).trim();
-  if (!s) return null;
+  if (!s || s === "0") return null;
+
+  // YYYYMMDD (8 digits, no separator) — Visma fakturajournal
+  const compact = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compact) {
+    const y = +compact[1], m = +compact[2], day = +compact[3];
+    if (m < 1 || m > 12 || day < 1 || day > 31) return null;
+    const d = new Date(Date.UTC(y, m - 1, day));
+    if (d.getUTCFullYear() !== y || d.getUTCMonth() !== m - 1 || d.getUTCDate() !== day) return null;
+    return d;
+  }
+
+  // DD-MM-YYYY (dansk salgslinjeformat)
   const dk = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
   if (dk) {
     const d = new Date(`${dk[3]}-${dk[2]}-${dk[1]}T00:00:00Z`);
     return isNaN(d.getTime()) ? null : d;
   }
+
+  // ISO YYYY-MM-DD eller andet parsbart
   const iso = new Date(s);
   return isNaN(iso.getTime()) ? null : iso;
 }
