@@ -69,6 +69,8 @@ function AuthenticatedShell() {
   }, [auth.loading, auth.session, navigate]);
 
   const isAdmin = auth.role === "admin";
+  const viewAs = useViewAs();
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (!auth.loading && auth.session && !isAdmin && location.pathname.startsWith("/admin")) {
@@ -83,6 +85,7 @@ function AuthenticatedShell() {
       </div>
     );
   }
+
 
   const navItems = [
     { to: "/dashboard", label: "Mit overblik", shortLabel: "Overblik", icon: LayoutDashboard },
@@ -108,10 +111,9 @@ function AuthenticatedShell() {
     navigate({ to: "/login" });
   };
 
-  const viewAs = useViewAs();
-  const [pickerOpen, setPickerOpen] = useState(false);
   // Skjul admin-værktøjer fra sidemenuen mens admin "ser som" sælger.
   const showAdminNav = isAdmin && !viewAs.isImpersonating;
+
 
   return (
     <div className="min-h-screen flex bg-background">
