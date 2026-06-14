@@ -220,6 +220,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
   }, [cvrDirect, lookupFn]);
 
   async function handleSave() {
+    if (isImpersonating) { toast.error("Read-only — handling ikke tilladt"); return; }
     if (!name.trim()) { toast.error("Navn er påkrævet"); return; }
     setSaving(true);
     const empNum = (() => {
