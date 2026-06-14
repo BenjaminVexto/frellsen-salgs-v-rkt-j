@@ -189,8 +189,8 @@ const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
   customer_segment_1: ["Kundeprisgruppe 1"],
   customer_segment_2: ["Kundeprisgruppe 2"],
   customer_segment_3: ["Kundeprisgruppe 3"],
-  visma_id: ["Fakt. kunde"],
-  visma_delivery_id: ["Lev. kund"],
+  visma_id: ["Fakt. kunde", "Fakt. kunde nr", "Fakt. kundenr", "Fakturakunde nr"],
+  visma_delivery_id: ["Lev. kund", "Lev. kunde nr", "Lev. kundenr", "Leveringskunde nr"],
   contact_person: ["Ref person"],
   salesperson_no: ["Sælger"],
   ean_number: ["EAN nr."],
@@ -404,9 +404,39 @@ function ImportSide() {
           toast.error("Excel-arket er tomt");
           return;
         }
-        const hdrs = (grid[0] ?? []).map((h) => cellToString(h).replace(/^\uFEFF/, ""));
+
+        // Find header-rækken dynamisk: nogle Visma-eksporter har en titel-række
+        // ("Aktør") i række 1 og de rigtige overskrifter i række 2+. Scan de
+        // første rækker og vælg den med flest matches mod kendte Visma-headers.
+        const anchorSet = new Set<string>();
+        for (const aliases of Object.values(VISMA_MAPPING)) {
+          for (const a of aliases ?? []) anchorSet.add(a.toLowerCase());
+        }
+        const SCAN = Math.min(grid.length, 25);
+        let bestRow = 0;
+        let bestScore = 0;
+        for (let i = 0; i < SCAN; i++) {
+          const cells = (grid[i] ?? []).map((c) =>
+            cellToString(c).replace(/^\uFEFF/, "").toLowerCase(),
+          );
+          const score = cells.filter((c) => c && anchorSet.has(c)).length;
+          if (score > bestScore) {
+            bestScore = score;
+            bestRow = i;
+          }
+        }
+        if (bestScore < 2) {
+          toast.error(
+            "Kunne ikke finde header-rækken i Excel-filen (ingen kendte Visma-kolonner fundet i de første 25 rækker)",
+          );
+          return;
+        }
+
+        const hdrs = (grid[bestRow] ?? []).map((h) =>
+          cellToString(h).replace(/^\uFEFF/, ""),
+        );
         const data: ParsedRow[] = [];
-        for (let i = 1; i < grid.length; i++) {
+        for (let i = bestRow + 1; i < grid.length; i++) {
           const row = grid[i] ?? [];
           const obj: ParsedRow = {};
           let hasAny = false;
@@ -420,6 +450,7 @@ function ImportSide() {
           if (hasAny) data.push(obj);
         }
         applyParsed(hdrs, data);
+
       } catch (err: any) {
         toast.error("Kunne ikke læse Excel-fil: " + (err?.message ?? String(err)));
       }
