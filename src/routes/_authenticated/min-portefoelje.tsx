@@ -356,9 +356,18 @@ function PortfolioPage() {
 
           {/* RANKINGS — Lag 2 */}
           <section className="mt-8">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Top &amp; bund — rangeringer
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Top &amp; bund — rangeringer
+              </h2>
+              <button
+                type="button"
+                onClick={() => setRankingsExpanded((v) => !v)}
+                className="text-xs text-primary hover:underline"
+              >
+                {rankingsExpanded ? "Vis kun top 5" : "Udvid (vis top 25)"}
+              </button>
+            </div>
             <Tabs defaultValue="revenue">
               <TabsList>
                 <TabsTrigger value="revenue">Omsætning</TabsTrigger>
@@ -369,17 +378,19 @@ function PortfolioPage() {
               <TabsContent value="revenue" className="mt-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <RankingTable
-                    title="Top 25 — højest omsætning (12 mdr.)"
+                    title={rankingsExpanded ? "Top 25 — højest omsætning (12 mdr.)" : "Top 5 — højest omsætning (12 mdr.)"}
                     rows={data.rankings.topRevenue}
                     valueLabel="Omsætning"
                     showTrend
+                    limit={rankingsExpanded ? undefined : 5}
                   />
                   <RankingTable
-                    title="Bund 25 — lavest omsætning blandt aktive kunder"
+                    title={rankingsExpanded ? "Bund 25 — lavest omsætning blandt aktive" : "Bund 5 — lavest omsætning blandt aktive"}
                     rows={data.rankings.bottomRevenueActive}
                     valueLabel="Omsætning"
                     showTrend
                     emptyText="Ingen aktive kunder i porteføljen."
+                    limit={rankingsExpanded ? undefined : 5}
                   />
                 </div>
               </TabsContent>
@@ -387,11 +398,12 @@ function PortfolioPage() {
               {isAdmin && data.rankings.topContribution && (
                 <TabsContent value="db" className="mt-4">
                   <RankingTable
-                    title="Top 25 — mest profitable kunder (DB 12 mdr.)"
+                    title={rankingsExpanded ? "Top 25 — mest profitable kunder (DB 12 mdr.)" : "Top 5 — mest profitable kunder (DB 12 mdr.)"}
                     rows={data.rankings.topContribution}
                     valueLabel="DB"
                     valueField="contribution12m"
                     showTrend={false}
+                    limit={rankingsExpanded ? undefined : 5}
                   />
                 </TabsContent>
               )}
@@ -415,12 +427,13 @@ function PortfolioPage() {
                 </Card>
                 <ScatterPlot points={data.rankings.potentialScatter} />
                 <RankingTable
-                  title="25 kunder med størst uudnyttet potentiale"
+                  title={rankingsExpanded ? "25 kunder med størst uudnyttet potentiale" : "5 kunder med størst uudnyttet potentiale"}
                   rows={data.rankings.potential}
                   valueLabel="kr./ansat"
                   valueField="ratio"
                   showEmployees
                   showTrend={false}
+                  limit={rankingsExpanded ? undefined : 5}
                 />
               </TabsContent>
             </Tabs>
@@ -432,50 +445,37 @@ function PortfolioPage() {
               Muligheder &amp; trusler
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-4">
-                <div className="text-xs font-medium text-muted-foreground">Muligheder</div>
-                <SignalList
-                  title="Maskine men ingen kaffe"
-                  description="Aktivt udstyr, ingen forbrugsvarekøb 60+ dage. Forsynes_af-kunder er ikke med."
-                  rows={data.signals.machineNoCoffee}
-                  kind="machine"
-                />
-                <SignalList
-                  title="White space — mangler et produktben"
-                  description="Køber kaffe, men mangler te, chokolade eller drikke/automatvarer."
-                  rows={data.signals.whiteSpace}
-                  kind="whitespace"
-                />
-                <SignalList
-                  title="I vækst — køber mere end sidste år"
-                  description="Omsætning 12 mdr. er højere end forrige 12 mdr. Værd at fastholde."
-                  rows={data.signals.growing}
-                  kind="growth"
-                />
-              </div>
-              <div className="space-y-4">
-                <div className="text-xs font-medium text-muted-foreground">Trusler</div>
-                <SignalList
-                  title="Faldende — køber mindre end sidste år"
-                  description="Omsætning er faldet, men kunden køber stadig. Tidlig advarsel."
-                  rows={data.signals.declining}
-                  kind="decline"
-                />
-                <SignalList
-                  title="Aftale udløber inden for 90 dage"
-                  description="Maskine- eller serviceaftaler tæt på udløb."
-                  rows={data.signals.expiringAgreements}
-                  kind="expiry"
-                />
-                <SignalList
-                  title="Konkurrentaftale udløber"
-                  description="Genvindings-muligheder — konkurrentaftaler nær udløb."
-                  rows={data.signals.expiringCompetitor}
-                  kind="expiry"
-                />
-              </div>
+              <SignalList
+                title="Sælg mere – kunde mangler produktgruppe"
+                description="Køber kaffe, men mangler te, chokolade eller drikke/automatvarer."
+                rows={data.signals.whiteSpace}
+                kind="whitespace"
+                initial={5}
+              />
+              <SignalList
+                title="I vækst — køber mere end sidste år"
+                description="Omsætning 12 mdr. er højere end forrige 12 mdr. Værd at fastholde."
+                rows={data.signals.growing}
+                kind="growth"
+                initial={5}
+              />
+              <SignalList
+                title="Maskine men ingen kaffe"
+                description="Aktivt udstyr, ingen forbrugsvarekøb 60+ dage. Forsynes_af-kunder er ikke med."
+                rows={data.signals.machineNoCoffee}
+                kind="machine"
+                initial={5}
+              />
+              <SignalList
+                title="Faldende — køber mindre end sidste år"
+                description="Omsætning er faldet, men kunden køber stadig. Tidlig advarsel."
+                rows={data.signals.declining}
+                kind="decline"
+                initial={5}
+              />
             </div>
           </section>
+
         </>
       )}
 
