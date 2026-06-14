@@ -23,6 +23,7 @@ import {
   type ScatterPoint,
   type SignalRow,
 } from "@/lib/portfolio.functions";
+import { useViewAs } from "@/contexts/view-as-context";
 import { fmtKr } from "@/lib/sales-utils";
 
 
