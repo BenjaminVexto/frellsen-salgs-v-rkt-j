@@ -148,41 +148,7 @@ function detectHeaderRow(
   return best.score >= 1 ? best : null;
 }
 
-function toIsoDate(val: any): string | null {
-  if (val == null || val === "") return null;
-  if (val instanceof Date && !isNaN(+val)) {
-    const y = val.getFullYear();
-    const m = String(val.getMonth() + 1).padStart(2, "0");
-    const d = String(val.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-  const s = String(val).trim();
-  if (!s) return null;
-  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (iso) {
-    let mo = parseInt(iso[2], 10);
-    let d = parseInt(iso[3], 10);
-    if (mo > 12 && d <= 12) { const tmp = mo; mo = d; d = tmp; }
-    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-      return `${iso[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    }
-    return null;
-  }
-  const dk = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})/);
-  if (dk) {
-    let [, d, m, y] = dk;
-    if (y.length === 2) y = (parseInt(y) > 50 ? "19" : "20") + y;
-    return `${y.padStart(4, "0")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-  const dt = new Date(s);
-  if (!isNaN(+dt)) {
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, "0");
-    const d = String(dt.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-  return null;
-}
+import { parseDanishDateIso as toIsoDate } from "@/lib/invoice-parse";
 
 function toNumber(val: any): number | null {
   if (val == null || val === "") return null;

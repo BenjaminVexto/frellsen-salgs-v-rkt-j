@@ -11,6 +11,7 @@ import {
   importUpdateCompaniesById,
   importInsertLocations,
 } from "@/lib/admin-companies.functions";
+import { parseDanishDateIso as parseDanishDate } from "@/lib/invoice-parse";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,21 +201,7 @@ interface PreparedRow {
   errorMessage?: string;
 }
 
-function parseDanishDate(v: string): string | null {
-  const s = v.trim();
-  if (!s) return null;
-  // ISO YYYY-MM-DD or YYYY/MM/DD
-  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
-  // DK DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
-  const dk = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
-  if (dk) {
-    let y = dk[3];
-    if (y.length === 2) y = (parseInt(y, 10) > 50 ? "19" : "20") + y;
-    return `${y}-${dk[2].padStart(2, "0")}-${dk[1].padStart(2, "0")}`;
-  }
-  return null;
-}
+// parseDanishDate er den delte parseDanishDateIso fra @/lib/invoice-parse
 
 function ImportSide() {
   const auth = useAuth();
