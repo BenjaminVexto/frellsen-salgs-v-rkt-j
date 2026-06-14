@@ -132,7 +132,47 @@ export const importMachines = createServerFn({ method: "POST" })
         aendret_dato: r.aendret_dato || null,
         status: t(r.status) || null,
         taellerstand: r.taellerstand ?? null,
+        record_status: "aktiv",
+        last_seen_import: importedAt,
+        udgaaet_dato: null,
       });
+    }
+
+    const importedAt = new Date().toISOString();
+    // (declared above via const — see initialisering nedenfor)
+
+    // ---- Diagnostik: aktive før import ----
+    let machinesActiveBefore = 0;
+    let enrichmentActiveBefore = 0;
+    if (data.machineRows.length > 0) {
+      const { count } = await supabaseAdmin
+        .from("machines" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("record_status", "aktiv");
+      machinesActiveBefore = count ?? 0;
+    }
+    if (data.enrichmentRows.length > 0) {
+      const { count } = await supabaseAdmin
+        .from("machine_enrichment" as any)
+        .select("serienr", { count: "exact", head: true })
+        .eq("record_status", "aktiv");
+      enrichmentActiveBefore = count ?? 0;
+    }
+
+    // ---- Tæl reaktiverede maskiner (var udgået, kommer tilbage i fil) ----
+    let machinesReactivated = 0;
+    if (machineRows.length > 0) {
+      const ids = machineRows.map((m) => m.id);
+      const CHUNK_IN = 500;
+      for (let i = 0; i < ids.length; i += CHUNK_IN) {
+        const slice = ids.slice(i, i + CHUNK_IN);
+        const { count } = await supabaseAdmin
+          .from("machines" as any)
+          .select("id", { count: "exact", head: true })
+          .in("id", slice)
+          .eq("record_status", "udgaaet");
+        machinesReactivated += count ?? 0;
+      }
     }
 
     const CHUNK = 1000;
@@ -144,6 +184,19 @@ export const importMachines = createServerFn({ method: "POST" })
         .upsert(slice, { onConflict: "id" });
       if (error) throw new Error("machines upsert: " + error.message);
       machinesUpserted += slice.length;
+    }
+
+    // ---- Markér manglende maskiner som udgået ----
+    let machinesMarkedUdgaaet = 0;
+    if (data.machineRows.length > 0) {
+      const { data: upd, error } = await supabaseAdmin
+        .from("machines" as any)
+        .update({ record_status: "udgaaet", udgaaet_dato: importedAt })
+        .or(`last_seen_import.is.null,last_seen_import.lt.${importedAt}`)
+        .neq("record_status", "udgaaet")
+        .select("id");
+      if (error) throw new Error("machines udgået-mark: " + error.message);
+      machinesMarkedUdgaaet = upd?.length ?? 0;
     }
 
     // ---- Enrichment: dedupe på serienr (sidste vinder) ----
@@ -159,9 +212,27 @@ export const importMachines = createServerFn({ method: "POST" })
         handlingsdato: r.handlingsdato || null,
         handlingsdato_raw: r.handlingsdato_raw || null,
         data: r.data ?? null,
+        record_status: "aktiv",
+        last_seen_import: importedAt,
+        udgaaet_dato: null,
       });
     }
     const enrRows = Array.from(enrMap.values());
+
+    let enrichmentReactivated = 0;
+    if (enrRows.length > 0) {
+      const serienrs = enrRows.map((e) => e.serienr);
+      const CHUNK_IN = 500;
+      for (let i = 0; i < serienrs.length; i += CHUNK_IN) {
+        const slice = serienrs.slice(i, i + CHUNK_IN);
+        const { count } = await supabaseAdmin
+          .from("machine_enrichment" as any)
+          .select("serienr", { count: "exact", head: true })
+          .in("serienr", slice)
+          .eq("record_status", "udgaaet");
+        enrichmentReactivated += count ?? 0;
+      }
+    }
 
     let enrichmentUpserted = 0;
     for (let i = 0; i < enrRows.length; i += CHUNK) {
@@ -173,10 +244,36 @@ export const importMachines = createServerFn({ method: "POST" })
       enrichmentUpserted += slice.length;
     }
 
+    let enrichmentMarkedUdgaaet = 0;
+    if (data.enrichmentRows.length > 0) {
+      const { data: upd, error } = await supabaseAdmin
+        .from("machine_enrichment" as any)
+        .update({ record_status: "udgaaet", udgaaet_dato: importedAt })
+        .or(`last_seen_import.is.null,last_seen_import.lt.${importedAt}`)
+        .neq("record_status", "udgaaet")
+        .select("serienr");
+      if (error) throw new Error("machine_enrichment udgået-mark: " + error.message);
+      enrichmentMarkedUdgaaet = upd?.length ?? 0;
+    }
+
+    console.log(
+      `[machines-import] master-spejling machines: aktivFør=${machinesActiveBefore} iFil=${data.machineRows.length} upsertet=${machinesUpserted} nyUdgået=${machinesMarkedUdgaaet} reaktiveret=${machinesReactivated}`,
+    );
+    console.log(
+      `[machines-import] master-spejling enrichment: aktivFør=${enrichmentActiveBefore} iFil=${data.enrichmentRows.length} upsertet=${enrichmentUpserted} nyUdgået=${enrichmentMarkedUdgaaet} reaktiveret=${enrichmentReactivated}`,
+    );
+
     return {
       machinesUpserted,
       enrichmentUpserted,
       machineRowsParsed: data.machineRows.length,
       enrichmentRowsParsed: data.enrichmentRows.length,
+      machinesActiveBefore,
+      enrichmentActiveBefore,
+      machinesMarkedUdgaaet,
+      enrichmentMarkedUdgaaet,
+      machinesReactivated,
+      enrichmentReactivated,
+      importedAt,
     };
   });
