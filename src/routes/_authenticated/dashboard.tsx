@@ -260,17 +260,28 @@ function DashboardPage() {
         <ChurningCustomersCard initialVisible={2} />
       </div>
 
-      {/* 4. NUVÆRENDE KUNDER — AFTALER UDLØBER (kompakt kort → dedikeret side) */}
+      {/* 4. NUVÆRENDE KUNDER — AFTALER UDLØBER */}
       <div className="mb-6 md:mb-8">
-        <CompactStat
-          to="/aftaler-udlober"
-          icon={<FileText className="h-4 w-4" />}
-          tone="warning"
+        <PanelCard
           title="Nuværende kunder – aftaler udløber"
+          icon={<FileText className="h-5 w-5" />}
+          tone="warning"
           count={expiringMachines.length}
+          emptyText="Ingen kundeaftaler udløber inden for 90 dage."
           loading={expiringMachinesQuery.isLoading}
-        />
+        >
+          {expiringMachines.map((g) => (
+            <ExpiringCustomerRow
+              key={g.companyId}
+              companyId={g.companyId}
+              companyName={g.companyName}
+              date={g.earliestDate}
+              count={g.machines.length}
+            />
+          ))}
+        </PanelCard>
       </div>
+
 
 
       {/* 4. KOMPAKT TÆLLER-RÆKKE */}
@@ -469,13 +480,11 @@ function ExpiringCustomerRow({
   companyId,
   companyName,
   date,
-  type,
   count,
 }: {
   companyId: string;
   companyName: string;
   date: string;
-  type: "binding" | "service";
   count: number;
 }) {
   const days = Math.ceil((parseISO(date).getTime() - Date.now()) / 86400000);
@@ -488,23 +497,20 @@ function ExpiringCustomerRow({
         ? "bg-warning/15 text-warning-foreground"
         : "bg-success/10 text-success";
   const dateLabel = format(parseISO(date), "d. MMM yyyy", { locale: da });
-  const typeLabel = type === "binding" ? "Binding" : "Service → efter regning";
   return (
     <Link
       to="/virksomheder/$id"
       params={{ id: companyId }}
+      hash="lokationer"
       className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
     >
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-foreground truncate">{companyName}</div>
-        <div className="text-xs text-muted-foreground truncate">{typeLabel}</div>
+        <div className="text-xs text-muted-foreground">
+          {count} {count === 1 ? "maskine udløber" : "maskiner udløber"}
+        </div>
       </div>
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {count > 1 && (
-          <span className="text-[11px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">
-            {count} maskiner
-          </span>
-        )}
         <span
           className={`text-[11px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap ${toneCls}`}
         >
@@ -515,6 +521,7 @@ function ExpiringCustomerRow({
     </Link>
   );
 }
+
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {

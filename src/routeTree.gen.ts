@@ -21,7 +21,6 @@ import { Route as AuthenticatedMinPortefoeljeRouteImport } from './routes/_authe
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedAftalerUdloberRouteImport } from './routes/_authenticated/aftaler-udlober'
 import { Route as AuthenticatedAftalerIndexRouteImport } from './routes/_authenticated/aftaler.index'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
 import { Route as AuthenticatedProfilPasswordRouteImport } from './routes/_authenticated/profil.password'
@@ -108,12 +107,6 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAftalerUdloberRoute =
-  AuthenticatedAftalerUdloberRouteImport.update({
-    id: '/aftaler-udlober',
-    path: '/aftaler-udlober',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedAftalerIndexRoute =
   AuthenticatedAftalerIndexRouteImport.update({
     id: '/aftaler/',
@@ -239,7 +232,6 @@ export interface FileRoutesByFullPath {
   '/glemt-password': typeof GlemtPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/aftaler-udlober': typeof AuthenticatedAftalerUdloberRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
@@ -273,7 +265,6 @@ export interface FileRoutesByTo {
   '/glemt-password': typeof GlemtPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/aftaler-udlober': typeof AuthenticatedAftalerUdloberRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
@@ -308,7 +299,6 @@ export interface FileRoutesById {
   '/glemt-password': typeof GlemtPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/_authenticated/aftaler-udlober': typeof AuthenticatedAftalerUdloberRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
@@ -344,7 +334,6 @@ export interface FileRouteTypes {
     | '/glemt-password'
     | '/login'
     | '/reset-password'
-    | '/aftaler-udlober'
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
@@ -378,7 +367,6 @@ export interface FileRouteTypes {
     | '/glemt-password'
     | '/login'
     | '/reset-password'
-    | '/aftaler-udlober'
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
@@ -412,7 +400,6 @@ export interface FileRouteTypes {
     | '/glemt-password'
     | '/login'
     | '/reset-password'
-    | '/_authenticated/aftaler-udlober'
     | '/_authenticated/dashboard'
     | '/_authenticated/konkurrenter'
     | '/_authenticated/kontaktlister'
@@ -535,13 +522,6 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/aftaler-udlober': {
-      id: '/_authenticated/aftaler-udlober'
-      path: '/aftaler-udlober'
-      fullPath: '/aftaler-udlober'
-      preLoaderRoute: typeof AuthenticatedAftalerUdloberRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/aftaler/': {
@@ -719,7 +699,6 @@ const AuthenticatedAdminImportRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedAftalerUdloberRoute: typeof AuthenticatedAftalerUdloberRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedKonkurrenterRoute: typeof AuthenticatedKonkurrenterRoute
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
@@ -741,7 +720,6 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAftalerUdloberRoute: AuthenticatedAftalerUdloberRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedKonkurrenterRoute: AuthenticatedKonkurrenterRoute,
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
