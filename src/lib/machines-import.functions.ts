@@ -44,6 +44,18 @@ const EnrichmentRow = z
 
 const t = (s: unknown): string => (s == null ? "" : String(s).trim());
 
+// Defensiv dato-normalisering: håndterer YYYY-MM-DD og YYYY-DD-MM (Visma).
+function normDate(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const m = String(s).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return null;
+  let mo = parseInt(m[2], 10);
+  let d = parseInt(m[3], 10);
+  if (mo > 12 && d <= 12) [mo, d] = [d, mo];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 export const importMachines = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -138,7 +150,7 @@ export const importMachines = createServerFn({ method: "POST" })
         fak_kundenr: t(r.fak_kundenr) || null,
         lev_kundenr: t(r.lev_kundenr) || null,
         adresselinje2: t(r.adresselinje2) || null,
-        aendret_dato: r.aendret_dato || null,
+        aendret_dato: normDate(r.aendret_dato),
         status: t(r.status) || null,
         record_status: "aktiv",
         last_seen_import: importedAt,
@@ -215,10 +227,10 @@ export const importMachines = createServerFn({ method: "POST" })
         }
         enrMap.set(serienr, {
           serienr,
-          taelleraflaesning: r.taelleraflaesning || null,
-          binding_ophor: r.binding_ophor || null,
-          beregnet_slutdato: r.beregnet_slutdato || null,
-          handlingsdato: r.handlingsdato || null,
+          taelleraflaesning: normDate(r.taelleraflaesning),
+          binding_ophor: normDate(r.binding_ophor),
+          beregnet_slutdato: normDate(r.beregnet_slutdato),
+          handlingsdato: normDate(r.handlingsdato),
           handlingsdato_raw: r.handlingsdato_raw || null,
           data: Object.keys(extras).length > 0 ? extras : null,
           record_status: "aktiv",
