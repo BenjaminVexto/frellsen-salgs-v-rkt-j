@@ -58,6 +58,12 @@ const ENRICHMENT_ALIASES: Record<string, string> = {
   serienrwit: "serienr",
   senstetaelleraflaesningsdato: "taelleraflaesning",
   senestetaelleraflaesningsdato: "taelleraflaesning",
+  bindingophoer: "binding_ophor",
+  bindingsophoer: "binding_ophor",
+  beregnetslutdato: "beregnet_slutdato",
+  bemaerkning: "bemaerkning_handlingsdato",
+  bemaerkninghandlingsdato: "bemaerkning_handlingsdato",
+  handlingsdato: "bemaerkning_handlingsdato",
 };
 
 const MACHINE_ANCHORS = ["levkundenr", "fakkundenr", "serienr", "serienrwit", "varenr"];
@@ -69,8 +75,28 @@ const ENRICHMENT_ANCHORS = [
 ];
 
 const FORCE_TEXT = new Set(["serienr", "lev_kundenr", "fak_kundenr", "varenr"]);
-const DATE_FIELDS = new Set(["kobt_dato", "lease_leje_dato", "aendret_dato", "taelleraflaesning"]);
+const DATE_FIELDS = new Set([
+  "kobt_dato",
+  "lease_leje_dato",
+  "aendret_dato",
+  "taelleraflaesning",
+  "binding_ophor",
+  "beregnet_slutdato",
+]);
 const NUMBER_FIELDS = new Set(["taellerstand"]);
+
+// "2027-07 juli" / "2025-07 Juli - se aftale" / "2024-12" → "2024-12-01"
+// Værdier uden YYYY-MM i starten (fx "Leje", "Udlån") → null
+function extractHandlingsdato(raw: string | null): string | null {
+  if (!raw) return null;
+  const m = raw.trim().match(/^(\d{4})-(\d{1,2})\b/);
+  if (!m) return null;
+  const y = m[1];
+  const mo = m[2].padStart(2, "0");
+  const moNum = parseInt(mo, 10);
+  if (moNum < 1 || moNum > 12) return null;
+  return `${y}-${mo}-01`;
+}
 
 function readSheetGrid(file: File): Promise<any[][]> {
   return new Promise((resolve, reject) => {
@@ -200,7 +226,11 @@ function mapSheet(
     const obj: Record<string, any> = {};
     for (const [canonical, idx] of indexByCanonical) {
       const raw = r[idx];
-      if (FORCE_TEXT.has(canonical)) {
+      if (canonical === "bemaerkning_handlingsdato") {
+        const rawText = forceText(raw);
+        obj["handlingsdato_raw"] = rawText;
+        obj["handlingsdato"] = extractHandlingsdato(rawText);
+      } else if (FORCE_TEXT.has(canonical)) {
         obj[canonical] = forceText(raw);
       } else if (DATE_FIELDS.has(canonical)) {
         obj[canonical] = toIsoDate(raw);
@@ -232,7 +262,13 @@ const MACHINE_EXPECTED = [
   "status",
   "taellerstand",
 ];
-const ENRICHMENT_EXPECTED = ["serienr", "taelleraflaesning"];
+const ENRICHMENT_EXPECTED = [
+  "serienr",
+  "taelleraflaesning",
+  "binding_ophor",
+  "beregnet_slutdato",
+  "bemaerkning_handlingsdato",
+];
 
 type FileState = {
   file: File | null;

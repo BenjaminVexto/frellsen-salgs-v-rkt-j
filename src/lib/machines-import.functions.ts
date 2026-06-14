@@ -23,6 +23,10 @@ const MachineRow = z.object({
 const EnrichmentRow = z.object({
   serienr: z.string(),
   taelleraflaesning: z.string().nullable().optional(),
+  binding_ophor: z.string().nullable().optional(),
+  beregnet_slutdato: z.string().nullable().optional(),
+  handlingsdato: z.string().nullable().optional(),
+  handlingsdato_raw: z.string().nullable().optional(),
   data: z.record(z.any()).nullable().optional(),
 });
 
@@ -150,6 +154,10 @@ export const importMachines = createServerFn({ method: "POST" })
       enrMap.set(serienr, {
         serienr,
         taelleraflaesning: r.taelleraflaesning || null,
+        binding_ophor: r.binding_ophor || null,
+        beregnet_slutdato: r.beregnet_slutdato || null,
+        handlingsdato: r.handlingsdato || null,
+        handlingsdato_raw: r.handlingsdato_raw || null,
         data: r.data ?? null,
       });
     }
