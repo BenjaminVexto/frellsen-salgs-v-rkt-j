@@ -108,6 +108,11 @@ function AuthenticatedShell() {
     navigate({ to: "/login" });
   };
 
+  const viewAs = useViewAs();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // Skjul admin-værktøjer fra sidemenuen mens admin "ser som" sælger.
+  const showAdminNav = isAdmin && !viewAs.isImpersonating;
+
   return (
     <div className="min-h-screen flex bg-background">
       <aside className="hidden md:flex w-64 flex-col bg-red-900 text-primary-foreground sticky top-0 h-screen self-start">
@@ -119,16 +124,34 @@ function AuthenticatedShell() {
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-2 px-2 py-2 rounded-md hover:bg-primary-foreground/10 transition-colors text-left">
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate">{auth.fullName || auth.user?.email}</div>
+                  <div className="text-sm font-medium truncate">
+                    {viewAs.isImpersonating ? viewAs.viewAsName : auth.fullName || auth.user?.email}
+                  </div>
                   <div className="text-xs text-primary-foreground/60 truncate">
-                    {auth.role === "admin" ? "Administrator" : auth.role === "salgssupport" ? "Salgssupport" : "Sælger"}
-                    {auth.region ? ` · ${auth.region}` : ""}
+                    {viewAs.isImpersonating
+                      ? `Set som sælger · admin: ${auth.fullName || "dig"}`
+                      : (auth.role === "admin" ? "Administrator" : auth.role === "salgssupport" ? "Salgssupport" : "Sælger") +
+                        (auth.region ? ` · ${auth.region}` : "")}
                   </div>
                 </div>
                 <ChevronDown className="h-4 w-4 text-primary-foreground/60 shrink-0" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="bottom" className="w-56">
+            <DropdownMenuContent align="end" side="bottom" className="w-64">
+              {isAdmin && (
+                <>
+                  {viewAs.isImpersonating ? (
+                    <DropdownMenuItem onClick={() => viewAs.clearViewAs()}>
+                      <Eye className="h-4 w-4 mr-2" /> Tilbage til admin
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={() => setPickerOpen(true)}>
+                      <Eye className="h-4 w-4 mr-2" /> Se som sælger…
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem asChild>
                 <Link to="/profil/password">
                   <KeyRound className="h-4 w-4 mr-2" /> Skift adgangskode
