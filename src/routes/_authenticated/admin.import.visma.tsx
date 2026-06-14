@@ -1598,9 +1598,9 @@ function Trin3Preview({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Nye virksomheder" value={stats.newCount} tone="success" />
-        <StatCard label="CVR-dubletter (opdateres)" value={stats.dupCount} tone="warning" />
-        <StatCard label="Mangler CVR" value={stats.missingCount} tone="muted" />
+        <StatCard label="Nye virksomheder" value={stats.uniqNewCount} tone="success" />
+        <StatCard label="CVR-dubletter (opdateres)" value={stats.uniqDupCount} tone="warning" />
+        <StatCard label="Mangler CVR" value={stats.uniqMissingCount} tone="muted" />
         <StatCard label="Fejl" value={stats.errorCount} tone="destructive" />
       </div>
 
