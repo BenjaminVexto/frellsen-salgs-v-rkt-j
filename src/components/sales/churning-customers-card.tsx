@@ -79,20 +79,22 @@ export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?:
                     intet køb i {c.daysSinceLastPurchase} dage · før: ~{fmtKr(c.monthlyAverageRevenue)}/md
                   </div>
                 </Link>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0 h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDismiss({ id: c.company_id, name: c.company_name });
-                  }}
-                  aria-label="Fjern fra listen"
-                >
-                  <X className="h-3.5 w-3.5 sm:mr-1" />
-                  <span className="hidden sm:inline">Fjern / markér</span>
-                </Button>
+                <MutationGate>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDismiss({ id: c.company_id, name: c.company_name });
+                    }}
+                    aria-label="Fjern fra listen"
+                  >
+                    <X className="h-3.5 w-3.5 sm:mr-1" />
+                    <span className="hidden sm:inline">Fjern / markér</span>
+                  </Button>
+                </MutationGate>
 
               </div>
             ))}
