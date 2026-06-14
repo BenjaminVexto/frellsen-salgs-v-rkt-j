@@ -271,7 +271,20 @@ export const importMachines = createServerFn({ method: "POST" })
           enrFirstError ??= msg;
           throw new Error("machine_enrichment upsert: " + msg);
         }
+      } catch (e: any) {
+        if (!enrFirstError) enrFirstError = e?.message ?? String(e);
+        throw e;
+      }
       enrichmentUpserted += slice.length;
+    }
+
+    // ---- Diagnostik: faktisk række-count i tabel EFTER enrichment-upsert
+    const { count: enrCountAfter } = await supabaseAdmin
+      .from("machine_enrichment" as any)
+      .select("serienr", { count: "exact", head: true });
+    console.log(`[machines-import] enrichment count i tabel EFTER upsert: ${enrCountAfter ?? 0} (forventet stigning: nye+reaktiverede)`);
+    if ((enrCountAfter ?? 0) < (enrCountBefore ?? 0) + Math.max(0, enrRows.length - enrichmentReactivated - (enrichmentActiveBefore))) {
+      console.warn(`[machines-import] DIFF: parsed=${enrRows.length} upsertet(rapport)=${enrichmentUpserted} tabel-delta=${(enrCountAfter ?? 0) - (enrCountBefore ?? 0)} førsteFejl=${enrFirstError ?? "(ingen)"}`);
     }
 
     let enrichmentMarkedUdgaaet = 0;
