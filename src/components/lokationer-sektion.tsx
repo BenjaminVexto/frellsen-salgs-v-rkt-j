@@ -479,34 +479,22 @@ function EquipmentBox({ location }: { location: Location }) {
     }
     let cancelled = false;
     (async () => {
-      const [enrRes, machRes] = await Promise.all([
-        (supabase as any)
-          .from("machine_enrichment")
-          .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data")
-          .eq("record_status", "aktiv")
-          .in("serienr", serials),
-        (supabase as any)
-          .from("machines")
-          .select("serienr, taellerstand, data")
-          .eq("record_status", "aktiv")
-          .in("serienr", serials),
-      ]);
+      // serienr er text i begge tabeller — .in() sammenligner som text,
+      // så ledende nuller bevares korrekt.
+      const { data: enrData } = await (supabase as any)
+        .from("machine_enrichment")
+        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data")
+        .eq("record_status", "aktiv")
+        .in("serienr", serials);
       if (cancelled) return;
       const m = new Map<string, EnrichmentInfo>();
-      for (const e of (enrRes.data ?? []) as any[]) {
-        m.set(e.serienr, {
+      for (const e of (enrData ?? []) as any[]) {
+        m.set(String(e.serienr), {
           binding_ophor: e.binding_ophor ?? null,
           handlingsdato: e.handlingsdato ?? null,
           taelleraflaesning: e.taelleraflaesning ?? null,
+          taellerstand: pickTaellerstand(e.data),
           respons: pickRespons(e.data),
-        });
-      }
-      for (const x of (machRes.data ?? []) as any[]) {
-        const prev = m.get(x.serienr) ?? {};
-        m.set(x.serienr, {
-          ...prev,
-          taellerstand: x.taellerstand ?? null,
-          respons: prev.respons ?? pickRespons(x.data),
         });
       }
       setEnrichBySerial(m);
