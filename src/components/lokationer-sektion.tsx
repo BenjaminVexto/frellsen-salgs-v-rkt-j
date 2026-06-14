@@ -68,6 +68,7 @@ export function LokationerSektion({
   companyFallbackAddress,
   companyFallbackZip,
   companyFallbackCity,
+  initialOpenLocationId,
 }: {
   companyId: string;
   isAdmin: boolean;
@@ -77,12 +78,14 @@ export function LokationerSektion({
   companyFallbackAddress?: string | null;
   companyFallbackZip?: string | null;
   companyFallbackCity?: string | null;
+  initialOpenLocationId?: string | null;
 }) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [sortMode, setSortMode] = useState<"default" | "revenue">("default");
+
 
   const load = async () => {
     const { data } = await (supabase as any)
