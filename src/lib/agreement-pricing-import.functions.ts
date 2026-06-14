@@ -108,8 +108,8 @@ export const importAgreementPricing = createServerFn({ method: "POST" })
       const pg3 = t(r.produktprisgruppe3);
       const varenr = t(r.varenr);
       const beskrivelse = t(r.beskrivelse);
-      const fra = r.fra_dato ?? null;
-      const til = r.til_dato ?? null;
+      const fra = normDate(r.fra_dato);
+      const til = normDate(r.til_dato);
 
       if (!kpg2 && !varenr && !beskrivelse && !pg2 && !pg3) {
         skippedEmpty++;
