@@ -343,15 +343,17 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
     };
   });
 
-export const getMyNewActivitiesCount = createServerFn({ method: "GET" })
+export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ count: number }> => {
+  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{ count: number }> => {
+    const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
     const d = new Date();
     const monthStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
     const { count, error } = await context.supabase
       .from("activities")
       .select("id", { count: "exact", head: true })
-      .eq("created_by", context.userId)
+      .eq("created_by", effectiveUserId)
       .gte("created_at", monthStart);
     if (error) throw error;
     return { count: count ?? 0 };
