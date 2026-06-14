@@ -139,6 +139,10 @@ export function SkrivMailDialog({
   }
 
   async function openInOutlook() {
+    if (isImpersonating) {
+      toast.error("Read-only — handling ikke tilladt");
+      return;
+    }
     if (!recipient.trim()) {
       toast.error("Modtager mangler");
       return;
