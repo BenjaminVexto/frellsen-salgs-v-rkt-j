@@ -179,6 +179,111 @@ function DashboardPage() {
     },
   });
 
+  const expiringMachinesQuery = useQuery({
+    enabled: !!userId,
+    queryKey: ["dashboard-expiring-machines", userId, isAdmin],
+    queryFn: async () => {
+      const todayS = today;
+      const in90D = new Date();
+      in90D.setDate(in90D.getDate() + 90);
+      const in90S = in90D.toISOString().slice(0, 10);
+
+      // 1. Enrichment-rækker hvor binding_ophor ELLER handlingsdato ligger i vinduet
+      const { data: enr, error: enrErr } = await (supabase as any)
+        .from("machine_enrichment")
+        .select("serienr, binding_ophor, handlingsdato")
+        .or(
+          `and(binding_ophor.gte.${todayS},binding_ophor.lte.${in90S}),and(handlingsdato.gte.${todayS},handlingsdato.lte.${in90S})`,
+        );
+      if (enrErr) throw enrErr;
+      const serienrs = Array.from(
+        new Set(((enr ?? []) as any[]).map((e) => e.serienr).filter(Boolean)),
+      );
+      if (!serienrs.length) return [];
+
+      // 2. Maskiner for disse serienr (chunked IN)
+      const machines: any[] = [];
+      const CHUNK = 500;
+      for (let i = 0; i < serienrs.length; i += CHUNK) {
+        const slice = serienrs.slice(i, i + CHUNK);
+        const { data, error } = await (supabase as any)
+          .from("machines")
+          .select("serienr, fak_kundenr")
+          .in("serienr", slice);
+        if (error) throw error;
+        machines.push(...(data ?? []));
+      }
+      if (!machines.length) return [];
+
+      const kundenrs = Array.from(
+        new Set(machines.map((m) => m.fak_kundenr).filter(Boolean) as string[]),
+      );
+      if (!kundenrs.length) return [];
+
+      // 3. Tilladte virksomheder (admin = alle; sælger = egne tildelte)
+      let compQ = supabase
+        .from("companies")
+        .select("id, name, visma_id")
+        .in("visma_id", kundenrs);
+      if (!isAdmin) compQ = compQ.eq("assigned_to", userId!);
+      const { data: companies, error: cErr } = await compQ;
+      if (cErr) throw cErr;
+      const compByVisma = new Map<string, { id: string; name: string }>();
+      (companies ?? []).forEach((c: any) =>
+        compByVisma.set(c.visma_id, { id: c.id, name: c.name }),
+      );
+      if (compByVisma.size === 0) return [];
+
+      // 4. Aggregér: pr. virksomhed = nærmeste dato + antal maskiner i vinduet
+      const enrBySerienr = new Map<string, any>();
+      ((enr ?? []) as any[]).forEach((e) => enrBySerienr.set(e.serienr, e));
+
+      type Earliest = {
+        companyId: string;
+        companyName: string;
+        date: string;
+        type: "binding" | "service";
+      };
+      const byCompany = new Map<string, { earliest: Earliest; count: number }>();
+
+      for (const m of machines) {
+        const comp = m.fak_kundenr ? compByVisma.get(m.fak_kundenr) : null;
+        if (!comp) continue;
+        const e = enrBySerienr.get(m.serienr);
+        if (!e) continue;
+
+        const cands: { date: string; type: "binding" | "service" }[] = [];
+        if (e.binding_ophor && e.binding_ophor >= todayS && e.binding_ophor <= in90S) {
+          cands.push({ date: e.binding_ophor, type: "binding" });
+        }
+        if (e.handlingsdato && e.handlingsdato >= todayS && e.handlingsdato <= in90S) {
+          cands.push({ date: e.handlingsdato, type: "service" });
+        }
+        if (!cands.length) continue;
+        cands.sort((a, b) => a.date.localeCompare(b.date));
+        const best = cands[0];
+
+        const existing = byCompany.get(comp.id);
+        if (!existing) {
+          byCompany.set(comp.id, {
+            earliest: { companyId: comp.id, companyName: comp.name, ...best },
+            count: 1,
+          });
+        } else {
+          existing.count++;
+          if (best.date < existing.earliest.date) {
+            existing.earliest = { companyId: comp.id, companyName: comp.name, ...best };
+          }
+        }
+      }
+
+      return Array.from(byCompany.values())
+        .map(({ earliest, count }) => ({ ...earliest, count }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    },
+  });
+
+
 
 
   const overdue = (followupsQuery.data ?? []).filter(
@@ -190,6 +295,7 @@ function DashboardPage() {
 
   const expiringCustomers = expiringDocsQuery.data?.customers ?? [];
   const expiringProspects = expiringDocsQuery.data?.prospects ?? [];
+  const expiringMachines = expiringMachinesQuery.data ?? [];
 
   return (
     <div className="px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
@@ -250,6 +356,23 @@ function DashboardPage() {
         <ChurningCustomersCard initialVisible={2} />
       </div>
 
+      {/* 4. NUVÆRENDE KUNDER — AFTALER UDLØBER (binding / service efter regning) */}
+      <div className="mb-6 md:mb-8">
+        <PanelCard
+          title="Nuværende kunder – aftaler udløber"
+          icon={<FileText className="h-5 w-5" />}
+          tone="warning"
+          count={expiringMachines.length}
+          emptyText="Ingen kundeaftaler udløber inden for 90 dage."
+          loading={expiringMachinesQuery.isLoading}
+        >
+          {expiringMachines.slice(0, 10).map((row) => (
+            <ExpiringCustomerRow key={row.companyId} {...row} />
+          ))}
+        </PanelCard>
+      </div>
+
+
       {/* 4. KOMPAKT TÆLLER-RÆKKE */}
       <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
         <CompactStat
@@ -273,8 +396,8 @@ function DashboardPage() {
           icon={<FileText className="h-4 w-4" />}
           tone="success"
           title="Kunder – aftaler udløber"
-          count={expiringCustomers.length}
-          loading={expiringDocsQuery.isLoading}
+          count={expiringMachines.length}
+          loading={expiringMachinesQuery.isLoading}
         />
         <CompactStat
           to="/virksomheder"
@@ -446,6 +569,57 @@ function FollowupRow({
       </div>
     </Link>
 
+  );
+}
+
+function ExpiringCustomerRow({
+  companyId,
+  companyName,
+  date,
+  type,
+  count,
+}: {
+  companyId: string;
+  companyName: string;
+  date: string;
+  type: "binding" | "service";
+  count: number;
+}) {
+  const days = Math.ceil((parseISO(date).getTime() - Date.now()) / 86400000);
+  const tone: "destructive" | "warning" | "success" =
+    days < 30 ? "destructive" : days <= 60 ? "warning" : "success";
+  const toneCls =
+    tone === "destructive"
+      ? "bg-destructive/10 text-destructive"
+      : tone === "warning"
+        ? "bg-warning/15 text-warning-foreground"
+        : "bg-success/10 text-success";
+  const dateLabel = format(parseISO(date), "d. MMM yyyy", { locale: da });
+  const typeLabel = type === "binding" ? "Binding" : "Service → efter regning";
+  return (
+    <Link
+      to="/virksomheder/$id"
+      params={{ id: companyId }}
+      className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium text-foreground truncate">{companyName}</div>
+        <div className="text-xs text-muted-foreground truncate">{typeLabel}</div>
+      </div>
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {count > 1 && (
+          <span className="text-[11px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">
+            {count} maskiner
+          </span>
+        )}
+        <span
+          className={`text-[11px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap ${toneCls}`}
+        >
+          {dateLabel}
+        </span>
+        <ArrowRight className="hidden sm:block h-4 w-4 text-muted-foreground" />
+      </div>
+    </Link>
   );
 }
 
