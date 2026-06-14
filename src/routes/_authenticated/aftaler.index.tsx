@@ -144,6 +144,27 @@ function AftalerPage() {
     });
   }, [rows, search, filter]);
 
+  // Kun de KP2-grupper der ikke allerede er repræsenteret af en aftale
+  const orphanKp2 = useMemo(() => {
+    const agreementKp2s = new Set(
+      rows
+        .map((r) => (r.kp2_code ? String(r.kp2_code).trim() : null))
+        .filter(Boolean) as string[],
+    );
+    const q = search.trim().toLowerCase();
+    return kp2Groups
+      .filter((g) => !agreementKp2s.has(g.code))
+      .filter((g) => {
+        if (filter !== "all") return false; // offentlig/privat findes ikke på orphans
+        if (!q) return true;
+        return (
+          g.code.includes(q) ||
+          g.label.toLowerCase().includes(q) ||
+          g.raw.toLowerCase().includes(q)
+        );
+      });
+  }, [kp2Groups, rows, search, filter]);
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
