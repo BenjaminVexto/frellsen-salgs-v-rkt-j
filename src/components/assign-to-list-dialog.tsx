@@ -22,6 +22,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
+import { useViewAs } from "@/contexts/view-as-context";
 
 type Seller = { id: string; full_name: string; region: string | null };
 type ListOpt = { id: string; name: string };
