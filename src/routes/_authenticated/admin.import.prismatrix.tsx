@@ -27,8 +27,13 @@ function normCol(s: string): string {
     .replace(/å/g, "aa")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "");
+    .replace(/\s+/g, "")
+    // Strip punktum og bindestreg så "Kundepris-gr. 1", "Fakt. kundenr"
+    // og lignende varianter rammer aliaserne uden at vi skal opliste hver
+    // tegnsætnings-variant. % beholdes (kritisk for "Rab %").
+    .replace(/[.\-]/g, "");
 }
+
 
 const PRICING_ALIASES: Record<string, string> = {
   kundeprisgruppe1: "kundeprisgruppe1",
@@ -41,40 +46,33 @@ const PRICING_ALIASES: Record<string, string> = {
   produktprisgruppe2: "produktprisgruppe2",
   produktprisgruppe3: "produktprisgruppe3",
   varenr: "varenr",
-  "vare-nr": "varenr",
-  "vare-nr.": "varenr",
-  "varenr.": "varenr",
   varenummer: "varenr",
   beskrivelse: "beskrivelse",
   varebeskrivelse: "beskrivelse",
-  // Rab kr — flere skrivemåder
-  "rabkr": "rab_kr",
-  "rabkr.": "rab_kr",
-  "rab.kr": "rab_kr",
-  "rab.kr.": "rab_kr",
-  "rabatkr": "rab_kr",
-  "rabatkr.": "rab_kr",
+  // Rab kr — flere skrivemåder (punktum/streg er allerede strippet i normCol)
+  rabkr: "rab_kr",
+  rabatkr: "rab_kr",
   // Rab % — KRITISK, behold %-tegnet i nøglen
   "rab%": "rab_pct",
-  "rab%.": "rab_pct",
   "rabat%": "rab_pct",
-  "rabpct": "rab_pct",
-  "rabprocent": "rab_pct",
-  "rabatpct": "rab_pct",
-  "rabatprocent": "rab_pct",
+  rabpct: "rab_pct",
+  rabprocent: "rab_pct",
+  rabatpct: "rab_pct",
+  rabatprocent: "rab_pct",
   udsalgspris: "udsalgspris",
   udlejningspris: "udlejningspris",
   kampagne: "kampagne",
   kommentar: "kommentar",
-  "fra-dato": "fra_dato",
   fradato: "fra_dato",
-  "til-dato": "til_dato",
   tildato: "til_dato",
+  // Fakturerings-kundenr — alle gængse forkortelser
   fakkundenr: "fak_kundenr",
-  "fak.kundenr": "fak_kundenr",
-  "fak.kundenr.": "fak_kundenr",
+  faktkundenr: "fak_kundenr",
+  fakturakundenr: "fak_kundenr",
+  faktureringskundenr: "fak_kundenr",
   fakturereskundenr: "fak_kundenr",
 };
+
 
 const PRICING_ANCHORS = [
   "kundeprisgruppe2",
