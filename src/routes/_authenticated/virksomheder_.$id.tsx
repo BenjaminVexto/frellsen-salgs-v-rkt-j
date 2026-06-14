@@ -77,6 +77,7 @@ import { LokationerSektion, type Location, type LocationContact } from "@/compon
 import { CompanySalesTab } from "@/components/sales/company-sales-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
+import { CompanyPricingSummary } from "@/components/company-pricing-summary";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
@@ -802,6 +803,7 @@ function VirksomhedsKort() {
             {/* FANE: Aftaler */}
             <TabsContent value="aftaler" className="space-y-6 mt-4">
               <AgreementCardSection segment1={(company as any).customer_segment_1 ?? null} variant="top" />
+              <CompanyPricingSummary companyId={company.id} />
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
               <div className="border-t border-border" />
               <KonkurrentaftaleSektion companyId={company.id} />

@@ -47,6 +47,7 @@ import {
   updateAgreement,
   deleteAgreement,
 } from "@/lib/agreements.functions";
+import { listPricingKp2Groups } from "@/lib/agreement-pricing.functions";
 
 export const Route = createFileRoute("/_authenticated/aftaler/")({
   component: AftalerPage,
@@ -87,8 +88,20 @@ function AftalerPage() {
   const isAdmin = auth.role === "admin";
   const listFn = useServerFn(listAgreements);
   const deleteFn = useServerFn(deleteAgreement);
+  const listKp2Fn = useServerFn(listPricingKp2Groups);
 
   const [rows, setRows] = useState<Agreement[]>([]);
+  const [kp2Groups, setKp2Groups] = useState<
+    {
+      code: string;
+      label: string;
+      raw: string;
+      count: number;
+      fra: string | null;
+      til: string | null;
+      agreement: { id: string } | null;
+    }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -99,8 +112,12 @@ function AftalerPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = (await listFn()) as Agreement[];
+      const [data, kp2s] = await Promise.all([
+        listFn() as Promise<Agreement[]>,
+        listKp2Fn() as Promise<typeof kp2Groups>,
+      ]);
       setRows(data);
+      setKp2Groups(kp2s);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke hente aftaler");
     } finally {
@@ -126,6 +143,27 @@ function AftalerPage() {
       );
     });
   }, [rows, search, filter]);
+
+  // Kun de KP2-grupper der ikke allerede er repræsenteret af en aftale
+  const orphanKp2 = useMemo(() => {
+    const agreementKp2s = new Set(
+      rows
+        .map((r) => (r.kp2_code ? String(r.kp2_code).trim() : null))
+        .filter(Boolean) as string[],
+    );
+    const q = search.trim().toLowerCase();
+    return kp2Groups
+      .filter((g) => !agreementKp2s.has(g.code))
+      .filter((g) => {
+        if (filter !== "all") return false; // offentlig/privat findes ikke på orphans
+        if (!q) return true;
+        return (
+          g.code.includes(q) ||
+          g.label.toLowerCase().includes(q) ||
+          g.raw.toLowerCase().includes(q)
+        );
+      });
+  }, [kp2Groups, rows, search, filter]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -308,6 +346,61 @@ function AftalerPage() {
           })}
         </div>
       )}
+
+      {orphanKp2.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Prismatrix uden aftaledokument
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {orphanKp2.length} kundeprisgruppe{orphanKp2.length === 1 ? "" : "r"}
+            </span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {orphanKp2.map((g) => (
+              <Card
+                key={g.code}
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  navigate({ to: "/aftaler/kp2/$code", params: { code: g.code } })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter")
+                    navigate({ to: "/aftaler/kp2/$code", params: { code: g.code } });
+                }}
+                className="relative p-4 pl-5 cursor-pointer hover:shadow-md transition-shadow overflow-hidden border-dashed"
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-muted-foreground/30" />
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="font-semibold truncate">{g.label}</h3>
+                  <Badge variant="outline" className="font-mono text-[10px] shrink-0">
+                    KP2 {g.code}
+                  </Badge>
+                </div>
+                <div className="text-sm mb-1">
+                  <strong>{g.count}</strong> prislinjer
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Gyldig:{" "}
+                  {g.fra
+                    ? format(parseISO(g.fra), "d. MMM yyyy", { locale: da })
+                    : "—"}{" "}
+                  →{" "}
+                  {g.til
+                    ? format(parseISO(g.til), "d. MMM yyyy", { locale: da })
+                    : "∞"}
+                </div>
+                <div className="text-xs text-muted-foreground mt-2 italic">
+                  Intet aftaledokument oprettet endnu.
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
 
       <EditDialog
         open={editOpen}

@@ -43,6 +43,7 @@ import {
   uploadAgreementDocument,
 } from "@/lib/agreements.functions";
 import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
+import { PrismatrixTable } from "@/components/prismatrix-table";
 
 export const Route = createFileRoute("/_authenticated/aftaler/$id")({
   component: AgreementDetail,
@@ -216,6 +217,9 @@ function AgreementDetail() {
           <TabsTrigger value="companies">
             Virksomheder {companyCount > 0 && `(${companyCount})`}
           </TabsTrigger>
+          {a.kp2_code && (
+            <TabsTrigger value="prismatrix">Prismatrix</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="document" className="mt-4">
@@ -229,6 +233,12 @@ function AgreementDetail() {
             agreementName={a.name}
           />
         </TabsContent>
+
+        {a.kp2_code && (
+          <TabsContent value="prismatrix" className="mt-4">
+            <PrismatrixTable kp2={a.kp2_code} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
