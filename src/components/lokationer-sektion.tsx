@@ -101,14 +101,12 @@ export function LokationerSektion({
     load();
   }, [companyId, reloadKey]);
 
-  // Auto-open + scroll til en bestemt lokation når URL'en peger på den
-  useEffect(() => {
-    if (!initialOpenLocationId) return;
-    if (!locations.some((l) => l.id === initialOpenLocationId)) return;
+  // Åbn + scroll til en bestemt lokation
+  const openLocation = (locationId: string) => {
     setExpanded(true);
-    setOpenId(initialOpenLocationId);
+    setOpenId(locationId);
     requestAnimationFrame(() => {
-      const el = document.getElementById(`location-${initialOpenLocationId}`);
+      const el = document.getElementById(`location-${locationId}`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
         el.classList.add("ring-2", "ring-primary", "rounded-md");
@@ -118,6 +116,14 @@ export function LokationerSektion({
         );
       }
     });
+  };
+
+  // Auto-open + scroll til en bestemt lokation når URL'en peger på den
+  useEffect(() => {
+    if (!initialOpenLocationId) return;
+    if (!locations.some((l) => l.id === initialOpenLocationId)) return;
+    openLocation(initialOpenLocationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialOpenLocationId, locations]);
 
 
@@ -126,6 +132,51 @@ export function LokationerSektion({
     enabled: locations.length > 0,
     queryKey: ["location-sales-summary", locations.map((l) => l.id).sort().join(",")],
     queryFn: () => summaryFn({ data: { locationIds: locations.map((l) => l.id) } }),
+  });
+
+  // Hent udløbende maskiner pr. lokation (90 dages vindue)
+  const expiringQ = useQuery({
+    enabled: locations.length > 0,
+    queryKey: ["company-expiring-machines", companyId, locations.map((l) => l.id).sort().join(",")],
+    queryFn: async () => {
+      const todayS = new Date().toISOString().slice(0, 10);
+      const in90D = new Date();
+      in90D.setDate(in90D.getDate() + 90);
+      const in90S = in90D.toISOString().slice(0, 10);
+
+      const locationIds = locations.map((l) => l.id);
+      const { data: units } = await (supabase as any)
+        .from("location_equipment_units")
+        .select("serial_no, location_id")
+        .eq("is_filter", false)
+        .in("location_id", locationIds);
+      const serials = Array.from(
+        new Set(
+          ((units ?? []) as any[])
+            .map((u) => u.serial_no)
+            .filter((s): s is string => !!s && s.trim().length > 0),
+        ),
+      );
+      if (!serials.length) return new Map<string, number>();
+
+      const { data: enr } = await (supabase as any)
+        .from("machine_enrichment")
+        .select("serienr, binding_ophor, handlingsdato")
+        .eq("record_status", "aktiv")
+        .in("serienr", serials)
+        .or(
+          `and(binding_ophor.gte.${todayS},binding_ophor.lte.${in90S}),and(handlingsdato.gte.${todayS},handlingsdato.lte.${in90S})`,
+        );
+      const expiringSerials = new Set(
+        ((enr ?? []) as any[]).map((e) => String(e.serienr)),
+      );
+      const byLoc = new Map<string, number>();
+      for (const u of (units ?? []) as any[]) {
+        if (!u.serial_no || !expiringSerials.has(String(u.serial_no))) continue;
+        byLoc.set(u.location_id, (byLoc.get(u.location_id) ?? 0) + 1);
+      }
+      return byLoc;
+    },
   });
 
   const sortedLocations = useMemo(() => {
@@ -138,6 +189,11 @@ export function LokationerSektion({
       return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
     });
   }, [locations, sortMode, summaryQ.data]);
+
+  const expiringByLoc = expiringQ.data ?? new Map<string, number>();
+  const expiringTotal = Array.from(expiringByLoc.values()).reduce((n, v) => n + v, 0);
+  const [expiringOpen, setExpiringOpen] = useState(false);
+
 
   // Always render the section (header) when admin; hide entirely if no data and no write
   if (locations.length === 0 && !isAdmin) return null;
