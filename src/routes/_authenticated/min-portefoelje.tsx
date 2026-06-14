@@ -114,7 +114,7 @@ function PortfolioPage() {
 
   // Reset pagination when filters/sort change
   useEffect(() => {
-    setVisibleCount(50);
+    setVisibleCount(5);
   }, [search, kaffeFilter, statusFilter, sortKey, sortDir, sellerId]);
 
   const toggleSort = (key: SortKey) => {
