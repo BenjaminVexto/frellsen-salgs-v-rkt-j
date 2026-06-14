@@ -214,3 +214,33 @@ export const adminListUsers = createServerFn({ method: "GET" })
       created_at: p.created_at,
     }));
   });
+
+export type SellerOption = { id: string; full_name: string; region: string | null };
+
+export const listSellers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ sellers: SellerOption[] }> => {
+    await ensureAdmin(context.userId);
+    const { data: roles, error: rolesErr } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "saelger");
+    if (rolesErr) throw new Error(rolesErr.message);
+    const ids = (roles ?? []).map((r) => r.user_id).filter(Boolean);
+    if (!ids.length) return { sellers: [] };
+    const { data: profs, error: profErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, region, is_active")
+      .in("id", ids)
+      .order("full_name", { ascending: true });
+    if (profErr) throw new Error(profErr.message);
+    return {
+      sellers: (profs ?? [])
+        .filter((p: any) => p.is_active !== false)
+        .map((p: any) => ({
+          id: p.id,
+          full_name: p.full_name || "",
+          region: p.region ?? null,
+        })),
+    };
+  });
