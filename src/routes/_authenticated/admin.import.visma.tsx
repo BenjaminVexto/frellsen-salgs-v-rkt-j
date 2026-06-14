@@ -1753,9 +1753,19 @@ function Trin4Import({
       {importing && (
         <div className="mb-4">
           <Progress value={progress} className="mb-2" />
-          <p className="text-xs text-muted-foreground text-center">
-            {progressLabel || `Importerer… ${progress}%`}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground flex-1">
+              {progressLabel || `Importerer… ${progress}%`}
+            </p>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => importRunner.abort()}
+              disabled={importRunner.isAborted()}
+            >
+              {importRunner.isAborted() ? "Afbryder…" : "STOP import"}
+            </Button>
+          </div>
         </div>
       )}
 
