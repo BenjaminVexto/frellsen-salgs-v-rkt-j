@@ -121,6 +121,7 @@ export function DismissChurnDialog({
 
   const mut = useMutation({
     mutationFn: async () => {
+      if (isImpersonating) throw new Error("Read-only — handling ikke tilladt");
       if (reason === "supplied_via") {
         // If an existing forsynes_af relation already exists, no need to create
         // another — the churning exclusion already applies. Just acknowledge.
