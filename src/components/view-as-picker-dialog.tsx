@@ -32,7 +32,7 @@ export function ViewAsPickerDialog({ open, onOpenChange }: Props) {
     staleTime: 60_000,
   });
 
-  const items = useMemo(() => q.data?.sellers ?? [], [q.data]);
+  const items: SellerOption[] = useMemo(() => q.data?.sellers ?? [], [q.data]);
 
   if (!isAdmin) return null;
 
