@@ -111,8 +111,8 @@ export const importMachines = createServerFn({ method: "POST" })
     }
 
     const importedAt = new Date().toISOString();
+    console.log("[machines-import] STEP 1: bygger machineRows");
 
-    // ---- Machines: hash + dup_index ----
     const dupCounter = new Map<string, number>();
     const machineRows: any[] = [];
     for (const r of data.machineRows) {
@@ -121,14 +121,11 @@ export const importMachines = createServerFn({ method: "POST" })
       const beskrivelse = t(r.beskrivelse);
       const serienr = t(r.serienr);
       const udlanstype = t(r.udlanstype);
-      // Spring tomme/uægte rækker over (intet at identificere på)
       if (!ordrenr && !varenr && !beskrivelse && !serienr && !udlanstype) continue;
-
       const hashInput = [ordrenr, varenr, beskrivelse, serienr, udlanstype].join("|");
       const hash = crypto.createHash("sha1").update(hashInput).digest("hex");
       const idx = dupCounter.get(hash) ?? 0;
       dupCounter.set(hash, idx + 1);
-
       machineRows.push({
         id: `${hash}-${idx}`,
         dup_index: idx,
@@ -148,175 +145,172 @@ export const importMachines = createServerFn({ method: "POST" })
         udgaaet_dato: null,
       });
     }
+    console.log(`[machines-import] STEP 2: machineRows=${machineRows.length}`);
 
-
-
-    // ---- Diagnostik: aktive før import ----
-    let machinesActiveBefore = 0;
-    let enrichmentActiveBefore = 0;
-    if (data.machineRows.length > 0) {
-      const { count } = await supabaseAdmin
-        .from("machines" as any)
-        .select("id", { count: "exact", head: true })
-        .eq("record_status", "aktiv");
-      machinesActiveBefore = count ?? 0;
-    }
-    if (data.enrichmentRows.length > 0) {
-      const { count } = await supabaseAdmin
-        .from("machine_enrichment" as any)
-        .select("serienr", { count: "exact", head: true })
-        .eq("record_status", "aktiv");
-      enrichmentActiveBefore = count ?? 0;
-    }
-
-    // ---- Tæl reaktiverede maskiner (var udgået, kommer tilbage i fil) ----
-    let machinesReactivated = 0;
-    if (machineRows.length > 0) {
-      const ids = machineRows.map((m) => m.id);
-      const CHUNK_IN = 500;
-      for (let i = 0; i < ids.length; i += CHUNK_IN) {
-        const slice = ids.slice(i, i + CHUNK_IN);
-        const { count } = await supabaseAdmin
+    try {
+      let machinesActiveBefore = 0;
+      let enrichmentActiveBefore = 0;
+      if (data.machineRows.length > 0) {
+        const { count, error } = await supabaseAdmin
           .from("machines" as any)
           .select("id", { count: "exact", head: true })
-          .in("id", slice)
-          .eq("record_status", "udgaaet");
-        machinesReactivated += count ?? 0;
+          .eq("record_status", "aktiv");
+        if (error) throw new Error("count machines aktiv: " + JSON.stringify(error));
+        machinesActiveBefore = count ?? 0;
+        console.log(`[machines-import] STEP 3a: machinesActiveBefore=${machinesActiveBefore}`);
       }
-    }
-
-    const CHUNK = 1000;
-    let machinesUpserted = 0;
-    for (let i = 0; i < machineRows.length; i += CHUNK) {
-      const slice = machineRows.slice(i, i + CHUNK);
-      const { error } = await supabaseAdmin
-        .from("machines" as any)
-        .upsert(slice, { onConflict: "id" });
-      if (error) throw new Error("machines upsert: " + error.message);
-      machinesUpserted += slice.length;
-    }
-
-    // ---- Markér manglende maskiner som udgået ----
-    let machinesMarkedUdgaaet = 0;
-    if (data.machineRows.length > 0) {
-      const { data: upd, error } = await supabaseAdmin
-        .from("machines" as any)
-        .update({ record_status: "udgaaet", udgaaet_dato: importedAt })
-        .or(`last_seen_import.is.null,last_seen_import.lt.${importedAt}`)
-        .neq("record_status", "udgaaet")
-        .select("id");
-      if (error) throw new Error("machines udgået-mark: " + error.message);
-      machinesMarkedUdgaaet = upd?.length ?? 0;
-    }
-
-    // ---- Enrichment: dedupe på serienr (sidste vinder) ----
-    const enrMap = new Map<string, any>();
-    for (const r of data.enrichmentRows) {
-      const serienr = t(r.serienr);
-      if (!serienr) continue;
-      // Saml alle ekstra (ikke-kolonne) felter i data jsonb
-      const extras: Record<string, any> = { ...(r.data && typeof r.data === "object" ? r.data : {}) };
-      for (const [k, v] of Object.entries(r as Record<string, any>)) {
-        if (ENRICHMENT_COLUMN_FIELDS.has(k) || k === "data") continue;
-        if (v == null || v === "") continue;
-        extras[k] = v;
-      }
-      enrMap.set(serienr, {
-        serienr,
-        taelleraflaesning: r.taelleraflaesning || null,
-        binding_ophor: r.binding_ophor || null,
-        beregnet_slutdato: r.beregnet_slutdato || null,
-        handlingsdato: r.handlingsdato || null,
-        handlingsdato_raw: r.handlingsdato_raw || null,
-        data: Object.keys(extras).length > 0 ? extras : null,
-        record_status: "aktiv",
-        last_seen_import: importedAt,
-        udgaaet_dato: null,
-      });
-    }
-    const enrRows = Array.from(enrMap.values());
-
-    let enrichmentReactivated = 0;
-    if (enrRows.length > 0) {
-      const serienrs = enrRows.map((e) => e.serienr);
-      const CHUNK_IN = 500;
-      for (let i = 0; i < serienrs.length; i += CHUNK_IN) {
-        const slice = serienrs.slice(i, i + CHUNK_IN);
-        const { count } = await supabaseAdmin
+      if (data.enrichmentRows.length > 0) {
+        const { count, error } = await supabaseAdmin
           .from("machine_enrichment" as any)
           .select("serienr", { count: "exact", head: true })
-          .in("serienr", slice)
-          .eq("record_status", "udgaaet");
-        enrichmentReactivated += count ?? 0;
+          .eq("record_status", "aktiv");
+        if (error) throw new Error("count enrichment aktiv: " + JSON.stringify(error));
+        enrichmentActiveBefore = count ?? 0;
+        console.log(`[machines-import] STEP 3b: enrichmentActiveBefore=${enrichmentActiveBefore}`);
       }
-    }
 
-    // ---- Diagnostik: faktisk række-count i tabel FØR enrichment-upsert
-    const { count: enrCountBefore } = await supabaseAdmin
-      .from("machine_enrichment" as any)
-      .select("serienr", { count: "exact", head: true });
-    console.log(`[machines-import] enrichment count i tabel FØR upsert: ${enrCountBefore ?? 0} (parsede rækker=${enrRows.length})`);
+      let machinesReactivated = 0;
+      if (machineRows.length > 0) {
+        const ids = machineRows.map((m) => m.id);
+        const CHUNK_IN = 500;
+        for (let i = 0; i < ids.length; i += CHUNK_IN) {
+          const slice = ids.slice(i, i + CHUNK_IN);
+          const { count, error } = await supabaseAdmin
+            .from("machines" as any)
+            .select("id", { count: "exact", head: true })
+            .in("id", slice)
+            .eq("record_status", "udgaaet");
+          if (error) throw new Error(`count reakt chunk ${i}: ${JSON.stringify(error)}`);
+          machinesReactivated += count ?? 0;
+        }
+        console.log(`[machines-import] STEP 4: machinesReactivated=${machinesReactivated}`);
+      }
 
-    let enrichmentUpserted = 0;
-    let enrFirstError: string | null = null;
-    for (let i = 0; i < enrRows.length; i += CHUNK) {
-      const slice = enrRows.slice(i, i + CHUNK);
-      try {
+      const CHUNK = 1000;
+      let machinesUpserted = 0;
+      console.log(`[machines-import] STEP 5: machines upsert start (${machineRows.length} rows)`);
+      for (let i = 0; i < machineRows.length; i += CHUNK) {
+        const slice = machineRows.slice(i, i + CHUNK);
+        const { error, status, statusText } = await supabaseAdmin
+          .from("machines" as any)
+          .upsert(slice, { onConflict: "id" });
+        if (error) {
+          const msg = `machines upsert chunk ${i}: ${error.message} (code=${(error as any).code}, details=${(error as any).details}, hint=${(error as any).hint}, http=${status} ${statusText})`;
+          console.error("[machines-import]", msg, "førsterække:", JSON.stringify(slice[0]));
+          throw new Error(msg);
+        }
+        machinesUpserted += slice.length;
+      }
+      console.log(`[machines-import] STEP 5 DONE: machinesUpserted=${machinesUpserted}`);
+
+      let machinesMarkedUdgaaet = 0;
+      if (data.machineRows.length > 0) {
+        const { data: upd, error } = await supabaseAdmin
+          .from("machines" as any)
+          .update({ record_status: "udgaaet", udgaaet_dato: importedAt })
+          .or(`last_seen_import.is.null,last_seen_import.lt.${importedAt}`)
+          .neq("record_status", "udgaaet")
+          .select("id");
+        if (error) throw new Error("machines udgået-mark: " + JSON.stringify(error));
+        machinesMarkedUdgaaet = upd?.length ?? 0;
+        console.log(`[machines-import] STEP 6: machinesMarkedUdgaaet=${machinesMarkedUdgaaet}`);
+      }
+
+      const enrMap = new Map<string, any>();
+      for (const r of data.enrichmentRows) {
+        const serienr = t(r.serienr);
+        if (!serienr) continue;
+        const extras: Record<string, any> = { ...(r.data && typeof r.data === "object" ? r.data : {}) };
+        for (const [k, v] of Object.entries(r as Record<string, any>)) {
+          if (ENRICHMENT_COLUMN_FIELDS.has(k) || k === "data") continue;
+          if (v == null || v === "") continue;
+          extras[k] = v;
+        }
+        enrMap.set(serienr, {
+          serienr,
+          taelleraflaesning: r.taelleraflaesning || null,
+          binding_ophor: r.binding_ophor || null,
+          beregnet_slutdato: r.beregnet_slutdato || null,
+          handlingsdato: r.handlingsdato || null,
+          handlingsdato_raw: r.handlingsdato_raw || null,
+          data: Object.keys(extras).length > 0 ? extras : null,
+          record_status: "aktiv",
+          last_seen_import: importedAt,
+          udgaaet_dato: null,
+        });
+      }
+      const enrRows = Array.from(enrMap.values());
+      console.log(`[machines-import] STEP 7: enrRows=${enrRows.length}`);
+
+      let enrichmentReactivated = 0;
+      if (enrRows.length > 0) {
+        const serienrs = enrRows.map((e) => e.serienr);
+        const CHUNK_IN = 500;
+        for (let i = 0; i < serienrs.length; i += CHUNK_IN) {
+          const slice = serienrs.slice(i, i + CHUNK_IN);
+          const { count, error } = await supabaseAdmin
+            .from("machine_enrichment" as any)
+            .select("serienr", { count: "exact", head: true })
+            .in("serienr", slice)
+            .eq("record_status", "udgaaet");
+          if (error) throw new Error(`count enr reakt chunk ${i}: ${JSON.stringify(error)}`);
+          enrichmentReactivated += count ?? 0;
+        }
+      }
+
+      const { count: enrCountBefore } = await supabaseAdmin
+        .from("machine_enrichment" as any)
+        .select("serienr", { count: "exact", head: true });
+      console.log(`[machines-import] STEP 9: enr count FØR=${enrCountBefore ?? 0}`);
+
+      let enrichmentUpserted = 0;
+      for (let i = 0; i < enrRows.length; i += CHUNK) {
+        const slice = enrRows.slice(i, i + CHUNK);
         const { error, status, statusText } = await supabaseAdmin
           .from("machine_enrichment" as any)
           .upsert(slice, { onConflict: "serienr" });
         if (error) {
-          const msg = `chunk ${i}-${i + slice.length} fejlede: ${error.message} (code=${(error as any).code ?? "?"}, details=${(error as any).details ?? "?"}, hint=${(error as any).hint ?? "?"}, http=${status} ${statusText})`;
-          console.error("[machines-import] machine_enrichment upsert FEJL:", msg, "førsterække:", JSON.stringify(slice[0]));
-          enrFirstError ??= msg;
-          throw new Error("machine_enrichment upsert: " + msg);
+          const msg = `enrichment upsert chunk ${i}: ${error.message} (code=${(error as any).code}, details=${(error as any).details}, hint=${(error as any).hint}, http=${status} ${statusText})`;
+          console.error("[machines-import]", msg, "førsterække:", JSON.stringify(slice[0]));
+          throw new Error(msg);
         }
-      } catch (e: any) {
-        if (!enrFirstError) enrFirstError = e?.message ?? String(e);
-        throw e;
+        enrichmentUpserted += slice.length;
       }
-      enrichmentUpserted += slice.length;
-    }
+      console.log(`[machines-import] STEP 10 DONE: enrichmentUpserted=${enrichmentUpserted}`);
 
-    // ---- Diagnostik: faktisk række-count i tabel EFTER enrichment-upsert
-    const { count: enrCountAfter } = await supabaseAdmin
-      .from("machine_enrichment" as any)
-      .select("serienr", { count: "exact", head: true });
-    console.log(`[machines-import] enrichment count i tabel EFTER upsert: ${enrCountAfter ?? 0} (forventet stigning: nye+reaktiverede)`);
-    if ((enrCountAfter ?? 0) < (enrCountBefore ?? 0) + Math.max(0, enrRows.length - enrichmentReactivated - (enrichmentActiveBefore))) {
-      console.warn(`[machines-import] DIFF: parsed=${enrRows.length} upsertet(rapport)=${enrichmentUpserted} tabel-delta=${(enrCountAfter ?? 0) - (enrCountBefore ?? 0)} førsteFejl=${enrFirstError ?? "(ingen)"}`);
-    }
-
-    let enrichmentMarkedUdgaaet = 0;
-    if (data.enrichmentRows.length > 0) {
-      const { data: upd, error } = await supabaseAdmin
+      const { count: enrCountAfter } = await supabaseAdmin
         .from("machine_enrichment" as any)
-        .update({ record_status: "udgaaet", udgaaet_dato: importedAt })
-        .or(`last_seen_import.is.null,last_seen_import.lt.${importedAt}`)
-        .neq("record_status", "udgaaet")
-        .select("serienr");
-      if (error) throw new Error("machine_enrichment udgået-mark: " + error.message);
-      enrichmentMarkedUdgaaet = upd?.length ?? 0;
+        .select("serienr", { count: "exact", head: true });
+      console.log(`[machines-import] STEP 11: enr count EFTER=${enrCountAfter ?? 0}`);
+
+      let enrichmentMarkedUdgaaet = 0;
+      if (data.enrichmentRows.length > 0) {
+        const { data: upd, error } = await supabaseAdmin
+          .from("machine_enrichment" as any)
+          .update({ record_status: "udgaaet", udgaaet_dato: importedAt })
+          .or(`last_seen_import.is.null,last_seen_import.lt.${importedAt}`)
+          .neq("record_status", "udgaaet")
+          .select("serienr");
+        if (error) throw new Error("enrichment udgået-mark: " + JSON.stringify(error));
+        enrichmentMarkedUdgaaet = upd?.length ?? 0;
+      }
+
+      console.log(`[machines-import] FÆRDIG: machines=${machinesUpserted} enrichment=${enrichmentUpserted}`);
+      return {
+        machinesUpserted,
+        enrichmentUpserted,
+        machineRowsParsed: data.machineRows.length,
+        enrichmentRowsParsed: data.enrichmentRows.length,
+        machinesActiveBefore,
+        enrichmentActiveBefore,
+        machinesMarkedUdgaaet,
+        enrichmentMarkedUdgaaet,
+        machinesReactivated,
+        enrichmentReactivated,
+        importedAt,
+      };
+    } catch (e: any) {
+      console.error("[machines-import] TOP-LEVEL FEJL:", e?.message ?? String(e), "\nSTACK:", e?.stack ?? "(ingen)");
+      throw e;
     }
-
-    console.log(
-      `[machines-import] master-spejling machines: aktivFør=${machinesActiveBefore} iFil=${data.machineRows.length} upsertet=${machinesUpserted} nyUdgået=${machinesMarkedUdgaaet} reaktiveret=${machinesReactivated}`,
-    );
-    console.log(
-      `[machines-import] master-spejling enrichment: aktivFør=${enrichmentActiveBefore} iFil=${data.enrichmentRows.length} upsertet=${enrichmentUpserted} nyUdgået=${enrichmentMarkedUdgaaet} reaktiveret=${enrichmentReactivated}`,
-    );
-
-    return {
-      machinesUpserted,
-      enrichmentUpserted,
-      machineRowsParsed: data.machineRows.length,
-      enrichmentRowsParsed: data.enrichmentRows.length,
-      machinesActiveBefore,
-      enrichmentActiveBefore,
-      machinesMarkedUdgaaet,
-      enrichmentMarkedUdgaaet,
-      machinesReactivated,
-      enrichmentReactivated,
-      importedAt,
-    };
   });
