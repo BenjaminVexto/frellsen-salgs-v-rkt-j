@@ -175,9 +175,17 @@ function toIsoDate(val: any): string | null {
   }
   const s = String(val).trim();
   if (!s) return null;
-  // ISO først
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  // ISO først — men nogle Visma-eksporter skriver YYYY-DD-MM. Hvis "month"-feltet > 12, swap.
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    let mo = parseInt(iso[2], 10);
+    let d = parseInt(iso[3], 10);
+    if (mo > 12 && d <= 12) { const tmp = mo; mo = d; d = tmp; }
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+      return `${iso[1]}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    }
+    return null;
+  }
   // DK: DD-MM-YYYY / DD.MM.YYYY / DD/MM/YYYY
   const dk = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})/);
   if (dk) {

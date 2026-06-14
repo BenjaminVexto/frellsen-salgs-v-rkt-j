@@ -169,22 +169,9 @@ export const importMachines = createServerFn({ method: "POST" })
         console.log(`[machines-import] STEP 3b: enrichmentActiveBefore=${enrichmentActiveBefore}`);
       }
 
+      // Reaktivering-tælling sprang over (`.in()` med mange ids sprænger header-grænsen).
+      // Slutresultat regnes af call-site som tabel-delta.
       let machinesReactivated = 0;
-      if (machineRows.length > 0) {
-        const ids = machineRows.map((m) => m.id);
-        const CHUNK_IN = 500;
-        for (let i = 0; i < ids.length; i += CHUNK_IN) {
-          const slice = ids.slice(i, i + CHUNK_IN);
-          const { count, error } = await supabaseAdmin
-            .from("machines" as any)
-            .select("id", { count: "exact", head: true })
-            .in("id", slice)
-            .eq("record_status", "udgaaet");
-          if (error) throw new Error(`count reakt chunk ${i}: ${JSON.stringify(error)}`);
-          machinesReactivated += count ?? 0;
-        }
-        console.log(`[machines-import] STEP 4: machinesReactivated=${machinesReactivated}`);
-      }
 
       const CHUNK = 1000;
       let machinesUpserted = 0;
@@ -242,21 +229,8 @@ export const importMachines = createServerFn({ method: "POST" })
       const enrRows = Array.from(enrMap.values());
       console.log(`[machines-import] STEP 7: enrRows=${enrRows.length}`);
 
+      // Reaktivering-tælling sprang over (header-grænse).
       let enrichmentReactivated = 0;
-      if (enrRows.length > 0) {
-        const serienrs = enrRows.map((e) => e.serienr);
-        const CHUNK_IN = 500;
-        for (let i = 0; i < serienrs.length; i += CHUNK_IN) {
-          const slice = serienrs.slice(i, i + CHUNK_IN);
-          const { count, error } = await supabaseAdmin
-            .from("machine_enrichment" as any)
-            .select("serienr", { count: "exact", head: true })
-            .in("serienr", slice)
-            .eq("record_status", "udgaaet");
-          if (error) throw new Error(`count enr reakt chunk ${i}: ${JSON.stringify(error)}`);
-          enrichmentReactivated += count ?? 0;
-        }
-      }
 
       const { count: enrCountBefore } = await supabaseAdmin
         .from("machine_enrichment" as any)
