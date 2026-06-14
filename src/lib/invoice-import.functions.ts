@@ -32,37 +32,81 @@ async function assertAdmin(supabase: any, userId: string) {
 }
 
 /**
- * Browseren uploader fakturafilen til invoice-uploads bucket og kalder denne
- * fn for at lægge jobbet i pending-kø. pg_cron-workeren parser og upserter.
+ * Slå mange delivery_nos op én gang fra klienten. Returnerer kun match —
+ * unmatched udledes på klienten ved at sammenligne mod input.
+ */
+export const resolveDeliveryNos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { deliveryNos: string[] }) => {
+    if (!Array.isArray(input?.deliveryNos)) throw new Error("deliveryNos skal være array");
+    return input;
+  })
+  .handler(
+    async ({
+      data,
+      context,
+    }): Promise<{ map: Record<string, { location_id: string; company_id: string }> }> => {
+      await assertAdmin(context.supabase, context.userId);
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const uniq = Array.from(new Set(data.deliveryNos.filter(Boolean)));
+      const map: Record<string, { location_id: string; company_id: string }> = {};
+      const SLICE = 500;
+      for (let i = 0; i < uniq.length; i += SLICE) {
+        const slice = uniq.slice(i, i + SLICE);
+        const { data: rows, error } = await supabaseAdmin
+          .from("locations")
+          .select("id, company_id, visma_delivery_no")
+          .in("visma_delivery_no", slice);
+        if (error) throw new Error(error.message);
+        for (const r of rows ?? []) {
+          const k = r.visma_delivery_no as string;
+          if (k && !map[k]) map[k] = { location_id: r.id, company_id: r.company_id };
+        }
+      }
+      return { map };
+    },
+  );
+
+/**
+ * Browseren har allerede parset filen, opslået locations og uploadet
+ * chunk-filer ({jobId}/monthly-N.json + top-N.json) til invoice-uploads.
+ * Denne fn registrerer jobbet direkte i "monthly"-fasen — workeren downloader
+ * én chunk pr. tick og laver kun de idempotente DB-upserts.
  */
 export const enqueueInvoiceImport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { filePath: string }) => {
-    if (!input?.filePath || typeof input.filePath !== "string") {
-      throw new Error("filePath mangler");
-    }
-    return input;
-  })
+  .inputValidator(
+    (input: {
+      jobId: string;
+      totalMonthly: number;
+      totalTop: number;
+      locationsMatched: number;
+      unmatched: string[];
+    }) => {
+      if (!input?.jobId) throw new Error("jobId mangler");
+      return input;
+    },
+  )
   .handler(async ({ data, context }): Promise<{ jobId: string }> => {
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const jobId = crypto.randomUUID();
     const { error } = await supabaseAdmin.from("invoice_import_jobs").insert({
-      id: jobId,
+      id: data.jobId,
       user_id: context.userId,
       status: "queued",
-      phase: "uploaded",
-      file_path: data.filePath,
-      total_monthly: 0,
-      total_top: 0,
+      phase: data.totalMonthly > 0 ? "monthly" : "top",
+      file_path: null,
+      aggregated_path: data.jobId, // chunk-prefix i invoice-uploads bucket
+      total_monthly: data.totalMonthly,
+      total_top: data.totalTop,
       saved_monthly: 0,
       saved_top: 0,
-      locations_matched: 0,
-      unmatched_delivery_nos: [],
+      locations_matched: data.locationsMatched,
+      unmatched_delivery_nos: data.unmatched.slice(0, 500),
       payload: {},
       attempts: 0,
     } as any);
     if (error) throw new Error(error.message);
-    return { jobId };
+    return { jobId: data.jobId };
   });

@@ -1,41 +1,52 @@
 /**
- * Faktura-import worker. Kaldes hvert minut af pg_cron.
- * Faser pr. tick (én job ad gangen — heavy parse):
- *   uploaded  → download xlsx, parse, resolve delivery_nos, gem aggregeret JSON,
- *               sæt total_monthly/total_top, phase=monthly
- *   monthly   → læs aggregeret JSON, upsert næste 20.000 monthly-rækker
- *   top       → upsert næste 20.000 top-vare-rækker, derefter status=completed
+ * Faktura-import worker. Kaldes hvert minut af pg_cron (sender anon-key som
+ * apikey-header) — accepteres også med service-role for manuelle test-kald.
  *
- * Auth: apikey-header skal matche SUPABASE_SERVICE_ROLE_KEY (samme mønster som CVR).
+ * Klienten har allerede parset, location-resolvet og uploadet chunk-filer i
+ * invoice-uploads bucket: {jobId}/monthly-{idx}.json og top-{idx}.json.
+ * Workeren downloader én chunk pr. tick og upserter den.
+ *
+ * Faser pr. tick (én job ad gangen):
+ *   monthly → upsert næste chunk; når saved_monthly >= total_monthly → phase=top
+ *   top     → upsert næste chunk; når saved_top >= total_top → status=completed
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
-  parseAndResolve,
   upsertMonthlySlice,
   upsertTopSlice,
-  type AggregatedPayload,
 } from "@/lib/invoice-import.server";
 
-const MAX_ATTEMPTS = 3;
-const ROWS_PER_TICK = 20_000;
+const MAX_ATTEMPTS = 5;
+const CHUNK_SIZE = 20_000; // SKAL matche klientens chunk-størrelse
 const BUCKET = "invoice-uploads";
+
+function isAuthorized(provided: string | null): boolean {
+  if (!provided) return false;
+  const anon = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return provided === anon || provided === service;
+}
 
 export const Route = createFileRoute("/api/public/hooks/process-invoice-import")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         const provided =
-          request.headers.get("x-cron-secret") ?? request.headers.get("apikey");
-        const expected = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (!expected || provided !== expected) {
+          request.headers.get("apikey") ??
+          request.headers.get("x-cron-secret") ??
+          request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
+          null;
+        if (!isAuthorized(provided)) {
           return new Response("Unauthorized", { status: 401 });
         }
 
-        // Plukker 1 job: pending eller running (kommet i gang men har endnu en fase)
+        // Pluk 1 job: queued eller running, ikke færdig
         const { data: candidates, error: selErr } = await supabaseAdmin
           .from("invoice_import_jobs")
-          .select("id, phase, attempts, file_path, aggregated_path, saved_monthly, saved_top, total_monthly, total_top")
+          .select(
+            "id, phase, attempts, aggregated_path, saved_monthly, saved_top, total_monthly, total_top",
+          )
           .in("status", ["queued", "running"])
           .neq("phase", "done")
           .order("created_at", { ascending: true })
@@ -46,8 +57,9 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         const job = candidates[0] as any;
         const jobId = job.id as string;
         const attempts = (job.attempts as number) ?? 0;
+        const prefix = (job.aggregated_path as string) ?? jobId;
 
-        // Markér running (claim)
+        // Claim som running
         const { error: claimErr } = await supabaseAdmin
           .from("invoice_import_jobs")
           .update({ status: "running", started_at: new Date().toISOString() })
@@ -55,97 +67,94 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         if (claimErr) return Response.json({ error: claimErr.message }, { status: 500 });
 
         try {
-          if (job.phase === "uploaded") {
-            if (!job.file_path) throw new Error("file_path mangler på job");
-            const payload = await parseAndResolve(supabaseAdmin, BUCKET, job.file_path);
-
-            // Gem aggregeret payload som JSON i samme bucket
-            const aggPath = `${jobId}/aggregated.json`;
-            const json = JSON.stringify(payload);
-            const { error: upErr } = await supabaseAdmin.storage
-              .from(BUCKET)
-              .upload(aggPath, new Blob([json], { type: "application/json" }), {
-                upsert: true,
-                contentType: "application/json",
-              });
-            if (upErr) throw new Error("Kunne ikke gemme aggregeret JSON: " + upErr.message);
-
-            await supabaseAdmin
-              .from("invoice_import_jobs")
-              .update({
-                aggregated_path: aggPath,
-                total_monthly: payload.monthly.length,
-                total_top: payload.topProducts.length,
-                locations_matched: payload.matched,
-                unmatched_delivery_nos: payload.unmatched.slice(0, 200),
-                phase: "monthly",
-                attempts: attempts + 1,
-                last_error: null,
-              })
-              .eq("id", jobId);
-
-            return Response.json({
-              jobId,
-              phase: "monthly",
-              total_monthly: payload.monthly.length,
-              total_top: payload.topProducts.length,
-            });
+          // Find ud af hvilken chunk vi mangler
+          let phase = job.phase as string;
+          if (phase !== "monthly" && phase !== "top") {
+            throw new Error("Ukendt phase: " + phase + " (forventede monthly|top)");
           }
 
-          if (job.phase === "monthly" || job.phase === "top") {
-            if (!job.aggregated_path) throw new Error("aggregated_path mangler");
-            const { data: blob, error: dlErr } = await supabaseAdmin.storage
-              .from(BUCKET)
-              .download(job.aggregated_path);
-            if (dlErr || !blob) throw new Error("Kunne ikke hente aggregeret JSON: " + (dlErr?.message ?? ""));
-            const payload = JSON.parse(await blob.text()) as AggregatedPayload;
+          const savedCol = phase === "monthly" ? "saved_monthly" : "saved_top";
+          const totalCol = phase === "monthly" ? "total_monthly" : "total_top";
+          const saved = (job[savedCol] as number) ?? 0;
+          const total = (job[totalCol] as number) ?? 0;
 
-            if (job.phase === "monthly") {
-              const start = (job.saved_monthly as number) ?? 0;
-              const slice = payload.monthly.slice(start, start + ROWS_PER_TICK);
-              const saved = await upsertMonthlySlice(supabaseAdmin, slice);
-              const newSaved = start + saved;
-              const done = newSaved >= payload.monthly.length;
-              await supabaseAdmin
-                .from("invoice_import_jobs")
-                .update({
-                  saved_monthly: newSaved,
-                  phase: done ? "top" : "monthly",
-                  attempts: attempts + 1,
-                  last_error: null,
-                })
-                .eq("id", jobId);
-              return Response.json({ jobId, phase: done ? "top" : "monthly", saved_monthly: newSaved });
-            }
-
-            // phase === 'top'
-            const start = (job.saved_top as number) ?? 0;
-            const slice = payload.topProducts.slice(start, start + ROWS_PER_TICK);
-            const saved = await upsertTopSlice(supabaseAdmin, slice);
-            const newSaved = start + saved;
-            const done = newSaved >= payload.topProducts.length;
-            await supabaseAdmin
-              .from("invoice_import_jobs")
-              .update({
-                saved_top: newSaved,
-                phase: done ? "done" : "top",
-                status: done ? "completed" : "running",
-                attempts: attempts + 1,
-                last_error: null,
-                finished_at: done ? new Date().toISOString() : null,
-              })
-              .eq("id", jobId);
-
-            // Ryd op: slet uploadede filer når jobbet er færdigt
-            if (done) {
-              await supabaseAdmin.storage
-                .from(BUCKET)
-                .remove([job.file_path, job.aggregated_path].filter(Boolean));
-            }
-            return Response.json({ jobId, phase: done ? "done" : "top", saved_top: newSaved });
+          if (saved >= total) {
+            // intet at gøre i denne fase — flyt videre
+            const nextUpdate: any =
+              phase === "monthly"
+                ? { phase: "top" }
+                : {
+                    phase: "done",
+                    status: "completed",
+                    finished_at: new Date().toISOString(),
+                  };
+            await supabaseAdmin.from("invoice_import_jobs").update(nextUpdate).eq("id", jobId);
+            return Response.json({ jobId, advancedTo: nextUpdate.phase });
           }
 
-          throw new Error("Ukendt phase: " + job.phase);
+          const chunkIdx = Math.floor(saved / CHUNK_SIZE);
+          const chunkPath = `${prefix}/${phase}-${chunkIdx}.json`;
+          const { data: blob, error: dlErr } = await supabaseAdmin.storage
+            .from(BUCKET)
+            .download(chunkPath);
+          if (dlErr || !blob) {
+            throw new Error("Kunne ikke hente chunk " + chunkPath + ": " + (dlErr?.message ?? ""));
+          }
+          const rows = JSON.parse(await blob.text()) as any[];
+          const savedRows =
+            phase === "monthly"
+              ? await upsertMonthlySlice(supabaseAdmin, rows)
+              : await upsertTopSlice(supabaseAdmin, rows);
+          const newSaved = saved + savedRows;
+          const phaseDone = newSaved >= total;
+
+          let nextPhase = phase;
+          let nextStatus = "running";
+          let finishedAt: string | null = null;
+
+          if (phaseDone && phase === "monthly") {
+            nextPhase = job.total_top > 0 ? "top" : "done";
+            if (nextPhase === "done") {
+              nextStatus = "completed";
+              finishedAt = new Date().toISOString();
+            }
+          } else if (phaseDone && phase === "top") {
+            nextPhase = "done";
+            nextStatus = "completed";
+            finishedAt = new Date().toISOString();
+          }
+
+          const updatePayload: any = {
+            [savedCol]: newSaved,
+            phase: nextPhase,
+            status: nextStatus,
+            attempts: attempts + 1,
+            last_error: null,
+          };
+          if (finishedAt) updatePayload.finished_at = finishedAt;
+
+          await supabaseAdmin.from("invoice_import_jobs").update(updatePayload).eq("id", jobId);
+
+          // Ryd op når jobbet er færdigt
+          if (nextPhase === "done") {
+            const allChunks: string[] = [];
+            const monthlyCount = Math.ceil((job.total_monthly ?? 0) / CHUNK_SIZE);
+            const topCount = Math.ceil((job.total_top ?? 0) / CHUNK_SIZE);
+            for (let i = 0; i < monthlyCount; i++) allChunks.push(`${prefix}/monthly-${i}.json`);
+            for (let i = 0; i < topCount; i++) allChunks.push(`${prefix}/top-${i}.json`);
+            if (allChunks.length) {
+              await supabaseAdmin.storage.from(BUCKET).remove(allChunks);
+            }
+          }
+
+          return Response.json({
+            jobId,
+            phase: nextPhase,
+            status: nextStatus,
+            chunk: chunkIdx,
+            chunkRows: savedRows,
+            [savedCol]: newSaved,
+          });
         } catch (e: any) {
           const newAttempts = attempts + 1;
           const finalFailed = newAttempts >= MAX_ATTEMPTS;
