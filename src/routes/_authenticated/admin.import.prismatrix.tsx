@@ -31,7 +31,12 @@ function normCol(s: string): string {
 }
 
 const PRICING_ALIASES: Record<string, string> = {
+  kundeprisgruppe1: "kundeprisgruppe1",
+  kundeprisgr1: "kundeprisgruppe1",
+  kpg1: "kundeprisgruppe1",
   kundeprisgruppe2: "kundeprisgruppe2",
+  kundeprisgr2: "kundeprisgruppe2",
+  kpg2: "kundeprisgruppe2",
   produktprisgruppe1: "produktprisgruppe1",
   produktprisgruppe2: "produktprisgruppe2",
   produktprisgruppe3: "produktprisgruppe3",
@@ -73,6 +78,7 @@ const PRICING_ALIASES: Record<string, string> = {
 
 const PRICING_ANCHORS = [
   "kundeprisgruppe2",
+  "kundeprisgruppe1",
   "rab%",
   "rabpct",
   "rabkr",
@@ -81,6 +87,7 @@ const PRICING_ANCHORS = [
 ];
 
 const FORCE_TEXT = new Set([
+  "kundeprisgruppe1",
   "kundeprisgruppe2",
   "varenr",
   "fak_kundenr",
@@ -93,7 +100,9 @@ const DATE_FIELDS = new Set(["fra_dato", "til_dato"]);
 const NUMBER_FIELDS = new Set(["rab_kr", "rab_pct", "udsalgspris", "udlejningspris"]);
 
 const PRICING_EXPECTED = [
+  "kundeprisgruppe1",
   "kundeprisgruppe2",
+  "fak_kundenr",
   "produktprisgruppe1",
   "produktprisgruppe2",
   "produktprisgruppe3",
@@ -108,6 +117,7 @@ const PRICING_EXPECTED = [
   "fra_dato",
   "til_dato",
 ];
+
 
 function readSheetGrid(file: File): Promise<any[][]> {
   return new Promise((resolve, reject) => {

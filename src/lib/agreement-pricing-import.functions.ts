@@ -5,6 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PricingRow = z
   .object({
+    kundeprisgruppe1: z.string().nullable().optional(),
     kundeprisgruppe2: z.string().nullable().optional(),
     produktprisgruppe1: z.string().nullable().optional(),
     produktprisgruppe2: z.string().nullable().optional(),
@@ -22,6 +23,7 @@ const PricingRow = z
     fak_kundenr: z.string().nullable().optional(),
   })
   .passthrough();
+
 
 const t = (s: unknown): string => (s == null ? "" : String(s).trim());
 
@@ -127,7 +129,9 @@ export const importAgreementPricing = createServerFn({ method: "POST" })
     const outRows: any[] = [];
     let skippedEmpty = 0;
     for (const r of data.rows) {
+      const kpg1 = t(r.kundeprisgruppe1);
       const kpg2 = t(r.kundeprisgruppe2);
+      const fak = t((r as any).fak_kundenr);
       const pg1 = t(r.produktprisgruppe1);
       const pg2 = t(r.produktprisgruppe2);
       const pg3 = t(r.produktprisgruppe3);
@@ -136,19 +140,23 @@ export const importAgreementPricing = createServerFn({ method: "POST" })
       const fra = normDate(r.fra_dato);
       const til = normDate(r.til_dato);
 
-      if (!kpg2 && !varenr && !beskrivelse && !pg2 && !pg3) {
+      if (!kpg1 && !kpg2 && !fak && !varenr && !beskrivelse && !pg2 && !pg3) {
         skippedEmpty++;
         continue;
       }
 
-      const hashInput = [kpg2, pg2, pg3, varenr, fra ?? ""].join("|");
+      // Dedup-hash inkluderer alle fire nøgler så samme varenr kan ligge under
+      // forskellige kundenumre / KP-kombinationer uden at kollidere.
+      const hashInput = [fak, kpg1, kpg2, pg2, pg3, varenr, fra ?? ""].join("|");
       const hash = crypto.createHash("sha1").update(hashInput).digest("hex");
       const idx = dupCounter.get(hash) ?? 0;
       dupCounter.set(hash, idx + 1);
 
       outRows.push({
         id: idx === 0 ? hash : `${hash}-${idx}`,
+        kundeprisgruppe1: kpg1 || null,
         kundeprisgruppe2: kpg2 || null,
+        fak_kundenr: fak || null,
         produktprisgruppe1: pg1 || null,
         produktprisgruppe2: pg2 || null,
         produktprisgruppe3: pg3 || null,
@@ -168,6 +176,7 @@ export const importAgreementPricing = createServerFn({ method: "POST" })
         udgaaet_dato: null,
       });
     }
+
     console.log(
       `[pricing-import] outRows=${outRows.length} skippedEmpty=${skippedEmpty}`,
     );
