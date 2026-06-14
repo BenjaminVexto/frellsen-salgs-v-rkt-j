@@ -356,6 +356,23 @@ function DashboardPage() {
         <ChurningCustomersCard initialVisible={2} />
       </div>
 
+      {/* 4. NUVÆRENDE KUNDER — AFTALER UDLØBER (binding / service efter regning) */}
+      <div className="mb-6 md:mb-8">
+        <PanelCard
+          title="Nuværende kunder – aftaler udløber"
+          icon={<FileText className="h-5 w-5" />}
+          tone="warning"
+          count={expiringMachines.length}
+          emptyText="Ingen kundeaftaler udløber inden for 90 dage."
+          loading={expiringMachinesQuery.isLoading}
+        >
+          {expiringMachines.slice(0, 10).map((row) => (
+            <ExpiringCustomerRow key={row.companyId} {...row} />
+          ))}
+        </PanelCard>
+      </div>
+
+
       {/* 4. KOMPAKT TÆLLER-RÆKKE */}
       <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
         <CompactStat
