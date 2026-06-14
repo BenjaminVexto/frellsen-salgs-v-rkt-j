@@ -47,15 +47,6 @@ const VALG: Valg[] = [
     hint: "Brug dette til Excel-lister, messekontakter eller andre kilder",
   },
   {
-    to: "/admin/import/maskindata",
-    icon: Wrench,
-    emoji: "🔧",
-    title: "Maskindata (Visma)",
-    description:
-      "Opdatér udstyrsoverblik på lokationer fra rå Visma-udtræk. Upload leje/udlån og/eller serviceaftaler.",
-    hint: "Brug dette til at synkronisere maskinpark og aftaletyper pr. lokation",
-  },
-  {
     to: "/admin/import/maskiner",
     icon: Cog,
     emoji: "⚙️",
