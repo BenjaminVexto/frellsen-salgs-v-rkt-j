@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { importRunner, useImportRunner } from "@/lib/import-runner";
+import { parseDanishDate } from "@/lib/date-normalization";
 import {
   deriveBindingStatus,
   deriveCustomerCategory,
@@ -273,22 +274,6 @@ interface PreparedRow {
   eanMatchId: string | null;
   hasError: boolean;
   errorMessage?: string;
-}
-
-function parseDanishDate(v: string): string | null {
-  const s = v.trim();
-  if (!s) return null;
-  // ISO YYYY-MM-DD or YYYY/MM/DD
-  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
-  // DK DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
-  const dk = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
-  if (dk) {
-    let y = dk[3];
-    if (y.length === 2) y = (parseInt(y, 10) > 50 ? "19" : "20") + y;
-    return `${y}-${dk[2].padStart(2, "0")}-${dk[1].padStart(2, "0")}`;
-  }
-  return null;
 }
 
 function ImportSide() {
