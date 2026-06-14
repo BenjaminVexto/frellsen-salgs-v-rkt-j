@@ -56,6 +56,14 @@ export function AddRelationDialog({
   const [picked, setPicked] = useState<CompanySearchResult | null>(null);
   const [type, setType] = useState<RelationType | "">("");
   const [saving, setSaving] = useState(false);
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Relationer kan ikke oprettes.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
 
   const reset = () => {
     setQuery("");
