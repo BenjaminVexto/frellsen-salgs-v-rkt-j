@@ -18,6 +18,20 @@ async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
+/**
+ * For read-only serverfns: returns the requested viewAs userId if the caller is admin,
+ * otherwise the caller's own userId. Sælgere kan aldrig "snyde" via viewAsUserId.
+ */
+async function resolveEffectiveUserId(
+  supabase: any,
+  callerUserId: string,
+  requestedViewAsUserId: string | null | undefined,
+): Promise<string> {
+  if (!requestedViewAsUserId) return callerUserId;
+  const admin = await isAdminUser(supabase, callerUserId);
+  return admin ? requestedViewAsUserId : callerUserId;
+}
+
 const SALES_PAGE_SIZE = 1000;
 
 async function fetchAllSalesMonthlyRows(
@@ -278,9 +292,10 @@ async function getSellerCompanyIds(supabase: any, userId: string): Promise<strin
   return Array.from(ids);
 }
 
-export const getMyMonthlySales = createServerFn({ method: "GET" })
+export const getMyMonthlySales = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{
+  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{
     revenue: number;
     companies: number;
     period: string;
@@ -288,7 +303,8 @@ export const getMyMonthlySales = createServerFn({ method: "GET" })
     periodLastYear: string;
     comparisonMode: "full_month";
   }> => {
-    const companyIds = await getSellerCompanyIds(context.supabase, context.userId);
+    const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
+    const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
     const d = new Date();
     const period = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
     const periodLastYear = `${d.getUTCFullYear() - 1}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
@@ -327,15 +343,17 @@ export const getMyMonthlySales = createServerFn({ method: "GET" })
     };
   });
 
-export const getMyNewActivitiesCount = createServerFn({ method: "GET" })
+export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ count: number }> => {
+  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{ count: number }> => {
+    const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
     const d = new Date();
     const monthStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
     const { count, error } = await context.supabase
       .from("activities")
       .select("id", { count: "exact", head: true })
-      .eq("created_by", context.userId)
+      .eq("created_by", effectiveUserId)
       .gte("created_at", monthStart);
     if (error) throw error;
     return { count: count ?? 0 };
@@ -349,10 +367,12 @@ export type ChurningCustomer = {
   monthsWithPurchases: number;
 };
 
-export const getMyChurningCustomers = createServerFn({ method: "GET" })
+export const getMyChurningCustomers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ customers: ChurningCustomer[]; hasData: boolean }> => {
-    const companyIds = await getSellerCompanyIds(context.supabase, context.userId);
+  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{ customers: ChurningCustomer[]; hasData: boolean }> => {
+    const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
+    const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
     if (!companyIds.length) return { customers: [], hasData: false };
 
     const cutoff = new Date();
@@ -429,7 +449,7 @@ export const getMyChurningCustomers = createServerFn({ method: "GET" })
       );
       for (const d of relevant) {
         if (d.reason === "paused") {
-          if (d.snooze_user_id === context.userId && d.snooze_until && d.snooze_until >= today) {
+          if (d.snooze_user_id === effectiveUserId && d.snooze_until && d.snooze_until >= today) {
             dismissedSet.add(cand.company_id);
             break;
           }

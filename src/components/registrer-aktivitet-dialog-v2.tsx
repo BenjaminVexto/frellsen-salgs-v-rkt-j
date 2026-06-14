@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useViewAs } from "@/contexts/view-as-context";
 
 interface Props {
   open: boolean;
@@ -50,6 +51,14 @@ export function RegistrerAktivitetDialogV2({
   const [followUpDate, setFollowUpDate] = useState<Date | undefined>();
   const [users, setUsers] = useState<MentionableUser[]>([]);
   const [saving, setSaving] = useState(false);
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Aktiviteter kan ikke registreres.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
 
   useEffect(() => {
     if (open) {
@@ -71,6 +80,10 @@ export function RegistrerAktivitetDialogV2({
 
   async function save() {
     if (!type) return;
+    if (isImpersonating) {
+      toast.error("Read-only — handling ikke tilladt");
+      return;
+    }
     setSaving(true);
     const trimmed = note.trim();
     const { data: inserted, error } = await supabase

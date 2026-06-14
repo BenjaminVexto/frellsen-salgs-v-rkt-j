@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useViewAs } from "@/contexts/view-as-context";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -30,7 +31,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const auth = useAuth();
-  const userId = auth.user?.id;
+  const { effectiveUserId, isImpersonating, viewAsName } = useViewAs();
+  const userId = effectiveUserId ?? auth.user?.id;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -102,7 +104,9 @@ function DashboardPage() {
     },
   });
 
-  const isAdmin = auth.role === "admin";
+  // Mens admin "ser som" sælger, opfører dashboardet sig som om brugeren ikke er admin
+  // (så de samme seller-scoping-filtre gælder).
+  const isAdmin = auth.role === "admin" && !isImpersonating;
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
