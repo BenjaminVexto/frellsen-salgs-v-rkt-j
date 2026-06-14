@@ -5,13 +5,21 @@ import { Progress } from "@/components/ui/progress";
 import { Target, Activity, Wallet, Loader2, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { getMyMonthlySales, getMyNewActivitiesCount } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
+import { useViewAs } from "@/contexts/view-as-context";
 
 export function MyMonthZone() {
   const salesFn = useServerFn(getMyMonthlySales);
   const actFn = useServerFn(getMyNewActivitiesCount);
+  const { viewAsUserId } = useViewAs();
 
-  const salesQ = useQuery({ queryKey: ["my-month-sales"], queryFn: () => salesFn({}) });
-  const actQ = useQuery({ queryKey: ["my-month-activities"], queryFn: () => actFn({}) });
+  const salesQ = useQuery({
+    queryKey: ["my-month-sales", viewAsUserId],
+    queryFn: () => salesFn({ data: { viewAsUserId } }),
+  });
+  const actQ = useQuery({
+    queryKey: ["my-month-activities", viewAsUserId],
+    queryFn: () => actFn({ data: { viewAsUserId } }),
+  });
 
   return (
     <section className="mb-6">
