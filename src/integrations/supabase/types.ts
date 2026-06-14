@@ -1011,13 +1011,20 @@ export type Database = {
       }
       invoice_import_jobs: {
         Row: {
+          aggregated_path: string | null
+          attempts: number
           created_at: string
           error_message: string | null
+          file_path: string | null
+          finished_at: string | null
           id: string
+          last_error: string | null
           locations_matched: number
           payload: Json
+          phase: string
           saved_monthly: number
           saved_top: number
+          started_at: string | null
           status: string
           top_deleted: boolean
           total_monthly: number
@@ -1027,13 +1034,20 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          aggregated_path?: string | null
+          attempts?: number
           created_at?: string
           error_message?: string | null
+          file_path?: string | null
+          finished_at?: string | null
           id?: string
+          last_error?: string | null
           locations_matched?: number
           payload: Json
+          phase?: string
           saved_monthly?: number
           saved_top?: number
+          started_at?: string | null
           status?: string
           top_deleted?: boolean
           total_monthly?: number
@@ -1043,13 +1057,20 @@ export type Database = {
           user_id: string
         }
         Update: {
+          aggregated_path?: string | null
+          attempts?: number
           created_at?: string
           error_message?: string | null
+          file_path?: string | null
+          finished_at?: string | null
           id?: string
+          last_error?: string | null
           locations_matched?: number
           payload?: Json
+          phase?: string
           saved_monthly?: number
           saved_top?: number
+          started_at?: string | null
           status?: string
           top_deleted?: boolean
           total_monthly?: number
