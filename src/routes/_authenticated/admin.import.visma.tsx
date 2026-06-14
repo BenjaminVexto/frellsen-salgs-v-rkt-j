@@ -1256,13 +1256,17 @@ function ImportSide() {
     setImportedSellerByCompany(sellerByCompany);
     setImportedRowAssignments(rowAssignments);
     setResult(resultPayload);
+    const wasAborted = importRunner.isAborted();
     importRunner.finish(
-      failed > 0
+      wasAborted
+        ? `Import afbrudt af bruger: ${companyIds.length.toLocaleString("da-DK")} virksomheder nåede at blive importeret`
+        : failed > 0
         ? `Import afsluttet med fejl: ${companyIds.length.toLocaleString("da-DK")} virksomheder`
         : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`,
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
-    if (failed > 0) toast.error(`Import afsluttet med fejl (${failed.toLocaleString("da-DK")})`);
+    if (wasAborted) toast.warning(`Import stoppet — ${companyIds.length.toLocaleString("da-DK")} virksomheder importeret før afbrydelse`);
+    else if (failed > 0) toast.error(`Import afsluttet med fejl (${failed.toLocaleString("da-DK")})`);
     else toast.success("Import gennemført");
     if (companiesWithMultipleLocations > 0) {
       toast.success(
