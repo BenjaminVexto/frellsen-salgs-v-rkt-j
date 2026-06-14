@@ -733,10 +733,28 @@ function ImportSide() {
     const wrongFirmaCount = prepared.length - firmaKept.length;
     const kept = firmaKept.filter((p) => !isFilteredByVisma(p));
     const filteredCount = firmaKept.length - kept.length;
-    const newCount = kept.filter((p) => !p.isDuplicate && !p.missingCvr && !p.hasError).length;
-    const dupCount = kept.filter((p) => p.isDuplicate).length;
-    const missingCount = kept.filter((p) => p.missingCvr && !p.hasError).length;
+
+    // RÆKKE-tællere — gensidigt eksklusive (én række falder i præcis ÉN kategori).
+    // Prioritet: fejl > dublet > mangler-cvr > ny.
     const errorCount = kept.filter((p) => p.hasError).length;
+    const dupCount = kept.filter((p) => !p.hasError && p.isDuplicate).length;
+    const missingCount = kept.filter((p) => !p.hasError && !p.isDuplicate && p.missingCvr).length;
+    const newCount = kept.filter((p) => !p.hasError && !p.isDuplicate && !p.missingCvr).length;
+
+    // UNIKKE VIRKSOMHEDER (Visma-filen har én række pr. leveringsadresse —
+    // mange rækker pr. virksomhed). Det er det tal brugeren faktisk ser i UI.
+    const uniqDup = new Set<string>();
+    const uniqMissing = new Set<string>();
+    const uniqNew = new Set<string>();
+    for (const p of kept) {
+      if (p.hasError) continue;
+      const k = companyKey(p.data.name as string | null, p.data.visma_id as string | null);
+      if (!k) continue;
+      if (p.isDuplicate) uniqDup.add(k);
+      else if (p.missingCvr) uniqMissing.add(k);
+      else uniqNew.add(k);
+    }
+
     const unmatchedSp = new Set(
       kept.filter((p) => p.salespersonNo && !p.matchedSellerId).map((p) => p.salespersonNo!),
     );
@@ -745,6 +763,9 @@ function ImportSide() {
       dupCount,
       missingCount,
       errorCount,
+      uniqNewCount: uniqNew.size,
+      uniqDupCount: uniqDup.size,
+      uniqMissingCount: uniqMissing.size,
       filteredCount,
       wrongFirmaCount,
       totalRows: prepared.length,
