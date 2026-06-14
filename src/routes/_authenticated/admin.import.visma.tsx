@@ -51,7 +51,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { importRunner, useImportRunner } from "@/lib/import-runner";
-import { parseDanishDate as parseSharedDanishDate } from "@/lib/invoice-parse";
+import { parseDanishDateIso as parseDanishDate } from "@/lib/invoice-parse";
 import {
   deriveBindingStatus,
   deriveCustomerCategory,
@@ -276,14 +276,7 @@ interface PreparedRow {
   errorMessage?: string;
 }
 
-function parseDanishDate(v: string): string | null {
-  const parsed = parseSharedDanishDate(v);
-  if (!parsed) return null;
-  const y = parsed.getUTCFullYear();
-  const m = String(parsed.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(parsed.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
+// parseDanishDate er den delte parseDanishDateIso fra @/lib/invoice-parse
 
 function ImportSide() {
   const auth = useAuth();
