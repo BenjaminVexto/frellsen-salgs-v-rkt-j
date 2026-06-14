@@ -790,7 +790,7 @@ function RankingTable({
   const shown = typeof limit === "number" ? rows.slice(0, limit) : rows;
   return (
     <Card className="overflow-hidden">
-      <div className="px-4 py-3 border-b border-border">
+      <div className="px-4 py-3 border-b border-border bg-muted/60">
         <h3 className="text-base font-bold text-foreground">{title}</h3>
       </div>
       {!rows.length ? (
