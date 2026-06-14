@@ -82,6 +82,15 @@ const VALG: Valg[] = [
       "Importér rå fakturajournal fra Visma. Aggregeres automatisk pr. lev.nr. × måned × produktgruppe. Idempotent: kør samme periode flere gange uden dubletter.",
     hint: "Brug dette til at opdatere salgstal og top-varer pr. lokation",
   },
+  {
+    to: "/admin/import/prismatrix",
+    icon: Tag,
+    emoji: "🏷️",
+    title: "Pris- og rabatmatrix",
+    description:
+      "Importér prismatrix til agreement_pricing. Header findes automatisk via ankerfelter, og en afledt rabat_kategori (Hele bønner, VAC kaffe, Instant, Maskiner, Tilbehør, Øvrige) beregnes pr. række.",
+    hint: "Brug dette til at synkronisere kundepriser og rabatlinjer",
+  },
 ];
 
 function ImportValgSide() {
