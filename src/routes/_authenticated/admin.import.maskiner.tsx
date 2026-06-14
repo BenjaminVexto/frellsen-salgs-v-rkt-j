@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { useAuth } from "@/hooks/useAuth";
 import { useServerFn } from "@tanstack/react-start";
 import { importMachines } from "@/lib/machines-import.functions";
+import { parseDanishDateIso as toIsoDate } from "@/lib/invoice-parse";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,7 +166,6 @@ function detectHeaderRow(
   return best.score >= 2 ? best : null;
 }
 
-import { parseDanishDateIso as toIsoDate } from "@/lib/invoice-parse";
 
 function toNumber(val: any): number | null {
   if (val == null || val === "") return null;
