@@ -98,6 +98,10 @@ export function AssignToListDialog({
   };
 
   const save = async () => {
+    if (isImpersonating) {
+      toast.error("Read-only — handling ikke tilladt");
+      return;
+    }
     if (mode === "new" && !name.trim()) {
       toast.error("Listenavn er påkrævet");
       return;
