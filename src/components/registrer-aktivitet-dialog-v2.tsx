@@ -51,6 +51,14 @@ export function RegistrerAktivitetDialogV2({
   const [followUpDate, setFollowUpDate] = useState<Date | undefined>();
   const [users, setUsers] = useState<MentionableUser[]>([]);
   const [saving, setSaving] = useState(false);
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Aktiviteter kan ikke registreres.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
 
   useEffect(() => {
     if (open) {
