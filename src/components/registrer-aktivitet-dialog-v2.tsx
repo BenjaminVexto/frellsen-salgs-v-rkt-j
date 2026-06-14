@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useViewAs } from "@/contexts/view-as-context";
 
 interface Props {
   open: boolean;
