@@ -1014,6 +1014,7 @@ function ImportSide() {
     const insertsNoVisma = inserts.filter((j) => !(j.payload as any)?.visma_id);
 
     for (let i = 0; i < insertsWithVisma.length; i += CHUNK) {
+      if (importRunner.isAborted()) break;
       const slice = insertsWithVisma.slice(i, i + CHUNK);
       const payloads = slice.map((j) => j.payload);
       try {
@@ -1046,6 +1047,7 @@ function ImportSide() {
     }
 
     for (let i = 0; i < insertsNoVisma.length; i += CHUNK) {
+      if (importRunner.isAborted()) break;
       const slice = insertsNoVisma.slice(i, i + CHUNK);
       const payloads = slice.map((j) => j.payload);
       try {
@@ -1072,6 +1074,7 @@ function ImportSide() {
 
     // 5b) Bulk update af eksisterende virksomheder (per id)
     for (let i = 0; i < updates.length; i += CHUNK) {
+      if (importRunner.isAborted()) break;
       const slice = updates.slice(i, i + CHUNK);
       try {
         const payload = slice.map((j) => {
@@ -1253,13 +1256,17 @@ function ImportSide() {
     setImportedSellerByCompany(sellerByCompany);
     setImportedRowAssignments(rowAssignments);
     setResult(resultPayload);
+    const wasAborted = importRunner.isAborted();
     importRunner.finish(
-      failed > 0
+      wasAborted
+        ? `Import afbrudt af bruger: ${companyIds.length.toLocaleString("da-DK")} virksomheder nåede at blive importeret`
+        : failed > 0
         ? `Import afsluttet med fejl: ${companyIds.length.toLocaleString("da-DK")} virksomheder`
         : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`,
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
-    if (failed > 0) toast.error(`Import afsluttet med fejl (${failed.toLocaleString("da-DK")})`);
+    if (wasAborted) toast.warning(`Import stoppet — ${companyIds.length.toLocaleString("da-DK")} virksomheder importeret før afbrydelse`);
+    else if (failed > 0) toast.error(`Import afsluttet med fejl (${failed.toLocaleString("da-DK")})`);
     else toast.success("Import gennemført");
     if (companiesWithMultipleLocations > 0) {
       toast.success(
@@ -1746,9 +1753,19 @@ function Trin4Import({
       {importing && (
         <div className="mb-4">
           <Progress value={progress} className="mb-2" />
-          <p className="text-xs text-muted-foreground text-center">
-            {progressLabel || `Importerer… ${progress}%`}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground flex-1">
+              {progressLabel || `Importerer… ${progress}%`}
+            </p>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => importRunner.abort()}
+              disabled={importRunner.isAborted()}
+            >
+              {importRunner.isAborted() ? "Afbryder…" : "STOP import"}
+            </Button>
+          </div>
         </div>
       )}
 

@@ -9,6 +9,7 @@ export type ImportRunnerState = {
   kind: ImportKind | null;
   startedAt: number | null;
   finishedAt: number | null;
+  aborted: boolean;
   // Arbitrary post-import payload (result + helper maps) so the
   // post-import UI (mass assignment etc.) survives navigation.
   postState: unknown | null;
@@ -23,6 +24,7 @@ let state: ImportRunnerState = {
   kind: null,
   startedAt: null,
   finishedAt: null,
+  aborted: false,
   postState: null,
 };
 
@@ -52,9 +54,18 @@ export const importRunner = {
       kind,
       startedAt: Date.now(),
       finishedAt: null,
+      aborted: false,
       postState: null,
     };
     notify();
+  },
+  abort() {
+    if (!state.running) return;
+    state = { ...state, aborted: true, label: "Afbryder…" };
+    notify();
+  },
+  isAborted(): boolean {
+    return state.aborted;
   },
   setProgress(p: number) {
     if (state.progress === p) return;
@@ -98,6 +109,7 @@ export const importRunner = {
       kind: null,
       startedAt: null,
       finishedAt: null,
+      aborted: false,
       postState: null,
     };
     notify();
