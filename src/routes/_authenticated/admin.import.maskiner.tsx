@@ -43,47 +43,74 @@ const MACHINE_ALIASES: Record<string, string> = {
   serienrwit: "serienr",
   serienr: "serienr",
   ordrenr: "ordrenr",
-  koebtdatodato2: "kobt_dato",
-  koebtdato: "kobt_dato",
-  leaselejedato4: "lease_leje_dato",
-  lejetdato: "lease_leje_dato",
   adresselinje2: "adresselinje2",
   aendretdato: "aendret_dato",
   status: "status",
-  taellerstand: "taellerstand",
+  maskinstatus: "status",
 };
 
 const ENRICHMENT_ALIASES: Record<string, string> = {
+  // Identifikation
   serienr: "serienr",
   serienrwit: "serienr",
+  // Maskininfo
+  maskintypeg2: "maskin_type",
+  oplysning1tilbehoer: "tilbehor",
+  emailadresse: "email",
+  levkundenr: "lev_kundenr",
+  fakturereskundenr: "fak_kundenr",
+  status: "status",
+  kundeprisgruppe1: "kundeprisgruppe1",
+  responsgr6: "respons",
+  navn: "navn",
+  reservedeleg3: "reservedele",
+  aftaletypeg4: "aftale_type",
+  chf: "chf",
+  // Datoer
+  leasetdato: "leaset_dato",
+  koebtdatodato2: "kobt_dato",
+  leaselejedato4: "lease_leje_dato",
+  beregnetstartdato: "beregnet_startdato",
+  bindingophoerleje: "binding_ophor",
+  beregnetslutdato: "beregnet_slutdato",
+  // Bemærkning med dato-tekst
+  bemaerkninghandlingsdato: "bemaerkning_handlingsdato",
+  // Tæller
+  senestetaellerstand: "taellerstand",
   senstetaelleraflaesningsdato: "taelleraflaesning",
   senestetaelleraflaesningsdato: "taelleraflaesning",
-  bindingophoer: "binding_ophor",
-  bindingsophoer: "binding_ophor",
-  beregnetslutdato: "beregnet_slutdato",
-  bemaerkning: "bemaerkning_handlingsdato",
-  bemaerkninghandlingsdato: "bemaerkning_handlingsdato",
-  handlingsdato: "bemaerkning_handlingsdato",
 };
 
 const MACHINE_ANCHORS = ["levkundenr", "fakkundenr", "serienr", "serienrwit", "varenr"];
 const ENRICHMENT_ANCHORS = [
   "serienr",
   "serienrwit",
+  "maskintypeg2",
+  "bindingophoerleje",
   "senstetaelleraflaesningsdato",
   "senestetaelleraflaesningsdato",
 ];
 
-const FORCE_TEXT = new Set(["serienr", "lev_kundenr", "fak_kundenr", "varenr"]);
+const FORCE_TEXT = new Set([
+  "serienr",
+  "lev_kundenr",
+  "fak_kundenr",
+  "varenr",
+  "chf",
+  "kundeprisgruppe1",
+]);
 const DATE_FIELDS = new Set([
-  "kobt_dato",
-  "lease_leje_dato",
   "aendret_dato",
   "taelleraflaesning",
   "binding_ophor",
   "beregnet_slutdato",
+  "beregnet_startdato",
+  "leaset_dato",
+  "kobt_dato",
+  "lease_leje_dato",
 ]);
 const NUMBER_FIELDS = new Set(["taellerstand"]);
+
 
 // "2027-07 juli" / "2025-07 Juli - se aftale" / "2024-12" → "2024-12-01"
 // Værdier uden YYYY-MM i starten (fx "Leje", "Udlån") → null
@@ -255,19 +282,33 @@ const MACHINE_EXPECTED = [
   "navn",
   "fak_kundenr",
   "lev_kundenr",
-  "kobt_dato",
-  "lease_leje_dato",
   "adresselinje2",
   "aendret_dato",
   "status",
-  "taellerstand",
 ];
 const ENRICHMENT_EXPECTED = [
   "serienr",
-  "taelleraflaesning",
+  "maskin_type",
+  "tilbehor",
+  "email",
+  "lev_kundenr",
+  "fak_kundenr",
+  "status",
+  "kundeprisgruppe1",
+  "leaset_dato",
+  "respons",
+  "navn",
+  "reservedele",
+  "aftale_type",
+  "kobt_dato",
+  "lease_leje_dato",
+  "beregnet_startdato",
   "binding_ophor",
-  "beregnet_slutdato",
   "bemaerkning_handlingsdato",
+  "beregnet_slutdato",
+  "chf",
+  "taellerstand",
+  "taelleraflaesning",
 ];
 
 type FileState = {
