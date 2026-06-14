@@ -64,6 +64,15 @@ export function DismissChurnDialog({
   const [picked, setPicked] = useState<CompanySearchResult | null>(null);
 
   const qc = useQueryClient();
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Kan ikke fjerne kunder.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
+
 
   const listFn = useServerFn(listCompetitorsForSelect);
   const competitorsQ = useQuery({
