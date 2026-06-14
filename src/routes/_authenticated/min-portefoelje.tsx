@@ -50,7 +50,8 @@ function PortfolioPage() {
   const [kaffeFilter, setKaffeFilter] = useState<"all" | "green" | "yellow" | "red" | "via">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "aktiv" | "sovende" | "paavejvaek">("all");
   const [showDB, setShowDB] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(50);
+  const [visibleCount, setVisibleCount] = useState(5);
+  const [rankingsExpanded, setRankingsExpanded] = useState(false);
 
   const q = useQuery({
     queryKey: ["portfolio", sellerId],
