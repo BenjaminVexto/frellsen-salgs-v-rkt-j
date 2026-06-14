@@ -250,6 +250,7 @@ function FakturaImportSide() {
             <div className="font-medium">Preview</div>
             <ul className="space-y-1 text-muted-foreground">
               <li>📄 <b className="text-foreground">{stats.linesRead.toLocaleString("da-DK")}</b> faktura-linjer læst{stats.invalidLines > 0 && <> · {stats.invalidLines.toLocaleString("da-DK")} ugyldige sprunget over (Vismas subtotal-/sammendragsrækker)</>}</li>
+              <li>🏢 Firma-filter: kun firma <b className="text-foreground">10</b> importeres · <b className="text-foreground">{stats.skippedFirma.toLocaleString("da-DK")}</b> linjer sprunget over pga. fremmed firma-kode{stats.skippedFirmaSamples.length > 0 && <> (set: {stats.skippedFirmaSamples.join(", ")})</>}</li>
               <li>🏷️ <b className="text-foreground">{stats.uniqueDeliveryNos.toLocaleString("da-DK")}</b> unikke lev.nr. i fil</li>
               <li>📅 Periode: <b className="text-foreground">{stats.periodFrom ?? "?"}</b> → <b className="text-foreground">{stats.periodTo ?? "?"}</b></li>
               <li>💰 Samlet omsætning: <b className="text-foreground">{fmtKr(stats.totalRevenue)}</b></li>
