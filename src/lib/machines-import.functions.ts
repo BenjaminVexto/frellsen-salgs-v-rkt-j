@@ -23,6 +23,10 @@ const MachineRow = z.object({
 const EnrichmentRow = z.object({
   serienr: z.string(),
   taelleraflaesning: z.string().nullable().optional(),
+  binding_ophor: z.string().nullable().optional(),
+  beregnet_slutdato: z.string().nullable().optional(),
+  handlingsdato: z.string().nullable().optional(),
+  handlingsdato_raw: z.string().nullable().optional(),
   data: z.record(z.any()).nullable().optional(),
 });
 
