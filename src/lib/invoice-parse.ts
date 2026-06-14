@@ -40,45 +40,68 @@ export function parseDanishNumber(raw: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function makeUtcDate(y: number, m: number, day: number): Date | null {
+  if (m < 1 || m > 12 || day < 1 || day > 31) return null;
+  const d = new Date(Date.UTC(y, m - 1, day));
+  if (d.getUTCFullYear() !== y || d.getUTCMonth() !== m - 1 || d.getUTCDate() !== day) return null;
+  return d;
+}
+
+/**
+ * Shared Danish-date parser brugt af alle imports (visma, anden, maskiner,
+ * prismatrix, fakturajournal). Håndterer:
+ *   - Date-instans (fra xlsx cellFormat:false)
+ *   - YYYYMMDD (8 cifre, ingen separator — Visma faktura)
+ *   - YYYY-MM-DD / YYYY/M/D (ISO; swap hvis måned>12 og dag<=12)
+ *   - DD-MM-YYYY / DD/MM/YYYY / DD.MM.YYYY (dansk)
+ *   - 2-cifret år → 19xx hvis >50, ellers 20xx
+ *   - Fallback: new Date(s)
+ */
 export function parseDanishDate(raw: unknown): Date | null {
   if (raw == null) return null;
-  if (raw instanceof Date) return raw;
+  if (raw instanceof Date) return isNaN(+raw) ? null : raw;
   const s = String(raw).trim();
   if (!s || s === "0") return null;
 
   // YYYYMMDD (8 digits, no separator) — Visma fakturajournal
   const compact = s.match(/^(\d{4})(\d{2})(\d{2})$/);
   if (compact) {
-    const y = +compact[1], m = +compact[2], day = +compact[3];
-    if (m < 1 || m > 12 || day < 1 || day > 31) return null;
-    const d = new Date(Date.UTC(y, m - 1, day));
-    if (d.getUTCFullYear() !== y || d.getUTCMonth() !== m - 1 || d.getUTCDate() !== day) return null;
-    return d;
+    return makeUtcDate(+compact[1], +compact[2], +compact[3]);
   }
 
-  // DD-MM-YYYY (dansk salgslinjeformat)
-  const dk = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (dk) {
-    const d = new Date(`${dk[3]}-${dk[2]}-${dk[1]}T00:00:00Z`);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  // ISO-lignende datoer fra Visma: YYYY-MM-DD, men nogle filer giver YYYY-DD-MM.
+  // ISO-lignende: YYYY-MM-DD eller YYYY/M/D (med swap-defensiv hvis måned>12)
   const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
   if (iso) {
     const y = +iso[1];
     let m = +iso[2];
     let day = +iso[3];
     if (m > 12 && day <= 12) [m, day] = [day, m];
-    if (m < 1 || m > 12 || day < 1 || day > 31) return null;
-    const d = new Date(Date.UTC(y, m - 1, day));
-    if (d.getUTCFullYear() !== y || d.getUTCMonth() !== m - 1 || d.getUTCDate() !== day) return null;
-    return d;
+    return makeUtcDate(y, m, day);
   }
 
-  // ISO YYYY-MM-DD eller andet parsbart
+  // Dansk DD[-./]MM[-./]YY(YY)
+  const dk = s.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{2,4})/);
+  if (dk) {
+    const day = +dk[1];
+    const m = +dk[2];
+    let y = +dk[3];
+    if (dk[3].length === 2) y = y > 50 ? 1900 + y : 2000 + y;
+    return makeUtcDate(y, m, day);
+  }
+
+  // Sidste udvej
   const parsed = new Date(s);
   return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** Returnerer YYYY-MM-DD (UTC) eller null. Bekvem til DB-insert. */
+export function parseDanishDateIso(raw: unknown): string | null {
+  const d = parseDanishDate(raw);
+  if (!d) return null;
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function monthStart(d: Date): string {
