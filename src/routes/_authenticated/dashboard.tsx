@@ -30,7 +30,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const auth = useAuth();
-  const userId = auth.user?.id;
+  const { effectiveUserId } = require("@/contexts/view-as-context").useViewAs();
+  const userId = effectiveUserId ?? auth.user?.id;
 
   const today = new Date().toISOString().slice(0, 10);
 
