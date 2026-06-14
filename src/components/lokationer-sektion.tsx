@@ -392,10 +392,43 @@ function OwnershipBadge({ kind, label }: { kind: Ownership; label: string }) {
   );
 }
 
+type EnrichmentInfo = {
+  binding_ophor?: string | null;
+  handlingsdato?: string | null;
+  taelleraflaesning?: string | null;
+  taellerstand?: number | null;
+  respons?: string | null;
+};
+
+function fmtDa(iso?: string | null): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
+function pickRespons(data: any): string | null {
+  if (!data || typeof data !== "object") return null;
+  for (const k of Object.keys(data)) {
+    const kn = k.toLowerCase().replace(/[\s._-]/g, "");
+    if (kn === "respons" || kn === "responstid") {
+      const v = data[k];
+      if (v == null || String(v).trim() === "") return null;
+      return String(v).trim();
+    }
+  }
+  return null;
+}
+
 function EquipmentBox({ location }: { location: Location }) {
   const [units, setUnits] = useState<EquipmentUnit[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [openType, setOpenType] = useState<string | null>(null);
+  const [enrichBySerial, setEnrichBySerial] = useState<Map<string, EnrichmentInfo>>(new Map());
   const signal = (location.sales_signal ?? "").trim();
 
   useEffect(() => {
@@ -417,6 +450,61 @@ function EquipmentBox({ location }: { location: Location }) {
       cancelled = true;
     };
   }, [location.id]);
+
+  // Hent enrichment for de serienr-bærende maskiner
+  useEffect(() => {
+    const serials = Array.from(
+      new Set(
+        (units ?? [])
+          .filter((u) => !u.is_filter && u.serial_no)
+          .map((u) => u.serial_no!.trim())
+          .filter(Boolean),
+      ),
+    );
+    if (serials.length === 0) {
+      setEnrichBySerial(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const [enrRes, machRes] = await Promise.all([
+        (supabase as any)
+          .from("machine_enrichment")
+          .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data")
+          .eq("record_status", "aktiv")
+          .in("serienr", serials),
+        (supabase as any)
+          .from("machines")
+          .select("serienr, taellerstand, data")
+          .eq("record_status", "aktiv")
+          .in("serienr", serials),
+      ]);
+      if (cancelled) return;
+      const m = new Map<string, EnrichmentInfo>();
+      for (const e of (enrRes.data ?? []) as any[]) {
+        m.set(e.serienr, {
+          binding_ophor: e.binding_ophor ?? null,
+          handlingsdato: e.handlingsdato ?? null,
+          taelleraflaesning: e.taelleraflaesning ?? null,
+          respons: pickRespons(e.data),
+        });
+      }
+      for (const x of (machRes.data ?? []) as any[]) {
+        const prev = m.get(x.serienr) ?? {};
+        m.set(x.serienr, {
+          ...prev,
+          taellerstand: x.taellerstand ?? null,
+          respons: prev.respons ?? pickRespons(x.data),
+        });
+      }
+      setEnrichBySerial(m);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [units]);
+
+
 
   if (loading && units === null) {
     return (
