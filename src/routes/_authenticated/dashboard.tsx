@@ -104,7 +104,9 @@ function DashboardPage() {
     },
   });
 
-  const isAdmin = auth.role === "admin";
+  // Mens admin "ser som" sælger, opfører dashboardet sig som om brugeren ikke er admin
+  // (så de samme seller-scoping-filtre gælder).
+  const isAdmin = auth.role === "admin" && !isImpersonating;
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
