@@ -809,7 +809,7 @@ function RankingTable({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => {
+              {shown.map((r, i) => {
                 const value =
                   valueField === "contribution12m"
                     ? r.contribution12m ?? 0
