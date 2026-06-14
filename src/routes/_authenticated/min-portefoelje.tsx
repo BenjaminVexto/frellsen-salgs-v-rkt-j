@@ -791,7 +791,7 @@ function RankingTable({
   return (
     <Card className="overflow-hidden">
       <div className="px-4 py-3 border-b border-border">
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h3 className="text-base font-bold text-foreground">{title}</h3>
       </div>
       {!rows.length ? (
         <div className="px-4 py-10 text-center text-sm text-muted-foreground">{emptyText}</div>
