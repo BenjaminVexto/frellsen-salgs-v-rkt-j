@@ -10,7 +10,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { listSellers } from "@/lib/admin-users.functions";
+import { listSellers, type SellerOption } from "@/lib/admin-users.functions";
 import { useViewAs } from "@/contexts/view-as-context";
 import { Loader2 } from "lucide-react";
 
