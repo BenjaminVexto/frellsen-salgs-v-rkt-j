@@ -392,10 +392,43 @@ function OwnershipBadge({ kind, label }: { kind: Ownership; label: string }) {
   );
 }
 
+type EnrichmentInfo = {
+  binding_ophor?: string | null;
+  handlingsdato?: string | null;
+  taelleraflaesning?: string | null;
+  taellerstand?: number | null;
+  respons?: string | null;
+};
+
+function fmtDa(iso?: string | null): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
+function pickRespons(data: any): string | null {
+  if (!data || typeof data !== "object") return null;
+  for (const k of Object.keys(data)) {
+    const kn = k.toLowerCase().replace(/[\s._-]/g, "");
+    if (kn === "respons" || kn === "responstid") {
+      const v = data[k];
+      if (v == null || String(v).trim() === "") return null;
+      return String(v).trim();
+    }
+  }
+  return null;
+}
+
 function EquipmentBox({ location }: { location: Location }) {
   const [units, setUnits] = useState<EquipmentUnit[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [openType, setOpenType] = useState<string | null>(null);
+  const [enrichBySerial, setEnrichBySerial] = useState<Map<string, EnrichmentInfo>>(new Map());
   const signal = (location.sales_signal ?? "").trim();
 
   useEffect(() => {
@@ -417,6 +450,61 @@ function EquipmentBox({ location }: { location: Location }) {
       cancelled = true;
     };
   }, [location.id]);
+
+  // Hent enrichment for de serienr-bærende maskiner
+  useEffect(() => {
+    const serials = Array.from(
+      new Set(
+        (units ?? [])
+          .filter((u) => !u.is_filter && u.serial_no)
+          .map((u) => u.serial_no!.trim())
+          .filter(Boolean),
+      ),
+    );
+    if (serials.length === 0) {
+      setEnrichBySerial(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const [enrRes, machRes] = await Promise.all([
+        (supabase as any)
+          .from("machine_enrichment")
+          .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data")
+          .eq("record_status", "aktiv")
+          .in("serienr", serials),
+        (supabase as any)
+          .from("machines")
+          .select("serienr, taellerstand, data")
+          .eq("record_status", "aktiv")
+          .in("serienr", serials),
+      ]);
+      if (cancelled) return;
+      const m = new Map<string, EnrichmentInfo>();
+      for (const e of (enrRes.data ?? []) as any[]) {
+        m.set(e.serienr, {
+          binding_ophor: e.binding_ophor ?? null,
+          handlingsdato: e.handlingsdato ?? null,
+          taelleraflaesning: e.taelleraflaesning ?? null,
+          respons: pickRespons(e.data),
+        });
+      }
+      for (const x of (machRes.data ?? []) as any[]) {
+        const prev = m.get(x.serienr) ?? {};
+        m.set(x.serienr, {
+          ...prev,
+          taellerstand: x.taellerstand ?? null,
+          respons: prev.respons ?? pickRespons(x.data),
+        });
+      }
+      setEnrichBySerial(m);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [units]);
+
+
 
   if (loading && units === null) {
     return (
@@ -545,6 +633,10 @@ function EquipmentBox({ location }: { location: Location }) {
           <ul className="border-t divide-y text-xs">
             {list.map((u) => {
               const o = deriveOwnership(u);
+              const enr = u.serial_no ? enrichBySerial.get(u.serial_no.trim()) : null;
+              const today = new Date().toISOString().slice(0, 10);
+              const bindingPassed =
+                enr?.binding_ophor && enr.binding_ophor < today ? true : false;
               return (
                 <li key={u.id} className="px-2 py-1.5 text-muted-foreground">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -559,6 +651,30 @@ function EquipmentBox({ location }: { location: Location }) {
                         .join(" · ")}
                     </span>
                   </div>
+                  {enr && (
+                    <div className="mt-1 ml-1 space-y-0.5 text-[11px]">
+                      {enr.binding_ophor &&
+                        (bindingPassed ? (
+                          <div className="text-amber-700 font-medium">
+                            Fri opsigelse (binding udløb {fmtDa(enr.binding_ophor)})
+                          </div>
+                        ) : (
+                          <div>Binding til {fmtDa(enr.binding_ophor)}</div>
+                        ))}
+                      {enr.handlingsdato && (
+                        <div>Reservedele inkl. til {fmtDa(enr.handlingsdato)}</div>
+                      )}
+                      {enr.taellerstand != null && (
+                        <div>
+                          Tæller: {Number(enr.taellerstand).toLocaleString("da-DK")}
+                          {enr.taelleraflaesning
+                            ? ` (aflæst ${fmtDa(enr.taelleraflaesning)})`
+                            : ""}
+                        </div>
+                      )}
+                      {enr.respons && <div>Responstid: {enr.respons}</div>}
+                    </div>
+                  )}
                 </li>
               );
             })}
