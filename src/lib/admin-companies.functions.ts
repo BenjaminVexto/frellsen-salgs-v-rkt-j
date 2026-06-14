@@ -340,6 +340,20 @@ function formatDbError(error: any): string {
   });
 }
 
+function parseDbError(error: any): {
+  code: string | null;
+  message: string;
+  details: string | null;
+  hint: string | null;
+} {
+  return {
+    code: error?.code ?? null,
+    message: error?.message ?? String(error),
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
+  };
+}
+
 function stableStringify(obj: any): string {
   if (obj === null || typeof obj !== "object") return JSON.stringify(obj);
   if (Array.isArray(obj)) return "[" + obj.map(stableStringify).join(",") + "]";
@@ -528,6 +542,11 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
               .select("id, visma_id")
               .maybeSingle();
             if (oneInsertErr || !oneInsert) {
+              console.error("[visma-import][row-error]", JSON.stringify({
+                visma_id: vismaId,
+                db_error: parseDbError(oneInsertErr),
+                attempted_object: row,
+              }));
               console.error("Import single insert fallback fejl:", formatDbError(oneInsertErr));
               failed++;
               continue;
@@ -566,6 +585,12 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
                   .update(group.payload as any)
                   .eq("id", row.id);
                 if (oneErr) {
+                  console.error("[visma-import][row-error]", JSON.stringify({
+                    id: row.id,
+                    visma_id: row.visma_id,
+                    db_error: parseDbError(oneErr),
+                    attempted_object: group.payload,
+                  }));
                   console.error("Import single update (visma_id) fejl:", formatDbError(oneErr));
                   failed++;
                   continue;
