@@ -583,6 +583,22 @@ function EquipmentBox({ location }: { location: Location }) {
   const filterGroups = groupBy(filters);
   const filtersFreeLoan = filters.some((f) => f.is_free_loan);
 
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const in90ISO = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    return d.toISOString().slice(0, 10);
+  })();
+  const isExpiringSoon = (enr?: EnrichmentInfo | null) => {
+    if (!enr) return false;
+    const b = enr.binding_ophor;
+    const h = enr.handlingsdato;
+    return (
+      (!!b && b >= todayISO && b <= in90ISO) ||
+      (!!h && h >= todayISO && h <= in90ISO)
+    );
+  };
+
   const renderGroup = (
     type: string,
     list: EquipmentUnit[],
@@ -592,6 +608,10 @@ function EquipmentBox({ location }: { location: Location }) {
       new Set(list.map((u) => u.sub_location?.trim()).filter(Boolean) as string[]),
     );
     const hasService = list.some((u) => u.has_service_contract);
+    const expiringCount = opts.isFilter
+      ? 0
+      : list.filter((u) => isExpiringSoon(u.serial_no ? enrichBySerial.get(u.serial_no.trim()) : null))
+          .length;
     // Unikke ejerskabs-mærkater i gruppen
     const ownerships = Array.from(
       new Map(
@@ -631,6 +651,11 @@ function EquipmentBox({ location }: { location: Location }) {
                       Serviceaftale
                     </Badge>
                   )}
+                  {expiringCount > 0 && (
+                    <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 text-xs">
+                      Udløber snart{expiringCount > 1 ? ` (${expiringCount})` : ""}
+                    </Badge>
+                  )}
                 </>
               )}
             </div>
@@ -660,10 +685,16 @@ function EquipmentBox({ location }: { location: Location }) {
               const today = new Date().toISOString().slice(0, 10);
               const bindingPassed =
                 enr?.binding_ophor && enr.binding_ophor < today ? true : false;
+              const expiringSoon = !opts.isFilter && isExpiringSoon(enr);
               return (
                 <li key={u.id} className="px-2 py-1.5 text-muted-foreground">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <OwnershipBadge kind={o.kind} label={o.label} />
+                    {expiringSoon && (
+                      <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 text-[10px] px-1.5 py-0">
+                        Udløber snart
+                      </Badge>
+                    )}
                     <span>
                       {[
                         u.serial_no ? `Serienr ${u.serial_no}` : "Uden serienr",
@@ -674,6 +705,7 @@ function EquipmentBox({ location }: { location: Location }) {
                         .join(" · ")}
                     </span>
                   </div>
+
                   {enr && (
                     <div className="mt-1 ml-1 space-y-0.5 text-[11px]">
                       {enr.binding_ophor &&
