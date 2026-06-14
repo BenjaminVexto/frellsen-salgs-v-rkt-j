@@ -1661,7 +1661,7 @@ function Trin4Import({
   onAssignNow,
   onLater,
 }: {
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   importing: boolean;
   progress: number;
