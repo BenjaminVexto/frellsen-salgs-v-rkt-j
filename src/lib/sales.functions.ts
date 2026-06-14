@@ -18,6 +18,20 @@ async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
+/**
+ * For read-only serverfns: returns the requested viewAs userId if the caller is admin,
+ * otherwise the caller's own userId. Sælgere kan aldrig "snyde" via viewAsUserId.
+ */
+async function resolveEffectiveUserId(
+  supabase: any,
+  callerUserId: string,
+  requestedViewAsUserId: string | null | undefined,
+): Promise<string> {
+  if (!requestedViewAsUserId) return callerUserId;
+  const admin = await isAdminUser(supabase, callerUserId);
+  return admin ? requestedViewAsUserId : callerUserId;
+}
+
 const SALES_PAGE_SIZE = 1000;
 
 async function fetchAllSalesMonthlyRows(
