@@ -344,13 +344,18 @@ function VirksomhedsKort() {
 
 
   // Sync tab with URL hash on mount
+  const [initialOpenLocationId, setInitialOpenLocationId] = useState<string | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash.replace("#", "");
     if (["oversigt", "aktivitet", "lokationer", "relationer", "aftaler"].includes(hash)) {
       setTab(hash as TabKey);
+    } else if (hash.startsWith("location-")) {
+      setTab("lokationer");
+      setInitialOpenLocationId(hash.slice("location-".length));
     }
   }, []);
+
 
 
 
