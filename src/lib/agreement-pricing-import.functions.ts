@@ -37,17 +37,22 @@ function normDate(s: string | null | undefined): string | null {
   return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-// Matcher fx "HB", "H.B", "Rød HB 10x1", "ESP HB", "HB-bønner"
-// "HB" omgivet af ordgrænse/whitespace/separator — ikke som del af et større ord (fx "OHBA").
-const RE_HB = /(^|[\s\-_/(),.])h\.?b(?=$|[\s\-_/(),.0-9])/i;
-const RE_VAC = /(^|[\s\-_/(),.])vac(?=$|[\s\-_/(),.0-9])/i;
-const RE_INSTANT = /(^|[\s\-_/(),.])instant(?=$|[\s\-_/(),.0-9])/i;
+// Separator-klasse: whitespace, bindestreg, slash, parentes, komma, punktum, kantet parentes.
+// Lookahead-end inkluderer cifre, så "HB10" og "VAC1" også matcher.
+const SEP = String.raw`\s\-_/(),.\[\]`;
+const RE_HB = new RegExp(`(^|[${SEP}])h\\.?b(?=$|[${SEP}0-9])`, "i");
+const RE_VAC = new RegExp(`(^|[${SEP}])vac(?=$|[${SEP}0-9])`, "i");
+const RE_INSTANT = new RegExp(`(^|[${SEP}])instant(?=$|[${SEP}0-9])`, "i");
+const RE_TE = new RegExp(`(^|[${SEP}])te(?=$|[${SEP}])`, "i");
+const RE_CHOKOLADE = new RegExp(`(^|[${SEP}])(chokolade|flødeboller)(?=$|[${SEP}])`, "i");
 
-function matchKaffeKategori(s: string): string | null {
+function matchKategori(s: string): string | null {
   if (!s) return null;
   if (RE_HB.test(s)) return "Hele bønner";
   if (RE_VAC.test(s)) return "VAC kaffe";
   if (RE_INSTANT.test(s)) return "Instant";
+  if (RE_CHOKOLADE.test(s)) return "Chokolade";
+  if (RE_TE.test(s)) return "Te";
   return null;
 }
 
@@ -56,9 +61,15 @@ function deriveRabatKategori(
   pg2: string | null | undefined,
   beskrivelse: string | null | undefined,
 ): string {
-  // Prioritet: pg3 → pg2 → beskrivelse
-  for (const src of [pg3, pg2, beskrivelse]) {
-    const hit = matchKaffeKategori((src ?? "").toString());
+  // Prioritet: pg3 → pg2 → beskrivelse.
+  // pg2/pg3 = "0" eller tom betragtes som fraværende, så vi falder videre.
+  const norm = (v: string | null | undefined) => {
+    const s = (v ?? "").toString().trim();
+    if (!s || s === "0") return "";
+    return s;
+  };
+  for (const src of [norm(pg3), norm(pg2), (beskrivelse ?? "").toString()]) {
+    const hit = matchKategori(src);
     if (hit) return hit;
   }
   // produktgruppe-kode 78 / 79 — i pg2 eller pg3
