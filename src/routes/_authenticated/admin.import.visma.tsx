@@ -1014,6 +1014,7 @@ function ImportSide() {
     const insertsNoVisma = inserts.filter((j) => !(j.payload as any)?.visma_id);
 
     for (let i = 0; i < insertsWithVisma.length; i += CHUNK) {
+      if (importRunner.isAborted()) break;
       const slice = insertsWithVisma.slice(i, i + CHUNK);
       const payloads = slice.map((j) => j.payload);
       try {
@@ -1046,6 +1047,7 @@ function ImportSide() {
     }
 
     for (let i = 0; i < insertsNoVisma.length; i += CHUNK) {
+      if (importRunner.isAborted()) break;
       const slice = insertsNoVisma.slice(i, i + CHUNK);
       const payloads = slice.map((j) => j.payload);
       try {
@@ -1072,6 +1074,7 @@ function ImportSide() {
 
     // 5b) Bulk update af eksisterende virksomheder (per id)
     for (let i = 0; i < updates.length; i += CHUNK) {
+      if (importRunner.isAborted()) break;
       const slice = updates.slice(i, i + CHUNK);
       try {
         const payload = slice.map((j) => {
