@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, ArrowUp, ArrowDown, Minus, ArrowUpDown, Search } from "lucide-react";
+import { Loader2, ArrowUp, ArrowDown, Minus, ArrowUpDown, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -497,51 +497,110 @@ function SignalList({
   initial?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? rows : rows.slice(0, initial);
+  const [collapsed, setCollapsed] = useState(false);
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
+
+  const groupOptions = useMemo(() => {
+    if (kind !== "whitespace") return [] as string[];
+    const set = new Set<string>();
+    for (const r of rows) for (const g of r.missingGroups) set.add(g);
+    return Array.from(set).sort();
+  }, [rows, kind]);
+
+  const filteredRows = useMemo(() => {
+    if (kind !== "whitespace" || !groupFilter) return rows;
+    return rows.filter((r) => r.missingGroups.includes(groupFilter));
+  }, [rows, kind, groupFilter]);
+
+  const shown = expanded ? filteredRows : filteredRows.slice(0, initial);
+
   return (
     <Card className="overflow-hidden">
-      <div className="px-4 py-3 border-b border-border bg-muted/60">
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className="w-full px-4 py-3 border-b border-border bg-muted/60 text-left hover:bg-muted"
+      >
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-base font-bold text-foreground">{title}</h3>
+          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            {title}
+          </h3>
           <span className="text-xs text-muted-foreground tabular-nums">{rows.length}</span>
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-      </div>
-      {!rows.length ? (
-        <div className="px-4 py-6 text-center text-sm text-muted-foreground">Ingen kunder.</div>
-      ) : (
-        <ul className="divide-y divide-border">
-          {shown.map((r) => (
-            <li key={r.id} className="px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-accent/30">
-              <div className="min-w-0">
-                <Link
-                  to="/virksomheder/$id"
-                  params={{ id: r.id }}
-                  className="font-medium text-sm hover:underline truncate block"
+        {!collapsed && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+      </button>
+      {!collapsed && (
+        <>
+          {kind === "whitespace" && groupOptions.length > 0 && (
+            <div className="px-4 py-2 border-b border-border flex flex-wrap items-center gap-1.5 bg-background">
+              <span className="text-xs text-muted-foreground mr-1">Filtrér:</span>
+              <button
+                type="button"
+                onClick={() => setGroupFilter(null)}
+                className={`text-[11px] px-2 py-0.5 rounded border ${
+                  groupFilter === null
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                alle
+              </button>
+              {groupOptions.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGroupFilter((cur) => (cur === g ? null : g))}
+                  className={`text-[11px] px-2 py-0.5 rounded border ${
+                    groupFilter === g
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:bg-accent"
+                  }`}
                 >
-                  {r.name}
-                </Link>
-                {r.city && <div className="text-xs text-muted-foreground">{r.city}</div>}
-              </div>
-              <div className="text-right text-xs text-muted-foreground shrink-0">
-                <SignalMeta row={r} kind={kind} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      {rows.length > initial && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="w-full px-4 py-2 text-xs text-muted-foreground hover:bg-accent/40 border-t border-border"
-        >
-          {expanded ? "Vis færre" : `Vis alle (${rows.length})`}
-        </button>
+                  mangler {g}
+                </button>
+              ))}
+            </div>
+          )}
+          {!filteredRows.length ? (
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">Ingen kunder.</div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {shown.map((r) => (
+                <li key={r.id} className="px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-accent/30">
+                  <div className="min-w-0">
+                    <Link
+                      to="/virksomheder/$id"
+                      params={{ id: r.id }}
+                      className="font-medium text-sm hover:underline truncate block"
+                    >
+                      {r.name}
+                    </Link>
+                    {r.city && <div className="text-xs text-muted-foreground">{r.city}</div>}
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground shrink-0">
+                    <SignalMeta row={r} kind={kind} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {filteredRows.length > initial && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="w-full px-4 py-2 text-xs text-muted-foreground hover:bg-accent/40 border-t border-border"
+            >
+              {expanded ? "Vis færre" : `Vis alle (${filteredRows.length})`}
+            </button>
+          )}
+        </>
       )}
     </Card>
   );
 }
+
+
 
 function SignalMeta({ row, kind }: { row: SignalRow; kind: string }) {
   if (kind === "machine") {
@@ -787,13 +846,22 @@ function RankingTable({
   emptyText?: string;
   limit?: number;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   const shown = typeof limit === "number" ? rows.slice(0, limit) : rows;
   return (
     <Card className="overflow-hidden">
-      <div className="px-4 py-3 border-b border-border bg-muted/60">
-        <h3 className="text-base font-bold text-foreground">{title}</h3>
-      </div>
-      {!rows.length ? (
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className="w-full px-4 py-3 border-b border-border bg-muted/60 text-left hover:bg-muted flex items-center justify-between gap-2"
+      >
+        <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+          {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          {title}
+        </h3>
+        <span className="text-xs text-muted-foreground tabular-nums">{rows.length}</span>
+      </button>
+      {collapsed ? null : !rows.length ? (
         <div className="px-4 py-10 text-center text-sm text-muted-foreground">{emptyText}</div>
       ) : (
         <div className="overflow-x-auto">
