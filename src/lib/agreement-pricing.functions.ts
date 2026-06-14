@@ -3,9 +3,13 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+export type MatchSource = "kundenr" | "kp1+kp2" | "kp1" | "kp2";
+
 export type PricingRow = {
   id: string;
+  kundeprisgruppe1: string | null;
   kundeprisgruppe2: string | null;
+  fak_kundenr: string | null;
   produktprisgruppe1: string | null;
   produktprisgruppe2: string | null;
   produktprisgruppe3: string | null;
@@ -21,6 +25,7 @@ export type PricingRow = {
   til_dato: string | null;
   rabat_kategori: string | null;
   record_status: string;
+  match_source?: MatchSource;
 };
 
 export function extractLeadingCode(s: string | null | undefined): string | null {
@@ -29,14 +34,18 @@ export function extractLeadingCode(s: string | null | undefined): string | null 
   return m ? m[1] : null;
 }
 
-function buildKp2OrFilter(code: string) {
-  // Matcher "59", "59 ...", "59[...", "59\t..."
+// PostgREST OR-filter for et tekstfelt der starter med koden ("59", "59 ...", "59[...", "59\t...")
+function startsWithCodeFilter(col: string, code: string): string {
   return [
-    `kundeprisgruppe2.eq.${code}`,
-    `kundeprisgruppe2.ilike.${code} %`,
-    `kundeprisgruppe2.ilike.${code}[%`,
-    `kundeprisgruppe2.ilike.${code}\t%`,
+    `${col}.eq.${code}`,
+    `${col}.ilike.${code} %`,
+    `${col}.ilike.${code}[%`,
+    `${col}.ilike.${code}\t%`,
   ].join(",");
+}
+
+function buildKp2OrFilter(code: string) {
+  return startsWithCodeFilter("kundeprisgruppe2", code);
 }
 
 async function fetchPricingByKp2(code: string): Promise<PricingRow[]> {
@@ -58,6 +67,108 @@ async function fetchPricingByKp2(code: string): Promise<PricingRow[]> {
   return out as PricingRow[];
 }
 
+async function fetchPagedOr(orFilter: string): Promise<any[]> {
+  const PAGE = 1000;
+  const out: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin
+      .from("agreement_pricing" as any)
+      .select("*")
+      .or(orFilter)
+      .eq("record_status", "aktiv")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    if (!data?.length) break;
+    out.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return out;
+}
+
+/**
+ * 4-nøgle matching pr. virksomhed:
+ *   1) Kundespecifik:  fak_kundenr = visma_id
+ *   2) Kombi-gruppe:   kp1 matcher virksomhedens kp1 OG kp2 matcher virksomhedens kp2
+ *   3) Kun KP1-gruppe: kp1 matcher, kp2 og fak_kundenr tomme på rækken
+ *   4) Kun KP2-gruppe: kp2 matcher, kp1 og fak_kundenr tomme på rækken
+ * Generelle rækker (alle tre nøgler tomme) udelades — de er fra prismatrixens 3% "generel"-rest
+ * og hører ikke til en specifik kunde.
+ */
+async function fetchPricingForCompany(
+  vismaId: string | null,
+  kp1: string | null,
+  kp2: string | null,
+): Promise<PricingRow[]> {
+  const orParts: string[] = [];
+  if (vismaId) orParts.push(`fak_kundenr.eq.${vismaId}`);
+  if (kp1) orParts.push(startsWithCodeFilter("kundeprisgruppe1", kp1));
+  if (kp2) orParts.push(startsWithCodeFilter("kundeprisgruppe2", kp2));
+  if (!orParts.length) return [];
+
+  const candidates = await fetchPagedOr(orParts.join(","));
+
+  const isCode = (val: string | null | undefined, code: string | null): boolean => {
+    if (!code) return false;
+    const c = extractLeadingCode(val);
+    return c === code;
+  };
+  const isEmpty = (v: string | null | undefined) =>
+    v == null || String(v).trim() === "";
+
+  const seen = new Map<string, PricingRow>();
+  for (const r of candidates as PricingRow[]) {
+    const rowKundenr = (r.fak_kundenr ?? "").trim();
+    const rowHasKp1 = !isEmpty(r.kundeprisgruppe1);
+    const rowHasKp2 = !isEmpty(r.kundeprisgruppe2);
+    const rowHasKundenr = !!rowKundenr;
+
+    let source: MatchSource | null = null;
+    if (vismaId && rowKundenr === vismaId) {
+      source = "kundenr";
+    } else if (
+      !rowHasKundenr &&
+      rowHasKp1 &&
+      rowHasKp2 &&
+      isCode(r.kundeprisgruppe1, kp1) &&
+      isCode(r.kundeprisgruppe2, kp2)
+    ) {
+      source = "kp1+kp2";
+    } else if (
+      !rowHasKundenr &&
+      rowHasKp1 &&
+      !rowHasKp2 &&
+      isCode(r.kundeprisgruppe1, kp1)
+    ) {
+      source = "kp1";
+    } else if (
+      !rowHasKundenr &&
+      !rowHasKp1 &&
+      rowHasKp2 &&
+      isCode(r.kundeprisgruppe2, kp2)
+    ) {
+      source = "kp2";
+    }
+    if (!source) continue;
+
+    const prev = seen.get(r.id);
+    if (!prev) {
+      seen.set(r.id, { ...r, match_source: source });
+      continue;
+    }
+    // Prioritér mest specifikke match hvis samme id rammer flere veje
+    const priority: Record<MatchSource, number> = {
+      kundenr: 4,
+      "kp1+kp2": 3,
+      kp1: 2,
+      kp2: 1,
+    };
+    if (priority[source] > priority[prev.match_source!]) {
+      seen.set(r.id, { ...r, match_source: source });
+    }
+  }
+  return Array.from(seen.values());
+}
+
 export const listPricingByKp2 = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -65,6 +176,25 @@ export const listPricingByKp2 = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     return await fetchPricingByKp2(data.kp2.trim());
+  });
+
+export const listPricingForCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ company_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: company, error } = await supabaseAdmin
+      .from("companies")
+      .select("visma_id, customer_segment_1, customer_segment_2")
+      .eq("id", data.company_id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const vismaId = ((company as any)?.visma_id ?? "").toString().trim() || null;
+    const kp1 = extractLeadingCode((company as any)?.customer_segment_1);
+    const kp2 = extractLeadingCode((company as any)?.customer_segment_2);
+    const rows = await fetchPricingForCompany(vismaId, kp1, kp2);
+    return { rows, vismaId, kp1, kp2 };
   });
 
 export type CategorySummary = {
@@ -79,6 +209,7 @@ function summarize(rows: PricingRow[]): {
   valid_from: string | null;
   valid_to: string | null;
   rowCount: number;
+  countsBySource: Record<MatchSource, number>;
 } {
   // Filtrér linjer hvor (rab_kr=0 OG rab_pct=0) ELLER rab_pct=100
   const usable = rows.filter((r) => {
@@ -112,11 +243,16 @@ function summarize(rows: PricingRow[]): {
   );
   const fras = rows.map((r) => r.fra_dato).filter(Boolean).sort() as string[];
   const tils = rows.map((r) => r.til_dato).filter(Boolean).sort() as string[];
+  const counts: Record<MatchSource, number> = { kundenr: 0, "kp1+kp2": 0, kp1: 0, kp2: 0 };
+  for (const r of rows) {
+    if (r.match_source) counts[r.match_source]++;
+  }
   return {
     segments,
     valid_from: fras[0] ?? null,
     valid_to: tils.length ? tils[tils.length - 1] : null,
     rowCount: rows.length,
+    countsBySource: counts,
   };
 }
 
@@ -128,32 +264,44 @@ export const getCompanyPricingSummary = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { data: company, error } = await supabaseAdmin
       .from("companies")
-      .select("customer_segment_2")
+      .select("visma_id, customer_segment_1, customer_segment_2")
       .eq("id", data.company_id)
       .maybeSingle();
     if (error) throw new Error(error.message);
+    const vismaId = ((company as any)?.visma_id ?? "").toString().trim() || null;
+    const kp1 = extractLeadingCode((company as any)?.customer_segment_1);
     const kp2 = extractLeadingCode((company as any)?.customer_segment_2);
-    if (!kp2) {
+
+    if (!vismaId && !kp1 && !kp2) {
       return {
+        vismaId: null as string | null,
+        kp1: null as string | null,
         kp2: null as string | null,
         agreement_id: null as string | null,
         segments: [] as CategorySummary[],
         rowCount: 0,
         valid_from: null as string | null,
         valid_to: null as string | null,
+        countsBySource: { kundenr: 0, "kp1+kp2": 0, kp1: 0, kp2: 0 } as Record<
+          MatchSource,
+          number
+        >,
       };
     }
+
     const [rows, agr] = await Promise.all([
-      fetchPricingByKp2(kp2),
-      supabaseAdmin
-        .from("agreements")
-        .select("id")
-        .eq("kp2_code", kp2)
-        .maybeSingle()
-        .then((r) => (r.data as any)?.id ?? null),
+      fetchPricingForCompany(vismaId, kp1, kp2),
+      kp2
+        ? supabaseAdmin
+            .from("agreements")
+            .select("id")
+            .eq("kp2_code", kp2)
+            .maybeSingle()
+            .then((r) => (r.data as any)?.id ?? null)
+        : Promise.resolve(null),
     ]);
     const sum = summarize(rows);
-    return { kp2, agreement_id: agr as string | null, ...sum };
+    return { vismaId, kp1, kp2, agreement_id: agr as string | null, ...sum };
   });
 
 export const listPricingKp2Groups = createServerFn({ method: "GET" })

@@ -1,15 +1,18 @@
-import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Tag } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronUp, Tag } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
 import {
   getCompanyPricingSummary,
   type CategorySummary,
+  type MatchSource,
 } from "@/lib/agreement-pricing.functions";
+import { CompanyPrismatrixTable } from "@/components/company-prismatrix-table";
 
 const KAFFE = new Set(["Hele bønner", "VAC kaffe", "Instant"]);
 const PCT_CATS = new Set(["Maskiner", "Tilbehør"]);
@@ -28,6 +31,13 @@ function fmtDate(d: string | null): string {
     return d;
   }
 }
+
+const SOURCE_LABEL: Record<MatchSource, string> = {
+  kundenr: "Kundenr-aftale",
+  "kp1+kp2": "KP1+KP2 kombi",
+  kp1: "KP1-gruppe",
+  kp2: "KP2-gruppe",
+};
 
 function SegmentLine({
   title,
@@ -73,18 +83,22 @@ export function CompanyPricingSummary({ companyId }: { companyId: string }) {
     queryKey: ["company-pricing-summary", companyId],
     queryFn: () =>
       fn({ data: { company_id: companyId } }) as Promise<{
+        vismaId: string | null;
+        kp1: string | null;
         kp2: string | null;
         agreement_id: string | null;
         segments: CategorySummary[];
         rowCount: number;
         valid_from: string | null;
         valid_to: string | null;
+        countsBySource: Record<MatchSource, number>;
       }>,
   });
+  const [open, setOpen] = useState(false);
 
   if (q.isLoading || !q.data) return null;
   const d = q.data;
-  if (!d.kp2 || d.rowCount === 0) return null;
+  if (d.rowCount === 0) return null;
 
   const kaffe = d.segments.filter((s) => KAFFE.has(s.kategori));
   const pct = d.segments.filter((s) => PCT_CATS.has(s.kategori));
@@ -92,34 +106,59 @@ export function CompanyPricingSummary({ companyId }: { companyId: string }) {
     (s) => !KAFFE.has(s.kategori) && !PCT_CATS.has(s.kategori),
   );
 
+  const sourceChips = (Object.keys(d.countsBySource) as MatchSource[])
+    .filter((k) => d.countsBySource[k] > 0)
+    .map((k) => ({ source: k, count: d.countsBySource[k] }));
+
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Tag className="h-4 w-4 text-primary" />
           <h3 className="font-semibold text-sm">Prismatrix-rabatter</h3>
-          <Badge variant="outline" className="font-mono text-[10px]">
-            KP2 {d.kp2}
-          </Badge>
+          {d.vismaId && (
+            <Badge variant="outline" className="font-mono text-[10px]">
+              Kundenr {d.vismaId}
+            </Badge>
+          )}
+          {d.kp1 && (
+            <Badge variant="outline" className="font-mono text-[10px]">
+              KP1 {d.kp1}
+            </Badge>
+          )}
+          {d.kp2 && (
+            <Badge variant="outline" className="font-mono text-[10px]">
+              KP2 {d.kp2}
+            </Badge>
+          )}
         </div>
-        {d.agreement_id ? (
-          <Link
-            to="/aftaler/$id"
-            params={{ id: d.agreement_id }}
-            className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"
-          >
-            Se fuld prismatrix <ChevronRight className="h-3 w-3" />
-          </Link>
-        ) : (
-          <Link
-            to="/aftaler/kp2/$code"
-            params={{ code: d.kp2 }}
-            className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"
-          >
-            Se fuld prismatrix <ChevronRight className="h-3 w-3" />
-          </Link>
-        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen((v) => !v)}
+          className="text-xs h-7"
+        >
+          {open ? (
+            <>
+              Skjul rækker <ChevronUp className="h-3 w-3 ml-1" />
+            </>
+          ) : (
+            <>
+              Vis alle {d.rowCount} rækker <ChevronDown className="h-3 w-3 ml-1" />
+            </>
+          )}
+        </Button>
       </div>
+
+      {sourceChips.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {sourceChips.map(({ source, count }) => (
+            <Badge key={source} variant="secondary" className="text-[10px] font-normal">
+              {SOURCE_LABEL[source]}: {count}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-2.5">
         <SegmentLine title="Kaffe (kr-rabat)" segments={kaffe} kind="kr" />
@@ -132,6 +171,12 @@ export function CompanyPricingSummary({ companyId }: { companyId: string }) {
       {(d.valid_from || d.valid_to) && (
         <div className="text-xs text-muted-foreground mt-3 pt-3 border-t">
           Gyldig: {fmtDate(d.valid_from)} → {fmtDate(d.valid_to)}
+        </div>
+      )}
+
+      {open && (
+        <div className="mt-4 pt-4 border-t">
+          <CompanyPrismatrixTable companyId={companyId} />
         </div>
       )}
     </Card>
