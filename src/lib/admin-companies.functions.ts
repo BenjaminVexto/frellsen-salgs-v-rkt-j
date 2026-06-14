@@ -331,6 +331,22 @@ export const deleteBatchGroup = createServerFn({ method: "POST" })
 
 const CompanyRow = z.record(z.any());
 
+function formatDbError(error: any): string {
+  return JSON.stringify({
+    code: error?.code ?? null,
+    message: error?.message ?? String(error),
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
+  });
+}
+
+function stableStringify(obj: any): string {
+  if (obj === null || typeof obj !== "object") return JSON.stringify(obj);
+  if (Array.isArray(obj)) return "[" + obj.map(stableStringify).join(",") + "]";
+  const keys = Object.keys(obj).sort();
+  return "{" + keys.map((k) => JSON.stringify(k) + ":" + stableStringify(obj[k])).join(",") + "}";
+}
+
 export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -426,6 +442,10 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
     // Dedupliker pr. visma_id (sidste række vinder — samme mønster som CVR-varianten)
+    // NB: vi kan ikke bruge upsert(onConflict="visma_id") her, fordi databasen
+    // har et partial unique index på visma_id. Postgres/PostgREST kan ikke matche
+    // det index via ON CONFLICT-specifikationen, så vi laver eksplicit lookup →
+    // insert/update i batches i stedet.
     const byVismaId = new Map<string, any>();
     for (const r of data.rows) {
       const v = (r as any)?.visma_id;
@@ -437,32 +457,129 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
     const results: Array<{ id: string; visma_id: string | null }> = [];
     let failed = 0;
     const errors: string[] = [];
+
     for (let i = 0; i < deduped.length; i += CHUNK) {
       const slice = deduped.slice(i, i + CHUNK);
-      const { data: res, error } = await supabaseAdmin
+
+      const vismaIds = slice.map((row) => String((row as any).visma_id).trim()).filter(Boolean);
+      const { data: existingRows, error: existingErr } = await supabaseAdmin
         .from("companies")
-        .upsert(slice as any, { onConflict: "visma_id" })
-        .select("id, visma_id");
-      if (error) {
-        console.error("Import upsert (visma_id) fejl:", error.message);
-        errors.push(error.message);
-        // Fallback pr. række
-        for (const row of slice) {
-          const { data: one, error: oneErr } = await supabaseAdmin
-            .from("companies")
-            .upsert(row as any, { onConflict: "visma_id" })
-            .select("id, visma_id")
-            .maybeSingle();
-          if (oneErr || !one) {
-            failed++;
-            continue;
-          }
-          results.push({ id: one.id, visma_id: one.visma_id });
-        }
+        .select("id, visma_id")
+        .in("visma_id", vismaIds);
+      if (existingErr) {
+        const msg = formatDbError(existingErr);
+        console.error("Import visma_id lookup fejl:", msg);
+        errors.push(msg);
+        failed += slice.length;
         continue;
       }
-      (res ?? []).forEach((r: any) => results.push({ id: r.id, visma_id: r.visma_id }));
+
+      const existingByVismaId = new Map<string, { id: string; visma_id: string | null }>();
+      (existingRows ?? []).forEach((row: any) => {
+        if (row.visma_id) existingByVismaId.set(String(row.visma_id), row);
+      });
+
+      const inserts: any[] = [];
+      const updates: Array<{ id: string; visma_id: string; payload: any }> = [];
+      for (const row of slice) {
+        const vismaId = String((row as any).visma_id).trim();
+        const existing = existingByVismaId.get(vismaId);
+        if (existing) updates.push({ id: existing.id, visma_id: vismaId, payload: row });
+        else inserts.push(row);
+      }
+
+      if (inserts.length) {
+        const { data: insertedRows, error: insertErr } = await supabaseAdmin
+          .from("companies")
+          .insert(inserts as any)
+          .select("id, visma_id");
+        if (insertErr) {
+          const msg = formatDbError(insertErr);
+          console.error("Import insert (visma_id) fejl:", msg);
+          errors.push(msg);
+          for (const row of inserts) {
+            const vismaId = String((row as any).visma_id).trim();
+            const { data: existing, error: lookupErr } = await supabaseAdmin
+              .from("companies")
+              .select("id, visma_id")
+              .eq("visma_id", vismaId)
+              .maybeSingle();
+            if (lookupErr) {
+              console.error("Import insert fallback lookup fejl:", formatDbError(lookupErr));
+              failed++;
+              continue;
+            }
+            if (existing?.id) {
+              const { error: oneUpdateErr } = await supabaseAdmin
+                .from("companies")
+                .update(row as any)
+                .eq("id", existing.id);
+              if (oneUpdateErr) {
+                console.error("Import update fallback fejl:", formatDbError(oneUpdateErr));
+                failed++;
+                continue;
+              }
+              results.push({ id: existing.id, visma_id: existing.visma_id });
+              continue;
+            }
+            const { data: oneInsert, error: oneInsertErr } = await supabaseAdmin
+              .from("companies")
+              .insert(row as any)
+              .select("id, visma_id")
+              .maybeSingle();
+            if (oneInsertErr || !oneInsert) {
+              console.error("Import single insert fallback fejl:", formatDbError(oneInsertErr));
+              failed++;
+              continue;
+            }
+            results.push({ id: oneInsert.id, visma_id: oneInsert.visma_id });
+          }
+        } else {
+          (insertedRows ?? []).forEach((row: any) => results.push({ id: row.id, visma_id: row.visma_id }));
+        }
+      }
+
+      if (updates.length) {
+        const grouped = new Map<string, { payload: any; rows: Array<{ id: string; visma_id: string }> }>();
+        for (const row of updates) {
+          const key = stableStringify(row.payload);
+          const group = grouped.get(key);
+          if (group) group.rows.push({ id: row.id, visma_id: row.visma_id });
+          else grouped.set(key, { payload: row.payload, rows: [{ id: row.id, visma_id: row.visma_id }] });
+        }
+
+        for (const group of grouped.values()) {
+          for (let j = 0; j < group.rows.length; j += CHUNK) {
+            const rowSlice = group.rows.slice(j, j + CHUNK);
+            const ids = rowSlice.map((row) => row.id);
+            const { error: updateErr } = await supabaseAdmin
+              .from("companies")
+              .update(group.payload as any)
+              .in("id", ids);
+            if (updateErr) {
+              const msg = formatDbError(updateErr);
+              console.error("Import batch update (visma_id) fejl:", msg);
+              errors.push(msg);
+              for (const row of rowSlice) {
+                const { error: oneErr } = await supabaseAdmin
+                  .from("companies")
+                  .update(group.payload as any)
+                  .eq("id", row.id);
+                if (oneErr) {
+                  console.error("Import single update (visma_id) fejl:", formatDbError(oneErr));
+                  failed++;
+                  continue;
+                }
+                results.push({ id: row.id, visma_id: row.visma_id });
+              }
+              continue;
+            }
+            rowSlice.forEach((row) => results.push({ id: row.id, visma_id: row.visma_id }));
+          }
+        }
+      }
     }
+
     return { results, failed, errors };
   });
 
