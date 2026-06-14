@@ -758,6 +758,7 @@ function ImportSide() {
 
     let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0, noCvrCount = 0;
     const toImport = prepared.filter((p) => {
+      if (isWrongFirma(p)) return false; // ALDRIG firma ≠ 10
       if (p.hasError) return false;
       if (isFilteredByVisma(p)) return false;
       // Tillad rækker uden CVR hvis de har EAN, ellers respekter checkbox
