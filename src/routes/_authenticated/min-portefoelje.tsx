@@ -42,7 +42,12 @@ type SortKey =
 
 function PortfolioPage() {
   const fn = useServerFn(getMyPortfolio);
-  const [sellerId, setSellerId] = useState<string | "all">("all");
+  const { viewAsUserId, isImpersonating } = useViewAs();
+  // Når admin "ser som" sælger, låses sellerId til den sælger.
+  const [sellerId, setSellerId] = useState<string | "all">(viewAsUserId ?? "all");
+  useEffect(() => {
+    if (isImpersonating && viewAsUserId) setSellerId(viewAsUserId);
+  }, [isImpersonating, viewAsUserId]);
   const [sortKey, setSortKey] = useState<SortKey>("month:last");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -55,7 +60,7 @@ function PortfolioPage() {
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
 
   const q = useQuery({
-    queryKey: ["portfolio", sellerId],
+    queryKey: ["portfolio", sellerId, viewAsUserId],
     queryFn: () =>
       fn({
         data: { sellerId: sellerId === "all" ? null : sellerId },
