@@ -78,6 +78,8 @@ export type ParseStats = {
   linesRead: number;
   internalServicePostings: number;
   invalidLines: number;
+  skippedFirma: number;
+  skippedFirmaSamples: string[];
   uniqueDeliveryNos: number;
   periodFrom: string | null;
   periodTo: string | null;
