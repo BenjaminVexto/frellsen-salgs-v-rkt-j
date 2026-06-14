@@ -347,6 +347,61 @@ function AftalerPage() {
         </div>
       )}
 
+      {orphanKp2.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Prismatrix uden aftaledokument
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {orphanKp2.length} kundeprisgruppe{orphanKp2.length === 1 ? "" : "r"}
+            </span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {orphanKp2.map((g) => (
+              <Card
+                key={g.code}
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  navigate({ to: "/aftaler/kp2/$code", params: { code: g.code } })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter")
+                    navigate({ to: "/aftaler/kp2/$code", params: { code: g.code } });
+                }}
+                className="relative p-4 pl-5 cursor-pointer hover:shadow-md transition-shadow overflow-hidden border-dashed"
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-muted-foreground/30" />
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="font-semibold truncate">{g.label}</h3>
+                  <Badge variant="outline" className="font-mono text-[10px] shrink-0">
+                    KP2 {g.code}
+                  </Badge>
+                </div>
+                <div className="text-sm mb-1">
+                  <strong>{g.count}</strong> prislinjer
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Gyldig:{" "}
+                  {g.fra
+                    ? format(parseISO(g.fra), "d. MMM yyyy", { locale: da })
+                    : "—"}{" "}
+                  →{" "}
+                  {g.til
+                    ? format(parseISO(g.til), "d. MMM yyyy", { locale: da })
+                    : "∞"}
+                </div>
+                <div className="text-xs text-muted-foreground mt-2 italic">
+                  Intet aftaledokument oprettet endnu.
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+
       <EditDialog
         open={editOpen}
         onOpenChange={setEditOpen}
