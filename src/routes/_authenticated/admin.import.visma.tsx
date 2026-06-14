@@ -175,30 +175,32 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   location_contact_person: ["ref_person", "kontaktperson_lev"],
 };
 
-// Visma debitorliste → systemfelter. Mapping bygger på BRUGER-VERIFICEREDE
-// kolonneoverskrifter (række 2 i Aktør-exporten). Kun eksakt navnematch:
-// ingen positions-antagelser, ingen fuzzy gæt. Hvis filen mangler en af
-// disse headers vises feltet som "ikke fundet" i mapping-preview.
+// Visma debitorliste → systemfelter. EKSAKTE headers fra Visma-eksporten
+// (CSV og xlsx). Kun navnematch, ingen positions-antagelser. Dette er den
+// mapping der virkede før dagens xlsx-tilføjelse — bevar uændret.
 const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
-  cvr: ["CVR nr."],
+  cvr: ["CVR nr.", "CVR nr"],
   name: ["Navn"],
-  address: ["Adresselinje 1"],
+  address: ["Adresselinje 2"],
   zip: ["Postnr."],
   city: ["By"],
   phone: ["Telefonnr.1"],
   email: ["E-mailadresse"],
+  created_in_visma: ["Oprettet dato"],
   last_purchase_date: ["Sidste Varekøb"],
   customer_segment_1: ["Kundeprisgruppe 1"],
   customer_segment_2: ["Kundeprisgruppe 2"],
   customer_segment_3: ["Kundeprisgruppe 3"],
   visma_id: ["Fakt. kunde"],
   visma_delivery_id: ["Lev. kund"],
+  contact_person: ["Ref person"],
   salesperson_no: ["Sælger"],
   ean_number: ["EAN nr."],
   location_address: ["Adresselinje 2"],
   location_zip: ["Postnr."],
   location_city: ["By"],
-  location_phone: ["Telefonnr.2"],
+  location_contact_person: ["Ref person"],
+  location_phone: ["Telefonnr.1"],
   location_email: ["E-mailadresse"],
 };
 
