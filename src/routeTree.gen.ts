@@ -34,6 +34,7 @@ import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
 import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
+import { Route as AuthenticatedAdminImportMaskinerRouteImport } from './routes/_authenticated/admin.import.maskiner'
 import { Route as AuthenticatedAdminImportMaskindataRouteImport } from './routes/_authenticated/admin.import.maskindata'
 import { Route as AuthenticatedAdminImportFakturaRouteImport } from './routes/_authenticated/admin.import.faktura'
 import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authenticated/admin.import.cvr'
@@ -182,6 +183,12 @@ const AuthenticatedAdminImportVismaRoute =
     path: '/visma',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
+const AuthenticatedAdminImportMaskinerRoute =
+  AuthenticatedAdminImportMaskinerRouteImport.update({
+    id: '/maskiner',
+    path: '/maskiner',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
 const AuthenticatedAdminImportMaskindataRoute =
   AuthenticatedAdminImportMaskindataRouteImport.update({
     id: '/maskindata',
@@ -240,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
+  '/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/admin/import/': typeof AuthenticatedAdminImportIndexRoute
@@ -270,6 +278,7 @@ export interface FileRoutesByTo {
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
   '/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
+  '/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/admin/import': typeof AuthenticatedAdminImportIndexRoute
@@ -303,6 +312,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
   '/_authenticated/admin/import/faktura': typeof AuthenticatedAdminImportFakturaRoute
   '/_authenticated/admin/import/maskindata': typeof AuthenticatedAdminImportMaskindataRoute
+  '/_authenticated/admin/import/maskiner': typeof AuthenticatedAdminImportMaskinerRoute
   '/_authenticated/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/_authenticated/admin/import/': typeof AuthenticatedAdminImportIndexRoute
@@ -336,6 +346,7 @@ export interface FileRouteTypes {
     | '/admin/import/cvr'
     | '/admin/import/faktura'
     | '/admin/import/maskindata'
+    | '/admin/import/maskiner'
     | '/admin/import/visma'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/admin/import/'
@@ -366,6 +377,7 @@ export interface FileRouteTypes {
     | '/admin/import/cvr'
     | '/admin/import/faktura'
     | '/admin/import/maskindata'
+    | '/admin/import/maskiner'
     | '/admin/import/visma'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/admin/import'
@@ -398,6 +410,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import/cvr'
     | '/_authenticated/admin/import/faktura'
     | '/_authenticated/admin/import/maskindata'
+    | '/_authenticated/admin/import/maskiner'
     | '/_authenticated/admin/import/visma'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/_authenticated/admin/import/'
@@ -589,6 +602,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportVismaRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
+    '/_authenticated/admin/import/maskiner': {
+      id: '/_authenticated/admin/import/maskiner'
+      path: '/maskiner'
+      fullPath: '/admin/import/maskiner'
+      preLoaderRoute: typeof AuthenticatedAdminImportMaskinerRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
     '/_authenticated/admin/import/maskindata': {
       id: '/_authenticated/admin/import/maskindata'
       path: '/maskindata'
@@ -633,6 +653,7 @@ interface AuthenticatedAdminImportRouteChildren {
   AuthenticatedAdminImportCvrRoute: typeof AuthenticatedAdminImportCvrRoute
   AuthenticatedAdminImportFakturaRoute: typeof AuthenticatedAdminImportFakturaRoute
   AuthenticatedAdminImportMaskindataRoute: typeof AuthenticatedAdminImportMaskindataRoute
+  AuthenticatedAdminImportMaskinerRoute: typeof AuthenticatedAdminImportMaskinerRoute
   AuthenticatedAdminImportVismaRoute: typeof AuthenticatedAdminImportVismaRoute
   AuthenticatedAdminImportIndexRoute: typeof AuthenticatedAdminImportIndexRoute
 }
@@ -646,6 +667,8 @@ const AuthenticatedAdminImportRouteChildren: AuthenticatedAdminImportRouteChildr
     AuthenticatedAdminImportFakturaRoute: AuthenticatedAdminImportFakturaRoute,
     AuthenticatedAdminImportMaskindataRoute:
       AuthenticatedAdminImportMaskindataRoute,
+    AuthenticatedAdminImportMaskinerRoute:
+      AuthenticatedAdminImportMaskinerRoute,
     AuthenticatedAdminImportVismaRoute: AuthenticatedAdminImportVismaRoute,
     AuthenticatedAdminImportIndexRoute: AuthenticatedAdminImportIndexRoute,
   }

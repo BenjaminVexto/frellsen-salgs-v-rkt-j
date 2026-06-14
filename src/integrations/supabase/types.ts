@@ -1127,6 +1127,96 @@ export type Database = {
           },
         ]
       }
+      machine_enrichment: {
+        Row: {
+          created_at: string
+          data: Json | null
+          serienr: string
+          taelleraflaesning: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          serienr: string
+          taelleraflaesning?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          serienr?: string
+          taelleraflaesning?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      machines: {
+        Row: {
+          adresselinje2: string | null
+          aendret_dato: string | null
+          beskrivelse: string | null
+          created_at: string
+          data: Json | null
+          dup_index: number
+          fak_kundenr: string | null
+          id: string
+          kobt_dato: string | null
+          lease_leje_dato: string | null
+          lev_kundenr: string | null
+          navn: string | null
+          ordrenr: string | null
+          serienr: string | null
+          status: string | null
+          taellerstand: number | null
+          udlanstype: string | null
+          updated_at: string
+          varenr: string | null
+        }
+        Insert: {
+          adresselinje2?: string | null
+          aendret_dato?: string | null
+          beskrivelse?: string | null
+          created_at?: string
+          data?: Json | null
+          dup_index?: number
+          fak_kundenr?: string | null
+          id: string
+          kobt_dato?: string | null
+          lease_leje_dato?: string | null
+          lev_kundenr?: string | null
+          navn?: string | null
+          ordrenr?: string | null
+          serienr?: string | null
+          status?: string | null
+          taellerstand?: number | null
+          udlanstype?: string | null
+          updated_at?: string
+          varenr?: string | null
+        }
+        Update: {
+          adresselinje2?: string | null
+          aendret_dato?: string | null
+          beskrivelse?: string | null
+          created_at?: string
+          data?: Json | null
+          dup_index?: number
+          fak_kundenr?: string | null
+          id?: string
+          kobt_dato?: string | null
+          lease_leje_dato?: string | null
+          lev_kundenr?: string | null
+          navn?: string | null
+          ordrenr?: string | null
+          serienr?: string | null
+          status?: string | null
+          taellerstand?: number | null
+          udlanstype?: string | null
+          updated_at?: string
+          varenr?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           activity_id: string | null
