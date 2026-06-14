@@ -344,10 +344,12 @@ function PortfolioPage() {
             {sortedCompanies.length > visibleCount && (
               <button
                 type="button"
-                onClick={() => setVisibleCount((n) => n + 50)}
+                onClick={() => setVisibleCount((n) => (n < 50 ? 50 : n + 50))}
                 className="w-full px-4 py-3 text-sm text-muted-foreground hover:bg-accent/40 border-t border-border"
               >
-                Vis 50 flere ({(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)
+                {visibleCount < 50
+                  ? `Udvid (vis 50 ad gangen, ${(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)`
+                  : `Vis 50 flere (${(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)`}
               </button>
             )}
           </Card>
