@@ -98,6 +98,8 @@ export const importMachines = createServerFn({ method: "POST" })
       }
     }
 
+    const importedAt = new Date().toISOString();
+
     // ---- Machines: hash + dup_index ----
     const dupCounter = new Map<string, number>();
     const machineRows: any[] = [];
@@ -138,8 +140,7 @@ export const importMachines = createServerFn({ method: "POST" })
       });
     }
 
-    const importedAt = new Date().toISOString();
-    // (declared above via const — see initialisering nedenfor)
+
 
     // ---- Diagnostik: aktive før import ----
     let machinesActiveBefore = 0;
