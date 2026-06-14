@@ -192,6 +192,7 @@ function DashboardPage() {
       const { data: enr, error: enrErr } = await (supabase as any)
         .from("machine_enrichment")
         .select("serienr, binding_ophor, handlingsdato")
+        .eq("record_status", "aktiv")
         .or(
           `and(binding_ophor.gte.${todayS},binding_ophor.lte.${in90S}),and(handlingsdato.gte.${todayS},handlingsdato.lte.${in90S})`,
         );
@@ -209,6 +210,7 @@ function DashboardPage() {
         const { data, error } = await (supabase as any)
           .from("machines")
           .select("serienr, fak_kundenr")
+          .eq("record_status", "aktiv")
           .in("serienr", slice);
         if (error) throw error;
         machines.push(...(data ?? []));
