@@ -33,6 +33,7 @@ import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
 import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
+import { Route as AuthenticatedAftalerKp2CodeRouteImport } from './routes/_authenticated/aftaler.kp2.$code'
 import { Route as AuthenticatedAdminMaskinerArkivRouteImport } from './routes/_authenticated/admin.maskiner.arkiv'
 import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
 import { Route as AuthenticatedAdminImportPrismatrixRouteImport } from './routes/_authenticated/admin.import.prismatrix'
@@ -179,6 +180,12 @@ const ApiPublicHooksProcessCvrEnrichmentRoute =
     path: '/api/public/hooks/process-cvr-enrichment',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedAftalerKp2CodeRoute =
+  AuthenticatedAftalerKp2CodeRouteImport.update({
+    id: '/aftaler/kp2/$code',
+    path: '/aftaler/kp2/$code',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminMaskinerArkivRoute =
   AuthenticatedAdminMaskinerArkivRouteImport.update({
     id: '/admin/maskiner/arkiv',
@@ -265,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/admin/import/prismatrix': typeof AuthenticatedAdminImportPrismatrixRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
+  '/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
@@ -298,6 +306,7 @@ export interface FileRoutesByTo {
   '/admin/import/prismatrix': typeof AuthenticatedAdminImportPrismatrixRoute
   '/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
+  '/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/admin/import': typeof AuthenticatedAdminImportIndexRoute
 }
@@ -334,6 +343,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/import/prismatrix': typeof AuthenticatedAdminImportPrismatrixRoute
   '/_authenticated/admin/import/visma': typeof AuthenticatedAdminImportVismaRoute
   '/_authenticated/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
+  '/_authenticated/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/_authenticated/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
@@ -370,6 +380,7 @@ export interface FileRouteTypes {
     | '/admin/import/prismatrix'
     | '/admin/import/visma'
     | '/admin/maskiner/arkiv'
+    | '/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/admin/import/'
   fileRoutesByTo: FileRoutesByTo
@@ -403,6 +414,7 @@ export interface FileRouteTypes {
     | '/admin/import/prismatrix'
     | '/admin/import/visma'
     | '/admin/maskiner/arkiv'
+    | '/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/admin/import'
   id:
@@ -438,6 +450,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import/prismatrix'
     | '/_authenticated/admin/import/visma'
     | '/_authenticated/admin/maskiner/arkiv'
+    | '/_authenticated/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/_authenticated/admin/import/'
   fileRoutesById: FileRoutesById
@@ -621,6 +634,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksProcessCvrEnrichmentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/aftaler/kp2/$code': {
+      id: '/_authenticated/aftaler/kp2/$code'
+      path: '/aftaler/kp2/$code'
+      fullPath: '/aftaler/kp2/$code'
+      preLoaderRoute: typeof AuthenticatedAftalerKp2CodeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/maskiner/arkiv': {
       id: '/_authenticated/admin/maskiner/arkiv'
       path: '/admin/maskiner/arkiv'
@@ -740,6 +760,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRoute
   AuthenticatedAftalerIndexRoute: typeof AuthenticatedAftalerIndexRoute
   AuthenticatedAdminMaskinerArkivRoute: typeof AuthenticatedAdminMaskinerArkivRoute
+  AuthenticatedAftalerKp2CodeRoute: typeof AuthenticatedAftalerKp2CodeRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -761,6 +782,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedVirksomhederIdRoute: AuthenticatedVirksomhederIdRoute,
   AuthenticatedAftalerIndexRoute: AuthenticatedAftalerIndexRoute,
   AuthenticatedAdminMaskinerArkivRoute: AuthenticatedAdminMaskinerArkivRoute,
+  AuthenticatedAftalerKp2CodeRoute: AuthenticatedAftalerKp2CodeRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

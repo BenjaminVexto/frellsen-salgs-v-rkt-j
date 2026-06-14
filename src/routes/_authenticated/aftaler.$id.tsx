@@ -43,6 +43,7 @@ import {
   uploadAgreementDocument,
 } from "@/lib/agreements.functions";
 import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
+import { PrismatrixTable } from "@/components/prismatrix-table";
 
 export const Route = createFileRoute("/_authenticated/aftaler/$id")({
   component: AgreementDetail,
