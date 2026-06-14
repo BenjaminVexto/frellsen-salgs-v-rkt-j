@@ -89,10 +89,12 @@ export type Database = {
         Row: {
           beskrivelse: string | null
           created_at: string
+          fak_kundenr: string | null
           fra_dato: string | null
           id: string
           kampagne: string | null
           kommentar: string | null
+          kundeprisgruppe1: string | null
           kundeprisgruppe2: string | null
           last_seen_import: string | null
           produktprisgruppe1: string | null
@@ -112,10 +114,12 @@ export type Database = {
         Insert: {
           beskrivelse?: string | null
           created_at?: string
+          fak_kundenr?: string | null
           fra_dato?: string | null
           id: string
           kampagne?: string | null
           kommentar?: string | null
+          kundeprisgruppe1?: string | null
           kundeprisgruppe2?: string | null
           last_seen_import?: string | null
           produktprisgruppe1?: string | null
@@ -135,10 +139,12 @@ export type Database = {
         Update: {
           beskrivelse?: string | null
           created_at?: string
+          fak_kundenr?: string | null
           fra_dato?: string | null
           id?: string
           kampagne?: string | null
           kommentar?: string | null
+          kundeprisgruppe1?: string | null
           kundeprisgruppe2?: string | null
           last_seen_import?: string | null
           produktprisgruppe1?: string | null
