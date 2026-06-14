@@ -477,6 +477,25 @@ function ImportSide() {
           }
           if (hasAny) data.push(obj);
         }
+        // DIAGNOSTIK — log præcis hvad xlsx-parseren producerede
+        // (header-rækken og 2 sample-rækker MED nøglefelterne) så vi kan
+        // verificere om problemet er header-mismatch eller værdi-tab.
+        // eslint-disable-next-line no-console
+        console.log("[VISMA-IMPORT] header-række index:", bestRow, "score:", bestScore);
+        // eslint-disable-next-line no-console
+        console.log("[VISMA-IMPORT] headers (raw fra xlsx):", hdrs);
+        // eslint-disable-next-line no-console
+        console.log("[VISMA-IMPORT] headers JSON:", JSON.stringify(hdrs));
+        const keyCols = ["Fakt. kunde", "Lev. kund", "CVR nr.", "Navn", "Firma"];
+        for (let s = 0; s < Math.min(2, data.length); s++) {
+          const r = data[s];
+          const picked: Record<string, string> = {};
+          for (const k of keyCols) picked[k] = r[k] ?? "<missing>";
+          // eslint-disable-next-line no-console
+          console.log(`[VISMA-IMPORT] sample-række ${s + 1} nøglefelter:`, picked);
+          // eslint-disable-next-line no-console
+          console.log(`[VISMA-IMPORT] sample-række ${s + 1} alle kolonner:`, r);
+        }
         applyParsed(hdrs, data);
 
       } catch (err: any) {
