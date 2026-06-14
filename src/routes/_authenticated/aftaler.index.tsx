@@ -47,6 +47,7 @@ import {
   updateAgreement,
   deleteAgreement,
 } from "@/lib/agreements.functions";
+import { listPricingKp2Groups } from "@/lib/agreement-pricing.functions";
 
 export const Route = createFileRoute("/_authenticated/aftaler/")({
   component: AftalerPage,
