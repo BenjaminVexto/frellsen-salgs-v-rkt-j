@@ -396,8 +396,8 @@ function DashboardPage() {
           icon={<FileText className="h-4 w-4" />}
           tone="success"
           title="Kunder – aftaler udløber"
-          count={expiringCustomers.length}
-          loading={expiringDocsQuery.isLoading}
+          count={expiringMachines.length}
+          loading={expiringMachinesQuery.isLoading}
         />
         <CompactStat
           to="/virksomheder"
