@@ -251,13 +251,26 @@ export const importMachines = createServerFn({ method: "POST" })
       }
     }
 
+    // ---- Diagnostik: faktisk række-count i tabel FØR enrichment-upsert
+    const { count: enrCountBefore } = await supabaseAdmin
+      .from("machine_enrichment" as any)
+      .select("serienr", { count: "exact", head: true });
+    console.log(`[machines-import] enrichment count i tabel FØR upsert: ${enrCountBefore ?? 0} (parsede rækker=${enrRows.length})`);
+
     let enrichmentUpserted = 0;
+    let enrFirstError: string | null = null;
     for (let i = 0; i < enrRows.length; i += CHUNK) {
       const slice = enrRows.slice(i, i + CHUNK);
-      const { error } = await supabaseAdmin
-        .from("machine_enrichment" as any)
-        .upsert(slice, { onConflict: "serienr" });
-      if (error) throw new Error("machine_enrichment upsert: " + error.message);
+      try {
+        const { error, status, statusText } = await supabaseAdmin
+          .from("machine_enrichment" as any)
+          .upsert(slice, { onConflict: "serienr" });
+        if (error) {
+          const msg = `chunk ${i}-${i + slice.length} fejlede: ${error.message} (code=${(error as any).code ?? "?"}, details=${(error as any).details ?? "?"}, hint=${(error as any).hint ?? "?"}, http=${status} ${statusText})`;
+          console.error("[machines-import] machine_enrichment upsert FEJL:", msg, "førsterække:", JSON.stringify(slice[0]));
+          enrFirstError ??= msg;
+          throw new Error("machine_enrichment upsert: " + msg);
+        }
       enrichmentUpserted += slice.length;
     }
 
