@@ -411,17 +411,29 @@ function fmtDa(iso?: string | null): string {
   }
 }
 
-function pickRespons(data: any): string | null {
+function pickFromData(data: any, names: string[]): string | null {
   if (!data || typeof data !== "object") return null;
+  const norm = (s: string) => s.toLowerCase().replace(/[\s._-]/g, "");
+  const wanted = new Set(names.map(norm));
   for (const k of Object.keys(data)) {
-    const kn = k.toLowerCase().replace(/[\s._-]/g, "");
-    if (kn === "respons" || kn === "responstid") {
+    if (wanted.has(norm(k))) {
       const v = data[k];
-      if (v == null || String(v).trim() === "") return null;
+      if (v == null || String(v).trim() === "") continue;
       return String(v).trim();
     }
   }
   return null;
+}
+
+function pickRespons(data: any): string | null {
+  return pickFromData(data, ["respons", "responstid"]);
+}
+
+function pickTaellerstand(data: any): number | null {
+  const v = pickFromData(data, ["taellerstand", "tællerstand", "taeller", "tæller"]);
+  if (v == null) return null;
+  const n = Number(String(v).replace(/[^\d.,-]/g, "").replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
 }
 
 function EquipmentBox({ location }: { location: Location }) {
