@@ -267,6 +267,7 @@ function AuthenticatedShell() {
         </nav>
       </main>
       <GlobalImportIndicator />
+      <ViewAsPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} />
     </div>
   );
 }
