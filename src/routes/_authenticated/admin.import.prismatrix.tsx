@@ -15,6 +15,9 @@ export const Route = createFileRoute("/_authenticated/admin/import/prismatrix")(
   component: PrismatrixImportSide,
 });
 
+// Bevidst skånsom normalisering: behold tegn som % og / så "Rab %" kan mappes.
+// Kun whitespace strippes og case ensartes; æøå translittereres så headers med
+// danske bogstaver fortsat matcher.
 function normCol(s: string): string {
   return s
     .toLowerCase()
@@ -23,7 +26,7 @@ function normCol(s: string): string {
     .replace(/å/g, "aa")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]/g, "");
+    .replace(/\s+/g, "");
 }
 
 const PRICING_ALIASES: Record<string, string> = {
@@ -32,30 +35,45 @@ const PRICING_ALIASES: Record<string, string> = {
   produktprisgruppe2: "produktprisgruppe2",
   produktprisgruppe3: "produktprisgruppe3",
   varenr: "varenr",
+  "vare-nr": "varenr",
+  "vare-nr.": "varenr",
+  "varenr.": "varenr",
   varenummer: "varenr",
   beskrivelse: "beskrivelse",
   varebeskrivelse: "beskrivelse",
-  rabkr: "rab_kr",
-  rabatkr: "rab_kr",
-  rabpct: "rab_pct",
-  rabprocent: "rab_pct",
-  rabatpct: "rab_pct",
-  rabatprocent: "rab_pct",
+  // Rab kr — flere skrivemåder
+  "rabkr": "rab_kr",
+  "rabkr.": "rab_kr",
+  "rab.kr": "rab_kr",
+  "rab.kr.": "rab_kr",
+  "rabatkr": "rab_kr",
+  "rabatkr.": "rab_kr",
+  // Rab % — KRITISK, behold %-tegnet i nøglen
+  "rab%": "rab_pct",
+  "rab%.": "rab_pct",
+  "rabat%": "rab_pct",
+  "rabpct": "rab_pct",
+  "rabprocent": "rab_pct",
+  "rabatpct": "rab_pct",
+  "rabatprocent": "rab_pct",
   udsalgspris: "udsalgspris",
   udlejningspris: "udlejningspris",
   kampagne: "kampagne",
   kommentar: "kommentar",
+  "fra-dato": "fra_dato",
   fradato: "fra_dato",
+  "til-dato": "til_dato",
   tildato: "til_dato",
   fakkundenr: "fak_kundenr",
+  "fak.kundenr": "fak_kundenr",
+  "fak.kundenr.": "fak_kundenr",
   fakturereskundenr: "fak_kundenr",
 };
 
 const PRICING_ANCHORS = [
   "kundeprisgruppe2",
+  "rab%",
   "rabpct",
-  "rabatpct",
-  "rabprocent",
   "rabkr",
   "varenr",
   "udsalgspris",
