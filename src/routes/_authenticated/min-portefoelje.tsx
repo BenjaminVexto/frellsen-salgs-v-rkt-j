@@ -441,7 +441,7 @@ function PortfolioPage() {
 
           {/* MULIGHEDER & TRUSLER — Lag 3 */}
           <section className="mt-8">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 pb-2 border-b border-border">
               Muligheder &amp; trusler
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
