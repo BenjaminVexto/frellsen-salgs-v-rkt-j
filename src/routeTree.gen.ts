@@ -32,6 +32,7 @@ import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authenticated/admin.cvr-debug'
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
+import { Route as ApiPublicHooksProcessInvoiceImportRouteImport } from './routes/api/public/hooks/process-invoice-import'
 import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
 import { Route as AuthenticatedAftalerKp2CodeRouteImport } from './routes/_authenticated/aftaler.kp2.$code'
 import { Route as AuthenticatedAdminMaskinerArkivRouteImport } from './routes/_authenticated/admin.maskiner.arkiv'
@@ -173,6 +174,12 @@ const AuthenticatedAdminImportIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
+const ApiPublicHooksProcessInvoiceImportRoute =
+  ApiPublicHooksProcessInvoiceImportRouteImport.update({
+    id: '/api/public/hooks/process-invoice-import',
+    path: '/api/public/hooks/process-invoice-import',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksProcessCvrEnrichmentRoute =
   ApiPublicHooksProcessCvrEnrichmentRouteImport.update({
     id: '/api/public/hooks/process-cvr-enrichment',
@@ -266,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
   '/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
+  '/api/public/hooks/process-invoice-import': typeof ApiPublicHooksProcessInvoiceImportRoute
   '/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRoutesByTo {
@@ -299,6 +307,7 @@ export interface FileRoutesByTo {
   '/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
   '/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
+  '/api/public/hooks/process-invoice-import': typeof ApiPublicHooksProcessInvoiceImportRoute
   '/admin/import': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRoutesById {
@@ -335,6 +344,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/maskiner/arkiv': typeof AuthenticatedAdminMaskinerArkivRoute
   '/_authenticated/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
+  '/api/public/hooks/process-invoice-import': typeof ApiPublicHooksProcessInvoiceImportRoute
   '/_authenticated/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRouteTypes {
@@ -371,6 +381,7 @@ export interface FileRouteTypes {
     | '/admin/maskiner/arkiv'
     | '/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
+    | '/api/public/hooks/process-invoice-import'
     | '/admin/import/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -404,6 +415,7 @@ export interface FileRouteTypes {
     | '/admin/maskiner/arkiv'
     | '/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
+    | '/api/public/hooks/process-invoice-import'
     | '/admin/import'
   id:
     | '__root__'
@@ -439,6 +451,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/maskiner/arkiv'
     | '/_authenticated/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
+    | '/api/public/hooks/process-invoice-import'
     | '/_authenticated/admin/import/'
   fileRoutesById: FileRoutesById
 }
@@ -449,6 +462,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApiPublicHooksProcessCvrEnrichmentRoute: typeof ApiPublicHooksProcessCvrEnrichmentRoute
+  ApiPublicHooksProcessInvoiceImportRoute: typeof ApiPublicHooksProcessInvoiceImportRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -614,6 +628,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportIndexRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
+    '/api/public/hooks/process-invoice-import': {
+      id: '/api/public/hooks/process-invoice-import'
+      path: '/api/public/hooks/process-invoice-import'
+      fullPath: '/api/public/hooks/process-invoice-import'
+      preLoaderRoute: typeof ApiPublicHooksProcessInvoiceImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/process-cvr-enrichment': {
       id: '/api/public/hooks/process-cvr-enrichment'
       path: '/api/public/hooks/process-cvr-enrichment'
@@ -774,6 +795,8 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   ApiPublicHooksProcessCvrEnrichmentRoute:
     ApiPublicHooksProcessCvrEnrichmentRoute,
+  ApiPublicHooksProcessInvoiceImportRoute:
+    ApiPublicHooksProcessInvoiceImportRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
