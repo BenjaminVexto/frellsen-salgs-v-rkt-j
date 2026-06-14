@@ -50,6 +50,14 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
+  return (
+    <ViewAsProvider>
+      <AuthenticatedShell />
+    </ViewAsProvider>
+  );
+}
+
+function AuthenticatedShell() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { location } = useRouterState();
