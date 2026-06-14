@@ -227,10 +227,10 @@ export const importMachines = createServerFn({ method: "POST" })
         }
         enrMap.set(serienr, {
           serienr,
-          taelleraflaesning: r.taelleraflaesning || null,
-          binding_ophor: r.binding_ophor || null,
-          beregnet_slutdato: r.beregnet_slutdato || null,
-          handlingsdato: r.handlingsdato || null,
+          taelleraflaesning: normDate(r.taelleraflaesning),
+          binding_ophor: normDate(r.binding_ophor),
+          beregnet_slutdato: normDate(r.beregnet_slutdato),
+          handlingsdato: normDate(r.handlingsdato),
           handlingsdato_raw: r.handlingsdato_raw || null,
           data: Object.keys(extras).length > 0 ? extras : null,
           record_status: "aktiv",
