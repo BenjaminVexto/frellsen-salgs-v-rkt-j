@@ -85,6 +85,78 @@ export type Database = {
           },
         ]
       }
+      agreement_pricing: {
+        Row: {
+          beskrivelse: string | null
+          created_at: string
+          fra_dato: string | null
+          id: string
+          kampagne: string | null
+          kommentar: string | null
+          kundeprisgruppe2: string | null
+          last_seen_import: string | null
+          produktprisgruppe1: string | null
+          produktprisgruppe2: string | null
+          produktprisgruppe3: string | null
+          rab_kr: number | null
+          rab_pct: number | null
+          rabat_kategori: string | null
+          record_status: string
+          til_dato: string | null
+          udgaaet_dato: string | null
+          udlejningspris: number | null
+          udsalgspris: number | null
+          updated_at: string
+          varenr: string | null
+        }
+        Insert: {
+          beskrivelse?: string | null
+          created_at?: string
+          fra_dato?: string | null
+          id: string
+          kampagne?: string | null
+          kommentar?: string | null
+          kundeprisgruppe2?: string | null
+          last_seen_import?: string | null
+          produktprisgruppe1?: string | null
+          produktprisgruppe2?: string | null
+          produktprisgruppe3?: string | null
+          rab_kr?: number | null
+          rab_pct?: number | null
+          rabat_kategori?: string | null
+          record_status?: string
+          til_dato?: string | null
+          udgaaet_dato?: string | null
+          udlejningspris?: number | null
+          udsalgspris?: number | null
+          updated_at?: string
+          varenr?: string | null
+        }
+        Update: {
+          beskrivelse?: string | null
+          created_at?: string
+          fra_dato?: string | null
+          id?: string
+          kampagne?: string | null
+          kommentar?: string | null
+          kundeprisgruppe2?: string | null
+          last_seen_import?: string | null
+          produktprisgruppe1?: string | null
+          produktprisgruppe2?: string | null
+          produktprisgruppe3?: string | null
+          rab_kr?: number | null
+          rab_pct?: number | null
+          rabat_kategori?: string | null
+          record_status?: string
+          til_dato?: string | null
+          udgaaet_dato?: string | null
+          udlejningspris?: number | null
+          udsalgspris?: number | null
+          updated_at?: string
+          varenr?: string | null
+        }
+        Relationships: []
+      }
       agreements: {
         Row: {
           created_at: string

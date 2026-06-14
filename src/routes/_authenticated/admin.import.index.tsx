@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Cog, Database, FileSpreadsheet, FileText, Loader2, Receipt, Search, Wrench } from "lucide-react";
+import { ArrowRight, Cog, Database, FileSpreadsheet, FileText, Loader2, Receipt, Search, Tag, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/import/")({
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/admin/import/")({
 });
 
 type Valg = {
-  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata" | "/admin/import/maskiner" | "/admin/import/aftale-emner" | "/admin/import/faktura";
+  to: "/admin/import/visma" | "/admin/import/cvr" | "/admin/import/anden" | "/admin/import/maskindata" | "/admin/import/maskiner" | "/admin/import/aftale-emner" | "/admin/import/faktura" | "/admin/import/prismatrix";
   icon: React.ComponentType<{ className?: string }>;
   emoji: string;
   title: string;
@@ -81,6 +81,15 @@ const VALG: Valg[] = [
     description:
       "Importér rå fakturajournal fra Visma. Aggregeres automatisk pr. lev.nr. × måned × produktgruppe. Idempotent: kør samme periode flere gange uden dubletter.",
     hint: "Brug dette til at opdatere salgstal og top-varer pr. lokation",
+  },
+  {
+    to: "/admin/import/prismatrix",
+    icon: Tag,
+    emoji: "🏷️",
+    title: "Pris- og rabatmatrix",
+    description:
+      "Importér prismatrix til agreement_pricing. Header findes automatisk via ankerfelter, og en afledt rabat_kategori (Hele bønner, VAC kaffe, Instant, Maskiner, Tilbehør, Øvrige) beregnes pr. række.",
+    hint: "Brug dette til at synkronisere kundepriser og rabatlinjer",
   },
 ];
 
