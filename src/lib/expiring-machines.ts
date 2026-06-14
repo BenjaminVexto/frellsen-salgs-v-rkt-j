@@ -1,22 +1,37 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type ExpiringMachineRow = {
+export type ExpiringMachineDetail = {
   companyId: string;
   companyName: string;
+  serienr: string;
+  machineType: string | null;
+  subLocation: string | null;
+  agreementType: string | null;
+  locationId: string;
+  locationAddress: string | null;
+  locationZip: string | null;
+  locationCity: string | null;
   date: string;
   type: "binding" | "service";
-  count: number;
+};
+
+export type ExpiringCustomerGroup = {
+  companyId: string;
+  companyName: string;
+  earliestDate: string;
+  machines: ExpiringMachineDetail[];
 };
 
 export async function fetchExpiringMachines(
   userId: string,
   isAdmin: boolean,
-): Promise<ExpiringMachineRow[]> {
+): Promise<ExpiringCustomerGroup[]> {
   const todayS = new Date().toISOString().slice(0, 10);
   const in90D = new Date();
   in90D.setDate(in90D.getDate() + 90);
   const in90S = in90D.toISOString().slice(0, 10);
 
+  // 1. Enrichment-rækker i vinduet
   const { data: enr, error: enrErr } = await (supabase as any)
     .from("machine_enrichment")
     .select("serienr, binding_ophor, handlingsdato")
@@ -25,58 +40,77 @@ export async function fetchExpiringMachines(
       `and(binding_ophor.gte.${todayS},binding_ophor.lte.${in90S}),and(handlingsdato.gte.${todayS},handlingsdato.lte.${in90S})`,
     );
   if (enrErr) throw enrErr;
-  const serienrs = Array.from(
-    new Set(((enr ?? []) as any[]).map((e) => e.serienr).filter(Boolean)),
-  );
+  const enrRows = ((enr ?? []) as any[]).filter((e) => e.serienr);
+  const serienrs = Array.from(new Set(enrRows.map((e) => String(e.serienr))));
   if (!serienrs.length) return [];
 
-  const machines: any[] = [];
+  const enrBySerial = new Map<string, any>();
+  enrRows.forEach((e) => enrBySerial.set(String(e.serienr), e));
+
+  // 2. location_equipment_units for disse serienr (chunked IN) — giver os
+  //    lokation + maskintype + aftaletype direkte.
+  const units: any[] = [];
   const CHUNK = 500;
   for (let i = 0; i < serienrs.length; i += CHUNK) {
     const slice = serienrs.slice(i, i + CHUNK);
     const { data, error } = await (supabase as any)
-      .from("machines")
-      .select("serienr, fak_kundenr")
-      .eq("record_status", "aktiv")
-      .in("serienr", slice);
+      .from("location_equipment_units")
+      .select(
+        "serial_no, machine_type, sub_location, agreement_type, location_id",
+      )
+      .eq("is_filter", false)
+      .in("serial_no", slice);
     if (error) throw error;
-    machines.push(...(data ?? []));
+    units.push(...(data ?? []));
   }
-  if (!machines.length) return [];
+  if (!units.length) return [];
 
-  const kundenrs = Array.from(
-    new Set(machines.map((m) => m.fak_kundenr).filter(Boolean) as string[]),
+  // 3. Locations → company_id + adresse
+  const locationIds = Array.from(
+    new Set(units.map((u) => u.location_id).filter(Boolean)),
   );
-  if (!kundenrs.length) return [];
+  if (!locationIds.length) return [];
+
+  const locations: any[] = [];
+  for (let i = 0; i < locationIds.length; i += CHUNK) {
+    const slice = locationIds.slice(i, i + CHUNK);
+    const { data, error } = await (supabase as any)
+      .from("locations")
+      .select("id, company_id, address, zip, city")
+      .in("id", slice);
+    if (error) throw error;
+    locations.push(...(data ?? []));
+  }
+  const locById = new Map<string, any>();
+  locations.forEach((l) => locById.set(l.id, l));
+
+  // 4. Tilladte virksomheder
+  const companyIds = Array.from(
+    new Set(locations.map((l) => l.company_id).filter(Boolean)),
+  );
+  if (!companyIds.length) return [];
 
   let compQ = supabase
     .from("companies")
-    .select("id, name, visma_id")
-    .in("visma_id", kundenrs);
+    .select("id, name")
+    .in("id", companyIds);
   if (!isAdmin) compQ = compQ.eq("assigned_to", userId);
   const { data: companies, error: cErr } = await compQ;
   if (cErr) throw cErr;
-  const compByVisma = new Map<string, { id: string; name: string }>();
+  const compById = new Map<string, { id: string; name: string }>();
   (companies ?? []).forEach((c: any) =>
-    compByVisma.set(c.visma_id, { id: c.id, name: c.name }),
+    compById.set(c.id, { id: c.id, name: c.name }),
   );
-  if (compByVisma.size === 0) return [];
+  if (compById.size === 0) return [];
 
-  const enrBySerienr = new Map<string, any>();
-  ((enr ?? []) as any[]).forEach((e) => enrBySerienr.set(e.serienr, e));
-
-  type Earliest = {
-    companyId: string;
-    companyName: string;
-    date: string;
-    type: "binding" | "service";
-  };
-  const byCompany = new Map<string, { earliest: Earliest; count: number }>();
-
-  for (const m of machines) {
-    const comp = m.fak_kundenr ? compByVisma.get(m.fak_kundenr) : null;
+  // 5. Byg detalje-rækker pr. maskine — bedste (nærmeste) udløbsdato i vinduet
+  const details: ExpiringMachineDetail[] = [];
+  for (const u of units) {
+    const loc = locById.get(u.location_id);
+    if (!loc) continue;
+    const comp = compById.get(loc.company_id);
     if (!comp) continue;
-    const e = enrBySerienr.get(m.serienr);
+    const e = enrBySerial.get(String(u.serial_no));
     if (!e) continue;
 
     const cands: { date: string; type: "binding" | "service" }[] = [];
@@ -90,21 +124,43 @@ export async function fetchExpiringMachines(
     cands.sort((a, b) => a.date.localeCompare(b.date));
     const best = cands[0];
 
-    const existing = byCompany.get(comp.id);
-    if (!existing) {
-      byCompany.set(comp.id, {
-        earliest: { companyId: comp.id, companyName: comp.name, ...best },
-        count: 1,
-      });
-    } else {
-      existing.count++;
-      if (best.date < existing.earliest.date) {
-        existing.earliest = { companyId: comp.id, companyName: comp.name, ...best };
-      }
-    }
+    details.push({
+      companyId: comp.id,
+      companyName: comp.name,
+      serienr: String(u.serial_no),
+      machineType: u.machine_type ?? null,
+      subLocation: u.sub_location ?? null,
+      agreementType: u.agreement_type ?? null,
+      locationId: loc.id,
+      locationAddress: loc.address ?? null,
+      locationZip: loc.zip ?? null,
+      locationCity: loc.city ?? null,
+      date: best.date,
+      type: best.type,
+    });
   }
 
-  return Array.from(byCompany.values())
-    .map(({ earliest, count }) => ({ ...earliest, count }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  // 6. Gruppér pr. virksomhed
+  const byCompany = new Map<string, ExpiringCustomerGroup>();
+  for (const d of details) {
+    const g = byCompany.get(d.companyId);
+    if (!g) {
+      byCompany.set(d.companyId, {
+        companyId: d.companyId,
+        companyName: d.companyName,
+        earliestDate: d.date,
+        machines: [d],
+      });
+    } else {
+      g.machines.push(d);
+      if (d.date < g.earliestDate) g.earliestDate = d.date;
+    }
+  }
+  // Sortér maskiner inde i hver gruppe efter dato
+  byCompany.forEach((g) =>
+    g.machines.sort((a, b) => a.date.localeCompare(b.date)),
+  );
+  return Array.from(byCompany.values()).sort((a, b) =>
+    a.earliestDate.localeCompare(b.earliestDate),
+  );
 }
