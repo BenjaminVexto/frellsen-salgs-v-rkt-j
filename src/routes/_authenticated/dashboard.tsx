@@ -255,31 +255,14 @@ function DashboardPage() {
         </PanelCard>
       </div>
 
-      {/* 3. KUNDER PÅ VEJ VÆK */}
-      <div className="mb-6 md:mb-8">
+      {/* 3. KUNDER PÅ VEJ VÆK + AFTALER UDLØBER (side om side) */}
+      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
         <ChurningCustomersCard initialVisible={2} />
-      </div>
-
-      {/* 4. NUVÆRENDE KUNDER — AFTALER UDLØBER */}
-      <div className="mb-6 md:mb-8">
-        <PanelCard
-          title="Nuværende kunder – aftaler udløber"
-          icon={<FileText className="h-5 w-5" />}
-          tone="warning"
-          count={expiringMachines.length}
-          emptyText="Ingen kundeaftaler udløber inden for 90 dage."
+        <ExpiringCustomersCard
+          customers={expiringMachines}
           loading={expiringMachinesQuery.isLoading}
-        >
-          {expiringMachines.map((g) => (
-            <ExpiringCustomerRow
-              key={g.companyId}
-              companyId={g.companyId}
-              companyName={g.companyName}
-              date={g.earliestDate}
-              count={g.machines.length}
-            />
-          ))}
-        </PanelCard>
+          initialVisible={2}
+        />
       </div>
 
 
