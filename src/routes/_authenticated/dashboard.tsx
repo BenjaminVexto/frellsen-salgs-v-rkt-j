@@ -18,6 +18,7 @@ import { da } from "date-fns/locale";
 import { PersonalGreeting } from "@/components/sales/personal-greeting";
 import { MyMonthZone } from "@/components/sales/my-month-zone";
 import { ChurningCustomersCard } from "@/components/sales/churning-customers-card";
+import { fetchExpiringMachines } from "@/lib/expiring-machines";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
