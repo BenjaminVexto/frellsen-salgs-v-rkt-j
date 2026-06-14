@@ -1549,7 +1549,7 @@ function Trin3Preview({
   onNext,
 }: {
   prepared: PreparedRow[];
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
   includeMissingCvr: boolean;
   setIncludeMissingCvr: (v: boolean) => void;
   onBack: () => void;
@@ -1564,6 +1564,12 @@ function Trin3Preview({
         <StatCard label="Mangler CVR" value={stats.missingCount} tone="muted" />
         <StatCard label="Fejl" value={stats.errorCount} tone="destructive" />
       </div>
+
+      {stats.wrongFirmaCount > 0 && (
+        <Card className="p-4 border-primary/30 bg-primary/5 text-sm">
+          <span className="font-medium">{stats.wrongFirmaCount.toLocaleString("da-DK")} rækker</span> springes over fordi <span className="font-mono">Firma ≠ "10"</span> (kun Frellsen Kaffe importeres).
+        </Card>
+      )}
 
       {stats.missingCount > 0 && (
         <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start">
