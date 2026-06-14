@@ -27,8 +27,13 @@ function normCol(s: string): string {
     .replace(/å/g, "aa")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "");
+    .replace(/\s+/g, "")
+    // Strip punktum og bindestreg så "Kundepris-gr. 1", "Fakt. kundenr"
+    // og lignende varianter rammer aliaserne uden at vi skal opliste hver
+    // tegnsætnings-variant. % beholdes (kritisk for "Rab %").
+    .replace(/[.\-]/g, "");
 }
+
 
 const PRICING_ALIASES: Record<string, string> = {
   kundeprisgruppe1: "kundeprisgruppe1",
