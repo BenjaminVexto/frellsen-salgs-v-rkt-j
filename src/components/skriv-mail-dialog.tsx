@@ -71,6 +71,15 @@ export function SkrivMailDialog({
 }) {
   const { user } = useAuth();
   const generateFn = useServerFn(generateMailDraft);
+  const { isImpersonating, viewAsName } = useViewAs();
+
+  useEffect(() => {
+    if (open && isImpersonating) {
+      toast.error(`Read-only — du ser som ${viewAsName ?? "en anden sælger"}. Mail kan ikke sendes.`);
+      onOpenChange(false);
+    }
+  }, [open, isImpersonating, viewAsName, onOpenChange]);
+
 
   const [purpose, setPurpose] = useState<MailPurpose | null>(null);
   const [generating, setGenerating] = useState(false);
