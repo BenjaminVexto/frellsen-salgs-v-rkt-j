@@ -235,7 +235,60 @@ export function LokationerSektion({
         <p className="text-sm text-muted-foreground">Ingen lokationer registreret.</p>
       ) : (
         <>
+          {expiringTotal > 0 && (
+            <div className="mb-3 rounded-md border border-amber-300 bg-amber-50">
+              <button
+                type="button"
+                onClick={() => setExpiringOpen((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-amber-100/60 rounded-md"
+              >
+                <span className="flex items-center gap-2 text-sm text-amber-900">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="font-medium">
+                    {expiringTotal} {expiringTotal === 1 ? "maskine udløber snart" : "maskiner udløber snart"}
+                  </span>
+                  <span className="text-xs text-amber-800/80">(inden for 90 dage)</span>
+                </span>
+                {expiringOpen ? (
+                  <ChevronUp className="h-4 w-4 text-amber-900" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-amber-900" />
+                )}
+              </button>
+              {expiringOpen && (
+                <ul className="border-t border-amber-200 divide-y divide-amber-200">
+                  {sortedLocations
+                    .filter((l) => (expiringByLoc.get(l.id) ?? 0) > 0)
+                    .map((l) => {
+                      const n = expiringByLoc.get(l.id) ?? 0;
+                      const label =
+                        [l.address, [l.zip, l.city].filter(Boolean).join(" ")]
+                          .filter(Boolean)
+                          .join(", ") || "Lokation";
+                      return (
+                        <li key={l.id}>
+                          <button
+                            type="button"
+                            onClick={() => openLocation(l.id)}
+                            className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs text-amber-900 hover:bg-amber-100/60"
+                          >
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{label}</span>
+                            </span>
+                            <span className="font-medium shrink-0">
+                              {n} {n === 1 ? "maskine" : "maskiner"}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                </ul>
+              )}
+            </div>
+          )}
           <ul className="divide-y">
+
             {visible.map((l) => (
               <LokationRow
                 key={l.id}
