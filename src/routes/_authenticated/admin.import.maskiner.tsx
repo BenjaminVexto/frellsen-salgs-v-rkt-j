@@ -287,6 +287,12 @@ function MaskinerImportSide() {
     enrichmentUpserted: number;
     machineRowsParsed: number;
     enrichmentRowsParsed: number;
+    machinesActiveBefore?: number;
+    enrichmentActiveBefore?: number;
+    machinesMarkedUdgaaet?: number;
+    enrichmentMarkedUdgaaet?: number;
+    machinesReactivated?: number;
+    enrichmentReactivated?: number;
   } | null>(null);
   const importFn = useServerFn(importMachines);
 
