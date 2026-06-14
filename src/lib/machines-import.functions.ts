@@ -150,7 +150,7 @@ export const importMachines = createServerFn({ method: "POST" })
         fak_kundenr: t(r.fak_kundenr) || null,
         lev_kundenr: t(r.lev_kundenr) || null,
         adresselinje2: t(r.adresselinje2) || null,
-        aendret_dato: r.aendret_dato || null,
+        aendret_dato: normDate(r.aendret_dato),
         status: t(r.status) || null,
         record_status: "aktiv",
         last_seen_import: importedAt,
