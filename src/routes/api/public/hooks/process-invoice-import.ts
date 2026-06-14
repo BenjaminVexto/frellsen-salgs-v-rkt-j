@@ -101,10 +101,15 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             throw new Error("Kunne ikke hente chunk " + chunkPath + ": " + (dlErr?.message ?? ""));
           }
           const rows = JSON.parse(await blob.text()) as any[];
-          const savedRows =
+          const upsertedRows =
             phase === "monthly"
               ? await upsertMonthlySlice(supabaseAdmin, rows)
               : await upsertTopSlice(supabaseAdmin, rows);
+          // VIGTIGT: tæl chunk-bredden (rows.length), ikke faktisk upsertede.
+          // onConflict kan reducere upsertedRows < CHUNK_SIZE ved dubletter,
+          // hvilket ville få chunkIdx = floor(saved/CHUNK_SIZE) ud af sync
+          // (samme chunk hentes igen → uendelig løkke, eller chunk springes over).
+          const savedRows = rows.length;
           const newSaved = saved + savedRows;
           const phaseDone = newSaved >= total;
 
