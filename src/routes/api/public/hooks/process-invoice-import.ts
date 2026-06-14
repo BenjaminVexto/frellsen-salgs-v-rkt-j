@@ -158,6 +158,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             status: nextStatus,
             chunk: chunkIdx,
             chunkRows: savedRows,
+            upsertedRows,
             [savedCol]: newSaved,
           });
         } catch (e: any) {
