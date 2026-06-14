@@ -175,32 +175,53 @@ const AUTO_MATCH: Record<SystemField, string[]> = {
   location_contact_person: ["ref_person", "kontaktperson_lev"],
 };
 
-// Visma debitorliste → systemfelter (eksakt headerne fra Visma CSV)
+// Visma debitorliste → systemfelter. Mapping bygger på BRUGER-VERIFICEREDE
+// kolonneoverskrifter (række 2 i Aktør-exporten). Kun eksakt navnematch:
+// ingen positions-antagelser, ingen fuzzy gæt. Hvis filen mangler en af
+// disse headers vises feltet som "ikke fundet" i mapping-preview.
 const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
-  cvr: ["CVR nr.", "CVR nr"],
+  cvr: ["CVR nr."],
   name: ["Navn"],
-  address: ["Adresselinje 2"],
+  address: ["Adresselinje 1"],
   zip: ["Postnr."],
   city: ["By"],
   phone: ["Telefonnr.1"],
   email: ["E-mailadresse"],
-  created_in_visma: ["Oprettet dato"],
   last_purchase_date: ["Sidste Varekøb"],
   customer_segment_1: ["Kundeprisgruppe 1"],
   customer_segment_2: ["Kundeprisgruppe 2"],
   customer_segment_3: ["Kundeprisgruppe 3"],
-  visma_id: ["Fakt. kunde", "Fakt. kunde nr", "Fakt. kundenr", "Fakturakunde nr"],
-  visma_delivery_id: ["Lev. kund", "Lev. kunde nr", "Lev. kundenr", "Leveringskunde nr"],
-  contact_person: ["Ref person"],
+  visma_id: ["Fakt. kunde"],
+  visma_delivery_id: ["Lev. kund"],
   salesperson_no: ["Sælger"],
   ean_number: ["EAN nr."],
   location_address: ["Adresselinje 2"],
   location_zip: ["Postnr."],
   location_city: ["By"],
-  location_contact_person: ["Ref person"],
-  location_phone: ["Telefonnr.1"],
+  location_phone: ["Telefonnr.2"],
   location_email: ["E-mailadresse"],
 };
+
+// Rå kolonner som læses direkte fra p.raw[...] (ikke mappet til DB-felt,
+// men brugt til filtrering og noter).
+const VISMA_RAW_COLUMNS = [
+  "Firma",
+  "Landnr.",
+  "Kreditspærre",
+  "Rute",
+  "Bem. Intern",
+  "Adresselinje 1",
+  "Adresselinje 2",
+] as const;
+
+// Felter hvor ledende nuller SKAL bevares — disse coerces eksplicit til
+// strenge på den rå celle og må aldrig konverteres via Number().
+const TEXT_PRESERVING_HEADERS = new Set<string>([
+  "CVR nr.",
+  "Fakt. kunde",
+  "Lev. kund",
+  "EAN nr.",
+]);
 
 type VismaFilters = {
   excludeInternal: boolean;
