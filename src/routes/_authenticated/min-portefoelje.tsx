@@ -356,7 +356,7 @@ function PortfolioPage() {
 
           {/* RANKINGS — Lag 2 */}
           <section className="mt-8">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                 Top &amp; bund — rangeringer
               </h2>
@@ -441,7 +441,7 @@ function PortfolioPage() {
 
           {/* MULIGHEDER & TRUSLER — Lag 3 */}
           <section className="mt-8">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 pb-2 border-b border-border">
               Muligheder &amp; trusler
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
@@ -500,7 +500,7 @@ function SignalList({
   const shown = expanded ? rows : rows.slice(0, initial);
   return (
     <Card className="overflow-hidden">
-      <div className="px-4 py-3 border-b border-border">
+      <div className="px-4 py-3 border-b border-border bg-muted/60">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-base font-bold text-foreground">{title}</h3>
           <span className="text-xs text-muted-foreground tabular-nums">{rows.length}</span>
@@ -790,7 +790,7 @@ function RankingTable({
   const shown = typeof limit === "number" ? rows.slice(0, limit) : rows;
   return (
     <Card className="overflow-hidden">
-      <div className="px-4 py-3 border-b border-border">
+      <div className="px-4 py-3 border-b border-border bg-muted/60">
         <h3 className="text-base font-bold text-foreground">{title}</h3>
       </div>
       {!rows.length ? (
