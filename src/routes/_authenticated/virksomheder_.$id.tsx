@@ -728,24 +728,63 @@ function VirksomhedsKort() {
         {/* MIDTEN — Faner */}
         <div className="space-y-4 min-w-0 order-2 lg:order-2">
           <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-            <TabsList className="bg-transparent p-0 h-auto border-b w-full justify-start rounded-none overflow-x-auto scrollbar-hide flex-nowrap">
-              {[
+            {(() => {
+              const allTabs = [
                 { v: "oversigt", label: "Oversigt" },
                 { v: "aktivitet", label: "Aktivitet" },
                 { v: "salg", label: "Salg" },
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
                 { v: "aftaler", label: "Aftaler" },
-              ].map((t) => (
-                <TabsTrigger
-                  key={t.v}
-                  value={t.v}
-                  className="flex-shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2"
-                >
-                  {t.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+              ];
+              const mobilePrimary = ["oversigt", "salg", "aftaler"];
+              const mobileMore = allTabs.filter((t) => !mobilePrimary.includes(t.v));
+              const triggerCls =
+                "flex-shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2";
+              const activeInMore = mobileMore.some((t) => t.v === tab);
+              return (
+                <>
+                  {/* Desktop: alle faner */}
+                  <TabsList className="hidden md:flex bg-transparent p-0 h-auto border-b w-full justify-start rounded-none overflow-x-auto scrollbar-hide flex-nowrap">
+                    {allTabs.map((t) => (
+                      <TabsTrigger key={t.v} value={t.v} className={triggerCls}>
+                        {t.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  {/* Mobil: 3 primære + Mere */}
+                  <TabsList className="md:hidden bg-transparent p-0 h-auto border-b w-full justify-start rounded-none flex-nowrap flex">
+                    {allTabs
+                      .filter((t) => mobilePrimary.includes(t.v))
+                      .map((t) => (
+                        <TabsTrigger key={t.v} value={t.v} className={triggerCls}>
+                          {t.label}
+                        </TabsTrigger>
+                      ))}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        className={`${triggerCls} inline-flex items-center gap-1 text-sm font-medium ${
+                          activeInMore ? "border-primary text-primary" : "text-muted-foreground"
+                        }`}
+                      >
+                        Mere <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {mobileMore.map((t) => (
+                          <DropdownMenuItem
+                            key={t.v}
+                            onClick={() => setTab(t.v as TabKey)}
+                            className={tab === t.v ? "bg-accent" : ""}
+                          >
+                            {t.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TabsList>
+                </>
+              );
+            })()}
 
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
