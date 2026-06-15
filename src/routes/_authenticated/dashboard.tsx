@@ -106,7 +106,9 @@ function DashboardPage() {
 
   // Mens admin "ser som" sælger, opfører dashboardet sig som om brugeren ikke er admin
   // (så de samme seller-scoping-filtre gælder).
-  const isAdmin = auth.role === "admin" && !isImpersonating;
+  // Salgssupport behandles som admin: team-bredt overblik på tværs af sælgere.
+  const isSupport = auth.role === "salgssupport";
+  const isAdmin = (auth.role === "admin" || isSupport) && !isImpersonating;
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
