@@ -231,9 +231,9 @@ function PortfolioPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Kaffe: alle</SelectItem>
-                  <SelectItem value="green">Grøn (≤60d)</SelectItem>
-                  <SelectItem value="yellow">Gul (&gt;60d)</SelectItem>
-                  <SelectItem value="red">Rød (ingen køb)</SelectItem>
+                  <SelectItem value="green">Køber normalt</SelectItem>
+                  <SelectItem value="yellow">Køber sjældnere end før</SelectItem>
+                  <SelectItem value="red">Stoppet / aldrig købt</SelectItem>
                   <SelectItem value="via">Via anden konto</SelectItem>
                 </SelectContent>
               </Select>
@@ -281,6 +281,7 @@ function PortfolioPage() {
                       active={sortKey === "month:last"}
                       dir={sortDir}
                       align="right"
+                      title="Omsætning i seneste hele kalendermåned (alle produktgrupper)."
                     >
                       Seneste md.
                     </Th>
@@ -289,6 +290,7 @@ function PortfolioPage() {
                       active={sortKey === "revenue12m"}
                       dir={sortDir}
                       align="right"
+                      title="Samlet omsætning de seneste 12 måneder (rullende, alle produktgrupper)."
                     >
                       12 mdr.
                     </Th>
@@ -705,15 +707,17 @@ function Th({
   active,
   dir,
   align = "left",
+  title,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   active?: boolean;
   dir?: "asc" | "desc";
   align?: "left" | "right";
+  title?: string;
 }) {
   return (
-    <th className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>
+    <th className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`} title={title}>
       <button
         type="button"
         onClick={onClick}
@@ -1235,6 +1239,7 @@ function Sparkline({
   let color = "stroke-muted-foreground/60";
   let status: "down" | "up" | null = null;
   let tooltip: string | undefined;
+  let pctLabel: string | null = null;
   if (revenue12m >= ATTENTION_MIN_REVENUE_12M && values.length >= 3) {
     const mid = Math.floor(values.length / 2);
     const earlyMonths = months.slice(0, mid);
@@ -1259,6 +1264,7 @@ function Sparkline({
     if (avgLate < avgEarly && (-diffKr >= ATTENTION_DROP_KR || -diffPct >= ATTENTION_DROP_PCT)) {
       color = "stroke-destructive";
       status = "down";
+      pctLabel = `↓${fmtPct(-diffPct)}`;
       tooltip =
         `Stor kunde med vedvarende fald\n` +
         `Tidligere ${earlyMonths.length} mdr (${earlyRange}, gns/md): ${fmtKr(avgEarly)}\n` +
@@ -1267,6 +1273,7 @@ function Sparkline({
     } else if (avgLate > avgEarly && (diffKr >= ATTENTION_DROP_KR || diffPct >= ATTENTION_DROP_PCT)) {
       color = "stroke-emerald-600";
       status = "up";
+      pctLabel = `↑${fmtPct(diffPct)}`;
       tooltip =
         `Stor kunde i vækst\n` +
         `Tidligere ${earlyMonths.length} mdr (${earlyRange}, gns/md): ${fmtKr(avgEarly)}\n` +
@@ -1286,17 +1293,14 @@ function Sparkline({
           points={points}
         />
       </svg>
-      {status === "down" && (
+      {pctLabel && (
         <span
-          className="inline-block h-1.5 w-1.5 rounded-full bg-destructive"
-          aria-label="Kræver opmærksomhed"
-        />
-      )}
-      {status === "up" && (
-        <span
-          className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-600"
-          aria-label="I vækst"
-        />
+          className={`text-[11px] font-medium tabular-nums ${
+            status === "down" ? "text-destructive" : "text-emerald-600"
+          }`}
+        >
+          {pctLabel}
+        </span>
       )}
     </span>
   );
