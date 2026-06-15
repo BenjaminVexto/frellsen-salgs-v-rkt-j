@@ -58,6 +58,8 @@ export type RankingRow = {
   city: string | null;
   revenue12m: number;
   revenue12mPrior: number;
+  revenueYtd: number;
+  revenueYtdPriorSamePeriod: number;
   contribution12m: number | null;
   last_consumable_sales_date: string | null;
   supplied_via_name: string | null;
@@ -65,6 +67,7 @@ export type RankingRow = {
   employees: number | null;
   ratio: number | null; // kr/ansat
 };
+
 
 export type ScatterPoint = {
   id: string;
