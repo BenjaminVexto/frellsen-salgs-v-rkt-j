@@ -189,9 +189,9 @@ function PortfolioPage() {
                   <span className="text-sm text-muted-foreground font-normal">kunder</span>
                 </div>
                 <div className="space-y-1 text-sm">
-                  <Pill color="success" label="aktive" n={data.statusCounts.aktive} />
-                  <Pill color="warning" label="sovende" n={data.statusCounts.sovende} />
-                  <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} />
+                  <Pill color="success" label="aktive" n={data.statusCounts.aktive} prior={data.statusCountsPrior.aktive} hint="Købt inden for 12 mdr." />
+                  <Pill color="warning" label="sovende" n={data.statusCounts.sovende} prior={data.statusCountsPrior.sovende} hint="12–24 mdr. siden seneste køb." />
+                  <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} prior={data.statusCountsPrior.paaVejVaek} hint="Aktiv kunde med udstyr, men forbruget falder." />
                 </div>
               </Card>
               {isAdmin && (
@@ -387,26 +387,47 @@ function PortfolioPage() {
               </TabsList>
 
               <TabsContent value="revenue" className="mt-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <RankingTable
-                    title={rankingsExpanded ? "Top 25 — højest omsætning (år-til-dato)" : "Top 5 — højest omsætning (år-til-dato)"}
-                    rows={data.rankings.topRevenue}
-                    valueLabel="Omsætning"
-                    valueField="revenueYtd"
-                    showTrend
-                    limit={rankingsExpanded ? undefined : 5}
-                  />
-                  <RankingTable
-                    title={rankingsExpanded ? "Bund 25 — lavest omsætning blandt aktive (år-til-dato)" : "Bund 5 — lavest omsætning blandt aktive (år-til-dato)"}
-                    rows={data.rankings.bottomRevenueActive}
-                    valueLabel="Omsætning"
-                    valueField="revenueYtd"
-                    showTrend
-                    emptyText="Ingen aktive kunder i porteføljen."
-                    limit={rankingsExpanded ? undefined : 5}
-                  />
-                </div>
+                <Tabs defaultValue="decliners">
+                  <TabsList>
+                    <TabsTrigger value="decliners">Største fald</TabsTrigger>
+                    <TabsTrigger value="growers">Største vækst</TabsTrigger>
+                    <TabsTrigger value="top">Højest omsætning</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="decliners" className="mt-4">
+                    <RankingTable
+                      title={rankingsExpanded ? "Top 25 — største fald (YTD vs. samme periode sidste år)" : "Top 5 — største fald (YTD vs. samme periode sidste år)"}
+                      rows={data.rankings.topDecliners}
+                      valueLabel="Omsætning YTD"
+                      valueField="revenueYtd"
+                      showTrend
+                      emptyText="Ingen kunder med fald i porteføljen."
+                      limit={rankingsExpanded ? undefined : 5}
+                    />
+                  </TabsContent>
+                  <TabsContent value="growers" className="mt-4">
+                    <RankingTable
+                      title={rankingsExpanded ? "Top 25 — største vækst (YTD vs. samme periode sidste år)" : "Top 5 — største vækst (YTD vs. samme periode sidste år)"}
+                      rows={data.rankings.topGrowers}
+                      valueLabel="Omsætning YTD"
+                      valueField="revenueYtd"
+                      showTrend
+                      emptyText="Ingen kunder med vækst i porteføljen."
+                      limit={rankingsExpanded ? undefined : 5}
+                    />
+                  </TabsContent>
+                  <TabsContent value="top" className="mt-4">
+                    <RankingTable
+                      title={rankingsExpanded ? "Top 25 — højest omsætning (år-til-dato)" : "Top 5 — højest omsætning (år-til-dato)"}
+                      rows={data.rankings.topRevenue}
+                      valueLabel="Omsætning YTD"
+                      valueField="revenueYtd"
+                      showTrend
+                      limit={rankingsExpanded ? undefined : 5}
+                    />
+                  </TabsContent>
+                </Tabs>
               </TabsContent>
+
 
 
               {isAdmin && data.rankings.topContribution && (
@@ -716,10 +737,14 @@ function Pill({
   color,
   label,
   n,
+  prior,
+  hint,
 }: {
   color: "success" | "warning" | "destructive";
   label: string;
   n: number;
+  prior?: number;
+  hint?: string;
 }) {
   const cls =
     color === "success"
@@ -727,20 +752,43 @@ function Pill({
       : color === "warning"
       ? "bg-warning/20 text-warning-foreground"
       : "bg-destructive/15 text-destructive";
+  const delta = typeof prior === "number" ? n - prior : null;
+  const deltaUp = delta !== null && delta > 0;
+  const deltaDown = delta !== null && delta < 0;
+  // For "på vej væk": stigning = dårligere. For aktive: stigning = bedre.
+  // Vi viser bare retning + farve neutral (muted) — sælgeren læser konteksten.
+  const DeltaIcon = deltaUp ? ArrowUp : deltaDown ? ArrowDown : Minus;
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className={`text-xs font-medium px-2 py-0.5 rounded ${cls} tabular-nums`}>{n}</span>
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">{label}</span>
+        <div className="flex items-center gap-2">
+          {delta !== null && delta !== 0 && (
+            <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums">
+              <DeltaIcon className="h-3 w-3" />
+              {Math.abs(delta)} siden sidst
+            </span>
+          )}
+          <span className={`text-xs font-medium px-2 py-0.5 rounded ${cls} tabular-nums`}>{n}</span>
+        </div>
+      </div>
+      {hint && <div className="text-[11px] text-muted-foreground mt-0.5">{hint}</div>}
     </div>
   );
 }
 
 function KaffeIndicator({
-  lastConsumableDate,
+  rhythmClass,
+  rhythmMonths,
+  monthsSinceConsumable,
+  trendDown,
   suppliedViaName,
   suppliedViaId,
 }: {
-  lastConsumableDate: string | null;
+  rhythmClass?: "normal" | "slower" | "stopped" | "never";
+  rhythmMonths?: number | null;
+  monthsSinceConsumable?: number | null;
+  trendDown?: boolean;
   suppliedViaName: string | null;
   suppliedViaId: string | null;
 }) {
@@ -757,29 +805,57 @@ function KaffeIndicator({
       </Link>
     );
   }
-  if (!lastConsumableDate) {
+  const cls = rhythmClass ?? "never";
+  if (cls === "never") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs">
-        <span className="h-2.5 w-2.5 rounded-full bg-destructive" />
-        <span className="text-muted-foreground">ingen køb</span>
+      <span className="inline-flex items-center gap-1.5 text-xs" title="Ingen registrerede forbrugsvarekøb">
+        <span className="h-2.5 w-2.5 rounded-full bg-destructive shrink-0" />
+        <span className="text-muted-foreground">Ingen køb</span>
       </span>
     );
   }
-  const days = Math.floor(
-    (Date.now() - new Date(lastConsumableDate + "T00:00:00Z").getTime()) / 86400000,
-  );
-  if (days <= 60) {
+  if (cls === "normal") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs">
-        <span className="h-2.5 w-2.5 rounded-full bg-success" />
-        <span className="text-muted-foreground">{days}d</span>
+      <span className="inline-flex items-center gap-1.5 text-xs" title="Køber inden for sin sædvanlige rytme">
+        <span className="h-2.5 w-2.5 rounded-full bg-success shrink-0" />
+        <span className="text-muted-foreground">Køber normalt</span>
       </span>
     );
   }
+  if (cls === "slower") {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 text-xs"
+        title="Tid siden seneste køb er over rytmen — hold øje"
+      >
+        <span className="h-2.5 w-2.5 rounded-full bg-warning shrink-0" />
+        <span className="text-muted-foreground">
+          Køber sjældnere end før{trendDown ? " ↓" : ""}
+        </span>
+      </span>
+    );
+  }
+  // stopped — vis dage-tal + rytme
+  const monthsTxt =
+    typeof monthsSinceConsumable === "number"
+      ? `${monthsSinceConsumable} mdr. siden`
+      : "ingen køb";
+  const rhythmTxt =
+    typeof rhythmMonths === "number" && rhythmMonths > 0
+      ? ` (rytme: ~${rhythmMonths.toFixed(rhythmMonths < 2 ? 1 : 0)} mdr.)`
+      : "";
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs">
-      <span className="h-2.5 w-2.5 rounded-full bg-warning" />
-      <span className="text-muted-foreground">{days}d siden</span>
+    <span
+      className="inline-flex flex-col items-start gap-0 text-xs"
+      title="Forbrugsmønsteret er brudt — kunden bør kontaktes"
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-destructive shrink-0" />
+        <span className="text-destructive font-medium">Stoppet{trendDown ? " ↓" : ""}</span>
+      </span>
+      <span className="text-[11px] text-muted-foreground pl-4">
+        {monthsTxt}{rhythmTxt}
+      </span>
     </span>
   );
 }
@@ -1099,11 +1175,9 @@ function ScatterPlot({ points }: { points: ScatterPoint[] }) {
 
 function classifyKaffe(c: PortfolioCompanyRow): "green" | "yellow" | "red" | "via" {
   if (c.supplied_via_id) return "via";
-  if (!c.last_consumable_sales_date) return "red";
-  const days = Math.floor(
-    (Date.now() - new Date(c.last_consumable_sales_date + "T00:00:00Z").getTime()) / 86400000,
-  );
-  return days <= 60 ? "green" : "yellow";
+  if (c.rhythmClass === "normal") return "green";
+  if (c.rhythmClass === "slower") return "yellow";
+  return "red";
 }
 
 function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "paavejvaek" | "andet" {
