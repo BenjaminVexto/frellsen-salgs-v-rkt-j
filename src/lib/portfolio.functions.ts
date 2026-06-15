@@ -336,6 +336,16 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
       const isMachine = MACHINE_RE.test(String((r as any).product_group_1 ?? ""));
+      // YTD-vinduer (samme periode sidste år, sammenlignet på måned)
+      if (period >= startCurYtd && period <= refPeriod) {
+        totalRevYtd += rev;
+        if (period === refPeriod) ytdCurLastMonthRev += rev;
+      }
+      if (period >= startPriorYtd && period <= endPriorYtd) {
+        totalRevYtdPrior += rev;
+        if (period === endPriorYtd) ytdPriorLastMonthRev += rev;
+      }
+
 
       const agg =
         aggs.get(cid) ?? { monthly: new Map(), revenue12m: 0, revenue12mPrior: 0, contribution12m: 0 };
