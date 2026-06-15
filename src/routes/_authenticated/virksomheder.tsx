@@ -217,6 +217,13 @@ function VirksomhederListe() {
         </Card>
       )}
 
+      {mobileMineActive && (
+        <Card className="md:hidden p-3 mb-3 text-xs bg-primary/5 border-primary/30">
+          Viser <strong>dine</strong> virksomheder. Søg for at finde alle i basen.
+        </Card>
+      )}
+
+
       <div className="sticky top-12 md:static z-10 -mx-3 md:mx-0 px-3 md:px-0 py-2 md:py-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:bg-transparent md:backdrop-blur-none border-b md:border-0 mb-3">
         <CompanyFilterBar
           q={q}
