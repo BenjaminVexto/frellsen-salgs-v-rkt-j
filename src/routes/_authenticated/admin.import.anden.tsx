@@ -7,6 +7,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   createImportBatch,
   importUpsertCompaniesByCvr,
+  importUpsertCompaniesByVismaId,
   importInsertCompaniesNoCvr,
   importUpdateCompaniesById,
   importInsertLocations,
@@ -273,6 +274,7 @@ function ImportSide() {
   const [assigning, setAssigning] = useState(false);
   const createBatch = useServerFn(createImportBatch);
   const upsertByCvr = useServerFn(importUpsertCompaniesByCvr);
+  const upsertByVismaId = useServerFn(importUpsertCompaniesByVismaId);
   const insertNoCvr = useServerFn(importInsertCompaniesNoCvr);
   const updateById = useServerFn(importUpdateCompaniesById);
   const upsertLocations = useServerFn(importInsertLocations);
@@ -520,10 +522,22 @@ function ImportSide() {
       "customer_segment_1", "customer_segment_2", "customer_segment_3",
     ]);
 
-    // 1) Hent ALLE eksisterende rækker for berørte CVR'er + name-match-IDs i bulk
+    // 1) Hent ALLE eksisterende rækker for berørte CVR'er + visma_id'er + name-match-IDs i bulk
     const cvrsToFetch = Array.from(
       new Set(toImport.map((p) => p.cvr).filter((v): v is string => !!v)),
     );
+    const vismaIdsToFetch = importSource === "visma"
+      ? Array.from(
+          new Set(
+            toImport
+              .map((p) => {
+                const v = (p.data as any)?.visma_id;
+                return v ? String(v).trim() : null;
+              })
+              .filter((v): v is string => !!v),
+          ),
+        )
+      : [];
     const eanMatchIdSet = new Set(
       toImport.map((p) => p.eanMatchId).filter((v): v is string => !!v),
     );
@@ -535,6 +549,7 @@ function ImportSide() {
     );
 
     const existingByCvr = new Map<string, any>();
+    const existingByVismaId = new Map<string, any>();
     const existingById = new Map<string, any>();
 
     importRunner.setLabel("Henter eksisterende virksomheder…");
@@ -551,6 +566,23 @@ function ImportSide() {
       }
       (data ?? []).forEach((r: any) => {
         if (r.cvr) existingByCvr.set(r.cvr, r);
+        existingById.set(r.id, r);
+      });
+      await yieldUI();
+    }
+    for (let i = 0; i < vismaIdsToFetch.length; i += CHUNK) {
+      const slice = vismaIdsToFetch.slice(i, i + CHUNK);
+      const { data, error } = await supabase
+        .from("companies")
+        .select("*")
+        .in("visma_id", slice);
+      if (error) {
+        toast.error("Kunne ikke hente eksisterende (visma_id): " + error.message);
+        importRunner.fail(progressLabel || "Import afbrudt");
+        return;
+      }
+      (data ?? []).forEach((r: any) => {
+        if (r.visma_id) existingByVismaId.set(String(r.visma_id), r);
         existingById.set(r.id, r);
       });
       await yieldUI();
@@ -591,6 +623,7 @@ function ImportSide() {
 
     type Job =
       | { kind: "upsert_cvr"; payload: Record<string, any>; sellerId: string | null; isUpdate: boolean; isEnrich: boolean; isNoCvr: boolean }
+      | { kind: "upsert_visma"; payload: Record<string, any>; sellerId: string | null; isUpdate: boolean; isEnrich: boolean; isNoCvr: boolean }
       | { kind: "update_id"; id: string; payload: Record<string, any>; sellerId: string | null; isNoCvr: boolean }
       | { kind: "insert_no_cvr"; payload: Record<string, any>; sellerId: string | null };
 
@@ -598,6 +631,45 @@ function ImportSide() {
 
     for (const p of toImport) {
       const incoming = stripUndef(p.data) as Record<string, any>;
+      const incomingVismaId =
+        importSource === "visma" && (incoming as any).visma_id
+          ? String((incoming as any).visma_id).trim()
+          : null;
+
+      // I visma-mode er visma_id den entydige firmanøgle (CVR er ikke unik —
+      // flere lokationer/aktører kan dele CVR). Slå derfor op via visma_id først.
+      if (incomingVismaId) {
+        const existing = existingByVismaId.get(incomingVismaId);
+        if (existing) {
+          const merged = buildMerged(existing, incoming);
+          if (p.cvr) merged.cvr = p.cvr;
+          jobs.push({
+            kind: "upsert_visma",
+            payload: merged,
+            sellerId: p.matchedSellerId,
+            isUpdate: true,
+            isEnrich: false,
+            isNoCvr: !p.cvr,
+          });
+        } else {
+          jobs.push({
+            kind: "upsert_visma",
+            payload: {
+              ...incoming,
+              ...(p.cvr ? { cvr: p.cvr } : {}),
+              visma_id: incomingVismaId,
+              sources: [importSource],
+              source_updated_at: nowIso,
+            },
+            sellerId: p.matchedSellerId,
+            isUpdate: false,
+            isEnrich: false,
+            isNoCvr: !p.cvr,
+          });
+        }
+        continue;
+      }
+
       if (p.cvr) {
         const existing = existingByCvr.get(p.cvr);
         if (existing) {
@@ -684,8 +756,23 @@ function ImportSide() {
     const updates = jobs.filter((j) => j.kind === "update_id") as Extract<Job, { kind: "update_id" }>[];
     const inserts = jobs.filter((j) => j.kind === "insert_no_cvr") as Extract<Job, { kind: "insert_no_cvr" }>[];
 
+    // Dedupér visma-upserts pr. visma_id (sidste række vinder)
+    const vismaUpsertsRaw = jobs.filter((j) => j.kind === "upsert_visma") as Extract<Job, { kind: "upsert_visma" }>[];
+    const vismaUpsertsById = new Map<string, Extract<Job, { kind: "upsert_visma" }>>();
+    let dedupedVismaDuplicates = 0;
+    for (const j of vismaUpsertsRaw) {
+      const key = String(j.payload.visma_id);
+      if (vismaUpsertsById.has(key)) dedupedVismaDuplicates++;
+      vismaUpsertsById.set(key, j);
+    }
+    const vismaUpserts = Array.from(vismaUpsertsById.values());
+    if (dedupedVismaDuplicates > 0) {
+      console.warn(`Dedupliceret ${dedupedVismaDuplicates} dublerede visma_id-rækker i upload`);
+    }
+
     const totalBatches =
       Math.ceil(upserts.length / CHUNK) +
+      Math.ceil(vismaUpserts.length / CHUNK) +
       Math.ceil(updates.length / CHUNK) +
       Math.ceil(inserts.length / CHUNK);
     let batchIdx = 0;
@@ -732,6 +819,42 @@ function ImportSide() {
         failed += slice.length;
       }
       tick("upsert", slice.length);
+      await yieldUI();
+    }
+
+    // 3a-bis) Bulk upsert via visma_id (entydig firmanøgle i visma-mode)
+    for (let i = 0; i < vismaUpserts.length; i += CHUNK) {
+      const slice = vismaUpserts.slice(i, i + CHUNK);
+      const payloads = slice.map((j) => j.payload);
+      try {
+        const res = await upsertByVismaId({ data: { rows: payloads } });
+        const byVisma = new Map(res.results.map((r) => [r.visma_id, r.id]));
+        slice.forEach((j) => {
+          const id = j.payload.id ?? byVisma.get(String(j.payload.visma_id));
+          if (id) {
+            companyIds.push(id);
+            if (j.sellerId) sellerByCompany[id] = j.sellerId;
+            if (j.isUpdate) {
+              updated++;
+              if (j.isEnrich) enriched++;
+            } else {
+              created++;
+            }
+            if (j.isNoCvr) noCvrCount++;
+          } else {
+            failed++;
+          }
+        });
+        if (res.failed) failed += res.failed;
+        if (res.errors.length) {
+          toast.error(`Visma-batch fejl: ${res.errors[0]}`);
+        }
+      } catch (e: any) {
+        console.error("Bulk visma-upsert server-fn fejl", e);
+        toast.error(`Visma-batch fejlede (${slice.length} rækker): ${e?.message ?? e}`);
+        failed += slice.length;
+      }
+      tick("upsert_visma", slice.length);
       await yieldUI();
     }
 
