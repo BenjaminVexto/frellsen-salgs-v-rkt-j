@@ -617,11 +617,28 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       isAdmin,
       appliedSellerId: isAdmin ? appliedSellerId : null,
       sellerOptions,
-      totals: {
-        revenue12m: totalRev12,
-        revenue12mPriorYear: totalRevPrior,
-        contribution12m: isAdmin ? totalContrib : null,
-      },
+      totals: (() => {
+        // Pro-rata: hvis refPeriod = indeværende måned, reducér sidste års samme måned
+        // til samme dag-fraktion. Ellers antages refMonth fuldt indlæst (fraction=1).
+        const today = new Date();
+        const isCurMonth =
+          today.getUTCFullYear() === refYear && today.getUTCMonth() + 1 === refMonth;
+        const daysInMonth = new Date(Date.UTC(refYear, refMonth, 0)).getUTCDate();
+        const fraction = isCurMonth
+          ? Math.min(today.getUTCDate(), daysInMonth) / daysInMonth
+          : 1;
+        const priorAdj = totalRevYtdPrior - ytdPriorLastMonthRev * (1 - fraction);
+        return {
+          revenue12m: totalRev12,
+          revenue12mPriorYear: totalRevPrior,
+          revenueYtd: totalRevYtd,
+          revenueYtdPriorSamePeriod: priorAdj,
+          ytdLatestPeriod: latestPeriod,
+          ytdFraction: fraction,
+          contribution12m: isAdmin ? totalContrib : null,
+        };
+      })(),
+
       statusCounts: {
         aktive,
         sovende,
