@@ -95,8 +95,13 @@ export type PortfolioPayload = {
   totals: {
     revenue12m: number;
     revenue12mPriorYear: number;
+    revenueYtd: number;
+    revenueYtdPriorSamePeriod: number;
+    ytdLatestPeriod: string | null;
+    ytdFraction: number;
     contribution12m: number | null;
   };
+
   statusCounts: {
     aktive: number;
     sovende: number;
@@ -230,7 +235,16 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         isAdmin,
         appliedSellerId: isAdmin ? appliedSellerId : null,
         sellerOptions,
-        totals: { revenue12m: 0, revenue12mPriorYear: 0, contribution12m: isAdmin ? 0 : null },
+        totals: {
+          revenue12m: 0,
+          revenue12mPriorYear: 0,
+          revenueYtd: 0,
+          revenueYtdPriorSamePeriod: 0,
+          ytdLatestPeriod: null,
+          ytdFraction: 1,
+          contribution12m: isAdmin ? 0 : null,
+        },
+
         statusCounts: { aktive: 0, sovende: 0, paaVejVaek: 0, total: 0 },
         monthLabels,
         companies: [],
@@ -289,12 +303,30 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     let totalRev12 = 0;
     let totalRevPrior = 0;
     let totalContrib = 0;
+    // YTD-akkumulatorer — vinduer afgøres efter første sweep (refPeriod = max(period))
+    let totalRevYtd = 0;
+    let totalRevYtdPrior = 0;
+    let ytdCurLastMonthRev = 0;
+    let ytdPriorLastMonthRev = 0;
+    // Find seneste periode i datasættet for YTD-referencepunkt.
+    let latestPeriod: string | null = null;
+    for (const r of salesRows) {
+      const p = r.period as string;
+      if (!latestPeriod || p > latestPeriod) latestPeriod = p;
+    }
+    const refPeriod = latestPeriod ?? thisMonth;
+    const refYear = parseInt(refPeriod.slice(0, 4), 10);
+    const refMonth = parseInt(refPeriod.slice(5, 7), 10);
+    const startCurYtd = `${refYear}-01-01`;
+    const startPriorYtd = `${refYear - 1}-01-01`;
+    const endPriorYtd = `${refYear - 1}-${String(refMonth).padStart(2, "0")}-01`;
     const last5Set = new Set(last5);
     // Trend (monthly) måler LØBENDE FORBRUG = al omsætning UNDTAGEN
     // produktgruppe "16 [Maskiner/Service]". Maskingruppen klumper i januar
     // pga. årlig service-/leje-fakturering og giver ellers falske fald.
     // revenue12m/contribution12m bevares som TOTAL (inkl. maskiner).
     const MACHINE_RE = /^\s*16\s*\[/;
+
 
     for (const r of salesRows) {
       const cid = r.company_id as string;
@@ -304,6 +336,16 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
       const isMachine = MACHINE_RE.test(String((r as any).product_group_1 ?? ""));
+      // YTD-vinduer (samme periode sidste år, sammenlignet på måned)
+      if (period >= startCurYtd && period <= refPeriod) {
+        totalRevYtd += rev;
+        if (period === refPeriod) ytdCurLastMonthRev += rev;
+      }
+      if (period >= startPriorYtd && period <= endPriorYtd) {
+        totalRevYtdPrior += rev;
+        if (period === endPriorYtd) ytdPriorLastMonthRev += rev;
+      }
+
 
       const agg =
         aggs.get(cid) ?? { monthly: new Map(), revenue12m: 0, revenue12mPrior: 0, contribution12m: 0 };
@@ -575,11 +617,28 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       isAdmin,
       appliedSellerId: isAdmin ? appliedSellerId : null,
       sellerOptions,
-      totals: {
-        revenue12m: totalRev12,
-        revenue12mPriorYear: totalRevPrior,
-        contribution12m: isAdmin ? totalContrib : null,
-      },
+      totals: (() => {
+        // Pro-rata: hvis refPeriod = indeværende måned, reducér sidste års samme måned
+        // til samme dag-fraktion. Ellers antages refMonth fuldt indlæst (fraction=1).
+        const today = new Date();
+        const isCurMonth =
+          today.getUTCFullYear() === refYear && today.getUTCMonth() + 1 === refMonth;
+        const daysInMonth = new Date(Date.UTC(refYear, refMonth, 0)).getUTCDate();
+        const fraction = isCurMonth
+          ? Math.min(today.getUTCDate(), daysInMonth) / daysInMonth
+          : 1;
+        const priorAdj = totalRevYtdPrior - ytdPriorLastMonthRev * (1 - fraction);
+        return {
+          revenue12m: totalRev12,
+          revenue12mPriorYear: totalRevPrior,
+          revenueYtd: totalRevYtd,
+          revenueYtdPriorSamePeriod: priorAdj,
+          ytdLatestPeriod: latestPeriod,
+          ytdFraction: fraction,
+          contribution12m: isAdmin ? totalContrib : null,
+        };
+      })(),
+
       statusCounts: {
         aktive,
         sovende,
