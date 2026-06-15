@@ -937,7 +937,11 @@ function RankingTable({
                     </td>
                     {showTrend && (
                       <td className="px-3 py-2 text-right">
-                        <Trend current={r.revenue12m} prior={r.revenue12mPrior} />
+                        <Trend
+                          current={valueField === "revenueYtd" ? r.revenueYtd : r.revenue12m}
+                          prior={valueField === "revenueYtd" ? r.revenueYtdPriorSamePeriod : r.revenue12mPrior}
+                        />
+
                       </td>
                     )}
                     <td className="px-3 py-2">
