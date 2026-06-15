@@ -425,13 +425,6 @@ function VirksomhedsKort() {
               variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
-              <PlusCircle className="h-4 w-4 mr-1.5" /> Aktivitet
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setMailOpen(true)}>
-              <Mail className="h-4 w-4 mr-1.5" /> Mail
-            </Button>
           <div className="grid grid-cols-3 gap-2">
             <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-1.5" /> Aktivitet
