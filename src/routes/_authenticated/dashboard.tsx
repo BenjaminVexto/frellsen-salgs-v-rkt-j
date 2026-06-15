@@ -310,46 +310,6 @@ function DashboardPage() {
         </div>
       )}
 
-      {/* 3. KUNDER PÅ VEJ VÆK + AFTALER UDLØBER (side om side) */}
-      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
-        <ChurningCustomersCard initialVisible={2} />
-        <ExpiringCustomersCard
-          customers={expiringMachines}
-          loading={expiringMachinesQuery.isLoading}
-          initialVisible={2}
-        />
-      </div>
-
-
-
-      {/* 4. KOMPAKT TÆLLER-RÆKKE */}
-      <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-3">
-        <CompactStat
-          to="/virksomheder"
-          icon={<Flame className="h-4 w-4" />}
-          tone="warning"
-          title="Varme muligheder"
-          count={hotOppsQuery.data?.length ?? 0}
-          loading={hotOppsQuery.isLoading}
-        />
-        <CompactStat
-          to="/kontaktlister"
-          icon={<ListChecks className="h-4 w-4" />}
-          tone="primary"
-          title="Mine kontaktlister"
-          count={listsQuery.data?.length ?? 0}
-          loading={listsQuery.isLoading}
-        />
-        <CompactStat
-          to="/virksomheder"
-          icon={<FileText className="h-4 w-4" />}
-          tone="warning"
-          title="Emner – konkurrentaftaler"
-          count={expiringProspects.length}
-          loading={expiringDocsQuery.isLoading}
-        />
-      </div>
-
 
     </div>
   );
