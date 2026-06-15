@@ -36,18 +36,25 @@ function DashboardPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  // Mens admin "ser som" sælger, opfører dashboardet sig som om brugeren ikke er admin
+  // (så de samme seller-scoping-filtre gælder).
+  // Salgssupport behandles som admin: team-bredt overblik på tværs af sælgere.
+  const isSupport = auth.role === "salgssupport";
+  const isAdmin = (auth.role === "admin" || isSupport) && !isImpersonating;
+
   const followupsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-followups", userId],
+    queryKey: ["dashboard-followups", userId, isAdmin],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("contact_list_assignments")
         .select(
-          "id, status, priority, next_followup_date, next_action_note, company:companies(id, name, city)"
+          "id, status, priority, next_followup_date, next_action_note, assigned_to, company:companies(id, name, city)"
         )
-        .eq("assigned_to", userId!)
         .not("next_followup_date", "is", null)
         .order("next_followup_date", { ascending: true });
+      if (!isAdmin) q = q.eq("assigned_to", userId!);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -55,16 +62,17 @@ function DashboardPage() {
 
   const hotOppsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-hot-opps", userId],
+    queryKey: ["dashboard-hot-opps", userId, isAdmin],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("sales_opportunities")
         .select(
           "id, name, status, estimated_value, next_followup_date, company:companies(id, name)"
         )
-        .eq("assigned_to", userId!)
         .in("status", ["tilbud_sendt", "møde_demo"])
         .order("next_followup_date", { ascending: true, nullsFirst: false });
+      if (!isAdmin) q = q.eq("assigned_to", userId!);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -72,13 +80,14 @@ function DashboardPage() {
 
   const listsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-lists", userId],
+    queryKey: ["dashboard-lists", userId, isAdmin],
     queryFn: async () => {
-      // hent unikke kontaktlister via assignments
-      const { data: assignments, error } = await supabase
+      // hent unikke kontaktlister via assignments (team-bredt for admin/support)
+      let q = supabase
         .from("contact_list_assignments")
-        .select("contact_list_id, status, contact_list:contact_lists(id, name, is_active)")
-        .eq("assigned_to", userId!);
+        .select("contact_list_id, status, contact_list:contact_lists(id, name, is_active)");
+      if (!isAdmin) q = q.eq("assigned_to", userId!);
+      const { data: assignments, error } = await q;
       if (error) throw error;
 
       const byList = new Map<
@@ -104,11 +113,6 @@ function DashboardPage() {
     },
   });
 
-  // Mens admin "ser som" sælger, opfører dashboardet sig som om brugeren ikke er admin
-  // (så de samme seller-scoping-filtre gælder).
-  // Salgssupport behandles som admin: team-bredt overblik på tværs af sælgere.
-  const isSupport = auth.role === "salgssupport";
-  const isAdmin = (auth.role === "admin" || isSupport) && !isImpersonating;
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
