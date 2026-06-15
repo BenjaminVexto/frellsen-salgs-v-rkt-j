@@ -107,8 +107,10 @@ function VirksomhederListe() {
   const userId = auth.user?.id ?? null;
   // På mobil: vis kun "mine" virksomheder ved start, så sælgerne ikke møder 16k+ rækker.
   // Aktiveres KUN når søgefeltet er tomt og ingen filtre er sat — så søgning rammer hele basen.
+  // Salgssupport har ingen egen portefølje → filteret giver ikke mening og deaktiveres.
   const mobileMineActive =
     isMobile &&
+    !isSupport &&
     !q.trim() &&
     !isFilterActive &&
     !recentIds &&
