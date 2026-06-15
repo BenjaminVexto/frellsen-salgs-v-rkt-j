@@ -863,7 +863,7 @@ function RankingTable({
   title: string;
   rows: RankingRow[];
   valueLabel: string;
-  valueField?: "revenue12m" | "contribution12m" | "ratio";
+  valueField?: "revenue12m" | "revenueYtd" | "contribution12m" | "ratio";
   showTrend?: boolean;
   showEmployees?: boolean;
   emptyText?: string;
