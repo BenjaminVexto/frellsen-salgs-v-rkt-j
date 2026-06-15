@@ -797,24 +797,17 @@ function RevenueCard({
   label,
   current,
   prior,
+  latestPeriod,
 }: {
   label: string;
   current: number;
   prior: number;
+  latestPeriod?: string | null;
 }) {
-  // Pro-rate current month within the 12m windows: simplified — compare raw 12m sums.
-  // Day-pro-rata applied: take just current incomplete-month vs prior same-month.
-  const now = new Date();
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const fraction = dayOfMonth / daysInMonth;
-  // For trend display: don't pro-rate the whole window; compare raw 12m sums but
-  // estimate prior pro-rata by reducing prior by (1 - fraction) of one month's avg.
-  const priorAvgMonth = prior / 12;
-  const priorAdjusted = prior - priorAvgMonth * (1 - fraction);
-  const diff = current - priorAdjusted;
-  const pct =
-    priorAdjusted !== 0 ? Math.round((diff / Math.abs(priorAdjusted)) * 100) : null;
+  // Server-side har allerede pro-rateret 'prior' til samme dag-fraktion som
+  // den partielle aktuelle måned (refPeriod), så her sammenlignes 1:1.
+  const diff = current - prior;
+  const pct = prior !== 0 ? Math.round((diff / Math.abs(prior)) * 100) : null;
   const up = diff > 0;
   const down = diff < 0;
   const Icon = up ? ArrowUp : down ? ArrowDown : Minus;
@@ -823,6 +816,21 @@ function RevenueCard({
     : down
     ? "text-destructive"
     : "text-muted-foreground";
+  // Beskriv perioden — "År-til-Dato (jan–<måned> <år>)"
+  let periodText = "vs. samme periode sidste år";
+  if (latestPeriod) {
+    const y = parseInt(latestPeriod.slice(0, 4), 10);
+    const m = parseInt(latestPeriod.slice(5, 7), 10);
+    const monthName = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("da-DK", {
+      month: "short",
+    });
+    const today = new Date();
+    const isCurMonth = today.getUTCFullYear() === y && today.getUTCMonth() + 1 === m;
+    const day = isCurMonth ? today.getUTCDate() : null;
+    periodText = day
+      ? `jan–${day}. ${monthName} ${y} vs. samme periode ${y - 1}`
+      : `jan–${monthName} ${y} vs. samme periode ${y - 1}`;
+  }
   return (
     <Card className="p-4">
       <div className="text-xs text-muted-foreground mb-1">{label}</div>
@@ -832,11 +840,12 @@ function RevenueCard({
           <Icon className="h-3 w-3" />
           {pct === null ? "—" : `${Math.abs(pct)} %`}
         </span>
-        <span>· vs. samme periode sidste år (~{fmtKr(Math.round(priorAdjusted))})</span>
+        <span>· {periodText} (~{fmtKr(Math.round(prior))})</span>
       </div>
     </Card>
   );
 }
+
 
 function RankingTable({
   title,
