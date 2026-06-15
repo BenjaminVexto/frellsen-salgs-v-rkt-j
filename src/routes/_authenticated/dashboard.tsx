@@ -221,50 +221,94 @@ function DashboardPage() {
         </div>
       )}
 
-      {/* 2. DAGENS OPFØLGNINGER */}
-      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8">
-        <PanelCard
-          title="Dagens fokus"
-          icon={<CalendarCheck className="h-5 w-5" />}
-          tone="success"
-          count={todays.length}
-          emptyText="Ingen opfølgninger planlagt i dag."
-          loading={followupsQuery.isLoading}
-        >
-          {todays.map((item: any) => (
-            <FollowupRow
-              key={item.id}
-              company={item.company?.name ?? "Ukendt"}
-              meta={item.company?.city}
-              dateLabel="I dag"
-              note={item.next_action_note}
-              tone="success"
-              to="/virksomheder"
-            />
-          ))}
-        </PanelCard>
+      {/* 2. DAGENS OPFØLGNINGER — personlige opfølgninger; skjules for salgssupport */}
+      {!isSupport && (
+        <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8">
+          <PanelCard
+            title="Dagens fokus"
+            icon={<CalendarCheck className="h-5 w-5" />}
+            tone="success"
+            count={todays.length}
+            emptyText="Ingen opfølgninger planlagt i dag."
+            loading={followupsQuery.isLoading}
+          >
+            {todays.map((item: any) => (
+              <FollowupRow
+                key={item.id}
+                company={item.company?.name ?? "Ukendt"}
+                meta={item.company?.city}
+                dateLabel="I dag"
+                note={item.next_action_note}
+                tone="success"
+                to="/virksomheder"
+              />
+            ))}
+          </PanelCard>
 
-        <PanelCard
-          title="Overskredet"
-          icon={<AlertTriangle className="h-5 w-5" />}
-          tone="destructive"
-          count={overdue.length}
-          emptyText="Ingen overskredne opfølgninger — flot!"
-          loading={followupsQuery.isLoading}
-        >
-          {overdue.slice(0, 8).map((item: any) => (
-            <FollowupRow
-              key={item.id}
-              company={item.company?.name ?? "Ukendt"}
-              meta={item.company?.city}
-              dateLabel={format(parseISO(item.next_followup_date), "d. MMM", { locale: da })}
-              note={item.next_action_note}
-              tone="destructive"
-              to="/virksomheder"
-            />
-          ))}
-        </PanelCard>
+          <PanelCard
+            title="Overskredet"
+            icon={<AlertTriangle className="h-5 w-5" />}
+            tone="destructive"
+            count={overdue.length}
+            emptyText="Ingen overskredne opfølgninger — flot!"
+            loading={followupsQuery.isLoading}
+          >
+            {overdue.slice(0, 8).map((item: any) => (
+              <FollowupRow
+                key={item.id}
+                company={item.company?.name ?? "Ukendt"}
+                meta={item.company?.city}
+                dateLabel={format(parseISO(item.next_followup_date), "d. MMM", { locale: da })}
+                note={item.next_action_note}
+                tone="destructive"
+                to="/virksomheder"
+              />
+            ))}
+          </PanelCard>
+        </div>
+      )}
+
+      {/* 3. KUNDER PÅ VEJ VÆK + AFTALER UDLØBER (side om side) */}
+      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
+        {!isSupport && <ChurningCustomersCard initialVisible={2} />}
+        <ExpiringCustomersCard
+          customers={expiringMachines}
+          loading={expiringMachinesQuery.isLoading}
+          initialVisible={2}
+        />
       </div>
+
+
+
+      {/* 4. KOMPAKT TÆLLER-RÆKKE — personlige tællere skjules for salgssupport */}
+      {!isSupport && (
+        <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-3">
+          <CompactStat
+            to="/virksomheder"
+            icon={<Flame className="h-4 w-4" />}
+            tone="warning"
+            title="Varme muligheder"
+            count={hotOppsQuery.data?.length ?? 0}
+            loading={hotOppsQuery.isLoading}
+          />
+          <CompactStat
+            to="/kontaktlister"
+            icon={<ListChecks className="h-4 w-4" />}
+            tone="primary"
+            title="Mine kontaktlister"
+            count={listsQuery.data?.length ?? 0}
+            loading={listsQuery.isLoading}
+          />
+          <CompactStat
+            to="/virksomheder"
+            icon={<FileText className="h-4 w-4" />}
+            tone="warning"
+            title="Emner – konkurrentaftaler"
+            count={expiringProspects.length}
+            loading={expiringDocsQuery.isLoading}
+          />
+        </div>
+      )}
 
       {/* 3. KUNDER PÅ VEJ VÆK + AFTALER UDLØBER (side om side) */}
       <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
