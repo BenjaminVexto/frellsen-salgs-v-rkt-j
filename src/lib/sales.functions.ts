@@ -305,7 +305,7 @@ async function getSellerCompanyIds(supabase: any, userId: string): Promise<strin
 
 export const getMyMonthlySales = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
   .handler(async ({ data, context }): Promise<{
     revenue: number;
     companies: number;
@@ -315,34 +315,59 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
     comparisonMode: "full_month";
   }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
-    const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
+    const teamScope =
+      !!data.teamScope &&
+      !data.viewAsUserId &&
+      (await isTeamScopeUser(context.supabase, context.userId));
     const d = new Date();
     const period = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
     const periodLastYear = `${d.getUTCFullYear() - 1}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-    if (!companyIds.length) {
-      return { revenue: 0, companies: 0, period, revenueLastYear: 0, periodLastYear, comparisonMode: "full_month" };
-    }
 
     let revenue = 0;
     let revenueLastYear = 0;
     const compsWithSales = new Set<string>();
-    const rows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
-      context.supabase
-        .from("sales_monthly")
-        .select("company_id, period, revenue")
-        .in("company_id", slice)
-        .in("period", [period, periodLastYear])
-        .range(from, to),
-    );
-    rows.forEach((r: any) => {
-      const rev = Number(r.revenue) || 0;
-      if (r.period === period) {
-        revenue += rev;
-        if (r.company_id) compsWithSales.add(r.company_id);
-      } else if (r.period === periodLastYear) {
-        revenueLastYear += rev;
+
+    if (teamScope) {
+      const client = supabaseAdmin;
+      const rows = await fetchAllSalesMonthlyRows((from, to) =>
+        client
+          .from("sales_monthly")
+          .select("company_id, period, revenue")
+          .in("period", [period, periodLastYear])
+          .range(from, to),
+      );
+      rows.forEach((r: any) => {
+        const rev = Number(r.revenue) || 0;
+        if (r.period === period) {
+          revenue += rev;
+          if (r.company_id) compsWithSales.add(r.company_id);
+        } else if (r.period === periodLastYear) {
+          revenueLastYear += rev;
+        }
+      });
+    } else {
+      const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
+      if (!companyIds.length) {
+        return { revenue: 0, companies: 0, period, revenueLastYear: 0, periodLastYear, comparisonMode: "full_month" };
       }
-    });
+      const rows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
+        context.supabase
+          .from("sales_monthly")
+          .select("company_id, period, revenue")
+          .in("company_id", slice)
+          .in("period", [period, periodLastYear])
+          .range(from, to),
+      );
+      rows.forEach((r: any) => {
+        const rev = Number(r.revenue) || 0;
+        if (r.period === period) {
+          revenue += rev;
+          if (r.company_id) compsWithSales.add(r.company_id);
+        } else if (r.period === periodLastYear) {
+          revenueLastYear += rev;
+        }
+      });
+    }
 
     return {
       revenue,
@@ -356,19 +381,25 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
 
 export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ count: number }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
+    const teamScope =
+      !!data.teamScope &&
+      !data.viewAsUserId &&
+      (await isTeamScopeUser(context.supabase, context.userId));
     const d = new Date();
     const monthStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
-    const { count, error } = await context.supabase
+    let q = context.supabase
       .from("activities")
       .select("id", { count: "exact", head: true })
-      .eq("created_by", effectiveUserId)
       .gte("created_at", monthStart);
+    if (!teamScope) q = q.eq("created_by", effectiveUserId);
+    const { count, error } = await q;
     if (error) throw error;
     return { count: count ?? 0 };
   });
+
 
 export type ChurningCustomer = {
   company_id: string;
