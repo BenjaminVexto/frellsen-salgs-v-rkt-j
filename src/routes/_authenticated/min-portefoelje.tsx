@@ -705,15 +705,17 @@ function Th({
   active,
   dir,
   align = "left",
+  title,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   active?: boolean;
   dir?: "asc" | "desc";
   align?: "left" | "right";
+  title?: string;
 }) {
   return (
-    <th className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>
+    <th className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`} title={title}>
       <button
         type="button"
         onClick={onClick}
