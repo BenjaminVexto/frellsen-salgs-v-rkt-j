@@ -12,6 +12,8 @@ import {
   importUpdateCompaniesById,
   importInsertLocations,
 } from "@/lib/admin-companies.functions";
+import { recomputeAllCompanyStatuses } from "@/lib/recompute.functions";
+
 import { parseDanishDateIso as parseDanishDate } from "@/lib/invoice-parse";
 import { readFileSmart } from "@/lib/file-encoding";
 import { Card } from "@/components/ui/card";
