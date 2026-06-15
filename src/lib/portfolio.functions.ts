@@ -35,6 +35,8 @@ async function fetchAllInChunks(
   return rows;
 }
 
+export type RhythmClass = "normal" | "slower" | "stopped" | "never";
+
 export type PortfolioCompanyRow = {
   id: string;
   name: string;
@@ -53,6 +55,12 @@ export type PortfolioCompanyRow = {
   contribution12m: number | null;
   employees: number | null;
   is_public: boolean;
+  // Købsrytme (forbrugsvarer — prisgrupper 2/4/6/10), måneds-opløsning.
+  rhythmMonths: number | null; // median antal måneder mellem aktive consumable-måneder; null hvis <3 aktive
+  monthsSinceConsumable: number | null; // måneder siden seneste consumable-køb
+  rhythmClass: RhythmClass; // klassifikation efter rytme (eller fallback 60-d for kunder uden rytme)
+  growthPct: number | null; // 12m vs forrige 12m
+  trendDown: boolean; // growthPct < -15% og revenue12m > tærskel
 };
 
 export type RankingRow = {
@@ -69,6 +77,10 @@ export type RankingRow = {
   supplied_via_id: string | null;
   employees: number | null;
   ratio: number | null; // kr/ansat
+  rhythmClass: RhythmClass;
+  monthsSinceConsumable: number | null;
+  rhythmMonths: number | null;
+  trendDown: boolean;
 };
 
 
@@ -114,11 +126,19 @@ export type PortfolioPayload = {
     paaVejVaek: number;
     total: number;
   };
+  // Deterministisk re-evaluering for 30 dage siden (samme 12/24-mdr-vinduer,
+  // eval-dato skubbet 30 dage tilbage). Bruges til "↑/↓ X siden sidst".
+  statusCountsPrior: {
+    aktive: number;
+    sovende: number;
+    paaVejVaek: number;
+  };
   monthLabels: { period: string; label: string }[]; // last 5
   companies: PortfolioCompanyRow[];
   rankings: {
     topRevenue: RankingRow[];
-    bottomRevenueActive: RankingRow[];
+    topDecliners: RankingRow[];
+    topGrowers: RankingRow[];
     topContribution: RankingRow[] | null;
     potential: RankingRow[];
     potentialScatter: ScatterPoint[];
@@ -133,6 +153,30 @@ export type PortfolioPayload = {
     expiringCompetitor: SignalRow[];
   };
 };
+
+// --- helpers: dato / rytme / customer_type ---
+function monthsBetweenPeriods(a: string, b: string): number {
+  const [ay, am] = a.split("-").map(Number);
+  const [by, bm] = b.split("-").map(Number);
+  return (by - ay) * 12 + (bm - am);
+}
+function medianOf(nums: number[]): number {
+  const s = [...nums].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+function deriveCustomerType(
+  effective: Date | null,
+  hasEq: boolean,
+  cutoff12: Date,
+  cutoff24: Date,
+): "aktiv_kunde" | "sovende_kunde" | "tidligere_kunde" | "nyt_emne" {
+  if (hasEq) return "aktiv_kunde";
+  if (!effective) return "nyt_emne";
+  if (effective.getTime() >= cutoff12.getTime()) return "aktiv_kunde";
+  if (effective.getTime() >= cutoff24.getTime()) return "sovende_kunde";
+  return "tidligere_kunde";
+}
 
 
 function monthStart(d: Date): string {
