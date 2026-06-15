@@ -817,7 +817,6 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       .sort((a, b) => (a.growthPct ?? 0) - (b.growthPct ?? 0));
 
     // 5 / 6) Udløb inden for 90 dage
-    const today = new Date();
     const today_s = today.toISOString().slice(0, 10);
     const in90 = new Date(today);
     in90.setDate(in90.getDate() + 90);
@@ -879,7 +878,6 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       totals: (() => {
         // Pro-rata: hvis refPeriod = indeværende måned, reducér sidste års samme måned
         // til samme dag-fraktion. Ellers antages refMonth fuldt indlæst (fraction=1).
-        const today = new Date();
         const isCurMonth =
           today.getUTCFullYear() === refYear && today.getUTCMonth() + 1 === refMonth;
         const daysInMonth = new Date(Date.UTC(refYear, refMonth, 0)).getUTCDate();
@@ -904,11 +902,13 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         paaVejVaek,
         total: companies.length,
       },
+      statusCountsPrior: statusPrior,
       monthLabels,
       companies,
       rankings: {
         topRevenue,
-        bottomRevenueActive,
+        topDecliners,
+        topGrowers,
         topContribution,
         potential,
         potentialScatter,
@@ -924,4 +924,5 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       },
     };
   });
+
 
