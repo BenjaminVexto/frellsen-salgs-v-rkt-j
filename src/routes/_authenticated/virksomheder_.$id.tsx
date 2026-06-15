@@ -432,6 +432,39 @@ function VirksomhedsKort() {
             <Button size="sm" variant="outline" onClick={() => setMailOpen(true)}>
               <Mail className="h-4 w-4 mr-1.5" /> Mail
             </Button>
+          <div className="grid grid-cols-3 gap-2">
+            <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
+              <PlusCircle className="h-4 w-4 mr-1.5" /> Aktivitet
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setMailOpen(true)}>
+              <Mail className="h-4 w-4 mr-1.5" /> Mail
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <MoreHorizontal className="h-4 w-4 mr-1.5" /> Flere
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setOpportunityOpen(true)}>
+                  <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuoteOpen(true)}>
+                  <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={openDeleteDialog}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" /> Slet virksomhed
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <AiBriefingSektion companyId={company.id} />
           <div className="grid grid-cols-1 gap-1.5 text-sm border-t pt-3">
