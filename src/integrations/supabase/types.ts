@@ -1101,6 +1101,7 @@ export type Database = {
           serial_no: string | null
           source: string
           sub_location: string | null
+          udstyr_type: string
           varenr: string | null
         }
         Insert: {
@@ -1116,6 +1117,7 @@ export type Database = {
           serial_no?: string | null
           source: string
           sub_location?: string | null
+          udstyr_type?: string
           varenr?: string | null
         }
         Update: {
@@ -1131,6 +1133,7 @@ export type Database = {
           serial_no?: string | null
           source?: string
           sub_location?: string | null
+          udstyr_type?: string
           varenr?: string | null
         }
         Relationships: [
@@ -1228,13 +1231,16 @@ export type Database = {
       }
       machine_enrichment: {
         Row: {
+          aftale_type: string | null
           beregnet_slutdato: string | null
           binding_ophor: string | null
           created_at: string
           data: Json | null
           handlingsdato: string | null
           handlingsdato_raw: string | null
+          kobt_dato: string | null
           last_seen_import: string | null
+          lease_leje_dato: string | null
           record_status: string
           serienr: string
           taelleraflaesning: string | null
@@ -1242,13 +1248,16 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          aftale_type?: string | null
           beregnet_slutdato?: string | null
           binding_ophor?: string | null
           created_at?: string
           data?: Json | null
           handlingsdato?: string | null
           handlingsdato_raw?: string | null
+          kobt_dato?: string | null
           last_seen_import?: string | null
+          lease_leje_dato?: string | null
           record_status?: string
           serienr: string
           taelleraflaesning?: string | null
@@ -1256,13 +1265,16 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          aftale_type?: string | null
           beregnet_slutdato?: string | null
           binding_ophor?: string | null
           created_at?: string
           data?: Json | null
           handlingsdato?: string | null
           handlingsdato_raw?: string | null
+          kobt_dato?: string | null
           last_seen_import?: string | null
+          lease_leje_dato?: string | null
           record_status?: string
           serienr?: string
           taelleraflaesning?: string | null
