@@ -412,7 +412,10 @@ export const importAgreementProspects = createServerFn({ method: "POST" })
     }
 
     const allCvrs = incoming.map((r) => r.cvr);
-    const existingMap = new Map<string, string>();
+    // Multi-match: én CVR kan tilhøre flere companies (multi-CVR/koncern).
+    // Vi binder aftale-emnet til ALLE matchende companies i stedet for
+    // arbitrært at vælge én via en Map<cvr,id> som overskriver dubletter.
+    const existingMap = new Map<string, string[]>();
     for (let i = 0; i < allCvrs.length; i += 500) {
       const slice = allCvrs.slice(i, i + 500);
       const { data: rows, error } = await supabaseAdmin
@@ -420,7 +423,11 @@ export const importAgreementProspects = createServerFn({ method: "POST" })
         .select("id, cvr")
         .in("cvr", slice);
       if (error) throw new Error(error.message);
-      (rows ?? []).forEach((r: any) => existingMap.set(r.cvr, r.id));
+      (rows ?? []).forEach((r: any) => {
+        const list = existingMap.get(r.cvr) ?? [];
+        list.push(r.id);
+        existingMap.set(r.cvr, list);
+      });
     }
 
     const toInsert = incoming
@@ -445,11 +452,14 @@ export const importAgreementProspects = createServerFn({ method: "POST" })
           .select("id, cvr");
         if (error) throw new Error(error.message);
         (inserted ?? []).forEach((r: any) => {
-          existingMap.set(r.cvr, r.id);
+          const list = existingMap.get(r.cvr) ?? [];
+          list.push(r.id);
+          existingMap.set(r.cvr, list);
           createdCount++;
         });
       }
     }
+
 
     const { data: list, error: listErr } = await supabaseAdmin
       .from("contact_lists")
