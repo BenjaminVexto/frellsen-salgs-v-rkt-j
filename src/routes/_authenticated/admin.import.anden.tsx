@@ -265,7 +265,7 @@ function ImportSide() {
   // Trin 1: Parse fil
   async function handleFile(f: File) {
     setFile(f);
-    const rawText = await f.text();
+    const rawText = await readFileSmart(f);
     const firstLine = rawText.split("\n")[0] ?? "";
     const delimiter =
       firstLine.split(";").length > firstLine.split(",").length ? ";" : ",";

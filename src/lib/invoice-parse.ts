@@ -130,9 +130,9 @@ async function fileToRows(file: File): Promise<any[][]> {
     const ws = wb.Sheets[wb.SheetNames[0]];
     return XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: "", raw: false }) as any[][];
   }
-  // CSV: decode as ISO-8859-1, space delimited, quoted
-  const buf = await file.arrayBuffer();
-  const text = new TextDecoder("iso-8859-1").decode(buf);
+  // CSV: auto-detect UTF-8 vs Windows-1252 (Visma eksporterer cp1252).
+  // Space-delimited, quoted.
+  const text = await readFileSmart(file);
   const parsed = Papa.parse<string[]>(text, {
     delimiter: " ",
     quoteChar: '"',

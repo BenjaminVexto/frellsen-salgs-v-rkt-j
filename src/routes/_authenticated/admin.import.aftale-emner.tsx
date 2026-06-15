@@ -106,7 +106,7 @@ function AftaleEmnerImportSide() {
         const ws = wb.Sheets[wb.SheetNames[0]];
         parsed = XLSX.utils.sheet_to_json(ws, { defval: "" }) as any[];
       } else {
-        const text = await f.text();
+        const text = await readFileSmart(f);
         const firstLine = text.split("\n")[0] ?? "";
         const delimiter =
           firstLine.split(";").length > firstLine.split(",").length ? ";" : ",";
