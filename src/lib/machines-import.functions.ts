@@ -721,6 +721,9 @@ export const importMachines = createServerFn({ method: "POST" })
         unitsLocationsUpdated,
         unitsRowsInserted,
         unitsUnmatched,
+        wittenborgUnitsInserted,
+        wittenborgUnmatched,
+        machineSerialConflicts,
         importedAt,
       };
     } catch (e: any) {
