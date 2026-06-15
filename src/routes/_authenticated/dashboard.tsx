@@ -214,10 +214,12 @@ function DashboardPage() {
     <div className="px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
       <PersonalGreeting firstName={auth.fullName ? auth.fullName.split(" ")[0] : null} followupsToday={todays.length} />
 
-      {/* 1. DIN MÅNED */}
-      <div className="mb-6 md:mb-8">
-        <MyMonthZone />
-      </div>
+      {/* 1. DIN MÅNED — personlig portefølje; skjules for salgssupport (intet personligt budget) */}
+      {!isSupport && (
+        <div className="mb-6 md:mb-8">
+          <MyMonthZone />
+        </div>
+      )}
 
       {/* 2. DAGENS OPFØLGNINGER */}
       <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8">
