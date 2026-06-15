@@ -495,7 +495,9 @@ export const importMachines = createServerFn({ method: "POST" })
             is_free_loan: boolean;
             has_service_contract: boolean;
             varenr: string | null;
+            udstyr_type: UdstyrType;
           }[];
+
         };
         const aggs = new Map<string, UnitAgg>(); // key: `${fak}||${lev}`
         const ensure = (): UnitAgg => ({
