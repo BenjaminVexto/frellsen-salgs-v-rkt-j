@@ -81,6 +81,11 @@ function normalizeVismaNo(val: unknown): string {
   const stripped = s.replace(/^0+/, "");
   return stripped || "0";
 }
+function cleanG2(s: string | null | undefined): string {
+  if (!s) return "";
+  const m = s.match(/^\s*\d+\s*\[(.+)\]\s*$/);
+  return m ? m[1].trim() : s;
+}
 const COFFEE_KEYWORDS = [
   "wittenborg", "rex-royal", "rex royal", "bonamat", "animo",
   "schaerer", "franke", "krea", "optivend", "optimed", "jura",
