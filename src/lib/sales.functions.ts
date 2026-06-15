@@ -18,6 +18,16 @@ async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
+async function isTeamScopeUser(supabase: any, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "salgssupport"])
+    .maybeSingle();
+  return !!data;
+}
+
 /**
  * For read-only serverfns: returns the requested viewAs userId if the caller is admin,
  * otherwise the caller's own userId. Sælgere kan aldrig "snyde" via viewAsUserId.
@@ -31,6 +41,7 @@ async function resolveEffectiveUserId(
   const admin = await isAdminUser(supabase, callerUserId);
   return admin ? requestedViewAsUserId : callerUserId;
 }
+
 
 const SALES_PAGE_SIZE = 1000;
 
