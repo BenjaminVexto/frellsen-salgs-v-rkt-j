@@ -798,7 +798,9 @@ export const importMachines = createServerFn({ method: "POST" })
         wittenborgUnitsInserted,
         wittenborgUnmatched,
         machineSerialConflicts,
+        wittenborgTypeCounts,
         importedAt,
+
       };
     } catch (e: any) {
       console.error("[machines-import] TOP-LEVEL FEJL:", e?.message ?? String(e), "\nSTACK:", e?.stack ?? "(ingen)");
