@@ -303,12 +303,30 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     let totalRev12 = 0;
     let totalRevPrior = 0;
     let totalContrib = 0;
+    // YTD-akkumulatorer — vinduer afgøres efter første sweep (refPeriod = max(period))
+    let totalRevYtd = 0;
+    let totalRevYtdPrior = 0;
+    let ytdCurLastMonthRev = 0;
+    let ytdPriorLastMonthRev = 0;
+    // Find seneste periode i datasættet for YTD-referencepunkt.
+    let latestPeriod: string | null = null;
+    for (const r of salesRows) {
+      const p = r.period as string;
+      if (!latestPeriod || p > latestPeriod) latestPeriod = p;
+    }
+    const refPeriod = latestPeriod ?? thisMonth;
+    const refYear = parseInt(refPeriod.slice(0, 4), 10);
+    const refMonth = parseInt(refPeriod.slice(5, 7), 10);
+    const startCurYtd = `${refYear}-01-01`;
+    const startPriorYtd = `${refYear - 1}-01-01`;
+    const endPriorYtd = `${refYear - 1}-${String(refMonth).padStart(2, "0")}-01`;
     const last5Set = new Set(last5);
     // Trend (monthly) måler LØBENDE FORBRUG = al omsætning UNDTAGEN
     // produktgruppe "16 [Maskiner/Service]". Maskingruppen klumper i januar
     // pga. årlig service-/leje-fakturering og giver ellers falske fald.
     // revenue12m/contribution12m bevares som TOTAL (inkl. maskiner).
     const MACHINE_RE = /^\s*16\s*\[/;
+
 
     for (const r of salesRows) {
       const cid = r.company_id as string;
