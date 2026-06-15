@@ -265,7 +265,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     const emptyRankings = {
       topRevenue: [] as RankingRow[],
-      bottomRevenueActive: [] as RankingRow[],
+      topDecliners: [] as RankingRow[],
+      topGrowers: [] as RankingRow[],
       topContribution: isAdmin ? ([] as RankingRow[]) : null,
       potential: [] as RankingRow[],
       potentialScatter: [] as ScatterPoint[],
@@ -296,6 +297,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         },
 
         statusCounts: { aktive: 0, sovende: 0, paaVejVaek: 0, total: 0 },
+        statusCountsPrior: { aktive: 0, sovende: 0, paaVejVaek: 0 },
         monthLabels,
         companies: [],
         rankings: emptyRankings,
@@ -303,12 +305,13 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       };
     }
 
-    // Fetch companies meta
+
+    // Fetch companies meta (incl. last_sales_date + last_purchase_date til prior status-snapshot)
     const compsMeta = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
       supabase
         .from("companies")
         .select(
-          "id, name, city, customer_type, has_active_equipment, last_consumable_sales_date, employees, is_public",
+          "id, name, city, customer_type, has_active_equipment, last_consumable_sales_date, last_sales_date, last_purchase_date, employees, is_public",
         )
         .in("id", slice)
         .range(from, to),
