@@ -317,7 +317,10 @@ function PortfolioPage() {
                         </td>
                         <td className="px-3 py-2">
                           <KaffeIndicator
-                            lastConsumableDate={c.last_consumable_sales_date}
+                            rhythmClass={c.rhythmClass}
+                            rhythmMonths={c.rhythmMonths}
+                            monthsSinceConsumable={c.monthsSinceConsumable}
+                            trendDown={c.trendDown}
                             suppliedViaName={c.supplied_via_name}
                             suppliedViaId={c.supplied_via_id}
                           />
@@ -1022,7 +1025,10 @@ function RankingTable({
                     )}
                     <td className="px-3 py-2">
                       <KaffeIndicator
-                        lastConsumableDate={r.last_consumable_sales_date}
+                        rhythmClass={r.rhythmClass}
+                        rhythmMonths={r.rhythmMonths}
+                        monthsSinceConsumable={r.monthsSinceConsumable}
+                        trendDown={r.trendDown}
                         suppliedViaName={r.supplied_via_name}
                         suppliedViaId={r.supplied_via_id}
                       />
