@@ -35,6 +35,8 @@ async function fetchAllInChunks(
   return rows;
 }
 
+export type RhythmClass = "normal" | "slower" | "stopped" | "never";
+
 export type PortfolioCompanyRow = {
   id: string;
   name: string;
@@ -53,6 +55,12 @@ export type PortfolioCompanyRow = {
   contribution12m: number | null;
   employees: number | null;
   is_public: boolean;
+  // Købsrytme (forbrugsvarer — prisgrupper 2/4/6/10), måneds-opløsning.
+  rhythmMonths: number | null; // median antal måneder mellem aktive consumable-måneder; null hvis <3 aktive
+  monthsSinceConsumable: number | null; // måneder siden seneste consumable-køb
+  rhythmClass: RhythmClass; // klassifikation efter rytme (eller fallback 60-d for kunder uden rytme)
+  growthPct: number | null; // 12m vs forrige 12m
+  trendDown: boolean; // growthPct < -15% og revenue12m > tærskel
 };
 
 export type RankingRow = {
@@ -69,6 +77,10 @@ export type RankingRow = {
   supplied_via_id: string | null;
   employees: number | null;
   ratio: number | null; // kr/ansat
+  rhythmClass: RhythmClass;
+  monthsSinceConsumable: number | null;
+  rhythmMonths: number | null;
+  trendDown: boolean;
 };
 
 
@@ -114,11 +126,19 @@ export type PortfolioPayload = {
     paaVejVaek: number;
     total: number;
   };
+  // Deterministisk re-evaluering for 30 dage siden (samme 12/24-mdr-vinduer,
+  // eval-dato skubbet 30 dage tilbage). Bruges til "↑/↓ X siden sidst".
+  statusCountsPrior: {
+    aktive: number;
+    sovende: number;
+    paaVejVaek: number;
+  };
   monthLabels: { period: string; label: string }[]; // last 5
   companies: PortfolioCompanyRow[];
   rankings: {
     topRevenue: RankingRow[];
-    bottomRevenueActive: RankingRow[];
+    topDecliners: RankingRow[];
+    topGrowers: RankingRow[];
     topContribution: RankingRow[] | null;
     potential: RankingRow[];
     potentialScatter: ScatterPoint[];
@@ -133,6 +153,30 @@ export type PortfolioPayload = {
     expiringCompetitor: SignalRow[];
   };
 };
+
+// --- helpers: dato / rytme / customer_type ---
+function monthsBetweenPeriods(a: string, b: string): number {
+  const [ay, am] = a.split("-").map(Number);
+  const [by, bm] = b.split("-").map(Number);
+  return (by - ay) * 12 + (bm - am);
+}
+function medianOf(nums: number[]): number {
+  const s = [...nums].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+function deriveCustomerType(
+  effective: Date | null,
+  hasEq: boolean,
+  cutoff12: Date,
+  cutoff24: Date,
+): "aktiv_kunde" | "sovende_kunde" | "tidligere_kunde" | "nyt_emne" {
+  if (hasEq) return "aktiv_kunde";
+  if (!effective) return "nyt_emne";
+  if (effective.getTime() >= cutoff12.getTime()) return "aktiv_kunde";
+  if (effective.getTime() >= cutoff24.getTime()) return "sovende_kunde";
+  return "tidligere_kunde";
+}
 
 
 function monthStart(d: Date): string {
@@ -221,7 +265,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     const emptyRankings = {
       topRevenue: [] as RankingRow[],
-      bottomRevenueActive: [] as RankingRow[],
+      topDecliners: [] as RankingRow[],
+      topGrowers: [] as RankingRow[],
       topContribution: isAdmin ? ([] as RankingRow[]) : null,
       potential: [] as RankingRow[],
       potentialScatter: [] as ScatterPoint[],
@@ -252,6 +297,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         },
 
         statusCounts: { aktive: 0, sovende: 0, paaVejVaek: 0, total: 0 },
+        statusCountsPrior: { aktive: 0, sovende: 0, paaVejVaek: 0 },
         monthLabels,
         companies: [],
         rankings: emptyRankings,
@@ -259,12 +305,13 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       };
     }
 
-    // Fetch companies meta
+
+    // Fetch companies meta (incl. last_sales_date + last_purchase_date til prior status-snapshot)
     const compsMeta = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
       supabase
         .from("companies")
         .select(
-          "id, name, city, customer_type, has_active_equipment, last_consumable_sales_date, employees, is_public",
+          "id, name, city, customer_type, has_active_equipment, last_consumable_sales_date, last_sales_date, last_purchase_date, employees, is_public",
         )
         .in("id", slice)
         .range(from, to),
@@ -337,6 +384,16 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     // revenue12m/contribution12m bevares som TOTAL (inkl. maskiner).
     const MACHINE_RE = /^\s*16\s*\[/;
 
+    // --- Pr-kunde sporing for rytme + prior-snapshot ---
+    // Aktive consumable-måneder (revenue > 0 i prisgruppe 2/4/6/10) — bruges til rytme-median.
+    const consPeriodsByCompany = new Map<string, Set<string>>();
+    // Seneste salgs-/consumable-måned for "nu" (alle perioder i salesRows) og for
+    // "30 dage siden" (kun perioder < indeværende måned).
+    const lastSalesNow = new Map<string, string>();
+    const lastSalesPrior = new Map<string, string>();
+    const lastConsNow = new Map<string, string>();
+    const lastConsPrior = new Map<string, string>();
+
 
     for (const r of salesRows) {
       const cid = r.company_id as string;
@@ -345,7 +402,36 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const rev = Number(r.revenue) || 0;
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
-      const isMachine = MACHINE_RE.test(String((r as any).product_group_1 ?? ""));
+      const groupRaw = String((r as any).product_group_1 ?? "");
+      const isMachine = MACHINE_RE.test(groupRaw);
+      const groupCode = groupRaw.trim().match(/^(\d+)/)?.[1] ?? null;
+      const isConsumable =
+        groupCode === "2" || groupCode === "4" || groupCode === "6" || groupCode === "10";
+
+      // Spor seneste salgs-/consumable-måned (kun måneder med faktisk omsætning)
+      if (rev > 0) {
+        const lsn = lastSalesNow.get(cid);
+        if (!lsn || period > lsn) lastSalesNow.set(cid, period);
+        if (period < thisMonth) {
+          const lsp = lastSalesPrior.get(cid);
+          if (!lsp || period > lsp) lastSalesPrior.set(cid, period);
+        }
+        if (isConsumable) {
+          const lcn = lastConsNow.get(cid);
+          if (!lcn || period > lcn) lastConsNow.set(cid, period);
+          if (period < thisMonth) {
+            const lcp = lastConsPrior.get(cid);
+            if (!lcp || period > lcp) lastConsPrior.set(cid, period);
+          }
+          let cps = consPeriodsByCompany.get(cid);
+          if (!cps) {
+            cps = new Set();
+            consPeriodsByCompany.set(cid, cps);
+          }
+          cps.add(period);
+        }
+      }
+
       const agg =
         aggs.get(cid) ?? {
           monthly: new Map(),
@@ -389,6 +475,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       }
     }
 
+
     // Pro-rata fraction for YTD prior (samme udregning som totals nedenfor)
     const _today = new Date();
     const _isCurMonth =
@@ -399,55 +486,169 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       : 1;
 
 
+    // --- Rytme + status-snapshot pr. kunde ---
+    const ATTENTION_MIN_REV_12M = 25000; // mindst ~25k 12m før trend nedjusterer rytme
+    const TREND_DOWN_PCT = -15; // growthPct < -15% = "trendDown"
+
+    const todayMs = Date.now();
+    const today = new Date();
+    const evalPrior = new Date(today);
+    evalPrior.setUTCDate(evalPrior.getUTCDate() - 30);
+    const cutoff12Now = new Date(today); cutoff12Now.setUTCMonth(cutoff12Now.getUTCMonth() - 12);
+    const cutoff24Now = new Date(today); cutoff24Now.setUTCMonth(cutoff24Now.getUTCMonth() - 24);
+    const cutoff12Prior = new Date(evalPrior); cutoff12Prior.setUTCMonth(cutoff12Prior.getUTCMonth() - 12);
+    const cutoff24Prior = new Date(evalPrior); cutoff24Prior.setUTCMonth(cutoff24Prior.getUTCMonth() - 24);
+
+    const periodToDate = (p: string) => new Date(p + "T00:00:00Z");
+    const parseDate = (s: string | null) => (s ? new Date(s + "T00:00:00Z") : null);
+
     // Build company rows
     const companies: PortfolioCompanyRow[] = (compsMeta as any[]).map((c) => {
       const agg = aggs.get(c.id);
       const monthly = last5.map((p) => ({ period: p, revenue: agg?.monthly.get(p) ?? 0 }));
       const supplied = suppliedMap.get(c.id) ?? null;
+      const revenue12m = agg?.revenue12m ?? 0;
+      const revenue12mPrior = agg?.revenue12mPrior ?? 0;
+
+      // growthPct + trendDown
+      const growthPct =
+        revenue12mPrior > 0
+          ? ((revenue12m - revenue12mPrior) / revenue12mPrior) * 100
+          : null;
+      const trendDown =
+        growthPct !== null && growthPct < TREND_DOWN_PCT && revenue12m >= ATTENTION_MIN_REV_12M;
+
+      // Rytme (måneds-opløsning) — kun ud fra consumable-perioder med rev > 0.
+      const periods = consPeriodsByCompany.get(c.id);
+      let rhythmMonths: number | null = null;
+      if (periods && periods.size >= 3) {
+        const sorted = Array.from(periods).sort();
+        const diffs: number[] = [];
+        for (let i = 1; i < sorted.length; i++) {
+          diffs.push(monthsBetweenPeriods(sorted[i - 1], sorted[i]));
+        }
+        rhythmMonths = medianOf(diffs);
+        if (rhythmMonths < 1) rhythmMonths = 1; // måneds-opløsning gulvet
+      }
+
+      // Måneder siden seneste consumable-køb
+      const lastCons = c.last_consumable_sales_date ?? null;
+      let monthsSinceConsumable: number | null = null;
+      if (lastCons) {
+        const d = periodToDate(lastCons);
+        monthsSinceConsumable =
+          (today.getUTCFullYear() - d.getUTCFullYear()) * 12 +
+          (today.getUTCMonth() - d.getUTCMonth());
+        if (monthsSinceConsumable < 0) monthsSinceConsumable = 0;
+      }
+
+      // Klassifikation: enten rytme-baseret (≥3 aktive måneder) eller fallback 60-d.
+      let rhythmClass: RhythmClass;
+      if (!lastCons) {
+        rhythmClass = "never";
+      } else if (rhythmMonths !== null) {
+        const ratio = (monthsSinceConsumable ?? 0) / rhythmMonths;
+        if (ratio <= 1.5) rhythmClass = "normal";
+        else if (ratio <= 2.5) rhythmClass = "slower";
+        else rhythmClass = "stopped";
+      } else {
+        // Fallback: gammel 60-dages-regel
+        const days = Math.floor((todayMs - periodToDate(lastCons).getTime()) / 86400000);
+        rhythmClass = days <= 60 ? "normal" : days <= 150 ? "slower" : "stopped";
+      }
+
+      // Smelt trend ind: faldende kunde må ikke vise grønt.
+      if (trendDown) {
+        if (rhythmClass === "normal") rhythmClass = "slower";
+        else if (rhythmClass === "slower") rhythmClass = "stopped";
+      }
+
       return {
         id: c.id,
         name: c.name,
         city: c.city ?? null,
         customer_type: c.customer_type ?? null,
         has_active_equipment: !!c.has_active_equipment,
-        last_consumable_sales_date: c.last_consumable_sales_date ?? null,
+        last_consumable_sales_date: lastCons,
         supplied_via_id: supplied?.id ?? null,
         supplied_via_name: supplied?.name ?? null,
         monthly,
-        revenue12m: agg?.revenue12m ?? 0,
-        revenue12mPrior: agg?.revenue12mPrior ?? 0,
+        revenue12m,
+        revenue12mPrior,
         revenueYtd: agg?.revenueYtd ?? 0,
         revenueYtdPriorSamePeriod:
           (agg?.revenueYtdPrior ?? 0) - (agg?.ytdPriorLastMonthRev ?? 0) * (1 - ytdFraction),
-
         contribution12m: isAdmin ? (agg?.contribution12m ?? 0) : null,
         employees: c.employees ?? null,
         is_public: !!c.is_public,
+        rhythmMonths,
+        monthsSinceConsumable,
+        rhythmClass,
+        growthPct,
+        trendDown,
       };
     });
 
-    // Status counts
-    const todayMs = Date.now();
-    let aktive = 0;
-    let sovende = 0;
-    let paaVejVaek = 0;
-    for (const c of companies) {
-      if (c.customer_type === "aktiv_kunde") aktive++;
-      else if (c.customer_type === "sovende_kunde") sovende++;
-      // "På vej væk" = aktiv kunde med udstyr, ingen forbrugsvarekøb (eller >60 dage),
-      // og ikke forsynes_af en anden konto.
-      if (
-        c.customer_type === "aktiv_kunde" &&
-        c.has_active_equipment &&
-        !c.supplied_via_id
-      ) {
-        const last = c.last_consumable_sales_date;
-        const daysSince = last
-          ? Math.floor((todayMs - new Date(last + "T00:00:00Z").getTime()) / 86400000)
-          : Infinity;
-        if (daysSince > 60) paaVejVaek++;
+    // --- Status counts (nu) + deterministisk prior-snapshot (30 dage siden) ---
+    type StatusBuckets = { aktive: number; sovende: number; paaVejVaek: number };
+    const countStatuses = (
+      getLastSales: (cid: string) => string | undefined,
+      getLastCons: (cid: string) => string | undefined,
+      cutoff12: Date,
+      cutoff24: Date,
+      evalDate: Date,
+    ): StatusBuckets => {
+      let aktive = 0;
+      let sovende = 0;
+      let paaVejVaek = 0;
+      for (let i = 0; i < companies.length; i++) {
+        const c = companies[i];
+        const meta = (compsMeta as any[])[i];
+        const lastSalesPeriod = getLastSales(c.id);
+        const lastSalesEffective = lastSalesPeriod
+          ? periodToDate(lastSalesPeriod)
+          : parseDate(meta.last_sales_date ?? null);
+        const lastPurchase = parseDate(meta.last_purchase_date ?? null);
+        let effective: Date | null = null;
+        if (lastSalesEffective) effective = lastSalesEffective;
+        if (lastPurchase && (!effective || lastPurchase.getTime() > effective.getTime())) {
+          effective = lastPurchase;
+        }
+        const type = deriveCustomerType(effective, c.has_active_equipment, cutoff12, cutoff24);
+        if (type === "aktiv_kunde") aktive++;
+        else if (type === "sovende_kunde") sovende++;
+
+        if (type === "aktiv_kunde" && c.has_active_equipment && !c.supplied_via_id) {
+          const lastConsPeriod = getLastCons(c.id);
+          const lastConsDate = lastConsPeriod
+            ? periodToDate(lastConsPeriod)
+            : parseDate(c.last_consumable_sales_date);
+          const daysSince = lastConsDate
+            ? Math.floor((evalDate.getTime() - lastConsDate.getTime()) / 86400000)
+            : Infinity;
+          if (daysSince > 60) paaVejVaek++;
+        }
       }
-    }
+      return { aktive, sovende, paaVejVaek };
+    };
+
+    const statusNow = countStatuses(
+      (cid) => lastSalesNow.get(cid),
+      (cid) => lastConsNow.get(cid),
+      cutoff12Now,
+      cutoff24Now,
+      today,
+    );
+    const statusPrior = countStatuses(
+      (cid) => lastSalesPrior.get(cid),
+      (cid) => lastConsPrior.get(cid),
+      cutoff12Prior,
+      cutoff24Prior,
+      evalPrior,
+    );
+    const aktive = statusNow.aktive;
+    const sovende = statusNow.sovende;
+    const paaVejVaek = statusNow.paaVejVaek;
 
     // --- Rankings ---
     const toRanking = (c: PortfolioCompanyRow): RankingRow => ({
@@ -459,12 +660,15 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       revenueYtd: c.revenueYtd,
       revenueYtdPriorSamePeriod: c.revenueYtdPriorSamePeriod,
       contribution12m: c.contribution12m,
-
       last_consumable_sales_date: c.last_consumable_sales_date,
       supplied_via_name: c.supplied_via_name,
       supplied_via_id: c.supplied_via_id,
       employees: c.employees,
       ratio: c.employees && c.employees > 0 ? c.revenue12m / c.employees : null,
+      rhythmClass: c.rhythmClass,
+      monthsSinceConsumable: c.monthsSinceConsumable,
+      rhythmMonths: c.rhythmMonths,
+      trendDown: c.trendDown,
     });
 
     const topRevenue = [...companies]
@@ -473,13 +677,25 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       .slice(0, 25)
       .map(toRanking);
 
-    const activeCompanies = companies.filter((c) => c.customer_type === "aktiv_kunde");
-    const bottomRevenueActive = [...activeCompanies]
-      .filter((c) => c.revenueYtd > 0)
-      .sort((a, b) => a.revenueYtd - b.revenueYtd)
-      .slice(0, 25)
-      .map(toRanking);
+    // Bevægelse i YTD vs. samme periode sidste år (pro-rata-justeret prior).
+    // Kræver at kunden havde reel omsætning sidste år ELLER har den i år.
+    const withYtdDelta = companies
+      .filter((c) => c.revenueYtdPriorSamePeriod > 0 || c.revenueYtd > 0)
+      .map((c) => ({ c, delta: c.revenueYtd - c.revenueYtdPriorSamePeriod }));
 
+    const topDecliners = withYtdDelta
+      .filter(({ delta }) => delta < 0)
+      .sort((a, b) => a.delta - b.delta)
+      .slice(0, 25)
+      .map(({ c }) => toRanking(c));
+
+    const topGrowers = withYtdDelta
+      .filter(({ delta }) => delta > 0)
+      .sort((a, b) => b.delta - a.delta)
+      .slice(0, 25)
+      .map(({ c }) => toRanking(c));
+
+    const activeCompanies = companies.filter((c) => c.customer_type === "aktiv_kunde");
 
     const topContribution: RankingRow[] | null = isAdmin
       ? [...companies]
@@ -488,6 +704,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           .slice(0, 25)
           .map(toRanking)
       : null;
+
 
     // Potentiale: active + private (ikke offentlig) + employees>0
     const potentialPool = activeCompanies.filter((c) => !c.is_public);
@@ -600,7 +817,6 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       .sort((a, b) => (a.growthPct ?? 0) - (b.growthPct ?? 0));
 
     // 5 / 6) Udløb inden for 90 dage
-    const today = new Date();
     const today_s = today.toISOString().slice(0, 10);
     const in90 = new Date(today);
     in90.setDate(in90.getDate() + 90);
@@ -662,7 +878,6 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       totals: (() => {
         // Pro-rata: hvis refPeriod = indeværende måned, reducér sidste års samme måned
         // til samme dag-fraktion. Ellers antages refMonth fuldt indlæst (fraction=1).
-        const today = new Date();
         const isCurMonth =
           today.getUTCFullYear() === refYear && today.getUTCMonth() + 1 === refMonth;
         const daysInMonth = new Date(Date.UTC(refYear, refMonth, 0)).getUTCDate();
@@ -687,11 +902,13 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         paaVejVaek,
         total: companies.length,
       },
+      statusCountsPrior: statusPrior,
       monthLabels,
       companies,
       rankings: {
         topRevenue,
-        bottomRevenueActive,
+        topDecliners,
+        topGrowers,
         topContribution,
         potential,
         potentialScatter,
@@ -707,4 +924,5 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       },
     };
   });
+
 
