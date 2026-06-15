@@ -474,15 +474,20 @@ export const importAgreementProspects = createServerFn({ method: "POST" })
       .single();
     if (listErr) throw new Error(listErr.message);
 
-    const assignments = incoming
-      .map((r) => existingMap.get(r.cvr))
-      .filter((id): id is string => !!id)
-      .map((company_id) => ({
-        contact_list_id: list.id,
-        company_id,
-        status: "ny" as const,
-        priority: "middel" as const,
-      }));
+    // Flad ud: én aftale-emne-binding per (cvr × matchende company).
+    // Dedupé på company_id i fald samme firma optræder via flere CVR-rækker.
+    const companyIdsForAssignment = new Set<string>();
+    for (const r of incoming) {
+      const ids = existingMap.get(r.cvr) ?? [];
+      for (const id of ids) companyIdsForAssignment.add(id);
+    }
+    const assignments = Array.from(companyIdsForAssignment).map((company_id) => ({
+      contact_list_id: list.id,
+      company_id,
+      status: "ny" as const,
+      priority: "middel" as const,
+    }));
+
 
     let assigned = 0;
     for (let i = 0; i < assignments.length; i += 500) {
