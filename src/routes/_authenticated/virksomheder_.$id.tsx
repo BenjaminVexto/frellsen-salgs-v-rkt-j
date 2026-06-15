@@ -467,7 +467,7 @@ function VirksomhedsKort() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_300px] gap-6">
         {/* VENSTRE — Stamdata (rykkes ned på mobil; brief'en dækker top) */}
-        <Card className="p-5 h-fit">
+        <Card className="p-5 h-fit order-3 lg:order-1">
           <div className="flex items-start justify-between mb-3">
             <div className="bg-muted rounded-md p-2">
               <Building2 className="h-5 w-5" />
