@@ -333,6 +333,8 @@ function ImportSide() {
   const upsertContacts = useServerFn(importUpsertContacts);
   const enqueueEnrich = useServerFn(enqueueCvrEnrichment);
   const fetchQueueStatus = useServerFn(getCvrEnrichmentQueueStatus);
+  const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
+
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
