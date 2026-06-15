@@ -101,6 +101,21 @@ function VirksomhederListe() {
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
 
+  const isMobile = useIsMobile();
+  const userId = auth.user?.id ?? null;
+  // På mobil: vis kun "mine" virksomheder ved start, så sælgerne ikke møder 16k+ rækker.
+  // Aktiveres KUN når søgefeltet er tomt og ingen filtre er sat — så søgning rammer hele basen.
+  const mobileMineActive =
+    isMobile &&
+    !q.trim() &&
+    !isFilterActive &&
+    !recentIds &&
+    !!userId;
+  const displayed = useMemo(() => {
+    if (!mobileMineActive) return filtered;
+    return filtered.filter((r) => (r as any).assigned_to === userId);
+  }, [filtered, mobileMineActive, userId]);
+
   const loadTemplates = async () => {
     const { data } = await (supabase as any)
       .from("filter_templates")
@@ -114,10 +129,10 @@ function VirksomhederListe() {
 
   useEffect(() => {
     setPage(0);
-  }, [filters, q, recentIds]);
+  }, [filters, q, recentIds, mobileMineActive]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(displayed.length / PAGE_SIZE));
+  const pageRows = displayed.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const clearRecent = () => {
     sessionStorage.removeItem(RECENT_KEY);
