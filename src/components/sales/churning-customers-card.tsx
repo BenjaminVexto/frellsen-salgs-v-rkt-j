@@ -11,13 +11,17 @@ import { DismissChurnDialog } from "./dismiss-churn-dialog";
 import { useViewAs } from "@/contexts/view-as-context";
 import { MutationGate } from "@/components/mutation-gate";
 
-export function ChurningCustomersCard({ initialVisible = 2 }: { initialVisible?: number } = {}) {
+export function ChurningCustomersCard({
+  initialVisible = 2,
+  teamScope = false,
+}: { initialVisible?: number; teamScope?: boolean } = {}) {
   const fetchFn = useServerFn(getMyChurningCustomers);
   const { viewAsUserId } = useViewAs();
   const q = useQuery({
-    queryKey: ["my-churning", viewAsUserId],
-    queryFn: () => fetchFn({ data: { viewAsUserId } }),
+    queryKey: ["my-churning", viewAsUserId, teamScope],
+    queryFn: () => fetchFn({ data: { viewAsUserId, teamScope } }),
   });
+
 
   const [dismiss, setDismiss] = useState<{ id: string; name: string } | null>(null);
   const [expanded, setExpanded] = useState(false);

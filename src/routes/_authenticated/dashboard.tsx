@@ -36,18 +36,25 @@ function DashboardPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  // Mens admin "ser som" sælger, opfører dashboardet sig som om brugeren ikke er admin
+  // (så de samme seller-scoping-filtre gælder).
+  // Salgssupport behandles som admin: team-bredt overblik på tværs af sælgere.
+  const isSupport = auth.role === "salgssupport";
+  const isAdmin = (auth.role === "admin" || isSupport) && !isImpersonating;
+
   const followupsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-followups", userId],
+    queryKey: ["dashboard-followups", userId, isAdmin],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("contact_list_assignments")
         .select(
-          "id, status, priority, next_followup_date, next_action_note, company:companies(id, name, city)"
+          "id, status, priority, next_followup_date, next_action_note, assigned_to, company:companies(id, name, city)"
         )
-        .eq("assigned_to", userId!)
         .not("next_followup_date", "is", null)
         .order("next_followup_date", { ascending: true });
+      if (!isAdmin) q = q.eq("assigned_to", userId!);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -55,16 +62,17 @@ function DashboardPage() {
 
   const hotOppsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-hot-opps", userId],
+    queryKey: ["dashboard-hot-opps", userId, isAdmin],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("sales_opportunities")
         .select(
           "id, name, status, estimated_value, next_followup_date, company:companies(id, name)"
         )
-        .eq("assigned_to", userId!)
         .in("status", ["tilbud_sendt", "møde_demo"])
         .order("next_followup_date", { ascending: true, nullsFirst: false });
+      if (!isAdmin) q = q.eq("assigned_to", userId!);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -72,13 +80,14 @@ function DashboardPage() {
 
   const listsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-lists", userId],
+    queryKey: ["dashboard-lists", userId, isAdmin],
     queryFn: async () => {
-      // hent unikke kontaktlister via assignments
-      const { data: assignments, error } = await supabase
+      // hent unikke kontaktlister via assignments (team-bredt for admin/support)
+      let q = supabase
         .from("contact_list_assignments")
-        .select("contact_list_id, status, contact_list:contact_lists(id, name, is_active)")
-        .eq("assigned_to", userId!);
+        .select("contact_list_id, status, contact_list:contact_lists(id, name, is_active)");
+      if (!isAdmin) q = q.eq("assigned_to", userId!);
+      const { data: assignments, error } = await q;
       if (error) throw error;
 
       const byList = new Map<
@@ -104,11 +113,6 @@ function DashboardPage() {
     },
   });
 
-  // Mens admin "ser som" sælger, opfører dashboardet sig som om brugeren ikke er admin
-  // (så de samme seller-scoping-filtre gælder).
-  // Salgssupport behandles som admin: team-bredt overblik på tværs af sælgere.
-  const isSupport = auth.role === "salgssupport";
-  const isAdmin = (auth.role === "admin" || isSupport) && !isImpersonating;
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
@@ -214,63 +218,59 @@ function DashboardPage() {
     <div className="px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
       <PersonalGreeting firstName={auth.fullName ? auth.fullName.split(" ")[0] : null} followupsToday={todays.length} />
 
-      {/* 1. DIN MÅNED — personlig portefølje; skjules for salgssupport (intet personligt budget) */}
-      {!isSupport && (
-        <div className="mb-6 md:mb-8">
-          <MyMonthZone />
-        </div>
-      )}
+      {/* 1. DIN MÅNED — personlig for sælgere, team-bredt for admin/support */}
+      <div className="mb-6 md:mb-8">
+        <MyMonthZone teamScope={isAdmin} />
+      </div>
 
-      {/* 2. DAGENS OPFØLGNINGER — personlige opfølgninger; skjules for salgssupport */}
-      {!isSupport && (
-        <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8">
-          <PanelCard
-            title="Dagens fokus"
-            icon={<CalendarCheck className="h-5 w-5" />}
-            tone="success"
-            count={todays.length}
-            emptyText="Ingen opfølgninger planlagt i dag."
-            loading={followupsQuery.isLoading}
-          >
-            {todays.map((item: any) => (
-              <FollowupRow
-                key={item.id}
-                company={item.company?.name ?? "Ukendt"}
-                meta={item.company?.city}
-                dateLabel="I dag"
-                note={item.next_action_note}
-                tone="success"
-                to="/virksomheder"
-              />
-            ))}
-          </PanelCard>
+      {/* 2. DAGENS OPFØLGNINGER — personlige for sælgere, team-brede for admin/support */}
+      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8">
+        <PanelCard
+          title={isAdmin ? "Dagens fokus (team)" : "Dagens fokus"}
+          icon={<CalendarCheck className="h-5 w-5" />}
+          tone="success"
+          count={todays.length}
+          emptyText="Ingen opfølgninger planlagt i dag."
+          loading={followupsQuery.isLoading}
+        >
+          {todays.map((item: any) => (
+            <FollowupRow
+              key={item.id}
+              company={item.company?.name ?? "Ukendt"}
+              meta={item.company?.city}
+              dateLabel="I dag"
+              note={item.next_action_note}
+              tone="success"
+              to="/virksomheder"
+            />
+          ))}
+        </PanelCard>
 
-          <PanelCard
-            title="Overskredet"
-            icon={<AlertTriangle className="h-5 w-5" />}
-            tone="destructive"
-            count={overdue.length}
-            emptyText="Ingen overskredne opfølgninger — flot!"
-            loading={followupsQuery.isLoading}
-          >
-            {overdue.slice(0, 8).map((item: any) => (
-              <FollowupRow
-                key={item.id}
-                company={item.company?.name ?? "Ukendt"}
-                meta={item.company?.city}
-                dateLabel={format(parseISO(item.next_followup_date), "d. MMM", { locale: da })}
-                note={item.next_action_note}
-                tone="destructive"
-                to="/virksomheder"
-              />
-            ))}
-          </PanelCard>
-        </div>
-      )}
+        <PanelCard
+          title={isAdmin ? "Overskredet (team)" : "Overskredet"}
+          icon={<AlertTriangle className="h-5 w-5" />}
+          tone="destructive"
+          count={overdue.length}
+          emptyText="Ingen overskredne opfølgninger — flot!"
+          loading={followupsQuery.isLoading}
+        >
+          {overdue.slice(0, 8).map((item: any) => (
+            <FollowupRow
+              key={item.id}
+              company={item.company?.name ?? "Ukendt"}
+              meta={item.company?.city}
+              dateLabel={format(parseISO(item.next_followup_date), "d. MMM", { locale: da })}
+              note={item.next_action_note}
+              tone="destructive"
+              to="/virksomheder"
+            />
+          ))}
+        </PanelCard>
+      </div>
 
       {/* 3. KUNDER PÅ VEJ VÆK + AFTALER UDLØBER (side om side) */}
       <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
-        {!isSupport && <ChurningCustomersCard initialVisible={2} />}
+        <ChurningCustomersCard initialVisible={2} teamScope={isAdmin} />
         <ExpiringCustomersCard
           customers={expiringMachines}
           loading={expiringMachinesQuery.isLoading}
@@ -280,35 +280,34 @@ function DashboardPage() {
 
 
 
-      {/* 4. KOMPAKT TÆLLER-RÆKKE — personlige tællere skjules for salgssupport */}
-      {!isSupport && (
-        <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-3">
-          <CompactStat
-            to="/virksomheder"
-            icon={<Flame className="h-4 w-4" />}
-            tone="warning"
-            title="Varme muligheder"
-            count={hotOppsQuery.data?.length ?? 0}
-            loading={hotOppsQuery.isLoading}
-          />
-          <CompactStat
-            to="/kontaktlister"
-            icon={<ListChecks className="h-4 w-4" />}
-            tone="primary"
-            title="Mine kontaktlister"
-            count={listsQuery.data?.length ?? 0}
-            loading={listsQuery.isLoading}
-          />
-          <CompactStat
-            to="/virksomheder"
-            icon={<FileText className="h-4 w-4" />}
-            tone="warning"
-            title="Emner – konkurrentaftaler"
-            count={expiringProspects.length}
-            loading={expiringDocsQuery.isLoading}
-          />
-        </div>
-      )}
+      {/* 4. KOMPAKT TÆLLER-RÆKKE */}
+      <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-3">
+        <CompactStat
+          to="/virksomheder"
+          icon={<Flame className="h-4 w-4" />}
+          tone="warning"
+          title={isAdmin ? "Varme muligheder" : "Varme muligheder"}
+          count={hotOppsQuery.data?.length ?? 0}
+          loading={hotOppsQuery.isLoading}
+        />
+        <CompactStat
+          to="/kontaktlister"
+          icon={<ListChecks className="h-4 w-4" />}
+          tone="primary"
+          title={isAdmin ? "Kontaktlister" : "Mine kontaktlister"}
+          count={listsQuery.data?.length ?? 0}
+          loading={listsQuery.isLoading}
+        />
+        <CompactStat
+          to="/virksomheder"
+          icon={<FileText className="h-4 w-4" />}
+          tone="warning"
+          title="Emner – konkurrentaftaler"
+          count={expiringProspects.length}
+          loading={expiringDocsQuery.isLoading}
+        />
+      </div>
+
 
 
     </div>

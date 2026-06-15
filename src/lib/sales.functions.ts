@@ -18,6 +18,16 @@ async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
+async function isTeamScopeUser(supabase: any, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "salgssupport"])
+    .maybeSingle();
+  return !!data;
+}
+
 /**
  * For read-only serverfns: returns the requested viewAs userId if the caller is admin,
  * otherwise the caller's own userId. Sælgere kan aldrig "snyde" via viewAsUserId.
@@ -31,6 +41,7 @@ async function resolveEffectiveUserId(
   const admin = await isAdminUser(supabase, callerUserId);
   return admin ? requestedViewAsUserId : callerUserId;
 }
+
 
 const SALES_PAGE_SIZE = 1000;
 
@@ -294,7 +305,7 @@ async function getSellerCompanyIds(supabase: any, userId: string): Promise<strin
 
 export const getMyMonthlySales = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
   .handler(async ({ data, context }): Promise<{
     revenue: number;
     companies: number;
@@ -304,34 +315,59 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
     comparisonMode: "full_month";
   }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
-    const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
+    const teamScope =
+      !!data.teamScope &&
+      !data.viewAsUserId &&
+      (await isTeamScopeUser(context.supabase, context.userId));
     const d = new Date();
     const period = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
     const periodLastYear = `${d.getUTCFullYear() - 1}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-    if (!companyIds.length) {
-      return { revenue: 0, companies: 0, period, revenueLastYear: 0, periodLastYear, comparisonMode: "full_month" };
-    }
 
     let revenue = 0;
     let revenueLastYear = 0;
     const compsWithSales = new Set<string>();
-    const rows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
-      context.supabase
-        .from("sales_monthly")
-        .select("company_id, period, revenue")
-        .in("company_id", slice)
-        .in("period", [period, periodLastYear])
-        .range(from, to),
-    );
-    rows.forEach((r: any) => {
-      const rev = Number(r.revenue) || 0;
-      if (r.period === period) {
-        revenue += rev;
-        if (r.company_id) compsWithSales.add(r.company_id);
-      } else if (r.period === periodLastYear) {
-        revenueLastYear += rev;
+
+    if (teamScope) {
+      const client = supabaseAdmin;
+      const rows = await fetchAllSalesMonthlyRows((from, to) =>
+        client
+          .from("sales_monthly")
+          .select("company_id, period, revenue")
+          .in("period", [period, periodLastYear])
+          .range(from, to),
+      );
+      rows.forEach((r: any) => {
+        const rev = Number(r.revenue) || 0;
+        if (r.period === period) {
+          revenue += rev;
+          if (r.company_id) compsWithSales.add(r.company_id);
+        } else if (r.period === periodLastYear) {
+          revenueLastYear += rev;
+        }
+      });
+    } else {
+      const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
+      if (!companyIds.length) {
+        return { revenue: 0, companies: 0, period, revenueLastYear: 0, periodLastYear, comparisonMode: "full_month" };
       }
-    });
+      const rows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
+        context.supabase
+          .from("sales_monthly")
+          .select("company_id, period, revenue")
+          .in("company_id", slice)
+          .in("period", [period, periodLastYear])
+          .range(from, to),
+      );
+      rows.forEach((r: any) => {
+        const rev = Number(r.revenue) || 0;
+        if (r.period === period) {
+          revenue += rev;
+          if (r.company_id) compsWithSales.add(r.company_id);
+        } else if (r.period === periodLastYear) {
+          revenueLastYear += rev;
+        }
+      });
+    }
 
     return {
       revenue,
@@ -345,19 +381,25 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
 
 export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ count: number }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
+    const teamScope =
+      !!data.teamScope &&
+      !data.viewAsUserId &&
+      (await isTeamScopeUser(context.supabase, context.userId));
     const d = new Date();
     const monthStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
-    const { count, error } = await context.supabase
+    let q = context.supabase
       .from("activities")
       .select("id", { count: "exact", head: true })
-      .eq("created_by", effectiveUserId)
       .gte("created_at", monthStart);
+    if (!teamScope) q = q.eq("created_by", effectiveUserId);
+    const { count, error } = await q;
     if (error) throw error;
     return { count: count ?? 0 };
   });
+
 
 export type ChurningCustomer = {
   company_id: string;
@@ -369,11 +411,13 @@ export type ChurningCustomer = {
 
 export const getMyChurningCustomers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ customers: ChurningCustomer[]; hasData: boolean }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
-    const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
-    if (!companyIds.length) return { customers: [], hasData: false };
+    const teamScope =
+      !!data.teamScope &&
+      !data.viewAsUserId &&
+      (await isTeamScopeUser(context.supabase, context.userId));
 
     const cutoff = new Date();
     cutoff.setUTCMonth(cutoff.getUTCMonth() - 24);
@@ -381,19 +425,33 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
     const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
     type Row = { company_id: string; period: string; revenue: number };
-    const rawRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
-      context.supabase
-        .from("sales_monthly")
-        .select("company_id, period, revenue")
-        .in("company_id", slice)
-        .gte("period", cutoffStr)
-        .range(from, to),
-    );
+    let rawRows: any[];
+    if (teamScope) {
+      rawRows = await fetchAllSalesMonthlyRows((from, to) =>
+        supabaseAdmin
+          .from("sales_monthly")
+          .select("company_id, period, revenue")
+          .gte("period", cutoffStr)
+          .range(from, to),
+      );
+    } else {
+      const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
+      if (!companyIds.length) return { customers: [], hasData: false };
+      rawRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
+        context.supabase
+          .from("sales_monthly")
+          .select("company_id, period, revenue")
+          .in("company_id", slice)
+          .gte("period", cutoffStr)
+          .range(from, to),
+      );
+    }
     const rows: Row[] = rawRows
       .filter((r: any) => r.company_id)
       .map((r: any) => ({ company_id: r.company_id, period: r.period, revenue: Number(r.revenue) || 0 }));
 
     if (!rows.length) return { customers: [], hasData: false };
+
 
     type Acc = { periods: Set<string>; lastPeriod: string | null; totalRevenue: number };
     const byCompany = new Map<string, Acc>();
@@ -449,7 +507,7 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
       );
       for (const d of relevant) {
         if (d.reason === "paused") {
-          if (d.snooze_user_id === effectiveUserId && d.snooze_until && d.snooze_until >= today) {
+          if ((teamScope || d.snooze_user_id === effectiveUserId) && d.snooze_until && d.snooze_until >= today) {
             dismissedSet.add(cand.company_id);
             break;
           }
