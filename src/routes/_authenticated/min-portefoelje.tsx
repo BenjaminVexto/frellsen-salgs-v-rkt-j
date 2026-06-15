@@ -389,22 +389,25 @@ function PortfolioPage() {
               <TabsContent value="revenue" className="mt-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <RankingTable
-                    title={rankingsExpanded ? "Top 25 — højest omsætning (12 mdr.)" : "Top 5 — højest omsætning (12 mdr.)"}
+                    title={rankingsExpanded ? "Top 25 — højest omsætning (år-til-dato)" : "Top 5 — højest omsætning (år-til-dato)"}
                     rows={data.rankings.topRevenue}
                     valueLabel="Omsætning"
+                    valueField="revenueYtd"
                     showTrend
                     limit={rankingsExpanded ? undefined : 5}
                   />
                   <RankingTable
-                    title={rankingsExpanded ? "Bund 25 — lavest omsætning blandt aktive" : "Bund 5 — lavest omsætning blandt aktive"}
+                    title={rankingsExpanded ? "Bund 25 — lavest omsætning blandt aktive (år-til-dato)" : "Bund 5 — lavest omsætning blandt aktive (år-til-dato)"}
                     rows={data.rankings.bottomRevenueActive}
                     valueLabel="Omsætning"
+                    valueField="revenueYtd"
                     showTrend
                     emptyText="Ingen aktive kunder i porteføljen."
                     limit={rankingsExpanded ? undefined : 5}
                   />
                 </div>
               </TabsContent>
+
 
               {isAdmin && data.rankings.topContribution && (
                 <TabsContent value="db" className="mt-4">
