@@ -57,7 +57,9 @@ const firstFilled = (...values: Array<string | null | undefined>) => {
 function VirksomhederListe() {
   const auth = useAuth();
   const navigate = useNavigate();
-  const isAdmin = auth.role === "admin";
+  // Salgssupport arbejder på tværs af sælgere → samme filter-/visningsadgang som admin.
+  const isAdmin = auth.role === "admin" || auth.role === "salgssupport";
+  const isSupport = auth.role === "salgssupport";
 
   const [recentIds, setRecentIds] = useState<string[] | null>(null);
   useEffect(() => {
@@ -105,8 +107,10 @@ function VirksomhederListe() {
   const userId = auth.user?.id ?? null;
   // På mobil: vis kun "mine" virksomheder ved start, så sælgerne ikke møder 16k+ rækker.
   // Aktiveres KUN når søgefeltet er tomt og ingen filtre er sat — så søgning rammer hele basen.
+  // Salgssupport har ingen egen portefølje → filteret giver ikke mening og deaktiveres.
   const mobileMineActive =
     isMobile &&
+    !isSupport &&
     !q.trim() &&
     !isFilterActive &&
     !recentIds &&

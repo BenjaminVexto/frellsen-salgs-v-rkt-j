@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
@@ -41,6 +42,14 @@ type SortKey =
 
 
 function PortfolioPage() {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  // Salgssupport har ingen egen portefølje → omdirigér til Mit overblik (team-bredt).
+  useEffect(() => {
+    if (auth.role === "salgssupport") {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [auth.role, navigate]);
   const fn = useServerFn(getMyPortfolio);
   const { viewAsUserId, isImpersonating } = useViewAs();
   // Når admin "ser som" sælger, låses sellerId til den sælger.
