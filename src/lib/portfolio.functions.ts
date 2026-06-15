@@ -468,17 +468,18 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     });
 
     const topRevenue = [...companies]
-      .filter((c) => c.revenue12m > 0)
-      .sort((a, b) => b.revenue12m - a.revenue12m)
+      .filter((c) => c.revenueYtd > 0)
+      .sort((a, b) => b.revenueYtd - a.revenueYtd)
       .slice(0, 25)
       .map(toRanking);
 
     const activeCompanies = companies.filter((c) => c.customer_type === "aktiv_kunde");
     const bottomRevenueActive = [...activeCompanies]
-      .filter((c) => c.revenue12m > 0)
-      .sort((a, b) => a.revenue12m - b.revenue12m)
+      .filter((c) => c.revenueYtd > 0)
+      .sort((a, b) => a.revenueYtd - b.revenueYtd)
       .slice(0, 25)
       .map(toRanking);
+
 
     const topContribution: RankingRow[] | null = isAdmin
       ? [...companies]
