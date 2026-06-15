@@ -384,6 +384,16 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     // revenue12m/contribution12m bevares som TOTAL (inkl. maskiner).
     const MACHINE_RE = /^\s*16\s*\[/;
 
+    // --- Pr-kunde sporing for rytme + prior-snapshot ---
+    // Aktive consumable-måneder (revenue > 0 i prisgruppe 2/4/6/10) — bruges til rytme-median.
+    const consPeriodsByCompany = new Map<string, Set<string>>();
+    // Seneste salgs-/consumable-måned for "nu" (alle perioder i salesRows) og for
+    // "30 dage siden" (kun perioder < indeværende måned).
+    const lastSalesNow = new Map<string, string>();
+    const lastSalesPrior = new Map<string, string>();
+    const lastConsNow = new Map<string, string>();
+    const lastConsPrior = new Map<string, string>();
+
 
     for (const r of salesRows) {
       const cid = r.company_id as string;
@@ -392,7 +402,36 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const rev = Number(r.revenue) || 0;
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
-      const isMachine = MACHINE_RE.test(String((r as any).product_group_1 ?? ""));
+      const groupRaw = String((r as any).product_group_1 ?? "");
+      const isMachine = MACHINE_RE.test(groupRaw);
+      const groupCode = groupRaw.trim().match(/^(\d+)/)?.[1] ?? null;
+      const isConsumable =
+        groupCode === "2" || groupCode === "4" || groupCode === "6" || groupCode === "10";
+
+      // Spor seneste salgs-/consumable-måned (kun måneder med faktisk omsætning)
+      if (rev > 0) {
+        const lsn = lastSalesNow.get(cid);
+        if (!lsn || period > lsn) lastSalesNow.set(cid, period);
+        if (period < thisMonth) {
+          const lsp = lastSalesPrior.get(cid);
+          if (!lsp || period > lsp) lastSalesPrior.set(cid, period);
+        }
+        if (isConsumable) {
+          const lcn = lastConsNow.get(cid);
+          if (!lcn || period > lcn) lastConsNow.set(cid, period);
+          if (period < thisMonth) {
+            const lcp = lastConsPrior.get(cid);
+            if (!lcp || period > lcp) lastConsPrior.set(cid, period);
+          }
+          let cps = consPeriodsByCompany.get(cid);
+          if (!cps) {
+            cps = new Set();
+            consPeriodsByCompany.set(cid, cps);
+          }
+          cps.add(period);
+        }
+      }
+
       const agg =
         aggs.get(cid) ?? {
           monthly: new Map(),
@@ -435,6 +474,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         aggs.set(cid, agg);
       }
     }
+
 
     // Pro-rata fraction for YTD prior (samme udregning som totals nedenfor)
     const _today = new Date();
