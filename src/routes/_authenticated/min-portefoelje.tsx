@@ -42,6 +42,14 @@ type SortKey =
 
 
 function PortfolioPage() {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  // Salgssupport har ingen egen portefølje → omdirigér til Mit overblik (team-bredt).
+  useEffect(() => {
+    if (auth.role === "salgssupport") {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [auth.role, navigate]);
   const fn = useServerFn(getMyPortfolio);
   const { viewAsUserId, isImpersonating } = useViewAs();
   // Når admin "ser som" sælger, låses sellerId til den sælger.
