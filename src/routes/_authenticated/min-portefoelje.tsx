@@ -906,7 +906,10 @@ function RankingTable({
                     ? r.contribution12m ?? 0
                     : valueField === "ratio"
                     ? r.ratio ?? 0
+                    : valueField === "revenueYtd"
+                    ? r.revenueYtd
                     : r.revenue12m;
+
                 return (
                   <tr key={r.id} className="border-t border-border hover:bg-accent/30">
                     <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
