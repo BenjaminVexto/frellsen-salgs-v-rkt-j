@@ -7,6 +7,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   createImportBatch,
   importUpsertCompaniesByCvr,
+  importUpsertCompaniesByVismaId,
   importInsertCompaniesNoCvr,
   importUpdateCompaniesById,
   importInsertLocations,
