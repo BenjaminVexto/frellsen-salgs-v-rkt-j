@@ -29,6 +29,9 @@ const ENRICHMENT_COLUMN_FIELDS = new Set([
   "beregnet_slutdato",
   "handlingsdato",
   "handlingsdato_raw",
+  "kobt_dato",
+  "lease_leje_dato",
+  "aftale_type",
 ]);
 
 const EnrichmentRow = z
@@ -39,6 +42,10 @@ const EnrichmentRow = z
     beregnet_slutdato: z.string().nullable().optional(),
     handlingsdato: z.string().nullable().optional(),
     handlingsdato_raw: z.string().nullable().optional(),
+    // Ejerskabs-/klassifikationsfelter fra Wittenborg G2/G4.
+    kobt_dato: z.string().nullable().optional(),
+    lease_leje_dato: z.string().nullable().optional(),
+    aftale_type: z.string().nullable().optional(),
     // Lokations- og maskintype-felter fra Wittenborg SN-listen.
     lev_kundenr: z.string().nullable().optional(),
     fak_kundenr: z.string().nullable().optional(),
@@ -48,6 +55,7 @@ const EnrichmentRow = z
     data: z.record(z.any()).nullable().optional(),
   })
   .passthrough();
+
 
 
 const t = (s: unknown): string => (s == null ? "" : String(s).trim());
