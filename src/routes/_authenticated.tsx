@@ -95,10 +95,14 @@ function AuthenticatedShell() {
   }
 
 
+  // Salgssupport har ingen egen portefølje/budget — skjul "Min salgsstatistik".
+  const isSupport = auth.role === "salgssupport";
   const navItems = [
     { to: "/dashboard", label: "Mit overblik", shortLabel: "Overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", shortLabel: "Firmaer", icon: Building2 },
-    { to: "/min-portefoelje", label: "Min salgsstatistik", shortLabel: "Statistik", icon: TrendingUp },
+    ...(isSupport
+      ? []
+      : [{ to: "/min-portefoelje", label: "Min salgsstatistik", shortLabel: "Statistik", icon: TrendingUp }]),
     { to: "/aftaler", label: "Aftaler", shortLabel: "Aftaler", icon: FileText },
     { to: "/kontaktlister", label: "Kontaktlister", shortLabel: "Lister", icon: ListChecks },
     { to: "/konkurrenter", label: "Konkurrenter", shortLabel: "Konkur.", icon: ShieldAlert },
