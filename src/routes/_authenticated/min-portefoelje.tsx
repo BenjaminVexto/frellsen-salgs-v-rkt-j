@@ -231,9 +231,9 @@ function PortfolioPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Kaffe: alle</SelectItem>
-                  <SelectItem value="green">Grøn (≤60d)</SelectItem>
-                  <SelectItem value="yellow">Gul (&gt;60d)</SelectItem>
-                  <SelectItem value="red">Rød (ingen køb)</SelectItem>
+                  <SelectItem value="green">Køber normalt</SelectItem>
+                  <SelectItem value="yellow">Køber sjældnere end før</SelectItem>
+                  <SelectItem value="red">Stoppet / aldrig købt</SelectItem>
                   <SelectItem value="via">Via anden konto</SelectItem>
                 </SelectContent>
               </Select>
