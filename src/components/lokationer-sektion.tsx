@@ -650,11 +650,11 @@ function EquipmentBox({ location }: { location: Location }) {
     {} as Record<Ownership, number>,
   );
   const summaryParts: string[] = [];
-  if (ownershipCounts.kundeejet) summaryParts.push(`${ownershipCounts.kundeejet} kundeejede`);
-  if (ownershipCounts.leje) summaryParts.push(`${ownershipCounts.leje} leje`);
-  if (ownershipCounts.gratis_udlaan) summaryParts.push(`${ownershipCounts.gratis_udlaan} gratis udlån`);
-  if (ownershipCounts.midlertidigt) summaryParts.push(`${ownershipCounts.midlertidigt} midlertidigt`);
+  if (ownershipCounts.kunde_ejet) summaryParts.push(`${ownershipCounts.kunde_ejet} kundeejede`);
+  if (ownershipCounts.leje_binding) summaryParts.push(`${ownershipCounts.leje_binding} leje`);
+  if (ownershipCounts.leje_ub) summaryParts.push(`${ownershipCounts.leje_ub} leje U/B`);
   if (ownershipCounts.ukendt) summaryParts.push(`${ownershipCounts.ukendt} ukendt`);
+
 
   // Gruppér efter machine_type
   const groupBy = (list: EquipmentUnit[]) => {
