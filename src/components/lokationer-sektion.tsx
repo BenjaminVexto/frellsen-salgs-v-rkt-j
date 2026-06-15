@@ -561,7 +561,7 @@ function EquipmentBox({ location }: { location: Location }) {
     (async () => {
       const { data } = await (supabase as any)
         .from("location_equipment_units")
-        .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract")
+        .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, udstyr_type")
         .eq("location_id", location.id)
         .order("is_filter", { ascending: true })
         .order("machine_type", { ascending: true });
