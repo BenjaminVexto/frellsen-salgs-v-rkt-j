@@ -116,6 +116,49 @@ function isFilterUnit(text: string): boolean {
   const s = (text || "").toLowerCase();
   return UNIT_FILTER_KEYWORDS.some((k) => s.includes(k));
 }
+
+// ---- Klassifikation af udstyrs-ejerskab ----
+// Fire værdier matcher CHECK-constraint på location_equipment_units.udstyr_type.
+type UdstyrType = "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
+
+// Wittenborg-maskine: klassificér fra egen enrichment-række.
+// Trin 1: lease_leje_dato → Frellsen-ejet → trin 4.
+// Trin 2: kobt_dato → kunde_ejet.
+// Trin 3: G4-fallback på aftale_type.
+// Trin 4 (kun Frellsen-ejet): binding_ophor → leje_binding, ellers leje_ub.
+function classifyWittenborg(r: {
+  kobt_dato?: string | null;
+  lease_leje_dato?: string | null;
+  binding_ophor?: string | null;
+  aftale_type?: string | null;
+}): UdstyrType {
+  const lease = normDate(r.lease_leje_dato);
+  const kobt = normDate(r.kobt_dato);
+  const binding = normDate(r.binding_ophor);
+
+  let frellsenOwned: boolean | null = null;
+  if (lease) frellsenOwned = true;
+  else if (kobt) return "kunde_ejet";
+  else {
+    const at = (r.aftale_type ?? "").trim().toLowerCase();
+    if (at.startsWith("1 [serviceaftale]") || at.startsWith("0")) return "kunde_ejet";
+    if (at.startsWith("4 [lejeaftale]")) frellsenOwned = true;
+    else return "ukendt";
+  }
+  if (!frellsenOwned) return "ukendt";
+  return binding ? "leje_binding" : "leje_ub";
+}
+
+// Maskinliste-enhed (rental): altid Frellsen-ejet.
+// udlanstype "3 [Leje / Leasing]" → leje_binding; alt andet (4/5/6/7/8) → leje_ub.
+function classifyRental(udlanstype: string | null | undefined): UdstyrType {
+  const u = (udlanstype ?? "").trim().toLowerCase();
+  if (u.startsWith("3 ") || u.startsWith("3[") || u.includes("leje / leasing") || u.includes("leje/leasing")) {
+    return "leje_binding";
+  }
+  return "leje_ub";
+}
+
 function buildSummary(coffee: number, filters: number, cooling: number, service: number): string {
   const parts: string[] = [];
   if (coffee > 0) parts.push(`${coffee} ${coffee === 1 ? "kaffemaskine" : "kaffemaskiner"}`);
