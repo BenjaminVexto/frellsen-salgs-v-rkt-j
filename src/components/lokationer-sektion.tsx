@@ -460,7 +460,7 @@ function LokationRow({
 
 type EquipmentUnit = {
   id: string;
-  source: "rental" | "service";
+  source: "rental" | "service" | "wittenborg";
   is_filter: boolean;
   machine_type: string | null;
   serial_no: string | null;
@@ -468,61 +468,41 @@ type EquipmentUnit = {
   agreement_type: string | null;
   is_free_loan: boolean;
   has_service_contract: boolean;
+  udstyr_type: "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt" | null;
 };
 
-// Ejerskab udledes af (source, agreement_type, is_free_loan).
-// "kundeejet"     → kunden ejer maskinen (service-import)
-// "leje"          → Frellsen ejer, kunden betaler leje
-// "gratis_udlaan" → Frellsen ejer, ingen betaling
-// "midlertidigt"  → midlertidig opsætning / prøve / bytte (vis rå type)
-// "ukendt"        → fallback
-type Ownership = "kundeejet" | "leje" | "gratis_udlaan" | "midlertidigt" | "ukendt";
+type Ownership = "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
+
+const OWNERSHIP_LABEL: Record<Ownership, string> = {
+  leje_ub: "Leje U/B",
+  leje_binding: "Leje",
+  kunde_ejet: "Kundeejet",
+  ukendt: "Ukendt",
+};
 
 function deriveOwnership(u: {
-  source: string | null;
-  agreement_type: string | null;
-  is_free_loan: boolean | null;
+  udstyr_type: EquipmentUnit["udstyr_type"];
 }): { kind: Ownership; label: string } {
-  if (u.source === "service") return { kind: "kundeejet", label: "Kundeejet" };
-  const t = (u.agreement_type ?? "").trim();
-  const lower = t.toLowerCase();
-  if (lower === "leje" || lower.startsWith("leje /")) {
-    return { kind: "leje", label: "Leje" };
-  }
-  if (u.is_free_loan || lower.includes("udlån") || lower.includes("leje u/b")) {
-    // Midlertidigt / prøveopsætning / bytteservice → vis rå type
-    if (
-      lower.includes("midlertidig") ||
-      lower.includes("prøve") ||
-      lower.includes("bytte")
-    ) {
-      return { kind: "midlertidigt", label: t || "Midlertidigt" };
-    }
-    return { kind: "gratis_udlaan", label: "Gratis udlån" };
-  }
-  if (lower.includes("midlertidig") || lower.includes("prøve") || lower.includes("bytte")) {
-    return { kind: "midlertidigt", label: t };
-  }
-  return { kind: "ukendt", label: t || "Ukendt ejerskab" };
+  const k: Ownership = (u.udstyr_type as Ownership) ?? "ukendt";
+  return { kind: k in OWNERSHIP_LABEL ? k : "ukendt", label: OWNERSHIP_LABEL[k] ?? "Ukendt" };
 }
 
 function OwnershipBadge({ kind, label }: { kind: Ownership; label: string }) {
   const tone =
-    kind === "kundeejet"
+    kind === "kunde_ejet"
       ? "bg-emerald-100 text-emerald-900 border-emerald-200"
-      : kind === "leje"
+      : kind === "leje_binding"
         ? "bg-violet-100 text-violet-900 border-violet-200"
-        : kind === "gratis_udlaan"
+        : kind === "leje_ub"
           ? "bg-amber-100 text-amber-900 border-amber-200"
-          : kind === "midlertidigt"
-            ? "bg-sky-100 text-sky-900 border-sky-200"
-            : "bg-slate-100 text-slate-800 border-slate-200";
+          : "bg-slate-100 text-slate-800 border-slate-200";
   return (
     <Badge className={`${tone} hover:${tone} text-xs font-medium`}>
       {label}
     </Badge>
   );
 }
+
 
 type EnrichmentInfo = {
   binding_ophor?: string | null;
@@ -581,7 +561,7 @@ function EquipmentBox({ location }: { location: Location }) {
     (async () => {
       const { data } = await (supabase as any)
         .from("location_equipment_units")
-        .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract")
+        .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, udstyr_type")
         .eq("location_id", location.id)
         .order("is_filter", { ascending: true })
         .order("machine_type", { ascending: true });
@@ -670,11 +650,11 @@ function EquipmentBox({ location }: { location: Location }) {
     {} as Record<Ownership, number>,
   );
   const summaryParts: string[] = [];
-  if (ownershipCounts.kundeejet) summaryParts.push(`${ownershipCounts.kundeejet} kundeejede`);
-  if (ownershipCounts.leje) summaryParts.push(`${ownershipCounts.leje} leje`);
-  if (ownershipCounts.gratis_udlaan) summaryParts.push(`${ownershipCounts.gratis_udlaan} gratis udlån`);
-  if (ownershipCounts.midlertidigt) summaryParts.push(`${ownershipCounts.midlertidigt} midlertidigt`);
+  if (ownershipCounts.kunde_ejet) summaryParts.push(`${ownershipCounts.kunde_ejet} kundeejede`);
+  if (ownershipCounts.leje_binding) summaryParts.push(`${ownershipCounts.leje_binding} leje`);
+  if (ownershipCounts.leje_ub) summaryParts.push(`${ownershipCounts.leje_ub} leje U/B`);
   if (ownershipCounts.ukendt) summaryParts.push(`${ownershipCounts.ukendt} ukendt`);
+
 
   // Gruppér efter machine_type
   const groupBy = (list: EquipmentUnit[]) => {

@@ -29,6 +29,9 @@ const ENRICHMENT_COLUMN_FIELDS = new Set([
   "beregnet_slutdato",
   "handlingsdato",
   "handlingsdato_raw",
+  "kobt_dato",
+  "lease_leje_dato",
+  "aftale_type",
 ]);
 
 const EnrichmentRow = z
@@ -39,6 +42,10 @@ const EnrichmentRow = z
     beregnet_slutdato: z.string().nullable().optional(),
     handlingsdato: z.string().nullable().optional(),
     handlingsdato_raw: z.string().nullable().optional(),
+    // Ejerskabs-/klassifikationsfelter fra Wittenborg G2/G4.
+    kobt_dato: z.string().nullable().optional(),
+    lease_leje_dato: z.string().nullable().optional(),
+    aftale_type: z.string().nullable().optional(),
     // Lokations- og maskintype-felter fra Wittenborg SN-listen.
     lev_kundenr: z.string().nullable().optional(),
     fak_kundenr: z.string().nullable().optional(),
@@ -48,6 +55,7 @@ const EnrichmentRow = z
     data: z.record(z.any()).nullable().optional(),
   })
   .passthrough();
+
 
 
 const t = (s: unknown): string => (s == null ? "" : String(s).trim());
@@ -108,6 +116,49 @@ function isFilterUnit(text: string): boolean {
   const s = (text || "").toLowerCase();
   return UNIT_FILTER_KEYWORDS.some((k) => s.includes(k));
 }
+
+// ---- Klassifikation af udstyrs-ejerskab ----
+// Fire værdier matcher CHECK-constraint på location_equipment_units.udstyr_type.
+type UdstyrType = "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
+
+// Wittenborg-maskine: klassificér fra egen enrichment-række.
+// Trin 1: lease_leje_dato → Frellsen-ejet → trin 4.
+// Trin 2: kobt_dato → kunde_ejet.
+// Trin 3: G4-fallback på aftale_type.
+// Trin 4 (kun Frellsen-ejet): binding_ophor → leje_binding, ellers leje_ub.
+function classifyWittenborg(r: {
+  kobt_dato?: string | null;
+  lease_leje_dato?: string | null;
+  binding_ophor?: string | null;
+  aftale_type?: string | null;
+}): UdstyrType {
+  const lease = normDate(r.lease_leje_dato);
+  const kobt = normDate(r.kobt_dato);
+  const binding = normDate(r.binding_ophor);
+
+  let frellsenOwned: boolean | null = null;
+  if (lease) frellsenOwned = true;
+  else if (kobt) return "kunde_ejet";
+  else {
+    const at = (r.aftale_type ?? "").trim().toLowerCase();
+    if (at.startsWith("1 [serviceaftale]") || at.startsWith("0")) return "kunde_ejet";
+    if (at.startsWith("4 [lejeaftale]")) frellsenOwned = true;
+    else return "ukendt";
+  }
+  if (!frellsenOwned) return "ukendt";
+  return binding ? "leje_binding" : "leje_ub";
+}
+
+// Maskinliste-enhed (rental): altid Frellsen-ejet.
+// udlanstype "3 [Leje / Leasing]" → leje_binding; alt andet (4/5/6/7/8) → leje_ub.
+function classifyRental(udlanstype: string | null | undefined): UdstyrType {
+  const u = (udlanstype ?? "").trim().toLowerCase();
+  if (u.startsWith("3 ") || u.startsWith("3[") || u.includes("leje / leasing") || u.includes("leje/leasing")) {
+    return "leje_binding";
+  }
+  return "leje_ub";
+}
+
 function buildSummary(coffee: number, filters: number, cooling: number, service: number): string {
   const parts: string[] = [];
   if (coffee > 0) parts.push(`${coffee} ${coffee === 1 ? "kaffemaskine" : "kaffemaskiner"}`);
@@ -384,10 +435,14 @@ export const importMachines = createServerFn({ method: "POST" })
         serial_no: string;
         sub_location: string | null;
         navn: string | null;
+        udstyr_type: UdstyrType;
       };
       const wittenborgByLoc = new Map<string, Set<string>>();
       const wittenborgUnits: WittenborgUnit[] = [];
       const wittenborgLocIds = new Set<string>();
+      const wittenborgTypeCounts: Record<UdstyrType, number> = {
+        leje_ub: 0, leje_binding: 0, kunde_ejet: 0, ukendt: 0,
+      };
       if (data.enrichmentRows.length > 0) {
         let withLev = 0;
         for (const r of data.enrichmentRows) {
@@ -403,18 +458,27 @@ export const importMachines = createServerFn({ method: "POST" })
           set.add(serienr);
           wittenborgByLoc.set(loc.id, set);
           wittenborgLocIds.add(loc.id);
+          const udstyr_type = classifyWittenborg({
+            kobt_dato: (r as any).kobt_dato,
+            lease_leje_dato: (r as any).lease_leje_dato,
+            binding_ophor: r.binding_ophor,
+            aftale_type: (r as any).aftale_type,
+          });
+          wittenborgTypeCounts[udstyr_type]++;
           wittenborgUnits.push({
             location_id: loc.id,
             machine_type: t(r.maskin_type) || null,
             serial_no: serienr,
             sub_location: t(r.adresselinje2) || null,
             navn: t(r.navn) || null,
+            udstyr_type,
           });
         }
         console.log(
-          `[machines-import] STEP 6b Wittenborg-pass: rows=${data.enrichmentRows.length} withLev=${withLev} resolved=${wittenborgUnits.length} unmatched=${wittenborgUnmatched} locs=${wittenborgLocIds.size}`,
+          `[machines-import] STEP 6b Wittenborg-pass: rows=${data.enrichmentRows.length} withLev=${withLev} resolved=${wittenborgUnits.length} unmatched=${wittenborgUnmatched} locs=${wittenborgLocIds.size} types=${JSON.stringify(wittenborgTypeCounts)}`,
         );
       }
+
 
       if (data.machineRows.length > 0) {
         type UnitAgg = {
@@ -431,7 +495,9 @@ export const importMachines = createServerFn({ method: "POST" })
             is_free_loan: boolean;
             has_service_contract: boolean;
             varenr: string | null;
+            udstyr_type: UdstyrType;
           }[];
+
         };
         const aggs = new Map<string, UnitAgg>(); // key: `${fak}||${lev}`
         const ensure = (): UnitAgg => ({
@@ -472,8 +538,10 @@ export const importMachines = createServerFn({ method: "POST" })
             is_free_loan: isFree,
             has_service_contract: false,
             varenr: (r.varenr ?? "").toString().trim() || null,
+            udstyr_type: classifyRental(r.udlanstype),
           });
         }
+
         console.log(`[machines-import] STEP 6b: aggs=${aggs.size}`);
 
         type LocUpdate = { id: string; payload: Record<string, any>; units: UnitAgg["units"] };
@@ -621,9 +689,11 @@ export const importMachines = createServerFn({ method: "POST" })
             is_free_loan: false,
             has_service_contract: false,
             varenr: null,
+            udstyr_type: w.udstyr_type,
             import_batch_id: witBatchId,
           });
         }
+
         const CHUNK_I = 500;
         for (let i = 0; i < witRows.length; i += CHUNK_I) {
           const slice = witRows.slice(i, i + CHUNK_I);
@@ -657,9 +727,13 @@ export const importMachines = createServerFn({ method: "POST" })
           beregnet_slutdato: normDate(r.beregnet_slutdato),
           handlingsdato: normDate(r.handlingsdato),
           handlingsdato_raw: r.handlingsdato_raw || null,
+          kobt_dato: normDate((r as any).kobt_dato),
+          lease_leje_dato: normDate((r as any).lease_leje_dato),
+          aftale_type: t((r as any).aftale_type) || null,
           data: Object.keys(extras).length > 0 ? extras : null,
           record_status: "aktiv",
           last_seen_import: importedAt,
+
           udgaaet_dato: null,
         });
       }
@@ -724,7 +798,9 @@ export const importMachines = createServerFn({ method: "POST" })
         wittenborgUnitsInserted,
         wittenborgUnmatched,
         machineSerialConflicts,
+        wittenborgTypeCounts,
         importedAt,
+
       };
     } catch (e: any) {
       console.error("[machines-import] TOP-LEVEL FEJL:", e?.message ?? String(e), "\nSTACK:", e?.stack ?? "(ingen)");
