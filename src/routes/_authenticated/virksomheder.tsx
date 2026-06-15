@@ -57,7 +57,9 @@ const firstFilled = (...values: Array<string | null | undefined>) => {
 function VirksomhederListe() {
   const auth = useAuth();
   const navigate = useNavigate();
-  const isAdmin = auth.role === "admin";
+  // Salgssupport arbejder på tværs af sælgere → samme filter-/visningsadgang som admin.
+  const isAdmin = auth.role === "admin" || auth.role === "salgssupport";
+  const isSupport = auth.role === "salgssupport";
 
   const [recentIds, setRecentIds] = useState<string[] | null>(null);
   useEffect(() => {
