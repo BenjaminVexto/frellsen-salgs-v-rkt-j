@@ -372,6 +372,20 @@ function MaskinerImportSide() {
       });
       setResult(res);
       toast.success("Maskin-import gennemført");
+      // Genberegn has_active_equipment / customer_type så nye maskiner slår
+      // igennem på status uden at vente på næste faktura-import.
+      // Ikke-blokerende: en fejl må ikke skygge for selve importen.
+      (async () => {
+        try {
+          const r = await recomputeStatuses();
+          if (!r.ok) {
+            console.error("[maskiner-import] recompute_all_company_statuses fejlede:", r.error);
+          }
+        } catch (err) {
+          console.error("[maskiner-import] recompute_all_company_statuses kastede:", err);
+        }
+      })();
+
     } catch (e: any) {
       toast.error("Fejl: " + (e?.message ?? "ukendt fejl"));
     } finally {
