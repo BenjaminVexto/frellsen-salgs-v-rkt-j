@@ -41,10 +41,10 @@ const VALG: Valg[] = [
     to: "/admin/import/anden",
     icon: Database,
     emoji: "📁",
-    title: "Anden fil (manuel mapping)",
+    title: "Anden fil (manuel mapping) — kun ad hoc",
     description:
-      "Importér fra en hvilken som helst CSV-fil. Du matcher selv kolonnerne til systemets felter.",
-    hint: "Brug dette til Excel-lister, messekontakter eller andre kilder",
+      "Kun til ad hoc Excel-lister, messekontakter og andre engangs-kilder. Du matcher selv kolonnerne. Aktør-data fra Visma SKAL køres via Visma-import (xlsx) — ellers risikerer du encoding-fejl og manglende datoer.",
+    hint: "Brug IKKE til aktør-eksport fra Visma — brug Visma-import",
   },
   {
     to: "/admin/import/maskiner",
