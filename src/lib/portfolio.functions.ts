@@ -95,8 +95,13 @@ export type PortfolioPayload = {
   totals: {
     revenue12m: number;
     revenue12mPriorYear: number;
+    revenueYtd: number;
+    revenueYtdPriorSamePeriod: number;
+    ytdLatestPeriod: string | null;
+    ytdFraction: number;
     contribution12m: number | null;
   };
+
   statusCounts: {
     aktive: number;
     sovende: number;
