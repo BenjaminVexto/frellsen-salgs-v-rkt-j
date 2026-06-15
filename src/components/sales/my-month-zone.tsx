@@ -7,35 +7,39 @@ import { getMyMonthlySales, getMyNewActivitiesCount } from "@/lib/sales.function
 import { fmtKr } from "@/lib/sales-utils";
 import { useViewAs } from "@/contexts/view-as-context";
 
-export function MyMonthZone() {
+export function MyMonthZone({ teamScope = false }: { teamScope?: boolean } = {}) {
   const salesFn = useServerFn(getMyMonthlySales);
   const actFn = useServerFn(getMyNewActivitiesCount);
   const { viewAsUserId } = useViewAs();
 
   const salesQ = useQuery({
-    queryKey: ["my-month-sales", viewAsUserId],
-    queryFn: () => salesFn({ data: { viewAsUserId } }),
+    queryKey: ["my-month-sales", viewAsUserId, teamScope],
+    queryFn: () => salesFn({ data: { viewAsUserId, teamScope } }),
   });
   const actQ = useQuery({
-    queryKey: ["my-month-activities", viewAsUserId],
-    queryFn: () => actFn({ data: { viewAsUserId } }),
+    queryKey: ["my-month-activities", viewAsUserId, teamScope],
+    queryFn: () => actFn({ data: { viewAsUserId, teamScope } }),
   });
+
+  const heading = teamScope ? "Teamets måned" : "Din måned";
+  const revenueLabel = teamScope ? "Omsætning denne måned" : "Min omsætning denne måned";
+  const activityLabel = teamScope ? "Aktiviteter denne måned" : "Nye aktiviteter denne måned";
 
   return (
     <section className="mb-6">
       <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        Din måned
+        {heading}
       </h2>
       <div className="grid gap-3 md:grid-cols-2">
         <MetricCard
           icon={<Activity className="h-4 w-4" />}
-          label="Nye aktiviteter denne måned"
+          label={activityLabel}
           value={actQ.isLoading ? "…" : String(actQ.data?.count ?? 0)}
           loading={actQ.isLoading}
         />
         <MetricCard
           icon={<Wallet className="h-4 w-4" />}
-          label="Min omsætning denne måned"
+          label={revenueLabel}
           value={salesQ.isLoading ? "…" : fmtKr(salesQ.data?.revenue ?? 0)}
           sub={
             salesQ.data && salesQ.data.companies > 0
@@ -56,6 +60,7 @@ export function MyMonthZone() {
     </section>
   );
 }
+
 
 function BudgetCard() {
   // No budget table yet — placeholder
