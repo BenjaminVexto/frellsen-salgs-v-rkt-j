@@ -280,6 +280,8 @@ function ImportSide() {
   const insertNoCvr = useServerFn(importInsertCompaniesNoCvr);
   const updateById = useServerFn(importUpdateCompaniesById);
   const upsertLocations = useServerFn(importInsertLocations);
+  const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
+
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
