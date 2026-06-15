@@ -435,10 +435,14 @@ export const importMachines = createServerFn({ method: "POST" })
         serial_no: string;
         sub_location: string | null;
         navn: string | null;
+        udstyr_type: UdstyrType;
       };
       const wittenborgByLoc = new Map<string, Set<string>>();
       const wittenborgUnits: WittenborgUnit[] = [];
       const wittenborgLocIds = new Set<string>();
+      const wittenborgTypeCounts: Record<UdstyrType, number> = {
+        leje_ub: 0, leje_binding: 0, kunde_ejet: 0, ukendt: 0,
+      };
       if (data.enrichmentRows.length > 0) {
         let withLev = 0;
         for (const r of data.enrichmentRows) {
@@ -454,18 +458,27 @@ export const importMachines = createServerFn({ method: "POST" })
           set.add(serienr);
           wittenborgByLoc.set(loc.id, set);
           wittenborgLocIds.add(loc.id);
+          const udstyr_type = classifyWittenborg({
+            kobt_dato: (r as any).kobt_dato,
+            lease_leje_dato: (r as any).lease_leje_dato,
+            binding_ophor: r.binding_ophor,
+            aftale_type: (r as any).aftale_type,
+          });
+          wittenborgTypeCounts[udstyr_type]++;
           wittenborgUnits.push({
             location_id: loc.id,
             machine_type: t(r.maskin_type) || null,
             serial_no: serienr,
             sub_location: t(r.adresselinje2) || null,
             navn: t(r.navn) || null,
+            udstyr_type,
           });
         }
         console.log(
-          `[machines-import] STEP 6b Wittenborg-pass: rows=${data.enrichmentRows.length} withLev=${withLev} resolved=${wittenborgUnits.length} unmatched=${wittenborgUnmatched} locs=${wittenborgLocIds.size}`,
+          `[machines-import] STEP 6b Wittenborg-pass: rows=${data.enrichmentRows.length} withLev=${withLev} resolved=${wittenborgUnits.length} unmatched=${wittenborgUnmatched} locs=${wittenborgLocIds.size} types=${JSON.stringify(wittenborgTypeCounts)}`,
         );
       }
+
 
       if (data.machineRows.length > 0) {
         type UnitAgg = {
