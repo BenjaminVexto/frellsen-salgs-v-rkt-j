@@ -389,22 +389,25 @@ function PortfolioPage() {
               <TabsContent value="revenue" className="mt-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <RankingTable
-                    title={rankingsExpanded ? "Top 25 — højest omsætning (12 mdr.)" : "Top 5 — højest omsætning (12 mdr.)"}
+                    title={rankingsExpanded ? "Top 25 — højest omsætning (år-til-dato)" : "Top 5 — højest omsætning (år-til-dato)"}
                     rows={data.rankings.topRevenue}
                     valueLabel="Omsætning"
+                    valueField="revenueYtd"
                     showTrend
                     limit={rankingsExpanded ? undefined : 5}
                   />
                   <RankingTable
-                    title={rankingsExpanded ? "Bund 25 — lavest omsætning blandt aktive" : "Bund 5 — lavest omsætning blandt aktive"}
+                    title={rankingsExpanded ? "Bund 25 — lavest omsætning blandt aktive (år-til-dato)" : "Bund 5 — lavest omsætning blandt aktive (år-til-dato)"}
                     rows={data.rankings.bottomRevenueActive}
                     valueLabel="Omsætning"
+                    valueField="revenueYtd"
                     showTrend
                     emptyText="Ingen aktive kunder i porteføljen."
                     limit={rankingsExpanded ? undefined : 5}
                   />
                 </div>
               </TabsContent>
+
 
               {isAdmin && data.rankings.topContribution && (
                 <TabsContent value="db" className="mt-4">
@@ -860,7 +863,7 @@ function RankingTable({
   title: string;
   rows: RankingRow[];
   valueLabel: string;
-  valueField?: "revenue12m" | "contribution12m" | "ratio";
+  valueField?: "revenue12m" | "revenueYtd" | "contribution12m" | "ratio";
   showTrend?: boolean;
   showEmployees?: boolean;
   emptyText?: string;
@@ -892,7 +895,7 @@ function RankingTable({
                 <th className="px-3 py-2 text-left">Kunde</th>
                 {showEmployees && <th className="px-3 py-2 text-right">Ansatte</th>}
                 <th className="px-3 py-2 text-right">{valueLabel}</th>
-                {showTrend && <th className="px-3 py-2 text-right">YoY</th>}
+                {showTrend && <th className="px-3 py-2 text-right">YTD</th>}
                 <th className="px-3 py-2 text-left">Kaffe</th>
               </tr>
             </thead>
@@ -903,7 +906,10 @@ function RankingTable({
                     ? r.contribution12m ?? 0
                     : valueField === "ratio"
                     ? r.ratio ?? 0
+                    : valueField === "revenueYtd"
+                    ? r.revenueYtd
                     : r.revenue12m;
+
                 return (
                   <tr key={r.id} className="border-t border-border hover:bg-accent/30">
                     <td className="px-3 py-2 text-muted-foreground tabular-nums">{i + 1}</td>
@@ -931,7 +937,11 @@ function RankingTable({
                     </td>
                     {showTrend && (
                       <td className="px-3 py-2 text-right">
-                        <Trend current={r.revenue12m} prior={r.revenue12mPrior} />
+                        <Trend
+                          current={valueField === "revenueYtd" ? r.revenueYtd : r.revenue12m}
+                          prior={valueField === "revenueYtd" ? r.revenueYtdPriorSamePeriod : r.revenue12mPrior}
+                        />
+
                       </td>
                     )}
                     <td className="px-3 py-2">

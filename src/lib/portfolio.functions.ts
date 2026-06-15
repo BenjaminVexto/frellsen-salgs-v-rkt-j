@@ -47,6 +47,9 @@ export type PortfolioCompanyRow = {
   monthly: { period: string; revenue: number }[]; // last 5, oldest -> newest
   revenue12m: number;
   revenue12mPrior: number;
+  revenueYtd: number;
+  revenueYtdPriorSamePeriod: number;
+
   contribution12m: number | null;
   employees: number | null;
   is_public: boolean;
@@ -58,6 +61,8 @@ export type RankingRow = {
   city: string | null;
   revenue12m: number;
   revenue12mPrior: number;
+  revenueYtd: number;
+  revenueYtdPriorSamePeriod: number;
   contribution12m: number | null;
   last_consumable_sales_date: string | null;
   supplied_via_name: string | null;
@@ -65,6 +70,7 @@ export type RankingRow = {
   employees: number | null;
   ratio: number | null; // kr/ansat
 };
+
 
 export type ScatterPoint = {
   id: string;
@@ -298,7 +304,11 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       revenue12m: number;
       revenue12mPrior: number;
       contribution12m: number;
+      revenueYtd: number;
+      revenueYtdPrior: number;
+      ytdPriorLastMonthRev: number;
     };
+
     const aggs = new Map<string, Agg>();
     let totalRev12 = 0;
     let totalRevPrior = 0;
@@ -336,19 +346,33 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
       const isMachine = MACHINE_RE.test(String((r as any).product_group_1 ?? ""));
+      const agg =
+        aggs.get(cid) ?? {
+          monthly: new Map(),
+          revenue12m: 0,
+          revenue12mPrior: 0,
+          contribution12m: 0,
+          revenueYtd: 0,
+          revenueYtdPrior: 0,
+          ytdPriorLastMonthRev: 0,
+        };
       // YTD-vinduer (samme periode sidste år, sammenlignet på måned)
       if (period >= startCurYtd && period <= refPeriod) {
         totalRevYtd += rev;
+        agg.revenueYtd += rev;
         if (period === refPeriod) ytdCurLastMonthRev += rev;
+        aggs.set(cid, agg);
       }
       if (period >= startPriorYtd && period <= endPriorYtd) {
         totalRevYtdPrior += rev;
-        if (period === endPriorYtd) ytdPriorLastMonthRev += rev;
+        agg.revenueYtdPrior += rev;
+        if (period === endPriorYtd) {
+          ytdPriorLastMonthRev += rev;
+          agg.ytdPriorLastMonthRev += rev;
+        }
+        aggs.set(cid, agg);
       }
 
-
-      const agg =
-        aggs.get(cid) ?? { monthly: new Map(), revenue12m: 0, revenue12mPrior: 0, contribution12m: 0 };
       if (inCurrent) {
         totalRev12 += rev;
         if (isAdmin) totalContrib += Number((r as any).contribution) || 0;
@@ -364,6 +388,16 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         aggs.set(cid, agg);
       }
     }
+
+    // Pro-rata fraction for YTD prior (samme udregning som totals nedenfor)
+    const _today = new Date();
+    const _isCurMonth =
+      _today.getUTCFullYear() === refYear && _today.getUTCMonth() + 1 === refMonth;
+    const _daysInMonth = new Date(Date.UTC(refYear, refMonth, 0)).getUTCDate();
+    const ytdFraction = _isCurMonth
+      ? Math.min(_today.getUTCDate(), _daysInMonth) / _daysInMonth
+      : 1;
+
 
     // Build company rows
     const companies: PortfolioCompanyRow[] = (compsMeta as any[]).map((c) => {
@@ -382,6 +416,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         monthly,
         revenue12m: agg?.revenue12m ?? 0,
         revenue12mPrior: agg?.revenue12mPrior ?? 0,
+        revenueYtd: agg?.revenueYtd ?? 0,
+        revenueYtdPriorSamePeriod:
+          (agg?.revenueYtdPrior ?? 0) - (agg?.ytdPriorLastMonthRev ?? 0) * (1 - ytdFraction),
+
         contribution12m: isAdmin ? (agg?.contribution12m ?? 0) : null,
         employees: c.employees ?? null,
         is_public: !!c.is_public,
@@ -418,7 +456,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       city: c.city,
       revenue12m: c.revenue12m,
       revenue12mPrior: c.revenue12mPrior,
+      revenueYtd: c.revenueYtd,
+      revenueYtdPriorSamePeriod: c.revenueYtdPriorSamePeriod,
       contribution12m: c.contribution12m,
+
       last_consumable_sales_date: c.last_consumable_sales_date,
       supplied_via_name: c.supplied_via_name,
       supplied_via_id: c.supplied_via_id,
@@ -427,17 +468,18 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     });
 
     const topRevenue = [...companies]
-      .filter((c) => c.revenue12m > 0)
-      .sort((a, b) => b.revenue12m - a.revenue12m)
+      .filter((c) => c.revenueYtd > 0)
+      .sort((a, b) => b.revenueYtd - a.revenueYtd)
       .slice(0, 25)
       .map(toRanking);
 
     const activeCompanies = companies.filter((c) => c.customer_type === "aktiv_kunde");
     const bottomRevenueActive = [...activeCompanies]
-      .filter((c) => c.revenue12m > 0)
-      .sort((a, b) => a.revenue12m - b.revenue12m)
+      .filter((c) => c.revenueYtd > 0)
+      .sort((a, b) => a.revenueYtd - b.revenueYtd)
       .slice(0, 25)
       .map(toRanking);
+
 
     const topContribution: RankingRow[] | null = isAdmin
       ? [...companies]
