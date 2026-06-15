@@ -623,6 +623,7 @@ function ImportSide() {
 
     type Job =
       | { kind: "upsert_cvr"; payload: Record<string, any>; sellerId: string | null; isUpdate: boolean; isEnrich: boolean; isNoCvr: boolean }
+      | { kind: "upsert_visma"; payload: Record<string, any>; sellerId: string | null; isUpdate: boolean; isEnrich: boolean; isNoCvr: boolean }
       | { kind: "update_id"; id: string; payload: Record<string, any>; sellerId: string | null; isNoCvr: boolean }
       | { kind: "insert_no_cvr"; payload: Record<string, any>; sellerId: string | null };
 
@@ -630,6 +631,45 @@ function ImportSide() {
 
     for (const p of toImport) {
       const incoming = stripUndef(p.data) as Record<string, any>;
+      const incomingVismaId =
+        importSource === "visma" && (incoming as any).visma_id
+          ? String((incoming as any).visma_id).trim()
+          : null;
+
+      // I visma-mode er visma_id den entydige firmanøgle (CVR er ikke unik —
+      // flere lokationer/aktører kan dele CVR). Slå derfor op via visma_id først.
+      if (incomingVismaId) {
+        const existing = existingByVismaId.get(incomingVismaId);
+        if (existing) {
+          const merged = buildMerged(existing, incoming);
+          if (p.cvr) merged.cvr = p.cvr;
+          jobs.push({
+            kind: "upsert_visma",
+            payload: merged,
+            sellerId: p.matchedSellerId,
+            isUpdate: true,
+            isEnrich: false,
+            isNoCvr: !p.cvr,
+          });
+        } else {
+          jobs.push({
+            kind: "upsert_visma",
+            payload: {
+              ...incoming,
+              ...(p.cvr ? { cvr: p.cvr } : {}),
+              visma_id: incomingVismaId,
+              sources: [importSource],
+              source_updated_at: nowIso,
+            },
+            sellerId: p.matchedSellerId,
+            isUpdate: false,
+            isEnrich: false,
+            isNoCvr: !p.cvr,
+          });
+        }
+        continue;
+      }
+
       if (p.cvr) {
         const existing = existingByCvr.get(p.cvr);
         if (existing) {
