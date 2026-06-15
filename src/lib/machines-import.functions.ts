@@ -81,6 +81,11 @@ function normalizeVismaNo(val: unknown): string {
   const stripped = s.replace(/^0+/, "");
   return stripped || "0";
 }
+function cleanG2(s: string | null | undefined): string {
+  if (!s) return "";
+  const m = s.match(/^\s*\d+\s*\[(.+)\]\s*$/);
+  return m ? m[1].trim() : s;
+}
 const COFFEE_KEYWORDS = [
   "wittenborg", "rex-royal", "rex royal", "bonamat", "animo",
   "schaerer", "franke", "krea", "optivend", "optimed", "jura",
@@ -467,7 +472,7 @@ export const importMachines = createServerFn({ method: "POST" })
           wittenborgTypeCounts[udstyr_type]++;
           wittenborgUnits.push({
             location_id: loc.id,
-            machine_type: t(r.maskin_type) || null,
+            machine_type: cleanG2(t(r.maskin_type)) || null,
             serial_no: serienr,
             sub_location: t(r.adresselinje2) || null,
             navn: t(r.navn) || null,
