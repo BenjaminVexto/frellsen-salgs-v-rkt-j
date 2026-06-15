@@ -186,6 +186,18 @@ function normEan(v: string | undefined | null): string | null {
 
 type ParsedRow = Record<string, string>;
 
+function selectableHeaders(fields: string[] | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const h of fields ?? []) {
+    const header = String(h ?? "").trim();
+    if (!header || header === "__none" || seen.has(header)) continue;
+    seen.add(header);
+    out.push(header);
+  }
+  return out;
+}
+
 interface PreparedRow {
   raw: ParsedRow;
   cvr: string | null;
@@ -276,7 +288,7 @@ function ImportSide() {
       skipEmptyLines: true,
       transformHeader: (h) => h.replace(/^\uFEFF/, "").trim(),
       complete: (res) => {
-        const hdrs = res.meta.fields ?? [];
+        const hdrs = selectableHeaders(res.meta.fields);
         setHeaders(hdrs);
         setRows(res.data);
         // Auto-match
