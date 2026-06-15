@@ -411,11 +411,13 @@ export type ChurningCustomer = {
 
 export const getMyChurningCustomers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ customers: ChurningCustomer[]; hasData: boolean }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
-    const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
-    if (!companyIds.length) return { customers: [], hasData: false };
+    const teamScope =
+      !!data.teamScope &&
+      !data.viewAsUserId &&
+      (await isTeamScopeUser(context.supabase, context.userId));
 
     const cutoff = new Date();
     cutoff.setUTCMonth(cutoff.getUTCMonth() - 24);
@@ -423,19 +425,33 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
     const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
     type Row = { company_id: string; period: string; revenue: number };
-    const rawRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
-      context.supabase
-        .from("sales_monthly")
-        .select("company_id, period, revenue")
-        .in("company_id", slice)
-        .gte("period", cutoffStr)
-        .range(from, to),
-    );
+    let rawRows: any[];
+    if (teamScope) {
+      rawRows = await fetchAllSalesMonthlyRows((from, to) =>
+        supabaseAdmin
+          .from("sales_monthly")
+          .select("company_id, period, revenue")
+          .gte("period", cutoffStr)
+          .range(from, to),
+      );
+    } else {
+      const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
+      if (!companyIds.length) return { customers: [], hasData: false };
+      rawRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
+        context.supabase
+          .from("sales_monthly")
+          .select("company_id, period, revenue")
+          .in("company_id", slice)
+          .gte("period", cutoffStr)
+          .range(from, to),
+      );
+    }
     const rows: Row[] = rawRows
       .filter((r: any) => r.company_id)
       .map((r: any) => ({ company_id: r.company_id, period: r.period, revenue: Number(r.revenue) || 0 }));
 
     if (!rows.length) return { customers: [], hasData: false };
+
 
     type Acc = { periods: Set<string>; lastPeriod: string | null; totalRevenue: number };
     const byCompany = new Map<string, Acc>();
