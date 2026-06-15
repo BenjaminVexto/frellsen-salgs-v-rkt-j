@@ -526,7 +526,11 @@ export const importMachines = createServerFn({ method: "POST" })
           a.total++;
           const ut = (r.udlanstype ?? "").toString().toLowerCase();
           const isFree = FREE_LOAN_TOKENS.some((tok) => ut.includes(tok));
-          if (isFree) a.freeLoan = true;
+          // has_free_loan-flaget skal kun afspejle ikke-filter leje_ub-maskiner
+          // (filtre alene udløser ikke salgssignalet "Gratis udlån").
+          if (isFree && !isFilterUnit(desc) && classifyRental(r.udlanstype) === "leje_ub") {
+            a.freeLoan = true;
+          }
           if (LEASE_TOKENS.some((tok) => ut.includes(tok))) a.lease = true;
           const agreementShort =
             r.udlanstype && String(r.udlanstype).trim()
