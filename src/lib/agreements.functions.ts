@@ -505,6 +505,6 @@ export const importAgreementProspects = createServerFn({ method: "POST" })
       created: createdCount,
       matched: incoming.length - createdCount,
       assigned,
-      company_ids: Array.from(existingMap.values()),
+      company_ids: Array.from(companyIdsForAssignment),
     };
   });
