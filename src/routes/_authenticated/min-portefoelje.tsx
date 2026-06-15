@@ -895,7 +895,7 @@ function RankingTable({
                 <th className="px-3 py-2 text-left">Kunde</th>
                 {showEmployees && <th className="px-3 py-2 text-right">Ansatte</th>}
                 <th className="px-3 py-2 text-right">{valueLabel}</th>
-                {showTrend && <th className="px-3 py-2 text-right">YoY</th>}
+                {showTrend && <th className="px-3 py-2 text-right">YTD</th>}
                 <th className="px-3 py-2 text-left">Kaffe</th>
               </tr>
             </thead>
