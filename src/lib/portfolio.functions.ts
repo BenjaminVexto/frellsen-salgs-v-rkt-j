@@ -456,7 +456,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       city: c.city,
       revenue12m: c.revenue12m,
       revenue12mPrior: c.revenue12mPrior,
+      revenueYtd: c.revenueYtd,
+      revenueYtdPriorSamePeriod: c.revenueYtdPriorSamePeriod,
       contribution12m: c.contribution12m,
+
       last_consumable_sales_date: c.last_consumable_sales_date,
       supplied_via_name: c.supplied_via_name,
       supplied_via_id: c.supplied_via_id,
