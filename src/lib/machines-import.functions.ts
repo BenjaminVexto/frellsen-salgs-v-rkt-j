@@ -538,8 +538,10 @@ export const importMachines = createServerFn({ method: "POST" })
             is_free_loan: isFree,
             has_service_contract: false,
             varenr: (r.varenr ?? "").toString().trim() || null,
+            udstyr_type: classifyRental(r.udlanstype),
           });
         }
+
         console.log(`[machines-import] STEP 6b: aggs=${aggs.size}`);
 
         type LocUpdate = { id: string; payload: Record<string, any>; units: UnitAgg["units"] };
