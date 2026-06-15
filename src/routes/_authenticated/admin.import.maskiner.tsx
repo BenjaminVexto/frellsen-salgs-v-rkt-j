@@ -310,6 +310,8 @@ function MaskinerImportSide() {
     enrichmentReactivated?: number;
   } | null>(null);
   const importFn = useServerFn(importMachines);
+  const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
+
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
