@@ -416,6 +416,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         monthly,
         revenue12m: agg?.revenue12m ?? 0,
         revenue12mPrior: agg?.revenue12mPrior ?? 0,
+        revenueYtd: agg?.revenueYtd ?? 0,
+        revenueYtdPriorSamePeriod:
+          (agg?.revenueYtdPrior ?? 0) - (agg?.ytdPriorLastMonthRev ?? 0) * (1 - ytdFraction),
+
         contribution12m: isAdmin ? (agg?.contribution12m ?? 0) : null,
         employees: c.employees ?? null,
         is_public: !!c.is_public,
