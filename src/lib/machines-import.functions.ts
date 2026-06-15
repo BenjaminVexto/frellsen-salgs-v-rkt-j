@@ -689,9 +689,11 @@ export const importMachines = createServerFn({ method: "POST" })
             is_free_loan: false,
             has_service_contract: false,
             varenr: null,
+            udstyr_type: w.udstyr_type,
             import_batch_id: witBatchId,
           });
         }
+
         const CHUNK_I = 500;
         for (let i = 0; i < witRows.length; i += CHUNK_I) {
           const slice = witRows.slice(i, i + CHUNK_I);
