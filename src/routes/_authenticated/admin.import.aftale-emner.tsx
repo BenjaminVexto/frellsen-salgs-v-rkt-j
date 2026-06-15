@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { readFileSmart } from "@/lib/file-encoding";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -106,7 +107,7 @@ function AftaleEmnerImportSide() {
         const ws = wb.Sheets[wb.SheetNames[0]];
         parsed = XLSX.utils.sheet_to_json(ws, { defval: "" }) as any[];
       } else {
-        const text = await f.text();
+        const text = await readFileSmart(f);
         const firstLine = text.split("\n")[0] ?? "";
         const delimiter =
           firstLine.split(";").length > firstLine.split(",").length ? ";" : ",";
