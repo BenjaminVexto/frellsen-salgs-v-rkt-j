@@ -26,8 +26,7 @@ export function MyMonthZone() {
       <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
         Din måned
       </h2>
-      <div className="grid gap-3 md:grid-cols-3">
-        <BudgetCard />
+      <div className="grid gap-3 md:grid-cols-2">
         <MetricCard
           icon={<Activity className="h-4 w-4" />}
           label="Nye aktiviteter denne måned"
