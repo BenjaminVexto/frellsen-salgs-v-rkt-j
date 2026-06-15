@@ -467,7 +467,7 @@ export const importMachines = createServerFn({ method: "POST" })
           wittenborgTypeCounts[udstyr_type]++;
           wittenborgUnits.push({
             location_id: loc.id,
-            machine_type: t(r.maskin_type) || null,
+            machine_type: cleanG2(t(r.maskin_type)) || null,
             serial_no: serienr,
             sub_location: t(r.adresselinje2) || null,
             navn: t(r.navn) || null,
