@@ -692,7 +692,7 @@ function VirksomhedsKort() {
         </Card>
 
         {/* MIDTEN — Faner */}
-        <div className="space-y-4 min-w-0">
+        <div className="space-y-4 min-w-0 order-2 lg:order-2">
           <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
             <TabsList className="bg-transparent p-0 h-auto border-b w-full justify-start rounded-none overflow-x-auto scrollbar-hide flex-nowrap">
               {[
