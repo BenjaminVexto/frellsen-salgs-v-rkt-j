@@ -157,7 +157,7 @@ function VirksomhederListe() {
   };
 
   const selectAllFiltered = () => {
-    setSelected(new Set(filtered.map((r) => r.id)));
+    setSelected(new Set(displayed.map((r) => r.id)));
   };
 
   const allOnPageSelected =
@@ -243,9 +243,9 @@ function VirksomhederListe() {
       />
 
       <div className="text-sm text-muted-foreground mb-2">
-        <strong className="text-foreground">{filtered.length}</strong>{" "}
+        <strong className="text-foreground">{displayed.length}</strong>{" "}
         virksomheder matcher
-        {filtered.length > 0 && (
+        {displayed.length > 0 && (
           <>
             {" "}
             · Side {page + 1} af {totalPages}
@@ -256,7 +256,7 @@ function VirksomhederListe() {
       <Card className="divide-y">
         {loading ? (
           <p className="p-4 text-sm text-muted-foreground">Indlæser…</p>
-        ) : filtered.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">
             Ingen virksomheder fundet.
           </p>
@@ -271,12 +271,12 @@ function VirksomhederListe() {
                   />
                   Vælg alle på denne side ({pageRows.length})
                 </label>
-                {selected.size < filtered.length && (
+                {selected.size < displayed.length && (
                   <button
                     className="text-primary hover:underline text-xs"
                     onClick={selectAllFiltered}
                   >
-                    Vælg alle {filtered.length} resultater der matcher filteret
+                    Vælg alle {displayed.length} resultater der matcher filteret
                   </button>
                 )}
               </div>
@@ -376,7 +376,7 @@ function VirksomhederListe() {
         )}
       </Card>
 
-      {filtered.length > PAGE_SIZE && (
+      {displayed.length > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-3 text-sm">
           <Button
             variant="outline"
