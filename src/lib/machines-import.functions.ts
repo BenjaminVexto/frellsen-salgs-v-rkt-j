@@ -292,13 +292,130 @@ export const importMachines = createServerFn({ method: "POST" })
       }
 
       // ============================================================
-      // STEP 6b: Fyld location_equipment_units + lokations-aggregater
-      // ud fra maskinlisten. Match lev_kundenr → locations.visma_delivery_no
-      // (normaliseret), fallback via virksomhed (fak_kundenr → companies.visma_id).
+      // STEP 6b: Fyld location_equipment_units + lokations-aggregater.
+      // Maskinlisten leverer 'rental'-enheder, Wittenborg leverer 'wittenborg'-
+      // enheder (autoritativ kaffemaskine-kilde). Filterrækker hvis serienr
+      // matcher en Wittenborg-maskine på samme lokation får serial_no=null —
+      // maskinen bærer nummeret.
       // ============================================================
       let unitsLocationsUpdated = 0;
       let unitsRowsInserted = 0;
       let unitsUnmatched = 0;
+      let wittenborgUnitsInserted = 0;
+      let wittenborgUnmatched = 0;
+      let machineSerialConflicts = 0;
+
+      const needLocLookup = data.machineRows.length > 0 || data.enrichmentRows.length > 0;
+      // Fælles lokationsopslag — bruges af både rental-aggregat og Wittenborg-pass.
+      const locByNormDelivery = new Map<string, { id: string; company_id: string }>();
+      const locsByCompany = new Map<string, { id: string; visma_delivery_no: string | null }[]>();
+      const compByNormFak = new Map<string, { id: string; last_purchase_date: string | null }>();
+
+      if (needLocLookup) {
+        const PAGE = 1000;
+        let from = 0;
+        while (true) {
+          const { data: rows, error } = await supabaseAdmin
+            .from("locations")
+            .select("id, company_id, visma_delivery_no")
+            .range(from, from + PAGE - 1);
+          if (error) throw new Error("locations select: " + error.message);
+          if (!rows || rows.length === 0) break;
+          for (const l of rows as any[]) {
+            if (l.visma_delivery_no) {
+              const kk = normalizeVismaNo(l.visma_delivery_no);
+              if (kk && !locByNormDelivery.has(kk)) {
+                locByNormDelivery.set(kk, { id: l.id, company_id: l.company_id });
+              }
+            }
+            const arr = locsByCompany.get(l.company_id) ?? [];
+            arr.push({ id: l.id, visma_delivery_no: l.visma_delivery_no });
+            locsByCompany.set(l.company_id, arr);
+          }
+          if (rows.length < PAGE) break;
+          from += PAGE;
+        }
+        from = 0;
+        while (true) {
+          const { data: rows, error } = await supabaseAdmin
+            .from("companies")
+            .select("id, visma_id, last_purchase_date")
+            .range(from, from + PAGE - 1);
+          if (error) throw new Error("companies select: " + error.message);
+          if (!rows || rows.length === 0) break;
+          for (const c of rows as any[]) {
+            if (c.visma_id) {
+              const kk = normalizeVismaNo(c.visma_id);
+              if (kk && !compByNormFak.has(kk)) {
+                compByNormFak.set(kk, { id: c.id, last_purchase_date: c.last_purchase_date });
+              }
+            }
+          }
+          if (rows.length < PAGE) break;
+          from += PAGE;
+        }
+        console.log(
+          `[machines-import] STEP 6b: locations=${locByNormDelivery.size} companies=${compByNormFak.size}`,
+        );
+      }
+
+      // Helper: slå lokation op fra (fak, lev) — samme fallback-kæde som før.
+      function resolveLocation(fak: string, lev: string): { id: string; company_id: string } | null {
+        const company = compByNormFak.get(fak);
+        let loc = locByNormDelivery.get(lev) ?? null;
+        if (!loc && company) {
+          const candidates = locsByCompany.get(company.id) ?? [];
+          const hit = candidates.find(
+            (l) => l.visma_delivery_no && normalizeVismaNo(l.visma_delivery_no) === fak,
+          );
+          if (hit) loc = { id: hit.id, company_id: company.id };
+        }
+        if (!loc && company) {
+          const candidates = locsByCompany.get(company.id) ?? [];
+          if (candidates.length === 1) loc = { id: candidates[0].id, company_id: company.id };
+        }
+        return loc;
+      }
+
+      // ---- Wittenborg-pass FØR STEP 6b: byg sæt af (loc_id, serienr) ----
+      type WittenborgUnit = {
+        location_id: string;
+        machine_type: string | null;
+        serial_no: string;
+        sub_location: string | null;
+        navn: string | null;
+      };
+      const wittenborgByLoc = new Map<string, Set<string>>();
+      const wittenborgUnits: WittenborgUnit[] = [];
+      const wittenborgLocIds = new Set<string>();
+      if (data.enrichmentRows.length > 0) {
+        let withLev = 0;
+        for (const r of data.enrichmentRows) {
+          const serienr = t(r.serienr);
+          if (!serienr) continue;
+          const lev = normalizeVismaNo(r.lev_kundenr);
+          const fak = normalizeVismaNo(r.fak_kundenr);
+          if (lev) withLev++;
+          if (!lev && !fak) { wittenborgUnmatched++; continue; }
+          const loc = resolveLocation(fak, lev);
+          if (!loc) { wittenborgUnmatched++; continue; }
+          const set = wittenborgByLoc.get(loc.id) ?? new Set<string>();
+          set.add(serienr);
+          wittenborgByLoc.set(loc.id, set);
+          wittenborgLocIds.add(loc.id);
+          wittenborgUnits.push({
+            location_id: loc.id,
+            machine_type: t(r.maskin_type) || null,
+            serial_no: serienr,
+            sub_location: t(r.adresselinje2) || null,
+            navn: t(r.navn) || null,
+          });
+        }
+        console.log(
+          `[machines-import] STEP 6b Wittenborg-pass: rows=${data.enrichmentRows.length} withLev=${withLev} resolved=${wittenborgUnits.length} unmatched=${wittenborgUnmatched} locs=${wittenborgLocIds.size}`,
+        );
+      }
+
       if (data.machineRows.length > 0) {
         type UnitAgg = {
           coffee: number; filters: number; cooling: number; total: number;
@@ -359,61 +476,6 @@ export const importMachines = createServerFn({ method: "POST" })
         }
         console.log(`[machines-import] STEP 6b: aggs=${aggs.size}`);
 
-        // Indlæs alle locations + companies (samme datasætstørrelse som equipment-import)
-        const locByNormDelivery = new Map<string, { id: string; company_id: string }>();
-        const locsByCompany = new Map<string, { id: string; visma_delivery_no: string | null }[]>();
-        {
-          const PAGE = 1000;
-          let from = 0;
-          while (true) {
-            const { data: rows, error } = await supabaseAdmin
-              .from("locations")
-              .select("id, company_id, visma_delivery_no")
-              .range(from, from + PAGE - 1);
-            if (error) throw new Error("locations select: " + error.message);
-            if (!rows || rows.length === 0) break;
-            for (const l of rows as any[]) {
-              if (l.visma_delivery_no) {
-                const kk = normalizeVismaNo(l.visma_delivery_no);
-                if (kk && !locByNormDelivery.has(kk)) {
-                  locByNormDelivery.set(kk, { id: l.id, company_id: l.company_id });
-                }
-              }
-              const arr = locsByCompany.get(l.company_id) ?? [];
-              arr.push({ id: l.id, visma_delivery_no: l.visma_delivery_no });
-              locsByCompany.set(l.company_id, arr);
-            }
-            if (rows.length < PAGE) break;
-            from += PAGE;
-          }
-        }
-        const compByNormFak = new Map<string, { id: string; last_purchase_date: string | null }>();
-        {
-          const PAGE = 1000;
-          let from = 0;
-          while (true) {
-            const { data: rows, error } = await supabaseAdmin
-              .from("companies")
-              .select("id, visma_id, last_purchase_date")
-              .range(from, from + PAGE - 1);
-            if (error) throw new Error("companies select: " + error.message);
-            if (!rows || rows.length === 0) break;
-            for (const c of rows as any[]) {
-              if (c.visma_id) {
-                const kk = normalizeVismaNo(c.visma_id);
-                if (kk && !compByNormFak.has(kk)) {
-                  compByNormFak.set(kk, { id: c.id, last_purchase_date: c.last_purchase_date });
-                }
-              }
-            }
-            if (rows.length < PAGE) break;
-            from += PAGE;
-          }
-        }
-        console.log(
-          `[machines-import] STEP 6b: locations=${locByNormDelivery.size} companies=${compByNormFak.size}`,
-        );
-
         type LocUpdate = { id: string; payload: Record<string, any>; units: UnitAgg["units"] };
         const updates: LocUpdate[] = [];
         const usedLocationIds = new Set<string>();
@@ -421,21 +483,24 @@ export const importMachines = createServerFn({ method: "POST" })
         for (const [key, a] of aggs.entries()) {
           const [fak, lev] = key.split("||");
           const company = compByNormFak.get(fak);
-          let loc = locByNormDelivery.get(lev);
-          if (!loc && company) {
-            const candidates = locsByCompany.get(company.id) ?? [];
-            const hit = candidates.find(
-              (l) => l.visma_delivery_no && normalizeVismaNo(l.visma_delivery_no) === fak,
-            );
-            if (hit) loc = { id: hit.id, company_id: company.id };
-          }
-          if (!loc && company) {
-            const candidates = locsByCompany.get(company.id) ?? [];
-            if (candidates.length === 1) loc = { id: candidates[0].id, company_id: company.id };
-          }
+          const loc = resolveLocation(fak, lev);
           if (!loc) { unitsUnmatched++; continue; }
           if (usedLocationIds.has(loc.id)) continue;
           usedLocationIds.add(loc.id);
+
+          // Markér filterrækker hvis serienr matcher Wittenborg-maskine på samme lokation.
+          // Maskinen bærer serienummeret; filteret står som tilbehør uden synligt serienr.
+          // Tæl konflikter: ikke-filter maskinrækker hvor serienr ikke matcher Wittenborg.
+          const witSet = wittenborgByLoc.get(loc.id);
+          for (const u of a.units) {
+            if (!u.serial_no) continue;
+            const matchesWit = !!witSet && witSet.has(u.serial_no);
+            if (u.is_filter && matchesWit) {
+              u.serial_no = null;
+            } else if (!u.is_filter && !matchesWit) {
+              machineSerialConflicts++;
+            }
+          }
 
           const agreementTypes = a.agreementSet.size > 0 ? Array.from(a.agreementSet).join(", ") : null;
           const summary = buildSummary(a.coffee, a.filters, a.cooling, 0);
@@ -481,7 +546,7 @@ export const importMachines = createServerFn({ method: "POST" })
         }
 
         // Idempotent: slet rental-units på berørte lokationer og indsæt på ny.
-        // Service-units (source='service') røres ikke — de stammer ikke fra denne import.
+        // Service- og wittenborg-units røres ikke her.
         const affected = Array.from(usedLocationIds);
         if (affected.length) {
           const CHUNK_D = 300;
@@ -517,7 +582,59 @@ export const importMachines = createServerFn({ method: "POST" })
           }
         }
         console.log(
-          `[machines-import] STEP 6b DONE: locUpdated=${unitsLocationsUpdated} unitsInserted=${unitsRowsInserted} unmatched=${unitsUnmatched}`,
+          `[machines-import] STEP 6b DONE: locUpdated=${unitsLocationsUpdated} unitsInserted=${unitsRowsInserted} unmatched=${unitsUnmatched} serialConflicts=${machineSerialConflicts}`,
+        );
+      }
+
+      // ---- STEP 6c: Indsæt source='wittenborg' units (idempotent pr. lokation) ----
+      if (wittenborgUnits.length > 0) {
+        const witLocs = Array.from(wittenborgLocIds);
+        const CHUNK_D = 300;
+        for (let i = 0; i < witLocs.length; i += CHUNK_D) {
+          const slice = witLocs.slice(i, i + CHUNK_D);
+          const { error } = await supabaseAdmin
+            .from("location_equipment_units")
+            .delete()
+            .eq("source", "wittenborg")
+            .in("location_id", slice);
+          if (error) console.error("[machines-import] wittenborg delete fejl:", error.message);
+        }
+        const witBatchId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? (crypto as any).randomUUID()
+            : null;
+        // Dedup pr. (location_id, serienr) — re-import må ikke duplikere.
+        const seenKey = new Set<string>();
+        const witRows: Record<string, any>[] = [];
+        for (const w of wittenborgUnits) {
+          const k = `${w.location_id}||${w.serial_no}`;
+          if (seenKey.has(k)) continue;
+          seenKey.add(k);
+          witRows.push({
+            source: "wittenborg",
+            location_id: w.location_id,
+            is_filter: false,
+            machine_type: w.machine_type,
+            serial_no: w.serial_no,
+            sub_location: w.sub_location,
+            agreement_type: null,
+            is_free_loan: false,
+            has_service_contract: false,
+            varenr: null,
+            import_batch_id: witBatchId,
+          });
+        }
+        const CHUNK_I = 500;
+        for (let i = 0; i < witRows.length; i += CHUNK_I) {
+          const slice = witRows.slice(i, i + CHUNK_I);
+          const { error } = await supabaseAdmin
+            .from("location_equipment_units")
+            .insert(slice as any);
+          if (error) console.error("[machines-import] wittenborg insert fejl:", error.message);
+          else wittenborgUnitsInserted += slice.length;
+        }
+        console.log(
+          `[machines-import] STEP 6c DONE: wittenborgInserted=${wittenborgUnitsInserted} (uniqueRows=${witRows.length}) onLocs=${witLocs.length} unmatched=${wittenborgUnmatched}`,
         );
       }
 
