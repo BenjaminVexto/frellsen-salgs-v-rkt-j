@@ -12,6 +12,8 @@ import {
   importUpdateCompaniesById,
   importInsertLocations,
 } from "@/lib/admin-companies.functions";
+import { recomputeAllCompanyStatuses } from "@/lib/recompute.functions";
+
 import { parseDanishDateIso as parseDanishDate } from "@/lib/invoice-parse";
 import { readFileSmart } from "@/lib/file-encoding";
 import { Card } from "@/components/ui/card";
@@ -278,6 +280,8 @@ function ImportSide() {
   const insertNoCvr = useServerFn(importInsertCompaniesNoCvr);
   const updateById = useServerFn(importUpdateCompaniesById);
   const upsertLocations = useServerFn(importInsertLocations);
+  const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
+
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -1053,7 +1057,24 @@ function ImportSide() {
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
     toast.success("Import gennemført");
+
+    // Genberegn customer_type / last_sales_date / has_active_equipment ud fra
+    // friske last_purchase_date-værdier. Ikke-blokerende, samme mønster som
+    // faktura- og Visma-importen.
+    if (companyIds.length > 0) {
+      (async () => {
+        try {
+          const res = await recomputeStatuses();
+          if (!res.ok) {
+            console.error("[anden-import] recompute_all_company_statuses fejlede:", res.error);
+          }
+        } catch (err) {
+          console.error("[anden-import] recompute_all_company_statuses kastede:", err);
+        }
+      })();
+    }
   }
+
 
 
   // Trin 5: tildel allerede importerede virksomheder

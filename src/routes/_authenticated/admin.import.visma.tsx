@@ -17,6 +17,8 @@ import {
   enqueueCvrEnrichment,
   getCvrEnrichmentQueueStatus,
 } from "@/lib/admin-companies.functions";
+import { recomputeAllCompanyStatuses } from "@/lib/recompute.functions";
+
 import { CvrEnrichmentQueueBadge } from "@/components/cvr-enrichment-queue-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -331,6 +333,8 @@ function ImportSide() {
   const upsertContacts = useServerFn(importUpsertContacts);
   const enqueueEnrich = useServerFn(enqueueCvrEnrichment);
   const fetchQueueStatus = useServerFn(getCvrEnrichmentQueueStatus);
+  const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
+
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -1289,6 +1293,23 @@ function ImportSide() {
     if (wasAborted) toast.warning(`Import stoppet — ${companyIds.length.toLocaleString("da-DK")} virksomheder importeret før afbrydelse`);
     else if (failed > 0) toast.error(`Import afsluttet med fejl (${failed.toLocaleString("da-DK")})`);
     else toast.success("Import gennemført");
+
+    // Genberegn customer_type / last_sales_date / has_active_equipment ud fra
+    // friske last_purchase_date-værdier. Ikke-blokerende: en fejl må ikke
+    // vælte selve importen. Samme mønster som faktura-importen.
+    if (!wasAborted && companyIds.length > 0) {
+      (async () => {
+        try {
+          const res = await recomputeStatuses();
+          if (!res.ok) {
+            console.error("[visma-import] recompute_all_company_statuses fejlede:", res.error);
+          }
+        } catch (err) {
+          console.error("[visma-import] recompute_all_company_statuses kastede:", err);
+        }
+      })();
+    }
+
     if (companiesWithMultipleLocations > 0) {
       toast.success(
         `${companiesWithMultipleLocations} virksomheder fik flere lokationer registreret`,
