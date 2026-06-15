@@ -303,18 +303,6 @@ function DashboardPage() {
       </div>
 
 
-      {(followupsQuery.data?.length ?? 0) === 0 &&
-        (hotOppsQuery.data?.length ?? 0) === 0 &&
-        (listsQuery.data?.length ?? 0) === 0 &&
-        !followupsQuery.isLoading && (
-          <Card className="mt-8 p-6 text-center bg-muted/40 border-dashed">
-            <Building2 className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">
-              Du har endnu ingen tildelinger. Kontakt din administrator for at få tildelt
-              virksomheder og kontaktlister.
-            </p>
-          </Card>
-        )}
     </div>
   );
 }
