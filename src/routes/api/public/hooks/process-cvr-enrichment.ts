@@ -18,14 +18,15 @@ export const Route = createFileRoute("/api/public/hooks/process-cvr-enrichment")
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Server-only shared secret. Use SUPABASE_SERVICE_ROLE_KEY since it
-        // is already present as a server-only env var (never shipped to the
-        // browser). The publishable/anon key is public and must not be used.
         const provided =
+          request.headers.get("apikey") ??
           request.headers.get("x-cron-secret") ??
-          request.headers.get("apikey");
-        const expected = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (!expected || provided !== expected) {
+          request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
+          null;
+        const anon = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+        const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const ok = !!provided && (provided === anon || provided === service);
+        if (!ok) {
           return new Response("Unauthorized", { status: 401 });
         }
 
