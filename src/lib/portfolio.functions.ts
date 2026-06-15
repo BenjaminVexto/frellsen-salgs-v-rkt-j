@@ -235,7 +235,16 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         isAdmin,
         appliedSellerId: isAdmin ? appliedSellerId : null,
         sellerOptions,
-        totals: { revenue12m: 0, revenue12mPriorYear: 0, contribution12m: isAdmin ? 0 : null },
+        totals: {
+          revenue12m: 0,
+          revenue12mPriorYear: 0,
+          revenueYtd: 0,
+          revenueYtdPriorSamePeriod: 0,
+          ytdLatestPeriod: null,
+          ytdFraction: 1,
+          contribution12m: isAdmin ? 0 : null,
+        },
+
         statusCounts: { aktive: 0, sovende: 0, paaVejVaek: 0, total: 0 },
         monthLabels,
         companies: [],
