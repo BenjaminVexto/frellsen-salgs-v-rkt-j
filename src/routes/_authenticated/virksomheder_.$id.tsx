@@ -71,6 +71,7 @@ import {
   Trash2,
   AlertTriangle,
   ChevronRight,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
