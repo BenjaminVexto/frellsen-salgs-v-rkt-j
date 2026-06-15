@@ -414,7 +414,7 @@ export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
         const explicitId = (row as any).id ? String((row as any).id) : null;
         const existing = explicitId ? { id: explicitId, cvr: cvr || null } : existingByCvr.get(cvr);
         const { id: _id, ...payload } = row as any;
-        if (existing?.id) updates.push({ id: existing.id, cvr: existing.cvr ?? cvr || null, payload });
+        if (existing?.id) updates.push({ id: existing.id, cvr: existing.cvr ?? (cvr || null), payload });
         else inserts.push(payload);
       }
 
