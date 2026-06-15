@@ -727,9 +727,13 @@ export const importMachines = createServerFn({ method: "POST" })
           beregnet_slutdato: normDate(r.beregnet_slutdato),
           handlingsdato: normDate(r.handlingsdato),
           handlingsdato_raw: r.handlingsdato_raw || null,
+          kobt_dato: normDate((r as any).kobt_dato),
+          lease_leje_dato: normDate((r as any).lease_leje_dato),
+          aftale_type: t((r as any).aftale_type) || null,
           data: Object.keys(extras).length > 0 ? extras : null,
           record_status: "aktiv",
           last_seen_import: importedAt,
+
           udgaaet_dato: null,
         });
       }
