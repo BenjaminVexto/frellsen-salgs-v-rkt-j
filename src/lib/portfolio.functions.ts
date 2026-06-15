@@ -304,7 +304,11 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       revenue12m: number;
       revenue12mPrior: number;
       contribution12m: number;
+      revenueYtd: number;
+      revenueYtdPrior: number;
+      ytdPriorLastMonthRev: number;
     };
+
     const aggs = new Map<string, Agg>();
     let totalRev12 = 0;
     let totalRevPrior = 0;
