@@ -29,7 +29,15 @@ import {
   KeyRound,
   ChevronDown,
   Eye,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 
 import { Button } from "@/components/ui/button";
@@ -246,30 +254,85 @@ function AuthenticatedShell() {
       <main className="flex-1 md:ml-0 pt-12 md:pt-0">
         <ViewAsBanner />
         <Outlet />
-        {/* Mobile bottom nav */}
-        <nav
-          className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-7 z-20"
-          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-        >
-          {navItems.map((item) => {
-            const active = location.pathname.startsWith(item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`flex flex-col items-center justify-center py-1.5 text-[10px] leading-tight ${
-                  active ? "text-primary" : "text-muted-foreground"
-                }`}
-              >
-                <item.icon className="h-5 w-5 mb-0.5" />
-                <span className="truncate max-w-full px-1">{item.shortLabel}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Mobile bottom nav — kun mark-relevante faner; resten under "Mere" */}
+        <MobileBottomNav navItems={navItems} pathname={location.pathname} />
       </main>
       <GlobalImportIndicator />
       <ViewAsPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} />
     </div>
+  );
+}
+
+function MobileBottomNav({
+  navItems,
+  pathname,
+}: {
+  navItems: { to: string; label: string; shortLabel: string; icon: any }[];
+  pathname: string;
+}) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  // Mark-prioritet: virksomhedssøgning er primær, dernæst overblik og aftaler.
+  const primaryTo = new Set(["/virksomheder", "/dashboard", "/aftaler"]);
+  const primary = navItems.filter((i) => primaryTo.has(i.to));
+  const secondary = navItems.filter((i) => !primaryTo.has(i.to));
+  const moreActive = secondary.some((i) => pathname.startsWith(i.to));
+
+  return (
+    <nav
+      className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-4 z-20"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      {primary.map((item) => {
+        const active = pathname.startsWith(item.to);
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={`flex flex-col items-center justify-center py-1.5 text-[10px] leading-tight ${
+              active ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <item.icon className="h-5 w-5 mb-0.5" />
+            <span className="truncate max-w-full px-1">{item.shortLabel}</span>
+          </Link>
+        );
+      })}
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetTrigger asChild>
+          <button
+            type="button"
+            className={`flex flex-col items-center justify-center py-1.5 text-[10px] leading-tight ${
+              moreActive ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <MoreHorizontal className="h-5 w-5 mb-0.5" />
+            <span className="truncate max-w-full px-1">Mere</span>
+          </button>
+        </SheetTrigger>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>Mere</SheetTitle>
+          </SheetHeader>
+          <div className="grid grid-cols-3 gap-3 mt-4 pb-4">
+            {secondary.map((item) => {
+              const active = pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMoreOpen(false)}
+                  className={`flex flex-col items-center justify-center gap-1 rounded-lg border p-3 text-xs ${
+                    active ? "border-primary text-primary" : "border-border text-foreground"
+                  }`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span className="truncate max-w-full text-center">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </nav>
   );
 }

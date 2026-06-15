@@ -11,7 +11,16 @@ function Index() {
   const navigate = useNavigate();
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      navigate({ to: data.session ? "/dashboard" : "/login", replace: true });
+      if (!data.session) {
+        navigate({ to: "/login", replace: true });
+        return;
+      }
+      // På mobil lander sælgeren direkte i virksomhedssøgning (markbrug).
+      // PC fortsætter til dashboard.
+      const isMobile =
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 767px)").matches;
+      navigate({ to: isMobile ? "/virksomheder" : "/dashboard", replace: true });
     });
   }, [navigate]);
   return (

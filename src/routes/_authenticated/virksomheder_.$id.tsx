@@ -47,6 +47,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -64,6 +71,7 @@ import {
   Trash2,
   AlertTriangle,
   ChevronRight,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -404,9 +412,96 @@ function VirksomhedsKort() {
         </Link>
       </div>
 
+      {/* MOBIL møde-brief — vises kun på telefon, øverst, så sælgeren straks ser
+          firma, status, AI-brief og kan starte aktivitet/mail uden at scrolle. */}
+      <div className="lg:hidden mb-4">
+        <Card className="p-4 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="text-lg font-semibold leading-tight min-w-0 break-words">
+              {company.name}
+            </h1>
+            <CustomerStatusBadge
+              type={company.customer_type}
+              variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
+              <PlusCircle className="h-4 w-4 mr-1.5" /> Aktivitet
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setMailOpen(true)}>
+              <Mail className="h-4 w-4 mr-1.5" /> Mail
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <MoreHorizontal className="h-4 w-4 mr-1.5" /> Flere
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setOpportunityOpen(true)}>
+                  <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuoteOpen(true)}>
+                  <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={openDeleteDialog}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" /> Slet virksomhed
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <AiBriefingSektion companyId={company.id} />
+          <div className="grid grid-cols-1 gap-1.5 text-sm border-t pt-3">
+            {(() => {
+              const c = contacts.find((c) => c.is_primary) ?? contacts[0];
+              return c ? (
+                <div className="flex items-start gap-2">
+                  <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{c.name}</div>
+                    <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
+                      {c.phone && <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a>}
+                      {c.email && <a href={`mailto:${c.email}`} className="hover:underline break-all">{c.email}</a>}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">Ingen kontaktperson registreret</div>
+              );
+            })()}
+            {company.last_purchase_date ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <ClipboardList className="h-3.5 w-3.5 shrink-0" />
+                Sidste varekøb: {format(new Date(company.last_purchase_date), "d. MMM yyyy", { locale: da })}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <ClipboardList className="h-3.5 w-3.5 shrink-0" />
+                Ingen registreret varekøb
+              </div>
+            )}
+            {company.phone && (
+              <div className="flex items-center gap-2 text-xs">
+                <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <a href={`tel:${company.phone}`} className="hover:underline">{company.phone}</a>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_300px] gap-6">
-        {/* VENSTRE — Stamdata */}
-        <Card className="p-5 h-fit">
+        {/* VENSTRE — Stamdata (rykkes ned på mobil; brief'en dækker top) */}
+        <Card className="p-5 h-fit order-3 lg:order-1">
           <div className="flex items-start justify-between mb-3">
             <div className="bg-muted rounded-md p-2">
               <Building2 className="h-5 w-5" />
@@ -631,7 +726,7 @@ function VirksomhedsKort() {
         </Card>
 
         {/* MIDTEN — Faner */}
-        <div className="space-y-4 min-w-0">
+        <div className="space-y-4 min-w-0 order-2 lg:order-2">
           <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
             <TabsList className="bg-transparent p-0 h-auto border-b w-full justify-start rounded-none overflow-x-auto scrollbar-hide flex-nowrap">
               {[
@@ -815,8 +910,9 @@ function VirksomhedsKort() {
 
 
 
-        {/* HØJRE — Handlingspanel */}
-        <Card className="p-5 h-fit lg:sticky lg:top-6">
+        {/* HØJRE — Handlingspanel (kun pc; mobil bruger brief'en + "Flere") */}
+        <Card className="p-5 h-fit lg:sticky lg:top-6 hidden lg:block order-4 lg:order-3">
+
           <h2 className="font-semibold mb-4">Handlinger</h2>
           <div className="space-y-2">
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
