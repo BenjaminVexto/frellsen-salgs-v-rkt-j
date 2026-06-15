@@ -47,6 +47,9 @@ export type PortfolioCompanyRow = {
   monthly: { period: string; revenue: number }[]; // last 5, oldest -> newest
   revenue12m: number;
   revenue12mPrior: number;
+  revenueYtd: number;
+  revenueYtdPriorSamePeriod: number;
+
   contribution12m: number | null;
   employees: number | null;
   is_public: boolean;
