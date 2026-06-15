@@ -433,19 +433,20 @@ export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
         }
       }
 
-      for (const row of updates) {
-        const { error: updateErr } = await supabaseAdmin
+      if (updates.length) {
+        const updatePayloads = updates.map((row) => ({ id: row.id, ...row.payload }));
+        const { data: updatedRows, error: updateErr } = await supabaseAdmin
           .from("companies")
-          .update(row.payload as any)
-          .eq("id", row.id);
+          .upsert(updatePayloads as any, { onConflict: "id" })
+          .select("id, cvr");
         if (updateErr) {
           const msg = formatDbError(updateErr);
           console.error("Import CVR update fejl:", msg);
           errors.push(msg);
-          failed++;
-          continue;
+          failed += updates.length;
+        } else {
+          (updatedRows ?? []).forEach((row: any) => results.push({ id: row.id, cvr: row.cvr }));
         }
-        results.push({ id: row.id, cvr: row.cvr });
       }
     }
     return { results, failed, errors };
