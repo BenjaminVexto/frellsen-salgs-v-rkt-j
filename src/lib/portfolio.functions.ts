@@ -346,19 +346,33 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
       const isMachine = MACHINE_RE.test(String((r as any).product_group_1 ?? ""));
+      const agg =
+        aggs.get(cid) ?? {
+          monthly: new Map(),
+          revenue12m: 0,
+          revenue12mPrior: 0,
+          contribution12m: 0,
+          revenueYtd: 0,
+          revenueYtdPrior: 0,
+          ytdPriorLastMonthRev: 0,
+        };
       // YTD-vinduer (samme periode sidste år, sammenlignet på måned)
       if (period >= startCurYtd && period <= refPeriod) {
         totalRevYtd += rev;
+        agg.revenueYtd += rev;
         if (period === refPeriod) ytdCurLastMonthRev += rev;
+        aggs.set(cid, agg);
       }
       if (period >= startPriorYtd && period <= endPriorYtd) {
         totalRevYtdPrior += rev;
-        if (period === endPriorYtd) ytdPriorLastMonthRev += rev;
+        agg.revenueYtdPrior += rev;
+        if (period === endPriorYtd) {
+          ytdPriorLastMonthRev += rev;
+          agg.ytdPriorLastMonthRev += rev;
+        }
+        aggs.set(cid, agg);
       }
 
-
-      const agg =
-        aggs.get(cid) ?? { monthly: new Map(), revenue12m: 0, revenue12mPrior: 0, contribution12m: 0 };
       if (inCurrent) {
         totalRev12 += rev;
         if (isAdmin) totalContrib += Number((r as any).contribution) || 0;
@@ -374,6 +388,16 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         aggs.set(cid, agg);
       }
     }
+
+    // Pro-rata fraction for YTD prior (samme udregning som totals nedenfor)
+    const _today = new Date();
+    const _isCurMonth =
+      _today.getUTCFullYear() === refYear && _today.getUTCMonth() + 1 === refMonth;
+    const _daysInMonth = new Date(Date.UTC(refYear, refMonth, 0)).getUTCDate();
+    const ytdFraction = _isCurMonth
+      ? Math.min(_today.getUTCDate(), _daysInMonth) / _daysInMonth
+      : 1;
+
 
     // Build company rows
     const companies: PortfolioCompanyRow[] = (compsMeta as any[]).map((c) => {
