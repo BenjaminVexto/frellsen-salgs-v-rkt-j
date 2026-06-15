@@ -20,6 +20,8 @@ const MachineRow = z
   .passthrough();
 
 // Strukturerede kolonner på machine_enrichment — alt andet havner i data jsonb.
+// lev_kundenr/fak_kundenr/maskin_type bevares også i data jsonb (eksisterende UI
+// læser data->>'lev_kundenr'), så vi lader dem dryppe igennem til extras.
 const ENRICHMENT_COLUMN_FIELDS = new Set([
   "serienr",
   "taelleraflaesning",
@@ -37,6 +39,12 @@ const EnrichmentRow = z
     beregnet_slutdato: z.string().nullable().optional(),
     handlingsdato: z.string().nullable().optional(),
     handlingsdato_raw: z.string().nullable().optional(),
+    // Lokations- og maskintype-felter fra Wittenborg SN-listen.
+    lev_kundenr: z.string().nullable().optional(),
+    fak_kundenr: z.string().nullable().optional(),
+    maskin_type: z.string().nullable().optional(),
+    navn: z.string().nullable().optional(),
+    adresselinje2: z.string().nullable().optional(),
     data: z.record(z.any()).nullable().optional(),
   })
   .passthrough();
