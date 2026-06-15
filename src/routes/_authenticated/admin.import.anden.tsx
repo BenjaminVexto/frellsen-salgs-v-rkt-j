@@ -756,8 +756,23 @@ function ImportSide() {
     const updates = jobs.filter((j) => j.kind === "update_id") as Extract<Job, { kind: "update_id" }>[];
     const inserts = jobs.filter((j) => j.kind === "insert_no_cvr") as Extract<Job, { kind: "insert_no_cvr" }>[];
 
+    // Dedupér visma-upserts pr. visma_id (sidste række vinder)
+    const vismaUpsertsRaw = jobs.filter((j) => j.kind === "upsert_visma") as Extract<Job, { kind: "upsert_visma" }>[];
+    const vismaUpsertsById = new Map<string, Extract<Job, { kind: "upsert_visma" }>>();
+    let dedupedVismaDuplicates = 0;
+    for (const j of vismaUpsertsRaw) {
+      const key = String(j.payload.visma_id);
+      if (vismaUpsertsById.has(key)) dedupedVismaDuplicates++;
+      vismaUpsertsById.set(key, j);
+    }
+    const vismaUpserts = Array.from(vismaUpsertsById.values());
+    if (dedupedVismaDuplicates > 0) {
+      console.warn(`Dedupliceret ${dedupedVismaDuplicates} dublerede visma_id-rækker i upload`);
+    }
+
     const totalBatches =
       Math.ceil(upserts.length / CHUNK) +
+      Math.ceil(vismaUpserts.length / CHUNK) +
       Math.ceil(updates.length / CHUNK) +
       Math.ceil(inserts.length / CHUNK);
     let batchIdx = 0;
