@@ -370,9 +370,9 @@ export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
-    // Dedupliker rækker pr. CVR — Postgres' ON CONFLICT kan ikke ramme samme
-    // række to gange i samme statement. Den sidste forekomst vinder (sidste
-    // leveringsadresse for samme CVR overskriver tidligere).
+    // Dedupliker rækker pr. CVR. Vi bruger IKKE upsert(onConflict="cvr"),
+    // fordi companies.cvr bevidst ikke er unik i databasen. I stedet laver vi
+    // eksplicit lookup → update/insert, så importen virker med dublet-CVR'er.
     const byCvr = new Map<string, any>();
     const noCvr: any[] = [];
     for (const r of data.rows) {
@@ -387,29 +387,67 @@ export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
     const errors: string[] = [];
     for (let i = 0; i < deduped.length; i += CHUNK) {
       const slice = deduped.slice(i, i + CHUNK);
-      const { data: res, error } = await supabaseAdmin
-        .from("companies")
-        .upsert(slice as any, { onConflict: "cvr" })
-        .select("id, cvr");
-      if (error) {
-        console.error("Import upsert fejl:", error.message);
-        errors.push(error.message);
-        // Fallback pr. række så ét dårligt rækkesæt ikke vælter hele batchen
-        for (const row of slice) {
-          const { data: one, error: oneErr } = await supabaseAdmin
-            .from("companies")
-            .upsert(row as any, { onConflict: "cvr" })
-            .select("id, cvr")
-            .maybeSingle();
-          if (oneErr || !one) {
-            failed++;
-            continue;
-          }
-          results.push({ id: one.id, cvr: one.cvr });
+
+      const cvrs = slice.map((row) => String((row as any).cvr ?? "").trim()).filter(Boolean);
+      const existingByCvr = new Map<string, { id: string; cvr: string | null }>();
+      if (cvrs.length) {
+        const { data: existingRows, error: existingErr } = await supabaseAdmin
+          .from("companies")
+          .select("id, cvr")
+          .in("cvr", cvrs);
+        if (existingErr) {
+          const msg = formatDbError(existingErr);
+          console.error("Import CVR lookup fejl:", msg);
+          errors.push(msg);
+          failed += slice.length;
+          continue;
         }
-        continue;
+        (existingRows ?? []).forEach((row: any) => {
+          if (row.cvr && !existingByCvr.has(String(row.cvr))) existingByCvr.set(String(row.cvr), row);
+        });
       }
-      (res ?? []).forEach((r: any) => results.push({ id: r.id, cvr: r.cvr }));
+
+      const inserts: any[] = [];
+      const updates: Array<{ id: string; cvr: string | null; payload: any }> = [];
+      for (const row of slice) {
+        const cvr = String((row as any).cvr ?? "").trim();
+        const explicitId = (row as any).id ? String((row as any).id) : null;
+        const existing = explicitId ? { id: explicitId, cvr: cvr || null } : existingByCvr.get(cvr);
+        const { id: _id, ...payload } = row as any;
+        if (existing?.id) updates.push({ id: existing.id, cvr: existing.cvr ?? (cvr || null), payload });
+        else inserts.push(payload);
+      }
+
+      if (inserts.length) {
+        const { data: insertedRows, error: insertErr } = await supabaseAdmin
+          .from("companies")
+          .insert(inserts as any)
+          .select("id, cvr");
+        if (insertErr) {
+          const msg = formatDbError(insertErr);
+          console.error("Import CVR insert fejl:", msg);
+          errors.push(msg);
+          failed += inserts.length;
+        } else {
+          (insertedRows ?? []).forEach((row: any) => results.push({ id: row.id, cvr: row.cvr }));
+        }
+      }
+
+      if (updates.length) {
+        const updatePayloads = updates.map((row) => ({ id: row.id, ...row.payload }));
+        const { data: updatedRows, error: updateErr } = await supabaseAdmin
+          .from("companies")
+          .upsert(updatePayloads as any, { onConflict: "id" })
+          .select("id, cvr");
+        if (updateErr) {
+          const msg = formatDbError(updateErr);
+          console.error("Import CVR update fejl:", msg);
+          errors.push(msg);
+          failed += updates.length;
+        } else {
+          (updatedRows ?? []).forEach((row: any) => results.push({ id: row.id, cvr: row.cvr }));
+        }
+      }
     }
     return { results, failed, errors };
   });
