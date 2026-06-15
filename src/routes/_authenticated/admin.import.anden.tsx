@@ -522,10 +522,22 @@ function ImportSide() {
       "customer_segment_1", "customer_segment_2", "customer_segment_3",
     ]);
 
-    // 1) Hent ALLE eksisterende rækker for berørte CVR'er + name-match-IDs i bulk
+    // 1) Hent ALLE eksisterende rækker for berørte CVR'er + visma_id'er + name-match-IDs i bulk
     const cvrsToFetch = Array.from(
       new Set(toImport.map((p) => p.cvr).filter((v): v is string => !!v)),
     );
+    const vismaIdsToFetch = importSource === "visma"
+      ? Array.from(
+          new Set(
+            toImport
+              .map((p) => {
+                const v = (p.data as any)?.visma_id;
+                return v ? String(v).trim() : null;
+              })
+              .filter((v): v is string => !!v),
+          ),
+        )
+      : [];
     const eanMatchIdSet = new Set(
       toImport.map((p) => p.eanMatchId).filter((v): v is string => !!v),
     );
@@ -537,6 +549,7 @@ function ImportSide() {
     );
 
     const existingByCvr = new Map<string, any>();
+    const existingByVismaId = new Map<string, any>();
     const existingById = new Map<string, any>();
 
     importRunner.setLabel("Henter eksisterende virksomheder…");
@@ -553,6 +566,23 @@ function ImportSide() {
       }
       (data ?? []).forEach((r: any) => {
         if (r.cvr) existingByCvr.set(r.cvr, r);
+        existingById.set(r.id, r);
+      });
+      await yieldUI();
+    }
+    for (let i = 0; i < vismaIdsToFetch.length; i += CHUNK) {
+      const slice = vismaIdsToFetch.slice(i, i + CHUNK);
+      const { data, error } = await supabase
+        .from("companies")
+        .select("*")
+        .in("visma_id", slice);
+      if (error) {
+        toast.error("Kunne ikke hente eksisterende (visma_id): " + error.message);
+        importRunner.fail(progressLabel || "Import afbrudt");
+        return;
+      }
+      (data ?? []).forEach((r: any) => {
+        if (r.visma_id) existingByVismaId.set(String(r.visma_id), r);
         existingById.set(r.id, r);
       });
       await yieldUI();
