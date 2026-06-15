@@ -876,8 +876,9 @@ function VirksomhedsKort() {
 
 
 
-        {/* HØJRE — Handlingspanel */}
-        <Card className="p-5 h-fit lg:sticky lg:top-6">
+        {/* HØJRE — Handlingspanel (kun pc; mobil bruger brief'en + "Flere") */}
+        <Card className="p-5 h-fit lg:sticky lg:top-6 hidden lg:block order-4 lg:order-3">
+
           <h2 className="font-semibold mb-4">Handlinger</h2>
           <div className="space-y-2">
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
