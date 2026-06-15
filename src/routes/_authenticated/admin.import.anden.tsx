@@ -186,6 +186,17 @@ function normEan(v: string | undefined | null): string | null {
 
 type ParsedRow = Record<string, string>;
 
+function normalizeHeaderName(h: string): string {
+  return h
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s.\-/]+/g, "_")
+    .replace(/[^a-z0-9æøå_]/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
 function selectableHeaders(fields: string[] | undefined): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -196,6 +207,17 @@ function selectableHeaders(fields: string[] | undefined): string[] {
     out.push(header);
   }
   return out;
+}
+
+function stripCsvPreamble(text: string, delimiter: string): string {
+  const lines = text.split(/\r?\n/);
+  if (lines.length < 2) return text;
+  const nonEmptyCells = (line: string) =>
+    line.split(delimiter).filter((cell) => cell.trim()).length;
+  if (nonEmptyCells(lines[0]) <= 1 && nonEmptyCells(lines[1]) > 1) {
+    return lines.slice(1).join("\n");
+  }
+  return text;
 }
 
 interface PreparedRow {
@@ -282,7 +304,8 @@ function ImportSide() {
     const firstLine = rawText.split("\n")[0] ?? "";
     const delimiter =
       firstLine.split(";").length > firstLine.split(",").length ? ";" : ",";
-    Papa.parse<ParsedRow>(rawText, {
+    const csvText = stripCsvPreamble(rawText, delimiter);
+    Papa.parse<ParsedRow>(csvText, {
       delimiter,
       header: true,
       skipEmptyLines: true,
@@ -295,7 +318,7 @@ function ImportSide() {
         const auto: Partial<Record<SystemField, string>> = {};
         for (const f of SYSTEM_FIELDS) {
           const found = hdrs.find((h) =>
-            AUTO_MATCH[f.key].some((alias) => h.toLowerCase().replace(/[\s-]/g, "_") === alias),
+            AUTO_MATCH[f.key].some((alias) => normalizeHeaderName(h) === alias),
           );
           if (found) auto[f.key] = found;
         }
