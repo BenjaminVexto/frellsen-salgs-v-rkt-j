@@ -822,6 +822,42 @@ function ImportSide() {
       await yieldUI();
     }
 
+    // 3a-bis) Bulk upsert via visma_id (entydig firmanøgle i visma-mode)
+    for (let i = 0; i < vismaUpserts.length; i += CHUNK) {
+      const slice = vismaUpserts.slice(i, i + CHUNK);
+      const payloads = slice.map((j) => j.payload);
+      try {
+        const res = await upsertByVismaId({ data: { rows: payloads } });
+        const byVisma = new Map(res.results.map((r) => [r.visma_id, r.id]));
+        slice.forEach((j) => {
+          const id = j.payload.id ?? byVisma.get(String(j.payload.visma_id));
+          if (id) {
+            companyIds.push(id);
+            if (j.sellerId) sellerByCompany[id] = j.sellerId;
+            if (j.isUpdate) {
+              updated++;
+              if (j.isEnrich) enriched++;
+            } else {
+              created++;
+            }
+            if (j.isNoCvr) noCvrCount++;
+          } else {
+            failed++;
+          }
+        });
+        if (res.failed) failed += res.failed;
+        if (res.errors.length) {
+          toast.error(`Visma-batch fejl: ${res.errors[0]}`);
+        }
+      } catch (e: any) {
+        console.error("Bulk visma-upsert server-fn fejl", e);
+        toast.error(`Visma-batch fejlede (${slice.length} rækker): ${e?.message ?? e}`);
+        failed += slice.length;
+      }
+      tick("upsert_visma", slice.length);
+      await yieldUI();
+    }
+
     // 3b) Bulk insert (no-cvr nye) — server-side
     for (let i = 0; i < inserts.length; i += CHUNK) {
       const slice = inserts.slice(i, i + CHUNK);
