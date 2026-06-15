@@ -140,7 +140,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
 
           await supabaseAdmin.from("invoice_import_jobs").update(updatePayload).eq("id", jobId);
 
-          // Ryd op når jobbet er færdigt
+          // Ryd op når jobbet er færdigt + genberegn kundestatus
           if (nextPhase === "done") {
             const allChunks: string[] = [];
             const monthlyCount = Math.ceil((job.total_monthly ?? 0) / CHUNK_SIZE);
@@ -150,7 +150,18 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             if (allChunks.length) {
               await supabaseAdmin.storage.from(BUCKET).remove(allChunks);
             }
+            // Genberegn last_sales_date / last_consumable_sales_date /
+            // has_active_equipment / customer_type for alle firmaer ud fra
+            // den friske sales_monthly. Funktionen er sat-baseret og kører på
+            // ~8s for 14k firmaer × 233k rækker — ingen chunking nødvendig.
+            const { error: recomputeErr } = await supabaseAdmin.rpc(
+              "recompute_all_company_statuses",
+            );
+            if (recomputeErr) {
+              console.error("[invoice-import] recompute_all_company_statuses fejlede:", recomputeErr);
+            }
           }
+
 
           return Response.json({
             jobId,
