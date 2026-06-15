@@ -176,10 +176,12 @@ function PortfolioPage() {
             </h2>
             <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
               <RevenueCard
-                label="Porteføljeomsætning · 12 mdr."
-                current={data.totals.revenue12m}
-                prior={data.totals.revenue12mPriorYear}
+                label="Porteføljeomsætning · År-til-Dato"
+                current={data.totals.revenueYtd}
+                prior={data.totals.revenueYtdPriorSamePeriod}
+                latestPeriod={data.totals.ytdLatestPeriod}
               />
+
               <Card className="p-4">
                 <div className="text-xs text-muted-foreground mb-1">Fordeling</div>
                 <div className="text-lg font-semibold mb-2">
