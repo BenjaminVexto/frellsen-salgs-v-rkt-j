@@ -507,7 +507,7 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
       );
       for (const d of relevant) {
         if (d.reason === "paused") {
-          if (d.snooze_user_id === effectiveUserId && d.snooze_until && d.snooze_until >= today) {
+          if ((teamScope || d.snooze_user_id === effectiveUserId) && d.snooze_until && d.snooze_until >= today) {
             dismissedSet.add(cand.company_id);
             break;
           }
