@@ -281,6 +281,7 @@ function PortfolioPage() {
                       active={sortKey === "month:last"}
                       dir={sortDir}
                       align="right"
+                      title="Omsætning i seneste hele kalendermåned (alle produktgrupper)."
                     >
                       Seneste md.
                     </Th>
@@ -289,6 +290,7 @@ function PortfolioPage() {
                       active={sortKey === "revenue12m"}
                       dir={sortDir}
                       align="right"
+                      title="Samlet omsætning de seneste 12 måneder (rullende, alle produktgrupper)."
                     >
                       12 mdr.
                     </Th>
