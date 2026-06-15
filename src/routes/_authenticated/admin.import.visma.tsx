@@ -2002,8 +2002,74 @@ function Trin2VismaConfirm({
   const firmaSample1 = sampleRows[0]?.["Firma"] ?? "";
   const firmaSample2 = sampleRows[1]?.["Firma"] ?? "";
 
+  // Kritiske felter: skal være mappet OG (for datoer) give en gyldig ISO-dato
+  // efter parseDanishDate, ellers lander DB med NULL og kunde-status afledes forkert.
+  const CRITICAL: { key: SystemField; label: string; expectedHeader: string }[] = [
+    { key: "last_purchase_date", label: "Sidste varekøb → last_purchase_date", expectedHeader: "Sidste Varekøb" },
+    { key: "created_in_visma", label: "Oprettet dato → created_in_visma", expectedHeader: "Oprettet dato" },
+    { key: "visma_id", label: "Fakt. kunde → visma_id (upsert-nøgle)", expectedHeader: "Fakt. kunde" },
+  ];
+  const criticalChecks = CRITICAL.map((c) => {
+    const hdr = mapping[c.key];
+    const raw1 = hdr ? (sampleRows[0]?.[hdr] ?? "").trim() : "";
+    const raw2 = hdr ? (sampleRows[1]?.[hdr] ?? "").trim() : "";
+    const parsed1 = c.key === "visma_id" ? raw1 : raw1 ? (parseDanishDate(raw1) ?? "") : "";
+    const parsed2 = c.key === "visma_id" ? raw2 : raw2 ? (parseDanishDate(raw2) ?? "") : "";
+    const ok = !!hdr && !!parsed1;
+    return { ...c, hdr, raw1, raw2, parsed1, parsed2, ok };
+  });
+
   return (
     <div className="space-y-4">
+      <Card className="p-6 border-2">
+        <h2 className="font-semibold mb-3">Feltkontrol — kritiske felter</h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Disse felter SKAL være mappet og (for datoer) give en parset ISO-værdi, ellers lander importen med tomme datoer / forkert kunde-status.
+        </p>
+        <div className="space-y-2">
+          {criticalChecks.map((c) => (
+            <div
+              key={c.key}
+              className={`flex items-start gap-3 p-3 rounded border ${
+                c.ok ? "bg-success/5 border-success/30" : "bg-destructive/5 border-destructive/40"
+              }`}
+            >
+              <span className="text-lg leading-none mt-0.5">{c.ok ? "✅" : "❌"}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium">{c.label}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Forventet header: <span className="font-mono">{c.expectedHeader}</span> · Fundet:{" "}
+                  <span className="font-mono">
+                    {c.hdr ?? <span className="text-destructive">MANGLER</span>}
+                  </span>
+                </div>
+                {c.hdr && (
+                  <div className="text-xs mt-1 font-mono break-all">
+                    <span className="text-muted-foreground">rå:</span> {c.raw1 || "—"}
+                    {c.key !== "visma_id" && c.raw1 && (
+                      <>
+                        {" → "}
+                        <span className={c.parsed1 ? "text-success" : "text-destructive"}>
+                          {c.parsed1 || "kunne ikke parses"}
+                        </span>
+                      </>
+                    )}
+                    {c.raw2 && (
+                      <span className="ml-3">
+                        <span className="text-muted-foreground">rå2:</span> {c.raw2}
+                        {c.key !== "visma_id" && c.parsed2 && (
+                          <> → <span className="text-success">{c.parsed2}</span></>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
       <Card className="p-6">
         <h2 className="font-semibold mb-3">Auto-mapping fra Visma-format</h2>
         <p className="text-sm mb-2">
