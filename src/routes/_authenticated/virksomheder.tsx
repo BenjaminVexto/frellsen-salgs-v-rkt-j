@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,21 @@ function VirksomhederListe() {
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
 
+  const isMobile = useIsMobile();
+  const userId = auth.user?.id ?? null;
+  // På mobil: vis kun "mine" virksomheder ved start, så sælgerne ikke møder 16k+ rækker.
+  // Aktiveres KUN når søgefeltet er tomt og ingen filtre er sat — så søgning rammer hele basen.
+  const mobileMineActive =
+    isMobile &&
+    !q.trim() &&
+    !isFilterActive &&
+    !recentIds &&
+    !!userId;
+  const displayed = useMemo(() => {
+    if (!mobileMineActive) return filtered;
+    return filtered.filter((r) => (r as any).assigned_to === userId);
+  }, [filtered, mobileMineActive, userId]);
+
   const loadTemplates = async () => {
     const { data } = await (supabase as any)
       .from("filter_templates")
@@ -113,10 +129,10 @@ function VirksomhederListe() {
 
   useEffect(() => {
     setPage(0);
-  }, [filters, q, recentIds]);
+  }, [filters, q, recentIds, mobileMineActive]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(displayed.length / PAGE_SIZE));
+  const pageRows = displayed.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const clearRecent = () => {
     sessionStorage.removeItem(RECENT_KEY);
@@ -141,7 +157,7 @@ function VirksomhederListe() {
   };
 
   const selectAllFiltered = () => {
-    setSelected(new Set(filtered.map((r) => r.id)));
+    setSelected(new Set(displayed.map((r) => r.id)));
   };
 
   const allOnPageSelected =
@@ -201,6 +217,13 @@ function VirksomhederListe() {
         </Card>
       )}
 
+      {mobileMineActive && (
+        <Card className="md:hidden p-3 mb-3 text-xs bg-primary/5 border-primary/30">
+          Viser <strong>dine</strong> virksomheder. Søg for at finde alle i basen.
+        </Card>
+      )}
+
+
       <div className="sticky top-12 md:static z-10 -mx-3 md:mx-0 px-3 md:px-0 py-2 md:py-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:bg-transparent md:backdrop-blur-none border-b md:border-0 mb-3">
         <CompanyFilterBar
           q={q}
@@ -227,9 +250,9 @@ function VirksomhederListe() {
       />
 
       <div className="text-sm text-muted-foreground mb-2">
-        <strong className="text-foreground">{filtered.length}</strong>{" "}
+        <strong className="text-foreground">{displayed.length}</strong>{" "}
         virksomheder matcher
-        {filtered.length > 0 && (
+        {displayed.length > 0 && (
           <>
             {" "}
             · Side {page + 1} af {totalPages}
@@ -240,7 +263,7 @@ function VirksomhederListe() {
       <Card className="divide-y">
         {loading ? (
           <p className="p-4 text-sm text-muted-foreground">Indlæser…</p>
-        ) : filtered.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">
             Ingen virksomheder fundet.
           </p>
@@ -255,12 +278,12 @@ function VirksomhederListe() {
                   />
                   Vælg alle på denne side ({pageRows.length})
                 </label>
-                {selected.size < filtered.length && (
+                {selected.size < displayed.length && (
                   <button
                     className="text-primary hover:underline text-xs"
                     onClick={selectAllFiltered}
                   >
-                    Vælg alle {filtered.length} resultater der matcher filteret
+                    Vælg alle {displayed.length} resultater der matcher filteret
                   </button>
                 )}
               </div>
@@ -360,7 +383,7 @@ function VirksomhederListe() {
         )}
       </Card>
 
-      {filtered.length > PAGE_SIZE && (
+      {displayed.length > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-3 text-sm">
           <Button
             variant="outline"
