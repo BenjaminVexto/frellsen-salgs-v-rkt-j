@@ -26,6 +26,7 @@ import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authe
 import { Route as AuthenticatedProfilPasswordRouteImport } from './routes/_authenticated/profil.password'
 import { Route as AuthenticatedKontaktlisterIdRouteImport } from './routes/_authenticated/kontaktlister_.$id'
 import { Route as AuthenticatedAftalerIdRouteImport } from './routes/_authenticated/aftaler.$id'
+import { Route as AuthenticatedAdminTilbudskatalogRouteImport } from './routes/_authenticated/admin.tilbudskatalog'
 import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
 import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_authenticated/admin.importhistorik'
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
@@ -138,6 +139,12 @@ const AuthenticatedAftalerIdRoute = AuthenticatedAftalerIdRouteImport.update({
   path: '/aftaler/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminTilbudskatalogRoute =
+  AuthenticatedAdminTilbudskatalogRouteImport.update({
+    id: '/admin/tilbudskatalog',
+    path: '/admin/tilbudskatalog',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminOverblikRoute =
   AuthenticatedAdminOverblikRouteImport.update({
     id: '/admin/overblik',
@@ -258,6 +265,7 @@ export interface FileRoutesByFullPath {
   '/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
+  '/admin/tilbudskatalog': typeof AuthenticatedAdminTilbudskatalogRoute
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/profil/password': typeof AuthenticatedProfilPasswordRoute
@@ -292,6 +300,7 @@ export interface FileRoutesByTo {
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
+  '/admin/tilbudskatalog': typeof AuthenticatedAdminTilbudskatalogRoute
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/profil/password': typeof AuthenticatedProfilPasswordRoute
@@ -329,6 +338,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
   '/_authenticated/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/_authenticated/admin/overblik': typeof AuthenticatedAdminOverblikRoute
+  '/_authenticated/admin/tilbudskatalog': typeof AuthenticatedAdminTilbudskatalogRoute
   '/_authenticated/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/_authenticated/kontaktlister_/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/_authenticated/profil/password': typeof AuthenticatedProfilPasswordRoute
@@ -366,6 +376,7 @@ export interface FileRouteTypes {
     | '/admin/import'
     | '/admin/importhistorik'
     | '/admin/overblik'
+    | '/admin/tilbudskatalog'
     | '/aftaler/$id'
     | '/kontaktlister/$id'
     | '/profil/password'
@@ -400,6 +411,7 @@ export interface FileRouteTypes {
     | '/admin/cvr-debug'
     | '/admin/importhistorik'
     | '/admin/overblik'
+    | '/admin/tilbudskatalog'
     | '/aftaler/$id'
     | '/kontaktlister/$id'
     | '/profil/password'
@@ -436,6 +448,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/importhistorik'
     | '/_authenticated/admin/overblik'
+    | '/_authenticated/admin/tilbudskatalog'
     | '/_authenticated/aftaler/$id'
     | '/_authenticated/kontaktlister_/$id'
     | '/_authenticated/profil/password'
@@ -584,6 +597,13 @@ declare module '@tanstack/react-router' {
       path: '/aftaler/$id'
       fullPath: '/aftaler/$id'
       preLoaderRoute: typeof AuthenticatedAftalerIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/tilbudskatalog': {
+      id: '/_authenticated/admin/tilbudskatalog'
+      path: '/admin/tilbudskatalog'
+      fullPath: '/admin/tilbudskatalog'
+      preLoaderRoute: typeof AuthenticatedAdminTilbudskatalogRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/overblik': {
@@ -752,6 +772,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRouteWithChildren
   AuthenticatedAdminImporthistorikRoute: typeof AuthenticatedAdminImporthistorikRoute
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
+  AuthenticatedAdminTilbudskatalogRoute: typeof AuthenticatedAdminTilbudskatalogRoute
   AuthenticatedAftalerIdRoute: typeof AuthenticatedAftalerIdRoute
   AuthenticatedKontaktlisterIdRoute: typeof AuthenticatedKontaktlisterIdRoute
   AuthenticatedProfilPasswordRoute: typeof AuthenticatedProfilPasswordRoute
@@ -774,6 +795,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRouteWithChildren,
   AuthenticatedAdminImporthistorikRoute: AuthenticatedAdminImporthistorikRoute,
   AuthenticatedAdminOverblikRoute: AuthenticatedAdminOverblikRoute,
+  AuthenticatedAdminTilbudskatalogRoute: AuthenticatedAdminTilbudskatalogRoute,
   AuthenticatedAftalerIdRoute: AuthenticatedAftalerIdRoute,
   AuthenticatedKontaktlisterIdRoute: AuthenticatedKontaktlisterIdRoute,
   AuthenticatedProfilPasswordRoute: AuthenticatedProfilPasswordRoute,
