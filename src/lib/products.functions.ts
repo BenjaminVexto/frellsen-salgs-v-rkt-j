@@ -54,7 +54,7 @@ export const listProducts = createServerFn({ method: "GET" })
         .order("varenr", { ascending: true })
         .range(from, from + PAGE - 1);
       if (error) throw new Error(error.message);
-      const rows = (data ?? []) as ProductRow[];
+      const rows = (data ?? []) as unknown as ProductRow[];
       out.push(...rows);
       if (rows.length < PAGE) break;
     }
