@@ -114,6 +114,7 @@ function AuthenticatedShell() {
 
   const adminItems = [
     { to: "/salgsintelligens", label: "Salgsintelligens", icon: Lightbulb },
+    { to: "/admin/tilbudskatalog", label: "Tilbudskatalog", icon: FileText },
     { to: "/admin/import", label: "Import", icon: Upload },
     { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
