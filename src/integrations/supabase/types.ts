@@ -1402,6 +1402,7 @@ export type Database = {
           is_tilbudsegnet: boolean
           kan_lejes: boolean
           kategori: string | null
+          kategori_manuel: boolean
           kilde: string
           listepris: number | null
           produktprisgruppe_1: string | null
@@ -1421,6 +1422,7 @@ export type Database = {
           is_tilbudsegnet?: boolean
           kan_lejes?: boolean
           kategori?: string | null
+          kategori_manuel?: boolean
           kilde?: string
           listepris?: number | null
           produktprisgruppe_1?: string | null
@@ -1440,6 +1442,7 @@ export type Database = {
           is_tilbudsegnet?: boolean
           kan_lejes?: boolean
           kategori?: string | null
+          kategori_manuel?: boolean
           kilde?: string
           listepris?: number | null
           produktprisgruppe_1?: string | null
