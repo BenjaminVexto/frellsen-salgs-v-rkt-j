@@ -81,8 +81,8 @@ function TilbudskatalogPage() {
   });
 
   const mutation = useMutation({
-    mutationFn: (input: Parameters<typeof update>[0]["data"]) =>
-      update({ data: input }),
+    mutationFn: (input: Record<string, unknown> & { varenr: string }) =>
+      update({ data: input as any }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "products"] }),
     onError: (e: any) => toast.error(e?.message ?? "Kunne ikke gemme"),
   });
