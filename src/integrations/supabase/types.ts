@@ -1399,6 +1399,7 @@ export type Database = {
           beskrivelse: string | null
           billede_url: string | null
           created_at: string
+          is_favorit: boolean
           is_tilbudsegnet: boolean
           kan_lejes: boolean
           kategori: string | null
@@ -1419,6 +1420,7 @@ export type Database = {
           beskrivelse?: string | null
           billede_url?: string | null
           created_at?: string
+          is_favorit?: boolean
           is_tilbudsegnet?: boolean
           kan_lejes?: boolean
           kategori?: string | null
@@ -1439,6 +1441,7 @@ export type Database = {
           beskrivelse?: string | null
           billede_url?: string | null
           created_at?: string
+          is_favorit?: boolean
           is_tilbudsegnet?: boolean
           kan_lejes?: boolean
           kategori?: string | null
@@ -1484,45 +1487,119 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_lines: {
+        Row: {
+          antal: number
+          beskrivelse_snapshot: string | null
+          created_at: string
+          er_leje: boolean
+          id: string
+          line_type: string
+          listepris_snapshot: number
+          nettopris_snapshot: number
+          quote_id: string
+          rabat_kr_snapshot: number
+          rabat_pct_snapshot: number
+          sort_order: number
+          updated_at: string
+          varenr: string
+        }
+        Insert: {
+          antal?: number
+          beskrivelse_snapshot?: string | null
+          created_at?: string
+          er_leje?: boolean
+          id?: string
+          line_type: string
+          listepris_snapshot?: number
+          nettopris_snapshot?: number
+          quote_id: string
+          rabat_kr_snapshot?: number
+          rabat_pct_snapshot?: number
+          sort_order?: number
+          updated_at?: string
+          varenr: string
+        }
+        Update: {
+          antal?: number
+          beskrivelse_snapshot?: string | null
+          created_at?: string
+          er_leje?: boolean
+          id?: string
+          line_type?: string
+          listepris_snapshot?: number
+          nettopris_snapshot?: number
+          quote_id?: string
+          rabat_kr_snapshot?: number
+          rabat_pct_snapshot?: number
+          sort_order?: number
+          updated_at?: string
+          varenr?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_lines_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotes: {
         Row: {
           company_id: string
           created_at: string
           created_by: string
+          delivery_location_id: string | null
           estimated_value: number | null
           expiry_date: string | null
+          frozen_at: string | null
           id: string
           notes: string | null
           opportunity_id: string | null
+          pricing_mode: string
+          public_token: string | null
           quote_number: string | null
           sent_date: string | null
           status: Database["public"]["Enums"]["quote_status"]
+          updated_at: string
         }
         Insert: {
           company_id: string
           created_at?: string
           created_by: string
+          delivery_location_id?: string | null
           estimated_value?: number | null
           expiry_date?: string | null
+          frozen_at?: string | null
           id?: string
           notes?: string | null
           opportunity_id?: string | null
+          pricing_mode?: string
+          public_token?: string | null
           quote_number?: string | null
           sent_date?: string | null
           status?: Database["public"]["Enums"]["quote_status"]
+          updated_at?: string
         }
         Update: {
           company_id?: string
           created_at?: string
           created_by?: string
+          delivery_location_id?: string | null
           estimated_value?: number | null
           expiry_date?: string | null
+          frozen_at?: string | null
           id?: string
           notes?: string | null
           opportunity_id?: string | null
+          pricing_mode?: string
+          public_token?: string | null
           quote_number?: string | null
           sent_date?: string | null
           status?: Database["public"]["Enums"]["quote_status"]
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1530,6 +1607,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_delivery_location_id_fkey"
+            columns: ["delivery_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
@@ -1730,6 +1814,14 @@ export type Database = {
       can_access_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
+      }
+      get_quote_floor_discount: {
+        Args: { p_company_id: string; p_varenr: string }
+        Returns: {
+          kilde: string
+          rabat_kr: number
+          rabat_pct: number
+        }[]
       }
       get_user_region: { Args: { _user_id: string }; Returns: string }
       has_role: {
