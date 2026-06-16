@@ -1394,6 +1394,66 @@ export type Database = {
         }
         Relationships: []
       }
+      products: {
+        Row: {
+          beskrivelse: string | null
+          billede_url: string | null
+          created_at: string
+          is_tilbudsegnet: boolean
+          kan_lejes: boolean
+          kategori: string | null
+          kilde: string
+          listepris: number | null
+          produktprisgruppe_1: string | null
+          produktprisgruppe_2: string | null
+          produktprisgruppe_3: string | null
+          record_status: string
+          salgsbeskrivelse: string | null
+          sort_order: number | null
+          udlejningspris: number | null
+          updated_at: string
+          varenr: string
+        }
+        Insert: {
+          beskrivelse?: string | null
+          billede_url?: string | null
+          created_at?: string
+          is_tilbudsegnet?: boolean
+          kan_lejes?: boolean
+          kategori?: string | null
+          kilde?: string
+          listepris?: number | null
+          produktprisgruppe_1?: string | null
+          produktprisgruppe_2?: string | null
+          produktprisgruppe_3?: string | null
+          record_status?: string
+          salgsbeskrivelse?: string | null
+          sort_order?: number | null
+          udlejningspris?: number | null
+          updated_at?: string
+          varenr: string
+        }
+        Update: {
+          beskrivelse?: string | null
+          billede_url?: string | null
+          created_at?: string
+          is_tilbudsegnet?: boolean
+          kan_lejes?: boolean
+          kategori?: string | null
+          kilde?: string
+          listepris?: number | null
+          produktprisgruppe_1?: string | null
+          produktprisgruppe_2?: string | null
+          produktprisgruppe_3?: string | null
+          record_status?: string
+          salgsbeskrivelse?: string | null
+          sort_order?: number | null
+          udlejningspris?: number | null
+          updated_at?: string
+          varenr?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1678,6 +1738,7 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_consumable_group: { Args: { _group: string }; Returns: boolean }
+      rebuild_products: { Args: never; Returns: number }
       recompute_all_company_statuses: { Args: never; Returns: number }
       recompute_company_status: {
         Args: { _company_id: string }
