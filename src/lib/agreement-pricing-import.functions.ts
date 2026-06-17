@@ -165,6 +165,7 @@ export const importAgreementPricing = createServerFn({ method: "POST" })
         beskrivelse: beskrivelse || null,
         rab_kr: r.rab_kr ?? null,
         rab_pct: r.rab_pct ?? null,
+        saerpris_kr: (r as any).saerpris_kr ?? null,
         udsalgspris: r.udsalgspris ?? null,
         udlejningspris: r.udlejningspris ?? null,
         kampagne: t(r.kampagne) || null,
