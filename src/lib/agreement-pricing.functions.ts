@@ -142,12 +142,15 @@ async function fetchPricingForCompany(
     const c = extractLeadingCode(val);
     return c === code;
   };
-  const isEmpty = (v: string | null | undefined) =>
-    v == null || String(v).trim() === "";
+  // Wildcard: tom, NULL og literal "0" betyder "gælder alle" — samme regel som get_quote_floor_discount.
+  const isEmpty = (v: string | null | undefined) => {
+    const t = (v ?? "").trim();
+    return t === "" || t === "0";
+  };
 
   const seen = new Map<string, PricingRow>();
   for (const r of candidates as PricingRow[]) {
-    const rowKundenr = (r.fak_kundenr ?? "").trim();
+    const rowKundenr = isEmpty(r.fak_kundenr) ? "" : (r.fak_kundenr ?? "").trim();
     const rowHasKp1 = !isEmpty(r.kundeprisgruppe1);
     const rowHasKp2 = !isEmpty(r.kundeprisgruppe2);
     const rowHasKundenr = !!rowKundenr;
