@@ -819,17 +819,19 @@ async function addSimpleLine(args: {
   const floor = await fetchFloor(companyId, p.varenr);
   const rabatPct = Number(floor?.rabat_pct ?? 0);
   const rabatKr = Number(floor?.rabat_kr ?? 0);
-  const netto = calcNetto(listepris, rabatPct, rabatKr);
+  const enhed = calcNetto(listepris, rabatPct, rabatKr);
+  const antal = 1;
   const { error } = await supabase.from("quote_lines").insert({
     quote_id: quoteId,
     varenr: p.varenr,
     line_type: lineType,
     beskrivelse_snapshot: p.beskrivelse,
-    antal: 1,
+    antal,
     listepris_snapshot: listepris,
     rabat_pct_snapshot: rabatPct,
     rabat_kr_snapshot: rabatKr,
-    nettopris_snapshot: netto,
+    nettopris_enhed_snapshot: enhed,
+    nettopris_snapshot: enhed * antal,
     er_leje: false,
     sort_order: 0,
   });
