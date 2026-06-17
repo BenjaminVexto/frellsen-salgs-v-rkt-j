@@ -25,6 +25,7 @@ import {
   ShieldAlert,
   Lightbulb,
   FileText,
+  FileSignature,
   TrendingUp,
   KeyRound,
   ChevronDown,
@@ -104,6 +105,7 @@ function AuthenticatedShell() {
       ? []
       : [{ to: "/min-portefoelje", label: "Min salgsstatistik", shortLabel: "Statistik", icon: TrendingUp }]),
     { to: "/aftaler", label: "Aftaler", shortLabel: "Aftaler", icon: FileText },
+    { to: "/tilbud", label: "Tilbud", shortLabel: "Tilbud", icon: FileSignature },
     ...(isSupport
       ? []
       : [{ to: "/kontaktlister", label: "Kontaktlister", shortLabel: "Lister", icon: ListChecks }]),
