@@ -17,6 +17,7 @@ import { format, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
 import {
   listPricingForCompany,
+  deriveRowLabel,
   type MatchSource,
   type PricingRow,
 } from "@/lib/agreement-pricing.functions";
@@ -196,7 +197,7 @@ export function CompanyPrismatrixTable({ companyId }: { companyId: string }) {
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="font-normal">
-                      {r.rabat_kategori ?? "Øvrige"}
+                      {deriveRowLabel(r)}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.varenr ?? "—"}</TableCell>
