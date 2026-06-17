@@ -14,6 +14,7 @@ const PricingRow = z
     beskrivelse: z.string().nullable().optional(),
     rab_kr: z.number().nullable().optional(),
     rab_pct: z.number().nullable().optional(),
+    saerpris_kr: z.number().nullable().optional(),
     udsalgspris: z.number().nullable().optional(),
     udlejningspris: z.number().nullable().optional(),
     kampagne: z.string().nullable().optional(),
