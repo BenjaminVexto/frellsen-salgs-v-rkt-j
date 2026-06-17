@@ -23,6 +23,7 @@ import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authent
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAftalerIndexRouteImport } from './routes/_authenticated/aftaler.index'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
+import { Route as AuthenticatedTilbudNyRouteImport } from './routes/_authenticated/tilbud.ny'
 import { Route as AuthenticatedProfilPasswordRouteImport } from './routes/_authenticated/profil.password'
 import { Route as AuthenticatedKontaktlisterIdRouteImport } from './routes/_authenticated/kontaktlister_.$id'
 import { Route as AuthenticatedAftalerIdRouteImport } from './routes/_authenticated/aftaler.$id'
@@ -122,6 +123,11 @@ const AuthenticatedVirksomhederIdRoute =
     path: '/virksomheder/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedTilbudNyRoute = AuthenticatedTilbudNyRouteImport.update({
+  id: '/tilbud/ny',
+  path: '/tilbud/ny',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedProfilPasswordRoute =
   AuthenticatedProfilPasswordRouteImport.update({
     id: '/profil/password',
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/profil/password': typeof AuthenticatedProfilPasswordRoute
+  '/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -304,6 +311,7 @@ export interface FileRoutesByTo {
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/profil/password': typeof AuthenticatedProfilPasswordRoute
+  '/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/aftaler': typeof AuthenticatedAftalerIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -342,6 +350,7 @@ export interface FileRoutesById {
   '/_authenticated/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/_authenticated/kontaktlister_/$id': typeof AuthenticatedKontaktlisterIdRoute
   '/_authenticated/profil/password': typeof AuthenticatedProfilPasswordRoute
+  '/_authenticated/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
   '/_authenticated/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/_authenticated/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -380,6 +389,7 @@ export interface FileRouteTypes {
     | '/aftaler/$id'
     | '/kontaktlister/$id'
     | '/profil/password'
+    | '/tilbud/ny'
     | '/virksomheder/$id'
     | '/aftaler/'
     | '/admin/import/aftale-emner'
@@ -415,6 +425,7 @@ export interface FileRouteTypes {
     | '/aftaler/$id'
     | '/kontaktlister/$id'
     | '/profil/password'
+    | '/tilbud/ny'
     | '/virksomheder/$id'
     | '/aftaler'
     | '/admin/import/aftale-emner'
@@ -452,6 +463,7 @@ export interface FileRouteTypes {
     | '/_authenticated/aftaler/$id'
     | '/_authenticated/kontaktlister_/$id'
     | '/_authenticated/profil/password'
+    | '/_authenticated/tilbud/ny'
     | '/_authenticated/virksomheder_/$id'
     | '/_authenticated/aftaler/'
     | '/_authenticated/admin/import/aftale-emner'
@@ -576,6 +588,13 @@ declare module '@tanstack/react-router' {
       path: '/virksomheder/$id'
       fullPath: '/virksomheder/$id'
       preLoaderRoute: typeof AuthenticatedVirksomhederIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tilbud/ny': {
+      id: '/_authenticated/tilbud/ny'
+      path: '/tilbud/ny'
+      fullPath: '/tilbud/ny'
+      preLoaderRoute: typeof AuthenticatedTilbudNyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/profil/password': {
@@ -776,6 +795,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAftalerIdRoute: typeof AuthenticatedAftalerIdRoute
   AuthenticatedKontaktlisterIdRoute: typeof AuthenticatedKontaktlisterIdRoute
   AuthenticatedProfilPasswordRoute: typeof AuthenticatedProfilPasswordRoute
+  AuthenticatedTilbudNyRoute: typeof AuthenticatedTilbudNyRoute
   AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRoute
   AuthenticatedAftalerIndexRoute: typeof AuthenticatedAftalerIndexRoute
   AuthenticatedAdminMaskinerArkivRoute: typeof AuthenticatedAdminMaskinerArkivRoute
@@ -799,6 +819,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAftalerIdRoute: AuthenticatedAftalerIdRoute,
   AuthenticatedKontaktlisterIdRoute: AuthenticatedKontaktlisterIdRoute,
   AuthenticatedProfilPasswordRoute: AuthenticatedProfilPasswordRoute,
+  AuthenticatedTilbudNyRoute: AuthenticatedTilbudNyRoute,
   AuthenticatedVirksomhederIdRoute: AuthenticatedVirksomhederIdRoute,
   AuthenticatedAftalerIndexRoute: AuthenticatedAftalerIndexRoute,
   AuthenticatedAdminMaskinerArkivRoute: AuthenticatedAdminMaskinerArkivRoute,

@@ -23,7 +23,7 @@ function NyttTilbudPage() {
     (async () => {
       const { data, error } = await supabase.rpc("create_quote_draft", {
         _company_id: companyId,
-        _delivery_location_id: null,
+        _delivery_location_id: undefined,
         _pricing_mode: "purchase",
       });
       if (error || !data) {
