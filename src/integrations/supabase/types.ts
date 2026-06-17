@@ -122,6 +122,7 @@ export type Database = {
           rab_pct: number | null
           rabat_kategori: string | null
           record_status: string
+          saerpris_kr: number | null
           til_dato: string | null
           udgaaet_dato: string | null
           udlejningspris: number | null
@@ -147,6 +148,7 @@ export type Database = {
           rab_pct?: number | null
           rabat_kategori?: string | null
           record_status?: string
+          saerpris_kr?: number | null
           til_dato?: string | null
           udgaaet_dato?: string | null
           udlejningspris?: number | null
@@ -172,6 +174,7 @@ export type Database = {
           rab_pct?: number | null
           rabat_kategori?: string | null
           record_status?: string
+          saerpris_kr?: number | null
           til_dato?: string | null
           udgaaet_dato?: string | null
           udlejningspris?: number | null
@@ -1849,6 +1852,7 @@ export type Database = {
       get_quote_floor_discount: {
         Args: { p_company_id: string; p_varenr: string }
         Returns: {
+          er_saerpris: boolean
           kilde: string
           rabat_kr: number
           rabat_pct: number
