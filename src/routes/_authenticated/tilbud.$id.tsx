@@ -1490,18 +1490,38 @@ function BucketTable({ bucket }: { bucket: Bucket }) {
           </thead>
           <tbody>
             {bucket.lines.map((l) => {
+              const saer = Number(l.saerpris_kr_snapshot ?? 0);
+              const harPct = Number(l.rabat_pct_snapshot) > 0;
+              const harKr = Number(l.rabat_kr_snapshot) > 0;
+              const harBegge = saer > 0 && (harPct || harKr);
               const rabatTxt =
-                Number(l.rabat_pct_snapshot) > 0 && Number(l.rabat_kr_snapshot) > 0
+                harPct && harKr
                   ? `${l.rabat_pct_snapshot}% + ${formatKr(l.rabat_kr_snapshot)}`
-                  : Number(l.rabat_pct_snapshot) > 0
+                  : harPct
                     ? `${l.rabat_pct_snapshot}%`
-                    : Number(l.rabat_kr_snapshot) > 0
+                    : harKr
                       ? formatKr(l.rabat_kr_snapshot)
                       : "—";
               return (
                 <tr key={l.id} className="border-b last:border-b-0">
                   <td className="py-1.5">
-                    <div className="font-medium">{l.beskrivelse_snapshot ?? l.varenr}</div>
+                    <div className="font-medium flex items-center gap-1.5">
+                      <span>{l.beskrivelse_snapshot ?? l.varenr}</span>
+                      {saer > 0 && (
+                        <Badge variant="outline" className="text-[10px] border-amber-500/60 text-amber-700 dark:text-amber-400">
+                          Særpris {formatKr(saer)}
+                        </Badge>
+                      )}
+                      {harBegge && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                          title={`Særpris + almindelig rabat stables. Rækkefølge STACK_ORDER=${STACK_ORDER} (ANTAGET, ej verificeret mod Visma).`}
+                        >
+                          ⚠ stables ({STACK_ORDER})
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-[11px] text-muted-foreground font-mono">{l.varenr}</div>
                   </td>
                   <td className="text-right tabular-nums">{formatKr(l.listepris_snapshot)}</td>
