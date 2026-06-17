@@ -1522,6 +1522,7 @@ export type Database = {
           quote_id: string
           rabat_kr_snapshot: number
           rabat_pct_snapshot: number
+          saerpris_kr_snapshot: number
           sort_order: number
           updated_at: string
           varenr: string
@@ -1539,6 +1540,7 @@ export type Database = {
           quote_id: string
           rabat_kr_snapshot?: number
           rabat_pct_snapshot?: number
+          saerpris_kr_snapshot?: number
           sort_order?: number
           updated_at?: string
           varenr: string
@@ -1556,6 +1558,7 @@ export type Database = {
           quote_id?: string
           rabat_kr_snapshot?: number
           rabat_pct_snapshot?: number
+          saerpris_kr_snapshot?: number
           sort_order?: number
           updated_at?: string
           varenr?: string
@@ -1856,6 +1859,7 @@ export type Database = {
           kilde: string
           rabat_kr: number
           rabat_pct: number
+          saerpris_kr: number
         }[]
       }
       get_user_region: { Args: { _user_id: string }; Returns: string }

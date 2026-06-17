@@ -118,7 +118,9 @@ type QuoteLine = {
   listepris_snapshot: number;
   rabat_pct_snapshot: number;
   rabat_kr_snapshot: number;
-  /** Enhedsnetto (pr. stk) — listepris efter pct og kr-rabat. */
+  /** Særpris-kr pr. enhed (frosset). Skjules mod kunde, men anvendes i netto-beregning. */
+  saerpris_kr_snapshot: number;
+  /** Enhedsnetto (pr. stk) — listepris efter pct, kr og særpris. */
   nettopris_enhed_snapshot: number;
   /** Linjetotal — nettopris_enhed_snapshot × antal. Bruges af alle totaler. */
   nettopris_snapshot: number;
@@ -126,7 +128,13 @@ type QuoteLine = {
   sort_order: number;
 };
 
-type Floor = { rabat_pct: number; rabat_kr: number; kilde: string } | null;
+type Floor = {
+  rabat_pct: number;
+  rabat_kr: number;
+  saerpris_kr: number;
+  kilde: string;
+  er_saerpris: boolean;
+} | null;
 
 // ---------- helpers ----------
 
@@ -148,9 +156,40 @@ function formatDate(d: string | null | undefined) {
   }
 }
 
+/**
+ * ANTAGELSE, IKKE VERIFICERET MOD VISMA.
+ * A = pct af listepris, så kr/saer af rest.    (100 − 10%) − 8 = 82,00
+ * B = saer/kr først, så pct af rest.           (100 − 8) − 10% = 82,80
+ * Skift til "B" hvis Visma regner sådan. Bekræftes mod en faktisk
+ * offentlig-kunde-faktura med BÅDE særpris OG almindelig rabat.
+ */
+const STACK_ORDER: "A" | "B" = "A";
+
+/** Central netto-beregning. Eneste sted hvor STACK_ORDER er i spil. */
+function calcNettoEnhed(args: {
+  list: number;
+  rab_pct?: number | null;
+  rab_kr?: number | null;
+  saer_kr?: number | null;
+}): number {
+  const list = Number(args.list) || 0;
+  const pct = Math.max(0, Number(args.rab_pct ?? 0));
+  const rab_kr = Math.max(0, Number(args.rab_kr ?? 0));
+  const saer = Math.max(0, Number(args.saer_kr ?? 0));
+  let net: number;
+  if (STACK_ORDER === "A") {
+    // pct af listepris, derefter kr + særpris fra restbeløbet
+    net = list * (1 - pct / 100) - rab_kr - saer;
+  } else {
+    // særpris + kr først, så pct af resten
+    net = (list - rab_kr - saer) * (1 - pct / 100);
+  }
+  return Math.max(0, net);
+}
+
+/** Bagudkompatibel: bruges hvor særpris ikke er relevant (fri rabat / floor-snap af UI). */
 function calcNetto(list: number, pct: number, kr: number) {
-  const afterPct = list * (1 - (pct || 0) / 100);
-  return Math.max(0, afterPct - (kr || 0));
+  return calcNettoEnhed({ list, rab_pct: pct, rab_kr: kr, saer_kr: 0 });
 }
 
 async function fetchFloor(companyId: string, varenr: string): Promise<Floor> {
@@ -158,7 +197,15 @@ async function fetchFloor(companyId: string, varenr: string): Promise<Floor> {
     p_company_id: companyId,
     p_varenr: varenr,
   });
-  return data && (data as any[]).length > 0 ? ((data as any[])[0] as any) : null;
+  if (!data || (data as any[]).length === 0) return null;
+  const r = (data as any[])[0];
+  return {
+    rabat_pct: Number(r.rabat_pct ?? 0),
+    rabat_kr: Number(r.rabat_kr ?? 0),
+    saerpris_kr: Number(r.saerpris_kr ?? 0),
+    kilde: String(r.kilde ?? ""),
+    er_saerpris: Boolean(r.er_saerpris),
+  };
 }
 
 // ---------- page ----------
@@ -643,7 +690,8 @@ function MachinePicker({
       const floor = await fetchFloor(companyId, m.varenr);
       const rabatPct = Number(floor?.rabat_pct ?? 0);
       const rabatKr = Number(floor?.rabat_kr ?? 0);
-      const enhed = calcNetto(listepris, rabatPct, rabatKr);
+      const saerKr = Number(floor?.saerpris_kr ?? 0);
+      const enhed = calcNettoEnhed({ list: listepris, rab_pct: rabatPct, rab_kr: rabatKr, saer_kr: saerKr });
       const antal = 1;
 
       const { error } = await supabase.from("quote_lines").insert({
@@ -655,6 +703,7 @@ function MachinePicker({
         listepris_snapshot: listepris,
         rabat_pct_snapshot: rabatPct,
         rabat_kr_snapshot: rabatKr,
+        saerpris_kr_snapshot: saerKr,
         nettopris_enhed_snapshot: enhed,
         nettopris_snapshot: enhed * antal,
         er_leje: erLeje,
@@ -819,7 +868,8 @@ async function addSimpleLine(args: {
   const floor = await fetchFloor(companyId, p.varenr);
   const rabatPct = Number(floor?.rabat_pct ?? 0);
   const rabatKr = Number(floor?.rabat_kr ?? 0);
-  const enhed = calcNetto(listepris, rabatPct, rabatKr);
+  const saerKr = Number(floor?.saerpris_kr ?? 0);
+  const enhed = calcNettoEnhed({ list: listepris, rab_pct: rabatPct, rab_kr: rabatKr, saer_kr: saerKr });
   const antal = 1;
   const { error } = await supabase.from("quote_lines").insert({
     quote_id: quoteId,
@@ -830,6 +880,7 @@ async function addSimpleLine(args: {
     listepris_snapshot: listepris,
     rabat_pct_snapshot: rabatPct,
     rabat_kr_snapshot: rabatKr,
+    saerpris_kr_snapshot: saerKr,
     nettopris_enhed_snapshot: enhed,
     nettopris_snapshot: enhed * antal,
     er_leje: false,
@@ -1067,15 +1118,23 @@ function LineRow({
   const floor = floorQuery.data ?? null;
   const floorPct = Number(floor?.rabat_pct ?? 0);
   const floorKr = Number(floor?.rabat_kr ?? 0);
+  // Særpris fryses pr. linje (snapshot); falder tilbage til floor hvis snapshot er 0.
+  const saerKr = Number(line.saerpris_kr_snapshot ?? 0) || Number(floor?.saerpris_kr ?? 0);
 
   const pctNum = Math.max(0, Number(pct) || 0);
   const krNum = Math.max(0, Number(kr) || 0);
   const antalNum = Math.max(1, Number(antal) || 1);
   const enhedNetto = useMemo(
-    () => calcNetto(Number(line.listepris_snapshot), pctNum, krNum),
-    [line.listepris_snapshot, pctNum, krNum],
+    () => calcNettoEnhed({
+      list: Number(line.listepris_snapshot),
+      rab_pct: pctNum,
+      rab_kr: krNum,
+      saer_kr: saerKr,
+    }),
+    [line.listepris_snapshot, pctNum, krNum, saerKr],
   );
   const linjeNetto = enhedNetto * antalNum;
+  const harBegge = saerKr > 0 && (pctNum > 0 || krNum > 0);
 
   // Auto-persist på enhver ændring (debounced). Floor håndhæves: pct/kr snappes op til gulv.
   useEffect(() => {
@@ -1087,9 +1146,14 @@ function LineRow({
       if (effPct < floorPct) effPct = floorPct;
       if (effKr < floorKr) effKr = floorKr;
     }
-    const key = `${effPct}|${effKr}|${antalNum}`;
+    const key = `${effPct}|${effKr}|${saerKr}|${antalNum}`;
     if (key === lastSavedRef.current) return;
-    const enhed = calcNetto(Number(line.listepris_snapshot), effPct, effKr);
+    const enhed = calcNettoEnhed({
+      list: Number(line.listepris_snapshot),
+      rab_pct: effPct,
+      rab_kr: effKr,
+      saer_kr: saerKr,
+    });
     const total = enhed * antalNum;
     const handle = setTimeout(async () => {
       setSaveState("saving");
@@ -1099,6 +1163,7 @@ function LineRow({
           antal: antalNum,
           rabat_pct_snapshot: effPct,
           rabat_kr_snapshot: effKr,
+          saerpris_kr_snapshot: saerKr,
           nettopris_enhed_snapshot: enhed,
           nettopris_snapshot: total,
         })
@@ -1114,7 +1179,7 @@ function LineRow({
       setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 1200);
     }, 400);
     return () => clearTimeout(handle);
-  }, [pctNum, krNum, antalNum, disabled, floor, floorPct, floorKr, line.id, line.listepris_snapshot, onChanged]);
+  }, [pctNum, krNum, saerKr, antalNum, disabled, floor, floorPct, floorKr, line.id, line.listepris_snapshot, onChanged]);
 
   // Snap visuelt input op til gulvet når brugeren forlader feltet
   function onPctBlur() {
@@ -1150,8 +1215,22 @@ function LineRow({
     <div className="border rounded-md p-3">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0">
-          <div className="font-medium truncate">
-            {line.beskrivelse_snapshot ?? line.varenr}
+          <div className="font-medium truncate flex items-center gap-2">
+            <span className="truncate">{line.beskrivelse_snapshot ?? line.varenr}</span>
+            {saerKr > 0 && (
+              <Badge variant="outline" className="text-[10px] border-amber-500/60 text-amber-700 dark:text-amber-400 shrink-0">
+                Særpris {formatKr(saerKr)}
+              </Badge>
+            )}
+            {harBegge && (
+              <Badge
+                variant="outline"
+                className="text-[10px] border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 shrink-0"
+                title={`Både særpris (${formatKr(saerKr)}) og almindelig rabat er aktiv på samme linje. Rækkefølge: STACK_ORDER=${STACK_ORDER} (ANTAGET, ej verificeret mod Visma).`}
+              >
+                ⚠ Særpris + rabat stables ({STACK_ORDER})
+              </Badge>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">
             {line.varenr} · {typeLabel} · Liste {formatKr(line.listepris_snapshot)}
@@ -1411,18 +1490,38 @@ function BucketTable({ bucket }: { bucket: Bucket }) {
           </thead>
           <tbody>
             {bucket.lines.map((l) => {
+              const saer = Number(l.saerpris_kr_snapshot ?? 0);
+              const harPct = Number(l.rabat_pct_snapshot) > 0;
+              const harKr = Number(l.rabat_kr_snapshot) > 0;
+              const harBegge = saer > 0 && (harPct || harKr);
               const rabatTxt =
-                Number(l.rabat_pct_snapshot) > 0 && Number(l.rabat_kr_snapshot) > 0
+                harPct && harKr
                   ? `${l.rabat_pct_snapshot}% + ${formatKr(l.rabat_kr_snapshot)}`
-                  : Number(l.rabat_pct_snapshot) > 0
+                  : harPct
                     ? `${l.rabat_pct_snapshot}%`
-                    : Number(l.rabat_kr_snapshot) > 0
+                    : harKr
                       ? formatKr(l.rabat_kr_snapshot)
                       : "—";
               return (
                 <tr key={l.id} className="border-b last:border-b-0">
                   <td className="py-1.5">
-                    <div className="font-medium">{l.beskrivelse_snapshot ?? l.varenr}</div>
+                    <div className="font-medium flex items-center gap-1.5">
+                      <span>{l.beskrivelse_snapshot ?? l.varenr}</span>
+                      {saer > 0 && (
+                        <Badge variant="outline" className="text-[10px] border-amber-500/60 text-amber-700 dark:text-amber-400">
+                          Særpris {formatKr(saer)}
+                        </Badge>
+                      )}
+                      {harBegge && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                          title={`Særpris + almindelig rabat stables. Rækkefølge STACK_ORDER=${STACK_ORDER} (ANTAGET, ej verificeret mod Visma).`}
+                        >
+                          ⚠ stables ({STACK_ORDER})
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-[11px] text-muted-foreground font-mono">{l.varenr}</div>
                   </td>
                   <td className="text-right tabular-nums">{formatKr(l.listepris_snapshot)}</td>
