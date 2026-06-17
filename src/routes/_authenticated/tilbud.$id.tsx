@@ -1056,7 +1056,8 @@ function LineRow({
   const [pct, setPct] = useState<string>(String(line.rabat_pct_snapshot ?? 0));
   const [kr, setKr] = useState<string>(String(line.rabat_kr_snapshot ?? 0));
   const [antal, setAntal] = useState<string>(String(line.antal ?? 1));
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const lastSavedRef = useRef<string>("");
 
   const floorQuery = useQuery({
     queryKey: ["floor", companyId, line.varenr],
@@ -1067,44 +1068,66 @@ function LineRow({
   const floorPct = Number(floor?.rabat_pct ?? 0);
   const floorKr = Number(floor?.rabat_kr ?? 0);
 
-  const previewNetto = useMemo(
-    () => calcNetto(Number(line.listepris_snapshot), Number(pct), Number(kr)) * (Math.max(1, Number(antal) || 1)),
-    [line.listepris_snapshot, pct, kr, antal],
+  const pctNum = Math.max(0, Number(pct) || 0);
+  const krNum = Math.max(0, Number(kr) || 0);
+  const antalNum = Math.max(1, Number(antal) || 1);
+  const enhedNetto = useMemo(
+    () => calcNetto(Number(line.listepris_snapshot), pctNum, krNum),
+    [line.listepris_snapshot, pctNum, krNum],
   );
+  const linjeNetto = enhedNetto * antalNum;
 
-  async function save() {
-    const pctNum = Number(pct) || 0;
-    const krNum = Number(kr) || 0;
-    const antalNum = Math.max(1, Number(antal) || 1);
-
+  // Auto-persist på enhver ændring (debounced). Floor håndhæves: pct/kr snappes op til gulv.
+  useEffect(() => {
+    if (disabled) return;
+    // Floor-snap (uden toast — det er en hint, ikke en blokade ved auto-save)
+    let effPct = pctNum;
+    let effKr = krNum;
     if (floor) {
-      if (pctNum < floorPct) {
-        toast.error(`Aftale-gulv: min. ${floorPct}% — kan kun gå højere`);
-        setPct(String(floorPct));
-        return;
-      }
-      if (krNum < floorKr) {
-        toast.error(`Aftale-gulv: min. ${formatKr(floorKr)} — kan kun gå højere`);
-        setKr(String(floorKr));
-        return;
-      }
+      if (effPct < floorPct) effPct = floorPct;
+      if (effKr < floorKr) effKr = floorKr;
     }
+    const key = `${effPct}|${effKr}|${antalNum}`;
+    if (key === lastSavedRef.current) return;
+    const enhed = calcNetto(Number(line.listepris_snapshot), effPct, effKr);
+    const total = enhed * antalNum;
+    const handle = setTimeout(async () => {
+      setSaveState("saving");
+      const { error } = await supabase
+        .from("quote_lines")
+        .update({
+          antal: antalNum,
+          rabat_pct_snapshot: effPct,
+          rabat_kr_snapshot: effKr,
+          nettopris_enhed_snapshot: enhed,
+          nettopris_snapshot: total,
+        })
+        .eq("id", line.id);
+      if (error) {
+        setSaveState("error");
+        toast.error(error.message);
+        return;
+      }
+      lastSavedRef.current = key;
+      setSaveState("saved");
+      onChanged();
+      setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 1200);
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [pctNum, krNum, antalNum, disabled, floor, floorPct, floorKr, line.id, line.listepris_snapshot, onChanged]);
 
-    setSaving(true);
-    const netto = calcNetto(Number(line.listepris_snapshot), pctNum, krNum) * antalNum;
-    const { error } = await supabase
-      .from("quote_lines")
-      .update({
-        antal: antalNum,
-        rabat_pct_snapshot: pctNum,
-        rabat_kr_snapshot: krNum,
-        nettopris_snapshot: netto,
-      })
-      .eq("id", line.id);
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Linje opdateret");
-    onChanged();
+  // Snap visuelt input op til gulvet når brugeren forlader feltet
+  function onPctBlur() {
+    if (floor && pctNum < floorPct) {
+      toast.info(`Aftale-gulv: min. ${floorPct}% — sat til gulv`);
+      setPct(String(floorPct));
+    }
+  }
+  function onKrBlur() {
+    if (floor && krNum < floorKr) {
+      toast.info(`Aftale-gulv: min. ${formatKr(floorKr)} — sat til gulv`);
+      setKr(String(floorKr));
+    }
   }
 
   async function remove() {
