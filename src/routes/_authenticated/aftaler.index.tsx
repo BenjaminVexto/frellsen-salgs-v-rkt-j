@@ -799,7 +799,7 @@ function EditDialog({
               </Label>
               {isPublic && (
                 <p className="text-xs text-yellow-700 dark:text-yellow-400 flex items-start gap-1">
-                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                  <FileWarning className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                   Kunder på denne aftale kan kun bestille varer inkluderet i
                   aftalen.
                 </p>
