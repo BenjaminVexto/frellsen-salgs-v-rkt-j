@@ -1845,6 +1845,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_public_quote: { Args: { _token: string }; Returns: Json }
       get_quote_floor_discount: {
         Args: { p_company_id: string; p_varenr: string }
         Returns: {
