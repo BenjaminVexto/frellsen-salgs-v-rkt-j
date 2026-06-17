@@ -245,12 +245,13 @@ function summarize(rows: PricingRow[]): {
   rowCount: number;
   countsBySource: Record<MatchSource, number>;
 } {
-  // Filtrér linjer hvor (rab_kr=0 OG rab_pct=0) ELLER rab_pct=100
+  // Filtrér linjer hvor (rab_kr=0 OG rab_pct=0 OG saerpris=0) ELLER rab_pct=100
   const usable = rows.filter((r) => {
     const kr = Number(r.rab_kr ?? 0);
     const pct = Number(r.rab_pct ?? 0);
+    const saer = Number(r.saerpris_kr ?? 0);
     if (pct === 100) return false;
-    if (!kr && !pct) return false;
+    if (!kr && !pct && !saer) return false;
     return true;
   });
   const byCat = new Map<string, { krs: number[]; pcts: number[] }>();
@@ -260,7 +261,9 @@ function summarize(rows: PricingRow[]): {
     const e = byCat.get(cat) ?? { krs: [], pcts: [] };
     const kr = Number(r.rab_kr ?? 0);
     const pct = Number(r.rab_pct ?? 0);
-    if (kr > 0) e.krs.push(kr);
+    const saer = Number(r.saerpris_kr ?? 0);
+    if (saer > 0) e.krs.push(saer);
+    else if (kr > 0) e.krs.push(kr);
     if (pct > 0) e.pcts.push(pct);
     byCat.set(cat, e);
   }
