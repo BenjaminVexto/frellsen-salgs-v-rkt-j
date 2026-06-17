@@ -13,48 +13,60 @@ export const Route = createFileRoute("/api/public/quote-pdf/$token")({
   server: {
     handlers: {
       GET: async ({ params }) => {
-        const token = String(params.token ?? "").trim();
-        if (!token || token.length < 8) {
-          return new Response("Invalid token", { status: 400 });
-        }
+        try {
+          const token = String(params.token ?? "").trim();
+          if (!token || token.length < 8) {
+            return new Response("Invalid token", { status: 400 });
+          }
 
-        const supabase = createClient<Database>(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_PUBLISHABLE_KEY!,
-          {
+          const url = process.env.SUPABASE_URL;
+          const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+          if (!url || !key) {
+            return new Response(
+              `Missing env: ${!url ? "SUPABASE_URL " : ""}${!key ? "SUPABASE_PUBLISHABLE_KEY" : ""}`,
+              { status: 500 },
+            );
+          }
+
+          const supabase = createClient<Database>(url, key, {
             auth: {
               storage: undefined,
               persistSession: false,
               autoRefreshToken: false,
             },
-          },
-        );
+          });
 
-        const { data, error } = await supabase.rpc("get_public_quote", {
-          _token: token,
-        });
-        if (error) {
-          return new Response(`RPC error: ${error.message}`, { status: 500 });
+          const { data, error } = await supabase.rpc("get_public_quote", {
+            _token: token,
+          });
+          if (error) {
+            return new Response(`RPC error: ${error.message}`, { status: 500 });
+          }
+          if (!data) {
+            return new Response("Quote not found", { status: 404 });
+          }
+
+          const { buildQuotePdf, buildPdfFilename } = await import(
+            "@/lib/quote-pdf.server"
+          );
+          const payload = data as any;
+          const bytes = await buildQuotePdf(payload);
+          const filename = buildPdfFilename(payload);
+
+          return new Response(bytes as unknown as BodyInit, {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "Content-Disposition": `attachment; filename="${filename.replace(/"/g, "")}"`,
+              "Cache-Control": "private, no-store",
+            },
+          });
+        } catch (e: any) {
+          return new Response(
+            `PDF gen failed: ${e?.message ?? String(e)}\n${e?.stack ?? ""}`,
+            { status: 500, headers: { "Content-Type": "text/plain" } },
+          );
         }
-        if (!data) {
-          return new Response("Quote not found", { status: 404 });
-        }
-
-        const { buildQuotePdf, buildPdfFilename } = await import(
-          "@/lib/quote-pdf.server"
-        );
-        const payload = data as any;
-        const bytes = await buildQuotePdf(payload);
-        const filename = buildPdfFilename(payload);
-
-        return new Response(bytes as unknown as BodyInit, {
-          status: 200,
-          headers: {
-            "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="${filename.replace(/"/g, "")}"`,
-            "Cache-Control": "private, no-store",
-          },
-        });
       },
     },
   },
