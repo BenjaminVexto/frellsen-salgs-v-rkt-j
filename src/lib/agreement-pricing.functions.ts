@@ -34,6 +34,36 @@ export function extractLeadingCode(s: string | null | undefined): string | null 
   return m ? m[1] : null;
 }
 
+/** Pakker "4 [Te]" → "Te"; "78 [Maskiner - Salg...]" → "Maskiner - Salg..."; fallback til rå tekst. */
+export function extractGroupLabel(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const raw = String(s).trim();
+  if (!raw || raw === "0") return null;
+  const m = raw.match(/\[\s*(.+?)\s*\]?\s*$/);
+  if (m && m[1]) return m[1].replace(/\]+$/, "").trim();
+  // ren tekst uden klamme — drop ledende kode hvis der er en
+  const stripped = raw.replace(/^\d+\s*/, "").trim();
+  return stripped || raw;
+}
+
+/** Afled visningsetiket for en prismatrix-række: varenr > pg3 > pg2 > pg1 > "Øvrige". */
+export function deriveRowLabel(r: {
+  varenr?: string | null;
+  beskrivelse?: string | null;
+  produktprisgruppe1?: string | null;
+  produktprisgruppe2?: string | null;
+  produktprisgruppe3?: string | null;
+}): string {
+  const v = (r.varenr ?? "").trim();
+  if (v && v !== "0") return r.beskrivelse?.trim() || `Vare ${v}`;
+  return (
+    extractGroupLabel(r.produktprisgruppe3) ??
+    extractGroupLabel(r.produktprisgruppe2) ??
+    extractGroupLabel(r.produktprisgruppe1) ??
+    "Øvrige"
+  );
+}
+
 // PostgREST OR-filter for et tekstfelt der starter med koden ("59", "59 ...", "59[...", "59\t...")
 function startsWithCodeFilter(col: string, code: string): string {
   return [
