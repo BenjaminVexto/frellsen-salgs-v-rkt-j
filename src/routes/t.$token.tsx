@@ -61,7 +61,6 @@ const publicQuoteQuery = (token: string) =>
   });
 
 export const Route = createFileRoute("/t/$token")({
-  ssr: false,
   loader: async ({ params, context }) =>
     context.queryClient.ensureQueryData(publicQuoteQuery(params.token)),
   head: () => ({
