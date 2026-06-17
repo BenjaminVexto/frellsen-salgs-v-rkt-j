@@ -46,12 +46,19 @@ function fmtNum(n: number | null): string {
   return n.toLocaleString("da-DK", { maximumFractionDigits: 2 });
 }
 
-export function PrismatrixTable({ kp2 }: { kp2: string }) {
-  const fn = useServerFn(listPricingByKp2);
+export function PrismatrixTable(props: { kp2?: string; kp1?: string }) {
+  const { kp2, kp1 } = props;
+  const code = (kp2 ?? kp1 ?? "").trim();
+  const mode: "kp2" | "kp1" = kp2 ? "kp2" : "kp1";
+  const fnKp2 = useServerFn(listPricingByKp2);
+  const fnKp1 = useServerFn(listPricingByKp1);
   const q = useQuery({
-    queryKey: ["pricing-by-kp2", kp2],
-    queryFn: () => fn({ data: { kp2 } }) as Promise<Row[]>,
-    enabled: !!kp2,
+    queryKey: [`pricing-by-${mode}`, code],
+    queryFn: () =>
+      (mode === "kp2"
+        ? fnKp2({ data: { kp2: code } })
+        : fnKp1({ data: { kp1: code } })) as Promise<Row[]>,
+    enabled: !!code,
   });
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState<string>("__all__");
