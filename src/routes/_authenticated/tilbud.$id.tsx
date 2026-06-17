@@ -118,6 +118,9 @@ type QuoteLine = {
   listepris_snapshot: number;
   rabat_pct_snapshot: number;
   rabat_kr_snapshot: number;
+  /** Enhedsnetto (pr. stk) — listepris efter pct og kr-rabat. */
+  nettopris_enhed_snapshot: number;
+  /** Linjetotal — nettopris_enhed_snapshot × antal. Bruges af alle totaler. */
   nettopris_snapshot: number;
   er_leje: boolean;
   sort_order: number;
