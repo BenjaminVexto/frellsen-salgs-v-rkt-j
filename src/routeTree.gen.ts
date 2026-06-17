@@ -22,6 +22,7 @@ import { Route as AuthenticatedMinPortefoeljeRouteImport } from './routes/_authe
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedTilbudIndexRouteImport } from './routes/_authenticated/tilbud.index'
 import { Route as AuthenticatedAftalerIndexRouteImport } from './routes/_authenticated/aftaler.index'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
 import { Route as AuthenticatedTilbudNyRouteImport } from './routes/_authenticated/tilbud.ny'
@@ -120,6 +121,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedTilbudIndexRoute =
+  AuthenticatedTilbudIndexRouteImport.update({
+    id: '/tilbud/',
+    path: '/tilbud/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAftalerIndexRoute =
   AuthenticatedAftalerIndexRouteImport.update({
     id: '/aftaler/',
@@ -305,6 +312,7 @@ export interface FileRoutesByFullPath {
   '/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/aftaler/': typeof AuthenticatedAftalerIndexRoute
+  '/tilbud/': typeof AuthenticatedTilbudIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
@@ -345,6 +353,7 @@ export interface FileRoutesByTo {
   '/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
   '/aftaler': typeof AuthenticatedAftalerIndexRoute
+  '/tilbud': typeof AuthenticatedTilbudIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
   '/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
@@ -388,6 +397,7 @@ export interface FileRoutesById {
   '/_authenticated/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
   '/_authenticated/aftaler/': typeof AuthenticatedAftalerIndexRoute
+  '/_authenticated/tilbud/': typeof AuthenticatedTilbudIndexRoute
   '/_authenticated/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
   '/_authenticated/admin/import/anden': typeof AuthenticatedAdminImportAndenRoute
   '/_authenticated/admin/import/cvr': typeof AuthenticatedAdminImportCvrRoute
@@ -431,6 +441,7 @@ export interface FileRouteTypes {
     | '/tilbud/ny'
     | '/virksomheder/$id'
     | '/aftaler/'
+    | '/tilbud/'
     | '/admin/import/aftale-emner'
     | '/admin/import/anden'
     | '/admin/import/cvr'
@@ -471,6 +482,7 @@ export interface FileRouteTypes {
     | '/tilbud/ny'
     | '/virksomheder/$id'
     | '/aftaler'
+    | '/tilbud'
     | '/admin/import/aftale-emner'
     | '/admin/import/anden'
     | '/admin/import/cvr'
@@ -513,6 +525,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tilbud/ny'
     | '/_authenticated/virksomheder_/$id'
     | '/_authenticated/aftaler/'
+    | '/_authenticated/tilbud/'
     | '/_authenticated/admin/import/aftale-emner'
     | '/_authenticated/admin/import/anden'
     | '/_authenticated/admin/import/cvr'
@@ -632,6 +645,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tilbud/': {
+      id: '/_authenticated/tilbud/'
+      path: '/tilbud'
+      fullPath: '/tilbud/'
+      preLoaderRoute: typeof AuthenticatedTilbudIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/aftaler/': {
@@ -878,6 +898,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTilbudNyRoute: typeof AuthenticatedTilbudNyRoute
   AuthenticatedVirksomhederIdRoute: typeof AuthenticatedVirksomhederIdRoute
   AuthenticatedAftalerIndexRoute: typeof AuthenticatedAftalerIndexRoute
+  AuthenticatedTilbudIndexRoute: typeof AuthenticatedTilbudIndexRoute
   AuthenticatedAdminMaskinerArkivRoute: typeof AuthenticatedAdminMaskinerArkivRoute
   AuthenticatedAftalerKp1CodeRoute: typeof AuthenticatedAftalerKp1CodeRoute
   AuthenticatedAftalerKp2CodeRoute: typeof AuthenticatedAftalerKp2CodeRoute
@@ -904,6 +925,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTilbudNyRoute: AuthenticatedTilbudNyRoute,
   AuthenticatedVirksomhederIdRoute: AuthenticatedVirksomhederIdRoute,
   AuthenticatedAftalerIndexRoute: AuthenticatedAftalerIndexRoute,
+  AuthenticatedTilbudIndexRoute: AuthenticatedTilbudIndexRoute,
   AuthenticatedAdminMaskinerArkivRoute: AuthenticatedAdminMaskinerArkivRoute,
   AuthenticatedAftalerKp1CodeRoute: AuthenticatedAftalerKp1CodeRoute,
   AuthenticatedAftalerKp2CodeRoute: AuthenticatedAftalerKp2CodeRoute,
