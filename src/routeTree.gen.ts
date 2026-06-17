@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as GlemtPasswordRouteImport } from './routes/glemt-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TTokenRouteImport } from './routes/t.$token'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
 import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
 import { Route as AuthenticatedSalgsintelligensRouteImport } from './routes/_authenticated/salgsintelligens'
@@ -69,6 +70,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TTokenRoute = TTokenRouteImport.update({
+  id: '/t/$token',
+  path: '/t/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedVirksomhederRoute =
@@ -272,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/t/$token': typeof TTokenRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
@@ -310,6 +317,7 @@ export interface FileRoutesByTo {
   '/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/t/$token': typeof TTokenRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
@@ -349,6 +357,7 @@ export interface FileRoutesById {
   '/_authenticated/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/t/$token': typeof TTokenRoute
   '/_authenticated/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/_authenticated/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
@@ -389,6 +398,7 @@ export interface FileRouteTypes {
     | '/salgsintelligens'
     | '/salgsmuligheder'
     | '/virksomheder'
+    | '/t/$token'
     | '/admin/brugere'
     | '/admin/cvr-debug'
     | '/admin/import'
@@ -427,6 +437,7 @@ export interface FileRouteTypes {
     | '/salgsintelligens'
     | '/salgsmuligheder'
     | '/virksomheder'
+    | '/t/$token'
     | '/admin/brugere'
     | '/admin/cvr-debug'
     | '/admin/importhistorik'
@@ -465,6 +476,7 @@ export interface FileRouteTypes {
     | '/_authenticated/salgsintelligens'
     | '/_authenticated/salgsmuligheder'
     | '/_authenticated/virksomheder'
+    | '/t/$token'
     | '/_authenticated/admin/brugere'
     | '/_authenticated/admin/cvr-debug'
     | '/_authenticated/admin/import'
@@ -498,6 +510,7 @@ export interface RootRouteChildren {
   GlemtPasswordRoute: typeof GlemtPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  TTokenRoute: typeof TTokenRoute
   ApiPublicHooksProcessCvrEnrichmentRoute: typeof ApiPublicHooksProcessCvrEnrichmentRoute
   ApiPublicHooksProcessInvoiceImportRoute: typeof ApiPublicHooksProcessInvoiceImportRoute
 }
@@ -537,6 +550,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/t/$token': {
+      id: '/t/$token'
+      path: '/t/$token'
+      fullPath: '/t/$token'
+      preLoaderRoute: typeof TTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/virksomheder': {
@@ -857,6 +877,7 @@ const rootRouteChildren: RootRouteChildren = {
   GlemtPasswordRoute: GlemtPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  TTokenRoute: TTokenRoute,
   ApiPublicHooksProcessCvrEnrichmentRoute:
     ApiPublicHooksProcessCvrEnrichmentRoute,
   ApiPublicHooksProcessInvoiceImportRoute:
