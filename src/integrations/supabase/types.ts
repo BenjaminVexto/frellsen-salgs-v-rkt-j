@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      _product_master_import_log: {
+        Row: {
+          id: number
+          report: Json | null
+          run_at: string
+        }
+        Insert: {
+          id?: number
+          report?: Json | null
+          run_at?: string
+        }
+        Update: {
+          id?: number
+          report?: Json | null
+          run_at?: string
+        }
+        Relationships: []
+      }
       activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -1811,6 +1829,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
       can_access_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
@@ -1831,6 +1850,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_visma_product_master: { Args: { _data: Json }; Returns: Json }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_consumable_group: { Args: { _group: string }; Returns: boolean }
       rebuild_products: { Args: never; Returns: number }
