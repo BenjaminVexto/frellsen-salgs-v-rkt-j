@@ -7,7 +7,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
+import { buildQuotePdf, buildPdfFilename } from "@/lib/quote-pdf-builder";
 
 export const Route = createFileRoute("/api/public/quote-pdf/$token")({
   server: {
