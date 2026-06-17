@@ -1118,15 +1118,23 @@ function LineRow({
   const floor = floorQuery.data ?? null;
   const floorPct = Number(floor?.rabat_pct ?? 0);
   const floorKr = Number(floor?.rabat_kr ?? 0);
+  // Særpris fryses pr. linje (snapshot); falder tilbage til floor hvis snapshot er 0.
+  const saerKr = Number(line.saerpris_kr_snapshot ?? 0) || Number(floor?.saerpris_kr ?? 0);
 
   const pctNum = Math.max(0, Number(pct) || 0);
   const krNum = Math.max(0, Number(kr) || 0);
   const antalNum = Math.max(1, Number(antal) || 1);
   const enhedNetto = useMemo(
-    () => calcNetto(Number(line.listepris_snapshot), pctNum, krNum),
-    [line.listepris_snapshot, pctNum, krNum],
+    () => calcNettoEnhed({
+      list: Number(line.listepris_snapshot),
+      rab_pct: pctNum,
+      rab_kr: krNum,
+      saer_kr: saerKr,
+    }),
+    [line.listepris_snapshot, pctNum, krNum, saerKr],
   );
   const linjeNetto = enhedNetto * antalNum;
+  const harBegge = saerKr > 0 && (pctNum > 0 || krNum > 0);
 
   // Auto-persist på enhver ændring (debounced). Floor håndhæves: pct/kr snappes op til gulv.
   useEffect(() => {
@@ -1138,9 +1146,14 @@ function LineRow({
       if (effPct < floorPct) effPct = floorPct;
       if (effKr < floorKr) effKr = floorKr;
     }
-    const key = `${effPct}|${effKr}|${antalNum}`;
+    const key = `${effPct}|${effKr}|${saerKr}|${antalNum}`;
     if (key === lastSavedRef.current) return;
-    const enhed = calcNetto(Number(line.listepris_snapshot), effPct, effKr);
+    const enhed = calcNettoEnhed({
+      list: Number(line.listepris_snapshot),
+      rab_pct: effPct,
+      rab_kr: effKr,
+      saer_kr: saerKr,
+    });
     const total = enhed * antalNum;
     const handle = setTimeout(async () => {
       setSaveState("saving");
@@ -1150,6 +1163,7 @@ function LineRow({
           antal: antalNum,
           rabat_pct_snapshot: effPct,
           rabat_kr_snapshot: effKr,
+          saerpris_kr_snapshot: saerKr,
           nettopris_enhed_snapshot: enhed,
           nettopris_snapshot: total,
         })
@@ -1165,7 +1179,7 @@ function LineRow({
       setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 1200);
     }, 400);
     return () => clearTimeout(handle);
-  }, [pctNum, krNum, antalNum, disabled, floor, floorPct, floorKr, line.id, line.listepris_snapshot, onChanged]);
+  }, [pctNum, krNum, saerKr, antalNum, disabled, floor, floorPct, floorKr, line.id, line.listepris_snapshot, onChanged]);
 
   // Snap visuelt input op til gulvet når brugeren forlader feltet
   function onPctBlur() {
