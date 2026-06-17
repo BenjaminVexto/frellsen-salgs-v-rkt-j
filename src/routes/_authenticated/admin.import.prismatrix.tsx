@@ -102,7 +102,7 @@ const FORCE_TEXT = new Set([
 ]);
 
 const DATE_FIELDS = new Set(["fra_dato", "til_dato"]);
-const NUMBER_FIELDS = new Set(["rab_kr", "rab_pct", "udsalgspris", "udlejningspris"]);
+const NUMBER_FIELDS = new Set(["rab_kr", "rab_pct", "udsalgspris", "udlejningspris", "saerpris_kr"]);
 
 const PRICING_EXPECTED = [
   "kundeprisgruppe1",
@@ -115,6 +115,7 @@ const PRICING_EXPECTED = [
   "beskrivelse",
   "rab_kr",
   "rab_pct",
+  "saerpris_kr",
   "udsalgspris",
   "udlejningspris",
   "kampagne",
