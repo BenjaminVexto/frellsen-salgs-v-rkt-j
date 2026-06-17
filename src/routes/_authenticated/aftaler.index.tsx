@@ -133,7 +133,9 @@ function AftalerPage() {
   const [customerSpecificCount, setCustomerSpecificCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [onlyMissingDoc, setOnlyMissingDoc] = useState(false);
+  const setTypeFn = useServerFn(setAgreementType);
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<Agreement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Agreement | null>(null);
