@@ -383,7 +383,7 @@ export const listPricingKp2Groups = createServerFn({ method: "GET" })
     for (let from = 0; ; from += PAGE) {
       const { data, error } = await supabaseAdmin
         .from("agreement_pricing" as any)
-        .select("kundeprisgruppe2, fra_dato, til_dato")
+        .select("kundeprisgruppe1, kundeprisgruppe2, fak_kundenr, fra_dato, til_dato")
         .eq("record_status", "aktiv")
         .range(from, from + PAGE - 1);
       if (error) throw new Error(error.message);
@@ -399,41 +399,74 @@ export const listPricingKp2Groups = createServerFn({ method: "GET" })
       fra: string | null;
       til: string | null;
     };
-    const groups = new Map<string, Group>();
-    for (const r of rows) {
-      const raw = String(r.kundeprisgruppe2 ?? "").trim();
-      if (!raw) continue;
-      const code = extractLeadingCode(raw);
-      if (!code) continue;
+    const kp2Groups = new Map<string, Group>();
+    const kp1Groups = new Map<string, Group>();
+    const customerSet = new Set<string>();
+    let generalCount = 0;
+
+    const upsert = (
+      map: Map<string, Group>,
+      code: string,
+      raw: string,
+      fra: string | null,
+      til: string | null,
+    ) => {
       const labelMatch = raw.match(/^\d+\s*[\[\(]\s*(.+?)\s*[\]\)]?$/);
       const label = labelMatch?.[1]?.trim() || raw;
       const g =
-        groups.get(code) ??
-        ({
-          code,
-          label,
-          raw,
-          count: 0,
-          fra: null,
-          til: null,
-        } as Group);
+        map.get(code) ??
+        ({ code, label, raw, count: 0, fra: null, til: null } as Group);
       g.count++;
-      if (r.fra_dato && (!g.fra || r.fra_dato < g.fra)) g.fra = r.fra_dato;
-      if (r.til_dato && (!g.til || r.til_dato > g.til)) g.til = r.til_dato;
+      if (fra && (!g.fra || fra < g.fra)) g.fra = fra;
+      if (til && (!g.til || til > g.til)) g.til = til;
       if (raw.length > g.raw.length) {
         g.raw = raw;
         g.label = label;
       }
-      groups.set(code, g);
+      map.set(code, g);
+    };
+
+    for (const r of rows) {
+      const kundenrRaw = String(r.fak_kundenr ?? "").trim();
+      const kundenr = !kundenrRaw || kundenrRaw === "0" ? null : kundenrRaw;
+      const kp2Raw = String(r.kundeprisgruppe2 ?? "").trim();
+      const kp2Code = extractLeadingCode(kp2Raw);
+      const kp1Raw = String(r.kundeprisgruppe1 ?? "").trim();
+      const kp1Code = extractLeadingCode(kp1Raw);
+
+      if (kundenr) {
+        customerSet.add(kundenr);
+        continue;
+      }
+      if (kp2Code && kp2Code !== "0") {
+        upsert(kp2Groups, kp2Code, kp2Raw, r.fra_dato, r.til_dato);
+        continue;
+      }
+      if (kp1Code && kp1Code !== "0") {
+        upsert(kp1Groups, kp1Code, kp1Raw, r.fra_dato, r.til_dato);
+        continue;
+      }
+      generalCount++;
     }
+
     const { data: agreements } = await supabaseAdmin
       .from("agreements")
-      .select("id, name, kp2_code, valid_from, valid_to, is_public_sector");
+      .select("id, name, kp1_code, kp2_code, valid_from, valid_to, is_public_sector");
     const byKp2 = new Map<string, any>();
+    const byKp1 = new Map<string, any>();
     (agreements ?? []).forEach((a: any) => {
       if (a.kp2_code) byKp2.set(String(a.kp2_code).trim(), a);
+      if (a.kp1_code) byKp1.set(String(a.kp1_code).trim(), a);
     });
-    return Array.from(groups.values())
-      .map((g) => ({ ...g, agreement: byKp2.get(g.code) ?? null }))
-      .sort((a, b) => Number(a.code) - Number(b.code));
+
+    return {
+      kp2: Array.from(kp2Groups.values())
+        .map((g) => ({ ...g, agreement: byKp2.get(g.code) ?? null }))
+        .sort((a, b) => Number(a.code) - Number(b.code)),
+      kp1: Array.from(kp1Groups.values())
+        .map((g) => ({ ...g, agreement: byKp1.get(g.code) ?? null }))
+        .sort((a, b) => Number(a.code) - Number(b.code)),
+      customerSpecificCount: customerSet.size,
+      generalCount,
+    };
   });
