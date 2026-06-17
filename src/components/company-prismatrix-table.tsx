@@ -17,6 +17,7 @@ import { format, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
 import {
   listPricingForCompany,
+  deriveRowLabel,
   type MatchSource,
   type PricingRow,
 } from "@/lib/agreement-pricing.functions";
