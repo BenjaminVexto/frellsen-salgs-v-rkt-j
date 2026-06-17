@@ -1215,8 +1215,22 @@ function LineRow({
     <div className="border rounded-md p-3">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0">
-          <div className="font-medium truncate">
-            {line.beskrivelse_snapshot ?? line.varenr}
+          <div className="font-medium truncate flex items-center gap-2">
+            <span className="truncate">{line.beskrivelse_snapshot ?? line.varenr}</span>
+            {saerKr > 0 && (
+              <Badge variant="outline" className="text-[10px] border-amber-500/60 text-amber-700 dark:text-amber-400 shrink-0">
+                Særpris {formatKr(saerKr)}
+              </Badge>
+            )}
+            {harBegge && (
+              <Badge
+                variant="outline"
+                className="text-[10px] border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 shrink-0"
+                title={`Både særpris (${formatKr(saerKr)}) og almindelig rabat er aktiv på samme linje. Rækkefølge: STACK_ORDER=${STACK_ORDER} (ANTAGET, ej verificeret mod Visma).`}
+              >
+                ⚠ Særpris + rabat stables ({STACK_ORDER})
+              </Badge>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">
             {line.varenr} · {typeLabel} · Liste {formatKr(line.listepris_snapshot)}
