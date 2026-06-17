@@ -251,7 +251,8 @@ function summarize(rows: PricingRow[]): {
   });
   const byCat = new Map<string, { krs: number[]; pcts: number[] }>();
   for (const r of usable) {
-    const cat = r.rabat_kategori ?? "Øvrige";
+    // Foretræk ægte gruppe-/varenavn (varenr > pg3 > pg2 > pg1); kun ren-tomme falder til "Øvrige".
+    const cat = deriveRowLabel(r) || r.rabat_kategori || "Øvrige";
     const e = byCat.get(cat) ?? { krs: [], pcts: [] };
     const kr = Number(r.rab_kr ?? 0);
     const pct = Number(r.rab_pct ?? 0);
