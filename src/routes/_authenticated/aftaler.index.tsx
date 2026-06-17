@@ -171,8 +171,8 @@ function AftalerPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      if (filter === "public" && !r.is_public_sector) return false;
-      if (filter === "private" && r.is_public_sector) return false;
+      if (typeFilter !== "all" && r.aftale_type !== typeFilter) return false;
+      if (onlyMissingDoc && r.document_path) return false;
       if (!q) return true;
       return (
         r.name.toLowerCase().includes(q) ||
@@ -180,7 +180,7 @@ function AftalerPage() {
         (r.kp2_code ?? "").toLowerCase().includes(q)
       );
     });
-  }, [rows, search, filter]);
+  }, [rows, search, typeFilter, onlyMissingDoc]);
 
   // Kun de KP2-grupper der ikke allerede er repræsenteret af en aftale
   const orphanKp2 = useMemo(() => {
@@ -192,8 +192,10 @@ function AftalerPage() {
     const q = search.trim().toLowerCase();
     return kp2Groups
       .filter((g) => !agreementKp2s.has(g.code))
+      .map((g) => ({ ...g, aftale_type: deriveAgreementTypeFromName(g.label) }))
       .filter((g) => {
-        if (filter !== "all") return false;
+        if (typeFilter !== "all" && g.aftale_type !== typeFilter) return false;
+        // orphan-grupper har aldrig dokument
         if (!q) return true;
         return (
           g.code.includes(q) ||
@@ -201,7 +203,7 @@ function AftalerPage() {
           g.raw.toLowerCase().includes(q)
         );
       });
-  }, [kp2Groups, rows, search, filter]);
+  }, [kp2Groups, rows, search, typeFilter]);
 
   const orphanKp1 = useMemo(() => {
     const agreementKp1s = new Set(
