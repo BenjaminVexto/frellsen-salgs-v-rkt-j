@@ -71,6 +71,13 @@ const PRICING_ALIASES: Record<string, string> = {
   fakturakundenr: "fak_kundenr",
   faktureringskundenr: "fak_kundenr",
   fakturereskundenr: "fak_kundenr",
+  // Sær T/F — skjult kronerabat pr. enhed (kun nettopris vises til kunden).
+  // normCol("Sær T/F") → "saert/f"; medtag varianter uden / og med "kr".
+  "saert/f": "saerpris_kr",
+  saertf: "saerpris_kr",
+  saerpris: "saerpris_kr",
+  saerpriskr: "saerpris_kr",
+  saerkr: "saerpris_kr",
 };
 
 
