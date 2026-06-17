@@ -25,6 +25,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   ArrowLeft,
   Lock,
   Search,
@@ -36,6 +42,12 @@ import {
   Cog,
   Receipt,
   Calendar,
+  Coffee,
+  Wrench,
+  Send,
+  Repeat,
+  CheckCircle2,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -54,6 +66,10 @@ type Quote = {
   pricing_mode: "purchase" | "lease" | "both";
   delivery_location_id: string | null;
   frozen_at: string | null;
+  expiry_date: string | null;
+  sent_date: string | null;
+  public_token: string | null;
+  notes: string | null;
 };
 
 type Company = {
@@ -82,11 +98,21 @@ type ProductMachine = {
   is_favorit: boolean;
 };
 
+type ProductSimple = {
+  varenr: string;
+  beskrivelse: string | null;
+  listepris: number | null;
+  is_favorit: boolean;
+  kategori: string | null;
+};
+
+type LineType = "machine" | "accessory" | "consumable";
+
 type QuoteLine = {
   id: string;
   quote_id: string;
   varenr: string;
-  line_type: "machine" | "accessory" | "consumable";
+  line_type: LineType;
   beskrivelse_snapshot: string | null;
   antal: number;
   listepris_snapshot: number;
@@ -110,9 +136,26 @@ function formatKr(n: number | null | undefined) {
   });
 }
 
+function formatDate(d: string | null | undefined) {
+  if (!d) return "—";
+  try {
+    return new Date(d).toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return String(d);
+  }
+}
+
 function calcNetto(list: number, pct: number, kr: number) {
   const afterPct = list * (1 - (pct || 0) / 100);
   return Math.max(0, afterPct - (kr || 0));
+}
+
+async function fetchFloor(companyId: string, varenr: string): Promise<Floor> {
+  const { data } = await supabase.rpc("get_quote_floor_discount", {
+    p_company_id: companyId,
+    p_varenr: varenr,
+  });
+  return data && (data as any[]).length > 0 ? ((data as any[])[0] as any) : null;
 }
 
 // ---------- page ----------
@@ -122,13 +165,14 @@ function TilbudBygger() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  // Quote
   const quoteQuery = useQuery({
     queryKey: ["quote", quoteId],
     queryFn: async (): Promise<Quote> => {
       const { data, error } = await supabase
         .from("quotes")
-        .select("id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at")
+        .select(
+          "id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at, expiry_date, sent_date, public_token, notes",
+        )
         .eq("id", quoteId)
         .single();
       if (error) throw error;
@@ -138,7 +182,6 @@ function TilbudBygger() {
 
   const companyId = quoteQuery.data?.company_id;
 
-  // Company + locations
   const companyQuery = useQuery({
     enabled: !!companyId,
     queryKey: ["quote-company", companyId],
@@ -167,13 +210,12 @@ function TilbudBygger() {
     },
   });
 
-  // Auto-set delivery location to primary if only one and none selected yet
   useEffect(() => {
     const q = quoteQuery.data;
     const locs = locationsQuery.data ?? [];
     if (!q || q.delivery_location_id || locs.length === 0) return;
     const primary = locs.find((l) => l.is_primary) ?? locs[0];
-    if (!primary || locs.length > 1) return; // only auto-set if there's exactly one obvious choice
+    if (!primary || locs.length > 1) return;
     supabase
       .from("quotes")
       .update({ delivery_location_id: primary.id })
@@ -181,26 +223,24 @@ function TilbudBygger() {
       .then(() => qc.invalidateQueries({ queryKey: ["quote", quoteId] }));
   }, [quoteQuery.data, locationsQuery.data, qc, quoteId]);
 
-  // Floor probe — vi tester på en kendt testvare (instant kaffe 60810) for at vise
-  // om kunden overhovedet har aftale-regler i prismatrixen.
+  // Floor probe på kundeniveau
   const floorProbeQuery = useQuery({
     enabled: !!companyId,
     queryKey: ["floor-probe", companyId],
     queryFn: async () => {
-      // Prøv et par varenumre fra forskellige grupper
-      const probes = ["60810", "61160", "1930"];
+      const probes = ["60810", "61160", "1930", "87003"];
       for (const v of probes) {
         const { data } = await supabase.rpc("get_quote_floor_discount", {
           p_company_id: companyId!,
           p_varenr: v,
         });
-        if (data && data.length > 0) return data[0] as { rabat_pct: number; rabat_kr: number; kilde: string };
+        if (data && data.length > 0)
+          return data[0] as { rabat_pct: number; rabat_kr: number; kilde: string };
       }
       return null;
     },
   });
 
-  // Machine catalog
   const machinesQuery = useQuery({
     queryKey: ["quote-machines"],
     queryFn: async (): Promise<ProductMachine[]> => {
@@ -218,7 +258,24 @@ function TilbudBygger() {
     },
   });
 
-  // Lines
+  // Forbrugsprodukter + tilbehør
+  const consumablesQuery = useQuery({
+    queryKey: ["quote-consumables"],
+    queryFn: async (): Promise<ProductSimple[]> => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("varenr, beskrivelse, listepris, is_favorit, kategori")
+        .in("kategori", ["kaffe", "te", "chokolade", "maelk", "tilbehoer"])
+        .eq("is_tilbudsegnet", true)
+        .eq("record_status", "aktiv")
+        .order("is_favorit", { ascending: false })
+        .order("beskrivelse", { ascending: true })
+        .limit(3000);
+      if (error) throw error;
+      return (data ?? []) as any;
+    },
+  });
+
   const linesQuery = useQuery({
     queryKey: ["quote-lines", quoteId],
     queryFn: async (): Promise<QuoteLine[]> => {
@@ -253,6 +310,7 @@ function TilbudBygger() {
   const company = companyQuery.data;
   const locations = locationsQuery.data ?? [];
   const machines = machinesQuery.data ?? [];
+  const consumables = consumablesQuery.data ?? [];
   const lines = linesQuery.data ?? [];
   const floor = floorProbeQuery.data ?? null;
 
@@ -277,6 +335,30 @@ function TilbudBygger() {
     qc.invalidateQueries({ queryKey: ["quote", quoteId] });
   }
 
+  async function setExpiryDate(d: string) {
+    const { error } = await supabase
+      .from("quotes")
+      .update({ expiry_date: d || null })
+      .eq("id", quote.id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["quote", quoteId] });
+  }
+
+  async function sendQuote() {
+    if (lines.length === 0) {
+      toast.error("Tilføj mindst én linje før du sender tilbuddet.");
+      return;
+    }
+    if (!confirm("Markér tilbud som sendt? Linjerne låses og kan ikke længere ændres.")) return;
+    const { data, error } = await supabase.rpc("send_quote", { _quote_id: quote.id });
+    if (error) { toast.error("Kunne ikke sende: " + error.message); return; }
+    toast.success("Tilbud markeret som sendt — linjer låst.");
+    qc.invalidateQueries({ queryKey: ["quote", quoteId] });
+    qc.invalidateQueries({ queryKey: ["quote-lines", quoteId] });
+  }
+
+  const invalidateLines = () => qc.invalidateQueries({ queryKey: ["quote-lines", quoteId] });
+
   return (
     <TooltipProvider>
       <div className="px-4 md:px-8 py-6 pb-24 max-w-[1600px] mx-auto">
@@ -294,7 +376,11 @@ function TilbudBygger() {
               Tilbud {quote.quote_number ?? "—"}
             </Badge>
             <Badge>{quote.status}</Badge>
-            {isFrozen && <Badge variant="destructive">Frosset</Badge>}
+            {isFrozen && (
+              <Badge variant="secondary" className="gap-1">
+                <Lock className="h-3 w-3" /> Frosset
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -376,7 +462,7 @@ function TilbudBygger() {
                 companyId={company.id}
                 quote={quote}
                 disabled={isFrozen}
-                onAdded={() => qc.invalidateQueries({ queryKey: ["quote-lines", quoteId] })}
+                onAdded={invalidateLines}
               />
 
               <div className="mt-6">
@@ -393,12 +479,89 @@ function TilbudBygger() {
                           line={line}
                           companyId={company.id}
                           disabled={isFrozen}
-                          onChanged={() => qc.invalidateQueries({ queryKey: ["quote-lines", quoteId] })}
+                          onChanged={invalidateLines}
                         />
                       ))}
                   </div>
                 )}
               </div>
+            </StepCard>
+
+            {/* TRIN 3 — FORBRUGSPRODUKTER */}
+            <StepCard step={3} title="Forbrugsprodukter" icon={<Coffee className="h-4 w-4" />}>
+              <ConsumablePicker
+                products={consumables.filter((p) =>
+                  ["kaffe", "te", "chokolade", "maelk"].includes(p.kategori ?? ""),
+                )}
+                companyId={company.id}
+                quoteId={quote.id}
+                disabled={isFrozen}
+                onAdded={invalidateLines}
+              />
+
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-2">Valgte forbrugsprodukter</h3>
+                {lines.filter((l) => l.line_type === "consumable").length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Ingen forbrugsprodukter tilføjet endnu.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {lines
+                      .filter((l) => l.line_type === "consumable")
+                      .map((line) => (
+                        <LineRow
+                          key={line.id}
+                          line={line}
+                          companyId={company.id}
+                          disabled={isFrozen}
+                          onChanged={invalidateLines}
+                        />
+                      ))}
+                  </div>
+                )}
+              </div>
+            </StepCard>
+
+            {/* TILVALG / TILBEHØR */}
+            <StepCard step={"+"} title="Tilvalg / tilbehør" icon={<Wrench className="h-4 w-4" />}>
+              <AccessoryPicker
+                products={consumables.filter((p) => p.kategori === "tilbehoer")}
+                companyId={company.id}
+                quoteId={quote.id}
+                disabled={isFrozen}
+                onAdded={invalidateLines}
+              />
+
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-2">Valgte tilvalg</h3>
+                {lines.filter((l) => l.line_type === "accessory").length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Ingen tilvalg tilføjet endnu.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {lines
+                      .filter((l) => l.line_type === "accessory")
+                      .map((line) => (
+                        <LineRow
+                          key={line.id}
+                          line={line}
+                          companyId={company.id}
+                          disabled={isFrozen}
+                          onChanged={invalidateLines}
+                        />
+                      ))}
+                  </div>
+                )}
+              </div>
+            </StepCard>
+
+            {/* TRIN 4 — FÆRDIGT TILBUD */}
+            <StepCard step={4} title="Færdigt tilbud" icon={<Receipt className="h-4 w-4" />}>
+              <QuoteSummary
+                quote={quote}
+                lines={lines}
+                isFrozen={isFrozen}
+                onSetExpiry={setExpiryDate}
+                onSend={sendQuote}
+              />
             </StepCard>
           </div>
 
@@ -412,14 +575,27 @@ function TilbudBygger() {
 
 // ---------- step card ----------
 
-function StepCard({ step, title, children }: { step: number; title: string; children: React.ReactNode }) {
+function StepCard({
+  step,
+  title,
+  icon,
+  children,
+}: {
+  step: number | string;
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-4">
         <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center">
           {step}
         </div>
-        <h2 className="text-lg font-semibold">{title}</h2>
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          {icon}
+          {title}
+        </h2>
       </div>
       {children}
     </Card>
@@ -461,16 +637,7 @@ function MachinePicker({
     setAdding(m.varenr + (erLeje ? "_leje" : "_kob"));
     try {
       const listepris = (erLeje ? m.udlejningspris : m.listepris) ?? 0;
-
-      // Hent rabat-gulv
-      const { data: floorRes } = await supabase.rpc("get_quote_floor_discount", {
-        p_company_id: companyId,
-        p_varenr: m.varenr,
-      });
-      const floor: Floor = (floorRes && (floorRes as any[]).length > 0)
-        ? (floorRes as any[])[0]
-        : null;
-
+      const floor = await fetchFloor(companyId, m.varenr);
       const rabatPct = Number(floor?.rabat_pct ?? 0);
       const rabatKr = Number(floor?.rabat_kr ?? 0);
       const netto = calcNetto(listepris, rabatPct, rabatKr);
@@ -505,11 +672,11 @@ function MachinePicker({
     <div className="space-y-4">
       {favoritter.length > 0 && (
         <div>
-          <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-            <Star className="h-3 w-3" /> Favoritter
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {favoritter.map((m) => (
+          <Label className="mb-2 flex items-center gap-1 text-xs">
+            <Star className="h-3 w-3 text-yellow-500" /> Favoritter
+          </Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            {favoritter.slice(0, 6).map((m) => (
               <MachineCard
                 key={m.varenr}
                 m={m}
@@ -634,6 +801,238 @@ function MachineCard({
   );
 }
 
+// ---------- shared add-line helper ----------
+
+async function addSimpleLine(args: {
+  quoteId: string;
+  companyId: string;
+  p: ProductSimple;
+  lineType: "consumable" | "accessory";
+}) {
+  const { quoteId, companyId, p, lineType } = args;
+  const listepris = Number(p.listepris ?? 0);
+  const floor = await fetchFloor(companyId, p.varenr);
+  const rabatPct = Number(floor?.rabat_pct ?? 0);
+  const rabatKr = Number(floor?.rabat_kr ?? 0);
+  const netto = calcNetto(listepris, rabatPct, rabatKr);
+  const { error } = await supabase.from("quote_lines").insert({
+    quote_id: quoteId,
+    varenr: p.varenr,
+    line_type: lineType,
+    beskrivelse_snapshot: p.beskrivelse,
+    antal: 1,
+    listepris_snapshot: listepris,
+    rabat_pct_snapshot: rabatPct,
+    rabat_kr_snapshot: rabatKr,
+    nettopris_snapshot: netto,
+    er_leje: false,
+    sort_order: 0,
+  });
+  if (error) throw error;
+}
+
+// ---------- consumable picker (tabs) ----------
+
+const CONSUMABLE_TABS: { key: string; label: string }[] = [
+  { key: "kaffe", label: "Kaffe" },
+  { key: "te", label: "Te" },
+  { key: "chokolade", label: "Chokolade" },
+  { key: "maelk", label: "Mælk" },
+];
+
+function ConsumablePicker({
+  products,
+  companyId,
+  quoteId,
+  disabled,
+  onAdded,
+}: {
+  products: ProductSimple[];
+  companyId: string;
+  quoteId: string;
+  disabled: boolean;
+  onAdded: () => void;
+}) {
+  const [tab, setTab] = useState<string>("kaffe");
+  return (
+    <Tabs value={tab} onValueChange={setTab}>
+      <TabsList>
+        {CONSUMABLE_TABS.map((t) => (
+          <TabsTrigger key={t.key} value={t.key}>
+            {t.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {CONSUMABLE_TABS.map((t) => (
+        <TabsContent key={t.key} value={t.key} className="mt-3">
+          <SimpleProductPicker
+            products={products.filter((p) => p.kategori === t.key)}
+            companyId={companyId}
+            quoteId={quoteId}
+            disabled={disabled}
+            onAdded={onAdded}
+            lineType="consumable"
+            placeholder={`Søg i ${t.label.toLowerCase()}`}
+          />
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+}
+
+function AccessoryPicker(props: {
+  products: ProductSimple[];
+  companyId: string;
+  quoteId: string;
+  disabled: boolean;
+  onAdded: () => void;
+}) {
+  return (
+    <SimpleProductPicker
+      {...props}
+      lineType="accessory"
+      placeholder="Søg fx serviceaftale, rensetablet, underskab"
+    />
+  );
+}
+
+function SimpleProductPicker({
+  products,
+  companyId,
+  quoteId,
+  disabled,
+  onAdded,
+  lineType,
+  placeholder,
+}: {
+  products: ProductSimple[];
+  companyId: string;
+  quoteId: string;
+  disabled: boolean;
+  onAdded: () => void;
+  lineType: "consumable" | "accessory";
+  placeholder: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [adding, setAdding] = useState<string | null>(null);
+
+  const favoritter = useMemo(() => products.filter((p) => p.is_favorit).slice(0, 12), [products]);
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    if (!s) return [] as ProductSimple[];
+    return products
+      .filter(
+        (p) =>
+          p.varenr.toLowerCase().includes(s) ||
+          (p.beskrivelse ?? "").toLowerCase().includes(s),
+      )
+      .slice(0, 30);
+  }, [products, search]);
+
+  async function add(p: ProductSimple) {
+    setAdding(p.varenr);
+    try {
+      await addSimpleLine({ quoteId, companyId, p, lineType });
+      toast.success(`Tilføjet: ${p.beskrivelse ?? p.varenr}`);
+      onAdded();
+    } catch (e: any) {
+      toast.error("Fejl: " + (e?.message ?? "ukendt"));
+    } finally {
+      setAdding(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {favoritter.length > 0 && (
+        <div>
+          <Label className="mb-2 flex items-center gap-1 text-xs">
+            <Star className="h-3 w-3 text-yellow-500" /> Favoritter
+          </Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            {favoritter.map((p) => (
+              <SimpleProductCard
+                key={p.varenr}
+                p={p}
+                disabled={disabled}
+                adding={adding}
+                onAdd={add}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <Label className="mb-1.5 block text-xs">Søg produkt</Label>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={placeholder}
+            disabled={disabled}
+          />
+        </div>
+        {filtered.length > 0 && (
+          <div className="mt-2 border rounded-md divide-y max-h-72 overflow-auto">
+            {filtered.map((p) => (
+              <div key={p.varenr} className="p-2.5 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{p.beskrivelse ?? p.varenr}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {p.varenr} · {formatKr(p.listepris)}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={disabled || adding === p.varenr}
+                  onClick={() => add(p)}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Tilføj
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SimpleProductCard({
+  p,
+  disabled,
+  adding,
+  onAdd,
+}: {
+  p: ProductSimple;
+  disabled: boolean;
+  adding: string | null;
+  onAdd: (p: ProductSimple) => void;
+}) {
+  return (
+    <div className="border rounded-md p-3 flex flex-col gap-1.5">
+      <div className="min-w-0">
+        <div className="text-sm font-medium truncate">{p.beskrivelse ?? p.varenr}</div>
+        <div className="text-xs text-muted-foreground">
+          {p.varenr} · {formatKr(p.listepris)}
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled || adding === p.varenr}
+        onClick={() => onAdd(p)}
+      >
+        <Plus className="h-3.5 w-3.5 mr-1" /> Tilføj
+      </Button>
+    </div>
+  );
+}
+
 // ---------- line row ----------
 
 function LineRow({
@@ -652,27 +1051,18 @@ function LineRow({
   const [antal, setAntal] = useState<string>(String(line.antal ?? 1));
   const [saving, setSaving] = useState(false);
 
-  // Hent gulv for netop denne varenr (cached per line)
   const floorQuery = useQuery({
     queryKey: ["floor", companyId, line.varenr],
-    queryFn: async (): Promise<Floor> => {
-      const { data, error } = await supabase.rpc("get_quote_floor_discount", {
-        p_company_id: companyId,
-        p_varenr: line.varenr,
-      });
-      if (error) throw error;
-      return (data && (data as any[]).length > 0) ? (data as any[])[0] : null;
-    },
+    queryFn: async (): Promise<Floor> => fetchFloor(companyId, line.varenr),
   });
 
   const floor = floorQuery.data ?? null;
   const floorPct = Number(floor?.rabat_pct ?? 0);
   const floorKr = Number(floor?.rabat_kr ?? 0);
 
-  // Visuel netto-preview
   const previewNetto = useMemo(
-    () => calcNetto(Number(line.listepris_snapshot), Number(pct), Number(kr)),
-    [line.listepris_snapshot, pct, kr],
+    () => calcNetto(Number(line.listepris_snapshot), Number(pct), Number(kr)) * (Math.max(1, Number(antal) || 1)),
+    [line.listepris_snapshot, pct, kr, antal],
   );
 
   async function save() {
@@ -680,7 +1070,6 @@ function LineRow({
     const krNum = Number(kr) || 0;
     const antalNum = Math.max(1, Number(antal) || 1);
 
-    // Håndhæv gulv
     if (floor) {
       if (pctNum < floorPct) {
         toast.error(`Aftale-gulv: min. ${floorPct}% — kan kun gå højere`);
@@ -718,6 +1107,15 @@ function LineRow({
     onChanged();
   }
 
+  const typeLabel =
+    line.line_type === "machine"
+      ? line.er_leje
+        ? "Månedlig leje"
+        : "Engangskøb"
+      : line.line_type === "consumable"
+        ? "Løbende forbrug"
+        : "Tilvalg";
+
   return (
     <div className="border rounded-md p-3">
       <div className="flex items-start justify-between gap-3 mb-2">
@@ -726,7 +1124,7 @@ function LineRow({
             {line.beskrivelse_snapshot ?? line.varenr}
           </div>
           <div className="text-xs text-muted-foreground">
-            {line.varenr} · {line.er_leje ? "Månedlig leje" : "Engangskøb"} · Liste {formatKr(line.listepris_snapshot)}
+            {line.varenr} · {typeLabel} · Liste {formatKr(line.listepris_snapshot)}
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={remove} disabled={disabled}>
@@ -766,7 +1164,7 @@ function LineRow({
           <FloorHint loading={floorQuery.isLoading} floor={floor} kind="kr" />
         </div>
         <div>
-          <Label className="text-xs">Netto/stk</Label>
+          <Label className="text-xs">Netto i alt</Label>
           <div className="h-9 px-3 flex items-center rounded-md border bg-muted/40 text-sm">
             {formatKr(previewNetto)}
           </div>
@@ -801,11 +1199,12 @@ function FloorHint({
     );
   }
   const v = kind === "pct" ? Number(floor.rabat_pct) : Number(floor.rabat_kr);
-  if (!v || v <= 0) return (
-    <div className="text-[11px] text-muted-foreground mt-1">
-      Ingen {kind === "pct" ? "%-" : "kr-"}gulv
-    </div>
-  );
+  if (!v || v <= 0)
+    return (
+      <div className="text-[11px] text-muted-foreground mt-1">
+        Ingen {kind === "pct" ? "%-" : "kr-"}gulv
+      </div>
+    );
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -818,6 +1217,198 @@ function FloorHint({
   );
 }
 
+// ---------- quote summary (trin 4) ----------
+
+type Bucket = {
+  key: "engangskob" | "leje" | "forbrug";
+  title: string;
+  icon: React.ReactNode;
+  suffix: string;
+  lines: QuoteLine[];
+};
+
+function bucketize(lines: QuoteLine[]): Bucket[] {
+  const engangskob = lines.filter(
+    (l) => (l.line_type === "machine" && !l.er_leje) || l.line_type === "accessory",
+  );
+  const leje = lines.filter((l) => l.line_type === "machine" && l.er_leje);
+  const forbrug = lines.filter((l) => l.line_type === "consumable");
+  return [
+    { key: "engangskob", title: "Engangskøb", icon: <Receipt className="h-4 w-4" />, suffix: "", lines: engangskob },
+    { key: "leje", title: "Månedlig leje", icon: <Calendar className="h-4 w-4" />, suffix: "/md", lines: leje },
+    { key: "forbrug", title: "Løbende forbrug", icon: <Repeat className="h-4 w-4" />, suffix: "", lines: forbrug },
+  ];
+}
+
+function QuoteSummary({
+  quote,
+  lines,
+  isFrozen,
+  onSetExpiry,
+  onSend,
+}: {
+  quote: Quote;
+  lines: QuoteLine[];
+  isFrozen: boolean;
+  onSetExpiry: (d: string) => void;
+  onSend: () => void;
+}) {
+  const buckets = bucketize(lines);
+  const defaultExpiry = useMemo(() => {
+    if (quote.expiry_date) return quote.expiry_date.slice(0, 10);
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  }, [quote.expiry_date]);
+
+  const [expiry, setExpiry] = useState(defaultExpiry);
+  useEffect(() => setExpiry(defaultExpiry), [defaultExpiry]);
+
+  const publicUrl = quote.public_token
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/tilbud-public/${quote.public_token}`
+    : null;
+
+  function copyLink() {
+    if (!publicUrl) return;
+    navigator.clipboard?.writeText(publicUrl);
+    toast.success("Link kopieret");
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <Label className="text-xs mb-1.5 block">Gyldig til</Label>
+          <Input
+            type="date"
+            value={expiry}
+            disabled={isFrozen}
+            onChange={(e) => setExpiry(e.target.value)}
+            onBlur={() => {
+              if (expiry && expiry !== (quote.expiry_date ?? "").slice(0, 10)) {
+                onSetExpiry(expiry);
+              }
+            }}
+          />
+          <div className="text-[11px] text-muted-foreground mt-1">
+            Default: 30 dage frem
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs mb-1.5 block">Sendt</Label>
+          <div className="h-9 px-3 flex items-center rounded-md border bg-muted/40 text-sm">
+            {quote.sent_date ? formatDate(quote.sent_date) : "—"}
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs mb-1.5 block">Status</Label>
+          <div className="h-9 px-3 flex items-center rounded-md border bg-muted/40 text-sm capitalize">
+            {quote.status}
+          </div>
+        </div>
+      </div>
+
+      {/* Linje-tabeller pr. bucket */}
+      <div className="space-y-5">
+        {buckets.map((b) => (
+          <BucketTable key={b.key} bucket={b} />
+        ))}
+      </div>
+
+      {/* Send / link */}
+      <div className="border-t pt-4 flex flex-wrap items-center gap-3">
+        {!isFrozen ? (
+          <Button onClick={onSend} className="gap-2">
+            <Send className="h-4 w-4" /> Markér som sendt
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-emerald-700">
+            <CheckCircle2 className="h-4 w-4" />
+            Sendt {formatDate(quote.sent_date)} · frosset {formatDate(quote.frozen_at)}
+          </div>
+        )}
+
+        {publicUrl && (
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="text-xs text-muted-foreground font-mono truncate max-w-[320px]">
+              {publicUrl}
+            </div>
+            <Button variant="outline" size="sm" onClick={copyLink} className="gap-1.5">
+              <Copy className="h-3.5 w-3.5" /> Kopiér link
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BucketTable({ bucket }: { bucket: Bucket }) {
+  if (bucket.lines.length === 0) {
+    return (
+      <div>
+        <div className="text-sm font-semibold mb-2 flex items-center gap-2 text-muted-foreground">
+          {bucket.icon} {bucket.title}
+        </div>
+        <div className="text-xs text-muted-foreground italic">Ingen linjer.</div>
+      </div>
+    );
+  }
+  const total = bucket.lines.reduce((s, l) => s + Number(l.nettopris_snapshot ?? 0), 0);
+  return (
+    <div>
+      <div className="text-sm font-semibold mb-2 flex items-center gap-2">
+        {bucket.icon} {bucket.title}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-xs text-muted-foreground border-b">
+            <tr>
+              <th className="text-left py-1.5 font-normal">Beskrivelse</th>
+              <th className="text-right py-1.5 font-normal">Listepris</th>
+              <th className="text-right py-1.5 font-normal">Antal</th>
+              <th className="text-right py-1.5 font-normal">Rabat</th>
+              <th className="text-right py-1.5 font-normal">Netto i alt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bucket.lines.map((l) => {
+              const rabatTxt =
+                Number(l.rabat_pct_snapshot) > 0 && Number(l.rabat_kr_snapshot) > 0
+                  ? `${l.rabat_pct_snapshot}% + ${formatKr(l.rabat_kr_snapshot)}`
+                  : Number(l.rabat_pct_snapshot) > 0
+                    ? `${l.rabat_pct_snapshot}%`
+                    : Number(l.rabat_kr_snapshot) > 0
+                      ? formatKr(l.rabat_kr_snapshot)
+                      : "—";
+              return (
+                <tr key={l.id} className="border-b last:border-b-0">
+                  <td className="py-1.5">
+                    <div className="font-medium">{l.beskrivelse_snapshot ?? l.varenr}</div>
+                    <div className="text-[11px] text-muted-foreground font-mono">{l.varenr}</div>
+                  </td>
+                  <td className="text-right tabular-nums">{formatKr(l.listepris_snapshot)}</td>
+                  <td className="text-right tabular-nums">{Number(l.antal)}</td>
+                  <td className="text-right tabular-nums">{rabatTxt}</td>
+                  <td className="text-right tabular-nums font-medium">
+                    {formatKr(l.nettopris_snapshot)}{bucket.suffix}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 font-semibold">
+              <td colSpan={4} className="py-2 text-right">Total {bucket.title.toLowerCase()}</td>
+              <td className="py-2 text-right tabular-nums">{formatKr(total)}{bucket.suffix}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ---------- cart ----------
 
 function CartSidebar({
@@ -827,11 +1418,10 @@ function CartSidebar({
   lines: QuoteLine[];
   pricingMode: "purchase" | "lease" | "both";
 }) {
-  const kob = lines.filter((l) => !l.er_leje);
-  const leje = lines.filter((l) => l.er_leje);
-
-  const kobTotal = kob.reduce((s, l) => s + Number(l.nettopris_snapshot ?? 0), 0);
-  const lejeTotal = leje.reduce((s, l) => s + Number(l.nettopris_snapshot ?? 0), 0);
+  const buckets = bucketize(lines);
+  const engangskob = buckets[0];
+  const leje = buckets[1];
+  const forbrug = buckets[2];
 
   return (
     <Card className="p-5 h-fit lg:sticky lg:top-6">
@@ -839,31 +1429,36 @@ function CartSidebar({
         <Receipt className="h-4 w-4" /> Kurv
       </h3>
 
-      {pricingMode !== "lease" && (
-        <CartSection
-          title="Engangskøb"
-          icon={<Receipt className="h-3.5 w-3.5" />}
-          lines={kob}
-          total={kobTotal}
-          suffix=""
-        />
-      )}
+      <CartSection
+        title="Engangskøb"
+        icon={<Receipt className="h-3.5 w-3.5" />}
+        lines={engangskob.lines}
+        total={engangskob.lines.reduce((s, l) => s + Number(l.nettopris_snapshot ?? 0), 0)}
+        suffix=""
+      />
       {pricingMode !== "purchase" && (
         <CartSection
           title="Månedlig leje"
           icon={<Calendar className="h-3.5 w-3.5" />}
-          lines={leje}
-          total={lejeTotal}
+          lines={leje.lines}
+          total={leje.lines.reduce((s, l) => s + Number(l.nettopris_snapshot ?? 0), 0)}
           suffix="/md"
         />
       )}
+      <CartSection
+        title="Løbende forbrug"
+        icon={<Repeat className="h-3.5 w-3.5" />}
+        lines={forbrug.lines}
+        total={forbrug.lines.reduce((s, l) => s + Number(l.nettopris_snapshot ?? 0), 0)}
+        suffix=""
+      />
 
       {lines.length === 0 && (
         <p className="text-sm text-muted-foreground">Ingen linjer endnu.</p>
       )}
 
       <p className="text-[11px] text-muted-foreground mt-4">
-        Engangskøb og månedlig leje summes adskilt. Aldrig blandet.
+        Engangskøb, månedlig leje og løbende forbrug summes adskilt — aldrig blandet.
       </p>
     </Card>
   );
