@@ -164,7 +164,7 @@ function AftalerPage() {
     return kp2Groups
       .filter((g) => !agreementKp2s.has(g.code))
       .filter((g) => {
-        if (filter !== "all") return false; // offentlig/privat findes ikke på orphans
+        if (filter !== "all") return false;
         if (!q) return true;
         return (
           g.code.includes(q) ||
@@ -173,6 +173,26 @@ function AftalerPage() {
         );
       });
   }, [kp2Groups, rows, search, filter]);
+
+  const orphanKp1 = useMemo(() => {
+    const agreementKp1s = new Set(
+      rows
+        .map((r) => (r.kp1_code ? String(r.kp1_code).trim() : null))
+        .filter(Boolean) as string[],
+    );
+    const q = search.trim().toLowerCase();
+    return kp1Groups
+      .filter((g) => !agreementKp1s.has(g.code))
+      .filter((g) => {
+        if (filter !== "all") return false;
+        if (!q) return true;
+        return (
+          g.code.includes(q) ||
+          g.label.toLowerCase().includes(q) ||
+          g.raw.toLowerCase().includes(q)
+        );
+      });
+  }, [kp1Groups, rows, search, filter]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
