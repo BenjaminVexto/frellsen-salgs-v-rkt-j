@@ -212,6 +212,39 @@ export const listPricingByKp2 = createServerFn({ method: "POST" })
     return await fetchPricingByKp2(data.kp2.trim());
   });
 
+async function fetchPricingByKp1(code: string): Promise<PricingRow[]> {
+  const PAGE = 1000;
+  const out: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin
+      .from("agreement_pricing" as any)
+      .select("*")
+      .or(startsWithCodeFilter("kundeprisgruppe1", code))
+      .eq("record_status", "aktiv")
+      .order("rabat_kategori", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    if (!data?.length) break;
+    out.push(...data);
+    if (data.length < PAGE) break;
+  }
+  // Vis KUN rene KP1-regler: ingen kundenr og ingen reel KP2.
+  return (out as PricingRow[]).filter((r) => {
+    const kundenr = String(r.fak_kundenr ?? "").trim();
+    const kp2 = extractLeadingCode(r.kundeprisgruppe2);
+    return (!kundenr || kundenr === "0") && (!kp2 || kp2 === "0");
+  });
+}
+
+export const listPricingByKp1 = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ kp1: z.string().trim().min(1).max(50) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    return await fetchPricingByKp1(data.kp1.trim());
+  });
+
 export const listPricingForCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
