@@ -580,7 +580,7 @@ function AftalerPage() {
         </div>
       )}
 
-      {customerSpecificCount > 0 && filter === "all" && !search.trim() && (
+      {customerSpecificCount > 0 && typeFilter === "all" && !search.trim() && !onlyMissingDoc && (
         <div className="mt-8">
           <Card className="p-4 flex items-center gap-3 bg-muted/30">
             <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
