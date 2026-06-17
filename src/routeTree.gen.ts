@@ -36,6 +36,7 @@ import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authenticated/admin.cvr-debug'
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
+import { Route as ApiPublicQuotePdfTokenRouteImport } from './routes/api/public/quote-pdf.$token'
 import { Route as ApiPublicHooksProcessInvoiceImportRouteImport } from './routes/api/public/hooks/process-invoice-import'
 import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
 import { Route as AuthenticatedAftalerKp2CodeRouteImport } from './routes/_authenticated/aftaler.kp2.$code'
@@ -200,6 +201,11 @@ const AuthenticatedAdminImportIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
+const ApiPublicQuotePdfTokenRoute = ApiPublicQuotePdfTokenRouteImport.update({
+  id: '/api/public/quote-pdf/$token',
+  path: '/api/public/quote-pdf/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksProcessInvoiceImportRoute =
   ApiPublicHooksProcessInvoiceImportRouteImport.update({
     id: '/api/public/hooks/process-invoice-import',
@@ -311,6 +317,7 @@ export interface FileRoutesByFullPath {
   '/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/api/public/hooks/process-invoice-import': typeof ApiPublicHooksProcessInvoiceImportRoute
+  '/api/public/quote-pdf/$token': typeof ApiPublicQuotePdfTokenRoute
   '/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRoutesByTo {
@@ -350,6 +357,7 @@ export interface FileRoutesByTo {
   '/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/api/public/hooks/process-invoice-import': typeof ApiPublicHooksProcessInvoiceImportRoute
+  '/api/public/quote-pdf/$token': typeof ApiPublicQuotePdfTokenRoute
   '/admin/import': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRoutesById {
@@ -392,6 +400,7 @@ export interface FileRoutesById {
   '/_authenticated/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/api/public/hooks/process-invoice-import': typeof ApiPublicHooksProcessInvoiceImportRoute
+  '/api/public/quote-pdf/$token': typeof ApiPublicQuotePdfTokenRoute
   '/_authenticated/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
 export interface FileRouteTypes {
@@ -434,6 +443,7 @@ export interface FileRouteTypes {
     | '/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/api/public/hooks/process-invoice-import'
+    | '/api/public/quote-pdf/$token'
     | '/admin/import/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -473,6 +483,7 @@ export interface FileRouteTypes {
     | '/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/api/public/hooks/process-invoice-import'
+    | '/api/public/quote-pdf/$token'
     | '/admin/import'
   id:
     | '__root__'
@@ -514,6 +525,7 @@ export interface FileRouteTypes {
     | '/_authenticated/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/api/public/hooks/process-invoice-import'
+    | '/api/public/quote-pdf/$token'
     | '/_authenticated/admin/import/'
   fileRoutesById: FileRoutesById
 }
@@ -526,6 +538,7 @@ export interface RootRouteChildren {
   TTokenRoute: typeof TTokenRoute
   ApiPublicHooksProcessCvrEnrichmentRoute: typeof ApiPublicHooksProcessCvrEnrichmentRoute
   ApiPublicHooksProcessInvoiceImportRoute: typeof ApiPublicHooksProcessInvoiceImportRoute
+  ApiPublicQuotePdfTokenRoute: typeof ApiPublicQuotePdfTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -719,6 +732,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportIndexRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
+    '/api/public/quote-pdf/$token': {
+      id: '/api/public/quote-pdf/$token'
+      path: '/api/public/quote-pdf/$token'
+      fullPath: '/api/public/quote-pdf/$token'
+      preLoaderRoute: typeof ApiPublicQuotePdfTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/process-invoice-import': {
       id: '/api/public/hooks/process-invoice-import'
       path: '/api/public/hooks/process-invoice-import'
@@ -904,6 +924,7 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicHooksProcessCvrEnrichmentRoute,
   ApiPublicHooksProcessInvoiceImportRoute:
     ApiPublicHooksProcessInvoiceImportRoute,
+  ApiPublicQuotePdfTokenRoute: ApiPublicQuotePdfTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

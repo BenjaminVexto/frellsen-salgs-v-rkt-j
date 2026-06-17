@@ -48,6 +48,7 @@ import {
   Repeat,
   CheckCircle2,
   Copy,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1439,9 +1440,22 @@ function QuoteSummary({
             <Send className="h-4 w-4" /> Markér som sendt
           </Button>
         ) : (
-          <div className="flex items-center gap-2 text-sm text-emerald-700">
-            <CheckCircle2 className="h-4 w-4" />
-            Sendt {formatDate(quote.sent_date)} · frosset {formatDate(quote.frozen_at)}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-sm text-emerald-700">
+              <CheckCircle2 className="h-4 w-4" />
+              Sendt {formatDate(quote.sent_date)} · frosset {formatDate(quote.frozen_at)}
+            </div>
+            {quote.public_token && (
+              <a
+                href={`/api/public/quote-pdf/${quote.public_token}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Download className="h-3.5 w-3.5" /> Download PDF
+                </Button>
+              </a>
+            )}
           </div>
         )}
 

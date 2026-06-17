@@ -2,7 +2,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import frellsenLogo from "@/assets/frellsen-logo.png";
-import { Receipt, Calendar, Repeat } from "lucide-react";
+import { Receipt, Calendar, Repeat, Download } from "lucide-react";
 
 type Line = {
   id: string;
@@ -13,6 +13,7 @@ type Line = {
   listepris_snapshot: number | null;
   rabat_pct_snapshot: number | null;
   rabat_kr_snapshot: number | null;
+  saerpris_kr_snapshot: number | null;
   nettopris_snapshot: number | null;
   nettopris_enhed_snapshot: number | null;
   er_leje: boolean;
@@ -116,6 +117,10 @@ function listTotal(l: Line) {
   return Number(l.listepris_snapshot ?? 0) * Number(l.antal ?? 1);
 }
 
+function isSaerpris(l: Line) {
+  return Number(l.saerpris_kr_snapshot ?? 0) > 0;
+}
+
 function PublicQuotePage() {
   const { token } = Route.useParams();
   const { data } = useSuspenseQuery(publicQuoteQuery(token));
@@ -136,6 +141,14 @@ function PublicQuotePage() {
   return (
     <div className="min-h-screen bg-muted/30">
       <div className="max-w-4xl mx-auto px-4 sm:px-8 py-10">
+        <div className="mb-4 flex justify-end">
+          <a
+            href={`/api/public/quote-pdf/${token}`}
+            className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-sm shadow-sm hover:bg-muted"
+          >
+            <Download className="h-4 w-4" /> Download PDF
+          </a>
+        </div>
         <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
           {/* Header */}
           <header className="px-8 py-8 border-b bg-gradient-to-br from-background to-muted/20">
@@ -201,8 +214,16 @@ function PublicQuotePage() {
             )}
             {buckets.map((b) => {
               const total = b.lines.reduce((s, l) => s + lineTotal(l), 0);
-              const listSum = b.lines.reduce((s, l) => s + listTotal(l), 0);
-              const savings = Math.max(0, listSum - total);
+              // Listepris-totalen og "I sparer" beregnes KUN på linjer hvor
+              // listeprisen vises (ikke-særpris). Særpris-linjer skjuler både
+              // listepris, rabat og besparelse mod kunden.
+              const visibleListSum = b.lines
+                .filter((l) => !isSaerpris(l))
+                .reduce((s, l) => s + listTotal(l), 0);
+              const visibleNetSum = b.lines
+                .filter((l) => !isSaerpris(l))
+                .reduce((s, l) => s + lineTotal(l), 0);
+              const savings = Math.max(0, visibleListSum - visibleNetSum);
               return (
                 <section key={b.key} className="px-8 py-7">
                   <div className="flex items-center justify-between mb-4">
@@ -230,6 +251,7 @@ function PublicQuotePage() {
                       </thead>
                       <tbody className="divide-y">
                         {b.lines.map((l) => {
+                          const saer = isSaerpris(l);
                           const pct = Number(l.rabat_pct_snapshot ?? 0);
                           const kr = Number(l.rabat_kr_snapshot ?? 0);
                           const rabatLabel =
@@ -250,10 +272,10 @@ function PublicQuotePage() {
                               </td>
                               <td className="py-3 px-3 text-right tabular-nums">{l.antal}</td>
                               <td className="py-3 px-3 text-right tabular-nums text-muted-foreground">
-                                {fmt(l.listepris_snapshot)}
+                                {saer ? "" : fmt(l.listepris_snapshot)}
                               </td>
                               <td className="py-3 px-3 text-right tabular-nums text-muted-foreground">
-                                {rabatLabel}
+                                {saer ? "" : rabatLabel}
                               </td>
                               <td className="py-3 pl-3 text-right tabular-nums font-semibold">
                                 {fmt(lineTotal(l))}
@@ -265,8 +287,12 @@ function PublicQuotePage() {
                       <tfoot>
                         <tr className="border-t-2">
                           <td colSpan={4} className="pt-4 pr-4 text-right text-sm">
-                            <span className="text-muted-foreground">Listepris i alt </span>
-                            <span className="tabular-nums">{fmt(listSum)} kr</span>
+                            {visibleListSum > 0 && (
+                              <>
+                                <span className="text-muted-foreground">Listepris i alt </span>
+                                <span className="tabular-nums">{fmt(visibleListSum)} kr</span>
+                              </>
+                            )}
                             {savings > 0 && (
                               <span className="ml-3 text-emerald-700 dark:text-emerald-400">
                                 · I sparer {fmt(savings)} kr
