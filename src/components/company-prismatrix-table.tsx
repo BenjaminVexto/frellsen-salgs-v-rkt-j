@@ -459,7 +459,7 @@ export function CompanyPrismatrixTable({ companyId }: { companyId: string }) {
                           );
                         })
                       : null}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
