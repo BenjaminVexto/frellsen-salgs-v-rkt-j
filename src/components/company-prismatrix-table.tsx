@@ -438,7 +438,10 @@ export function CompanyPrismatrixTable({ companyId }: { companyId: string }) {
                                 {r.varenr ?? "—"}
                               </TableCell>
                               <TableCell className="text-right text-sm">
-                                {fmtDiscount(r)}
+                                <div>{fmtDiscount(r)}</div>
+                                {isSaer(r) ? (
+                                  <div className="text-[10px] text-amber-700">Særpris</div>
+                                ) : null}
                               </TableCell>
                               <TableCell className="text-right text-sm">
                                 {fmtNum(r.udsalgspris)}
