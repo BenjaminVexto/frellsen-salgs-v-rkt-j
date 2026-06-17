@@ -442,7 +442,11 @@ function VirksomhedsKort() {
                 <DropdownMenuItem onClick={() => setOpportunityOpen(true)}>
                   <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setQuoteOpen(true)}>
+                <DropdownMenuItem
+                  onClick={() =>
+                    navigate({ to: "/tilbud/ny", search: { companyId: company.id } })
+                  }
+                >
                   <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
                 </DropdownMenuItem>
                 {isAdmin && (
