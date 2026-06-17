@@ -78,9 +78,25 @@ type Agreement = {
   document_path: string | null;
   document_filename: string | null;
   company_count: number;
+  aftale_type: AgreementType;
+  aftale_type_manuel: boolean;
 };
 
-type Filter = "all" | "public" | "private";
+type TypeFilter = "all" | "offentlig" | "erhverv" | "ski";
+
+const TYPE_TABS: { value: TypeFilter; label: string }[] = [
+  { value: "all", label: "Alle" },
+  { value: "offentlig", label: "Offentlige" },
+  { value: "erhverv", label: "Erhverv" },
+  { value: "ski", label: "SKI" },
+];
+
+const TYPE_LABEL: Record<AgreementType, string> = {
+  offentlig: "Offentlig",
+  erhverv: "Erhverv",
+  ski: "SKI",
+  ukendt: "Ukendt",
+};
 
 function getStatus(validTo: string | null): {
   color: string;
