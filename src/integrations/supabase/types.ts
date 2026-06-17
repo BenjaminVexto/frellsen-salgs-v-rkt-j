@@ -1514,6 +1514,7 @@ export type Database = {
           id: string
           line_type: string
           listepris_snapshot: number
+          nettopris_enhed_snapshot: number | null
           nettopris_snapshot: number
           quote_id: string
           rabat_kr_snapshot: number
@@ -1530,6 +1531,7 @@ export type Database = {
           id?: string
           line_type: string
           listepris_snapshot?: number
+          nettopris_enhed_snapshot?: number | null
           nettopris_snapshot?: number
           quote_id: string
           rabat_kr_snapshot?: number
@@ -1546,6 +1548,7 @@ export type Database = {
           id?: string
           line_type?: string
           listepris_snapshot?: number
+          nettopris_enhed_snapshot?: number | null
           nettopris_snapshot?: number
           quote_id?: string
           rabat_kr_snapshot?: number
