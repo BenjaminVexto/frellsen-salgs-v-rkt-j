@@ -90,18 +90,20 @@ function AftalerPage() {
   const deleteFn = useServerFn(deleteAgreement);
   const listKp2Fn = useServerFn(listPricingKp2Groups);
 
+  type PriceGroup = {
+    code: string;
+    label: string;
+    raw: string;
+    count: number;
+    fra: string | null;
+    til: string | null;
+    agreement: { id: string } | null;
+  };
+
   const [rows, setRows] = useState<Agreement[]>([]);
-  const [kp2Groups, setKp2Groups] = useState<
-    {
-      code: string;
-      label: string;
-      raw: string;
-      count: number;
-      fra: string | null;
-      til: string | null;
-      agreement: { id: string } | null;
-    }[]
-  >([]);
+  const [kp2Groups, setKp2Groups] = useState<PriceGroup[]>([]);
+  const [kp1Groups, setKp1Groups] = useState<PriceGroup[]>([]);
+  const [customerSpecificCount, setCustomerSpecificCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -112,12 +114,19 @@ function AftalerPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [data, kp2s] = await Promise.all([
+      const [data, groups] = await Promise.all([
         listFn() as Promise<Agreement[]>,
-        listKp2Fn() as Promise<typeof kp2Groups>,
+        listKp2Fn() as Promise<{
+          kp2: PriceGroup[];
+          kp1: PriceGroup[];
+          customerSpecificCount: number;
+          generalCount: number;
+        }>,
       ]);
       setRows(data);
-      setKp2Groups(kp2s);
+      setKp2Groups(groups.kp2);
+      setKp1Groups(groups.kp1);
+      setCustomerSpecificCount(groups.customerSpecificCount);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke hente aftaler");
     } finally {
