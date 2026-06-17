@@ -30,10 +30,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   FileText,
+  FileCheck2,
+  FileWarning,
   Plus,
   Pencil,
   Trash2,
-  AlertTriangle,
   Loader2,
   Search,
   Building2,
@@ -46,8 +47,18 @@ import {
   createAgreement,
   updateAgreement,
   deleteAgreement,
+  setAgreementType,
+  deriveAgreementTypeFromName,
+  type AgreementType,
 } from "@/lib/agreements.functions";
 import { listPricingKp2Groups } from "@/lib/agreement-pricing.functions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/aftaler/")({
   component: AftalerPage,
