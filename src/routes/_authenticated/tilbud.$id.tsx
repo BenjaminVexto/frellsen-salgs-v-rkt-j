@@ -118,7 +118,9 @@ type QuoteLine = {
   listepris_snapshot: number;
   rabat_pct_snapshot: number;
   rabat_kr_snapshot: number;
-  /** Enhedsnetto (pr. stk) — listepris efter pct og kr-rabat. */
+  /** Særpris-kr pr. enhed (frosset). Skjules mod kunde, men anvendes i netto-beregning. */
+  saerpris_kr_snapshot: number;
+  /** Enhedsnetto (pr. stk) — listepris efter pct, kr og særpris. */
   nettopris_enhed_snapshot: number;
   /** Linjetotal — nettopris_enhed_snapshot × antal. Bruges af alle totaler. */
   nettopris_snapshot: number;
@@ -126,7 +128,13 @@ type QuoteLine = {
   sort_order: number;
 };
 
-type Floor = { rabat_pct: number; rabat_kr: number; kilde: string } | null;
+type Floor = {
+  rabat_pct: number;
+  rabat_kr: number;
+  saerpris_kr: number;
+  kilde: string;
+  er_saerpris: boolean;
+} | null;
 
 // ---------- helpers ----------
 
@@ -148,9 +156,40 @@ function formatDate(d: string | null | undefined) {
   }
 }
 
+/**
+ * ANTAGELSE, IKKE VERIFICERET MOD VISMA.
+ * A = pct af listepris, så kr/saer af rest.    (100 − 10%) − 8 = 82,00
+ * B = saer/kr først, så pct af rest.           (100 − 8) − 10% = 82,80
+ * Skift til "B" hvis Visma regner sådan. Bekræftes mod en faktisk
+ * offentlig-kunde-faktura med BÅDE særpris OG almindelig rabat.
+ */
+const STACK_ORDER: "A" | "B" = "A";
+
+/** Central netto-beregning. Eneste sted hvor STACK_ORDER er i spil. */
+function calcNettoEnhed(args: {
+  list: number;
+  rab_pct?: number | null;
+  rab_kr?: number | null;
+  saer_kr?: number | null;
+}): number {
+  const list = Number(args.list) || 0;
+  const pct = Math.max(0, Number(args.rab_pct ?? 0));
+  const rab_kr = Math.max(0, Number(args.rab_kr ?? 0));
+  const saer = Math.max(0, Number(args.saer_kr ?? 0));
+  let net: number;
+  if (STACK_ORDER === "A") {
+    // pct af listepris, derefter kr + særpris fra restbeløbet
+    net = list * (1 - pct / 100) - rab_kr - saer;
+  } else {
+    // særpris + kr først, så pct af resten
+    net = (list - rab_kr - saer) * (1 - pct / 100);
+  }
+  return Math.max(0, net);
+}
+
+/** Bagudkompatibel: bruges hvor særpris ikke er relevant (fri rabat / floor-snap af UI). */
 function calcNetto(list: number, pct: number, kr: number) {
-  const afterPct = list * (1 - (pct || 0) / 100);
-  return Math.max(0, afterPct - (kr || 0));
+  return calcNettoEnhed({ list, rab_pct: pct, rab_kr: kr, saer_kr: 0 });
 }
 
 async function fetchFloor(companyId: string, varenr: string): Promise<Floor> {
@@ -158,7 +197,15 @@ async function fetchFloor(companyId: string, varenr: string): Promise<Floor> {
     p_company_id: companyId,
     p_varenr: varenr,
   });
-  return data && (data as any[]).length > 0 ? ((data as any[])[0] as any) : null;
+  if (!data || (data as any[]).length === 0) return null;
+  const r = (data as any[])[0];
+  return {
+    rabat_pct: Number(r.rabat_pct ?? 0),
+    rabat_kr: Number(r.rabat_kr ?? 0),
+    saerpris_kr: Number(r.saerpris_kr ?? 0),
+    kilde: String(r.kilde ?? ""),
+    er_saerpris: Boolean(r.er_saerpris),
+  };
 }
 
 // ---------- page ----------
