@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/public/quote-pdf/$token")({
 
           const payload = data as any;
           const bytes = await buildQuotePdf(payload);
-          const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+          const body = new Uint8Array(bytes).buffer as ArrayBuffer;
           const filename = buildPdfFilename(payload);
 
           return new Response(body, {
