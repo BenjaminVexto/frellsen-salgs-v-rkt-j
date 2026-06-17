@@ -1303,7 +1303,7 @@ function QuoteSummary({
   useEffect(() => setExpiry(defaultExpiry), [defaultExpiry]);
 
   const publicUrl = quote.public_token
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/tilbud-public/${quote.public_token}`
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/t/${quote.public_token}`
     : null;
 
   function copyLink() {
