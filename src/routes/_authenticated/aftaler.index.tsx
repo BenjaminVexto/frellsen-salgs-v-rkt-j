@@ -568,8 +568,11 @@ function AftalerPage() {
                     ? format(parseISO(g.til), "d. MMM yyyy", { locale: da })
                     : "∞"}
                 </div>
-                <div className="text-xs text-muted-foreground mt-2 italic">
-                  Intet aftaledokument oprettet endnu.
+                <div className="flex items-center gap-1.5 mt-2 text-xs text-yellow-600" title="Mangler aftaledokument">
+                  <FileWarning className="h-3.5 w-3.5" />
+                  <span className="text-muted-foreground">
+                    {TYPE_LABEL[(g as any).aftale_type as AgreementType]}
+                  </span>
                 </div>
               </Card>
             ))}
