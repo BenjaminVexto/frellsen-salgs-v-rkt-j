@@ -116,7 +116,7 @@ export function PrismatrixTable(props: { kp2?: string; kp1?: string }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `prismatrix-kp2-${kp2}.csv`;
+    a.download = `prismatrix-${mode}-${code}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
