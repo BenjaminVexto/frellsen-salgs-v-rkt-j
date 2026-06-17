@@ -197,7 +197,7 @@ export function CompanyPrismatrixTable({ companyId }: { companyId: string }) {
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="font-normal">
-                      {r.rabat_kategori ?? "Øvrige"}
+                      {deriveRowLabel(r)}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.varenr ?? "—"}</TableCell>
