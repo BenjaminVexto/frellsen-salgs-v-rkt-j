@@ -17,6 +17,7 @@ export type PricingRow = {
   beskrivelse: string | null;
   rab_kr: number | null;
   rab_pct: number | null;
+  saerpris_kr: number | null;
   udsalgspris: number | null;
   udlejningspris: number | null;
   kampagne: string | null;
