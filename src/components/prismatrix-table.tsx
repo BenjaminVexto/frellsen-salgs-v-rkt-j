@@ -16,7 +16,7 @@ import {
 import { Search, Loader2, Download } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
-import { listPricingByKp2 } from "@/lib/agreement-pricing.functions";
+import { listPricingByKp1, listPricingByKp2 } from "@/lib/agreement-pricing.functions";
 
 type Row = {
   id: string;
