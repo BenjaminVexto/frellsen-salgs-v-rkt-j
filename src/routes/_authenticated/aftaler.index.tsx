@@ -261,7 +261,7 @@ function AftalerPage() {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3 mb-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -271,18 +271,27 @@ function AftalerPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          {(["all", "public", "private"] as Filter[]).map((f) => (
-            <Button
-              key={f}
-              variant={filter === f ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilter(f)}
-            >
-              {f === "all" ? "Alle" : f === "public" ? "Offentlige" : "Private"}
-            </Button>
-          ))}
-        </div>
+        <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+          <Checkbox
+            checked={onlyMissingDoc}
+            onCheckedChange={(v) => setOnlyMissingDoc(v === true)}
+          />
+          <FileWarning className="h-4 w-4 text-yellow-600" />
+          Mangler dokument
+        </label>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        {TYPE_TABS.map((t) => (
+          <Button
+            key={t.value}
+            variant={typeFilter === t.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTypeFilter(t.value)}
+          >
+            {t.label}
+          </Button>
+        ))}
       </div>
 
       {loading ? (
