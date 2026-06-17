@@ -690,7 +690,8 @@ function MachinePicker({
       const floor = await fetchFloor(companyId, m.varenr);
       const rabatPct = Number(floor?.rabat_pct ?? 0);
       const rabatKr = Number(floor?.rabat_kr ?? 0);
-      const enhed = calcNetto(listepris, rabatPct, rabatKr);
+      const saerKr = Number(floor?.saerpris_kr ?? 0);
+      const enhed = calcNettoEnhed({ list: listepris, rab_pct: rabatPct, rab_kr: rabatKr, saer_kr: saerKr });
       const antal = 1;
 
       const { error } = await supabase.from("quote_lines").insert({
@@ -702,6 +703,7 @@ function MachinePicker({
         listepris_snapshot: listepris,
         rabat_pct_snapshot: rabatPct,
         rabat_kr_snapshot: rabatKr,
+        saerpris_kr_snapshot: saerKr,
         nettopris_enhed_snapshot: enhed,
         nettopris_snapshot: enhed * antal,
         er_leje: erLeje,
