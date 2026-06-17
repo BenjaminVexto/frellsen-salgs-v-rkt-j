@@ -16,6 +16,9 @@ async function ensureAdmin(userId: string) {
 
 const BUCKET = "agreement-documents";
 
+export const AGREEMENT_TYPES = ["offentlig", "erhverv", "ski", "ukendt"] as const;
+export type AgreementType = (typeof AGREEMENT_TYPES)[number];
+
 const baseInput = {
   name: z.string().trim().min(1).max(255),
   kp1_code: z.string().trim().max(50).nullable().optional(),
@@ -26,6 +29,8 @@ const baseInput = {
   governing_party_name: z.string().trim().max(255).nullable().optional(),
   governing_party_company_id: z.string().uuid().nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
+  aftale_type: z.enum(AGREEMENT_TYPES).optional(),
+  aftale_type_manuel: z.boolean().optional(),
 };
 
 // Henter alle agreements + tæller virksomheder via customer_segment_1 KP-kode prefix
