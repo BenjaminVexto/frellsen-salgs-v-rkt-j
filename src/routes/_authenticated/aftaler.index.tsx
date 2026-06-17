@@ -90,18 +90,20 @@ function AftalerPage() {
   const deleteFn = useServerFn(deleteAgreement);
   const listKp2Fn = useServerFn(listPricingKp2Groups);
 
+  type PriceGroup = {
+    code: string;
+    label: string;
+    raw: string;
+    count: number;
+    fra: string | null;
+    til: string | null;
+    agreement: { id: string } | null;
+  };
+
   const [rows, setRows] = useState<Agreement[]>([]);
-  const [kp2Groups, setKp2Groups] = useState<
-    {
-      code: string;
-      label: string;
-      raw: string;
-      count: number;
-      fra: string | null;
-      til: string | null;
-      agreement: { id: string } | null;
-    }[]
-  >([]);
+  const [kp2Groups, setKp2Groups] = useState<PriceGroup[]>([]);
+  const [kp1Groups, setKp1Groups] = useState<PriceGroup[]>([]);
+  const [customerSpecificCount, setCustomerSpecificCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -112,12 +114,19 @@ function AftalerPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [data, kp2s] = await Promise.all([
+      const [data, groups] = await Promise.all([
         listFn() as Promise<Agreement[]>,
-        listKp2Fn() as Promise<typeof kp2Groups>,
+        listKp2Fn() as Promise<{
+          kp2: PriceGroup[];
+          kp1: PriceGroup[];
+          customerSpecificCount: number;
+          generalCount: number;
+        }>,
       ]);
       setRows(data);
-      setKp2Groups(kp2s);
+      setKp2Groups(groups.kp2);
+      setKp1Groups(groups.kp1);
+      setCustomerSpecificCount(groups.customerSpecificCount);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke hente aftaler");
     } finally {
@@ -155,7 +164,7 @@ function AftalerPage() {
     return kp2Groups
       .filter((g) => !agreementKp2s.has(g.code))
       .filter((g) => {
-        if (filter !== "all") return false; // offentlig/privat findes ikke på orphans
+        if (filter !== "all") return false;
         if (!q) return true;
         return (
           g.code.includes(q) ||
@@ -164,6 +173,26 @@ function AftalerPage() {
         );
       });
   }, [kp2Groups, rows, search, filter]);
+
+  const orphanKp1 = useMemo(() => {
+    const agreementKp1s = new Set(
+      rows
+        .map((r) => (r.kp1_code ? String(r.kp1_code).trim() : null))
+        .filter(Boolean) as string[],
+    );
+    const q = search.trim().toLowerCase();
+    return kp1Groups
+      .filter((g) => !agreementKp1s.has(g.code))
+      .filter((g) => {
+        if (filter !== "all") return false;
+        if (!q) return true;
+        return (
+          g.code.includes(q) ||
+          g.label.toLowerCase().includes(q) ||
+          g.raw.toLowerCase().includes(q)
+        );
+      });
+  }, [kp1Groups, rows, search, filter]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -398,6 +427,81 @@ function AftalerPage() {
               </Card>
             ))}
           </div>
+        </div>
+      )}
+
+      {orphanKp1.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              KP1-gruppe-aftaler (uden KP2)
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {orphanKp1.length} kundeprisgruppe{orphanKp1.length === 1 ? "" : "r"}
+            </span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {orphanKp1.map((g) => (
+              <Card
+                key={g.code}
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  navigate({ to: "/aftaler/kp1/$code", params: { code: g.code } })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter")
+                    navigate({ to: "/aftaler/kp1/$code", params: { code: g.code } });
+                }}
+                className="relative p-4 pl-5 cursor-pointer hover:shadow-md transition-shadow overflow-hidden border-dashed"
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-muted-foreground/30" />
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="font-semibold truncate">{g.label}</h3>
+                  <Badge variant="outline" className="font-mono text-[10px] shrink-0">
+                    KP1 {g.code}
+                  </Badge>
+                </div>
+                <div className="text-sm mb-1">
+                  <strong>{g.count}</strong> prislinjer
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Gyldig:{" "}
+                  {g.fra
+                    ? format(parseISO(g.fra), "d. MMM yyyy", { locale: da })
+                    : "—"}{" "}
+                  →{" "}
+                  {g.til
+                    ? format(parseISO(g.til), "d. MMM yyyy", { locale: da })
+                    : "∞"}
+                </div>
+                <div className="text-xs text-muted-foreground mt-2 italic">
+                  Intet aftaledokument oprettet endnu.
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {customerSpecificCount > 0 && filter === "all" && !search.trim() && (
+        <div className="mt-8">
+          <Card className="p-4 flex items-center gap-3 bg-muted/30">
+            <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
+            <div className="flex-1 text-sm">
+              <strong>{customerSpecificCount}</strong> kunder har egne pris-aftaler
+              (kundespecifikke prismatrix-linjer).{" "}
+              <span className="text-muted-foreground">
+                Vises på det enkelte virksomhedskort, ikke som selvstændig aftale.
+              </span>
+            </div>
+            <Link
+              to="/virksomheder"
+              className="text-sm underline whitespace-nowrap"
+            >
+              Søg virksomhed →
+            </Link>
+          </Card>
         </div>
       )}
 
