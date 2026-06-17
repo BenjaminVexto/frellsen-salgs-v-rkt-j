@@ -1179,6 +1179,7 @@ function LineRow({
             type="number"
             value={pct}
             onChange={(e) => setPct(e.target.value)}
+            onBlur={onPctBlur}
             disabled={disabled}
           />
           <FloorHint loading={floorQuery.isLoading} floor={floor} kind="pct" />
@@ -1189,20 +1190,27 @@ function LineRow({
             type="number"
             value={kr}
             onChange={(e) => setKr(e.target.value)}
+            onBlur={onKrBlur}
             disabled={disabled}
           />
           <FloorHint loading={floorQuery.isLoading} floor={floor} kind="kr" />
         </div>
         <div>
           <Label className="text-xs">Netto i alt</Label>
-          <div className="h-9 px-3 flex items-center rounded-md border bg-muted/40 text-sm">
-            {formatKr(previewNetto)}
+          <div className="h-9 px-3 flex items-center rounded-md border bg-muted/40 text-sm tabular-nums">
+            {formatKr(linjeNetto)}
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-1">
+            {antalNum} × {formatKr(enhedNetto)}/stk
           </div>
         </div>
-        <div>
-          <Button onClick={save} disabled={disabled || saving} className="w-full">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Gem"}
-          </Button>
+        <div className="text-xs text-muted-foreground self-center">
+          {saveState === "saving" && (
+            <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Gemmer…</span>
+          )}
+          {saveState === "saved" && <span className="text-emerald-700">Gemt</span>}
+          {saveState === "error" && <span className="text-destructive">Fejl</span>}
+          {saveState === "idle" && <span>&nbsp;</span>}
         </div>
       </div>
     </div>
