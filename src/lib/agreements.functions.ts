@@ -16,6 +16,9 @@ async function ensureAdmin(userId: string) {
 
 const BUCKET = "agreement-documents";
 
+export const AGREEMENT_TYPES = ["offentlig", "erhverv", "ski", "ukendt"] as const;
+export type AgreementType = (typeof AGREEMENT_TYPES)[number];
+
 const baseInput = {
   name: z.string().trim().min(1).max(255),
   kp1_code: z.string().trim().max(50).nullable().optional(),
@@ -26,6 +29,8 @@ const baseInput = {
   governing_party_name: z.string().trim().max(255).nullable().optional(),
   governing_party_company_id: z.string().uuid().nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
+  aftale_type: z.enum(AGREEMENT_TYPES).optional(),
+  aftale_type_manuel: z.boolean().optional(),
 };
 
 // Henter alle agreements + tæller virksomheder via customer_segment_1 KP-kode prefix
@@ -507,4 +512,34 @@ export const importAgreementProspects = createServerFn({ method: "POST" })
       assigned,
       company_ids: Array.from(companyIdsForAssignment),
     };
+  });
+
+// Klient-side helper med samme regler som public.derive_agreement_type i SQL
+export function deriveAgreementTypeFromName(name: string | null | undefined): AgreementType {
+  const n = (name ?? "").trim();
+  if (!n) return "ukendt";
+  if (/\b(SKI|T-SKI)\b|rammeaftale|f[æa]llesindk[øo]b|samk[øo]b|kommuneindk[øo]b/i.test(n)) return "ski";
+  if (/kommune|region(shospital)?|\bSKAT\b|politi|\bADST\b|ministeri|styrelse|universitet|gymnasium|folkeskole|hospital|sygehus|forsvar|departement/i.test(n)) return "offentlig";
+  return "erhverv";
+}
+
+export const setAgreementType = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      aftale_type: z.enum(AGREEMENT_TYPES),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const { error } = await supabaseAdmin
+      .from("agreements")
+      .update({
+        aftale_type: data.aftale_type,
+        aftale_type_manuel: true,
+      } as any)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

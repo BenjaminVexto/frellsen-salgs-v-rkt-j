@@ -186,6 +186,8 @@ export type Database = {
       }
       agreements: {
         Row: {
+          aftale_type: Database["public"]["Enums"]["agreement_type"]
+          aftale_type_manuel: boolean
           created_at: string
           created_by: string | null
           document_filename: string | null
@@ -203,6 +205,8 @@ export type Database = {
           valid_to: string | null
         }
         Insert: {
+          aftale_type?: Database["public"]["Enums"]["agreement_type"]
+          aftale_type_manuel?: boolean
           created_at?: string
           created_by?: string | null
           document_filename?: string | null
@@ -220,6 +224,8 @@ export type Database = {
           valid_to?: string | null
         }
         Update: {
+          aftale_type?: Database["public"]["Enums"]["agreement_type"]
+          aftale_type_manuel?: boolean
           created_at?: string
           created_by?: string | null
           document_filename?: string | null
@@ -1851,6 +1857,10 @@ export type Database = {
         }
         Returns: string
       }
+      derive_agreement_type: {
+        Args: { _name: string }
+        Returns: Database["public"]["Enums"]["agreement_type"]
+      }
       get_public_quote: { Args: { _token: string }; Returns: Json }
       get_quote_floor_discount: {
         Args: { p_company_id: string; p_varenr: string }
@@ -1904,6 +1914,7 @@ export type Database = {
         | "ikke_truffet"
         | "opfølgning_aftalt"
         | "andet"
+      agreement_type: "offentlig" | "erhverv" | "ski" | "ukendt"
       app_role: "admin" | "saelger" | "salgssupport"
       assignment_status:
         | "ny"
@@ -2095,6 +2106,7 @@ export const Constants = {
         "opfølgning_aftalt",
         "andet",
       ],
+      agreement_type: ["offentlig", "erhverv", "ski", "ukendt"],
       app_role: ["admin", "saelger", "salgssupport"],
       assignment_status: [
         "ny",

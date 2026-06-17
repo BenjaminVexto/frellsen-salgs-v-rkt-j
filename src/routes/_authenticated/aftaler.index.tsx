@@ -30,10 +30,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   FileText,
+  FileCheck2,
+  FileWarning,
   Plus,
   Pencil,
   Trash2,
-  AlertTriangle,
   Loader2,
   Search,
   Building2,
@@ -46,8 +47,18 @@ import {
   createAgreement,
   updateAgreement,
   deleteAgreement,
+  setAgreementType,
+  deriveAgreementTypeFromName,
+  type AgreementType,
 } from "@/lib/agreements.functions";
 import { listPricingKp2Groups } from "@/lib/agreement-pricing.functions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/aftaler/")({
   component: AftalerPage,
@@ -67,9 +78,25 @@ type Agreement = {
   document_path: string | null;
   document_filename: string | null;
   company_count: number;
+  aftale_type: AgreementType;
+  aftale_type_manuel: boolean;
 };
 
-type Filter = "all" | "public" | "private";
+type TypeFilter = "all" | "offentlig" | "erhverv" | "ski";
+
+const TYPE_TABS: { value: TypeFilter; label: string }[] = [
+  { value: "all", label: "Alle" },
+  { value: "offentlig", label: "Offentlige" },
+  { value: "erhverv", label: "Erhverv" },
+  { value: "ski", label: "SKI" },
+];
+
+const TYPE_LABEL: Record<AgreementType, string> = {
+  offentlig: "Offentlig",
+  erhverv: "Erhverv",
+  ski: "SKI",
+  ukendt: "Ukendt",
+};
 
 function getStatus(validTo: string | null): {
   color: string;
@@ -106,7 +133,9 @@ function AftalerPage() {
   const [customerSpecificCount, setCustomerSpecificCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [onlyMissingDoc, setOnlyMissingDoc] = useState(false);
+  const setTypeFn = useServerFn(setAgreementType);
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<Agreement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Agreement | null>(null);
@@ -142,8 +171,8 @@ function AftalerPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      if (filter === "public" && !r.is_public_sector) return false;
-      if (filter === "private" && r.is_public_sector) return false;
+      if (typeFilter !== "all" && r.aftale_type !== typeFilter) return false;
+      if (onlyMissingDoc && r.document_path) return false;
       if (!q) return true;
       return (
         r.name.toLowerCase().includes(q) ||
@@ -151,7 +180,7 @@ function AftalerPage() {
         (r.kp2_code ?? "").toLowerCase().includes(q)
       );
     });
-  }, [rows, search, filter]);
+  }, [rows, search, typeFilter, onlyMissingDoc]);
 
   // Kun de KP2-grupper der ikke allerede er repræsenteret af en aftale
   const orphanKp2 = useMemo(() => {
@@ -163,8 +192,10 @@ function AftalerPage() {
     const q = search.trim().toLowerCase();
     return kp2Groups
       .filter((g) => !agreementKp2s.has(g.code))
+      .map((g) => ({ ...g, aftale_type: deriveAgreementTypeFromName(g.label) }))
       .filter((g) => {
-        if (filter !== "all") return false;
+        if (typeFilter !== "all" && g.aftale_type !== typeFilter) return false;
+        // orphan-grupper har aldrig dokument
         if (!q) return true;
         return (
           g.code.includes(q) ||
@@ -172,7 +203,7 @@ function AftalerPage() {
           g.raw.toLowerCase().includes(q)
         );
       });
-  }, [kp2Groups, rows, search, filter]);
+  }, [kp2Groups, rows, search, typeFilter]);
 
   const orphanKp1 = useMemo(() => {
     const agreementKp1s = new Set(
@@ -183,8 +214,9 @@ function AftalerPage() {
     const q = search.trim().toLowerCase();
     return kp1Groups
       .filter((g) => !agreementKp1s.has(g.code))
+      .map((g) => ({ ...g, aftale_type: deriveAgreementTypeFromName(g.label) }))
       .filter((g) => {
-        if (filter !== "all") return false;
+        if (typeFilter !== "all" && g.aftale_type !== typeFilter) return false;
         if (!q) return true;
         return (
           g.code.includes(q) ||
@@ -192,7 +224,7 @@ function AftalerPage() {
           g.raw.toLowerCase().includes(q)
         );
       });
-  }, [kp1Groups, rows, search, filter]);
+  }, [kp1Groups, rows, search, typeFilter]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -229,7 +261,7 @@ function AftalerPage() {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3 mb-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -239,18 +271,27 @@ function AftalerPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          {(["all", "public", "private"] as Filter[]).map((f) => (
-            <Button
-              key={f}
-              variant={filter === f ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilter(f)}
-            >
-              {f === "all" ? "Alle" : f === "public" ? "Offentlige" : "Private"}
-            </Button>
-          ))}
-        </div>
+        <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+          <Checkbox
+            checked={onlyMissingDoc}
+            onCheckedChange={(v) => setOnlyMissingDoc(v === true)}
+          />
+          <FileWarning className="h-4 w-4 text-yellow-600" />
+          Mangler dokument
+        </label>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        {TYPE_TABS.map((t) => (
+          <Button
+            key={t.value}
+            variant={typeFilter === t.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTypeFilter(t.value)}
+          >
+            {t.label}
+          </Button>
+        ))}
       </div>
 
       {loading ? (
@@ -299,32 +340,43 @@ function AftalerPage() {
                   className={`absolute left-0 top-0 bottom-0 w-1.5 ${status.color}`}
                   aria-label={status.label}
                 />
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="font-semibold truncate">{a.name}</h3>
-                  {isAdmin && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditing(a);
-                        setEditOpen(true);
-                      }}
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <h3 className="font-semibold truncate flex-1">{a.name}</h3>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    {(a.kp1_code || a.kp2_code) && (
+                      <Badge variant="outline" className="font-mono text-[10px]">
+                        {a.kp2_code ? `KP2 ${a.kp2_code}` : `KP1 ${a.kp1_code}`}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mb-2 text-xs">
+                  <Badge variant="secondary" className="text-[10px]">
+                    {TYPE_LABEL[a.aftale_type]}
+                    {a.aftale_type_manuel && (
+                      <span className="ml-1 opacity-60">·m</span>
+                    )}
+                  </Badge>
+                  {a.document_path ? (
+                    <span
+                      className="inline-flex items-center gap-1 text-green-700"
+                      title="Aftaledokument uploadet"
                     >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                      <FileCheck2 className="h-3.5 w-3.5" />
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 text-yellow-600"
+                      title="Mangler aftaledokument"
+                    >
+                      <FileWarning className="h-3.5 w-3.5" />
+                    </span>
                   )}
+                  <span className="text-muted-foreground ml-auto">
+                    <strong className="text-foreground">{a.company_count}</strong> virksomheder
+                  </span>
                 </div>
-                <div className="text-xs text-muted-foreground mb-2">
-                  {a.kp1_code && <span>KP1: {a.kp1_code}</span>}
-                  {a.kp1_code && a.kp2_code && <span> · </span>}
-                  {a.kp2_code && <span>KP2: {a.kp2_code}</span>}
-                  {!a.kp1_code && !a.kp2_code && <span>Ingen KP-koder</span>}
-                </div>
-                <div className="text-sm mb-1">
-                  <strong>{a.company_count}</strong> virksomheder
-                </div>
-                <div className="text-xs text-muted-foreground mb-2">
+                <div className="text-xs text-muted-foreground">
                   Gyldig:{" "}
                   {a.valid_from
                     ? format(parseISO(a.valid_from), "d. MMM yyyy", { locale: da })
@@ -334,15 +386,9 @@ function AftalerPage() {
                     ? format(parseISO(a.valid_to), "d. MMM yyyy", { locale: da })
                     : "∞"}
                 </div>
-                {a.is_public_sector && (
-                  <Badge variant="secondary" className="gap-1 mb-2">
-                    <AlertTriangle className="h-3 w-3" /> Offentlig aftale
-                  </Badge>
-                )}
                 {a.governing_party_name && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 truncate mt-1">
                     <Building2 className="h-3 w-3 flex-shrink-0" />
-                    Styrende part:{" "}
                     {a.governing_party_company_id ? (
                       <Link
                         to="/virksomheder/$id"
@@ -358,17 +404,61 @@ function AftalerPage() {
                   </div>
                 )}
                 {isAdmin && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="absolute bottom-2 right-2 text-destructive hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteTarget(a);
-                    }}
+                  <div
+                    className="flex items-center gap-1 mt-2"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                    <Select
+                      value={a.aftale_type}
+                      onValueChange={async (v) => {
+                        try {
+                          await setTypeFn({
+                            data: { id: a.id, aftale_type: v as AgreementType },
+                          });
+                          toast.success("Type opdateret");
+                          await load();
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error ? e.message : "Kunne ikke opdatere",
+                          );
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-7 text-xs flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(TYPE_LABEL) as AgreementType[]).map((t) => (
+                          <SelectItem key={t} value={t} className="text-xs">
+                            {TYPE_LABEL[t]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditing(a);
+                        setEditOpen(true);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(a);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 )}
               </Card>
             );
@@ -421,8 +511,11 @@ function AftalerPage() {
                     ? format(parseISO(g.til), "d. MMM yyyy", { locale: da })
                     : "∞"}
                 </div>
-                <div className="text-xs text-muted-foreground mt-2 italic">
-                  Intet aftaledokument oprettet endnu.
+                <div className="flex items-center gap-1.5 mt-2 text-xs text-yellow-600" title="Mangler aftaledokument">
+                  <FileWarning className="h-3.5 w-3.5" />
+                  <span className="text-muted-foreground">
+                    {TYPE_LABEL[(g as any).aftale_type as AgreementType]}
+                  </span>
                 </div>
               </Card>
             ))}
@@ -475,8 +568,11 @@ function AftalerPage() {
                     ? format(parseISO(g.til), "d. MMM yyyy", { locale: da })
                     : "∞"}
                 </div>
-                <div className="text-xs text-muted-foreground mt-2 italic">
-                  Intet aftaledokument oprettet endnu.
+                <div className="flex items-center gap-1.5 mt-2 text-xs text-yellow-600" title="Mangler aftaledokument">
+                  <FileWarning className="h-3.5 w-3.5" />
+                  <span className="text-muted-foreground">
+                    {TYPE_LABEL[(g as any).aftale_type as AgreementType]}
+                  </span>
                 </div>
               </Card>
             ))}
@@ -484,7 +580,7 @@ function AftalerPage() {
         </div>
       )}
 
-      {customerSpecificCount > 0 && filter === "all" && !search.trim() && (
+      {customerSpecificCount > 0 && typeFilter === "all" && !search.trim() && !onlyMissingDoc && (
         <div className="mt-8">
           <Card className="p-4 flex items-center gap-3 bg-muted/30">
             <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -703,7 +799,7 @@ function EditDialog({
               </Label>
               {isPublic && (
                 <p className="text-xs text-yellow-700 dark:text-yellow-400 flex items-start gap-1">
-                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                  <FileWarning className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                   Kunder på denne aftale kan kun bestille varer inkluderet i
                   aftalen.
                 </p>
