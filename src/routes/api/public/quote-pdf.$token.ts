@@ -7,6 +7,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { buildQuotePdf, buildPdfFilename } from "@/lib/quote-pdf-builder";
 
 export const Route = createFileRoute("/api/public/quote-pdf/$token")({
@@ -18,37 +19,18 @@ export const Route = createFileRoute("/api/public/quote-pdf/$token")({
           if (!token || token.length < 8) {
             return new Response("Invalid token", { status: 400 });
           }
-
           const url = process.env.SUPABASE_URL;
           const key = process.env.SUPABASE_PUBLISHABLE_KEY;
           if (!url || !key) {
-            return new Response(
-              `Missing env: ${!url ? "SUPABASE_URL " : ""}${!key ? "SUPABASE_PUBLISHABLE_KEY" : ""}`,
-              { status: 500 },
-            );
+            return new Response("Missing Supabase env vars", { status: 500 });
           }
-
           const supabase = createClient<Database>(url, key, {
-            auth: {
-              storage: undefined,
-              persistSession: false,
-              autoRefreshToken: false,
-            },
+            auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
           });
+          const { data, error } = await supabase.rpc("get_public_quote", { _token: token });
+          if (error) return new Response(`RPC error: ${error.message}`, { status: 500 });
+          if (!data) return new Response("Quote not found", { status: 404 });
 
-          const { data, error } = await supabase.rpc("get_public_quote", {
-            _token: token,
-          });
-          if (error) {
-            return new Response(`RPC error: ${error.message}`, { status: 500 });
-          }
-          if (!data) {
-            return new Response("Quote not found", { status: 404 });
-          }
-
-          const { buildQuotePdf, buildPdfFilename } = await import(
-            "@/lib/quote-pdf.server"
-          );
           const payload = data as any;
           const bytes = await buildQuotePdf(payload);
           const filename = buildPdfFilename(payload);
