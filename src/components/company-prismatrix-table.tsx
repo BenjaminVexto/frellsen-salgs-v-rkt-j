@@ -53,12 +53,18 @@ function fmtNum(n: number | null): string {
 }
 
 function fmtDiscount(r: PricingRow): string {
+  const saer = Number(r.saerpris_kr ?? 0);
+  if (saer > 0) return `${fmtNum(saer)} kr`;
   const pct = Number(r.rab_pct ?? 0);
   const kr = Number(r.rab_kr ?? 0);
   if (pct > 0 && kr > 0) return `${fmtNum(pct)}% + ${fmtNum(kr)} kr`;
   if (pct > 0) return `${fmtNum(pct)}%`;
   if (kr > 0) return `${fmtNum(kr)} kr`;
   return "—";
+}
+
+function isSaer(r: PricingRow): boolean {
+  return Number(r.saerpris_kr ?? 0) > 0;
 }
 
 type Phase = "active" | "future" | "expired";
