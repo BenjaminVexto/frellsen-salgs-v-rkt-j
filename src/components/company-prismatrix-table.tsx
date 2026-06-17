@@ -325,7 +325,7 @@ export function CompanyPrismatrixTable({ companyId }: { companyId: string }) {
                 const isOpen = !!expanded[g.key];
                 const historyRows = g.rows.filter((r) => r !== g.active);
                 return (
-                  <>
+                  <Fragment key={g.key}>
                     <TableRow key={g.key} className="bg-muted/20">
                       <TableCell className="align-top">
                         {historyCount > 0 ? (
