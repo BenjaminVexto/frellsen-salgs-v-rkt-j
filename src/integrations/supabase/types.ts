@@ -1834,6 +1834,14 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      create_quote_draft: {
+        Args: {
+          _company_id: string
+          _delivery_location_id?: string
+          _pricing_mode?: string
+        }
+        Returns: string
+      }
       get_quote_floor_discount: {
         Args: { p_company_id: string; p_varenr: string }
         Returns: {
