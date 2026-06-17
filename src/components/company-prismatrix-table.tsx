@@ -53,12 +53,18 @@ function fmtNum(n: number | null): string {
 }
 
 function fmtDiscount(r: PricingRow): string {
+  const saer = Number(r.saerpris_kr ?? 0);
+  if (saer > 0) return `${fmtNum(saer)} kr`;
   const pct = Number(r.rab_pct ?? 0);
   const kr = Number(r.rab_kr ?? 0);
   if (pct > 0 && kr > 0) return `${fmtNum(pct)}% + ${fmtNum(kr)} kr`;
   if (pct > 0) return `${fmtNum(pct)}%`;
   if (kr > 0) return `${fmtNum(kr)} kr`;
   return "—";
+}
+
+function isSaer(r: PricingRow): boolean {
+  return Number(r.saerpris_kr ?? 0) > 0;
 }
 
 type Phase = "active" | "future" | "expired";
@@ -144,12 +150,16 @@ function buildGroups(rows: PricingRow[]): Group[] {
     }
     // Vinder ved flere aktive: højeste rab_pct, derefter rab_kr — samme rangering
     // som get_quote_floor_discount bruger som tiebreak inden for samme prioritet.
+    // Vinder ved flere aktive: Sær vinder altid; ellers højeste rab_pct, derefter rab_kr.
     active.sort((a, b) => {
+      const asaer = isSaer(a) ? 1 : 0;
+      const bsaer = isSaer(b) ? 1 : 0;
+      if (asaer !== bsaer) return bsaer - asaer;
       const ap = Number(a.rab_pct ?? 0);
       const bp = Number(b.rab_pct ?? 0);
       if (bp !== ap) return bp - ap;
-      const ak = Number(a.rab_kr ?? 0);
-      const bk = Number(b.rab_kr ?? 0);
+      const ak = Number(a.saerpris_kr ?? a.rab_kr ?? 0);
+      const bk = Number(b.saerpris_kr ?? b.rab_kr ?? 0);
       return bk - ak;
     });
     g.active = active[0] ?? null;
@@ -367,7 +377,12 @@ export function CompanyPrismatrixTable({ companyId }: { companyId: string }) {
                         {header.varenr ?? "—"}
                       </TableCell>
                       <TableCell className="text-right align-top font-semibold">
-                        {fmtDiscount(header)}
+                        <div>{fmtDiscount(header)}</div>
+                        {isSaer(header) ? (
+                          <div className="text-[10px] font-normal text-amber-700 mt-0.5">
+                            Særpris (vises som nettopris til kunde)
+                          </div>
+                        ) : null}
                       </TableCell>
                       <TableCell className="text-right align-top">
                         {fmtNum(header.udsalgspris)}
@@ -423,7 +438,10 @@ export function CompanyPrismatrixTable({ companyId }: { companyId: string }) {
                                 {r.varenr ?? "—"}
                               </TableCell>
                               <TableCell className="text-right text-sm">
-                                {fmtDiscount(r)}
+                                <div>{fmtDiscount(r)}</div>
+                                {isSaer(r) ? (
+                                  <div className="text-[10px] text-amber-700">Særpris</div>
+                                ) : null}
                               </TableCell>
                               <TableCell className="text-right text-sm">
                                 {fmtNum(r.udsalgspris)}

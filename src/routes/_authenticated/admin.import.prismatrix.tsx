@@ -71,6 +71,13 @@ const PRICING_ALIASES: Record<string, string> = {
   fakturakundenr: "fak_kundenr",
   faktureringskundenr: "fak_kundenr",
   fakturereskundenr: "fak_kundenr",
+  // Sær T/F — skjult kronerabat pr. enhed (kun nettopris vises til kunden).
+  // normCol("Sær T/F") → "saert/f"; medtag varianter uden / og med "kr".
+  "saert/f": "saerpris_kr",
+  saertf: "saerpris_kr",
+  saerpris: "saerpris_kr",
+  saerpriskr: "saerpris_kr",
+  saerkr: "saerpris_kr",
 };
 
 
@@ -95,7 +102,7 @@ const FORCE_TEXT = new Set([
 ]);
 
 const DATE_FIELDS = new Set(["fra_dato", "til_dato"]);
-const NUMBER_FIELDS = new Set(["rab_kr", "rab_pct", "udsalgspris", "udlejningspris"]);
+const NUMBER_FIELDS = new Set(["rab_kr", "rab_pct", "udsalgspris", "udlejningspris", "saerpris_kr"]);
 
 const PRICING_EXPECTED = [
   "kundeprisgruppe1",
@@ -108,6 +115,7 @@ const PRICING_EXPECTED = [
   "beskrivelse",
   "rab_kr",
   "rab_pct",
+  "saerpris_kr",
   "udsalgspris",
   "udlejningspris",
   "kampagne",
