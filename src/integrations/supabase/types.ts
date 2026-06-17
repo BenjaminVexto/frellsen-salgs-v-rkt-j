@@ -1867,6 +1867,15 @@ export type Database = {
         Args: { _company_id: string }
         Returns: undefined
       }
+      send_quote: {
+        Args: { _quote_id: string }
+        Returns: {
+          expiry_date: string
+          frozen_at: string
+          public_token: string
+          status: string
+        }[]
+      }
     }
     Enums: {
       activity_type:
