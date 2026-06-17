@@ -32,6 +32,7 @@ import {
   FileText,
   FileCheck2,
   FileWarning,
+  FileX2,
   Plus,
   Pencil,
   Trash2,
@@ -168,63 +169,129 @@ function AftalerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filtered = useMemo(() => {
+  type Row = {
+    kind: "agreement" | "kp2" | "kp1";
+    key: string;
+    name: string;
+    kp_label: string | null;
+    count: number;
+    count_label: string;
+    fra: string | null;
+    til: string | null;
+    has_doc: boolean;
+    aftale_type: AgreementType;
+    aftale_type_manuel: boolean;
+    agreement: Agreement | null;
+    onOpen: () => void;
+  };
+
+  const allRows: Row[] = useMemo(() => {
+    const fromAgreements: Row[] = rows.map((a) => ({
+      kind: "agreement",
+      key: `a:${a.id}`,
+      name: a.name,
+      kp_label: a.kp2_code
+        ? `KP2 ${a.kp2_code}`
+        : a.kp1_code
+          ? `KP1 ${a.kp1_code}`
+          : null,
+      count: a.company_count,
+      count_label: "virks.",
+      fra: a.valid_from,
+      til: a.valid_to,
+      has_doc: !!a.document_path,
+      aftale_type: a.aftale_type,
+      aftale_type_manuel: a.aftale_type_manuel,
+      agreement: a,
+      onOpen: () => navigate({ to: "/aftaler/$id", params: { id: a.id } }),
+    }));
+    const agreementKp2s = new Set(
+      rows.map((r) => r.kp2_code?.trim()).filter(Boolean) as string[],
+    );
+    const agreementKp1s = new Set(
+      rows.map((r) => r.kp1_code?.trim()).filter(Boolean) as string[],
+    );
+    const fromKp2: Row[] = kp2Groups
+      .filter((g) => !agreementKp2s.has(g.code))
+      .map((g) => ({
+        kind: "kp2",
+        key: `kp2:${g.code}`,
+        name: g.label,
+        kp_label: `KP2 ${g.code}`,
+        count: g.count,
+        count_label: "linjer",
+        fra: g.fra,
+        til: g.til,
+        has_doc: false,
+        aftale_type: deriveAgreementTypeFromName(g.label),
+        aftale_type_manuel: false,
+        agreement: null,
+        onOpen: () =>
+          navigate({ to: "/aftaler/kp2/$code", params: { code: g.code } }),
+      }));
+    const fromKp1: Row[] = kp1Groups
+      .filter((g) => !agreementKp1s.has(g.code))
+      .map((g) => ({
+        kind: "kp1",
+        key: `kp1:${g.code}`,
+        name: g.label,
+        kp_label: `KP1 ${g.code}`,
+        count: g.count,
+        count_label: "linjer",
+        fra: g.fra,
+        til: g.til,
+        has_doc: false,
+        aftale_type: deriveAgreementTypeFromName(g.label),
+        aftale_type_manuel: false,
+        agreement: null,
+        onOpen: () =>
+          navigate({ to: "/aftaler/kp1/$code", params: { code: g.code } }),
+      }));
+    return [...fromAgreements, ...fromKp2, ...fromKp1].sort((a, b) =>
+      a.name.localeCompare(b.name, "da", { sensitivity: "base" }),
+    );
+  }, [rows, kp2Groups, kp1Groups, navigate]);
+
+  const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
+    return allRows.filter((r) => {
       if (typeFilter !== "all" && r.aftale_type !== typeFilter) return false;
-      if (onlyMissingDoc && r.document_path) return false;
+      if (onlyMissingDoc && r.has_doc) return false;
       if (!q) return true;
       return (
         r.name.toLowerCase().includes(q) ||
-        (r.kp1_code ?? "").toLowerCase().includes(q) ||
-        (r.kp2_code ?? "").toLowerCase().includes(q)
+        (r.kp_label ?? "").toLowerCase().includes(q)
       );
     });
-  }, [rows, search, typeFilter, onlyMissingDoc]);
+  }, [allRows, search, typeFilter, onlyMissingDoc]);
 
-  // Kun de KP2-grupper der ikke allerede er repræsenteret af en aftale
-  const orphanKp2 = useMemo(() => {
-    const agreementKp2s = new Set(
-      rows
-        .map((r) => (r.kp2_code ? String(r.kp2_code).trim() : null))
-        .filter(Boolean) as string[],
-    );
-    const q = search.trim().toLowerCase();
-    return kp2Groups
-      .filter((g) => !agreementKp2s.has(g.code))
-      .map((g) => ({ ...g, aftale_type: deriveAgreementTypeFromName(g.label) }))
-      .filter((g) => {
-        if (typeFilter !== "all" && g.aftale_type !== typeFilter) return false;
-        // orphan-grupper har aldrig dokument
-        if (!q) return true;
-        return (
-          g.code.includes(q) ||
-          g.label.toLowerCase().includes(q) ||
-          g.raw.toLowerCase().includes(q)
-        );
-      });
-  }, [kp2Groups, rows, search, typeFilter]);
+  const totalCount = allRows.length;
+  const missingDocCount = allRows.filter((r) => !r.has_doc).length;
 
-  const orphanKp1 = useMemo(() => {
-    const agreementKp1s = new Set(
-      rows
-        .map((r) => (r.kp1_code ? String(r.kp1_code).trim() : null))
-        .filter(Boolean) as string[],
-    );
-    const q = search.trim().toLowerCase();
-    return kp1Groups
-      .filter((g) => !agreementKp1s.has(g.code))
-      .map((g) => ({ ...g, aftale_type: deriveAgreementTypeFromName(g.label) }))
-      .filter((g) => {
-        if (typeFilter !== "all" && g.aftale_type !== typeFilter) return false;
-        if (!q) return true;
-        return (
-          g.code.includes(q) ||
-          g.label.toLowerCase().includes(q) ||
-          g.raw.toLowerCase().includes(q)
-        );
-      });
-  }, [kp1Groups, rows, search, typeFilter]);
+  const typeCounts = useMemo(() => {
+    const base: Record<TypeFilter, number> = {
+      all: allRows.length,
+      offentlig: 0,
+      erhverv: 0,
+      ski: 0,
+    };
+    for (const r of allRows) {
+      if (r.aftale_type === "offentlig" || r.aftale_type === "erhverv" || r.aftale_type === "ski") {
+        base[r.aftale_type] += 1;
+      }
+    }
+    return base;
+  }, [allRows]);
+
+  const groupedByType = useMemo(() => {
+    const order: AgreementType[] = ["offentlig", "erhverv", "ski", "ukendt"];
+    const groups: { type: AgreementType; rows: Row[] }[] = [];
+    for (const t of order) {
+      const items = filteredRows.filter((r) => r.aftale_type === t);
+      if (items.length) groups.push({ type: t, rows: items });
+    }
+    return groups;
+  }, [filteredRows]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -246,7 +313,7 @@ function AftalerPage() {
             <FileText className="h-6 w-6" /> Aftaler
           </h1>
           <p className="text-sm text-muted-foreground">
-            Samarbejdsaftaler med kunder
+            {totalCount} prisaftaler · {missingDocCount} mangler dokument
           </p>
         </div>
         {isAdmin && (
@@ -290,6 +357,9 @@ function AftalerPage() {
             onClick={() => setTypeFilter(t.value)}
           >
             {t.label}
+            <span className="ml-1.5 text-xs opacity-70">
+              {typeCounts[t.value] ?? 0}
+            </span>
           </Button>
         ))}
       </div>
@@ -298,7 +368,7 @@ function AftalerPage() {
         <div className="py-12 flex justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : rows.length === 0 ? (
+      ) : totalCount === 0 ? (
         <Card className="p-10 text-center">
           <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <p className="text-muted-foreground mb-4">
@@ -316,267 +386,160 @@ function AftalerPage() {
             </Button>
           )}
         </Card>
-      ) : filtered.length === 0 ? (
+      ) : filteredRows.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">
-          Ingen aftaler matcher søgningen.
+          Ingen aftaler matcher filtreringen.
         </p>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((a) => {
-            const status = getStatus(a.valid_to);
-            return (
-              <Card
-                key={a.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => navigate({ to: "/aftaler/$id", params: { id: a.id } })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter")
-                    navigate({ to: "/aftaler/$id", params: { id: a.id } });
-                }}
-                className="relative p-4 pl-5 cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
-              >
-                <div
-                  className={`absolute left-0 top-0 bottom-0 w-1.5 ${status.color}`}
-                  aria-label={status.label}
-                />
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <h3 className="font-semibold truncate flex-1">{a.name}</h3>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    {(a.kp1_code || a.kp2_code) && (
-                      <Badge variant="outline" className="font-mono text-[10px]">
-                        {a.kp2_code ? `KP2 ${a.kp2_code}` : `KP1 ${a.kp1_code}`}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mb-2 text-xs">
-                  <Badge variant="secondary" className="text-[10px]">
-                    {TYPE_LABEL[a.aftale_type]}
-                    {a.aftale_type_manuel && (
-                      <span className="ml-1 opacity-60">·m</span>
-                    )}
-                  </Badge>
-                  {a.document_path ? (
-                    <span
-                      className="inline-flex items-center gap-1 text-green-700"
-                      title="Aftaledokument uploadet"
-                    >
-                      <FileCheck2 className="h-3.5 w-3.5" />
-                    </span>
-                  ) : (
-                    <span
-                      className="inline-flex items-center gap-1 text-yellow-600"
-                      title="Mangler aftaledokument"
-                    >
-                      <FileWarning className="h-3.5 w-3.5" />
-                    </span>
-                  )}
-                  <span className="text-muted-foreground ml-auto">
-                    <strong className="text-foreground">{a.company_count}</strong> virksomheder
-                  </span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Gyldig:{" "}
-                  {a.valid_from
-                    ? format(parseISO(a.valid_from), "d. MMM yyyy", { locale: da })
-                    : "—"}{" "}
-                  →{" "}
-                  {a.valid_to
-                    ? format(parseISO(a.valid_to), "d. MMM yyyy", { locale: da })
-                    : "∞"}
-                </div>
-                {a.governing_party_name && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 truncate mt-1">
-                    <Building2 className="h-3 w-3 flex-shrink-0" />
-                    {a.governing_party_company_id ? (
-                      <Link
-                        to="/virksomheder/$id"
-                        params={{ id: a.governing_party_company_id }}
-                        className="underline truncate"
-                        onClick={(e) => e.stopPropagation()}
+        <div className="space-y-6">
+          {groupedByType.map((group) => (
+            <div key={group.type}>
+              <div className="flex items-baseline justify-between mb-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  {TYPE_LABEL[group.type]}
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {group.rows.length}
+                </span>
+              </div>
+              <Card className="overflow-hidden p-0">
+                <ul className="divide-y divide-border/60">
+                  {group.rows.map((r) => {
+                    const status = getStatus(r.til);
+                    return (
+                      <li
+                        key={r.key}
+                        role="button"
+                        tabIndex={0}
+                        onClick={r.onOpen}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") r.onOpen();
+                        }}
+                        className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm"
                       >
-                        {a.governing_party_name}
-                      </Link>
-                    ) : (
-                      <span className="truncate">{a.governing_party_name}</span>
-                    )}
-                  </div>
-                )}
-                {isAdmin && (
-                  <div
-                    className="flex items-center gap-1 mt-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Select
-                      value={a.aftale_type}
-                      onValueChange={async (v) => {
-                        try {
-                          await setTypeFn({
-                            data: { id: a.id, aftale_type: v as AgreementType },
-                          });
-                          toast.success("Type opdateret");
-                          await load();
-                        } catch (e) {
-                          toast.error(
-                            e instanceof Error ? e.message : "Kunne ikke opdatere",
-                          );
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-7 text-xs flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Object.keys(TYPE_LABEL) as AgreementType[]).map((t) => (
-                          <SelectItem key={t} value={t} className="text-xs">
-                            {TYPE_LABEL[t]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 w-7 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditing(a);
-                        setEditOpen(true);
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteTarget(a);
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
+                        {r.has_doc ? (
+                          <FileCheck2
+                            className="h-4 w-4 text-green-700 shrink-0"
+                            aria-label="Aftaledokument uploadet"
+                          />
+                        ) : (
+                          <FileX2
+                            className="h-4 w-4 text-yellow-600 shrink-0"
+                            aria-label="Mangler aftaledokument"
+                          />
+                        )}
+                        <span
+                          className={`h-2 w-2 rounded-full shrink-0 ${status.color}`}
+                          title={status.label}
+                          aria-label={status.label}
+                        />
+                        <span className="flex-1 truncate font-medium">
+                          {r.name}
+                          {r.aftale_type_manuel && (
+                            <span
+                              className="ml-1 text-[10px] opacity-50"
+                              title="Type sat manuelt"
+                            >
+                              ·m
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">
+                          <strong className="text-foreground">{r.count}</strong>{" "}
+                          {r.count_label}
+                        </span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:inline">
+                          {r.fra
+                            ? format(parseISO(r.fra), "d/M yy", { locale: da })
+                            : "—"}{" "}
+                          →{" "}
+                          {r.til
+                            ? format(parseISO(r.til), "d/M yy", { locale: da })
+                            : "∞"}
+                        </span>
+                        {r.kp_label && (
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-[10px] text-muted-foreground shrink-0"
+                          >
+                            {r.kp_label}
+                          </Badge>
+                        )}
+                        {isAdmin && r.agreement && (
+                          <div
+                            className="flex items-center gap-1 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Select
+                              value={r.aftale_type}
+                              onValueChange={async (v) => {
+                                try {
+                                  await setTypeFn({
+                                    data: {
+                                      id: r.agreement!.id,
+                                      aftale_type: v as AgreementType,
+                                    },
+                                  });
+                                  toast.success("Type opdateret");
+                                  await load();
+                                } catch (e) {
+                                  toast.error(
+                                    e instanceof Error
+                                      ? e.message
+                                      : "Kunne ikke opdatere",
+                                  );
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-7 w-[110px] text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(Object.keys(TYPE_LABEL) as AgreementType[]).map(
+                                  (t) => (
+                                    <SelectItem
+                                      key={t}
+                                      value={t}
+                                      className="text-xs"
+                                    >
+                                      {TYPE_LABEL[t]}
+                                    </SelectItem>
+                                  ),
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditing(r.agreement);
+                                setEditOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteTarget(r.agreement);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {orphanKp2.length > 0 && (
-        <div className="mt-8">
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Prismatrix uden aftaledokument
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              {orphanKp2.length} kundeprisgruppe{orphanKp2.length === 1 ? "" : "r"}
-            </span>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {orphanKp2.map((g) => (
-              <Card
-                key={g.code}
-                role="button"
-                tabIndex={0}
-                onClick={() =>
-                  navigate({ to: "/aftaler/kp2/$code", params: { code: g.code } })
-                }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter")
-                    navigate({ to: "/aftaler/kp2/$code", params: { code: g.code } });
-                }}
-                className="relative p-4 pl-5 cursor-pointer hover:shadow-md transition-shadow overflow-hidden border-dashed"
-              >
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-muted-foreground/30" />
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="font-semibold truncate">{g.label}</h3>
-                  <Badge variant="outline" className="font-mono text-[10px] shrink-0">
-                    KP2 {g.code}
-                  </Badge>
-                </div>
-                <div className="text-sm mb-1">
-                  <strong>{g.count}</strong> prislinjer
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Gyldig:{" "}
-                  {g.fra
-                    ? format(parseISO(g.fra), "d. MMM yyyy", { locale: da })
-                    : "—"}{" "}
-                  →{" "}
-                  {g.til
-                    ? format(parseISO(g.til), "d. MMM yyyy", { locale: da })
-                    : "∞"}
-                </div>
-                <div className="flex items-center gap-1.5 mt-2 text-xs text-yellow-600" title="Mangler aftaledokument">
-                  <FileWarning className="h-3.5 w-3.5" />
-                  <span className="text-muted-foreground">
-                    {TYPE_LABEL[(g as any).aftale_type as AgreementType]}
-                  </span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {orphanKp1.length > 0 && (
-        <div className="mt-8">
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              KP1-gruppe-aftaler (uden KP2)
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              {orphanKp1.length} kundeprisgruppe{orphanKp1.length === 1 ? "" : "r"}
-            </span>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {orphanKp1.map((g) => (
-              <Card
-                key={g.code}
-                role="button"
-                tabIndex={0}
-                onClick={() =>
-                  navigate({ to: "/aftaler/kp1/$code", params: { code: g.code } })
-                }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter")
-                    navigate({ to: "/aftaler/kp1/$code", params: { code: g.code } });
-                }}
-                className="relative p-4 pl-5 cursor-pointer hover:shadow-md transition-shadow overflow-hidden border-dashed"
-              >
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-muted-foreground/30" />
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="font-semibold truncate">{g.label}</h3>
-                  <Badge variant="outline" className="font-mono text-[10px] shrink-0">
-                    KP1 {g.code}
-                  </Badge>
-                </div>
-                <div className="text-sm mb-1">
-                  <strong>{g.count}</strong> prislinjer
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Gyldig:{" "}
-                  {g.fra
-                    ? format(parseISO(g.fra), "d. MMM yyyy", { locale: da })
-                    : "—"}{" "}
-                  →{" "}
-                  {g.til
-                    ? format(parseISO(g.til), "d. MMM yyyy", { locale: da })
-                    : "∞"}
-                </div>
-                <div className="flex items-center gap-1.5 mt-2 text-xs text-yellow-600" title="Mangler aftaledokument">
-                  <FileWarning className="h-3.5 w-3.5" />
-                  <span className="text-muted-foreground">
-                    {TYPE_LABEL[(g as any).aftale_type as AgreementType]}
-                  </span>
-                </div>
-              </Card>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
 
