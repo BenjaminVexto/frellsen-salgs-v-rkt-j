@@ -32,6 +32,7 @@ import {
   FileText,
   FileCheck2,
   FileWarning,
+  FileX2,
   Plus,
   Pencil,
   Trash2,
