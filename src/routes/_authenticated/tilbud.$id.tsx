@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -118,6 +118,9 @@ type QuoteLine = {
   listepris_snapshot: number;
   rabat_pct_snapshot: number;
   rabat_kr_snapshot: number;
+  /** Enhedsnetto (pr. stk) — listepris efter pct og kr-rabat. */
+  nettopris_enhed_snapshot: number;
+  /** Linjetotal — nettopris_enhed_snapshot × antal. Bruges af alle totaler. */
   nettopris_snapshot: number;
   er_leje: boolean;
   sort_order: number;
@@ -640,18 +643,20 @@ function MachinePicker({
       const floor = await fetchFloor(companyId, m.varenr);
       const rabatPct = Number(floor?.rabat_pct ?? 0);
       const rabatKr = Number(floor?.rabat_kr ?? 0);
-      const netto = calcNetto(listepris, rabatPct, rabatKr);
+      const enhed = calcNetto(listepris, rabatPct, rabatKr);
+      const antal = 1;
 
       const { error } = await supabase.from("quote_lines").insert({
         quote_id: quote.id,
         varenr: m.varenr,
         line_type: "machine",
         beskrivelse_snapshot: m.beskrivelse,
-        antal: 1,
+        antal,
         listepris_snapshot: listepris,
         rabat_pct_snapshot: rabatPct,
         rabat_kr_snapshot: rabatKr,
-        nettopris_snapshot: netto,
+        nettopris_enhed_snapshot: enhed,
+        nettopris_snapshot: enhed * antal,
         er_leje: erLeje,
         sort_order: 0,
       });
@@ -814,17 +819,19 @@ async function addSimpleLine(args: {
   const floor = await fetchFloor(companyId, p.varenr);
   const rabatPct = Number(floor?.rabat_pct ?? 0);
   const rabatKr = Number(floor?.rabat_kr ?? 0);
-  const netto = calcNetto(listepris, rabatPct, rabatKr);
+  const enhed = calcNetto(listepris, rabatPct, rabatKr);
+  const antal = 1;
   const { error } = await supabase.from("quote_lines").insert({
     quote_id: quoteId,
     varenr: p.varenr,
     line_type: lineType,
     beskrivelse_snapshot: p.beskrivelse,
-    antal: 1,
+    antal,
     listepris_snapshot: listepris,
     rabat_pct_snapshot: rabatPct,
     rabat_kr_snapshot: rabatKr,
-    nettopris_snapshot: netto,
+    nettopris_enhed_snapshot: enhed,
+    nettopris_snapshot: enhed * antal,
     er_leje: false,
     sort_order: 0,
   });
@@ -1049,7 +1056,8 @@ function LineRow({
   const [pct, setPct] = useState<string>(String(line.rabat_pct_snapshot ?? 0));
   const [kr, setKr] = useState<string>(String(line.rabat_kr_snapshot ?? 0));
   const [antal, setAntal] = useState<string>(String(line.antal ?? 1));
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const lastSavedRef = useRef<string>("");
 
   const floorQuery = useQuery({
     queryKey: ["floor", companyId, line.varenr],
@@ -1060,44 +1068,66 @@ function LineRow({
   const floorPct = Number(floor?.rabat_pct ?? 0);
   const floorKr = Number(floor?.rabat_kr ?? 0);
 
-  const previewNetto = useMemo(
-    () => calcNetto(Number(line.listepris_snapshot), Number(pct), Number(kr)) * (Math.max(1, Number(antal) || 1)),
-    [line.listepris_snapshot, pct, kr, antal],
+  const pctNum = Math.max(0, Number(pct) || 0);
+  const krNum = Math.max(0, Number(kr) || 0);
+  const antalNum = Math.max(1, Number(antal) || 1);
+  const enhedNetto = useMemo(
+    () => calcNetto(Number(line.listepris_snapshot), pctNum, krNum),
+    [line.listepris_snapshot, pctNum, krNum],
   );
+  const linjeNetto = enhedNetto * antalNum;
 
-  async function save() {
-    const pctNum = Number(pct) || 0;
-    const krNum = Number(kr) || 0;
-    const antalNum = Math.max(1, Number(antal) || 1);
-
+  // Auto-persist på enhver ændring (debounced). Floor håndhæves: pct/kr snappes op til gulv.
+  useEffect(() => {
+    if (disabled) return;
+    // Floor-snap (uden toast — det er en hint, ikke en blokade ved auto-save)
+    let effPct = pctNum;
+    let effKr = krNum;
     if (floor) {
-      if (pctNum < floorPct) {
-        toast.error(`Aftale-gulv: min. ${floorPct}% — kan kun gå højere`);
-        setPct(String(floorPct));
-        return;
-      }
-      if (krNum < floorKr) {
-        toast.error(`Aftale-gulv: min. ${formatKr(floorKr)} — kan kun gå højere`);
-        setKr(String(floorKr));
-        return;
-      }
+      if (effPct < floorPct) effPct = floorPct;
+      if (effKr < floorKr) effKr = floorKr;
     }
+    const key = `${effPct}|${effKr}|${antalNum}`;
+    if (key === lastSavedRef.current) return;
+    const enhed = calcNetto(Number(line.listepris_snapshot), effPct, effKr);
+    const total = enhed * antalNum;
+    const handle = setTimeout(async () => {
+      setSaveState("saving");
+      const { error } = await supabase
+        .from("quote_lines")
+        .update({
+          antal: antalNum,
+          rabat_pct_snapshot: effPct,
+          rabat_kr_snapshot: effKr,
+          nettopris_enhed_snapshot: enhed,
+          nettopris_snapshot: total,
+        })
+        .eq("id", line.id);
+      if (error) {
+        setSaveState("error");
+        toast.error(error.message);
+        return;
+      }
+      lastSavedRef.current = key;
+      setSaveState("saved");
+      onChanged();
+      setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 1200);
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [pctNum, krNum, antalNum, disabled, floor, floorPct, floorKr, line.id, line.listepris_snapshot, onChanged]);
 
-    setSaving(true);
-    const netto = calcNetto(Number(line.listepris_snapshot), pctNum, krNum) * antalNum;
-    const { error } = await supabase
-      .from("quote_lines")
-      .update({
-        antal: antalNum,
-        rabat_pct_snapshot: pctNum,
-        rabat_kr_snapshot: krNum,
-        nettopris_snapshot: netto,
-      })
-      .eq("id", line.id);
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Linje opdateret");
-    onChanged();
+  // Snap visuelt input op til gulvet når brugeren forlader feltet
+  function onPctBlur() {
+    if (floor && pctNum < floorPct) {
+      toast.info(`Aftale-gulv: min. ${floorPct}% — sat til gulv`);
+      setPct(String(floorPct));
+    }
+  }
+  function onKrBlur() {
+    if (floor && krNum < floorKr) {
+      toast.info(`Aftale-gulv: min. ${formatKr(floorKr)} — sat til gulv`);
+      setKr(String(floorKr));
+    }
   }
 
   async function remove() {
@@ -1149,6 +1179,7 @@ function LineRow({
             type="number"
             value={pct}
             onChange={(e) => setPct(e.target.value)}
+            onBlur={onPctBlur}
             disabled={disabled}
           />
           <FloorHint loading={floorQuery.isLoading} floor={floor} kind="pct" />
@@ -1159,20 +1190,27 @@ function LineRow({
             type="number"
             value={kr}
             onChange={(e) => setKr(e.target.value)}
+            onBlur={onKrBlur}
             disabled={disabled}
           />
           <FloorHint loading={floorQuery.isLoading} floor={floor} kind="kr" />
         </div>
         <div>
           <Label className="text-xs">Netto i alt</Label>
-          <div className="h-9 px-3 flex items-center rounded-md border bg-muted/40 text-sm">
-            {formatKr(previewNetto)}
+          <div className="h-9 px-3 flex items-center rounded-md border bg-muted/40 text-sm tabular-nums">
+            {formatKr(linjeNetto)}
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-1">
+            {antalNum} × {formatKr(enhedNetto)}/stk
           </div>
         </div>
-        <div>
-          <Button onClick={save} disabled={disabled || saving} className="w-full">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Gem"}
-          </Button>
+        <div className="text-xs text-muted-foreground self-center">
+          {saveState === "saving" && (
+            <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Gemmer…</span>
+          )}
+          {saveState === "saved" && <span className="text-emerald-700">Gemt</span>}
+          {saveState === "error" && <span className="text-destructive">Fejl</span>}
+          {saveState === "idle" && <span>&nbsp;</span>}
         </div>
       </div>
     </div>
