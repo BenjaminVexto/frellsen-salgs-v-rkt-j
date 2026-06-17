@@ -214,8 +214,9 @@ function AftalerPage() {
     const q = search.trim().toLowerCase();
     return kp1Groups
       .filter((g) => !agreementKp1s.has(g.code))
+      .map((g) => ({ ...g, aftale_type: deriveAgreementTypeFromName(g.label) }))
       .filter((g) => {
-        if (filter !== "all") return false;
+        if (typeFilter !== "all" && g.aftale_type !== typeFilter) return false;
         if (!q) return true;
         return (
           g.code.includes(q) ||
@@ -223,7 +224,7 @@ function AftalerPage() {
           g.raw.toLowerCase().includes(q)
         );
       });
-  }, [kp1Groups, rows, search, filter]);
+  }, [kp1Groups, rows, search, typeFilter]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
