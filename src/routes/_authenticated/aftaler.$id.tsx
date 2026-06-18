@@ -144,10 +144,8 @@ function AgreementDetail() {
             </div>
           </div>
           {isAdmin && (
-            <Button asChild variant="outline" size="sm">
-              <Link to="/aftaler">
-                <Pencil className="h-4 w-4 mr-1.5" /> Rediger
-              </Link>
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-4 w-4 mr-1.5" /> Rediger
             </Button>
           )}
         </div>
