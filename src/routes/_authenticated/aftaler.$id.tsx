@@ -81,6 +81,7 @@ function AgreementDetail() {
   const { id } = Route.useParams();
   const auth = useAuth();
   const isAdmin = auth.role === "admin";
+  const [editOpen, setEditOpen] = useState(false);
 
   const getFn = useServerFn(getAgreement);
   const listFn = useServerFn(listAgreementCompanies);
