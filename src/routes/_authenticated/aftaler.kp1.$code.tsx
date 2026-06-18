@@ -51,7 +51,7 @@ function KP1DetailPage() {
           </div>
           {canEdit && (
             <Button size="sm" onClick={() => setEditOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" /> Opret aftale
+              <Plus className="h-4 w-4 mr-1.5" /> Opret/Rediger
             </Button>
           )}
         </div>
