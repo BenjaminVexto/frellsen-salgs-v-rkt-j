@@ -274,7 +274,13 @@ function BrugerStyringSide() {
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.full_name || "—"}</TableCell>
-                  <TableCell>{r.email}</TableCell>
+                  <TableCell>
+                    {r.email ? (
+                      <a href={`mailto:${r.email}`} className="hover:underline">
+                        {r.email}
+                      </a>
+                    ) : null}
+                  </TableCell>
                   <TableCell>
                     {r.role === "admin" ? (
                       <Badge variant="default">Admin</Badge>
