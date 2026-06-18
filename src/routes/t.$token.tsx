@@ -196,8 +196,18 @@ function PublicQuotePage() {
                     {[location.zip, location.city].filter(Boolean).join(" ")}
                   </div>
                   {(location.phone || location.email) && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {[location.phone, location.email].filter(Boolean).join(" · ")}
+                    <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-2 gap-y-1">
+                      {location.phone && (
+                        <a href={`tel:${location.phone}`} className="hover:underline">
+                          {location.phone}
+                        </a>
+                      )}
+                      {location.phone && location.email && <span>·</span>}
+                      {location.email && (
+                        <a href={`mailto:${location.email}`} className="hover:underline break-all">
+                          {location.email}
+                        </a>
+                      )}
                     </div>
                   )}
                 </div>
