@@ -39,12 +39,12 @@ export function useAuth(): AuthState {
           });
         return;
       }
-      const [{ data: roleRow }, { data: profile }] = await Promise.all([
+      const [{ data: roleRows }, { data: profile }] = await Promise.all([
         supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", session.user.id)
-          .maybeSingle(),
+          .returns<{ role: AppRole }[]>(),
         supabase
           .from("profiles")
           .select("full_name, region")
@@ -52,11 +52,17 @@ export function useAuth(): AuthState {
           .maybeSingle(),
       ]);
       if (!active) return;
+      const roles = new Set((roleRows ?? []).map((r) => r.role));
+      const role: AppRole = roles.has("admin")
+        ? "admin"
+        : roles.has("salgssupport")
+          ? "salgssupport"
+          : "saelger";
       setState({
         loading: false,
         session,
         user: session.user,
-        role: (roleRow?.role as AppRole) ?? "saelger",
+        role,
         fullName: profile?.full_name ?? "",
         region: profile?.region ?? null,
       });

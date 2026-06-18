@@ -594,12 +594,14 @@ export function EditDialog({
   open,
   onOpenChange,
   agreement,
+  initialValues,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   agreement: Agreement | null;
-  onSaved: () => void | Promise<void>;
+  initialValues?: Partial<Agreement>;
+  onSaved: (result?: { id?: string }) => void | Promise<void>;
 }) {
   const createFn = useServerFn(createAgreement);
   const updateFn = useServerFn(updateAgreement);
@@ -632,19 +634,19 @@ export function EditDialog({
       setGoverningId(agreement.governing_party_company_id ?? null);
       setNotes(agreement.notes ?? "");
     } else {
-      setName("");
-      setKp1("");
-      setKp2("");
-      setValidFrom("");
-      setValidTo("");
-      setIsPublic(false);
-      setGoverningName("");
-      setGoverningId(null);
-      setNotes("");
+      setName(initialValues?.name ?? "");
+      setKp1(initialValues?.kp1_code ?? "");
+      setKp2(initialValues?.kp2_code ?? "");
+      setValidFrom(initialValues?.valid_from ?? "");
+      setValidTo(initialValues?.valid_to ?? "");
+      setIsPublic(initialValues?.is_public_sector ?? false);
+      setGoverningName(initialValues?.governing_party_name ?? "");
+      setGoverningId(initialValues?.governing_party_company_id ?? null);
+      setNotes(initialValues?.notes ?? "");
     }
     setCompanySearch("");
     setCompanyHits([]);
-  }, [open, agreement]);
+  }, [open, agreement, initialValues]);
 
   // Søg virksomheder
   useEffect(() => {
@@ -686,10 +688,13 @@ export function EditDialog({
         await updateFn({ data: { id: agreement.id, ...payload } });
         toast.success("Aftalen er opdateret.");
       } else {
-        await createFn({ data: payload });
+        const result = await createFn({ data: payload }) as { id: string };
         toast.success(
           "Aftalen er oprettet. Virksomheder tilknyttes automatisk via KP-koder.",
         );
+        onOpenChange(false);
+        await onSaved(result);
+        return;
       }
       onOpenChange(false);
       await onSaved();
