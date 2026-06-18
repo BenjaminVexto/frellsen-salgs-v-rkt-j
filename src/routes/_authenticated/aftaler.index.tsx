@@ -590,7 +590,7 @@ function AftalerPage() {
   );
 }
 
-function EditDialog({
+export function EditDialog({
   open,
   onOpenChange,
   agreement,

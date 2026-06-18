@@ -44,6 +44,7 @@ import {
 } from "@/lib/agreements.functions";
 import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
 import { PrismatrixTable } from "@/components/prismatrix-table";
+import { EditDialog } from "./aftaler.index";
 
 export const Route = createFileRoute("/_authenticated/aftaler/$id")({
   component: AgreementDetail,
@@ -80,6 +81,7 @@ function AgreementDetail() {
   const { id } = Route.useParams();
   const auth = useAuth();
   const isAdmin = auth.role === "admin";
+  const [editOpen, setEditOpen] = useState(false);
 
   const getFn = useServerFn(getAgreement);
   const listFn = useServerFn(listAgreementCompanies);
@@ -142,10 +144,8 @@ function AgreementDetail() {
             </div>
           </div>
           {isAdmin && (
-            <Button asChild variant="outline" size="sm">
-              <Link to="/aftaler">
-                <Pencil className="h-4 w-4 mr-1.5" /> Rediger
-              </Link>
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-4 w-4 mr-1.5" /> Rediger
             </Button>
           )}
         </div>
@@ -240,6 +240,15 @@ function AgreementDetail() {
           </TabsContent>
         )}
       </Tabs>
+
+      <EditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        agreement={a as any}
+        onSaved={async () => {
+          await agreementQ.refetch();
+        }}
+      />
     </div>
   );
 }
