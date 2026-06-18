@@ -416,7 +416,15 @@ function LokationRow({
                   )}
                 </span>
                 {c.email && (
-                  <div className="pl-4 text-muted-foreground">{c.email}</div>
+                  <div className="pl-4 text-muted-foreground">
+                    <a
+                      href={`mailto:${c.email}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-primary hover:underline break-all"
+                    >
+                      {c.email}
+                    </a>
+                  </div>
                 )}
               </div>
             ))
