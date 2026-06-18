@@ -446,7 +446,15 @@ function LokationRow({
             )
           )}
           {contacts.length === 0 && location.email && (
-            <div className="text-muted-foreground">{location.email}</div>
+            <div className="text-muted-foreground">
+              <a
+                href={`mailto:${location.email}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-primary hover:underline break-all"
+              >
+                {location.email}
+              </a>
+            </div>
           )}
           {location.visma_delivery_no && (
             <div className="text-xs text-muted-foreground">
