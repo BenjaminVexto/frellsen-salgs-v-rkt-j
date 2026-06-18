@@ -240,6 +240,15 @@ function AgreementDetail() {
           </TabsContent>
         )}
       </Tabs>
+
+      <EditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        agreement={a as any}
+        onSaved={async () => {
+          await agreementQ.refetch();
+        }}
+      />
     </div>
   );
 }
