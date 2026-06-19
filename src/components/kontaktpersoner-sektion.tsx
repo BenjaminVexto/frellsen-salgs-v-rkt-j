@@ -253,16 +253,38 @@ export function KontaktpersonerSektion({
                           <Mail className="h-3.5 w-3.5 mr-1.5" /> Skriv mail
                         </Button>
                         {c.source === "contact" && c.contactRow && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditing(c.contactRow);
-                              setOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditing(c.contactRow);
+                                setOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive hover:text-destructive"
+                              onClick={async () => {
+                                if (!confirm(`Slet kontaktperson "${c.name}"?`)) return;
+                                const { error } = await supabase
+                                  .from("contacts")
+                                  .delete()
+                                  .eq("id", c.contactRow!.id);
+                                if (error) {
+                                  toast.error("Sletning fejlede: " + error.message);
+                                  return;
+                                }
+                                toast.success("Kontakt slettet");
+                                onReload();
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Slet
+                            </Button>
+                          </>
                         )}
                       </div>
                       {c.source === "location" && (
