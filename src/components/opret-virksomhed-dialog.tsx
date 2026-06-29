@@ -262,18 +262,22 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
       toast.error("Kunne ikke oprette virksomhed: " + error.message);
       return;
     }
-    const noteText = [
-      contactTitle.trim() && `Titel: ${contactTitle.trim()}`,
-      companyForm.trim() && `Virksomhedsform: ${companyForm.trim()}`,
-      notes.trim(),
-    ].filter(Boolean).join("\n");
+    // Note-feltet gemmes som en selvstændig aktivitet. Titel og virksomhedsform
+    // flettes IKKE ind i noten — titel hører til på kontaktpersonen (skrives ved
+    // contact-oprettelse hvis/når det sker), virksomhedsform har p.t. intet
+    // struktur-felt på companies og droppes derfor her.
+    const noteText = notes.trim();
     if (noteText && auth.user?.id) {
-      await supabase.from("activities").insert({
+      const { error: noteError } = await supabase.from("activities").insert({
         company_id: data.id,
         created_by: auth.user.id,
         activity_type: "note" as any,
         note: noteText,
+        activity_date: new Date().toISOString(),
       } as any);
+      if (noteError) {
+        toast.warning("Virksomheden blev oprettet, men noten kunne ikke gemmes: " + noteError.message);
+      }
     }
     setSaving(false);
     toast.success("Virksomhed oprettet");
