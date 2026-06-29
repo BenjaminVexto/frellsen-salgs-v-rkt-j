@@ -16,6 +16,7 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  CalendarPlus,
 } from "lucide-react";
 import { format, isToday, parseISO, addDays } from "date-fns";
 import { da } from "date-fns/locale";
@@ -501,6 +502,27 @@ function ExpiringCustomerRow({
         >
           {dateLabel}
         </span>
+        <button
+          type="button"
+          title="Tilføj til kalender"
+          aria-label="Tilføj til kalender"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void import("@/lib/add-to-calendar").then(({ addToCalendar }) =>
+              addToCalendar({
+                title: `Aftale udløber: ${companyName}`,
+                date,
+                description: `${count} ${count === 1 ? "maskine udløber" : "maskiner udløber"} hos ${companyName}.`,
+                url: `${window.location.origin}/virksomheder/${companyId}#lokationer`,
+                uid: `expiring-${companyId}`,
+              }),
+            );
+          }}
+          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        >
+          <CalendarPlus className="h-3.5 w-3.5" />
+        </button>
         <ArrowRight className="hidden sm:block h-4 w-4 text-muted-foreground" />
       </div>
     </Link>

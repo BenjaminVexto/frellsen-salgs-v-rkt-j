@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FileText, Upload, ExternalLink, Download, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { FileText, Upload, ExternalLink, Download, Trash2, AlertTriangle, Loader2, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
@@ -203,11 +203,30 @@ export function DokumenterSektion({
                         className={
                           expired || expiresSoon
                             ? "text-destructive font-medium flex items-center gap-1"
-                            : ""
+                            : "flex items-center gap-1"
                         }
                       >
                         {(expired || expiresSoon) && <AlertTriangle className="h-3 w-3" />}
                         Udløber {format(parseISO(d.expires_at), "d. MMM yyyy", { locale: da })}
+                        <button
+                          type="button"
+                          title="Tilføj til kalender"
+                          aria-label="Tilføj til kalender"
+                          onClick={() =>
+                            import("@/lib/add-to-calendar").then(({ addToCalendar }) =>
+                              addToCalendar({
+                                title: `${TYPE_LABEL[d.document_type]} udløber: ${d.filename}`,
+                                date: d.expires_at!,
+                                description: d.notes ?? undefined,
+                                url: `${window.location.origin}/virksomheder/${companyId}#dokumenter`,
+                                uid: `doc-${d.id}`,
+                              }),
+                            )
+                          }
+                          className="ml-1 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                        >
+                          <CalendarPlus className="h-3 w-3" />
+                        </button>
                       </span>
                     )}
                     <span>
