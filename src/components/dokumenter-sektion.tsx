@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FileText, Upload, ExternalLink, Download, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { FileText, Upload, ExternalLink, Download, Trash2, AlertTriangle, Loader2, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
