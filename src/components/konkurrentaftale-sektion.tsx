@@ -130,7 +130,7 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
               className={
                 expired || expiresSoon
                   ? "text-warning font-medium flex items-center gap-1"
-                  : "text-muted-foreground"
+                  : "text-muted-foreground flex items-center gap-1"
               }
             >
               {(expired || expiresSoon) && <AlertTriangle className="h-3.5 w-3.5" />}
@@ -138,6 +138,25 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
               {format(parseISO(assignment.contract_expires_at), "d. MMM yyyy", {
                 locale: da,
               })}
+              <button
+                type="button"
+                title="Tilføj til kalender"
+                aria-label="Tilføj til kalender"
+                onClick={() =>
+                  import("@/lib/add-to-calendar").then(({ addToCalendar }) =>
+                    addToCalendar({
+                      title: `Konkurrentaftale udløber: ${assignment.competitors?.name ?? ""}`,
+                      date: assignment.contract_expires_at!,
+                      description: assignment.notes ?? undefined,
+                      url: `${window.location.origin}/virksomheder/${companyId}`,
+                      uid: `competitor-${assignment.id}`,
+                    }),
+                  )
+                }
+                className="ml-1 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+              >
+                <CalendarPlus className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
           {assignment.notes && (
