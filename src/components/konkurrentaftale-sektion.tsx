@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Coffee, Pencil, Plus, AlertTriangle, Loader2, Lightbulb } from "lucide-react";
+import { Coffee, Pencil, Plus, AlertTriangle, Loader2, Lightbulb, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
