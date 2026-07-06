@@ -40,6 +40,7 @@ import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authenticated/admin.cvr-debug'
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
 import { Route as ApiPublicQuotePdfTokenRouteImport } from './routes/api/public/quote-pdf.$token'
 import { Route as ApiPublicHooksProcessInvoiceImportRouteImport } from './routes/api/public/hooks/process-invoice-import'
@@ -229,6 +230,11 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminImportIndexRoute =
   AuthenticatedAdminImportIndexRouteImport.update({
     id: '/',
@@ -329,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/t/$token': typeof TTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
@@ -375,6 +382,7 @@ export interface FileRoutesByTo {
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/t/$token': typeof TTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
@@ -422,6 +430,7 @@ export interface FileRoutesById {
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/t/$token': typeof TTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/_authenticated/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
@@ -470,6 +479,7 @@ export interface FileRouteTypes {
     | '/salgsmuligheder'
     | '/virksomheder'
     | '/t/$token'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/brugere'
     | '/admin/cvr-debug'
@@ -516,6 +526,7 @@ export interface FileRouteTypes {
     | '/salgsmuligheder'
     | '/virksomheder'
     | '/t/$token'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/brugere'
     | '/admin/cvr-debug'
@@ -562,6 +573,7 @@ export interface FileRouteTypes {
     | '/_authenticated/salgsmuligheder'
     | '/_authenticated/virksomheder'
     | '/t/$token'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/admin/brugere'
     | '/_authenticated/admin/cvr-debug'
@@ -603,6 +615,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   TTokenRoute: typeof TTokenRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicHooksProcessCvrEnrichmentRoute: typeof ApiPublicHooksProcessCvrEnrichmentRoute
   ApiPublicHooksProcessInvoiceImportRoute: typeof ApiPublicHooksProcessInvoiceImportRoute
@@ -828,6 +841,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/import/': {
       id: '/_authenticated/admin/import/'
       path: '/'
@@ -1029,6 +1049,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   TTokenRoute: TTokenRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicHooksProcessCvrEnrichmentRoute:
     ApiPublicHooksProcessCvrEnrichmentRoute,
