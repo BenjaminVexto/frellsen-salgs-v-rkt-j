@@ -52,7 +52,7 @@ const EnrichmentRow = z
     maskin_type: z.string().nullable().optional(),
     navn: z.string().nullable().optional(),
     adresselinje2: z.string().nullable().optional(),
-    data: z.record(z.any()).nullable().optional(),
+    data: z.record(z.string(), z.any()).nullable().optional(),
   })
   .passthrough();
 

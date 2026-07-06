@@ -329,7 +329,7 @@ export const deleteBatchGroup = createServerFn({ method: "POST" })
 // Import: bulk write companies via service role (bypasser RLS)
 // ============================================================
 
-const CompanyRow = z.record(z.any());
+const CompanyRow = z.record(z.string(), z.any());
 
 function formatDbError(error: any): string {
   return JSON.stringify({
@@ -750,7 +750,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z.object({
-      rows: z.array(z.record(z.any())).min(1).max(50000),
+      rows: z.array(z.record(z.string(), z.any())).min(1).max(50000),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {

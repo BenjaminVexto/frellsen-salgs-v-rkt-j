@@ -9,20 +9,32 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" ? s.next : "",
+  }),
   head: () => ({ meta: [{ title: "Log ind — Frellsen Salgsoversigt" }] }),
 });
 
+function safeNext(next: string): string | null {
+  if (!next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 function LoginPage() {
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard" });
+      if (!data.session) return;
+      const target = safeNext(next);
+      if (target) window.location.replace(target);
+      else navigate({ to: "/dashboard" });
     });
-  }, [navigate]);
+  }, [navigate, next]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +45,9 @@ function LoginPage() {
       toast.error("Login mislykkedes", { description: "Tjek email og adgangskode." });
       return;
     }
-    navigate({ to: "/dashboard" });
+    const target = safeNext(next);
+    if (target) window.location.replace(target);
+    else navigate({ to: "/dashboard" });
   };
 
   return (

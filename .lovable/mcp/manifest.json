@@ -1,0 +1,157 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://emytfeonwuqmgqrwgigw.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "frellsen-salgsoversigt-mcp",
+      "version": "0.1.0",
+      "title": "Frellsen Salgsoversigt"
+    },
+    "tools": [
+      {
+        "name": "search_companies",
+        "title": "Søg virksomheder",
+        "description": "Søg virksomheder efter navn eller by. Returnerer op til 20 matches med id, navn, by og branche. Kun virksomheder den loggede bruger har adgang til (RLS).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Søgetekst (navn eller by)."
+            },
+            "limit": {
+              "description": "Maks antal resultater (default 20).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [
+            "query"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_company",
+        "title": "Hent virksomhed",
+        "description": "Hent detaljer om én virksomhed via id: stamdata, kontaktpersoner og senest registrerede aktiviteter.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "company_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "UUID på virksomheden."
+            }
+          },
+          "required": [
+            "company_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_my_recent_activities",
+        "title": "Mine seneste aktiviteter",
+        "description": "Liste over den loggede brugers seneste registrerede aktiviteter (opkald, besøg, mails, m.m.) på tværs af virksomheder.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "description": "Maks antal (default 20).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_activity",
+        "title": "Registrér aktivitet",
+        "description": "Opret en aktivitet (opkald, besøg, email, note, m.m.) på en virksomhed. Aktiviteten registreres på den loggede bruger.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "company_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "UUID på virksomheden."
+            },
+            "activity_type": {
+              "type": "string",
+              "enum": [
+                "telefonopkald",
+                "besøg",
+                "email",
+                "tilbud_sendt",
+                "møde",
+                "ikke_truffet",
+                "opfølgning_aftalt",
+                "andet"
+              ],
+              "description": "Aktivitetstype."
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Notetekst."
+            },
+            "next_action": {
+              "description": "Aftalt næste handling (fri tekst).",
+              "type": "string"
+            },
+            "next_followup_date": {
+              "description": "Dato for næste opfølgning (YYYY-MM-DD).",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          "required": [
+            "company_id",
+            "activity_type",
+            "note"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
