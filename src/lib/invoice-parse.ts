@@ -4,7 +4,7 @@
 
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import type { MonthlyRow, TopProductRow } from "./invoice-import.functions";
+import type { MonthlyRow, TopProductRow, TopProductMonthlyRow } from "./invoice-import.functions";
 import { readFileSmart } from "./file-encoding";
 
 const COL = {
