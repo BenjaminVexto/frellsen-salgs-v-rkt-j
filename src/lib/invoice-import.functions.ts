@@ -8,6 +8,7 @@ export type MonthlyRow = {
   revenue: number;
   quantity: number;
   contribution: number;
+  weight_kg: number;
   order_count: number;
 };
 
