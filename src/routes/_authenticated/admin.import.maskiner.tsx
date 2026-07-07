@@ -432,10 +432,11 @@ function MaskinerImportSide() {
     expected: string[],
     setter: (s: FileState) => void,
     label: string,
+    opts: { detectDates?: boolean } = {},
   ) {
     try {
       const grid = await readSheetGrid(f);
-      const res = mapSheet(grid, aliases, anchors, expected);
+      const res = mapSheet(grid, aliases, anchors, expected, opts);
       if ("error" in res) {
         setter({ file: f, diag: null, error: res.error });
         toast.error(`${label}: ${res.error}`);
@@ -450,6 +451,7 @@ function MaskinerImportSide() {
       toast.error(`${label}: ${e?.message ?? "kunne ikke læse fil"}`);
     }
   }
+
 
   async function runImport() {
     if (!machineState.diag && !enrichState.diag && !enrichUdenSnState.diag) {
