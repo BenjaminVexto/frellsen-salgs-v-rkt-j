@@ -520,3 +520,37 @@ export const listCompetitorsForSelect = createServerFn({ method: "GET" })
     if (error) throw error;
     return { competitors: (data ?? []) as { id: string; name: string }[] };
   });
+
+export type MonthlyTopProduct = {
+  varenr: string;
+  description: string | null;
+  revenue: number;
+  quantity: number;
+  product_group_1: string | null;
+};
+
+export const getMonthlyTopProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { locationIds: string[]; period: string }) => {
+    if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
+    if (!input?.period) throw new Error("period krævet");
+    return input;
+  })
+  .handler(async ({ data, context }): Promise<MonthlyTopProduct[]> => {
+    if (!data.locationIds.length) return [];
+    const { data: rows, error } = await context.supabase
+      .from("sales_monthly_products")
+      .select("varenr, description, revenue, quantity, product_group_1")
+      .in("location_id", data.locationIds)
+      .eq("period", data.period)
+      .order("revenue", { ascending: false })
+      .limit(15);
+    if (error) throw error;
+    return (rows ?? []).map((r: any) => ({
+      varenr: r.varenr,
+      description: r.description,
+      revenue: Number(r.revenue) || 0,
+      quantity: Number(r.quantity) || 0,
+      product_group_1: r.product_group_1,
+    }));
+  });

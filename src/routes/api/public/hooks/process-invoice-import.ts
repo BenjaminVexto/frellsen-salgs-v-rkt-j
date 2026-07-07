@@ -15,6 +15,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   upsertMonthlySlice,
   upsertTopSlice,
+  upsertTopMonthlySlice,
 } from "@/lib/invoice-import.server";
 
 const MAX_ATTEMPTS = 5;
@@ -45,7 +46,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         const { data: candidates, error: selErr } = await supabaseAdmin
           .from("invoice_import_jobs")
           .select(
-            "id, phase, attempts, aggregated_path, saved_monthly, saved_top, total_monthly, total_top",
+            "id, phase, attempts, aggregated_path, saved_monthly, saved_top, saved_top_monthly, total_monthly, total_top, total_top_monthly",
           )
           .in("status", ["queued", "running"])
           .neq("phase", "done")
@@ -69,31 +70,52 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         try {
           // Find ud af hvilken chunk vi mangler
           let phase = job.phase as string;
-          if (phase !== "monthly" && phase !== "top") {
-            throw new Error("Ukendt phase: " + phase + " (forventede monthly|top)");
+          if (phase !== "monthly" && phase !== "top" && phase !== "top_monthly") {
+            throw new Error("Ukendt phase: " + phase + " (forventede monthly|top|top_monthly)");
           }
 
-          const savedCol = phase === "monthly" ? "saved_monthly" : "saved_top";
-          const totalCol = phase === "monthly" ? "total_monthly" : "total_top";
+          const savedCol =
+            phase === "monthly"
+              ? "saved_monthly"
+              : phase === "top"
+                ? "saved_top"
+                : "saved_top_monthly";
+          const totalCol =
+            phase === "monthly"
+              ? "total_monthly"
+              : phase === "top"
+                ? "total_top"
+                : "total_top_monthly";
+          const chunkPrefix = phase === "top_monthly" ? "top_monthly" : phase;
           const saved = (job[savedCol] as number) ?? 0;
           const total = (job[totalCol] as number) ?? 0;
 
+          function nextPhaseAfter(current: string): string {
+            if (current === "monthly") {
+              if ((job.total_top as number) > 0) return "top";
+              if ((job.total_top_monthly as number) > 0) return "top_monthly";
+              return "done";
+            }
+            if (current === "top") {
+              if ((job.total_top_monthly as number) > 0) return "top_monthly";
+              return "done";
+            }
+            return "done";
+          }
+
           if (saved >= total) {
             // intet at gøre i denne fase — flyt videre
+            const np = nextPhaseAfter(phase);
             const nextUpdate: any =
-              phase === "monthly"
-                ? { phase: "top" }
-                : {
-                    phase: "done",
-                    status: "completed",
-                    finished_at: new Date().toISOString(),
-                  };
+              np === "done"
+                ? { phase: "done", status: "completed", finished_at: new Date().toISOString() }
+                : { phase: np };
             await supabaseAdmin.from("invoice_import_jobs").update(nextUpdate).eq("id", jobId);
             return Response.json({ jobId, advancedTo: nextUpdate.phase });
           }
 
           const chunkIdx = Math.floor(saved / CHUNK_SIZE);
-          const chunkPath = `${prefix}/${phase}-${chunkIdx}.json`;
+          const chunkPath = `${prefix}/${chunkPrefix}-${chunkIdx}.json`;
           const { data: blob, error: dlErr } = await supabaseAdmin.storage
             .from(BUCKET)
             .download(chunkPath);
@@ -104,11 +126,10 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
           const upsertedRows =
             phase === "monthly"
               ? await upsertMonthlySlice(supabaseAdmin, rows)
-              : await upsertTopSlice(supabaseAdmin, rows);
+              : phase === "top"
+                ? await upsertTopSlice(supabaseAdmin, rows)
+                : await upsertTopMonthlySlice(supabaseAdmin, rows);
           // VIGTIGT: tæl chunk-bredden (rows.length), ikke faktisk upsertede.
-          // onConflict kan reducere upsertedRows < CHUNK_SIZE ved dubletter,
-          // hvilket ville få chunkIdx = floor(saved/CHUNK_SIZE) ud af sync
-          // (samme chunk hentes igen → uendelig løkke, eller chunk springes over).
           const savedRows = rows.length;
           const newSaved = saved + savedRows;
           const phaseDone = newSaved >= total;
@@ -117,16 +138,12 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
           let nextStatus = "running";
           let finishedAt: string | null = null;
 
-          if (phaseDone && phase === "monthly") {
-            nextPhase = job.total_top > 0 ? "top" : "done";
+          if (phaseDone) {
+            nextPhase = nextPhaseAfter(phase);
             if (nextPhase === "done") {
               nextStatus = "completed";
               finishedAt = new Date().toISOString();
             }
-          } else if (phaseDone && phase === "top") {
-            nextPhase = "done";
-            nextStatus = "completed";
-            finishedAt = new Date().toISOString();
           }
 
           const updatePayload: any = {
@@ -145,8 +162,10 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             const allChunks: string[] = [];
             const monthlyCount = Math.ceil((job.total_monthly ?? 0) / CHUNK_SIZE);
             const topCount = Math.ceil((job.total_top ?? 0) / CHUNK_SIZE);
+            const topMonthlyCount = Math.ceil((job.total_top_monthly ?? 0) / CHUNK_SIZE);
             for (let i = 0; i < monthlyCount; i++) allChunks.push(`${prefix}/monthly-${i}.json`);
             for (let i = 0; i < topCount; i++) allChunks.push(`${prefix}/top-${i}.json`);
+            for (let i = 0; i < topMonthlyCount; i++) allChunks.push(`${prefix}/top_monthly-${i}.json`);
             if (allChunks.length) {
               await supabaseAdmin.storage.from(BUCKET).remove(allChunks);
             }

@@ -4,7 +4,7 @@
 
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import type { MonthlyRow, TopProductRow } from "./invoice-import.functions";
+import type { MonthlyRow, TopProductRow, TopProductMonthlyRow } from "./invoice-import.functions";
 import { readFileSmart } from "./file-encoding";
 
 const COL = {
@@ -161,15 +161,21 @@ type TopProductAcc = {
 };
 
 
+type TopProductMonthlyAcc = TopProductAcc & { period: string };
+
+
 export async function parseAndAggregate(file: File): Promise<{
   monthly: MonthlyRow[];
   topProducts: TopProductRow[];
+  topProductsMonthly: TopProductMonthlyRow[];
   stats: ParseStats;
 }> {
   const rows = await fileToRows(file);
   const monthlyMap = new Map<string, MonthlyAcc & { delivery: string; period: string; group: string }>();
   // For top products: keyed by (delivery|varenr), only for rows in last 12 months
   const topMap = new Map<string, TopProductAcc & { delivery: string; varenr: string }>();
+  // Monthly top products: keyed by (delivery|period|varenr), also last 12 months
+  const topMonthlyMap = new Map<string, TopProductMonthlyAcc & { delivery: string; varenr: string }>();
 
   const cutoff = new Date();
   cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
@@ -269,6 +275,18 @@ export async function parseAndAggregate(file: File): Promise<{
       t.contribution += db;
       if (!t.description && desc) t.description = desc;
       if ((!t.group || t.group === "0") && group1) t.group = group1;
+
+      const tmKey = `${delivery}|${period}|${varenr}`;
+      let tm = topMonthlyMap.get(tmKey);
+      if (!tm) {
+        tm = { delivery, period, varenr, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
+        topMonthlyMap.set(tmKey, tm);
+      }
+      tm.revenue += revenue;
+      tm.quantity += qty;
+      tm.contribution += db;
+      if (!tm.description && desc) tm.description = desc;
+      if ((!tm.group || tm.group === "0") && group1) tm.group = group1;
     }
 
   }
@@ -313,6 +331,30 @@ export async function parseAndAggregate(file: File): Promise<{
     });
   });
 
+  // Group monthly top products by (delivery, period), take top 15 per (delivery, period)
+  const byDeliveryPeriod = new Map<string, Array<TopProductMonthlyAcc & { delivery: string; varenr: string }>>();
+  topMonthlyMap.forEach((v) => {
+    const k = `${v.delivery}|${v.period}`;
+    const arr = byDeliveryPeriod.get(k) ?? [];
+    arr.push(v);
+    byDeliveryPeriod.set(k, arr);
+  });
+  const topProductsMonthly: TopProductMonthlyRow[] = [];
+  byDeliveryPeriod.forEach((arr) => {
+    arr.sort((a, b) => b.revenue - a.revenue);
+    arr.slice(0, 15).forEach((t) => {
+      topProductsMonthly.push({
+        visma_delivery_no: t.delivery,
+        period: t.period,
+        varenr: t.varenr,
+        description: t.description,
+        revenue: Math.round(t.revenue * 100) / 100,
+        quantity: Math.round(t.quantity * 1000) / 1000,
+        contribution: Math.round(t.contribution * 100) / 100,
+        product_group_1: t.group,
+      });
+    });
+  });
 
-  return { monthly, topProducts, stats };
+  return { monthly, topProducts, topProductsMonthly, stats };
 }

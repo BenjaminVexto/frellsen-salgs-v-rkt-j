@@ -105,15 +105,19 @@ function FakturaImportSide() {
       // 1) Parse + aggregér i browseren (firma 10-filter + delt dato-helper)
       setStage("Parser fakturajournal…");
       setStageProgress(null);
-      const { monthly, topProducts, stats } = await parseAndAggregate(file);
+      const { monthly, topProducts, topProductsMonthly, stats } = await parseAndAggregate(file);
       toast.message(
-        `Parset: ${stats.linesRead.toLocaleString("da-DK")} linjer · ${monthly.length.toLocaleString("da-DK")} månedsrækker · ${topProducts.length.toLocaleString("da-DK")} top-vare-rækker`,
+        `Parset: ${stats.linesRead.toLocaleString("da-DK")} linjer · ${monthly.length.toLocaleString("da-DK")} månedsrækker · ${topProducts.length.toLocaleString("da-DK")} top-vare-rækker · ${topProductsMonthly.length.toLocaleString("da-DK")} måneds-top-varer`,
       );
 
       // 2) Slå alle delivery_nos op én gang server-side
       setStage("Slår leverandørnumre op…");
       const allDeliveryNos = Array.from(
-        new Set([...monthly.map((r) => r.visma_delivery_no), ...topProducts.map((r) => r.visma_delivery_no)]),
+        new Set([
+          ...monthly.map((r) => r.visma_delivery_no),
+          ...topProducts.map((r) => r.visma_delivery_no),
+          ...topProductsMonthly.map((r) => r.visma_delivery_no),
+        ]),
       );
       const { map } = await resolveFn({ data: { deliveryNos: allDeliveryNos } });
       const matched = Object.keys(map).length;
@@ -130,18 +134,23 @@ function FakturaImportSide() {
         ...r,
         location_id: map[r.visma_delivery_no]?.location_id ?? null,
       }));
+      const enrichedTopMonthly = topProductsMonthly.map((r) => ({
+        ...r,
+        location_id: map[r.visma_delivery_no]?.location_id ?? null,
+      }));
 
       // 4) Chunk + upload til private storage
       const newJobId = crypto.randomUUID();
       const monthlyChunks = chunked(enrichedMonthly, CHUNK_SIZE);
       const topChunks = chunked(enrichedTop, CHUNK_SIZE);
-      const totalUploads = monthlyChunks.length + topChunks.length;
+      const topMonthlyChunks = chunked(enrichedTopMonthly, CHUNK_SIZE);
+      const totalUploads = monthlyChunks.length + topChunks.length + topMonthlyChunks.length;
       let uploadIdx = 0;
 
       setStage("Uploader data-chunks til server…");
       setStageProgress({ done: 0, total: totalUploads });
 
-      async function uploadChunk(kind: "monthly" | "top", idx: number, rows: unknown[]) {
+      async function uploadChunk(kind: "monthly" | "top" | "top_monthly", idx: number, rows: unknown[]) {
         const path = `${newJobId}/${kind}-${idx}.json`;
         const body = new Blob([JSON.stringify(rows)], { type: "application/json" });
         const { error } = await supabase.storage
@@ -154,6 +163,7 @@ function FakturaImportSide() {
 
       for (let i = 0; i < monthlyChunks.length; i++) await uploadChunk("monthly", i, monthlyChunks[i]);
       for (let i = 0; i < topChunks.length; i++) await uploadChunk("top", i, topChunks[i]);
+      for (let i = 0; i < topMonthlyChunks.length; i++) await uploadChunk("top_monthly", i, topMonthlyChunks[i]);
 
       // 5) Enqueue jobbet — workeren tager over herfra
       setStage("Tilmelder job til server-worker…");
@@ -163,6 +173,7 @@ function FakturaImportSide() {
           jobId: newJobId,
           totalMonthly: enrichedMonthly.length,
           totalTop: enrichedTop.length,
+          totalTopMonthly: enrichedTopMonthly.length,
           locationsMatched: matched,
           unmatched,
         },

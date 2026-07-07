@@ -23,6 +23,10 @@ export type TopProductRow = {
   product_group_1: string;
 };
 
+export type TopProductMonthlyRow = TopProductRow & {
+  period: string; // YYYY-MM-01
+};
+
 async function assertAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase
     .from("user_roles")
@@ -82,6 +86,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       jobId: string;
       totalMonthly: number;
       totalTop: number;
+      totalTopMonthly: number;
       locationsMatched: number;
       unmatched: string[];
     }) => {
@@ -93,17 +98,28 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const firstPhase =
+      data.totalMonthly > 0
+        ? "monthly"
+        : data.totalTop > 0
+          ? "top"
+          : data.totalTopMonthly > 0
+            ? "top_monthly"
+            : "done";
+
     const { error } = await supabaseAdmin.from("invoice_import_jobs").insert({
       id: data.jobId,
       user_id: context.userId,
-      status: "queued",
-      phase: data.totalMonthly > 0 ? "monthly" : "top",
+      status: firstPhase === "done" ? "completed" : "queued",
+      phase: firstPhase,
       file_path: null,
       aggregated_path: data.jobId, // chunk-prefix i invoice-uploads bucket
       total_monthly: data.totalMonthly,
       total_top: data.totalTop,
+      total_top_monthly: data.totalTopMonthly,
       saved_monthly: 0,
       saved_top: 0,
+      saved_top_monthly: 0,
       locations_matched: data.locationsMatched,
       unmatched_delivery_nos: data.unmatched.slice(0, 500),
       payload: {},

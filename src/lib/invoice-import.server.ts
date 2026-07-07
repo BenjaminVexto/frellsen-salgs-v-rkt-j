@@ -111,3 +111,29 @@ export async function upsertTopSlice(
   }
   return saved;
 }
+
+export async function upsertTopMonthlySlice(
+  supabaseAdmin: any,
+  rows: Array<{
+    visma_delivery_no: string;
+    period: string;
+    varenr: string;
+    description: string;
+    revenue: number;
+    quantity: number;
+    contribution: number;
+    product_group_1: string;
+    location_id: string | null;
+  }>,
+): Promise<number> {
+  let saved = 0;
+  for (let i = 0; i < rows.length; i += UPSERT_BATCH) {
+    const batch = rows.slice(i, i + UPSERT_BATCH);
+    const { error } = await supabaseAdmin
+      .from("sales_monthly_products")
+      .upsert(batch, { onConflict: "visma_delivery_no,period,varenr" });
+    if (error) throw new Error("sales_monthly_products upsert: " + error.message);
+    saved += batch.length;
+  }
+  return saved;
+}
