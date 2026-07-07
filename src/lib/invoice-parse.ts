@@ -275,6 +275,18 @@ export async function parseAndAggregate(file: File): Promise<{
       t.contribution += db;
       if (!t.description && desc) t.description = desc;
       if ((!t.group || t.group === "0") && group1) t.group = group1;
+
+      const tmKey = `${delivery}|${period}|${varenr}`;
+      let tm = topMonthlyMap.get(tmKey);
+      if (!tm) {
+        tm = { delivery, period, varenr, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
+        topMonthlyMap.set(tmKey, tm);
+      }
+      tm.revenue += revenue;
+      tm.quantity += qty;
+      tm.contribution += db;
+      if (!tm.description && desc) tm.description = desc;
+      if ((!tm.group || tm.group === "0") && group1) tm.group = group1;
     }
 
   }
