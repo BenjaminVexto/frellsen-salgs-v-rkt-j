@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
 import {
   fmtKr,
+  fmtKg,
   fmtPct,
   daysSince,
   monthsAgo,
@@ -11,6 +12,7 @@ import {
   sumRows,
   lastPurchasePeriod,
   lastConsumablePurchasePeriod,
+  isConsumableGroup,
   type SalesMonthlyRow,
 } from "@/lib/sales-utils";
 
@@ -37,6 +39,14 @@ export function SalesKpiStrip({
   const prev12 = filterByPeriod(rows, m24, m12);
   const last12Sum = sumRows(last12);
   const prev12Sum = sumRows(prev12);
+
+  // Kg-forbrug: kun forbrugsvaregrupper (kaffe/te/drikke/chokolade)
+  const last12ConsSum = sumRows(last12.filter((r) => isConsumableGroup(r.product_group_1)));
+  const prev12ConsSum = sumRows(prev12.filter((r) => isConsumableGroup(r.product_group_1)));
+  const kgTrend =
+    prev12ConsSum.weightKg > 0
+      ? (last12ConsSum.weightKg - prev12ConsSum.weightKg) / prev12ConsSum.weightKg
+      : null;
 
   const trend = prev12Sum.revenue > 0 ? (last12Sum.revenue - prev12Sum.revenue) / prev12Sum.revenue : null;
   const lastAll = lastPurchasePeriod(rows);

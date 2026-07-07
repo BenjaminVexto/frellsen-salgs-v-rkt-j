@@ -6,6 +6,7 @@ export type SalesMonthlyRow = {
   product_group_1: string;
   revenue: number;
   quantity: number;
+  weight_kg: number;
   contribution: number | null; // null for non-admin
   order_count: number;
 };
@@ -40,6 +41,14 @@ export function fmtKr(n: number, decimals = 0): string {
   }).format(n);
 }
 
+export function fmtKg(n: number, decimals = 0): string {
+  const formatted = new Intl.NumberFormat("da-DK", {
+    maximumFractionDigits: decimals,
+    minimumFractionDigits: decimals,
+  }).format(n);
+  return `${formatted} kg`;
+}
+
 export function fmtPct(n: number, decimals = 1): string {
   return new Intl.NumberFormat("da-DK", {
     style: "percent",
@@ -69,18 +78,20 @@ export function sumRows(rows: SalesMonthlyRow[]) {
   let revenue = 0,
     quantity = 0,
     contribution = 0,
-    orders = 0;
+    orders = 0,
+    weightKg = 0;
   let hasContribution = false;
   for (const r of rows) {
     revenue += Number(r.revenue) || 0;
     quantity += Number(r.quantity) || 0;
+    weightKg += Number(r.weight_kg) || 0;
     if (r.contribution != null) {
       contribution += Number(r.contribution) || 0;
       hasContribution = true;
     }
     orders += Number(r.order_count) || 0;
   }
-  return { revenue, quantity, contribution: hasContribution ? contribution : null, orders };
+  return { revenue, quantity, weightKg, contribution: hasContribution ? contribution : null, orders };
 }
 
 // Filter rows by period range (inclusive start, exclusive end)
