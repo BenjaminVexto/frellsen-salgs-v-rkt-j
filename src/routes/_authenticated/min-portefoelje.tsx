@@ -895,11 +895,15 @@ function RevenueCard({
   current,
   prior,
   latestPeriod,
+  kgCurrent,
+  kgPrior,
 }: {
   label: string;
   current: number;
   prior: number;
   latestPeriod?: string | null;
+  kgCurrent?: number;
+  kgPrior?: number;
 }) {
   // Server-side har allerede pro-rateret 'prior' til samme dag-fraktion som
   // den partielle aktuelle måned (refPeriod), så her sammenlignes 1:1.
@@ -928,6 +932,20 @@ function RevenueCard({
       ? `jan–${day}. ${monthName} ${y} vs. samme periode ${y - 1}`
       : `jan–${monthName} ${y} vs. samme periode ${y - 1}`;
   }
+
+  const hasKg = kgCurrent != null && kgPrior != null;
+  const kgDiff = hasKg ? kgCurrent! - kgPrior! : 0;
+  const kgPct = hasKg && kgPrior !== 0 ? Math.round((kgDiff / Math.abs(kgPrior!)) * 100) : null;
+  const kgUp = kgDiff > 0;
+  const kgDown = kgDiff < 0;
+  const KgIcon = kgUp ? ArrowUp : kgDown ? ArrowDown : Minus;
+  const kgColorCls = kgUp
+    ? "text-emerald-600 dark:text-emerald-500"
+    : kgDown
+    ? "text-destructive"
+    : "text-muted-foreground";
+  const fmtKgVal = (n: number) => Math.round(n).toLocaleString("da-DK") + " kg";
+
   return (
     <Card className="p-4">
       <div className="text-xs text-muted-foreground mb-1">{label}</div>
@@ -939,6 +957,16 @@ function RevenueCard({
         </span>
         <span>· {periodText} (~{fmtKr(Math.round(prior))})</span>
       </div>
+      {hasKg && (
+        <div className="text-xs text-muted-foreground mt-2 pt-2 border-t flex items-center gap-1 flex-wrap">
+          <span className="font-medium text-foreground tabular-nums">{fmtKgVal(kgCurrent!)}</span>
+          <span className={`inline-flex items-center gap-0.5 ${kgColorCls}`}>
+            <KgIcon className="h-3 w-3" />
+            {kgPct === null ? "—" : `${Math.abs(kgPct)} %`}
+          </span>
+          <span>kg kaffe/te/choko/drikke · {periodText} (~{fmtKgVal(kgPrior!)})</span>
+        </div>
+      )}
     </Card>
   );
 }
