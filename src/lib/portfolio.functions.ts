@@ -459,6 +459,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         totalRevYtd += rev;
         agg.revenueYtd += rev;
         if (period === refPeriod) ytdCurLastMonthRev += rev;
+        if (isConsumable) totalWeightKgYtd += weightKg;
         aggs.set(cid, agg);
       }
       if (period >= startPriorYtd && period <= endPriorYtd) {
@@ -467,6 +468,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         if (period === endPriorYtd) {
           ytdPriorLastMonthRev += rev;
           agg.ytdPriorLastMonthRev += rev;
+        }
+        if (isConsumable) {
+          totalWeightKgYtdPrior += weightKg;
+          if (period === endPriorYtd) ytdPriorLastMonthWeightKg += weightKg;
         }
         aggs.set(cid, agg);
       }
