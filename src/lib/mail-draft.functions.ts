@@ -38,7 +38,7 @@ export const generateMailDraft = createServerFn({ method: "POST" })
         supabaseAdmin
           .from("companies")
           .select(
-            "name, city, industry, last_purchase_date, customer_segment_1, customer_segment_2, customer_type, sources",
+            "name, city, industry, last_consumable_sales_date, customer_segment_1, customer_segment_2, customer_type, sources",
           )
           .eq("id", data.company_id)
           .single(),
@@ -71,7 +71,7 @@ export const generateMailDraft = createServerFn({ method: "POST" })
 
     const seg2 = (company.customer_segment_2 ?? "").toString();
     const hasMaskine = /UDLÅN|LEJE|Maskine/i.test(seg2);
-    const lastPurchase = company.last_purchase_date as string | null;
+    const lastPurchase = company.last_consumable_sales_date as string | null;
     const daysSinceBuy = lastPurchase
       ? Math.floor(
           (Date.now() - new Date(lastPurchase).getTime()) /

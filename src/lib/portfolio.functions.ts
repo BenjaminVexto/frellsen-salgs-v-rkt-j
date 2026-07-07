@@ -306,12 +306,13 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     }
 
 
-    // Fetch companies meta (incl. last_sales_date + last_purchase_date til prior status-snapshot)
+    // Fetch companies meta (incl. last_sales_date til prior status-snapshot).
+    // last_purchase_date bruges ikke — upålidelig (manuel Visma-opdatering).
     const compsMeta = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
       supabase
         .from("companies")
         .select(
-          "id, name, city, customer_type, has_active_equipment, last_consumable_sales_date, last_sales_date, last_purchase_date, employees, is_public",
+          "id, name, city, customer_type, has_active_equipment, last_consumable_sales_date, last_sales_date, employees, is_public",
         )
         .in("id", slice)
         .range(from, to),
