@@ -476,7 +476,7 @@ function LokationRow({
 
 type EquipmentUnit = {
   id: string;
-  source: "rental" | "service" | "wittenborg";
+  source: "rental" | "service" | "wittenborg" | "wittenborg_uden_sn";
   is_filter: boolean;
   machine_type: string | null;
   serial_no: string | null;

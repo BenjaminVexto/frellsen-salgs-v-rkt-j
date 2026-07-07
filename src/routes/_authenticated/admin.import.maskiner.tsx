@@ -58,21 +58,26 @@ const ENRICHMENT_ALIASES: Record<string, string> = {
   serienrwit: "serienr",
   // Maskininfo
   maskintypeg2: "maskin_type",
+  typemaskg2: "maskin_type", // UDEN SN: "Type mask (G2)"
   oplysning1tilbehoer: "tilbehor",
   emailadresse: "email",
   levkundenr: "lev_kundenr",
+  levkundnr: "lev_kundenr", // UDEN SN: "Lev kundnr"
   fakturereskundenr: "fak_kundenr",
   status: "status",
   kundeprisgruppe1: "kundeprisgruppe1",
   responsgr6: "respons",
   navn: "navn",
   reservedeleg3: "reservedele",
+  gruppe3: "reservedele", // UDEN SN: "Gruppe 3"
   aftaletypeg4: "aftale_type",
+  gruppe4: "aftale_type", // UDEN SN: "Gruppe 4"
   chf: "chf",
   // Datoer
   leasetdato: "leaset_dato",
   koebtdatodato2: "kobt_dato",
   leaselejedato4: "lease_leje_dato",
+  lejeleasdato4: "lease_leje_dato", // UDEN SN: "Leje/leas. Dato 4"
   beregnetstartdato: "beregnet_startdato",
   bindingophoerleje: "binding_ophor",
   beregnetslutdato: "beregnet_slutdato",
@@ -89,6 +94,8 @@ const ENRICHMENT_ANCHORS = [
   "serienr",
   "serienrwit",
   "maskintypeg2",
+  "typemaskg2",
+  "levkundnr",
   "bindingophoerleje",
   "senstetaelleraflaesningsdato",
   "senestetaelleraflaesningsdato",
@@ -296,6 +303,7 @@ function MaskinerImportSide() {
   const navigate = useNavigate();
   const [machineState, setMachineState] = useState<FileState>({ file: null, diag: null, error: null });
   const [enrichState, setEnrichState] = useState<FileState>({ file: null, diag: null, error: null });
+  const [enrichUdenSnState, setEnrichUdenSnState] = useState<FileState>({ file: null, diag: null, error: null });
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{
     machinesUpserted: number;
@@ -347,7 +355,7 @@ function MaskinerImportSide() {
   }
 
   async function runImport() {
-    if (!machineState.diag && !enrichState.diag) {
+    if (!machineState.diag && !enrichState.diag && !enrichUdenSnState.diag) {
       toast.error("Upload mindst én fil før import");
       return;
     }
@@ -358,15 +366,20 @@ function MaskinerImportSide() {
         data: {
           machineRows: machineState.diag?.rows ?? [],
           enrichmentRows: (enrichState.diag?.rows ?? []).filter((r) => r.serienr) as any,
+          enrichmentRowsUdenSn: (enrichUdenSnState.diag?.rows ?? []).filter((r) => r.serienr) as any,
           diagnostics: {
             machinesFile: machineState.file?.name,
             enrichmentFile: enrichState.file?.name,
+            enrichmentUdenSnFile: enrichUdenSnState.file?.name,
             machinesHeaderRow: machineState.diag?.headerRow,
             enrichmentHeaderRow: enrichState.diag?.headerRow,
+            enrichmentUdenSnHeaderRow: enrichUdenSnState.diag?.headerRow,
             machinesMapped: machineState.diag?.mapped,
             enrichmentMapped: enrichState.diag?.mapped,
+            enrichmentUdenSnMapped: enrichUdenSnState.diag?.mapped,
             machinesMissing: machineState.diag?.missing,
             enrichmentMissing: enrichState.diag?.missing,
+            enrichmentUdenSnMissing: enrichUdenSnState.diag?.missing,
           },
         },
       });
@@ -403,7 +416,9 @@ function MaskinerImportSide() {
 
   const canRun =
     !busy &&
-    (!!machineState.diag?.rows.length || !!enrichState.diag?.rows.length);
+    (!!machineState.diag?.rows.length ||
+      !!enrichState.diag?.rows.length ||
+      !!enrichUdenSnState.diag?.rows.length);
 
   return (
     <div className="px-4 md:px-8 py-8 max-w-3xl mx-auto pb-24 md:pb-8">
@@ -417,8 +432,8 @@ function MaskinerImportSide() {
         <Cog className="h-6 w-6" /> Maskiner & Wittenborg-enrichment
       </h1>
       <p className="text-sm text-muted-foreground mb-6">
-        Importér Maskinlisten og Wittenborg SN-listen. Filerne kan uploades i vilkårlig rækkefølge —
-        header-rækken findes automatisk via ankerfelter, og felter mappes via alias.
+        Importér Maskinlisten og Wittenborg-listerne (SN + UDEN SN). Filerne kan uploades i vilkårlig
+        rækkefølge — header-rækken findes automatisk via ankerfelter, og felter mappes via alias.
       </p>
 
       <Card className="p-6 space-y-6">
@@ -447,6 +462,22 @@ function MaskinerImportSide() {
           }
           disabled={busy}
         />
+        <FileSlot
+          label="Wittenborg UDEN SN"
+          help="XLSX/XLS. Samme struktur som SN-listen, men mangler binding/slutdato. Parses med samme alias-tabel."
+          state={enrichUdenSnState}
+          onFile={(f) =>
+            handleFile(
+              f,
+              ENRICHMENT_ALIASES,
+              ENRICHMENT_ANCHORS,
+              ENRICHMENT_EXPECTED,
+              setEnrichUdenSnState,
+              "Wittenborg UDEN SN",
+            )
+          }
+          disabled={busy}
+        />
 
         <div className="pt-4 border-t flex items-center gap-3">
           <Button onClick={runImport} disabled={!canRun}>
@@ -460,7 +491,8 @@ function MaskinerImportSide() {
           {canRun && !result && (
             <span className="text-xs text-muted-foreground">
               {machineState.diag?.rows.length ?? 0} maskinrækker +{" "}
-              {enrichState.diag?.rows.length ?? 0} enrichment-rækker upserter
+              {enrichState.diag?.rows.length ?? 0} SN +{" "}
+              {enrichUdenSnState.diag?.rows.length ?? 0} UDEN SN upserter
             </span>
           )}
         </div>
