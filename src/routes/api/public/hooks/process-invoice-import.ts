@@ -15,6 +15,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   upsertMonthlySlice,
   upsertTopSlice,
+  upsertTopMonthlySlice,
 } from "@/lib/invoice-import.server";
 
 const MAX_ATTEMPTS = 5;
