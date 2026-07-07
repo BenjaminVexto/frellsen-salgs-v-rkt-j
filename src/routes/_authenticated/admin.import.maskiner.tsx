@@ -687,7 +687,7 @@ function FileSlot({
             <div>Ignorerede kolonner: {state.diag.unknown.join(", ")}</div>
           )}
           {state.diag.dateDetection && (() => {
-            const d = state.diag.dateDetection;
+            const d = state.diag.dateDetection!;
             const mixed = d.usEvidence > 0 && d.dkEvidence > 0;
             const label = d.format === "us" ? "amerikansk (M/D/Å)" : "dansk (D/M/Å)";
             if (!d.confident || mixed) {
