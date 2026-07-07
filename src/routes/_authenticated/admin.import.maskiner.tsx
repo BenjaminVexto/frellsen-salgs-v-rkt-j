@@ -686,6 +686,23 @@ function FileSlot({
           {state.diag.unknown.length > 0 && (
             <div>Ignorerede kolonner: {state.diag.unknown.join(", ")}</div>
           )}
+          {state.diag.dateDetection && (() => {
+            const d = state.diag.dateDetection;
+            const mixed = d.usEvidence > 0 && d.dkEvidence > 0;
+            const label = d.format === "us" ? "amerikansk (M/D/Å)" : "dansk (D/M/Å)";
+            if (!d.confident || mixed) {
+              return (
+                <div className="text-amber-700">
+                  ⚠ Datoformat kunne ikke bekræftes entydigt ({d.usEvidence} amerikanske vs. {d.dkEvidence} danske eksempler{d.ambiguous ? `, ${d.ambiguous} tvetydige` : ""}) — kontrollér kilden i Visma før import.
+                </div>
+              );
+            }
+            return (
+              <div>
+                Datoformat detekteret: <strong>{label}</strong> — {d.usEvidence + d.dkEvidence} utvetydige eksempler, 0 modstridende{d.ambiguous ? ` (${d.ambiguous} tvetydige ignoreret)` : ""}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
