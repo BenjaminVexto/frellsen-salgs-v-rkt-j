@@ -58,21 +58,26 @@ const ENRICHMENT_ALIASES: Record<string, string> = {
   serienrwit: "serienr",
   // Maskininfo
   maskintypeg2: "maskin_type",
+  typemaskg2: "maskin_type", // UDEN SN: "Type mask (G2)"
   oplysning1tilbehoer: "tilbehor",
   emailadresse: "email",
   levkundenr: "lev_kundenr",
+  levkundnr: "lev_kundenr", // UDEN SN: "Lev kundnr"
   fakturereskundenr: "fak_kundenr",
   status: "status",
   kundeprisgruppe1: "kundeprisgruppe1",
   responsgr6: "respons",
   navn: "navn",
   reservedeleg3: "reservedele",
+  gruppe3: "reservedele", // UDEN SN: "Gruppe 3"
   aftaletypeg4: "aftale_type",
+  gruppe4: "aftale_type", // UDEN SN: "Gruppe 4"
   chf: "chf",
   // Datoer
   leasetdato: "leaset_dato",
   koebtdatodato2: "kobt_dato",
   leaselejedato4: "lease_leje_dato",
+  lejeleasdato4: "lease_leje_dato", // UDEN SN: "Leje/leas. Dato 4"
   beregnetstartdato: "beregnet_startdato",
   bindingophoerleje: "binding_ophor",
   beregnetslutdato: "beregnet_slutdato",
