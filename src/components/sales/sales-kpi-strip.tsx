@@ -58,7 +58,7 @@ export function SalesKpiStrip({
     : null;
 
   return (
-    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3 lg:grid-cols-5" : "md:grid-cols-2 lg:grid-cols-4"}`}>
+    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3 lg:grid-cols-6" : "md:grid-cols-2 lg:grid-cols-5"}`}>
       <KpiCard
         icon={<TrendingUp className="h-4 w-4" />}
         label="Omsætning (12 mdr.)"
@@ -74,6 +74,22 @@ export function SalesKpiStrip({
           )
         }
       />
+      <KpiCard
+        icon={<Coffee className="h-4 w-4" />}
+        label="Kg forbrug (12 mdr.)"
+        value={fmtKg(last12ConsSum.weightKg)}
+        trail={
+          kgTrend != null ? (
+            <span className={`text-xs inline-flex items-center gap-0.5 ${kgTrend >= 0 ? "text-success" : "text-destructive"}`}>
+              {kgTrend >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+              {fmtPct(Math.abs(kgTrend))} vs. forrige 12 mdr.
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">Kaffe / te / drikke / chokolade</span>
+          )
+        }
+      />
+
       {isAdmin && (
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
