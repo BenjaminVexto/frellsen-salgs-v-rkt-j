@@ -7,6 +7,7 @@ import {
   monthsAgo,
   lastConsumablePurchasePeriod,
   daysSince,
+  isMachineGroup,
   type SalesMonthlyRow,
 } from "@/lib/sales-utils";
 
@@ -77,6 +78,8 @@ function ConsumableDropSignal({
 
 function RevenueDropSignal({ rows }: { rows: SalesMonthlyRow[] }) {
   // Last 3 months vs same 3 months previous year
+  const nonMachineRows = rows.filter((r) => !isMachineGroup(r.product_group_1));
+
   const now = new Date();
   const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
     .toISOString()
@@ -85,13 +88,13 @@ function RevenueDropSignal({ rows }: { rows: SalesMonthlyRow[] }) {
   const m12 = monthsAgo(14); // 12 mo before m3
   const m15 = monthsAgo(11);
 
-  const recent = sumRows(filterByPeriod(rows, m3, nextMonth));
-  const yoy = sumRows(filterByPeriod(rows, m12, m15));
+  const recent = sumRows(filterByPeriod(nonMachineRows, m3, nextMonth));
+  const yoy = sumRows(filterByPeriod(nonMachineRows, m12, m15));
 
   if (yoy.revenue <= 0) return null;
   if (recent.revenue >= yoy.revenue) return null;
   const recentMonthsWithRevenue = new Set(
-    filterByPeriod(rows, m3, nextMonth)
+    filterByPeriod(nonMachineRows, m3, nextMonth)
       .filter((r) => (Number(r.revenue) || 0) > 0)
       .map((r) => r.period),
   ).size;
@@ -103,10 +106,10 @@ function RevenueDropSignal({ rows }: { rows: SalesMonthlyRow[] }) {
       <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
       <div className="text-sm">
         <div className="font-medium text-amber-900 dark:text-amber-100">
-          Omsætning faldende — ned {fmtPct(drop, 0)}
+          Forbrugsvare-omsætning faldende — ned {fmtPct(drop, 0)}
         </div>
         <div className="text-amber-900/80 dark:text-amber-100/80 mt-0.5">
-          Seneste 3 mdr.: <b>{fmtKr(recent.revenue)}</b> · samme periode året før: <b>{fmtKr(yoy.revenue)}</b>
+          Ekskl. maskinsalg. Seneste 3 mdr.: <b>{fmtKr(recent.revenue)}</b> · samme periode året før: <b>{fmtKr(yoy.revenue)}</b>
         </div>
       </div>
     </div>
