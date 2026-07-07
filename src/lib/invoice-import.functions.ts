@@ -10,6 +10,7 @@ export type MonthlyRow = {
   contribution: number;
   weight_kg: number;
   order_count: number;
+  last_invoice_date: string | null;
 };
 
 export type TopProductRow = {

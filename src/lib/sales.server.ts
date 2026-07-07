@@ -6,7 +6,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export const SALES_COLS_BASE =
-  "visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, weight_kg, order_count";
+  "visma_delivery_no, location_id, company_id, period, last_invoice_date, product_group_1, revenue, quantity, weight_kg, order_count";
 export const SALES_COLS_ADMIN = SALES_COLS_BASE + ", contribution";
 
 export const SALES_PAGE_SIZE = 1000;
@@ -88,6 +88,7 @@ export function stripContribution(rows: any[]) {
     location_id: r.location_id,
     company_id: r.company_id,
     period: r.period,
+    last_invoice_date: r.last_invoice_date ?? null,
     product_group_1: r.product_group_1,
     revenue: Number(r.revenue) || 0,
     quantity: Number(r.quantity) || 0,
@@ -103,6 +104,7 @@ export function withContribution(rows: any[]) {
     location_id: r.location_id,
     company_id: r.company_id,
     period: r.period,
+    last_invoice_date: r.last_invoice_date ?? null,
     product_group_1: r.product_group_1,
     revenue: Number(r.revenue) || 0,
     quantity: Number(r.quantity) || 0,

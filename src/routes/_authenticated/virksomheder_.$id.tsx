@@ -482,17 +482,6 @@ function VirksomhedsKort() {
                 <div className="text-xs text-muted-foreground">Ingen kontaktperson registreret</div>
               );
             })()}
-            {company.last_purchase_date ? (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <ClipboardList className="h-3.5 w-3.5 shrink-0" />
-                Sidste varekøb: {format(new Date(company.last_purchase_date), "d. MMM yyyy", { locale: da })}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <ClipboardList className="h-3.5 w-3.5 shrink-0" />
-                Ingen registreret varekøb
-              </div>
-            )}
             {company.phone && (
               <div className="flex items-center gap-2 text-xs">
                 <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -667,12 +656,6 @@ function VirksomhedsKort() {
                     <KV
                       label="Oprettet i Visma"
                       value={format(new Date((company as any).created_in_visma), "d. MMM yyyy", { locale: da })}
-                    />
-                  )}
-                  {company.last_purchase_date && (
-                    <KV
-                      label="Sidste varekøb (iflg. Visma debitor)"
-                      value={format(new Date(company.last_purchase_date), "d. MMM yyyy", { locale: da })}
                     />
                   )}
                   {(company as any).customer_segment_1 && (

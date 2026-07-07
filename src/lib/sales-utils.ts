@@ -3,6 +3,7 @@ export type SalesMonthlyRow = {
   location_id: string | null;
   company_id: string | null;
   period: string; // YYYY-MM-01
+  last_invoice_date: string | null; // faktisk seneste fakturadato indenfor aggregat
   product_group_1: string;
   revenue: number;
   quantity: number;
