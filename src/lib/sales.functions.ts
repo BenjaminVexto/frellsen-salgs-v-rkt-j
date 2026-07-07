@@ -190,21 +190,9 @@ export const getLocationSalesSummary = createServerFn({ method: "POST" })
     return out;
   });
 
-
 // --- Seller dashboard ---
 
-async function getSellerCompanyIds(supabase: any, userId: string): Promise<string[]> {
-  const ids = new Set<string>();
-  const [{ data: assigned }, { data: assignments }, { data: opps }] = await Promise.all([
-    supabase.from("companies").select("id").eq("assigned_to", userId),
-    supabase.from("contact_list_assignments").select("company_id").eq("assigned_to", userId),
-    supabase.from("sales_opportunities").select("company_id").eq("assigned_to", userId),
-  ]);
-  (assigned ?? []).forEach((r: any) => r.id && ids.add(r.id));
-  (assignments ?? []).forEach((r: any) => r.company_id && ids.add(r.company_id));
-  (opps ?? []).forEach((r: any) => r.company_id && ids.add(r.company_id));
-  return Array.from(ids);
-}
+
 
 export const getMyMonthlySales = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
