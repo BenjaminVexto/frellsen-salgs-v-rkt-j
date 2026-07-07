@@ -223,6 +223,7 @@ export async function parseAndAggregate(file: File): Promise<{
     stats.totalRevenue += revenue;
 
     const period = monthStart(date);
+    const dateIso = parseDanishDateIso(row[COL.DATE]);
     const key = `${delivery}|${period}|${group1}`;
     let acc = monthlyMap.get(key);
     if (!acc) {
@@ -235,8 +236,12 @@ export async function parseAndAggregate(file: File): Promise<{
         contribution: 0,
         weightKg: 0,
         orders: new Set(),
+        lastInvoiceDate: null,
       };
       monthlyMap.set(key, acc);
+    }
+    if (dateIso && (!acc.lastInvoiceDate || dateIso > acc.lastInvoiceDate)) {
+      acc.lastInvoiceDate = dateIso;
     }
 
     const isInternal = revenue === 0 && db !== 0;
@@ -282,6 +287,7 @@ export async function parseAndAggregate(file: File): Promise<{
     contribution: Math.round(a.contribution * 100) / 100,
     weight_kg: Math.round(a.weightKg * 1000) / 1000,
     order_count: a.orders.size,
+    last_invoice_date: a.lastInvoiceDate,
   }));
 
   // Group top products by delivery, take top 15 per delivery

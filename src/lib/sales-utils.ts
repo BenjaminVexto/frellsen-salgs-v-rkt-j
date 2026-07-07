@@ -104,8 +104,8 @@ export function filterByPeriod(
   return rows.filter((r) => r.period >= fromInclusive && r.period < toExclusive);
 }
 
-// Sidste køb (alt) = max period på tværs af rækker med aktivitet
-// (revenue, quantity eller order_count > 0). Driver kundestatus.
+// Sidste køb (alt) = max faktisk fakturadato (falder tilbage til period=1. i mdr.
+// hvis last_invoice_date ikke er sat endnu på ældre importrækker).
 export function lastPurchasePeriod(rows: SalesMonthlyRow[]): string | null {
   let max: string | null = null;
   for (const r of rows) {
@@ -114,7 +114,8 @@ export function lastPurchasePeriod(rows: SalesMonthlyRow[]): string | null {
       (Number(r.quantity) || 0) > 0 ||
       (Number(r.order_count) || 0) > 0;
     if (!hasActivity) continue;
-    if (!max || r.period > max) max = r.period;
+    const d = r.last_invoice_date ?? r.period;
+    if (!max || d > max) max = d;
   }
   return max;
 }
