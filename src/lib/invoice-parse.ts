@@ -190,7 +190,7 @@ export async function parseAndAggregate(file: File): Promise<{
   let maxDate: Date | null = null;
 
   for (const row of rows) {
-    if (!Array.isArray(row) || row.length < 17) {
+    if (!Array.isArray(row) || row.length < 20) {
       stats.invalidLines++;
       continue;
     }
