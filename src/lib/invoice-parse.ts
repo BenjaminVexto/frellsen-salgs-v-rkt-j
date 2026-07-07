@@ -161,15 +161,21 @@ type TopProductAcc = {
 };
 
 
+type TopProductMonthlyAcc = TopProductAcc & { period: string };
+
+
 export async function parseAndAggregate(file: File): Promise<{
   monthly: MonthlyRow[];
   topProducts: TopProductRow[];
+  topProductsMonthly: TopProductMonthlyRow[];
   stats: ParseStats;
 }> {
   const rows = await fileToRows(file);
   const monthlyMap = new Map<string, MonthlyAcc & { delivery: string; period: string; group: string }>();
   // For top products: keyed by (delivery|varenr), only for rows in last 12 months
   const topMap = new Map<string, TopProductAcc & { delivery: string; varenr: string }>();
+  // Monthly top products: keyed by (delivery|period|varenr), also last 12 months
+  const topMonthlyMap = new Map<string, TopProductMonthlyAcc & { delivery: string; varenr: string }>();
 
   const cutoff = new Date();
   cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
