@@ -1721,6 +1721,56 @@ export type Database = {
           },
         ]
       }
+      sales_monthly_products: {
+        Row: {
+          contribution: number
+          description: string | null
+          id: string
+          location_id: string | null
+          period: string
+          product_group_1: string | null
+          quantity: number
+          revenue: number
+          updated_at: string
+          varenr: string
+          visma_delivery_no: string
+        }
+        Insert: {
+          contribution?: number
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          period: string
+          product_group_1?: string | null
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          varenr: string
+          visma_delivery_no: string
+        }
+        Update: {
+          contribution?: number
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          period?: string
+          product_group_1?: string | null
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          varenr?: string
+          visma_delivery_no?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_monthly_products_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_opportunities: {
         Row: {
           assigned_to: string | null
