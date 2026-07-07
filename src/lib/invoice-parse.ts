@@ -279,6 +279,7 @@ export async function parseAndAggregate(file: File): Promise<{
     revenue: Math.round(a.revenue * 100) / 100,
     quantity: Math.round(a.quantity * 1000) / 1000,
     contribution: Math.round(a.contribution * 100) / 100,
+    weight_kg: Math.round(a.weightKg * 1000) / 1000,
     order_count: a.orders.size,
   }));
 
