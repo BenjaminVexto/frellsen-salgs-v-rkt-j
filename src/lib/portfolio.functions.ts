@@ -293,6 +293,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           revenue12mPriorYear: 0,
           revenueYtd: 0,
           revenueYtdPriorSamePeriod: 0,
+          weightKgYtd: 0,
+          weightKgYtdPriorSamePeriod: 0,
           ytdLatestPeriod: null,
           ytdFraction: 1,
           contribution12m: isAdmin ? 0 : null,
