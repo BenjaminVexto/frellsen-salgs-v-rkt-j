@@ -1057,11 +1057,13 @@ export type Database = {
           phase: string
           saved_monthly: number
           saved_top: number
+          saved_top_monthly: number
           started_at: string | null
           status: string
           top_deleted: boolean
           total_monthly: number
           total_top: number
+          total_top_monthly: number
           unmatched_delivery_nos: Json
           updated_at: string
           user_id: string
@@ -1080,11 +1082,13 @@ export type Database = {
           phase?: string
           saved_monthly?: number
           saved_top?: number
+          saved_top_monthly?: number
           started_at?: string | null
           status?: string
           top_deleted?: boolean
           total_monthly?: number
           total_top?: number
+          total_top_monthly?: number
           unmatched_delivery_nos?: Json
           updated_at?: string
           user_id: string
@@ -1103,11 +1107,13 @@ export type Database = {
           phase?: string
           saved_monthly?: number
           saved_top?: number
+          saved_top_monthly?: number
           started_at?: string | null
           status?: string
           top_deleted?: boolean
           total_monthly?: number
           total_top?: number
+          total_top_monthly?: number
           unmatched_delivery_nos?: Json
           updated_at?: string
           user_id?: string
