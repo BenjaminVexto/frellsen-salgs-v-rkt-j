@@ -490,7 +490,7 @@ type EquipmentUnit = {
 type Ownership = "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
 
 const OWNERSHIP_LABEL: Record<Ownership, string> = {
-  leje_ub: "Leje U/B",
+  leje_ub: "Leje – ingen binding",
   leje_binding: "Leje",
   kunde_ejet: "Kundeejet",
   ukendt: "Ukendt",
@@ -865,7 +865,14 @@ function EquipmentBox({ location }: { location: Location }) {
           </div>
           {filters.length > 0 && (
             <div className="text-xs text-muted-foreground pl-1">
-              inkl. {filters.length} {filters.length === 1 ? "filter" : "filtre"}
+              inkl. {filterGroups.map(([type, list]) => {
+                const t = type.toLowerCase();
+                const isAccessory = t.includes("køl") || t.includes("mælk") || t.includes("milk");
+                const noun = isAccessory
+                  ? "tilbehørsdel" + (list.length === 1 ? "" : "e")
+                  : (list.length === 1 ? "filter" : "filtre");
+                return `${list.length} ${noun}`;
+              }).join(", ")}
               {filtersFreeLoan ? " (gratis udlån)" : ""}
             </div>
           )}

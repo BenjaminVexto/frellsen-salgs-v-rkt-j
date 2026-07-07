@@ -92,15 +92,17 @@ const COFFEE_KEYWORDS = [
   "profitec", "egro", "mondo", "racilio", "bravilor",
 ];
 const FILTER_KEYWORDS = ["brita", "purity", "filter", "bwt", "quell", "st komplet"];
-const COOLING_KEYWORDS = ["køl", "vitrifrigo", "mælkekøler", "fridge", "kølesk"];
+const COOLING_KEYWORDS = ["køl", "køleskab", "vitrifrigo", "mælkekøler", "fridge", "kølesk"];
+const MILK_KEYWORDS = ["mælk", "milk"];
 const GRINDER_KEYWORDS = ["kværn"];
 type Category = "coffee" | "filter" | "cooling" | "grinder" | "other";
 function categorize(desc: string): Category {
   const s = (desc || "").toLowerCase();
-  if (COFFEE_KEYWORDS.some((k) => s.includes(k))) return "coffee";
   if (FILTER_KEYWORDS.some((k) => s.includes(k))) return "filter";
   if (COOLING_KEYWORDS.some((k) => s.includes(k))) return "cooling";
+  if (MILK_KEYWORDS.some((k) => s.includes(k))) return "cooling";
   if (GRINDER_KEYWORDS.some((k) => s.includes(k))) return "grinder";
+  if (COFFEE_KEYWORDS.some((k) => s.includes(k))) return "coffee";
   return "other";
 }
 const FREE_LOAN_TOKENS = ["u/b", "4 [udlån]", "udlån", "6 [midlertidigt", "8 [prøve"];
@@ -569,14 +571,40 @@ export const importMachines = createServerFn({ method: "POST" })
           // Maskinen bærer serienummeret; filteret står som tilbehør uden synligt serienr.
           // Tæl konflikter: ikke-filter maskinrækker hvor serienr ikke matcher Wittenborg.
           const witSet = wittenborgByLoc.get(loc.id);
+          // Gruppér a.units efter serial_no FØR matching, så vi kan se om en gruppe
+          // har 1 række (ren dublet) eller flere (maskine + tilbehør).
+          const bySerial = new Map<string, typeof a.units>();
+          for (const u of a.units) {
+            if (!u.serial_no) continue;
+            const list = bySerial.get(u.serial_no) ?? [];
+            list.push(u);
+            bySerial.set(u.serial_no, list);
+          }
+          const skipUnits = new Set<typeof a.units[number]>();
           for (const u of a.units) {
             if (!u.serial_no) continue;
             const matchesWit = !!witSet && witSet.has(u.serial_no);
+            const group = bySerial.get(u.serial_no) ?? [];
+            const isSoleRow = group.length === 1;
+
             if (u.is_filter && matchesWit) {
+              u.serial_no = null;
+            } else if (!u.is_filter && matchesWit && categorize(u.machine_type ?? "") !== "coffee") {
+              // Tilbehør (køl/mælk/grinder) der deler serienr med Wittenborg-maskine:
+              // fold ind som filtrene, vis ikke som selvstændigt kort.
+              u.is_filter = true;
+              u.serial_no = null;
+            } else if (!u.is_filter && matchesWit && isSoleRow) {
+              // Ren dublet: Wittenborg-enheden dækker denne — skip.
+              skipUnits.add(u);
+            } else if (!u.is_filter && matchesWit) {
               u.serial_no = null;
             } else if (!u.is_filter && !matchesWit) {
               machineSerialConflicts++;
             }
+          }
+          if (skipUnits.size > 0) {
+            a.units = a.units.filter((u) => !skipUnits.has(u));
           }
 
           const agreementTypes = a.agreementSet.size > 0 ? Array.from(a.agreementSet).join(", ") : null;
