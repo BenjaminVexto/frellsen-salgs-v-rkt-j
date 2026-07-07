@@ -383,7 +383,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     // produktgruppe "16 [Maskiner/Service]". Maskingruppen klumper i januar
     // pga. årlig service-/leje-fakturering og giver ellers falske fald.
     // revenue12m/contribution12m bevares som TOTAL (inkl. maskiner).
-    const MACHINE_RE = /^\s*16\s*\[/;
+    const isMachineGroup = (groupRaw: string): boolean => {
+      const code = groupRaw.trim().match(/^(\d+)/)?.[1] ?? null;
+      return code === "16";
+    };
 
     // --- Pr-kunde sporing for rytme + prior-snapshot ---
     // Aktive consumable-måneder (revenue > 0 i prisgruppe 2/4/6/10) — bruges til rytme-median.
@@ -404,7 +407,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
       const groupRaw = String((r as any).product_group_1 ?? "");
-      const isMachine = MACHINE_RE.test(groupRaw);
+      const isMachine = isMachineGroup(groupRaw);
       const groupCode = groupRaw.trim().match(/^(\d+)/)?.[1] ?? null;
       const isConsumable =
         groupCode === "2" || groupCode === "4" || groupCode === "6" || groupCode === "10";
