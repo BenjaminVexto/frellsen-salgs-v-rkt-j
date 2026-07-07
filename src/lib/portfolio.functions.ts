@@ -897,11 +897,15 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           ? Math.min(today.getUTCDate(), daysInMonth) / daysInMonth
           : 1;
         const priorAdj = totalRevYtdPrior - ytdPriorLastMonthRev * (1 - fraction);
+        const priorAdjWeightKg =
+          totalWeightKgYtdPrior - ytdPriorLastMonthWeightKg * (1 - fraction);
         return {
           revenue12m: totalRev12,
           revenue12mPriorYear: totalRevPrior,
           revenueYtd: totalRevYtd,
           revenueYtdPriorSamePeriod: priorAdj,
+          weightKgYtd: totalWeightKgYtd,
+          weightKgYtdPriorSamePeriod: priorAdjWeightKg,
           ytdLatestPeriod: latestPeriod,
           ytdFraction: fraction,
           contribution12m: isAdmin ? totalContrib : null,
