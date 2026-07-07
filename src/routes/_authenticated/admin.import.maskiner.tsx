@@ -241,6 +241,9 @@ function mapSheet(
       } else if (FORCE_TEXT.has(canonical)) {
         obj[canonical] = forceText(raw);
       } else if (DATE_FIELDS.has(canonical)) {
+        if ((canonical === "binding_ophor" || canonical === "lease_leje_dato") && rows.length < 10) {
+          console.log(`[DIAG] ${canonical} raw=`, raw, "typeof=", typeof raw, "instanceof Date=", raw instanceof Date, "parsed=", toIsoDate(raw));
+        }
         obj[canonical] = toIsoDate(raw);
       } else if (NUMBER_FIELDS.has(canonical)) {
         obj[canonical] = toNumber(raw);
