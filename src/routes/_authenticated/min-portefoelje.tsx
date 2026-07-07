@@ -189,6 +189,8 @@ function PortfolioPage() {
                 current={data.totals.revenueYtd}
                 prior={data.totals.revenueYtdPriorSamePeriod}
                 latestPeriod={data.totals.ytdLatestPeriod}
+                kgCurrent={data.totals.weightKgYtd}
+                kgPrior={data.totals.weightKgYtdPriorSamePeriod}
               />
 
               <Card className="p-4">
