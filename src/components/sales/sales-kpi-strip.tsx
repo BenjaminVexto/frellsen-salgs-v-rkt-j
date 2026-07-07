@@ -102,7 +102,7 @@ export function SalesKpiStrip({
       <KpiCard
         icon={<Calendar className="h-4 w-4" />}
         label="Sidste køb (alt)"
-        value={lastAll ? format(parseISO(lastAll), "MMM yyyy", { locale: da }) : "—"}
+        value={lastAll ? format(parseISO(lastAll), "d. MMM yyyy", { locale: da }) : "—"}
         trail={
           lastAll ? (
             <span className="text-xs text-muted-foreground">for {daysSince(lastAll)} dage siden · alt salg + udstyr</span>
@@ -114,7 +114,7 @@ export function SalesKpiStrip({
       <KpiCard
         icon={<Coffee className="h-4 w-4" />}
         label="Sidste varekøb (forbrug)"
-        value={lastCons ? format(parseISO(lastCons), "MMM yyyy", { locale: da }) : "—"}
+        value={lastCons ? format(parseISO(lastCons), "d. MMM yyyy", { locale: da }) : "—"}
         trail={
           lastCons ? (
             <span className="text-xs text-muted-foreground">for {daysSince(lastCons)} dage siden · kaffe / te / chokolade / drikke</span>
