@@ -805,6 +805,59 @@ export const importMachines = createServerFn({ method: "POST" })
         );
       }
 
+      // ---- STEP 6d: Indsæt source='wittenborg_uden_sn' units (idempotent pr. lokation) ----
+      if (wittenborgUdenSnUnits.length > 0) {
+        const witLocs = Array.from(wittenborgUdenSnLocIds);
+        const CHUNK_D = 300;
+        for (let i = 0; i < witLocs.length; i += CHUNK_D) {
+          const slice = witLocs.slice(i, i + CHUNK_D);
+          const { error } = await supabaseAdmin
+            .from("location_equipment_units")
+            .delete()
+            .eq("source", "wittenborg_uden_sn")
+            .in("location_id", slice);
+          if (error) console.error("[machines-import] wittenborg_uden_sn delete fejl:", error.message);
+        }
+        const witBatchId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? (crypto as any).randomUUID()
+            : null;
+        const seenKey = new Set<string>();
+        const witRows: Record<string, any>[] = [];
+        for (const w of wittenborgUdenSnUnits) {
+          const k = `${w.location_id}||${w.serial_no}`;
+          if (seenKey.has(k)) continue;
+          seenKey.add(k);
+          witRows.push({
+            source: "wittenborg_uden_sn",
+            location_id: w.location_id,
+            is_filter: false,
+            machine_type: w.machine_type,
+            serial_no: w.serial_no,
+            sub_location: w.sub_location,
+            agreement_type: null,
+            is_free_loan: false,
+            has_service_contract: false,
+            varenr: null,
+            udstyr_type: w.udstyr_type,
+            import_batch_id: witBatchId,
+          });
+        }
+        const CHUNK_I = 500;
+        for (let i = 0; i < witRows.length; i += CHUNK_I) {
+          const slice = witRows.slice(i, i + CHUNK_I);
+          const { error } = await supabaseAdmin
+            .from("location_equipment_units")
+            .insert(slice as any);
+          if (error) console.error("[machines-import] wittenborg_uden_sn insert fejl:", error.message);
+          else wittenborgUdenSnUnitsInserted += slice.length;
+        }
+        console.log(
+          `[machines-import] STEP 6d DONE: wittenborgUdenSnInserted=${wittenborgUdenSnUnitsInserted} (uniqueRows=${witRows.length}) onLocs=${witLocs.length} unmatched=${wittenborgUdenSnUnmatched}`,
+        );
+      }
+
+
 
 
       const enrMap = new Map<string, any>();
@@ -896,6 +949,8 @@ export const importMachines = createServerFn({ method: "POST" })
         wittenborgUnmatched,
         machineSerialConflicts,
         wittenborgTypeCounts,
+        wittenborgUdenSnUnitsInserted,
+        wittenborgUdenSnUnmatched,
         importedAt,
 
       };
