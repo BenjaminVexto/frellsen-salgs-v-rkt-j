@@ -557,6 +557,7 @@ function MaskinerImportSide() {
               ENRICHMENT_EXPECTED,
               setEnrichState,
               "Wittenborg SN",
+              { detectDates: true },
             )
           }
           disabled={busy}
