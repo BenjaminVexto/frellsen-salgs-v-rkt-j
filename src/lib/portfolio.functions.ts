@@ -324,8 +324,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     // Fetch sales_monthly for the prior-year window through now
     const select = isAdmin
-      ? "company_id, period, revenue, contribution, product_group_1"
-      : "company_id, period, revenue, product_group_1";
+      ? "company_id, period, revenue, contribution, product_group_1, weight_kg"
+      : "company_id, period, revenue, product_group_1, weight_kg";
     const salesClient = isAdmin ? supabaseAdmin : supabase;
     const salesRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
       salesClient
