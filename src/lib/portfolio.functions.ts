@@ -115,6 +115,8 @@ export type PortfolioPayload = {
     revenue12mPriorYear: number;
     revenueYtd: number;
     revenueYtdPriorSamePeriod: number;
+    weightKgYtd: number;
+    weightKgYtdPriorSamePeriod: number;
     ytdLatestPeriod: string | null;
     ytdFraction: number;
     contribution12m: number | null;
