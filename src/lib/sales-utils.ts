@@ -130,6 +130,16 @@ export function isConsumableGroup(raw: string | null | undefined): boolean {
   return CONSUMABLE_CODES.has(m[1]);
 }
 
+// Maskiner/service (gruppe 16) — ekskluderes fra omsætnings-trend-signaler,
+// da engangs-maskinsalg/leasing-opsætning forvrænger YoY-sammenligning.
+const MACHINE_CODES = new Set(["16"]);
+export function isMachineGroup(raw: string | null | undefined): boolean {
+  const s = (raw ?? "").trim();
+  const m = s.match(/^(\d+)/);
+  if (!m) return false;
+  return MACHINE_CODES.has(m[1]);
+}
+
 // Sidste forbrugsvarekøb (kaffe/te/chokolade/drikke).
 export function lastConsumablePurchasePeriod(rows: SalesMonthlyRow[]): string | null {
   let max: string | null = null;
