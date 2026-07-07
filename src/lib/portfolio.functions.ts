@@ -411,6 +411,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       if (!cid) continue;
       const period = r.period as string;
       const rev = Number(r.revenue) || 0;
+      const weightKg = Number((r as any).weight_kg) || 0;
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
       const groupRaw = String((r as any).product_group_1 ?? "");
