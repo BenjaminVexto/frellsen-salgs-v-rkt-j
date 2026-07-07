@@ -668,7 +668,7 @@ function EquipmentBox({ location }: { location: Location }) {
   const summaryParts: string[] = [];
   if (ownershipCounts.kunde_ejet) summaryParts.push(`${ownershipCounts.kunde_ejet} kundeejede`);
   if (ownershipCounts.leje_binding) summaryParts.push(`${ownershipCounts.leje_binding} leje`);
-  if (ownershipCounts.leje_ub) summaryParts.push(`${ownershipCounts.leje_ub} leje U/B`);
+  if (ownershipCounts.leje_ub) summaryParts.push(`${ownershipCounts.leje_ub} leje – ingen binding`);
   if (ownershipCounts.ukendt) summaryParts.push(`${ownershipCounts.ukendt} ukendt`);
 
 
