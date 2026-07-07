@@ -214,6 +214,7 @@ export async function parseAndAggregate(file: File): Promise<{
     const group1 = String(row[COL.GROUP1] ?? "").trim() || "0";
     const revenue = parseDanishNumber(row[COL.REVENUE]);
     const db = parseDanishNumber(row[COL.DB]);
+    const weightKg = parseDanishNumber(row[COL.NETTOVAEGT]);
 
     deliverySet.add(delivery);
     if (!minDate || date < minDate) minDate = date;
@@ -231,6 +232,7 @@ export async function parseAndAggregate(file: File): Promise<{
         revenue: 0,
         quantity: 0,
         contribution: 0,
+        weightKg: 0,
         orders: new Set(),
       };
       monthlyMap.set(key, acc);
@@ -244,6 +246,7 @@ export async function parseAndAggregate(file: File): Promise<{
       acc.revenue += revenue;
       acc.quantity += qty;
       acc.contribution += db;
+      acc.weightKg += weightKg;
       if (orderNo) acc.orders.add(orderNo);
     }
 
