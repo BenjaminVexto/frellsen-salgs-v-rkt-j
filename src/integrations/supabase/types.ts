@@ -1663,6 +1663,7 @@ export type Database = {
           company_id: string | null
           contribution: number
           id: string
+          last_invoice_date: string | null
           location_id: string | null
           order_count: number
           period: string
@@ -1677,6 +1678,7 @@ export type Database = {
           company_id?: string | null
           contribution?: number
           id?: string
+          last_invoice_date?: string | null
           location_id?: string | null
           order_count?: number
           period: string
@@ -1691,6 +1693,7 @@ export type Database = {
           company_id?: string | null
           contribution?: number
           id?: string
+          last_invoice_date?: string | null
           location_id?: string | null
           order_count?: number
           period?: string
