@@ -140,7 +140,8 @@ export function lastConsumablePurchasePeriod(rows: SalesMonthlyRow[]): string | 
       (Number(r.quantity) || 0) > 0 ||
       (Number(r.order_count) || 0) > 0;
     if (!hasActivity) continue;
-    if (!max || r.period > max) max = r.period;
+    const d = r.last_invoice_date ?? r.period;
+    if (!max || d > max) max = d;
   }
   return max;
 }
