@@ -150,6 +150,7 @@ type MonthlyAcc = {
   contribution: number;
   weightKg: number;
   orders: Set<string>;
+  lastInvoiceDate: string | null;
 };
 type TopProductAcc = {
   description: string;
