@@ -16,8 +16,9 @@ const COL = {
   DESC: 9,
   QTY: 10,
   GROUP1: 11,
-  REVENUE: 15,
-  DB: 16,
+  NETTOVAEGT: 13,
+  REVENUE: 16,
+  DB: 17,
 } as const;
 
 // Kun firma 10 (Frellsen Kaffe) må importeres. Alt andet (20/30/40/50/70 …) springes over.
@@ -147,6 +148,7 @@ type MonthlyAcc = {
   revenue: number;
   quantity: number;
   contribution: number;
+  weightKg: number;
   orders: Set<string>;
 };
 type TopProductAcc = {
@@ -188,7 +190,7 @@ export async function parseAndAggregate(file: File): Promise<{
   let maxDate: Date | null = null;
 
   for (const row of rows) {
-    if (!Array.isArray(row) || row.length < 17) {
+    if (!Array.isArray(row) || row.length < 20) {
       stats.invalidLines++;
       continue;
     }
@@ -212,6 +214,7 @@ export async function parseAndAggregate(file: File): Promise<{
     const group1 = String(row[COL.GROUP1] ?? "").trim() || "0";
     const revenue = parseDanishNumber(row[COL.REVENUE]);
     const db = parseDanishNumber(row[COL.DB]);
+    const weightKg = parseDanishNumber(row[COL.NETTOVAEGT]);
 
     deliverySet.add(delivery);
     if (!minDate || date < minDate) minDate = date;
@@ -229,6 +232,7 @@ export async function parseAndAggregate(file: File): Promise<{
         revenue: 0,
         quantity: 0,
         contribution: 0,
+        weightKg: 0,
         orders: new Set(),
       };
       monthlyMap.set(key, acc);
@@ -242,6 +246,7 @@ export async function parseAndAggregate(file: File): Promise<{
       acc.revenue += revenue;
       acc.quantity += qty;
       acc.contribution += db;
+      acc.weightKg += weightKg;
       if (orderNo) acc.orders.add(orderNo);
     }
 
@@ -274,6 +279,7 @@ export async function parseAndAggregate(file: File): Promise<{
     revenue: Math.round(a.revenue * 100) / 100,
     quantity: Math.round(a.quantity * 1000) / 1000,
     contribution: Math.round(a.contribution * 100) / 100,
+    weight_kg: Math.round(a.weightKg * 1000) / 1000,
     order_count: a.orders.size,
   }));
 

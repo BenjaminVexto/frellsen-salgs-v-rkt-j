@@ -1671,6 +1671,7 @@ export type Database = {
           revenue: number
           updated_at: string
           visma_delivery_no: string
+          weight_kg: number
         }
         Insert: {
           company_id?: string | null
@@ -1684,6 +1685,7 @@ export type Database = {
           revenue?: number
           updated_at?: string
           visma_delivery_no: string
+          weight_kg?: number
         }
         Update: {
           company_id?: string | null
@@ -1697,6 +1699,7 @@ export type Database = {
           revenue?: number
           updated_at?: string
           visma_delivery_no?: string
+          weight_kg?: number
         }
         Relationships: [
           {
