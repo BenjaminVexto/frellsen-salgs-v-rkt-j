@@ -384,7 +384,7 @@ export const importMachines = createServerFn({ method: "POST" })
       // Fælles lokationsopslag — bruges af både rental-aggregat og Wittenborg-pass.
       const locByNormDelivery = new Map<string, { id: string; company_id: string }>();
       const locsByCompany = new Map<string, { id: string; visma_delivery_no: string | null }[]>();
-      const compByNormFak = new Map<string, { id: string; last_purchase_date: string | null }>();
+      const compByNormFak = new Map<string, { id: string; last_consumable_sales_date: string | null }>();
 
       if (needLocLookup) {
         const PAGE = 1000;
@@ -414,7 +414,7 @@ export const importMachines = createServerFn({ method: "POST" })
         while (true) {
           const { data: rows, error } = await supabaseAdmin
             .from("companies")
-            .select("id, visma_id, last_purchase_date")
+            .select("id, visma_id, last_consumable_sales_date")
             .range(from, from + PAGE - 1);
           if (error) throw new Error("companies select: " + error.message);
           if (!rows || rows.length === 0) break;
@@ -422,7 +422,7 @@ export const importMachines = createServerFn({ method: "POST" })
             if (c.visma_id) {
               const kk = normalizeVismaNo(c.visma_id);
               if (kk && !compByNormFak.has(kk)) {
-                compByNormFak.set(kk, { id: c.id, last_purchase_date: c.last_purchase_date });
+                compByNormFak.set(kk, { id: c.id, last_consumable_sales_date: c.last_consumable_sales_date });
               }
             }
           }
@@ -669,7 +669,7 @@ export const importMachines = createServerFn({ method: "POST" })
 
           const agreementTypes = a.agreementSet.size > 0 ? Array.from(a.agreementSet).join(", ") : null;
           const summary = buildSummary(a.coffee, a.filters, a.cooling, 0);
-          const lpd = company?.last_purchase_date ?? null;
+          const lpd = company?.last_consumable_sales_date ?? null;
           const signal = computeSalesSignal(a.freeLoan, 0, a.total, lpd);
           updates.push({
             id: loc.id,
