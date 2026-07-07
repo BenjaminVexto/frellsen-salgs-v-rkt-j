@@ -99,10 +99,10 @@ type Category = "coffee" | "filter" | "cooling" | "grinder" | "other";
 function categorize(desc: string): Category {
   const s = (desc || "").toLowerCase();
   if (FILTER_KEYWORDS.some((k) => s.includes(k))) return "filter";
+  if (COFFEE_KEYWORDS.some((k) => s.includes(k))) return "coffee";
   if (COOLING_KEYWORDS.some((k) => s.includes(k))) return "cooling";
   if (MILK_KEYWORDS.some((k) => s.includes(k))) return "cooling";
   if (GRINDER_KEYWORDS.some((k) => s.includes(k))) return "grinder";
-  if (COFFEE_KEYWORDS.some((k) => s.includes(k))) return "coffee";
   return "other";
 }
 const FREE_LOAN_TOKENS = ["u/b", "4 [udlån]", "udlån", "6 [midlertidigt", "8 [prøve"];
