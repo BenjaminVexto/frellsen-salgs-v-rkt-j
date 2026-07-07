@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { parseProductGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
 import { getCompaniesSuppliedByOthers } from "./relations.functions";
 
-const SALES_COLS_BASE = "visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, order_count";
+const SALES_COLS_BASE = "visma_delivery_no, location_id, company_id, period, product_group_1, revenue, quantity, weight_kg, order_count";
 const SALES_COLS_ADMIN = SALES_COLS_BASE + ", contribution";
 
 
@@ -95,6 +95,7 @@ function stripContribution(rows: any[]): SalesMonthlyRow[] {
     product_group_1: r.product_group_1,
     revenue: Number(r.revenue) || 0,
     quantity: Number(r.quantity) || 0,
+    weight_kg: Number(r.weight_kg) || 0,
     contribution: null,
     order_count: r.order_count ?? 0,
   }));
@@ -109,6 +110,7 @@ function withContribution(rows: any[]): SalesMonthlyRow[] {
     product_group_1: r.product_group_1,
     revenue: Number(r.revenue) || 0,
     quantity: Number(r.quantity) || 0,
+    weight_kg: Number(r.weight_kg) || 0,
     contribution: Number(r.contribution) || 0,
     order_count: r.order_count ?? 0,
   }));

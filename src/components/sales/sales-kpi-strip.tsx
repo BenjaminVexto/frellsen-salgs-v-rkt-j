@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
 import {
   fmtKr,
+  fmtKg,
   fmtPct,
   daysSince,
   monthsAgo,
@@ -11,6 +12,7 @@ import {
   sumRows,
   lastPurchasePeriod,
   lastConsumablePurchasePeriod,
+  isConsumableGroup,
   type SalesMonthlyRow,
 } from "@/lib/sales-utils";
 
@@ -38,6 +40,14 @@ export function SalesKpiStrip({
   const last12Sum = sumRows(last12);
   const prev12Sum = sumRows(prev12);
 
+  // Kg-forbrug: kun forbrugsvaregrupper (kaffe/te/drikke/chokolade)
+  const last12ConsSum = sumRows(last12.filter((r) => isConsumableGroup(r.product_group_1)));
+  const prev12ConsSum = sumRows(prev12.filter((r) => isConsumableGroup(r.product_group_1)));
+  const kgTrend =
+    prev12ConsSum.weightKg > 0
+      ? (last12ConsSum.weightKg - prev12ConsSum.weightKg) / prev12ConsSum.weightKg
+      : null;
+
   const trend = prev12Sum.revenue > 0 ? (last12Sum.revenue - prev12Sum.revenue) / prev12Sum.revenue : null;
   const lastAll = lastPurchasePeriod(rows);
   const lastCons = lastConsumablePurchasePeriod(rows);
@@ -48,7 +58,7 @@ export function SalesKpiStrip({
     : null;
 
   return (
-    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3 lg:grid-cols-5" : "md:grid-cols-2 lg:grid-cols-4"}`}>
+    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3 lg:grid-cols-6" : "md:grid-cols-2 lg:grid-cols-5"}`}>
       <KpiCard
         icon={<TrendingUp className="h-4 w-4" />}
         label="Omsætning (12 mdr.)"
@@ -64,6 +74,22 @@ export function SalesKpiStrip({
           )
         }
       />
+      <KpiCard
+        icon={<Coffee className="h-4 w-4" />}
+        label="Kg forbrug (12 mdr.)"
+        value={fmtKg(last12ConsSum.weightKg)}
+        trail={
+          kgTrend != null ? (
+            <span className={`text-xs inline-flex items-center gap-0.5 ${kgTrend >= 0 ? "text-success" : "text-destructive"}`}>
+              {kgTrend >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+              {fmtPct(Math.abs(kgTrend))} vs. forrige 12 mdr.
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">Kaffe / te / drikke / chokolade</span>
+          )
+        }
+      />
+
       {isAdmin && (
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
