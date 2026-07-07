@@ -148,6 +148,7 @@ type MonthlyAcc = {
   revenue: number;
   quantity: number;
   contribution: number;
+  weightKg: number;
   orders: Set<string>;
 };
 type TopProductAcc = {
