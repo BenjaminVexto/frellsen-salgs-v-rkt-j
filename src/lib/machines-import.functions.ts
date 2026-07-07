@@ -462,6 +462,10 @@ export const importMachines = createServerFn({ method: "POST" })
         udstyr_type: UdstyrType;
       };
       const wittenborgByLoc = new Map<string, Set<string>>();
+      // Wittenborgs egen maskintype pr. (loc, serienr) — bruges til at afgøre
+      // om en Maskinliste-række ER selve den Wittenborg-sporede maskine (skip)
+      // eller reelt tilbehør der arver serienr (fold ind som filter).
+      const witTypeByLocSerial = new Map<string, string>();
       const wittenborgUnits: WittenborgUnit[] = [];
       const wittenborgLocIds = new Set<string>();
       const wittenborgTypeCounts: Record<UdstyrType, number> = {
