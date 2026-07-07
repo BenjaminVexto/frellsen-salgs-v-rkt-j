@@ -370,6 +370,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     let totalRevYtdPrior = 0;
     let ytdCurLastMonthRev = 0;
     let ytdPriorLastMonthRev = 0;
+    let totalWeightKgYtd = 0;
+    let totalWeightKgYtdPrior = 0;
+    let ytdPriorLastMonthWeightKg = 0;
     // Find seneste periode i datasættet for YTD-referencepunkt.
     let latestPeriod: string | null = null;
     for (const r of salesRows) {
