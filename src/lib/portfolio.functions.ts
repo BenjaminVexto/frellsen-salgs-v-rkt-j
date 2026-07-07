@@ -608,12 +608,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         const lastSalesEffective = lastSalesPeriod
           ? periodToDate(lastSalesPeriod)
           : parseDate(meta.last_sales_date ?? null);
-        const lastPurchase = parseDate(meta.last_purchase_date ?? null);
-        let effective: Date | null = null;
-        if (lastSalesEffective) effective = lastSalesEffective;
-        if (lastPurchase && (!effective || lastPurchase.getTime() > effective.getTime())) {
-          effective = lastPurchase;
-        }
+        const effective: Date | null = lastSalesEffective;
         const type = deriveCustomerType(effective, c.has_active_equipment, cutoff12, cutoff24);
         if (type === "aktiv_kunde") aktive++;
         else if (type === "sovende_kunde") sovende++;
