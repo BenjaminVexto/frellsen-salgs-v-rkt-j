@@ -115,6 +115,8 @@ export type PortfolioPayload = {
     revenue12mPriorYear: number;
     revenueYtd: number;
     revenueYtdPriorSamePeriod: number;
+    weightKgYtd: number;
+    weightKgYtdPriorSamePeriod: number;
     ytdLatestPeriod: string | null;
     ytdFraction: number;
     contribution12m: number | null;
@@ -291,6 +293,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           revenue12mPriorYear: 0,
           revenueYtd: 0,
           revenueYtdPriorSamePeriod: 0,
+          weightKgYtd: 0,
+          weightKgYtdPriorSamePeriod: 0,
           ytdLatestPeriod: null,
           ytdFraction: 1,
           contribution12m: isAdmin ? 0 : null,
@@ -320,8 +324,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     // Fetch sales_monthly for the prior-year window through now
     const select = isAdmin
-      ? "company_id, period, revenue, contribution, product_group_1"
-      : "company_id, period, revenue, product_group_1";
+      ? "company_id, period, revenue, contribution, product_group_1, weight_kg"
+      : "company_id, period, revenue, product_group_1, weight_kg";
     const salesClient = isAdmin ? supabaseAdmin : supabase;
     const salesRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
       salesClient
@@ -366,6 +370,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     let totalRevYtdPrior = 0;
     let ytdCurLastMonthRev = 0;
     let ytdPriorLastMonthRev = 0;
+    let totalWeightKgYtd = 0;
+    let totalWeightKgYtdPrior = 0;
+    let ytdPriorLastMonthWeightKg = 0;
     // Find seneste periode i datasættet for YTD-referencepunkt.
     let latestPeriod: string | null = null;
     for (const r of salesRows) {
@@ -404,6 +411,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       if (!cid) continue;
       const period = r.period as string;
       const rev = Number(r.revenue) || 0;
+      const weightKg = Number((r as any).weight_kg) || 0;
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
       const groupRaw = String((r as any).product_group_1 ?? "");
@@ -451,6 +459,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         totalRevYtd += rev;
         agg.revenueYtd += rev;
         if (period === refPeriod) ytdCurLastMonthRev += rev;
+        if (isConsumable) totalWeightKgYtd += weightKg;
         aggs.set(cid, agg);
       }
       if (period >= startPriorYtd && period <= endPriorYtd) {
@@ -459,6 +468,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         if (period === endPriorYtd) {
           ytdPriorLastMonthRev += rev;
           agg.ytdPriorLastMonthRev += rev;
+        }
+        if (isConsumable) {
+          totalWeightKgYtdPrior += weightKg;
+          if (period === endPriorYtd) ytdPriorLastMonthWeightKg += weightKg;
         }
         aggs.set(cid, agg);
       }
@@ -884,11 +897,15 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           ? Math.min(today.getUTCDate(), daysInMonth) / daysInMonth
           : 1;
         const priorAdj = totalRevYtdPrior - ytdPriorLastMonthRev * (1 - fraction);
+        const priorAdjWeightKg =
+          totalWeightKgYtdPrior - ytdPriorLastMonthWeightKg * (1 - fraction);
         return {
           revenue12m: totalRev12,
           revenue12mPriorYear: totalRevPrior,
           revenueYtd: totalRevYtd,
           revenueYtdPriorSamePeriod: priorAdj,
+          weightKgYtd: totalWeightKgYtd,
+          weightKgYtdPriorSamePeriod: priorAdjWeightKg,
           ytdLatestPeriod: latestPeriod,
           ytdFraction: fraction,
           contribution12m: isAdmin ? totalContrib : null,
