@@ -273,6 +273,7 @@ type MappingResult = {
   mapped: string[];
   missing: string[];
   unknown: string[];
+  dateDetection?: DateFormatDetection;
 };
 
 function mapSheet(
@@ -280,6 +281,7 @@ function mapSheet(
   aliases: Record<string, string>,
   anchors: string[],
   expectedCanonical: string[],
+  opts: { detectDates?: boolean } = {},
 ): MappingResult | { error: string } {
   const header = detectHeaderRow(grid, anchors);
   if (!header) {
@@ -300,6 +302,23 @@ function mapSheet(
   const mapped = Array.from(indexByCanonical.keys());
   const missing = expectedCanonical.filter((c) => !indexByCanonical.has(c));
 
+  // Formatdetektor: scan alle rå værdier i enrichment-dato-kolonnerne
+  // FØR rækkerne bygges, så vi kan bruge det fundne format konsekvent.
+  let dateDetection: DateFormatDetection | undefined;
+  if (opts.detectDates) {
+    const dateColIdxs: number[] = [];
+    for (const [canonical, idx] of indexByCanonical) {
+      if (ENRICHMENT_DATE_FIELDS.has(canonical)) dateColIdxs.push(idx);
+    }
+    const rawDateValues: unknown[] = [];
+    for (let i = header.rowIndex + 1; i < grid.length; i++) {
+      const r = grid[i];
+      if (!r) continue;
+      for (const idx of dateColIdxs) rawDateValues.push(r[idx]);
+    }
+    dateDetection = detectDateFormat(rawDateValues);
+  }
+
   const rows: Record<string, any>[] = [];
   for (let i = header.rowIndex + 1; i < grid.length; i++) {
     const r = grid[i];
@@ -314,10 +333,11 @@ function mapSheet(
       } else if (FORCE_TEXT.has(canonical)) {
         obj[canonical] = forceText(raw);
       } else if (DATE_FIELDS.has(canonical)) {
-        if ((canonical === "binding_ophor" || canonical === "lease_leje_dato") && rows.length < 10) {
-          console.log(`[DIAG] ${canonical} raw=`, raw, "typeof=", typeof raw, "instanceof Date=", raw instanceof Date, "parsed=", toIsoDate(raw));
+        if (dateDetection && ENRICHMENT_DATE_FIELDS.has(canonical)) {
+          obj[canonical] = parseDateWithFormat(raw, dateDetection.format);
+        } else {
+          obj[canonical] = toIsoDate(raw);
         }
-        obj[canonical] = toIsoDate(raw);
       } else if (NUMBER_FIELDS.has(canonical)) {
         obj[canonical] = toNumber(raw);
       } else {
@@ -327,8 +347,9 @@ function mapSheet(
     }
     rows.push(obj);
   }
-  return { headerRow: header.rowIndex, rows, mapped, missing, unknown };
+  return { headerRow: header.rowIndex, rows, mapped, missing, unknown, dateDetection };
 }
+
 
 const MACHINE_EXPECTED = [
   "ordrenr",
