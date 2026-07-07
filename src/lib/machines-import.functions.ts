@@ -197,16 +197,21 @@ export const importMachines = createServerFn({ method: "POST" })
       .object({
         machineRows: z.array(MachineRow).max(200000).default([]),
         enrichmentRows: z.array(EnrichmentRow).max(200000).default([]),
+        enrichmentRowsUdenSn: z.array(EnrichmentRow).max(200000).default([]),
         diagnostics: z
           .object({
             machinesFile: z.string().optional(),
             enrichmentFile: z.string().optional(),
+            enrichmentUdenSnFile: z.string().optional(),
             machinesHeaderRow: z.number().optional(),
             enrichmentHeaderRow: z.number().optional(),
+            enrichmentUdenSnHeaderRow: z.number().optional(),
             machinesMapped: z.array(z.string()).optional(),
             enrichmentMapped: z.array(z.string()).optional(),
+            enrichmentUdenSnMapped: z.array(z.string()).optional(),
             machinesMissing: z.array(z.string()).optional(),
             enrichmentMissing: z.array(z.string()).optional(),
+            enrichmentUdenSnMissing: z.array(z.string()).optional(),
           })
           .optional(),
       })
@@ -253,6 +258,13 @@ export const importMachines = createServerFn({ method: "POST" })
       console.log(`[machines-import] wittenborg sanity: withSerienr=${withSerienr}`);
       if (withSerienr === 0) {
         throw new Error("Wittenborg SN: 0 rækker har serienr — tjek header-detection");
+      }
+    }
+    if (data.enrichmentRowsUdenSn.length > 0) {
+      const withSerienr = data.enrichmentRowsUdenSn.filter((r) => t(r.serienr)).length;
+      console.log(`[machines-import] wittenborg UDEN SN sanity: withSerienr=${withSerienr}`);
+      if (withSerienr === 0) {
+        throw new Error("Wittenborg UDEN SN: 0 rækker har serienr — tjek header-detection");
       }
     }
 
