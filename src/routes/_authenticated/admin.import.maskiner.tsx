@@ -94,6 +94,8 @@ const ENRICHMENT_ANCHORS = [
   "serienr",
   "serienrwit",
   "maskintypeg2",
+  "typemaskg2",
+  "levkundnr",
   "bindingophoerleje",
   "senstetaelleraflaesningsdato",
   "senestetaelleraflaesningsdato",
