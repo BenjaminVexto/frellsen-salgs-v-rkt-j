@@ -485,6 +485,7 @@ export const importMachines = createServerFn({ method: "POST" })
           const set = wittenborgByLoc.get(loc.id) ?? new Set<string>();
           set.add(serienr);
           wittenborgByLoc.set(loc.id, set);
+          witTypeByLocSerial.set(`${loc.id}||${serienr}`, cleanG2(t(r.maskin_type)).toLowerCase());
           wittenborgLocIds.add(loc.id);
           const udstyr_type = classifyWittenborg({
             kobt_dato: (r as any).kobt_dato,
