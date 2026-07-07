@@ -633,45 +633,46 @@ export const importMachines = createServerFn({ method: "POST" })
           if (usedLocationIds.has(loc.id)) continue;
           usedLocationIds.add(loc.id);
 
-          // Markér filterrækker hvis serienr matcher Wittenborg-maskine på samme lokation.
-          // Maskinen bærer serienummeret; filteret står som tilbehør uden synligt serienr.
-          // Tæl konflikter: ikke-filter maskinrækker hvor serienr ikke matcher Wittenborg.
+          // Matching mod Wittenborg-enhederne på samme lokation.
+          // Afgørelse "ER dette selve maskinen?" træffes ved at matche Maskinlistens
+          // beskrivelse mod Wittenborgs egen maskintype-tekst — ikke via nøgleord
+          // eller gruppestørrelse (filter-rækker forstyrrede tidligere tællingen).
           const witSet = wittenborgByLoc.get(loc.id);
-          // Gruppér a.units efter serial_no FØR matching, så vi kan se om en gruppe
-          // har 1 række (ren dublet) eller flere (maskine + tilbehør).
-          const bySerial = new Map<string, typeof a.units>();
-          for (const u of a.units) {
-            if (!u.serial_no) continue;
-            const list = bySerial.get(u.serial_no) ?? [];
-            list.push(u);
-            bySerial.set(u.serial_no, list);
-          }
           const skipUnits = new Set<typeof a.units[number]>();
           for (const u of a.units) {
             if (!u.serial_no) continue;
             const matchesWit = !!witSet && witSet.has(u.serial_no);
-            const group = bySerial.get(u.serial_no) ?? [];
-            const isSoleRow = group.length === 1;
 
             if (u.is_filter && matchesWit) {
               u.serial_no = null;
-            } else if (!u.is_filter && matchesWit && categorize(u.machine_type ?? "") !== "coffee") {
-              // Tilbehør (køl/mælk/grinder) der deler serienr med Wittenborg-maskine:
-              // fold ind som filtrene, vis ikke som selvstændigt kort.
+              continue;
+            }
+            if (u.is_filter) continue; // ikke-matchende filter, rør ikke
+
+            if (matchesWit) {
+              const witType = witTypeByLocSerial.get(`${loc.id}||${u.serial_no}`) ?? "";
+              const desc = (u.machine_type ?? "").toLowerCase();
+              const isMachineItself = witType.length > 0 && desc.includes(witType);
+
+              if (isMachineItself) {
+                // Denne række ER den Wittenborg-sporede maskine — Wittenborg-kortet
+                // repræsenterer den allerede. Skip uanset gruppestørrelse.
+                skipUnits.add(u);
+                continue;
+              }
+              // Ikke et match på typenavn -> reelt tilbehør (køleskab, mælkeanlæg,
+              // kværn m.v.) der bare arver maskinens serienummer. Fold ind som
+              // filtrene, drop ikke rækken.
               u.is_filter = true;
               u.serial_no = null;
-            } else if (!u.is_filter && matchesWit && isSoleRow) {
-              // Ren dublet: Wittenborg-enheden dækker denne — skip.
-              skipUnits.add(u);
-            } else if (!u.is_filter && matchesWit) {
-              u.serial_no = null;
-            } else if (!u.is_filter && !matchesWit) {
+            } else {
               machineSerialConflicts++;
             }
           }
           if (skipUnits.size > 0) {
             a.units = a.units.filter((u) => !skipUnits.has(u));
           }
+
 
           const agreementTypes = a.agreementSet.size > 0 ? Array.from(a.agreementSet).join(", ") : null;
           const summary = buildSummary(a.coffee, a.filters, a.cooling, 0);
