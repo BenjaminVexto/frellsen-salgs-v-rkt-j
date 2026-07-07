@@ -16,8 +16,9 @@ const COL = {
   DESC: 9,
   QTY: 10,
   GROUP1: 11,
-  REVENUE: 15,
-  DB: 16,
+  NETTOVAEGT: 13,
+  REVENUE: 16,
+  DB: 17,
 } as const;
 
 // Kun firma 10 (Frellsen Kaffe) må importeres. Alt andet (20/30/40/50/70 …) springes over.
