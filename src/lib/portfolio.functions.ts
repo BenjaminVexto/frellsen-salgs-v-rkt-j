@@ -407,7 +407,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const inCurrent = period >= startCur && period <= thisMonth;
       const inPrior = period >= startPrior && period < endPriorExcl;
       const groupRaw = String((r as any).product_group_1 ?? "");
-      const isMachine = MACHINE_RE.test(groupRaw);
+      const isMachine = isMachineGroup(groupRaw);
       const groupCode = groupRaw.trim().match(/^(\d+)/)?.[1] ?? null;
       const isConsumable =
         groupCode === "2" || groupCode === "4" || groupCode === "6" || groupCode === "10";
