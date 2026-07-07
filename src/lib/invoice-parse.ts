@@ -331,6 +331,30 @@ export async function parseAndAggregate(file: File): Promise<{
     });
   });
 
+  // Group monthly top products by (delivery, period), take top 15 per (delivery, period)
+  const byDeliveryPeriod = new Map<string, Array<TopProductMonthlyAcc & { delivery: string; varenr: string }>>();
+  topMonthlyMap.forEach((v) => {
+    const k = `${v.delivery}|${v.period}`;
+    const arr = byDeliveryPeriod.get(k) ?? [];
+    arr.push(v);
+    byDeliveryPeriod.set(k, arr);
+  });
+  const topProductsMonthly: TopProductMonthlyRow[] = [];
+  byDeliveryPeriod.forEach((arr) => {
+    arr.sort((a, b) => b.revenue - a.revenue);
+    arr.slice(0, 15).forEach((t) => {
+      topProductsMonthly.push({
+        visma_delivery_no: t.delivery,
+        period: t.period,
+        varenr: t.varenr,
+        description: t.description,
+        revenue: Math.round(t.revenue * 100) / 100,
+        quantity: Math.round(t.quantity * 1000) / 1000,
+        contribution: Math.round(t.contribution * 100) / 100,
+        product_group_1: t.group,
+      });
+    });
+  });
 
-  return { monthly, topProducts, stats };
+  return { monthly, topProducts, topProductsMonthly, stats };
 }
