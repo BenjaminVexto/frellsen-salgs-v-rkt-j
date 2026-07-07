@@ -23,6 +23,10 @@ export type TopProductRow = {
   product_group_1: string;
 };
 
+export type TopProductMonthlyRow = TopProductRow & {
+  period: string; // YYYY-MM-01
+};
+
 async function assertAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase
     .from("user_roles")
