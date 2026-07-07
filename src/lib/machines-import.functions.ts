@@ -373,9 +373,14 @@ export const importMachines = createServerFn({ method: "POST" })
       let unitsUnmatched = 0;
       let wittenborgUnitsInserted = 0;
       let wittenborgUnmatched = 0;
+      let wittenborgUdenSnUnitsInserted = 0;
+      let wittenborgUdenSnUnmatched = 0;
       let machineSerialConflicts = 0;
 
-      const needLocLookup = data.machineRows.length > 0 || data.enrichmentRows.length > 0;
+      const needLocLookup =
+        data.machineRows.length > 0 ||
+        data.enrichmentRows.length > 0 ||
+        data.enrichmentRowsUdenSn.length > 0;
       // Fælles lokationsopslag — bruges af både rental-aggregat og Wittenborg-pass.
       const locByNormDelivery = new Map<string, { id: string; company_id: string }>();
       const locsByCompany = new Map<string, { id: string; visma_delivery_no: string | null }[]>();
@@ -495,6 +500,49 @@ export const importMachines = createServerFn({ method: "POST" })
         }
         console.log(
           `[machines-import] STEP 6b Wittenborg-pass: rows=${data.enrichmentRows.length} withLev=${withLev} resolved=${wittenborgUnits.length} unmatched=${wittenborgUnmatched} locs=${wittenborgLocIds.size} types=${JSON.stringify(wittenborgTypeCounts)}`,
+        );
+      }
+
+      // ---- Wittenborg UDEN SN-pass: samme logik, separat enheds-array + source-tag ----
+      const wittenborgUdenSnUnits: WittenborgUnit[] = [];
+      const wittenborgUdenSnLocIds = new Set<string>();
+      const wittenborgUdenSnTypeCounts: Record<UdstyrType, number> = {
+        leje_ub: 0, leje_binding: 0, kunde_ejet: 0, ukendt: 0,
+      };
+      if (data.enrichmentRowsUdenSn.length > 0) {
+        let withLev = 0;
+        for (const r of data.enrichmentRowsUdenSn) {
+          const serienr = t(r.serienr);
+          if (!serienr) continue;
+          const lev = normalizeVismaNo(r.lev_kundenr);
+          const fak = normalizeVismaNo(r.fak_kundenr);
+          if (lev) withLev++;
+          if (!lev && !fak) { wittenborgUdenSnUnmatched++; continue; }
+          const loc = resolveLocation(fak, lev);
+          if (!loc) { wittenborgUdenSnUnmatched++; continue; }
+          // TILFØJ til samme wittenborgByLoc så Maskinliste-matching ser begge kilder.
+          const set = wittenborgByLoc.get(loc.id) ?? new Set<string>();
+          set.add(serienr);
+          wittenborgByLoc.set(loc.id, set);
+          wittenborgUdenSnLocIds.add(loc.id);
+          const udstyr_type = classifyWittenborg({
+            kobt_dato: (r as any).kobt_dato,
+            lease_leje_dato: (r as any).lease_leje_dato,
+            binding_ophor: r.binding_ophor,
+            aftale_type: (r as any).aftale_type,
+          });
+          wittenborgUdenSnTypeCounts[udstyr_type]++;
+          wittenborgUdenSnUnits.push({
+            location_id: loc.id,
+            machine_type: cleanG2(t(r.maskin_type)) || null,
+            serial_no: serienr,
+            sub_location: t(r.adresselinje2) || null,
+            navn: t(r.navn) || null,
+            udstyr_type,
+          });
+        }
+        console.log(
+          `[machines-import] STEP 6b Wittenborg UDEN SN-pass: rows=${data.enrichmentRowsUdenSn.length} withLev=${withLev} resolved=${wittenborgUdenSnUnits.length} unmatched=${wittenborgUdenSnUnmatched} locs=${wittenborgUdenSnLocIds.size} types=${JSON.stringify(wittenborgUdenSnTypeCounts)}`,
         );
       }
 
