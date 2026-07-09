@@ -106,6 +106,71 @@ export function parseDanishDateIso(raw: unknown): string | null {
   return `${y}-${m}-${day}`;
 }
 
+export type DateFormat = "us" | "dk";
+
+export type DateFormatDetection = {
+  format: DateFormat;
+  usEvidence: number;
+  dkEvidence: number;
+  confident: boolean;
+  ambiguous: number;
+};
+
+/**
+ * Selv-verificerende detektor til D/M/Å vs M/D/Å. Kigger kun på utvetydige
+ * eksempler (hvor den ene position er > 12 og dermed kun kan være dag).
+ */
+export function detectDateFormat(rawValues: unknown[]): DateFormatDetection {
+  let usEvidence = 0;
+  let dkEvidence = 0;
+  let ambiguous = 0;
+  for (const raw of rawValues) {
+    if (raw == null) continue;
+    if (raw instanceof Date) continue;
+    const s = String(raw).trim();
+    if (!s) continue;
+    const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+    if (!m) continue;
+    const a = parseInt(m[1], 10);
+    const b = parseInt(m[2], 10);
+    const aCanBeMonth = a >= 1 && a <= 12;
+    const bCanBeMonth = b >= 1 && b <= 12;
+    if (a > 12 && bCanBeMonth) {
+      dkEvidence++;
+    } else if (b > 12 && aCanBeMonth) {
+      usEvidence++;
+    } else if (aCanBeMonth && bCanBeMonth) {
+      ambiguous++;
+    }
+  }
+  const format: DateFormat = usEvidence > dkEvidence ? "us" : "dk";
+  const confident =
+    usEvidence + dkEvidence >= 3 && (usEvidence === 0 || dkEvidence === 0);
+  return { format, usEvidence, dkEvidence, confident, ambiguous };
+}
+
+/**
+ * Parser en dato med et allerede detekteret format. Falder tilbage til
+ * parseDanishDateIso for ISO / YYYYMMDD / tekstformater.
+ */
+export function parseDateWithFormat(raw: unknown, format: DateFormat): string | null {
+  if (raw == null) return null;
+  if (raw instanceof Date) return isNaN(+raw) ? null : raw.toISOString().slice(0, 10);
+  const s = String(raw).trim();
+  if (!s || s === "0") return null;
+  const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  if (!m) return parseDanishDateIso(raw);
+  const month = format === "us" ? parseInt(m[1], 10) : parseInt(m[2], 10);
+  const day = format === "us" ? parseInt(m[2], 10) : parseInt(m[1], 10);
+  let year = parseInt(m[3], 10);
+  if (m[3].length === 2) year = year > 50 ? 1900 + year : 2000 + year;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  return isNaN(+d) ? null : d.toISOString().slice(0, 10);
+}
+
+
+
 function monthStart(d: Date): string {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
