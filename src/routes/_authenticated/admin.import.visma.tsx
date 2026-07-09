@@ -2114,6 +2114,19 @@ function Trin2VismaConfirm({
             </div>
           ))}
         </div>
+        {dateFormatInfo && (
+          <div className="mt-3 text-xs text-muted-foreground">
+            Datoformat detekteret:{" "}
+            <span className="font-medium text-foreground">
+              {dateFormatInfo.format === "us" ? "amerikansk (M/D/Å)" : "dansk (D/M/Å)"}
+            </span>
+            {" — "}
+            {dateFormatInfo.usEvidence + dateFormatInfo.dkEvidence} utvetydige eksempler
+            {!dateFormatInfo.confident && (
+              <span className="text-destructive"> — ⚠ ikke entydigt, kontrollér manuelt</span>
+            )}
+          </div>
+        )}
       </Card>
 
       <Card className="p-6">
