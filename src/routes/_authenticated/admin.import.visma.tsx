@@ -1521,6 +1521,7 @@ function ImportSide() {
           headers={headers}
           mapping={mapping}
           sampleRows={rows.slice(0, 2)}
+          dateFormatInfo={dateFormatInfo}
           onBack={() => setStep(1)}
           onNext={gotoPreview}
         />
