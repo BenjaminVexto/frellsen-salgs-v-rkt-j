@@ -6,7 +6,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { importMachines } from "@/lib/machines-import.functions";
 import { recomputeAllCompanyStatuses } from "@/lib/recompute.functions";
 
-import { parseDanishDateIso as toIsoDate } from "@/lib/invoice-parse";
+import {
+  parseDanishDateIso as toIsoDate,
+  detectDateFormat,
+  parseDateWithFormat,
+} from "@/lib/invoice-parse";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
