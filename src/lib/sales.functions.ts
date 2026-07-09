@@ -380,10 +380,16 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
 
     // Filter out dismissed (reset rule: any consumable purchase after dismissal ignores it)
     const candIds = candidates.map((c) => c.company_id);
-    const { data: dismissals } = await context.supabase
-      .from("churn_dismissals")
-      .select("company_id, reason, snooze_user_id, snooze_until, created_at")
-      .in("company_id", candIds);
+    const CHUNK = 150;
+    const dismissals: any[] = [];
+    for (let i = 0; i < candIds.length; i += CHUNK) {
+      const slice = candIds.slice(i, i + CHUNK);
+      const { data } = await context.supabase
+        .from("churn_dismissals")
+        .select("company_id, reason, snooze_user_id, snooze_until, created_at")
+        .in("company_id", slice);
+      if (data) dismissals.push(...data);
+    }
 
     const today = new Date().toISOString().slice(0, 10);
     const dismissedSet = new Set<string>();

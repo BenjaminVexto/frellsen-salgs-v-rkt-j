@@ -183,11 +183,20 @@ function KontaktlisteDetalje() {
         ? supabase.from("profiles").select("id, full_name").in("id", userIds)
         : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
       companyIds.length
-        ? supabase
-            .from("activities")
-            .select("company_id, created_at, activity_type")
-            .in("company_id", companyIds)
-            .order("created_at", { ascending: false })
+        ? (async () => {
+            const CHUNK = 150;
+            const out: any[] = [];
+            for (let i = 0; i < companyIds.length; i += CHUNK) {
+              const slice = companyIds.slice(i, i + CHUNK);
+              const { data } = await supabase
+                .from("activities")
+                .select("company_id, created_at, activity_type")
+                .in("company_id", slice)
+                .order("created_at", { ascending: false });
+              if (data) out.push(...data);
+            }
+            return { data: out };
+          })()
         : Promise.resolve({ data: [] as any[] }),
       locationIds.length
         ? (supabase as any).from("locations").select("id, city").in("id", locationIds)

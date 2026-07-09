@@ -88,15 +88,21 @@ export const checkKonkurrentvinduer = createServerFn({ method: "POST" })
     in90.setDate(in90.getDate() + 90);
     const cutoff = in90.toISOString().slice(0, 10);
 
-    const { data: agreements, error } = await supabaseAdmin
-      .from("competitor_assignments")
-      .select("company_id, contract_expires_at, competitors(name), companies(name)")
-      .in("company_id", ids)
-      .not("contract_expires_at", "is", null)
-      .gte("contract_expires_at", today)
-      .lte("contract_expires_at", cutoff);
-    if (error) throw new Error(error.message);
-    if (!agreements?.length) return { created: 0 };
+    const CHUNK = 150;
+    const agreements: any[] = [];
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK);
+      const { data, error } = await supabaseAdmin
+        .from("competitor_assignments")
+        .select("company_id, contract_expires_at, competitors(name), companies(name)")
+        .in("company_id", slice)
+        .not("contract_expires_at", "is", null)
+        .gte("contract_expires_at", today)
+        .lte("contract_expires_at", cutoff);
+      if (error) throw new Error(error.message);
+      if (data) agreements.push(...data);
+    }
+    if (!agreements.length) return { created: 0 };
 
     const rows = agreements.map((a: any) => ({
       recipient_id: userId,
