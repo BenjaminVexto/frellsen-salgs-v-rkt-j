@@ -6,7 +6,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { importMachines } from "@/lib/machines-import.functions";
 import { recomputeAllCompanyStatuses } from "@/lib/recompute.functions";
 
-import { parseDanishDateIso as toIsoDate } from "@/lib/invoice-parse";
+import {
+  parseDanishDateIso as toIsoDate,
+  detectDateFormat,
+  parseDateWithFormat,
+  type DateFormatDetection,
+} from "@/lib/invoice-parse";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,68 +137,6 @@ const ENRICHMENT_DATE_FIELDS = new Set([
   "beregnet_slutdato",
   "taelleraflaesning",
 ]);
-
-// ---- Selv-verificerende dato-formatdetektor for enrichment-filer ----
-// Visma-eksporter er ikke garanteret ens formaterede. Vi afgør dansk vs.
-// amerikansk rækkefølge ud fra selve dataen: tal >12 kan ikke være måned.
-type DateFormat = "us" | "dk";
-type DateFormatDetection = {
-  format: DateFormat;
-  usEvidence: number;
-  dkEvidence: number;
-  confident: boolean;
-  ambiguous: number;
-};
-
-function detectDateFormat(rawValues: unknown[]): DateFormatDetection {
-  let usEvidence = 0;
-  let dkEvidence = 0;
-  let ambiguous = 0;
-  for (const raw of rawValues) {
-    if (raw == null) continue;
-    if (raw instanceof Date) continue;
-    const s = String(raw).trim();
-    if (!s) continue;
-    const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
-    if (!m) continue;
-    const a = parseInt(m[1], 10);
-    const b = parseInt(m[2], 10);
-    const aCanBeMonth = a >= 1 && a <= 12;
-    const bCanBeMonth = b >= 1 && b <= 12;
-    if (a > 12 && bCanBeMonth) {
-      // a kan ikke være måned → a er dag → dansk D/M/Å
-      dkEvidence++;
-    } else if (b > 12 && aCanBeMonth) {
-      // b kan ikke være måned → b er dag → amerikansk M/D/Å
-      usEvidence++;
-    } else if (aCanBeMonth && bCanBeMonth) {
-      ambiguous++;
-    }
-  }
-  const format: DateFormat = usEvidence > dkEvidence ? "us" : "dk";
-  const confident =
-    usEvidence + dkEvidence >= 3 && (usEvidence === 0 || dkEvidence === 0);
-  return { format, usEvidence, dkEvidence, confident, ambiguous };
-}
-
-function parseDateWithFormat(raw: unknown, format: DateFormat): string | null {
-  if (raw == null) return null;
-  if (raw instanceof Date) return isNaN(+raw) ? null : raw.toISOString().slice(0, 10);
-  const s = String(raw).trim();
-  if (!s || s === "0") return null;
-  const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
-  if (!m) {
-    // Fald tilbage til generel parser for ISO / tekstformater
-    return toIsoDate(raw);
-  }
-  const month = format === "us" ? parseInt(m[1], 10) : parseInt(m[2], 10);
-  const day = format === "us" ? parseInt(m[2], 10) : parseInt(m[1], 10);
-  let year = parseInt(m[3], 10);
-  if (m[3].length === 2) year = year > 50 ? 1900 + year : 2000 + year;
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const d = new Date(Date.UTC(year, month - 1, day));
-  return isNaN(+d) ? null : d.toISOString().slice(0, 10);
-}
 
 // "2027-07 juli" / "2025-07 Juli - se aftale" / "2024-12" → "2024-12-01"
 // Værdier uden YYYY-MM i starten (fx "Leje", "Udlån") → null

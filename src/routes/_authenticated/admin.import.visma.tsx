@@ -53,7 +53,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { importRunner, useImportRunner } from "@/lib/import-runner";
-import { parseDanishDateIso as parseDanishDate } from "@/lib/invoice-parse";
+import {
+  parseDanishDateIso as parseDanishDate,
+  detectDateFormat,
+  parseDateWithFormat,
+  type DateFormatDetection,
+} from "@/lib/invoice-parse";
 import {
   deriveBindingStatus,
   deriveCustomerCategory,
@@ -619,6 +624,16 @@ function ImportSide() {
     setStep(5);
   }
 
+  const dateFormatInfo = useMemo<DateFormatDetection | null>(() => {
+    if (!mapping.last_purchase_date && !mapping.created_in_visma) return null;
+    const rawValues: string[] = [];
+    for (const r of rows) {
+      if (mapping.last_purchase_date) rawValues.push(String(r[mapping.last_purchase_date] ?? ""));
+      if (mapping.created_in_visma) rawValues.push(String(r[mapping.created_in_visma] ?? ""));
+    }
+    return detectDateFormat(rawValues);
+  }, [rows, mapping.last_purchase_date, mapping.created_in_visma]);
+
   const prepared = useMemo<PreparedRow[]>(() => {
     return rows.map((r) => {
       const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
@@ -634,8 +649,10 @@ function ImportSide() {
           const n = parseInt(v.replace(/\D/g, ""), 10);
           data.employees = isNaN(n) ? null : n;
         } else if (DATE_FIELDS.has(f.key)) {
-          const d = parseDanishDate(v);
-          if (d) (data as any)[f.key] = d;
+          const iso = dateFormatInfo
+            ? parseDateWithFormat(v, dateFormatInfo.format)
+            : parseDanishDate(v);
+          if (iso) (data as any)[f.key] = new Date(iso);
         } else if (BOOLEAN_FIELDS.has(f.key)) {
           const b = parseBool(v);
           if (b !== null) (data as any)[f.key] = b;
@@ -1504,6 +1521,7 @@ function ImportSide() {
           headers={headers}
           mapping={mapping}
           sampleRows={rows.slice(0, 2)}
+          dateFormatInfo={dateFormatInfo}
           onBack={() => setStep(1)}
           onNext={gotoPreview}
         />
@@ -1993,6 +2011,7 @@ function Trin2VismaConfirm({
   headers,
   mapping,
   sampleRows,
+  dateFormatInfo,
   onBack,
   onNext,
 }: {
@@ -2003,6 +2022,7 @@ function Trin2VismaConfirm({
   headers: string[];
   mapping: Partial<Record<SystemField, string>>;
   sampleRows: ParsedRow[];
+  dateFormatInfo: DateFormatDetection | null;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -2030,15 +2050,20 @@ function Trin2VismaConfirm({
     { key: "created_in_visma", label: "Oprettet dato → created_in_visma", expectedHeader: "Oprettet dato" },
     { key: "visma_id", label: "Fakt. kunde → visma_id (upsert-nøgle)", expectedHeader: "Fakt. kunde" },
   ];
+  const parseDateSample = (raw: string): string =>
+    dateFormatInfo
+      ? (parseDateWithFormat(raw, dateFormatInfo.format) ?? "")
+      : (parseDanishDate(raw) ?? "");
   const criticalChecks = CRITICAL.map((c) => {
     const hdr = mapping[c.key];
     const raw1 = hdr ? (sampleRows[0]?.[hdr] ?? "").trim() : "";
     const raw2 = hdr ? (sampleRows[1]?.[hdr] ?? "").trim() : "";
-    const parsed1 = c.key === "visma_id" ? raw1 : raw1 ? (parseDanishDate(raw1) ?? "") : "";
-    const parsed2 = c.key === "visma_id" ? raw2 : raw2 ? (parseDanishDate(raw2) ?? "") : "";
+    const parsed1 = c.key === "visma_id" ? raw1 : raw1 ? parseDateSample(raw1) : "";
+    const parsed2 = c.key === "visma_id" ? raw2 : raw2 ? parseDateSample(raw2) : "";
     const ok = !!hdr && !!parsed1;
     return { ...c, hdr, raw1, raw2, parsed1, parsed2, ok };
   });
+
 
   return (
     <div className="space-y-4">
@@ -2089,6 +2114,19 @@ function Trin2VismaConfirm({
             </div>
           ))}
         </div>
+        {dateFormatInfo && (
+          <div className="mt-3 text-xs text-muted-foreground">
+            Datoformat detekteret:{" "}
+            <span className="font-medium text-foreground">
+              {dateFormatInfo.format === "us" ? "amerikansk (M/D/Å)" : "dansk (D/M/Å)"}
+            </span>
+            {" — "}
+            {dateFormatInfo.usEvidence + dateFormatInfo.dkEvidence} utvetydige eksempler
+            {!dateFormatInfo.confident && (
+              <span className="text-destructive"> — ⚠ ikke entydigt, kontrollér manuelt</span>
+            )}
+          </div>
+        )}
       </Card>
 
       <Card className="p-6">
