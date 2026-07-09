@@ -53,7 +53,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { importRunner, useImportRunner } from "@/lib/import-runner";
-import { parseDanishDateIso as parseDanishDate } from "@/lib/invoice-parse";
+import {
+  parseDanishDateIso as parseDanishDate,
+  detectDateFormat,
+  parseDateWithFormat,
+  type DateFormatDetection,
+} from "@/lib/invoice-parse";
 import {
   deriveBindingStatus,
   deriveCustomerCategory,
