@@ -560,15 +560,20 @@ function ReassignSellerDialog({
       return;
     }
     setSaving(true);
-    const { error } = await supabase
-      .from("contact_list_assignments")
-      .update({ assigned_to: sellerId })
-      .in("company_id", companyIds);
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    const CHUNK = 150;
+    for (let i = 0; i < companyIds.length; i += CHUNK) {
+      const slice = companyIds.slice(i, i + CHUNK);
+      const { error } = await supabase
+        .from("contact_list_assignments")
+        .update({ assigned_to: sellerId })
+        .in("company_id", slice);
+      if (error) {
+        setSaving(false);
+        toast.error(error.message);
+        return;
+      }
     }
+    setSaving(false);
     setSellerId("");
     onDone();
   };
