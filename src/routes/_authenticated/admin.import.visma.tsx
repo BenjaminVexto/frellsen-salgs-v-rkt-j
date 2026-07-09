@@ -624,6 +624,16 @@ function ImportSide() {
     setStep(5);
   }
 
+  const dateFormatInfo = useMemo<DateFormatDetection | null>(() => {
+    if (!mapping.last_purchase_date && !mapping.created_in_visma) return null;
+    const rawValues: string[] = [];
+    for (const r of rows) {
+      if (mapping.last_purchase_date) rawValues.push(String(r[mapping.last_purchase_date] ?? ""));
+      if (mapping.created_in_visma) rawValues.push(String(r[mapping.created_in_visma] ?? ""));
+    }
+    return detectDateFormat(rawValues);
+  }, [rows, mapping.last_purchase_date, mapping.created_in_visma]);
+
   const prepared = useMemo<PreparedRow[]>(() => {
     return rows.map((r) => {
       const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
@@ -639,8 +649,10 @@ function ImportSide() {
           const n = parseInt(v.replace(/\D/g, ""), 10);
           data.employees = isNaN(n) ? null : n;
         } else if (DATE_FIELDS.has(f.key)) {
-          const d = parseDanishDate(v);
-          if (d) (data as any)[f.key] = d;
+          const iso = dateFormatInfo
+            ? parseDateWithFormat(v, dateFormatInfo.format)
+            : parseDanishDate(v);
+          if (iso) (data as any)[f.key] = new Date(iso);
         } else if (BOOLEAN_FIELDS.has(f.key)) {
           const b = parseBool(v);
           if (b !== null) (data as any)[f.key] = b;
