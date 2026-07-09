@@ -10,6 +10,7 @@ import {
   parseDanishDateIso as toIsoDate,
   detectDateFormat,
   parseDateWithFormat,
+  type DateFormatDetection,
 } from "@/lib/invoice-parse";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
