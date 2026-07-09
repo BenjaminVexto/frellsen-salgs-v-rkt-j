@@ -145,34 +145,78 @@ function DashboardPage() {
         }
       }
 
-      let docsQ = supabase
-        .from("company_documents")
-        .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
-        .not("expires_at", "is", null)
-        .gte("expires_at", today)
-        .lte("expires_at", to)
-        .order("expires_at", { ascending: true });
-      let compQ = supabase
-        .from("competitor_assignments")
-        .select(
-          "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
-        )
-        .not("contract_expires_at", "is", null)
-        .gte("contract_expires_at", today)
-        .lte("contract_expires_at", to)
-        .order("contract_expires_at", { ascending: true });
-
-      if (allowedCompanyIds) {
-        docsQ = docsQ.in("company_id", allowedCompanyIds);
-        compQ = compQ.in("company_id", allowedCompanyIds);
+      const CHUNK = 150;
+      async function fetchInChunks<T>(
+        ids: string[],
+        queryFn: (slice: string[]) => PromiseLike<{ data: T[] | null; error: any }>,
+      ): Promise<T[]> {
+        const out: T[] = [];
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const slice = ids.slice(i, i + CHUNK);
+          const { data, error } = await queryFn(slice);
+          if (error) throw error;
+          out.push(...((data ?? []) as T[]));
+        }
+        return out;
       }
 
-      const [docsRes, compRes] = await Promise.all([docsQ, compQ]);
+      let docsData: any[];
+      let compData: any[];
 
-      if (docsRes.error) throw docsRes.error;
-      if (compRes.error) throw compRes.error;
+      if (allowedCompanyIds) {
+        [docsData, compData] = await Promise.all([
+          fetchInChunks<any>(allowedCompanyIds, (slice) =>
+            supabase
+              .from("company_documents")
+              .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
+              .not("expires_at", "is", null)
+              .gte("expires_at", today)
+              .lte("expires_at", to)
+              .in("company_id", slice),
+          ),
+          fetchInChunks<any>(allowedCompanyIds, (slice) =>
+            supabase
+              .from("competitor_assignments")
+              .select(
+                "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
+              )
+              .not("contract_expires_at", "is", null)
+              .gte("contract_expires_at", today)
+              .lte("contract_expires_at", to)
+              .in("company_id", slice),
+          ),
+        ]);
+        docsData = docsData.sort((a, b) =>
+          String(a.expires_at).localeCompare(String(b.expires_at)),
+        );
+        compData = compData.sort((a, b) =>
+          String(a.contract_expires_at).localeCompare(String(b.contract_expires_at)),
+        );
+      } else {
+        const docsQ = supabase
+          .from("company_documents")
+          .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
+          .not("expires_at", "is", null)
+          .gte("expires_at", today)
+          .lte("expires_at", to)
+          .order("expires_at", { ascending: true });
+        const compQ = supabase
+          .from("competitor_assignments")
+          .select(
+            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
+          )
+          .not("contract_expires_at", "is", null)
+          .gte("contract_expires_at", today)
+          .lte("contract_expires_at", to)
+          .order("contract_expires_at", { ascending: true });
+        const [docsRes, compRes] = await Promise.all([docsQ, compQ]);
+        if (docsRes.error) throw docsRes.error;
+        if (compRes.error) throw compRes.error;
+        docsData = docsRes.data ?? [];
+        compData = compRes.data ?? [];
+      }
 
-      const customers = (docsRes.data ?? []).map((d: any) => ({
+      const customers = docsData.map((d: any) => ({
         kind: "doc" as const,
         id: `doc-${d.id}`,
         date: d.expires_at as string,
@@ -181,7 +225,7 @@ function DashboardPage() {
         title: d.filename as string,
         subtitle: d.document_type as string,
       })).slice(0, 10);
-      const prospects = (compRes.data ?? []).map((c: any) => ({
+      const prospects = compData.map((c: any) => ({
         kind: "competitor" as const,
         id: `comp-${c.id}`,
         date: c.contract_expires_at as string,
@@ -190,6 +234,7 @@ function DashboardPage() {
         title: c.competitors?.name ?? "Konkurrent",
         subtitle: "Konkurrentaftale",
       })).slice(0, 10);
+
       return { customers, prospects };
     },
   });
