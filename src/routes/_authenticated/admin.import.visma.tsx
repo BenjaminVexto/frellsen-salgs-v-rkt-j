@@ -2011,6 +2011,7 @@ function Trin2VismaConfirm({
   headers,
   mapping,
   sampleRows,
+  dateFormatInfo,
   onBack,
   onNext,
 }: {
@@ -2021,6 +2022,7 @@ function Trin2VismaConfirm({
   headers: string[];
   mapping: Partial<Record<SystemField, string>>;
   sampleRows: ParsedRow[];
+  dateFormatInfo: DateFormatDetection | null;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -2048,15 +2050,20 @@ function Trin2VismaConfirm({
     { key: "created_in_visma", label: "Oprettet dato → created_in_visma", expectedHeader: "Oprettet dato" },
     { key: "visma_id", label: "Fakt. kunde → visma_id (upsert-nøgle)", expectedHeader: "Fakt. kunde" },
   ];
+  const parseDateSample = (raw: string): string =>
+    dateFormatInfo
+      ? (parseDateWithFormat(raw, dateFormatInfo.format) ?? "")
+      : (parseDanishDate(raw) ?? "");
   const criticalChecks = CRITICAL.map((c) => {
     const hdr = mapping[c.key];
     const raw1 = hdr ? (sampleRows[0]?.[hdr] ?? "").trim() : "";
     const raw2 = hdr ? (sampleRows[1]?.[hdr] ?? "").trim() : "";
-    const parsed1 = c.key === "visma_id" ? raw1 : raw1 ? (parseDanishDate(raw1) ?? "") : "";
-    const parsed2 = c.key === "visma_id" ? raw2 : raw2 ? (parseDanishDate(raw2) ?? "") : "";
+    const parsed1 = c.key === "visma_id" ? raw1 : raw1 ? parseDateSample(raw1) : "";
+    const parsed2 = c.key === "visma_id" ? raw2 : raw2 ? parseDateSample(raw2) : "";
     const ok = !!hdr && !!parsed1;
     return { ...c, hdr, raw1, raw2, parsed1, parsed2, ok };
   });
+
 
   return (
     <div className="space-y-4">
