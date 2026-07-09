@@ -138,10 +138,6 @@ const ENRICHMENT_DATE_FIELDS = new Set([
   "taelleraflaesning",
 ]);
 
-// ---- Selv-verificerende dato-formatdetektor for enrichment-filer ----
-// Visma-eksporter er ikke garanteret ens formaterede. Vi afgør dansk vs.
-// amerikansk rækkefølge ud fra selve dataen: tal >12 kan ikke være måned.
-type DateFormat = "us" | "dk";
 // "2027-07 juli" / "2025-07 Juli - se aftale" / "2024-12" → "2024-12-01"
 // Værdier uden YYYY-MM i starten (fx "Leje", "Udlån") → null
 function extractHandlingsdato(raw: string | null): string | null {
