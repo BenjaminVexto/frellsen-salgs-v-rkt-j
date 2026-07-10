@@ -904,7 +904,7 @@ function EquipmentBox({ location }: { location: Location }) {
         </button>
         {open && (
           <ul className="border-t divide-y text-xs">
-            {list.map((u) => {
+            {(opts.isFilter ? list : sortUnits(list)).map((u) => {
               const o = deriveOwnership(u);
               const enr = u.serial_no ? enrichBySerial.get(u.serial_no.trim()) : null;
               const today = new Date().toISOString().slice(0, 10);
