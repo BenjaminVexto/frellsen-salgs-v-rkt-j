@@ -758,19 +758,43 @@ export const importInsertLocations = createServerFn({ method: "POST" })
     const CHUNK = 500;
     let inserted = 0;
     let failed = 0;
+    const errorSamples: Array<Record<string, unknown>> = [];
+    const target = (data.rows as Array<Record<string, any>>).find((r) => r?.visma_delivery_no === "2273904");
+    if (target) console.log("[DIAG] 2273904 sendt til upsert som:", JSON.stringify(target));
     for (let i = 0; i < data.rows.length; i += CHUNK) {
       const slice = data.rows.slice(i, i + CHUNK);
       const { error, count } = await supabaseAdmin
         .from("locations")
         .upsert(slice as any, { onConflict: "company_id,visma_delivery_no", count: "exact" });
       if (error) {
-        console.error("Import locations fejl:", error.message);
+        const sliceHasTarget = (slice as Array<Record<string, any>>).some((r) => r?.visma_delivery_no === "2273904");
+        console.error("[DIAG] upsertLocations batch FEJL:", {
+          batchStart: i,
+          batchSize: slice.length,
+          sliceHasTarget,
+          message: error.message,
+          code: (error as any).code,
+          details: (error as any).details,
+          hint: (error as any).hint,
+        });
+        console.error("[DIAG] Fejlende batch eksempel-rækker:", JSON.stringify(slice.slice(0, 3)));
+        if (errorSamples.length < 5) {
+          errorSamples.push({
+            batchStart: i,
+            sliceHasTarget,
+            message: error.message,
+            code: (error as any).code,
+            details: (error as any).details,
+            hint: (error as any).hint,
+            sample: slice.slice(0, 3),
+          });
+        }
         failed += slice.length;
         continue;
       }
       inserted += count ?? slice.length;
     }
-    return { inserted, failed };
+    return { inserted, failed, errorSamples };
   });
 
 export const importUpsertContacts = createServerFn({ method: "POST" })
