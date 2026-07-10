@@ -1368,11 +1368,16 @@ function ImportSide() {
           if (locRows.length) {
             importRunner.setLabel("Opretter lokationer i baggrunden…");
             try {
-              await upsertLocations({ data: { rows: locRows } });
+              console.log("[DIAG] upsertLocations kaldes med", locRows.length, "rækker; 2273904 med?",
+                locRows.some((l) => l.visma_delivery_no === "2273904"));
+              const upsertRes = await upsertLocations({ data: { rows: locRows } });
+              console.log("[DIAG] upsertLocations OK:", upsertRes);
             } catch (e) {
+              console.error("[DIAG] upsertLocations FEJL:", e);
               console.error("Lokationer-upsert fejl", e);
             }
           }
+
 
           // Kontakter: hent locIdMap kun for virksomheder med lokationer
           if (
