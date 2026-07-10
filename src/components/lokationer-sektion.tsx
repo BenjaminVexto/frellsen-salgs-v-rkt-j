@@ -643,6 +643,41 @@ function EquipmentBox({ location }: { location: Location }) {
     };
   }, [units]);
 
+  // Hent maskinaftale-status (sat fra Mit overblik) for de samme serienr
+  useEffect(() => {
+    const serials = Array.from(
+      new Set(
+        (units ?? [])
+          .filter((u) => !u.is_filter && u.serial_no)
+          .map((u) => u.serial_no!.trim())
+          .filter(Boolean),
+      ),
+    );
+    if (serials.length === 0) {
+      setAgreementStatusBySerial(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchAgreementStatuses({ data: { serienrs: serials } });
+        if (cancelled) return;
+        const m = new Map<string, MachineAgreementStatusValue>();
+        for (const r of res.statuses) {
+          m.set(r.serienr, r.status as MachineAgreementStatusValue);
+        }
+        setAgreementStatusBySerial(m);
+      } catch {
+        // Ignorer — badge er blot en visning
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [units, fetchAgreementStatuses]);
+
+
+
 
 
   if (loading && units === null) {
