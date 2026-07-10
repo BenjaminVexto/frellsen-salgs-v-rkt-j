@@ -595,6 +595,8 @@ function EquipmentBox({ location }: { location: Location }) {
   const [units, setUnits] = useState<EquipmentUnit[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [openType, setOpenType] = useState<string | null>(null);
+  type SortMode = "standard" | "age_desc" | "age_asc" | "cups_desc" | "cups_asc" | "binding_asc" | "binding_desc";
+  const [sortMode, setSortMode] = useState<SortMode>("standard");
   const [enrichBySerial, setEnrichBySerial] = useState<Map<string, EnrichmentInfo>>(new Map());
   const [agreementStatusBySerial, setAgreementStatusBySerial] = useState<
     Map<string, MachineAgreementStatusValue>
@@ -775,6 +777,53 @@ function EquipmentBox({ location }: { location: Location }) {
     );
   };
 
+  const getStartIso = (u: EquipmentUnit): string | null => {
+    if (!u.serial_no) return null;
+    const enr = enrichBySerial.get(u.serial_no.trim());
+    return enr?.kobt_dato ?? enr?.lease_leje_dato ?? null;
+  };
+  const getCups = (u: EquipmentUnit): number => {
+    if (!u.serial_no) return -1;
+    const enr = enrichBySerial.get(u.serial_no.trim());
+    return enr?.taellerstand ?? -1;
+  };
+  const getBinding = (u: EquipmentUnit): string | null => {
+    if (!u.serial_no) return null;
+    return enrichBySerial.get(u.serial_no.trim())?.binding_ophor ?? null;
+  };
+
+  const sortUnits = (list: EquipmentUnit[]): EquipmentUnit[] => {
+    if (sortMode === "standard") return list;
+    const copy = [...list];
+    const cmp = (a: string | null, b: string | null, dir: 1 | -1) => {
+      if (!a && !b) return 0;
+      if (!a) return 1; // mangler data -> nederst
+      if (!b) return -1;
+      return a < b ? -1 * dir : a > b ? 1 * dir : 0;
+    };
+    switch (sortMode) {
+      case "age_desc": // ældst (tidligst opstillet) først
+        copy.sort((a, b) => cmp(getStartIso(a), getStartIso(b), 1));
+        break;
+      case "age_asc": // nyest opstillet først
+        copy.sort((a, b) => cmp(getStartIso(a), getStartIso(b), -1));
+        break;
+      case "cups_desc":
+        copy.sort((a, b) => getCups(b) - getCups(a));
+        break;
+      case "cups_asc":
+        copy.sort((a, b) => getCups(a) - getCups(b));
+        break;
+      case "binding_asc": // nærmeste udløb først
+        copy.sort((a, b) => cmp(getBinding(a), getBinding(b), 1));
+        break;
+      case "binding_desc":
+        copy.sort((a, b) => cmp(getBinding(a), getBinding(b), -1));
+        break;
+    }
+    return copy;
+  };
+
   const renderGroup = (
     type: string,
     list: EquipmentUnit[],
@@ -855,7 +904,7 @@ function EquipmentBox({ location }: { location: Location }) {
         </button>
         {open && (
           <ul className="border-t divide-y text-xs">
-            {list.map((u) => {
+            {(opts.isFilter ? list : sortUnits(list)).map((u) => {
               const o = deriveOwnership(u);
               const enr = u.serial_no ? enrichBySerial.get(u.serial_no.trim()) : null;
               const today = new Date().toISOString().slice(0, 10);
@@ -959,6 +1008,23 @@ function EquipmentBox({ location }: { location: Location }) {
 
       {machines.length > 0 ? (
         <>
+          {machines.length > 0 && (
+            <div className="flex items-center justify-end mb-1.5">
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="text-xs border rounded-md px-2 py-1 bg-background text-muted-foreground"
+              >
+                <option value="standard">Standard rækkefølge</option>
+                <option value="age_desc">Alder: ældst først</option>
+                <option value="age_asc">Alder: nyest først</option>
+                <option value="cups_desc">Antal kopper: flest først</option>
+                <option value="cups_asc">Antal kopper: færrest først</option>
+                <option value="binding_asc">Binding: udløber snarest</option>
+                <option value="binding_desc">Binding: udløber senest</option>
+              </select>
+            </div>
+          )}
           <div className="space-y-1.5">
             {machineGroups.map(([type, list]) => renderGroup(type, list))}
           </div>
