@@ -2018,6 +2018,10 @@ export type Database = {
           status: string
         }[]
       }
+      set_primary_location: {
+        Args: { p_company_id: string; p_visma_delivery_no: string }
+        Returns: undefined
+      }
     }
     Enums: {
       activity_type:
