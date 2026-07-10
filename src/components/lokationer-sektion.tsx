@@ -1008,6 +1008,23 @@ function EquipmentBox({ location }: { location: Location }) {
 
       {machines.length > 0 ? (
         <>
+          {machines.length > 0 && (
+            <div className="flex items-center justify-end mb-1.5">
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="text-xs border rounded-md px-2 py-1 bg-background text-muted-foreground"
+              >
+                <option value="standard">Standard rækkefølge</option>
+                <option value="age_desc">Alder: ældst først</option>
+                <option value="age_asc">Alder: nyest først</option>
+                <option value="cups_desc">Antal kopper: flest først</option>
+                <option value="cups_asc">Antal kopper: færrest først</option>
+                <option value="binding_asc">Binding: udløber snarest</option>
+                <option value="binding_desc">Binding: udløber senest</option>
+              </select>
+            </div>
+          )}
           <div className="space-y-1.5">
             {machineGroups.map(([type, list]) => renderGroup(type, list))}
           </div>
