@@ -535,7 +535,6 @@ type EnrichmentInfo = {
   respons?: string | null;
   kobt_dato?: string | null;
   lease_leje_dato?: string | null;
-  beregnet_startdato?: string | null;
 };
 
 function fmtDa(iso?: string | null): string {
@@ -641,11 +640,14 @@ function EquipmentBox({ location }: { location: Location }) {
     (async () => {
       // serienr er text i begge tabeller — .in() sammenligner som text,
       // så ledende nuller bevares korrekt.
-      const { data: enrData } = await (supabase as any)
+      const { data: enrData, error: enrError } = await (supabase as any)
         .from("machine_enrichment")
-        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data, kobt_dato, lease_leje_dato, beregnet_startdato")
+        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data, kobt_dato, lease_leje_dato")
         .eq("record_status", "aktiv")
         .in("serienr", serials);
+      if (enrError) {
+        console.error("[lokationer-sektion] Kunne ikke hente machine_enrichment:", enrError.message);
+      }
       if (cancelled) return;
       const m = new Map<string, EnrichmentInfo>();
       for (const e of (enrData ?? []) as any[]) {
@@ -657,7 +659,6 @@ function EquipmentBox({ location }: { location: Location }) {
           respons: pickRespons(e.data),
           kobt_dato: e.kobt_dato ?? null,
           lease_leje_dato: e.lease_leje_dato ?? null,
-          beregnet_startdato: e.beregnet_startdato ?? null,
         });
       }
       setEnrichBySerial(m);
@@ -884,7 +885,7 @@ function EquipmentBox({ location }: { location: Location }) {
                   {enr && (
                     <div className="mt-1 ml-1 space-y-0.5 text-[11px]">
                       {(() => {
-                        const startIso = enr.kobt_dato ?? enr.lease_leje_dato ?? enr.beregnet_startdato ?? null;
+                        const startIso = enr.kobt_dato ?? enr.lease_leje_dato ?? null;
                         if (!startIso) return null;
                         const age = fmtAge(startIso);
                         return (
