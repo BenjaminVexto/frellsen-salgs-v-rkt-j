@@ -761,11 +761,21 @@ export const importInsertLocations = createServerFn({ method: "POST" })
     const errorSamples: Array<{ batchStart: number; sliceHasTarget: boolean; message: string; code: string | null; details: string | null; hint: string | null }> = [];
     const target = (data.rows as Array<Record<string, any>>).find((r) => r?.visma_delivery_no === "2273904");
     if (target) console.log("[DIAG] 2273904 sendt til upsert som:", JSON.stringify(target));
+
+    // Gem den oprindelige liste af primær-markeringer FØR vi tvinger is_primary=false i selve upsert'et.
+    const primaryTargets = (data.rows as Array<Record<string, any>>)
+      .filter((r) => r?.is_primary === true && r?.company_id && r?.visma_delivery_no)
+      .map((r) => ({ company_id: r.company_id as string, visma_delivery_no: r.visma_delivery_no as string }));
+
     for (let i = 0; i < data.rows.length; i += CHUNK) {
       const slice = data.rows.slice(i, i + CHUNK);
+      // Sæt is_primary=false på alle rækker i bulk-upsert'et for at undgå kollision
+      // med det partielle unikke indeks locations_one_primary_per_company. Primær-markeringen
+      // sættes efterfølgende atomisk via set_primary_location-RPC'et.
+      const payload = (slice as Array<Record<string, any>>).map((r) => ({ ...r, is_primary: false }));
       const { error, count } = await supabaseAdmin
         .from("locations")
-        .upsert(slice as any, { onConflict: "company_id,visma_delivery_no", count: "exact" });
+        .upsert(payload as any, { onConflict: "company_id,visma_delivery_no", count: "exact" });
       if (error) {
         const sliceHasTarget = (slice as Array<Record<string, any>>).some((r) => r?.visma_delivery_no === "2273904");
         console.error("[DIAG] upsertLocations batch FEJL:", {
@@ -786,7 +796,6 @@ export const importInsertLocations = createServerFn({ method: "POST" })
             code: (error as any).code,
             details: (error as any).details,
             hint: (error as any).hint,
-            
           });
         }
         failed += slice.length;
@@ -794,7 +803,24 @@ export const importInsertLocations = createServerFn({ method: "POST" })
       }
       inserted += count ?? slice.length;
     }
-    return { inserted, failed, errorSamples };
+
+    // Efter selve bulk-upsert'et: sæt den korrekte primær-lokation pr. virksomhed atomisk.
+    let primaryFixed = 0;
+    let primaryFailed = 0;
+    for (const t of primaryTargets) {
+      const { error } = await supabaseAdmin.rpc("set_primary_location" as any, {
+        p_company_id: t.company_id,
+        p_visma_delivery_no: t.visma_delivery_no,
+      } as any);
+      if (error) {
+        primaryFailed++;
+        console.error("[set_primary_location] fejl:", t, error.message);
+      } else {
+        primaryFixed++;
+      }
+    }
+
+    return { inserted, failed, errorSamples, primaryFixed, primaryFailed };
   });
 
 export const importUpsertContacts = createServerFn({ method: "POST" })
