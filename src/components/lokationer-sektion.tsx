@@ -885,7 +885,7 @@ function EquipmentBox({ location }: { location: Location }) {
                   {enr && (
                     <div className="mt-1 ml-1 space-y-0.5 text-[11px]">
                       {(() => {
-                        const startIso = enr.kobt_dato ?? enr.lease_leje_dato ?? enr.beregnet_startdato ?? null;
+                        const startIso = enr.kobt_dato ?? enr.lease_leje_dato ?? null;
                         if (!startIso) return null;
                         const age = fmtAge(startIso);
                         return (
