@@ -786,7 +786,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
             code: (error as any).code,
             details: (error as any).details,
             hint: (error as any).hint,
-            sample: slice.slice(0, 3),
+            
           });
         }
         failed += slice.length;
