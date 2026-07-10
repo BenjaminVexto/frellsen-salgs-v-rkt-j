@@ -576,6 +576,10 @@ function EquipmentBox({ location }: { location: Location }) {
   const [loading, setLoading] = useState(false);
   const [openType, setOpenType] = useState<string | null>(null);
   const [enrichBySerial, setEnrichBySerial] = useState<Map<string, EnrichmentInfo>>(new Map());
+  const [agreementStatusBySerial, setAgreementStatusBySerial] = useState<
+    Map<string, MachineAgreementStatusValue>
+  >(new Map());
+  const fetchAgreementStatuses = useServerFn(getMachineAgreementStatuses);
   const signal = (location.sales_signal ?? "").trim();
 
   useEffect(() => {
