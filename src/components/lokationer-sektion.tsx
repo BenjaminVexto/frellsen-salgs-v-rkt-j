@@ -643,7 +643,7 @@ function EquipmentBox({ location }: { location: Location }) {
       // så ledende nuller bevares korrekt.
       const { data: enrData } = await (supabase as any)
         .from("machine_enrichment")
-        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data")
+        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data, kobt_dato, lease_leje_dato, beregnet_startdato")
         .eq("record_status", "aktiv")
         .in("serienr", serials);
       if (cancelled) return;
