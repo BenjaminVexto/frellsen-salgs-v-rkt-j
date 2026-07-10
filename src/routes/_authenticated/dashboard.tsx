@@ -597,7 +597,7 @@ function ExpiringCustomersCard({
           </div>
           <div className="min-w-0">
             <h2 className="text-sm sm:text-base font-semibold text-foreground leading-tight truncate">
-              Nuværende kunder – aftaler udløber
+              Nuværende kunder – maskinaftale udløber
             </h2>
             <p className="text-xs text-muted-foreground">
               {loading ? "Henter…" : `${count} ${count === 1 ? "kunde" : "kunder"}`}
@@ -614,7 +614,7 @@ function ExpiringCustomersCard({
           </div>
         ) : count === 0 ? (
           <p className="text-sm text-muted-foreground py-2">
-            Ingen kundeaftaler udløber inden for 90 dage.
+            Ingen maskinaftaler udløber inden for 90 dage.
           </p>
         ) : (
           <div>
