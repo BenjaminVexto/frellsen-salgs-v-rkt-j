@@ -775,7 +775,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
       const payload = (slice as Array<Record<string, any>>).map((r) => ({ ...r, is_primary: false }));
       const { error, count } = await supabaseAdmin
         .from("locations")
-        .upsert(payload, { onConflict: "company_id,visma_delivery_no", count: "exact" });
+        .upsert(payload as any, { onConflict: "company_id,visma_delivery_no", count: "exact" });
       if (error) {
         const sliceHasTarget = (slice as Array<Record<string, any>>).some((r) => r?.visma_delivery_no === "2273904");
         console.error("[DIAG] upsertLocations batch FEJL:", {
