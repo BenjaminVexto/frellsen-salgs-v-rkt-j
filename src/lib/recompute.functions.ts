@@ -7,8 +7,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * Kaldes efter aktør- og maskine-importer så customer_type ikke
  * forbliver forældet indtil næste faktura-import.
  *
- * Sat-baseret RPC — kører på ~8s for hele kartoteket. Ikke-blokerende:
- * fejl returneres som { ok: false, error } så kalderen kan logge uden
+ * Batchet variant: tidligere kørte hele kartoteket i ét sat-baseret
+ * RPC-kald (~8s), men datamængden er vokset markant og rammer nu
+ * Postgres' statement-timeout. Vi henter derfor alle virksomheds-ID'er
+ * og kalder recompute_company_statuses_batch i bidder af 1.000.
+ * Fejl returneres som { ok: false, error } så kalderen kan logge uden
  * at vælte selve importen.
  */
 export const recomputeAllCompanyStatuses = createServerFn({ method: "POST" })
@@ -23,9 +26,30 @@ export const recomputeAllCompanyStatuses = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Forbidden: kun administratorer" };
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin.rpc("recompute_all_company_statuses");
-    if (error) {
-      return { ok: false as const, error: error.message };
+
+    const { data: companies, error: idsErr } = await supabaseAdmin
+      .from("companies")
+      .select("id");
+    if (idsErr) {
+      return { ok: false as const, error: idsErr.message };
     }
-    return { ok: true as const, rows: (data as number | null) ?? null };
+    const ids = (companies ?? []).map((c: { id: string }) => c.id);
+
+    const CHUNK = 1000;
+    let totalRows = 0;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK);
+      const { data, error } = await supabaseAdmin.rpc(
+        "recompute_company_statuses_batch",
+        { _company_ids: slice },
+      );
+      if (error) {
+        return {
+          ok: false as const,
+          error: `Batch ${i}-${i + slice.length} fejlede: ${error.message}`,
+        };
+      }
+      totalRows += (data as number | null) ?? 0;
+    }
+    return { ok: true as const, rows: totalRows };
   });
