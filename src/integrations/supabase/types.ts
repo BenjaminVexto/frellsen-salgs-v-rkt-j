@@ -2009,6 +2009,10 @@ export type Database = {
         Args: { _company_id: string }
         Returns: undefined
       }
+      recompute_company_statuses_batch: {
+        Args: { _company_ids: string[] }
+        Returns: number
+      }
       send_quote: {
         Args: { _quote_id: string }
         Returns: {
