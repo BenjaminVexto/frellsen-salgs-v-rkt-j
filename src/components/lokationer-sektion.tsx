@@ -865,7 +865,24 @@ function EquipmentBox({ location }: { location: Location }) {
                             Fri opsigelse (binding udløb {fmtDa(enr.binding_ophor)})
                           </div>
                         ) : (
-                          <div>Binding til {fmtDa(enr.binding_ophor)}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>Binding til {fmtDa(enr.binding_ophor)}</span>
+                            {u.serial_no && agreementStatusBySerial.get(u.serial_no.trim()) && (
+                              <Badge
+                                className={`text-[10px] px-1.5 py-0 border ${
+                                  MACHINE_AGREEMENT_STATUS_TONE[
+                                    agreementStatusBySerial.get(u.serial_no.trim())!
+                                  ]
+                                }`}
+                              >
+                                {
+                                  MACHINE_AGREEMENT_STATUS_LABELS[
+                                    agreementStatusBySerial.get(u.serial_no.trim())!
+                                  ]
+                                }
+                              </Badge>
+                            )}
+                          </div>
                         ))}
                       {enr.handlingsdato && (
                         <div>Reservedele inkl. til {fmtDa(enr.handlingsdato)}</div>
