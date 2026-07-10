@@ -758,7 +758,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
     const CHUNK = 500;
     let inserted = 0;
     let failed = 0;
-    const errorSamples: Array<Record<string, unknown>> = [];
+    const errorSamples: Array<{ batchStart: number; sliceHasTarget: boolean; message: string; code: string | null; details: string | null; hint: string | null }> = [];
     const target = (data.rows as Array<Record<string, any>>).find((r) => r?.visma_delivery_no === "2273904");
     if (target) console.log("[DIAG] 2273904 sendt til upsert som:", JSON.stringify(target));
     for (let i = 0; i < data.rows.length; i += CHUNK) {
