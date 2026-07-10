@@ -1237,6 +1237,18 @@ function ImportSide() {
       console.error("Kunne ikke bygge lokationsrækker", e);
     }
 
+    console.log(
+      "[DIAG] locRows med delivery 2273904:",
+      locRows.filter((l) => l.visma_delivery_no === "2273904"),
+    );
+    console.log("[DIAG] locRows total antal:", locRows.length);
+    console.log(
+      "[DIAG] locRows for company 3001300 (alle):",
+      locRows.filter((l) => l.company_id === keyToCompanyId.get("3001300")),
+    );
+
+
+
     // 5) Byg kontaktrækker IN-MEMORY med delivery_no (ingen location_id endnu).
     type ContactRow = {
       company_id: string;
