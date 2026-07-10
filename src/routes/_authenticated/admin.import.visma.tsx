@@ -1176,14 +1176,25 @@ function ImportSide() {
     try {
       type LocRow = { delivery: string; loc: Record<string, string | null> };
       const byKey = new Map<string, { companyId: string; companyKundenr: string; list: LocRow[] }>();
+      console.log("[DIAG] keyToCompanyId has 3001300:", keyToCompanyId.get("3001300"));
+      console.log(
+        "[DIAG] rows med Fakt.kunde=3001300:",
+        rows.filter((r) => (mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "") === "3001300").length,
+      );
       for (const r of rows) {
         const name = mapping.name ? (r[mapping.name] ?? "").trim() : "";
         const vismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
+        const delivery0 = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
+        const isTarget = delivery0 === "2273904" || vismaId === "3001300";
+        if (isTarget) console.log("[DIAG] target row raw:", { name, vismaId, delivery0 });
         const k = companyKey(name, vismaId);
+        if (isTarget) console.log("[DIAG] target row key k:", k);
         if (!k) continue;
         const companyId = keyToCompanyId.get(k);
+        if (isTarget) console.log("[DIAG] target row companyId lookup:", companyId);
         if (!companyId) continue;
         const delivery = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
+        if (isTarget) console.log("[DIAG] target row delivery:", delivery);
         if (!delivery) continue;
         const loc: Record<string, string | null> = {
           address: mapping.location_address ? (r[mapping.location_address] ?? "").trim() || null : null,
@@ -1196,9 +1207,13 @@ function ImportSide() {
         const entry = byKey.get(k) ?? { companyId, companyKundenr: vismaId, list: [] };
         if (!entry.list.find((x) => x.delivery === delivery)) {
           entry.list.push({ delivery, loc });
+          if (isTarget) console.log("[DIAG] target row PUSHED til byKey list, list.length=", entry.list.length);
+        } else if (isTarget) {
+          console.log("[DIAG] target row SPRUNGET OVER (duplicate delivery i list)");
         }
         byKey.set(k, entry);
       }
+
 
       for (const { companyId, companyKundenr, list } of byKey.values()) {
         // Opret ALLE lev.nr. som lokationer — også enkelt-lokations virksomheder
