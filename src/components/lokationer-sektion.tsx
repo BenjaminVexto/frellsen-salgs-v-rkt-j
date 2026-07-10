@@ -533,6 +533,9 @@ type EnrichmentInfo = {
   taelleraflaesning?: string | null;
   taellerstand?: number | null;
   respons?: string | null;
+  kobt_dato?: string | null;
+  lease_leje_dato?: string | null;
+  beregnet_startdato?: string | null;
 };
 
 function fmtDa(iso?: string | null): string {
@@ -544,6 +547,24 @@ function fmtDa(iso?: string | null): string {
   } catch {
     return iso;
   }
+}
+
+function fmtAge(iso?: string | null): string {
+  if (!iso) return "";
+  const start = new Date(iso);
+  if (Number.isNaN(start.getTime())) return "";
+  const now = new Date();
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  if (now.getDate() < start.getDate()) months--;
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} år`);
+  if (months > 0 || years === 0) parts.push(`${months} mdr.`);
+  return parts.join(", ");
 }
 
 function pickFromData(data: any, names: string[]): string | null {
@@ -622,7 +643,7 @@ function EquipmentBox({ location }: { location: Location }) {
       // så ledende nuller bevares korrekt.
       const { data: enrData } = await (supabase as any)
         .from("machine_enrichment")
-        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data")
+        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data, kobt_dato, lease_leje_dato, beregnet_startdato")
         .eq("record_status", "aktiv")
         .in("serienr", serials);
       if (cancelled) return;
@@ -634,6 +655,9 @@ function EquipmentBox({ location }: { location: Location }) {
           taelleraflaesning: e.taelleraflaesning ?? null,
           taellerstand: pickTaellerstand(e.data),
           respons: pickRespons(e.data),
+          kobt_dato: e.kobt_dato ?? null,
+          lease_leje_dato: e.lease_leje_dato ?? null,
+          beregnet_startdato: e.beregnet_startdato ?? null,
         });
       }
       setEnrichBySerial(m);
@@ -859,6 +883,17 @@ function EquipmentBox({ location }: { location: Location }) {
 
                   {enr && (
                     <div className="mt-1 ml-1 space-y-0.5 text-[11px]">
+                      {(() => {
+                        const startIso = enr.kobt_dato ?? enr.lease_leje_dato ?? enr.beregnet_startdato ?? null;
+                        if (!startIso) return null;
+                        const age = fmtAge(startIso);
+                        return (
+                          <div className="text-muted-foreground">
+                            Opstillet: {fmtDa(startIso)}
+                            {age ? ` (${age})` : ""}
+                          </div>
+                        );
+                      })()}
                       {enr.binding_ophor &&
                         (bindingPassed ? (
                           <div className="text-amber-700 font-medium">
@@ -926,19 +961,23 @@ function EquipmentBox({ location }: { location: Location }) {
           <div className="space-y-1.5">
             {machineGroups.map(([type, list]) => renderGroup(type, list))}
           </div>
-          {filters.length > 0 && (
-            <div className="text-xs text-muted-foreground pl-1">
-              inkl. {filterGroups.map(([type, list]) => {
-                const t = type.toLowerCase();
-                const isAccessory = t.includes("køl") || t.includes("mælk") || t.includes("milk");
-                const noun = isAccessory
-                  ? "tilbehørsdel" + (list.length === 1 ? "" : "e")
-                  : (list.length === 1 ? "filter" : "filtre");
-                return `${list.length} ${noun}`;
-              }).join(", ")}
-              {filtersFreeLoan ? " (gratis udlån)" : ""}
-            </div>
-          )}
+          {filters.length > 0 && (() => {
+            const filterTotal = filterGroups
+              .filter(([type]) => !(type.toLowerCase().includes("køl") || type.toLowerCase().includes("mælk") || type.toLowerCase().includes("milk")))
+              .reduce((sum, [, list]) => sum + list.length, 0);
+            const accessoryTotal = filterGroups
+              .filter(([type]) => type.toLowerCase().includes("køl") || type.toLowerCase().includes("mælk") || type.toLowerCase().includes("milk"))
+              .reduce((sum, [, list]) => sum + list.length, 0);
+            const parts: string[] = [];
+            if (filterTotal > 0) parts.push(`${filterTotal} ${filterTotal === 1 ? "filter" : "filtre"}`);
+            if (accessoryTotal > 0) parts.push(`${accessoryTotal} ${accessoryTotal === 1 ? "tilbehørsdel" : "tilbehørsdele"}`);
+            return (
+              <div className="text-xs text-muted-foreground pl-1">
+                inkl. {parts.join(", ")}
+                {filtersFreeLoan ? " (gratis udlån)" : ""}
+              </div>
+            );
+          })()}
         </>
       ) : (
         <div className="space-y-1.5">
