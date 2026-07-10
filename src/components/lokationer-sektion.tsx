@@ -640,11 +640,14 @@ function EquipmentBox({ location }: { location: Location }) {
     (async () => {
       // serienr er text i begge tabeller — .in() sammenligner som text,
       // så ledende nuller bevares korrekt.
-      const { data: enrData } = await (supabase as any)
+      const { data: enrData, error: enrError } = await (supabase as any)
         .from("machine_enrichment")
-        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data, kobt_dato, lease_leje_dato, beregnet_startdato")
+        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data, kobt_dato, lease_leje_dato")
         .eq("record_status", "aktiv")
         .in("serienr", serials);
+      if (enrError) {
+        console.error("[lokationer-sektion] Kunne ikke hente machine_enrichment:", enrError.message);
+      }
       if (cancelled) return;
       const m = new Map<string, EnrichmentInfo>();
       for (const e of (enrData ?? []) as any[]) {
@@ -656,7 +659,6 @@ function EquipmentBox({ location }: { location: Location }) {
           respons: pickRespons(e.data),
           kobt_dato: e.kobt_dato ?? null,
           lease_leje_dato: e.lease_leje_dato ?? null,
-          beregnet_startdato: e.beregnet_startdato ?? null,
         });
       }
       setEnrichBySerial(m);
