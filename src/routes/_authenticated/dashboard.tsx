@@ -1,11 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertTriangle,
   CalendarCheck,
@@ -23,12 +32,21 @@ import { da } from "date-fns/locale";
 import { PersonalGreeting } from "@/components/sales/personal-greeting";
 import { MyMonthZone } from "@/components/sales/my-month-zone";
 import { ChurningCustomersCard } from "@/components/sales/churning-customers-card";
-import { fetchExpiringMachines } from "@/lib/expiring-machines";
+import { fetchExpiringMachines, type ExpiringCustomerGroup, type ExpiringMachineDetail } from "@/lib/expiring-machines";
+import {
+  getMachineAgreementStatuses,
+  setMachineAgreementStatus,
+  clearMachineAgreementStatus,
+  MACHINE_AGREEMENT_STATUS_LABELS,
+  MACHINE_AGREEMENT_STATUS_TONE,
+  type MachineAgreementStatusValue,
+} from "@/lib/machine-agreement-status.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
   head: () => ({ meta: [{ title: "Mit overblik — Frellsen Salgsoversigt" }] }),
 });
+
 
 function DashboardPage() {
   const auth = useAuth();
