@@ -19,6 +19,13 @@ import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } fro
 import { toast } from "sonner";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { getLocationSalesSummary } from "@/lib/sales.functions";
+import {
+  getMachineAgreementStatuses,
+  MACHINE_AGREEMENT_STATUS_LABELS,
+  MACHINE_AGREEMENT_STATUS_TONE,
+  type MachineAgreementStatusValue,
+} from "@/lib/machine-agreement-status.functions";
+
 
 export type Location = {
   id: string;
