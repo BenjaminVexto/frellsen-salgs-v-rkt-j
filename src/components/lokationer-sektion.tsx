@@ -549,6 +549,24 @@ function fmtDa(iso?: string | null): string {
   }
 }
 
+function fmtAge(iso?: string | null): string {
+  if (!iso) return "";
+  const start = new Date(iso);
+  if (Number.isNaN(start.getTime())) return "";
+  const now = new Date();
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  if (now.getDate() < start.getDate()) months--;
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} år`);
+  if (months > 0 || years === 0) parts.push(`${months} mdr.`);
+  return parts.join(", ");
+}
+
 function pickFromData(data: any, names: string[]): string | null {
   if (!data || typeof data !== "object") return null;
   const norm = (s: string) => s.toLowerCase().replace(/[\s._-]/g, "");
