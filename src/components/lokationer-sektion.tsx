@@ -961,19 +961,23 @@ function EquipmentBox({ location }: { location: Location }) {
           <div className="space-y-1.5">
             {machineGroups.map(([type, list]) => renderGroup(type, list))}
           </div>
-          {filters.length > 0 && (
-            <div className="text-xs text-muted-foreground pl-1">
-              inkl. {filterGroups.map(([type, list]) => {
-                const t = type.toLowerCase();
-                const isAccessory = t.includes("køl") || t.includes("mælk") || t.includes("milk");
-                const noun = isAccessory
-                  ? "tilbehørsdel" + (list.length === 1 ? "" : "e")
-                  : (list.length === 1 ? "filter" : "filtre");
-                return `${list.length} ${noun}`;
-              }).join(", ")}
-              {filtersFreeLoan ? " (gratis udlån)" : ""}
-            </div>
-          )}
+          {filters.length > 0 && (() => {
+            const filterTotal = filterGroups
+              .filter(([type]) => !(type.toLowerCase().includes("køl") || type.toLowerCase().includes("mælk") || type.toLowerCase().includes("milk")))
+              .reduce((sum, [, list]) => sum + list.length, 0);
+            const accessoryTotal = filterGroups
+              .filter(([type]) => type.toLowerCase().includes("køl") || type.toLowerCase().includes("mælk") || type.toLowerCase().includes("milk"))
+              .reduce((sum, [, list]) => sum + list.length, 0);
+            const parts: string[] = [];
+            if (filterTotal > 0) parts.push(`${filterTotal} ${filterTotal === 1 ? "filter" : "filtre"}`);
+            if (accessoryTotal > 0) parts.push(`${accessoryTotal} ${accessoryTotal === 1 ? "tilbehørsdel" : "tilbehørsdele"}`);
+            return (
+              <div className="text-xs text-muted-foreground pl-1">
+                inkl. {parts.join(", ")}
+                {filtersFreeLoan ? " (gratis udlån)" : ""}
+              </div>
+            );
+          })()}
         </>
       ) : (
         <div className="space-y-1.5">
