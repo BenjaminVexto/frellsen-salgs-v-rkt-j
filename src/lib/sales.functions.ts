@@ -13,7 +13,7 @@ import {
   withContribution,
   getSellerCompanyIds,
 } from "./sales.server";
-import { parseProductGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
+import { parseProductGroup, isConsumableGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
 import { getCompaniesSuppliedByOthers } from "./relations.functions";
 
 
@@ -315,13 +315,13 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
     cutoff.setUTCDate(1);
     const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
-    type Row = { company_id: string; period: string; revenue: number };
+    type Row = { company_id: string; period: string; revenue: number; product_group_1: string | null };
     let rawRows: any[];
     if (teamScope) {
       rawRows = await fetchAllSalesMonthlyRows((from, to) =>
         supabaseAdmin
           .from("sales_monthly")
-          .select("company_id, period, revenue")
+          .select("company_id, period, revenue, product_group_1")
           .gte("period", cutoffStr)
           .range(from, to),
       );
@@ -331,7 +331,7 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
       rawRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
         context.supabase
           .from("sales_monthly")
-          .select("company_id, period, revenue")
+          .select("company_id, period, revenue, product_group_1")
           .in("company_id", slice)
           .gte("period", cutoffStr)
           .range(from, to),
@@ -339,7 +339,12 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
     }
     const rows: Row[] = rawRows
       .filter((r: any) => r.company_id)
-      .map((r: any) => ({ company_id: r.company_id, period: r.period, revenue: Number(r.revenue) || 0 }));
+      .map((r: any) => ({
+        company_id: r.company_id,
+        period: r.period,
+        revenue: Number(r.revenue) || 0,
+        product_group_1: r.product_group_1 ?? null,
+      }));
 
     if (!rows.length) return { customers: [], hasData: false };
 
@@ -347,6 +352,7 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
     type Acc = { periods: Set<string>; lastPeriod: string | null; totalRevenue: number };
     const byCompany = new Map<string, Acc>();
     for (const r of rows) {
+      if (!isConsumableGroup(r.product_group_1)) continue; // kun kaffe/te/chokolade/drikke tæller
       const acc = byCompany.get(r.company_id) ?? { periods: new Set(), lastPeriod: null, totalRevenue: 0 };
       if (r.revenue > 0) {
         acc.periods.add(r.period);
