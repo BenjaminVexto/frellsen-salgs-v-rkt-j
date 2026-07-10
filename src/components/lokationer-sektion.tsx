@@ -535,7 +535,6 @@ type EnrichmentInfo = {
   respons?: string | null;
   kobt_dato?: string | null;
   lease_leje_dato?: string | null;
-  beregnet_startdato?: string | null;
 };
 
 function fmtDa(iso?: string | null): string {
