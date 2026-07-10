@@ -655,6 +655,9 @@ function EquipmentBox({ location }: { location: Location }) {
           taelleraflaesning: e.taelleraflaesning ?? null,
           taellerstand: pickTaellerstand(e.data),
           respons: pickRespons(e.data),
+          kobt_dato: e.kobt_dato ?? null,
+          lease_leje_dato: e.lease_leje_dato ?? null,
+          beregnet_startdato: e.beregnet_startdato ?? null,
         });
       }
       setEnrichBySerial(m);
