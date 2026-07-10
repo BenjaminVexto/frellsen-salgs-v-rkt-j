@@ -1176,14 +1176,25 @@ function ImportSide() {
     try {
       type LocRow = { delivery: string; loc: Record<string, string | null> };
       const byKey = new Map<string, { companyId: string; companyKundenr: string; list: LocRow[] }>();
+      console.log("[DIAG] keyToCompanyId has 3001300:", keyToCompanyId.get("3001300"));
+      console.log(
+        "[DIAG] rows med Fakt.kunde=3001300:",
+        rows.filter((r) => (mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "") === "3001300").length,
+      );
       for (const r of rows) {
         const name = mapping.name ? (r[mapping.name] ?? "").trim() : "";
         const vismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
+        const delivery0 = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
+        const isTarget = delivery0 === "2273904" || vismaId === "3001300";
+        if (isTarget) console.log("[DIAG] target row raw:", { name, vismaId, delivery0 });
         const k = companyKey(name, vismaId);
+        if (isTarget) console.log("[DIAG] target row key k:", k);
         if (!k) continue;
         const companyId = keyToCompanyId.get(k);
+        if (isTarget) console.log("[DIAG] target row companyId lookup:", companyId);
         if (!companyId) continue;
         const delivery = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
+        if (isTarget) console.log("[DIAG] target row delivery:", delivery);
         if (!delivery) continue;
         const loc: Record<string, string | null> = {
           address: mapping.location_address ? (r[mapping.location_address] ?? "").trim() || null : null,
@@ -1196,9 +1207,13 @@ function ImportSide() {
         const entry = byKey.get(k) ?? { companyId, companyKundenr: vismaId, list: [] };
         if (!entry.list.find((x) => x.delivery === delivery)) {
           entry.list.push({ delivery, loc });
+          if (isTarget) console.log("[DIAG] target row PUSHED til byKey list, list.length=", entry.list.length);
+        } else if (isTarget) {
+          console.log("[DIAG] target row SPRUNGET OVER (duplicate delivery i list)");
         }
         byKey.set(k, entry);
       }
+
 
       for (const { companyId, companyKundenr, list } of byKey.values()) {
         // Opret ALLE lev.nr. som lokationer — også enkelt-lokations virksomheder
@@ -1221,6 +1236,18 @@ function ImportSide() {
     } catch (e) {
       console.error("Kunne ikke bygge lokationsrækker", e);
     }
+
+    console.log(
+      "[DIAG] locRows med delivery 2273904:",
+      locRows.filter((l) => l.visma_delivery_no === "2273904"),
+    );
+    console.log("[DIAG] locRows total antal:", locRows.length);
+    console.log(
+      "[DIAG] locRows for company 3001300 (alle):",
+      locRows.filter((l) => l.company_id === keyToCompanyId.get("3001300")),
+    );
+
+
 
     // 5) Byg kontaktrækker IN-MEMORY med delivery_no (ingen location_id endnu).
     type ContactRow = {
@@ -1341,11 +1368,16 @@ function ImportSide() {
           if (locRows.length) {
             importRunner.setLabel("Opretter lokationer i baggrunden…");
             try {
-              await upsertLocations({ data: { rows: locRows } });
+              console.log("[DIAG] upsertLocations kaldes med", locRows.length, "rækker; 2273904 med?",
+                locRows.some((l) => l.visma_delivery_no === "2273904"));
+              const upsertRes = await upsertLocations({ data: { rows: locRows } });
+              console.log("[DIAG] upsertLocations OK:", upsertRes);
             } catch (e) {
+              console.error("[DIAG] upsertLocations FEJL:", e);
               console.error("Lokationer-upsert fejl", e);
             }
           }
+
 
           // Kontakter: hent locIdMap kun for virksomheder med lokationer
           if (
