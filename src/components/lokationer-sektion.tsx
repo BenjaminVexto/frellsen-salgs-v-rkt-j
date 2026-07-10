@@ -19,6 +19,13 @@ import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } fro
 import { toast } from "sonner";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { getLocationSalesSummary } from "@/lib/sales.functions";
+import {
+  getMachineAgreementStatuses,
+  MACHINE_AGREEMENT_STATUS_LABELS,
+  MACHINE_AGREEMENT_STATUS_TONE,
+  type MachineAgreementStatusValue,
+} from "@/lib/machine-agreement-status.functions";
+
 
 export type Location = {
   id: string;
@@ -569,6 +576,10 @@ function EquipmentBox({ location }: { location: Location }) {
   const [loading, setLoading] = useState(false);
   const [openType, setOpenType] = useState<string | null>(null);
   const [enrichBySerial, setEnrichBySerial] = useState<Map<string, EnrichmentInfo>>(new Map());
+  const [agreementStatusBySerial, setAgreementStatusBySerial] = useState<
+    Map<string, MachineAgreementStatusValue>
+  >(new Map());
+  const fetchAgreementStatuses = useServerFn(getMachineAgreementStatuses);
   const signal = (location.sales_signal ?? "").trim();
 
   useEffect(() => {
@@ -631,6 +642,41 @@ function EquipmentBox({ location }: { location: Location }) {
       cancelled = true;
     };
   }, [units]);
+
+  // Hent maskinaftale-status (sat fra Mit overblik) for de samme serienr
+  useEffect(() => {
+    const serials = Array.from(
+      new Set(
+        (units ?? [])
+          .filter((u) => !u.is_filter && u.serial_no)
+          .map((u) => u.serial_no!.trim())
+          .filter(Boolean),
+      ),
+    );
+    if (serials.length === 0) {
+      setAgreementStatusBySerial(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchAgreementStatuses({ data: { serienrs: serials } });
+        if (cancelled) return;
+        const m = new Map<string, MachineAgreementStatusValue>();
+        for (const r of res.statuses) {
+          m.set(r.serienr, r.status as MachineAgreementStatusValue);
+        }
+        setAgreementStatusBySerial(m);
+      } catch {
+        // Ignorer — badge er blot en visning
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [units, fetchAgreementStatuses]);
+
+
 
 
 
@@ -819,7 +865,24 @@ function EquipmentBox({ location }: { location: Location }) {
                             Fri opsigelse (binding udløb {fmtDa(enr.binding_ophor)})
                           </div>
                         ) : (
-                          <div>Binding til {fmtDa(enr.binding_ophor)}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>Binding til {fmtDa(enr.binding_ophor)}</span>
+                            {u.serial_no && agreementStatusBySerial.get(u.serial_no.trim()) && (
+                              <Badge
+                                className={`text-[10px] px-1.5 py-0 border ${
+                                  MACHINE_AGREEMENT_STATUS_TONE[
+                                    agreementStatusBySerial.get(u.serial_no.trim())!
+                                  ]
+                                }`}
+                              >
+                                {
+                                  MACHINE_AGREEMENT_STATUS_LABELS[
+                                    agreementStatusBySerial.get(u.serial_no.trim())!
+                                  ]
+                                }
+                              </Badge>
+                            )}
+                          </div>
                         ))}
                       {enr.handlingsdato && (
                         <div>Reservedele inkl. til {fmtDa(enr.handlingsdato)}</div>

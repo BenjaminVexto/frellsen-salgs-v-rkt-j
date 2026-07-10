@@ -1,11 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertTriangle,
   CalendarCheck,
@@ -23,12 +32,21 @@ import { da } from "date-fns/locale";
 import { PersonalGreeting } from "@/components/sales/personal-greeting";
 import { MyMonthZone } from "@/components/sales/my-month-zone";
 import { ChurningCustomersCard } from "@/components/sales/churning-customers-card";
-import { fetchExpiringMachines } from "@/lib/expiring-machines";
+import { fetchExpiringMachines, type ExpiringCustomerGroup, type ExpiringMachineDetail } from "@/lib/expiring-machines";
+import {
+  getMachineAgreementStatuses,
+  setMachineAgreementStatus,
+  clearMachineAgreementStatus,
+  MACHINE_AGREEMENT_STATUS_LABELS,
+  MACHINE_AGREEMENT_STATUS_TONE,
+  type MachineAgreementStatusValue,
+} from "@/lib/machine-agreement-status.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
   head: () => ({ meta: [{ title: "Mit overblik — Frellsen Salgsoversigt" }] }),
 });
+
 
 function DashboardPage() {
   const auth = useAuth();
@@ -507,17 +525,56 @@ function FollowupRow({
   );
 }
 
-function ExpiringCustomerRow({
-  companyId,
-  companyName,
-  date,
-  count,
+const STATUS_OPTIONS: MachineAgreementStatusValue[] = [
+  "i_gang",
+  "kontaktet",
+  "afventer_kunde",
+  "fornyet",
+  "tabt",
+];
+
+function MachineStatusSelect({
+  value,
+  onChange,
 }: {
-  companyId: string;
-  companyName: string;
-  date: string;
-  count: number;
+  value: MachineAgreementStatusValue | null;
+  onChange: (v: MachineAgreementStatusValue | null) => void;
 }) {
+  return (
+    <Select
+      value={value ?? "__none__"}
+      onValueChange={(v) => onChange(v === "__none__" ? null : (v as MachineAgreementStatusValue))}
+    >
+      <SelectTrigger
+        className="h-7 text-[11px] w-[140px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <SelectValue placeholder="Sæt status" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none__">Ingen status</SelectItem>
+        {STATUS_OPTIONS.map((s) => (
+          <SelectItem key={s} value={s}>
+            {MACHINE_AGREEMENT_STATUS_LABELS[s]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ExpiringCustomerRow({
+  group,
+  statusMap,
+  onStatusChange,
+}: {
+  group: ExpiringCustomerGroup;
+  statusMap: Map<string, MachineAgreementStatusValue>;
+  onStatusChange: (m: ExpiringMachineDetail, v: MachineAgreementStatusValue | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { companyId, companyName, earliestDate: date, machines } = group;
+  const count = machines.length;
   const days = Math.ceil((parseISO(date).getTime() - Date.now()) / 86400000);
   const tone: "destructive" | "warning" | "success" =
     days < 30 ? "destructive" : days <= 60 ? "warning" : "success";
@@ -528,49 +585,107 @@ function ExpiringCustomerRow({
         ? "bg-warning/15 text-warning-foreground"
         : "bg-success/10 text-success";
   const dateLabel = format(parseISO(date), "d. MMM yyyy", { locale: da });
+
   return (
-    <Link
-      to="/virksomheder/$id"
-      params={{ id: companyId }}
-      hash="lokationer"
-      className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
-    >
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-foreground truncate">{companyName}</div>
-        <div className="text-xs text-muted-foreground">
-          {count} {count === 1 ? "maskine udløber" : "maskiner udløber"}
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <span
-          className={`text-[11px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap ${toneCls}`}
-        >
-          {dateLabel}
-        </span>
+    <div className="border-b border-border last:border-0">
+      <div className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 -mx-2 px-2">
         <button
           type="button"
-          title="Tilføj til kalender"
-          aria-label="Tilføj til kalender"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            void import("@/lib/add-to-calendar").then(({ addToCalendar }) =>
-              addToCalendar({
-                title: `Aftale udløber: ${companyName}`,
-                date,
-                description: `${count} ${count === 1 ? "maskine udløber" : "maskiner udløber"} hos ${companyName}.`,
-                url: `${window.location.origin}/virksomheder/${companyId}#lokationer`,
-                uid: `expiring-${companyId}`,
-              }),
-            );
-          }}
-          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          onClick={() => setOpen((v) => !v)}
+          className="min-w-0 flex-1 flex items-center gap-2 text-left hover:bg-accent/40 rounded-md py-1 -my-1 px-1 -mx-1"
         >
-          <CalendarPlus className="h-3.5 w-3.5" />
+          {open ? (
+            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-foreground truncate">{companyName}</div>
+            <div className="text-xs text-muted-foreground">
+              {count} {count === 1 ? "maskine udløber" : "maskiner udløber"}
+            </div>
+          </div>
         </button>
-        <ArrowRight className="hidden sm:block h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <span
+            className={`text-[11px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap ${toneCls}`}
+          >
+            {dateLabel}
+          </span>
+          <button
+            type="button"
+            title="Tilføj til kalender"
+            aria-label="Tilføj til kalender"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void import("@/lib/add-to-calendar").then(({ addToCalendar }) =>
+                addToCalendar({
+                  title: `Aftale udløber: ${companyName}`,
+                  date,
+                  description: `${count} ${count === 1 ? "maskine udløber" : "maskiner udløber"} hos ${companyName}.`,
+                  url: `${window.location.origin}/virksomheder/${companyId}#lokationer`,
+                  uid: `expiring-${companyId}`,
+                }),
+              );
+            }}
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" />
+          </button>
+          <Link
+            to="/virksomheder/$id"
+            params={{ id: companyId }}
+            hash="lokationer"
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Åbn virksomhed"
+            aria-label="Åbn virksomhed"
+          >
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
-    </Link>
+
+      {open && (
+        <ul className="mb-2 space-y-1.5 pl-6 pr-1">
+          {machines.map((m) => {
+            const st = statusMap.get(m.serienr) ?? null;
+            const mDate = format(parseISO(m.date), "d. MMM yyyy", { locale: da });
+            return (
+              <li
+                key={m.serienr}
+                className="flex items-center justify-between gap-2 rounded-md border bg-background px-2 py-1.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium text-foreground truncate">
+                    {m.machineType ?? "Maskine"}{" "}
+                    <span className="text-muted-foreground font-normal">· Serienr {m.serienr}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {[m.subLocation, m.agreementType, `${m.type === "binding" ? "Binding" : "Service"} udløber ${mDate}`]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {st && (
+                    <Badge
+                      className={`text-[10px] px-1.5 py-0 border ${MACHINE_AGREEMENT_STATUS_TONE[st]}`}
+                    >
+                      {MACHINE_AGREEMENT_STATUS_LABELS[st]}
+                    </Badge>
+                  )}
+                  <MachineStatusSelect
+                    value={st}
+                    onChange={(v) => onStatusChange(m, v)}
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -579,7 +694,7 @@ function ExpiringCustomersCard({
   loading,
   initialVisible = 2,
 }: {
-  customers: { companyId: string; companyName: string; earliestDate: string; machines: unknown[] }[];
+  customers: ExpiringCustomerGroup[];
   loading: boolean;
   initialVisible?: number;
 }) {
@@ -587,6 +702,64 @@ function ExpiringCustomersCard({
   const count = customers.length;
   const visible = expanded ? customers : customers.slice(0, initialVisible);
   const hiddenCount = Math.max(0, count - initialVisible);
+
+  const visibleSerienrs = useMemo(
+    () => Array.from(new Set(visible.flatMap((g) => g.machines.map((m) => m.serienr)))),
+    [visible],
+  );
+
+  const fetchStatuses = useServerFn(getMachineAgreementStatuses);
+  const setStatusFn = useServerFn(setMachineAgreementStatus);
+  const clearStatusFn = useServerFn(clearMachineAgreementStatus);
+
+  const statusQuery = useQuery({
+    enabled: visibleSerienrs.length > 0,
+    queryKey: ["machine-agreement-statuses", visibleSerienrs],
+    queryFn: () => fetchStatuses({ data: { serienrs: visibleSerienrs } }),
+  });
+
+  const [localStatuses, setLocalStatuses] = useState<Map<string, MachineAgreementStatusValue>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    if (!statusQuery.data) return;
+    const m = new Map<string, MachineAgreementStatusValue>();
+    for (const r of statusQuery.data.statuses) {
+      m.set(r.serienr, r.status as MachineAgreementStatusValue);
+    }
+    setLocalStatuses(m);
+  }, [statusQuery.data]);
+
+  const handleStatusChange = async (
+    machine: ExpiringMachineDetail,
+    value: MachineAgreementStatusValue | null,
+  ) => {
+    // Optimistisk opdatering
+    setLocalStatuses((prev) => {
+      const next = new Map(prev);
+      if (value == null) next.delete(machine.serienr);
+      else next.set(machine.serienr, value);
+      return next;
+    });
+    try {
+      if (value == null) {
+        await clearStatusFn({ data: { serienr: machine.serienr } });
+      } else {
+        await setStatusFn({
+          data: {
+            serienr: machine.serienr,
+            locationId: machine.locationId ?? null,
+            companyId: machine.companyId,
+            status: value,
+          },
+        });
+      }
+    } catch (e) {
+      // Rul tilbage ved fejl
+      void statusQuery.refetch();
+    }
+  };
 
   return (
     <Card className="p-4 md:p-6">
@@ -621,10 +794,9 @@ function ExpiringCustomersCard({
             {visible.map((g) => (
               <ExpiringCustomerRow
                 key={g.companyId}
-                companyId={g.companyId}
-                companyName={g.companyName}
-                date={g.earliestDate}
-                count={g.machines.length}
+                group={g}
+                statusMap={localStatuses}
+                onStatusChange={handleStatusChange}
               />
             ))}
             {hiddenCount > 0 && (
@@ -646,6 +818,7 @@ function ExpiringCustomersCard({
     </Card>
   );
 }
+
 
 
 

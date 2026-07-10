@@ -1262,6 +1262,64 @@ export type Database = {
           },
         ]
       }
+      machine_agreement_status: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          location_id: string | null
+          note: string | null
+          serienr: string
+          status: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          note?: string | null
+          serienr: string
+          status: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          note?: string | null
+          serienr?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_agreement_status_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_agreement_status_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_agreement_status_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machine_enrichment: {
         Row: {
           aftale_type: string | null
