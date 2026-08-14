@@ -9,8 +9,8 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
-  validateSearch: (s: Record<string, unknown>) => ({
-    next: typeof s.next === "string" ? s.next : "",
+  validateSearch: (s: Record<string, unknown>): { next?: string } => ({
+    next: typeof s.next === "string" ? s.next : undefined,
   }),
   head: () => ({ meta: [{ title: "Log ind — Frellsen Salgsoversigt" }] }),
 });
@@ -22,7 +22,8 @@ function safeNext(next: string): string | null {
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { next } = Route.useSearch();
+  const { next: nextRaw } = Route.useSearch();
+  const next = nextRaw ?? "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
