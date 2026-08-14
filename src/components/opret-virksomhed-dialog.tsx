@@ -120,15 +120,20 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
       const mySeq = ++searchSeq.current;
       setSearching(true);
       try {
+        const maybeCvr = normCvr(navn);
+        const isCvr = maybeCvr.length === 8;
         const res = await lookupFn({
-          data: {
-            type: "search",
-            name: navn,
-            location: searchLocation.trim() || undefined,
-            size: 10,
-          },
+          data: isCvr
+            ? { type: "single", cvr: maybeCvr }
+            : {
+                type: "search",
+                name: navn,
+                location: searchLocation.trim() || undefined,
+                size: 10,
+              },
         });
         if (mySeq !== searchSeq.current) return;
+
         if (!res.success) {
           setResults([]); setSearchDone(true);
         } else {
