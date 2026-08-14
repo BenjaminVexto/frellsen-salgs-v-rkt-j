@@ -516,14 +516,108 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
               </div>
             </div>
 
-            <div>
-              <Label>Note / første kontekst</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="mt-1"
-              />
+            <div className="rounded-lg border p-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Registrér aktivitet (frivillig)
+              </p>
+
+              <div className="flex flex-wrap gap-1.5">
+                {ACTIVITY_TYPES.map((t) => {
+                  const active = actType === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setActType(t.key)}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                        active
+                          ? `${t.bg} ${t.color} border-current font-medium`
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <t.Icon className="h-3.5 w-3.5" />
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div>
+                <Label>Note / første kontekst</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="mt-1"
+                  placeholder="Hvad skete der ved kunden?"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setActDone(true); setActFollowup(""); setActNextAction(""); }}
+                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                    actDone
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-current font-medium"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Færdig hos kunden
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActDone(false)}
+                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                    !actDone
+                      ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-current font-medium"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Følg op
+                </button>
+              </div>
+
+              {!actDone && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: "I morgen", days: 1 },
+                      { label: "1 uge", days: 7 },
+                      { label: "1 måned", days: 30 },
+                    ].map((q) => (
+                      <button
+                        key={q.label}
+                        type="button"
+                        onClick={() => setActFollowup(isoInDays(q.days))}
+                        className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                          actFollowup === isoInDays(q.days)
+                            ? "bg-primary/10 text-primary border-current font-medium"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {q.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label>Opfølgningsdato</Label>
+                      <Input
+                        type="date"
+                        value={actFollowup}
+                        onChange={(e) => setActFollowup(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Field
+                      label="Næste handling"
+                      value={actNextAction}
+                      onChange={setActNextAction}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end pt-2">
