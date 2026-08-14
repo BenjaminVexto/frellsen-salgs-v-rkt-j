@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useViewAs } from "@/contexts/view-as-context";
+import { ACTIVITY_TYPES, type ActivityTypeKey } from "@/lib/activity-types";
 
 function normCvr(s: string) {
   return s.replace(/\D/g, "").slice(0, 8);
