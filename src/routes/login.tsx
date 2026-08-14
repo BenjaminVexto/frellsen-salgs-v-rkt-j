@@ -22,7 +22,8 @@ function safeNext(next: string): string | null {
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { next } = Route.useSearch();
+  const { next: nextRaw } = Route.useSearch();
+  const next = nextRaw ?? "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
