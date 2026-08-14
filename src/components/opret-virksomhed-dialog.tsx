@@ -78,6 +78,12 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
 
+  // Aktivitet (frivillig) — registreres på virksomheden ved oprettelse
+  const [actType, setActType] = useState<ActivityTypeKey>("telefonopkald");
+  const [actDone, setActDone] = useState(true);
+  const [actNextAction, setActNextAction] = useState("");
+  const [actFollowup, setActFollowup] = useState("");
+
   function resetAll() {
     setStep("search");
     setSearchName(""); setSearchLocation("");
@@ -88,6 +94,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
     setIndustry(""); setEmployees(""); setCompanyForm(""); setWebsite("");
     setContactPerson(""); setContactTitle(""); setPhone(""); setDirectPhone("");
     setEmail(""); setNotes("");
+    setActType("telefonopkald"); setActDone(true); setActNextAction(""); setActFollowup("");
   }
 
   // Debounced søgning
