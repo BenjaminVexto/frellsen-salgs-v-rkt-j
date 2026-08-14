@@ -25,3 +25,7 @@ Efter gem: samme flow som i dag — man lander på virksomhedskortet, hvor aktiv
 - Ret insert i `activities` til: `company_id`, `created_by`, `activity_type` (gyldig enum-værdi), `note`, `next_action`, `next_followup_date`. Fjern `activity_date` og typen `note`.
 - Ingen database-ændringer nødvendige; tabellen `activities` har allerede alle felter.
 - Ingen ændring i det eksisterende CVR-søge-trin.
+
+## Bemærkning: eksisterende byggefejl
+
+Uafhængigt af ovenstående fejler typetjekket lige nu på 5 steder, fordi `/login`-ruten kræver en `next`-søgeparameter, mens `_authenticated.tsx`, `glemt-password.tsx` og `index.tsx` linker/navigerer til `/login` uden den. Rettes som første skridt ved at gøre `next` valgfri i `validateSearch` i `src/routes/login.tsx` (og læse den med fallback til tom streng).
