@@ -270,21 +270,29 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
       toast.error("Kunne ikke oprette virksomhed: " + error.message);
       return;
     }
-    // Note-feltet gemmes som en selvstændig aktivitet. Titel og virksomhedsform
-    // flettes IKKE ind i noten — titel hører til på kontaktpersonen (skrives ved
-    // contact-oprettelse hvis/når det sker), virksomhedsform har p.t. intet
-    // struktur-felt på companies og droppes derfor her.
+    // Første kontakt gemmes som en rigtig aktivitet på virksomheden — samme
+    // struktur som "Registrér aktivitet" bruger andre steder i appen.
     const noteText = notes.trim();
-    if (noteText && auth.user?.id) {
-      const { error: noteError } = await supabase.from("activities").insert({
+    const nextAction = actNextAction.trim();
+    const hasActivity = !!(noteText || (!actDone && (actFollowup || nextAction)));
+    if (hasActivity && auth.user?.id) {
+      const { error: actError } = await supabase.from("activities").insert({
         company_id: data.id,
         created_by: auth.user.id,
-        activity_type: "note" as any,
-        note: noteText,
-        activity_date: new Date().toISOString(),
-      } as any);
-      if (noteError) {
-        toast.warning("Virksomheden blev oprettet, men noten kunne ikke gemmes: " + noteError.message);
+        activity_type: actType,
+        note: noteText || null,
+        next_action: actDone ? null : nextAction || null,
+        next_followup_date: actDone ? null : actFollowup || null,
+      });
+      if (actError) {
+        setSaving(false);
+        toast.error(
+          "Virksomheden blev oprettet, men aktiviteten kunne ikke gemmes: " + actError.message,
+        );
+        setOpen(false);
+        resetAll();
+        navigate({ to: "/virksomheder/$id", params: { id: data.id } });
+        return;
       }
     }
     setSaving(false);
