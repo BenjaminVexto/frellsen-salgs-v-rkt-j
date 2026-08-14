@@ -120,15 +120,20 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
       const mySeq = ++searchSeq.current;
       setSearching(true);
       try {
+        const maybeCvr = normCvr(navn);
+        const isCvr = maybeCvr.length === 8;
         const res = await lookupFn({
-          data: {
-            type: "search",
-            name: navn,
-            location: searchLocation.trim() || undefined,
-            size: 10,
-          },
+          data: isCvr
+            ? { type: "single", cvr: maybeCvr }
+            : {
+                type: "search",
+                name: navn,
+                location: searchLocation.trim() || undefined,
+                size: 10,
+              },
         });
         if (mySeq !== searchSeq.current) return;
+
         if (!res.success) {
           setResults([]); setSearchDone(true);
         } else {
@@ -322,7 +327,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
         {step === "search" && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Tast virksomhedens navn — tilføj by eller postnummer for at finde den hurtigere
+              Tast virksomhedens navn eller CVR-nummer — tilføj by eller postnummer for at finde den hurtigere
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-2">
               <div className="relative">
@@ -332,9 +337,10 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
                   className="pl-9 h-12"
                   value={searchName}
                   onChange={(e) => setSearchName(e.target.value)}
-                  placeholder="Virksomhedsnavn..."
+                  placeholder="Virksomhedsnavn eller CVR-nr..."
                 />
               </div>
+
               <Input
                 className="h-12"
                 value={searchLocation}
