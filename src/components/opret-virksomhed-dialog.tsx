@@ -25,6 +25,13 @@ function normCvr(s: string) {
   return s.replace(/\D/g, "").slice(0, 8);
 }
 
+function isoInDays(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+
 type Step = "search" | "form";
 
 export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
