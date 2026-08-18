@@ -291,6 +291,80 @@ export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
     return { count: count ?? 0 };
   });
 
+export type MonthActivityRow = {
+  id: string;
+  created_at: string;
+  activity_type: string;
+  note: string | null;
+  company_id: string;
+  company_name: string | null;
+  created_by: string;
+  created_by_name: string | null;
+};
+
+/** Samme filter som getMyNewActivitiesCount — blot rækkerne bag tallet. */
+export const getMyNewActivitiesList = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{ rows: MonthActivityRow[] }> => {
+    const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
+    const teamScope =
+      !!data.teamScope &&
+      !data.viewAsUserId &&
+      (await isTeamScopeUser(context.supabase, context.userId));
+    const d = new Date();
+    const monthStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
+    let q = context.supabase
+      .from("activities")
+      .select("id, created_at, activity_type, note, company_id, companies(name)")
+      .gte("created_at", monthStart)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (!teamScope) q = q.eq("created_by", effectiveUserId);
+    const { data: rows, error } = await (q as any).select
+      ? await q
+      : { data: null, error: null as any };
+    if (error) throw error;
+    const list = (rows ?? []) as any[];
+
+    // created_by hentes separat da kolonnen skal med til navneopslag
+    let q2 = context.supabase
+      .from("activities")
+      .select("id, created_by")
+      .gte("created_at", monthStart)
+      .limit(2000);
+    if (!teamScope) q2 = q2.eq("created_by", effectiveUserId);
+    const { data: creators } = await q2;
+    const creatorById = new Map<string, string>(
+      ((creators ?? []) as any[]).map((r) => [r.id as string, r.created_by as string]),
+    );
+    const userIds = [...new Set([...creatorById.values()])];
+    const { data: profs } = userIds.length
+      ? await context.supabase.from("profiles").select("id, full_name").in("id", userIds)
+      : { data: [] as any[] };
+    const nameById = new Map<string, string>(
+      ((profs ?? []) as any[]).map((p) => [p.id as string, p.full_name as string]),
+    );
+
+    return {
+      rows: list.map((r) => {
+        const createdBy = creatorById.get(r.id) ?? "";
+        return {
+          id: r.id,
+          created_at: r.created_at,
+          activity_type: r.activity_type,
+          note: r.note ?? null,
+          company_id: r.company_id,
+          company_name: r.companies?.name ?? null,
+          created_by: createdBy,
+          created_by_name: nameById.get(createdBy) ?? null,
+        };
+      }),
+    };
+  });
+
+
+
 
 export type ChurningCustomer = {
   company_id: string;
