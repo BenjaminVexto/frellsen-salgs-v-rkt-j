@@ -40,7 +40,9 @@ export function MyMonthZone({ teamScope = false }: { teamScope?: boolean } = {})
           label={activityLabel}
           value={actQ.isLoading ? "…" : String(actQ.data?.count ?? 0)}
           loading={actQ.isLoading}
+          onClick={() => setListOpen(true)}
         />
+
         <MetricCard
           icon={<Wallet className="h-4 w-4" />}
           label={revenueLabel}
