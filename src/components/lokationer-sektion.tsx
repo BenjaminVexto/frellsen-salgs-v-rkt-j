@@ -187,6 +187,13 @@ export function LokationerSektion({
   });
 
   const sortedLocations = useMemo(() => {
+    if (sortMode === "street") {
+      return [...locations].sort((a, b) => {
+        const sa = streetName(a.address) ?? "";
+        const sb = streetName(b.address) ?? "";
+        return sa.localeCompare(sb, "da") || (a.address ?? "").localeCompare(b.address ?? "", "da");
+      });
+    }
     if (sortMode !== "revenue") {
       return [...locations].sort(
         (a, b) =>
