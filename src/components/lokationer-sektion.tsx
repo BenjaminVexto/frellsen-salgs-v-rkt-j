@@ -187,7 +187,15 @@ export function LokationerSektion({
   });
 
   const sortedLocations = useMemo(() => {
-    if (sortMode !== "revenue") return locations;
+    if (sortMode !== "revenue") {
+      return [...locations].sort(
+        (a, b) =>
+          (a.city ?? a.address ?? "").localeCompare(
+            b.city ?? b.address ?? "",
+            "da",
+          ) || (a.address ?? "").localeCompare(b.address ?? "", "da"),
+      );
+    }
     const summary = summaryQ.data ?? {};
     return [...locations].sort((a, b) => {
       const ra = summary[a.id]?.revenue12m ?? 0;
