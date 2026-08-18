@@ -63,7 +63,9 @@ export function MyMonthZone({ teamScope = false }: { teamScope?: boolean } = {})
           loading={salesQ.isLoading}
         />
       </div>
+      <MonthActivitiesDialog open={listOpen} onOpenChange={setListOpen} teamScope={teamScope} />
     </section>
+
   );
 }
 
