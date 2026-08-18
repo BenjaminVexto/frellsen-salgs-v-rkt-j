@@ -316,29 +316,16 @@ export const getMyNewActivitiesList = createServerFn({ method: "POST" })
     const monthStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
     let q = context.supabase
       .from("activities")
-      .select("id, created_at, activity_type, note, company_id, companies(name)")
+      .select("id, created_at, activity_type, note, company_id, created_by, companies(name)")
       .gte("created_at", monthStart)
       .order("created_at", { ascending: false })
       .limit(2000);
     if (!teamScope) q = q.eq("created_by", effectiveUserId);
-    const { data: rows, error } = await (q as any).select
-      ? await q
-      : { data: null, error: null as any };
+    const { data: rows, error } = await q;
     if (error) throw error;
     const list = (rows ?? []) as any[];
 
-    // created_by hentes separat da kolonnen skal med til navneopslag
-    let q2 = context.supabase
-      .from("activities")
-      .select("id, created_by")
-      .gte("created_at", monthStart)
-      .limit(2000);
-    if (!teamScope) q2 = q2.eq("created_by", effectiveUserId);
-    const { data: creators } = await q2;
-    const creatorById = new Map<string, string>(
-      ((creators ?? []) as any[]).map((r) => [r.id as string, r.created_by as string]),
-    );
-    const userIds = [...new Set([...creatorById.values()])];
+    const userIds = [...new Set(list.map((r) => r.created_by).filter(Boolean))];
     const { data: profs } = userIds.length
       ? await context.supabase.from("profiles").select("id, full_name").in("id", userIds)
       : { data: [] as any[] };
@@ -347,21 +334,19 @@ export const getMyNewActivitiesList = createServerFn({ method: "POST" })
     );
 
     return {
-      rows: list.map((r) => {
-        const createdBy = creatorById.get(r.id) ?? "";
-        return {
-          id: r.id,
-          created_at: r.created_at,
-          activity_type: r.activity_type,
-          note: r.note ?? null,
-          company_id: r.company_id,
-          company_name: r.companies?.name ?? null,
-          created_by: createdBy,
-          created_by_name: nameById.get(createdBy) ?? null,
-        };
-      }),
+      rows: list.map((r) => ({
+        id: r.id,
+        created_at: r.created_at,
+        activity_type: r.activity_type,
+        note: r.note ?? null,
+        company_id: r.company_id,
+        company_name: r.companies?.name ?? null,
+        created_by: r.created_by,
+        created_by_name: nameById.get(r.created_by) ?? null,
+      })),
     };
   });
+
 
 
 
