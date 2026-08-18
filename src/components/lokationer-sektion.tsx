@@ -66,6 +66,17 @@ const firstFilled = (...values: Array<string | null | undefined>) => {
   return null;
 };
 
+/** Udtræk vejnavn fra en fuld adresse ("Vejnavn 12, 1234 By" → "Vejnavn"). */
+const streetName = (address: string | null | undefined): string | null => {
+  if (!address || !address.trim()) return null;
+  const trimmed = address.trim();
+  // Fjern evt. postnummer/by efter komma
+  const beforeComma = trimmed.split(",")[0]!.trim();
+  // Find første tal-række (husnummer) og behold det der står før
+  const match = beforeComma.match(/^(\D+?)\s+\d/);
+  return match ? match[1]!.trim() : beforeComma;
+};
+
 export function LokationerSektion({
   companyId,
   isAdmin,
