@@ -104,6 +104,7 @@ function MetricCard({
   sub,
   comparison,
   loading,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -111,13 +112,21 @@ function MetricCard({
   sub?: string;
   comparison?: { current: number; lastYear: number };
   loading?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <Card className="p-4">
+    <Card
+      className={`p-4 ${onClick ? "cursor-pointer transition-colors hover:bg-accent/50" : ""}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+    >
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
         {icon}
         <span>{label}</span>
       </div>
+
       <div className="text-xl md:text-2xl font-semibold tabular-nums flex items-center gap-2 break-all">
         {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : value}
       </div>
