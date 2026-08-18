@@ -252,6 +252,7 @@ export function LokationerSektion({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="default">Primær / by</SelectItem>
+                <SelectItem value="street">Vejnavn</SelectItem>
                 <SelectItem value="revenue">Omsætning (høj→lav)</SelectItem>
               </SelectContent>
             </Select>
