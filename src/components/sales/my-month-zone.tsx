@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
@@ -6,11 +7,14 @@ import { Target, Activity, Wallet, Loader2, ArrowUp, ArrowDown, Minus } from "lu
 import { getMyMonthlySales, getMyNewActivitiesCount } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
 import { useViewAs } from "@/contexts/view-as-context";
+import { MonthActivitiesDialog } from "./month-activities-dialog";
 
 export function MyMonthZone({ teamScope = false }: { teamScope?: boolean } = {}) {
   const salesFn = useServerFn(getMyMonthlySales);
   const actFn = useServerFn(getMyNewActivitiesCount);
   const { viewAsUserId } = useViewAs();
+  const [listOpen, setListOpen] = useState(false);
+
 
   const salesQ = useQuery({
     queryKey: ["my-month-sales", viewAsUserId, teamScope],
@@ -36,7 +40,9 @@ export function MyMonthZone({ teamScope = false }: { teamScope?: boolean } = {})
           label={activityLabel}
           value={actQ.isLoading ? "…" : String(actQ.data?.count ?? 0)}
           loading={actQ.isLoading}
+          onClick={() => setListOpen(true)}
         />
+
         <MetricCard
           icon={<Wallet className="h-4 w-4" />}
           label={revenueLabel}
@@ -57,7 +63,9 @@ export function MyMonthZone({ teamScope = false }: { teamScope?: boolean } = {})
           loading={salesQ.isLoading}
         />
       </div>
+      <MonthActivitiesDialog open={listOpen} onOpenChange={setListOpen} teamScope={teamScope} />
     </section>
+
   );
 }
 
@@ -98,6 +106,7 @@ function MetricCard({
   sub,
   comparison,
   loading,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -105,13 +114,21 @@ function MetricCard({
   sub?: string;
   comparison?: { current: number; lastYear: number };
   loading?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <Card className="p-4">
+    <Card
+      className={`p-4 ${onClick ? "cursor-pointer transition-colors hover:bg-accent/50" : ""}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+    >
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
         {icon}
         <span>{label}</span>
       </div>
+
       <div className="text-xl md:text-2xl font-semibold tabular-nums flex items-center gap-2 break-all">
         {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : value}
       </div>

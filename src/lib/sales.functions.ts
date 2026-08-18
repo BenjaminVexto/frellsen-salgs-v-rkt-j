@@ -291,6 +291,65 @@ export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
     return { count: count ?? 0 };
   });
 
+export type MonthActivityRow = {
+  id: string;
+  created_at: string;
+  activity_type: string;
+  note: string | null;
+  company_id: string;
+  company_name: string | null;
+  created_by: string;
+  created_by_name: string | null;
+};
+
+/** Samme filter som getMyNewActivitiesCount — blot rækkerne bag tallet. */
+export const getMyNewActivitiesList = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{ rows: MonthActivityRow[] }> => {
+    const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
+    const teamScope =
+      !!data.teamScope &&
+      !data.viewAsUserId &&
+      (await isTeamScopeUser(context.supabase, context.userId));
+    const d = new Date();
+    const monthStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
+    let q = context.supabase
+      .from("activities")
+      .select("id, created_at, activity_type, note, company_id, created_by, companies(name)")
+      .gte("created_at", monthStart)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (!teamScope) q = q.eq("created_by", effectiveUserId);
+    const { data: rows, error } = await q;
+    if (error) throw error;
+    const list = (rows ?? []) as any[];
+
+    const userIds = [...new Set(list.map((r) => r.created_by).filter(Boolean))];
+    const { data: profs } = userIds.length
+      ? await context.supabase.from("profiles").select("id, full_name").in("id", userIds)
+      : { data: [] as any[] };
+    const nameById = new Map<string, string>(
+      ((profs ?? []) as any[]).map((p) => [p.id as string, p.full_name as string]),
+    );
+
+    return {
+      rows: list.map((r) => ({
+        id: r.id,
+        created_at: r.created_at,
+        activity_type: r.activity_type,
+        note: r.note ?? null,
+        company_id: r.company_id,
+        company_name: r.companies?.name ?? null,
+        created_by: r.created_by,
+        created_by_name: nameById.get(r.created_by) ?? null,
+      })),
+    };
+  });
+
+
+
+
 
 export type ChurningCustomer = {
   company_id: string;
