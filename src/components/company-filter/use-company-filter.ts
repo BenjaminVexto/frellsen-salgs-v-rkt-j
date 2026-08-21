@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import {
   AssignmentRow,
   CompanyRow,
@@ -12,7 +13,7 @@ import {
 } from "./types";
 
 const COMPANY_COLS =
-  "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,last_purchase_date,last_sales_date,last_consumable_sales_date,has_active_equipment,employees,is_public,binding_status,customer_category,assigned_to,visma_id,visma_delivery_id";
+  "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,afdeling_nr,last_purchase_date,last_sales_date,last_consumable_sales_date,has_active_equipment,employees,is_public,binding_status,customer_category,assigned_to,visma_id,visma_delivery_id";
 
 function matchesMachines(eq: EquipmentSummary | undefined, modes: string[]) {
   if (!modes.length) return true;
@@ -74,6 +75,8 @@ export function useCompanyFilter({
   restrictToIds,
   initialFilters,
 }: UseCompanyFilterOptions) {
+  // Kosmetisk afdelingsfilter fra afdelingsvælgeren i topbaren.
+  const { afdelingFilter } = useAfdeling();
   const [rows, setRows] = useState<CompanyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -103,7 +106,8 @@ export function useCompanyFilter({
           .from("companies")
           .select(COMPANY_COLS)
           .in("id", restrictToIds)
-          .order("name");
+          .order("name")
+          .then((res) => res);
         if (!cancelled) setRows((data ?? []) as any);
         if (!cancelled) setLoading(false);
         return;
@@ -111,11 +115,12 @@ export function useCompanyFilter({
       const PAGE = 1000;
       const all: any[] = [];
       for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase
+        let q0 = supabase
           .from("companies")
           .select(COMPANY_COLS)
-          .order("name", { ascending: true })
-          .range(from, from + PAGE - 1);
+          .order("name", { ascending: true });
+        if (afdelingFilter != null) q0 = q0.eq("afdeling_nr", afdelingFilter);
+        const { data, error } = await q0.range(from, from + PAGE - 1);
         if (error) break;
         const batch = data ?? [];
         all.push(...batch);
@@ -129,7 +134,7 @@ export function useCompanyFilter({
     return () => {
       cancelled = true;
     };
-  }, [restrictToIds]);
+  }, [restrictToIds, afdelingFilter]);
 
   // Assignments
   useEffect(() => {
