@@ -926,11 +926,19 @@ function ImportSide() {
   }
 
   const stats = useMemo(() => {
-    // Firma-filter kører FØRST og er ufravigeligt — kun firma 10 fortsætter.
-    const firmaKept = prepared.filter((p) => !isWrongFirma(p));
-    const wrongFirmaCount = prepared.length - firmaKept.length;
+    // Frasorteringsreglerne kører FØRST: kunder uden firmatilknytning (Firma=0
+    // og Afd=0) og ødelagte rækkepar tælles i egne kategorier, ikke som
+    // firma-filter-afvisninger.
+    const skipped = prepared.filter((p) => p.skipReason != null);
+    const eligible = prepared.filter((p) => p.skipReason == null);
+    // Firma-filter kører derefter og er ufravigeligt — kun firma 10 fortsætter.
+    const firmaKept = eligible.filter((p) => !isWrongFirma(p));
+    const wrongFirmaCount = eligible.length - firmaKept.length;
     const kept = firmaKept.filter((p) => !isFilteredByVisma(p));
     const filteredCount = firmaKept.length - kept.length;
+    const noFirmaLink = skipped.filter((p) => p.skipReason === "no_firma_link").length;
+    const brokenCount = skipped.filter((p) => p.skipReason === "broken_row").length;
+
 
     // RÆKKE-tællere — gensidigt eksklusive (én række falder i præcis ÉN kategori).
     // Prioritet: fejl > dublet > mangler-cvr > ny.
