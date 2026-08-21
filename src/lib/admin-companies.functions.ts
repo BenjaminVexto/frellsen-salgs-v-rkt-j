@@ -498,15 +498,19 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
     // har et partial unique index på visma_id. Postgres/PostgREST kan ikke matche
     // det index via ON CONFLICT-specifikationen, så vi laver eksplicit lookup →
     // insert/update i batches i stedet.
+    // Nøgle = (afdeling_nr, visma_id). Samme kundenummer kan findes i flere
+    // afdelinger (Frellsen 11 / Høyberg 21 / Java 22) og må IKKE flettes.
+    const afdOf = (r: any) => Number((r as any)?.afdeling_nr ?? 11);
+    const vismaKey = (afd: number, vid: string) => `${afd}|${vid}`;
     const byVismaId = new Map<string, any>();
     for (const r of data.rows) {
       const v = (r as any)?.visma_id;
       if (!v) continue;
-      byVismaId.set(String(v), r);
+      byVismaId.set(vismaKey(afdOf(r), String(v)), r);
     }
     const deduped = [...byVismaId.values()];
     const CHUNK = 500;
-    const results: Array<{ id: string; visma_id: string | null }> = [];
+    const results: Array<{ id: string; visma_id: string | null; afdeling_nr: number | null }> = [];
     let failed = 0;
     const errors: string[] = [];
 
@@ -514,10 +518,12 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
       const slice = deduped.slice(i, i + CHUNK);
 
       const vismaIds = slice.map((row) => String((row as any).visma_id).trim()).filter(Boolean);
+      const afdelinger = Array.from(new Set(slice.map((row) => afdOf(row))));
       const { data: existingRows, error: existingErr } = await supabaseAdmin
         .from("companies")
-        .select("id, visma_id")
-        .in("visma_id", vismaIds);
+        .select("id, visma_id, afdeling_nr")
+        .in("visma_id", vismaIds)
+        .in("afdeling_nr", afdelinger);
       if (existingErr) {
         const msg = formatDbError(existingErr);
         console.error("Import visma_id lookup fejl:", msg);
@@ -526,17 +532,18 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
         continue;
       }
 
-      const existingByVismaId = new Map<string, { id: string; visma_id: string | null }>();
+      const existingByVismaId = new Map<string, { id: string; visma_id: string | null; afdeling_nr: number | null }>();
       (existingRows ?? []).forEach((row: any) => {
-        if (row.visma_id) existingByVismaId.set(String(row.visma_id), row);
+        if (row.visma_id) existingByVismaId.set(vismaKey(Number(row.afdeling_nr ?? 11), String(row.visma_id)), row);
       });
 
       const inserts: any[] = [];
-      const updates: Array<{ id: string; visma_id: string; payload: any }> = [];
+      const updates: Array<{ id: string; visma_id: string; afdeling_nr: number; payload: any }> = [];
       for (const row of slice) {
         const vismaId = String((row as any).visma_id).trim();
-        const existing = existingByVismaId.get(vismaId);
-        if (existing) updates.push({ id: existing.id, visma_id: vismaId, payload: row });
+        const afd = afdOf(row);
+        const existing = existingByVismaId.get(vismaKey(afd, vismaId));
+        if (existing) updates.push({ id: existing.id, visma_id: vismaId, afdeling_nr: afd, payload: row });
         else inserts.push(row);
       }
 
@@ -544,7 +551,7 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
         const { data: insertedRows, error: insertErr } = await supabaseAdmin
           .from("companies")
           .insert(inserts as any)
-          .select("id, visma_id");
+          .select("id, visma_id, afdeling_nr");
         if (insertErr) {
           const msg = formatDbError(insertErr);
           console.error("Import insert (visma_id) fejl:", msg);
@@ -553,8 +560,9 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
             const vismaId = String((row as any).visma_id).trim();
             const { data: existing, error: lookupErr } = await supabaseAdmin
               .from("companies")
-              .select("id, visma_id")
+              .select("id, visma_id, afdeling_nr")
               .eq("visma_id", vismaId)
+              .eq("afdeling_nr", afdOf(row))
               .maybeSingle();
             if (lookupErr) {
               console.error("Import insert fallback lookup fejl:", formatDbError(lookupErr));
@@ -571,13 +579,13 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
                 failed++;
                 continue;
               }
-              results.push({ id: existing.id, visma_id: existing.visma_id });
+              results.push({ id: existing.id, visma_id: existing.visma_id, afdeling_nr: existing.afdeling_nr ?? afdOf(row) });
               continue;
             }
             const { data: oneInsert, error: oneInsertErr } = await supabaseAdmin
               .from("companies")
               .insert(row as any)
-              .select("id, visma_id")
+              .select("id, visma_id, afdeling_nr")
               .maybeSingle();
             if (oneInsertErr || !oneInsert) {
               console.error("[visma-import][row-error]", JSON.stringify({
@@ -589,20 +597,26 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
               failed++;
               continue;
             }
-            results.push({ id: oneInsert.id, visma_id: oneInsert.visma_id });
+            results.push({ id: oneInsert.id, visma_id: oneInsert.visma_id, afdeling_nr: oneInsert.afdeling_nr ?? afdOf(row) });
           }
         } else {
-          (insertedRows ?? []).forEach((row: any) => results.push({ id: row.id, visma_id: row.visma_id }));
+          (insertedRows ?? []).forEach((row: any) =>
+            results.push({ id: row.id, visma_id: row.visma_id, afdeling_nr: row.afdeling_nr ?? null }),
+          );
         }
       }
 
       if (updates.length) {
-        const grouped = new Map<string, { payload: any; rows: Array<{ id: string; visma_id: string }> }>();
+        const grouped = new Map<
+          string,
+          { payload: any; rows: Array<{ id: string; visma_id: string; afdeling_nr: number }> }
+        >();
         for (const row of updates) {
           const key = stableStringify(row.payload);
+          const entry = { id: row.id, visma_id: row.visma_id, afdeling_nr: row.afdeling_nr };
           const group = grouped.get(key);
-          if (group) group.rows.push({ id: row.id, visma_id: row.visma_id });
-          else grouped.set(key, { payload: row.payload, rows: [{ id: row.id, visma_id: row.visma_id }] });
+          if (group) group.rows.push(entry);
+          else grouped.set(key, { payload: row.payload, rows: [entry] });
         }
 
         for (const group of grouped.values()) {
@@ -633,11 +647,13 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
                   failed++;
                   continue;
                 }
-                results.push({ id: row.id, visma_id: row.visma_id });
+                results.push({ id: row.id, visma_id: row.visma_id, afdeling_nr: row.afdeling_nr });
               }
               continue;
             }
-            rowSlice.forEach((row) => results.push({ id: row.id, visma_id: row.visma_id }));
+            rowSlice.forEach((row) =>
+              results.push({ id: row.id, visma_id: row.visma_id, afdeling_nr: row.afdeling_nr }),
+            );
           }
         }
       }
