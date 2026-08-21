@@ -218,6 +218,7 @@ const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
 // Rå kolonner som læses direkte fra p.raw[...] (ikke mappet til DB-felt,
 // men brugt til filtrering og noter).
 const VISMA_RAW_COLUMNS = [
+  "Selskab",
   "Firma",
   "Afd",
   "Landnr.",
@@ -227,6 +228,7 @@ const VISMA_RAW_COLUMNS = [
   "Adresselinje 1",
   "Adresselinje 2",
 ] as const;
+
 
 // Felter hvor ledende nuller SKAL bevares — disse coerces eksplicit til
 // strenge på den rå celle og må aldrig konverteres via Number().
@@ -278,8 +280,49 @@ function companyKey(
 function rowAfdelingRaw(r: Record<string, string>): string {
   return String(r["Afd"] ?? r["Afdeling"] ?? "").trim();
 }
+/** "Firma"-kolonnen (header-navn). */
+function rowFirmaRaw(r: Record<string, string>): string {
+  return String(r["Firma"] ?? "").trim();
+}
+/** "Selskab"-kolonnen (header-navn). */
+function rowSelskabRaw(r: Record<string, string>): string {
+  return String(r["Selskab"] ?? "").trim();
+}
+/** Tom eller nul ("", "0", "00") — frasorteres, afviser IKKE filen. */
+function isEmptyOrZero(v: string): boolean {
+  return v === "" || /^0+$/.test(v);
+}
+
+/**
+ * Frasorteringsårsager (rækken importeres ikke, men afviser ikke filen):
+ *  - "no_firma_link": Firma=0 og Afd=0 → kunde uden firmatilknytning.
+ *  - "broken_row": Selskab, Firma OG Afd alle tomme → ødelagt
+ *    fortsættelsesrække fra Visma-eksporten (semikolon/linjeskift i e-mailfelt).
+ *    Både fortsættelsesrækken og dens moderrække frasorteres.
+ */
+type SkipReason = "no_firma_link" | "broken_row" | null;
 
 type ParsedRow = Record<string, string>;
+
+/** Ødelagt kilderække, rapporteret med moderrækkens Lev. kund + Navn. */
+type BrokenRowRef = { levKund: string; navn: string };
+
+type VismaStats = {
+  newCount: number;
+  dupCount: number;
+  missingCount: number;
+  errorCount: number;
+  uniqNewCount: number;
+  uniqDupCount: number;
+  uniqMissingCount: number;
+  filteredCount: number;
+  wrongFirmaCount: number;
+  noFirmaLinkCount: number;
+  brokenRowCount: number;
+  totalRows: number;
+  unmatchedSalespersonNos: string[];
+};
+
 
 interface PreparedRow {
   raw: ParsedRow;
@@ -297,7 +340,11 @@ interface PreparedRow {
   eanMatchId: string | null;
   hasError: boolean;
   errorMessage?: string;
+  skipReason: SkipReason;
+  /** Sand hvis rækken selv er den feltforskudte fortsættelsesrække. */
+  brokenContinuation: boolean;
 }
+
 
 // parseDanishDate er den delte parseDanishDateIso fra @/lib/invoice-parse
 
@@ -698,7 +745,8 @@ function ImportSide() {
   }, [afdelinger]);
 
   const prepared = useMemo<PreparedRow[]>(() => {
-    return rows.map((r) => {
+    const base = rows.map((r) => {
+
       const afdelingRaw = rowAfdelingRaw(r);
       // Kildeafdeling → kanonisk afdeling via afdeling_alias, FØR nøgler bygges
       const afdelingNr = canonAfdeling(r);
@@ -761,6 +809,13 @@ function ImportSide() {
       if (adrLinje1) notesParts.push(`Adresselinje 1: ${adrLinje1}`);
       if (bemIntern) notesParts.push(`Bem. intern: ${bemIntern}`);
       if (notesParts.length) (data as any).visma_notes = notesParts.join("\n");
+      // Frasorteringsregler (frasortér — afvis ALDRIG filen)
+      const selskabRaw = rowSelskabRaw(r);
+      const firmaRaw = rowFirmaRaw(r);
+      const brokenContinuation = !selskabRaw && !firmaRaw && !afdelingRaw;
+      let skipReason: SkipReason = null;
+      if (brokenContinuation) skipReason = "broken_row";
+      else if (isEmptyOrZero(firmaRaw) && isEmptyOrZero(afdelingRaw)) skipReason = "no_firma_link";
       return {
         raw: r,
         cvr,
@@ -777,9 +832,18 @@ function ImportSide() {
         eanMatchId,
         hasError,
         errorMessage: !data.name ? "Mangler navn" : undefined,
-      };
+        skipReason,
+        brokenContinuation,
+      } as PreparedRow;
     });
+    // Moderrækken til en ødelagt fortsættelsesrække er selv upålidelig
+    // (dens felter kan være afkortet) — frasortér BEGGE rækker i parret.
+    for (let i = 1; i < base.length; i++) {
+      if (base[i].brokenContinuation) base[i - 1].skipReason = "broken_row";
+    }
+    return base;
   }, [rows, mapping, existingCvrs, existingEanMap, existingNameMap, salespersonMap]);
+
 
   function isClosedName(name: unknown): boolean {
     if (!name) return false;
@@ -795,30 +859,64 @@ function ImportSide() {
     return !allowedFirmaSet.has(firma);
   }
 
-  /** Detaljerækker (efter firma-filter) med en afdelingsværdi vi ikke kender. */
+  /**
+   * Detaljerækker med en Afd-værdi der er UDFYLDT og ≠ 0, men ukendt i
+   * afdeling_alias. Kun disse afviser filen. Tom/nul og frasorterede
+   * rækker (uden firmatilknytning / ødelagte) tælles ikke med.
+   */
   const unknownAfdelingValues = useMemo(() => {
     if (!validAfdelingSet.size) return [] as string[];
     const bad = new Set<string>();
     for (const p of prepared) {
-      const firma = (p.raw["Firma"] ?? "").trim();
+      if (p.skipReason) continue; // frasorteret — afviser ikke filen
+      if (isEmptyOrZero(p.afdelingRaw)) continue; // tom/nul → frasortér
+      const firma = rowFirmaRaw(p.raw);
       if (!allowedFirmaSet.has(firma)) continue; // subtotal-/andet-selskab-rækker
       if (p.afdelingNr == null || !validAfdelingSet.has(p.afdelingNr)) {
-        bad.add(p.afdelingRaw || "(tom)");
+        bad.add(p.afdelingRaw);
       }
     }
     return Array.from(bad).sort();
   }, [prepared, validAfdelingSet, allowedFirmaSet]);
 
+
+
+
+  /** Regel B: ødelagte rækkepar — rapportér Lev. kund + Navn fra moderrækken. */
+  const brokenRows = useMemo(() => {
+    const out: { levKund: string; navn: string }[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < prepared.length; i++) {
+      if (!prepared[i].brokenContinuation) continue;
+      const parent = prepared[i - 1];
+      if (!parent) continue;
+      const levHdr = mapping.visma_delivery_id ?? "Lev. kund";
+      const nameHdr = mapping.name ?? "Navn";
+      const levKund = (parent.raw[levHdr] ?? "").trim() || "(ukendt)";
+      const navn = (parent.raw[nameHdr] ?? "").trim() || "(ukendt)";
+      const k = `${levKund}|${navn}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({ levKund, navn });
+    }
+    return out;
+  }, [prepared, mapping.visma_delivery_id, mapping.name]);
+
+
+
+
   const rowsByAfdeling = useMemo(() => {
     const out: Record<string, number> = {};
     for (const p of prepared) {
-      const firma = (p.raw["Firma"] ?? "").trim();
+      if (p.skipReason) continue;
+      const firma = rowFirmaRaw(p.raw);
       if (!allowedFirmaSet.has(firma)) continue;
       if (p.afdelingNr == null) continue;
       out[String(p.afdelingNr)] = (out[String(p.afdelingNr)] ?? 0) + 1;
     }
     return out;
   }, [prepared, allowedFirmaSet]);
+
 
   function isFilteredByVisma(p: PreparedRow): boolean {
     // Altid: filtrér virksomheder hvis navn er markeret som lukket i Visma
@@ -843,11 +941,19 @@ function ImportSide() {
   }
 
   const stats = useMemo(() => {
-    // Firma-filter kører FØRST og er ufravigeligt — kun firma 10 fortsætter.
-    const firmaKept = prepared.filter((p) => !isWrongFirma(p));
-    const wrongFirmaCount = prepared.length - firmaKept.length;
+    // Frasorteringsreglerne kører FØRST: kunder uden firmatilknytning (Firma=0
+    // og Afd=0) og ødelagte rækkepar tælles i egne kategorier, ikke som
+    // firma-filter-afvisninger.
+    const skipped = prepared.filter((p) => p.skipReason != null);
+    const eligible = prepared.filter((p) => p.skipReason == null);
+    // Firma-filter kører derefter og er ufravigeligt — kun firma 10 fortsætter.
+    const firmaKept = eligible.filter((p) => !isWrongFirma(p));
+    const wrongFirmaCount = eligible.length - firmaKept.length;
     const kept = firmaKept.filter((p) => !isFilteredByVisma(p));
     const filteredCount = firmaKept.length - kept.length;
+    const noFirmaLink = skipped.filter((p) => p.skipReason === "no_firma_link").length;
+    const brokenCount = skipped.filter((p) => p.skipReason === "broken_row").length;
+
 
     // RÆKKE-tællere — gensidigt eksklusive (én række falder i præcis ÉN kategori).
     // Prioritet: fejl > dublet > mangler-cvr > ny.
@@ -883,9 +989,12 @@ function ImportSide() {
       uniqMissingCount: uniqMissing.size,
       filteredCount,
       wrongFirmaCount,
+      noFirmaLinkCount: noFirmaLink,
+      brokenRowCount: brokenCount,
       totalRows: prepared.length,
       unmatchedSalespersonNos: Array.from(unmatchedSp),
     };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prepared, vismaFilters]);
 
@@ -893,6 +1002,15 @@ function ImportSide() {
   async function runImport() {
     if (importRunner.isBusy()) {
       toast.error("Der kører allerede en import. Vent indtil den er færdig.");
+      return;
+    }
+    // Race condition-guard: uden afdelinger + afdeling_alias ville kildeværdier
+    // som 13/23 blive skrevet direkte i afdeling_nr og ramme FK-constrainten.
+    if (!afdelinger.length || !afdelingAliases.length) {
+      toast.error(
+        "Afdelinger og afdelings-alias er ikke indlæst endnu — importen kan ikke startes. Vent et øjeblik og prøv igen.",
+        { duration: 10000 },
+      );
       return;
     }
     if (unknownAfdelingValues.length) {
@@ -909,6 +1027,7 @@ function ImportSide() {
 
     let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0, noCvrCount = 0;
     const toImport = prepared.filter((p) => {
+      if (p.skipReason) return false; // uden firmatilknytning / ødelagt kilderække
       if (isWrongFirma(p)) return false; // ALDRIG firma ≠ 10
       if (p.hasError) return false;
       if (isFilteredByVisma(p)) return false;
@@ -916,6 +1035,11 @@ function ImportSide() {
       if (p.missingCvr && !p.ean && !includeMissingCvr) return false;
       return true;
     });
+    // Rå rækker der er frasorteret — lokations-/kontakt-byggerne itererer over
+    // `rows`, så de skal springe de samme rækker over.
+    const skippedRawRows = new Set(prepared.filter((p) => p.skipReason).map((p) => p.raw));
+
+
     const importSource: "visma" | "cvr" = mapping.visma_id ? "visma" : "cvr";
     const nowIso = new Date().toISOString();
     const companyIds: string[] = [];
@@ -1292,6 +1416,8 @@ function ImportSide() {
         rows.filter((r) => (mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "") === "3001300").length,
       );
       for (const r of rows) {
+        if (skippedRawRows.has(r)) continue;
+
         const name = mapping.name ? (r[mapping.name] ?? "").trim() : "";
         const vismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
         const delivery0 = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
@@ -1376,6 +1502,8 @@ function ImportSide() {
       if (mapping.location_contact_person && mapping.visma_delivery_id) {
         const seenKeys = new Set<string>();
         for (const r of rows) {
+          if (skippedRawRows.has(r)) continue;
+
           const compName = mapping.name ? (r[mapping.name] ?? "").trim() : "";
           const compVismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
           const k = companyKey(compName, compVismaId, canonAfdeling(r));
@@ -1676,6 +1804,7 @@ function ImportSide() {
           stats={stats}
           rowsByAfdeling={rowsByAfdeling}
           unknownAfdelingValues={unknownAfdelingValues}
+          brokenRows={brokenRows}
           includeMissingCvr={includeMissingCvr}
           setIncludeMissingCvr={setIncludeMissingCvr}
           onBack={() => setStep(2)}
@@ -1685,6 +1814,8 @@ function ImportSide() {
       {step === 4 && (
         <Trin4Import
           stats={stats}
+          brokenRows={brokenRows}
+          afdelingerLoaded={afdelinger.length > 0 && afdelingAliases.length > 0}
           includeMissingCvr={includeMissingCvr}
           importing={importing}
           progress={progress}
@@ -1697,6 +1828,7 @@ function ImportSide() {
           onLater={goLater}
         />
       )}
+
       {step === 5 && (
         <Trin5Tildeling
           contactLists={contactLists}
@@ -1764,20 +1896,46 @@ function Stepper({ step }: { step: number }) {
 }
 
 
+function BrokenRowsCard({ rows, count }: { rows: BrokenRowRef[]; count: number }) {
+  if (!rows.length && !count) return null;
+  return (
+    <Card className="p-4 border-destructive/40 bg-destructive/5 flex gap-3 items-start">
+      <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+      <div className="text-sm">
+        <p className="font-medium mb-1">Ødelagte rækker i kildefilen — ret i Visma</p>
+        <p className="text-xs text-muted-foreground mb-2">
+          {count.toLocaleString("da-DK")} rækker ({rows.length} kunder) er feltforskudt fordi
+          e-mailfeltet indeholder flere adresser adskilt af semikolon/linjeskift. Rækkerne
+          frasorteres — kunderne bliver IKKE opdateret ved denne import.
+        </p>
+        <ul className="text-xs space-y-0.5">
+          {rows.map((r) => (
+            <li key={`${r.levKund}|${r.navn}`}>
+              <span className="font-mono">{r.levKund}</span> — {r.navn}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Card>
+  );
+}
+
 function Trin3Preview({
   prepared,
   stats,
   rowsByAfdeling,
   unknownAfdelingValues,
+  brokenRows,
   includeMissingCvr,
   setIncludeMissingCvr,
   onBack,
   onNext,
 }: {
   prepared: PreparedRow[];
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; uniqNewCount: number; uniqDupCount: number; uniqMissingCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: VismaStats;
   rowsByAfdeling: Record<string, number>;
   unknownAfdelingValues: string[];
+  brokenRows: BrokenRowRef[];
   includeMissingCvr: boolean;
   setIncludeMissingCvr: (v: boolean) => void;
   onBack: () => void;
@@ -1798,6 +1956,18 @@ function Trin3Preview({
           <span className="font-medium">{stats.wrongFirmaCount.toLocaleString("da-DK")} rækker</span> springes over fordi firma-nummeret ikke hører til en kendt afdeling.
         </Card>
       )}
+
+      {stats.noFirmaLinkCount > 0 && (
+        <Card className="p-4 border-warning/30 bg-warning/5 text-sm">
+          <span className="font-medium">Kunder uden firmatilknytning — ikke importeret:</span>{" "}
+          {stats.noFirmaLinkCount.toLocaleString("da-DK")} rækker har både Firma = 0 og Afd = 0 og
+          ekskluderes fra CRM.
+        </Card>
+      )}
+
+      <BrokenRowsCard rows={brokenRows} count={stats.brokenRowCount} />
+
+
 
       {Object.keys(rowsByAfdeling).length > 0 && (
         <Card className="p-4 text-sm">
@@ -1901,6 +2071,8 @@ function Trin3Preview({
 
 function Trin4Import({
   stats,
+  brokenRows,
+  afdelingerLoaded,
   includeMissingCvr,
   importing,
   progress,
@@ -1912,8 +2084,11 @@ function Trin4Import({
   onAssignNow,
   onLater,
 }: {
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; uniqNewCount: number; uniqDupCount: number; uniqMissingCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: VismaStats;
+  brokenRows: BrokenRowRef[];
+  afdelingerLoaded: boolean;
   includeMissingCvr: boolean;
+
   importing: boolean;
   progress: number;
   progressLabel: string;
@@ -1982,7 +2157,20 @@ function Trin4Import({
           <> {stats.uniqMissingCount} virksomheder uden CVR springes over.</>
         )}
         {stats.errorCount > 0 && <> {stats.errorCount} rækker med fejl springes over.</>}
+        {stats.noFirmaLinkCount > 0 && (
+          <> {stats.noFirmaLinkCount} rækker uden firmatilknytning (Firma = 0, Afd = 0) importeres ikke.</>
+        )}
       </p>
+
+      <div className="space-y-3 mb-4">
+        <BrokenRowsCard rows={brokenRows} count={stats.brokenRowCount} />
+        {!afdelingerLoaded && (
+          <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start text-sm">
+            <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+            <div>Afdelinger og afdelings-alias indlæses… importen kan først startes derefter.</div>
+          </Card>
+        )}
+      </div>
 
       {importing && (
         <div className="mb-4">
@@ -2007,7 +2195,8 @@ function Trin4Import({
         <Button variant="outline" onClick={onBack} disabled={importing}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage
         </Button>
-        <Button onClick={onRun} disabled={importing || willImport === 0}>
+        <Button onClick={onRun} disabled={importing || willImport === 0 || !afdelingerLoaded}>
+
           {importing ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importerer…</>
           ) : (
