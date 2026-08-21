@@ -839,30 +839,69 @@ function ImportSide() {
     return !allowedFirmaSet.has(firma);
   }
 
-  /** Detaljerækker (efter firma-filter) med en afdelingsværdi vi ikke kender. */
+  /**
+   * Detaljerækker med en Afd-værdi der er UDFYLDT og ≠ 0, men ukendt i
+   * afdeling_alias. Kun disse afviser filen. Tom/nul og frasorterede
+   * rækker (uden firmatilknytning / ødelagte) tælles ikke med.
+   */
   const unknownAfdelingValues = useMemo(() => {
     if (!validAfdelingSet.size) return [] as string[];
     const bad = new Set<string>();
     for (const p of prepared) {
-      const firma = (p.raw["Firma"] ?? "").trim();
+      if (p.skipReason) continue; // frasorteret — afviser ikke filen
+      if (isEmptyOrZero(p.afdelingRaw)) continue; // tom/nul → frasortér
+      const firma = rowFirmaRaw(p.raw);
       if (!allowedFirmaSet.has(firma)) continue; // subtotal-/andet-selskab-rækker
       if (p.afdelingNr == null || !validAfdelingSet.has(p.afdelingNr)) {
-        bad.add(p.afdelingRaw || "(tom)");
+        bad.add(p.afdelingRaw);
       }
     }
     return Array.from(bad).sort();
   }, [prepared, validAfdelingSet, allowedFirmaSet]);
 
+  /** Regel A: Firma=0 og Afd=0 → kunde uden firmatilknytning (ikke importeret). */
+  const noFirmaLinkCount = useMemo(
+    () => prepared.filter((p) => p.skipReason === "no_firma_link").length,
+    [prepared],
+  );
+
+  /** Regel B: ødelagte rækkepar — rapportér Lev. kund + Navn fra moderrækken. */
+  const brokenRows = useMemo(() => {
+    const out: { levKund: string; navn: string }[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < prepared.length; i++) {
+      if (!prepared[i].brokenContinuation) continue;
+      const parent = prepared[i - 1];
+      if (!parent) continue;
+      const levHdr = mapping.visma_delivery_id ?? "Lev. kund";
+      const nameHdr = mapping.name ?? "Navn";
+      const levKund = (parent.raw[levHdr] ?? "").trim() || "(ukendt)";
+      const navn = (parent.raw[nameHdr] ?? "").trim() || "(ukendt)";
+      const k = `${levKund}|${navn}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({ levKund, navn });
+    }
+    return out;
+  }, [prepared, mapping.visma_delivery_id, mapping.name]);
+
+  const brokenRowCount = useMemo(
+    () => prepared.filter((p) => p.skipReason === "broken_row").length,
+    [prepared],
+  );
+
   const rowsByAfdeling = useMemo(() => {
     const out: Record<string, number> = {};
     for (const p of prepared) {
-      const firma = (p.raw["Firma"] ?? "").trim();
+      if (p.skipReason) continue;
+      const firma = rowFirmaRaw(p.raw);
       if (!allowedFirmaSet.has(firma)) continue;
       if (p.afdelingNr == null) continue;
       out[String(p.afdelingNr)] = (out[String(p.afdelingNr)] ?? 0) + 1;
     }
     return out;
   }, [prepared, allowedFirmaSet]);
+
 
   function isFilteredByVisma(p: PreparedRow): boolean {
     // Altid: filtrér virksomheder hvis navn er markeret som lukket i Visma
