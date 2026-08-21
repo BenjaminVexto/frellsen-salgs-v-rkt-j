@@ -325,6 +325,7 @@ export async function parseAndAggregate(
   // fra filen eller 11 som fallback) og ingen validering.
   const afdelingList = opts.afdelinger ?? [];
   const validAfdelinger = new Set(afdelingList.map((a) => a.afdeling_nr));
+  const aliasMap = buildAfdelingAliasMap(opts.afdelingAliases);
   const allowedFirma = new Set(
     afdelingList.map((a) => (a.firma_nr == null ? "" : String(a.firma_nr))).filter(Boolean),
   );
@@ -345,14 +346,17 @@ export async function parseAndAggregate(
       continue;
     }
     const afdRaw = String(row[COL.AFDELING] ?? "").trim();
-    const afdNum = parseInt(afdRaw, 10);
+    // Kildeværdien oversættes gennem afdeling_alias til kanonisk afdeling
+    // (13→11, 23→21) FØR aggregering og nøgleopslag.
+    const mapped = mapAfdeling(afdRaw, aliasMap);
     if (validAfdelinger.size) {
-      if (!Number.isFinite(afdNum) || !validAfdelinger.has(afdNum)) {
+      if (mapped == null || !validAfdelinger.has(mapped)) {
         unknownAfdelinger.add(afdRaw || "(tom)");
         continue;
       }
     }
-    const afdeling = Number.isFinite(afdNum) ? afdNum : 11;
+    const afdeling = mapped ?? 11;
+
     const date = parseDanishDate(row[COL.DATE]);
     const delivery = String(row[COL.DELIVERY] ?? "").trim();
     if (!date || !delivery) {
