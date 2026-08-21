@@ -974,9 +974,12 @@ function ImportSide() {
       uniqMissingCount: uniqMissing.size,
       filteredCount,
       wrongFirmaCount,
+      noFirmaLinkCount: noFirmaLink,
+      brokenRowCount: brokenCount,
       totalRows: prepared.length,
       unmatchedSalespersonNos: Array.from(unmatchedSp),
     };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prepared, vismaFilters]);
 
