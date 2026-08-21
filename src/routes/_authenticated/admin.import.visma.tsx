@@ -859,11 +859,8 @@ function ImportSide() {
     return Array.from(bad).sort();
   }, [prepared, validAfdelingSet, allowedFirmaSet]);
 
-  /** Regel A: Firma=0 og Afd=0 → kunde uden firmatilknytning (ikke importeret). */
-  const noFirmaLinkCount = useMemo(
-    () => prepared.filter((p) => p.skipReason === "no_firma_link").length,
-    [prepared],
-  );
+
+
 
   /** Regel B: ødelagte rækkepar — rapportér Lev. kund + Navn fra moderrækken. */
   const brokenRows = useMemo(() => {
