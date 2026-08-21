@@ -280,6 +280,27 @@ function companyKey(
 function rowAfdelingRaw(r: Record<string, string>): string {
   return String(r["Afd"] ?? r["Afdeling"] ?? "").trim();
 }
+/** "Firma"-kolonnen (header-navn). */
+function rowFirmaRaw(r: Record<string, string>): string {
+  return String(r["Firma"] ?? "").trim();
+}
+/** "Selskab"-kolonnen (header-navn). */
+function rowSelskabRaw(r: Record<string, string>): string {
+  return String(r["Selskab"] ?? "").trim();
+}
+/** Tom eller nul ("", "0", "00") — frasorteres, afviser IKKE filen. */
+function isEmptyOrZero(v: string): boolean {
+  return v === "" || /^0+$/.test(v);
+}
+
+/**
+ * Frasorteringsårsager (rækken importeres ikke, men afviser ikke filen):
+ *  - "no_firma_link": Firma=0 og Afd=0 → kunde uden firmatilknytning.
+ *  - "broken_row": Selskab, Firma OG Afd alle tomme → ødelagt
+ *    fortsættelsesrække fra Visma-eksporten (semikolon/linjeskift i e-mailfelt).
+ *    Både fortsættelsesrækken og dens moderrække frasorteres.
+ */
+type SkipReason = "no_firma_link" | "broken_row" | null;
 
 type ParsedRow = Record<string, string>;
 
@@ -299,7 +320,11 @@ interface PreparedRow {
   eanMatchId: string | null;
   hasError: boolean;
   errorMessage?: string;
+  skipReason: SkipReason;
+  /** Sand hvis rækken selv er den feltforskudte fortsættelsesrække. */
+  brokenContinuation: boolean;
 }
+
 
 // parseDanishDate er den delte parseDanishDateIso fra @/lib/invoice-parse
 
