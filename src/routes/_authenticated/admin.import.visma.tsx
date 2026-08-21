@@ -216,6 +216,7 @@ const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
 // men brugt til filtrering og noter).
 const VISMA_RAW_COLUMNS = [
   "Firma",
+  "Afd",
   "Landnr.",
   "Kreditspærre",
   "Rute",
@@ -257,12 +258,22 @@ function normEan(v: string | undefined | null): string | null {
 // CVR er berigelse, ikke nøgle. Navn er beskrivelse, ikke nøgle.
 // Returnerer null hvis visma_id mangler — så falder vi tilbage til name-match
 // eller insert-uden-nøgle.
+// Nøglen indeholder afdeling, så samme kundenummer i to selskaber (Frellsen 11
+// vs. Høyberg 21) aldrig flettes til én virksomhed.
 function companyKey(
   _name: string | null | undefined,
   vismaId: string | null | undefined,
+  afdelingNr: number | null | undefined,
 ): string | null {
   const v = (vismaId ?? "").trim();
-  return v || null;
+  if (!v) return null;
+  const a = afdelingNr == null ? "" : String(afdelingNr);
+  return `${a}|${v}`;
+}
+
+/** Læs afdelingsnummeret fra Visma-rækkens "Afd"-kolonne (header-navn, ikke indeks). */
+function rowAfdelingRaw(r: Record<string, string>): string {
+  return String(r["Afd"] ?? r["Afdeling"] ?? "").trim();
 }
 
 type ParsedRow = Record<string, string>;
@@ -277,6 +288,8 @@ interface PreparedRow {
   isDuplicate: boolean;
   missingCvr: boolean;
   isPublic: boolean;
+  afdelingNr: number | null;
+  afdelingRaw: string;
   nameMatchId: string | null;
   eanMatchId: string | null;
   hasError: boolean;
@@ -293,6 +306,7 @@ function ImportSide() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [mapping, setMapping] = useState<Partial<Record<SystemField, string>>>({});
+  const [afdelinger, setAfdelinger] = useState<Array<{ afdeling_nr: number; firma_nr: number | null }>>([]);
   const [existingCvrs, setExistingCvrs] = useState<Set<string>>(new Set());
   const [existingCompanyKeys, setExistingCompanyKeys] = useState<Set<string>>(new Set());
   const [existingNameMap, setExistingNameMap] = useState<Map<string, string>>(new Map());
@@ -340,6 +354,20 @@ function ImportSide() {
   const fetchQueueStatus = useServerFn(getCvrEnrichmentQueueStatus);
   const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
 
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("afdeling")
+        .select("afdeling_nr, firma_nr")
+        .eq("aktiv", true);
+      if (!cancelled) setAfdelinger((data ?? []) as any);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
