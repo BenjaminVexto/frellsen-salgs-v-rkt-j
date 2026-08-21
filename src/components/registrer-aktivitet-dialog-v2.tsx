@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useViewAs } from "@/contexts/view-as-context";
+import { useAfdeling } from "@/contexts/afdeling-context";
 
 interface Props {
   open: boolean;
@@ -52,6 +53,7 @@ export function RegistrerAktivitetDialogV2({
   const [users, setUsers] = useState<MentionableUser[]>([]);
   const [saving, setSaving] = useState(false);
   const { isImpersonating, viewAsName } = useViewAs();
+  const { stampAfdelingNr } = useAfdeling();
 
   useEffect(() => {
     if (open && isImpersonating) {
@@ -95,6 +97,7 @@ export function RegistrerAktivitetDialogV2({
         note: trimmed || null,
         next_followup_date: followUpDate ? format(followUpDate, "yyyy-MM-dd") : null,
         location_id: locationId || null,
+        ...(stampAfdelingNr != null ? { afdeling_nr: stampAfdelingNr } : {}),
       } as any)
       .select("id")
       .single();

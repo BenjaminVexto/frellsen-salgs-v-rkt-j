@@ -16,6 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
+
 import {
   Dialog,
   DialogContent,
@@ -57,6 +60,7 @@ type Row = {
   is_active: boolean;
   created_at: string;
 };
+type Afdeling = { afdeling_nr: number; navn: string };
 
 function BrugerStyringSide() {
   const auth = useAuth();
@@ -70,6 +74,13 @@ function BrugerStyringSide() {
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
+  // Afdelingsadgang er en akse for sig — uafhængig af rollen i user_roles.
+  const [afdelinger, setAfdelinger] = useState<Afdeling[]>([]);
+  const [accessByUser, setAccessByUser] = useState<Record<string, number[]>>({});
+  const [primaryByUser, setPrimaryByUser] = useState<Record<string, number | null>>({});
+  const [afdSaving, setAfdSaving] = useState(false);
+  const [editAfd, setEditAfd] = useState<number[]>([]);
+  const [editPrimary, setEditPrimary] = useState<number | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -96,16 +107,37 @@ function BrugerStyringSide() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailValue, setEmailValue] = useState("");
 
+
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
       navigate({ to: "/dashboard" });
     }
   }, [auth.loading, auth.role, navigate]);
 
+  const loadAfdelingData = async () => {
+    const [{ data: afd }, { data: access }, { data: profs }] = await Promise.all([
+      supabase.from("afdeling").select("afdeling_nr, navn").order("afdeling_nr"),
+      supabase.from("user_afdeling_access").select("user_id, afdeling_nr"),
+      supabase.from("profiles").select("id, primary_afdeling_nr"),
+    ]);
+    setAfdelinger((afd ?? []) as Afdeling[]);
+    const byUser: Record<string, number[]> = {};
+    ((access ?? []) as any[]).forEach((r) => {
+      (byUser[r.user_id] ??= []).push(r.afdeling_nr);
+    });
+    Object.values(byUser).forEach((list) => list.sort((a, b) => a - b));
+    setAccessByUser(byUser);
+    const prim: Record<string, number | null> = {};
+    ((profs ?? []) as any[]).forEach((p) => {
+      prim[p.id] = p.primary_afdeling_nr ?? null;
+    });
+    setPrimaryByUser(prim);
+  };
+
   const load = async () => {
     setLoading(true);
     try {
-      const data = await listFn();
+      const [data] = await Promise.all([listFn(), loadAfdelingData()]);
       setRows(data as Row[]);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke hente brugere");
@@ -113,6 +145,7 @@ function BrugerStyringSide() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     if (auth.role === "admin") void load();
@@ -155,7 +188,59 @@ function BrugerStyringSide() {
       region: r.region ?? "",
       salesperson_no: r.salesperson_no ?? "",
     });
+    setEditAfd(accessByUser[r.id] ?? []);
+    setEditPrimary(primaryByUser[r.id] ?? null);
   };
+
+  /** Primær afdeling skal altid være én af brugerens tildelte afdelinger. */
+  const toggleEditAfd = (nr: number, on: boolean) => {
+    const next = on ? [...editAfd, nr].sort((a, b) => a - b) : editAfd.filter((x) => x !== nr);
+    setEditAfd(next);
+    if (editPrimary != null && !next.includes(editPrimary)) {
+      setEditPrimary(next[0] ?? null);
+    } else if (editPrimary == null && next.length) {
+      setEditPrimary(next[0]);
+    }
+  };
+
+  const onSaveAfdeling = async () => {
+    if (!editRow) return;
+    setAfdSaving(true);
+    try {
+      const current = accessByUser[editRow.id] ?? [];
+      const toAdd = editAfd.filter((n) => !current.includes(n));
+      const toRemove = current.filter((n) => !editAfd.includes(n));
+      if (toRemove.length) {
+        const { error } = await supabase
+          .from("user_afdeling_access")
+          .delete()
+          .eq("user_id", editRow.id)
+          .in("afdeling_nr", toRemove);
+        if (error) throw error;
+      }
+      if (toAdd.length) {
+        const { error } = await supabase
+          .from("user_afdeling_access")
+          .insert(toAdd.map((nr) => ({ user_id: editRow.id, afdeling_nr: nr })));
+        if (error) throw error;
+      }
+      const primary = editPrimary != null && editAfd.includes(editPrimary) ? editPrimary : (editAfd[0] ?? null);
+      const { error: pErr } = await supabase
+        .from("profiles")
+        .update({ primary_afdeling_nr: primary })
+        .eq("id", editRow.id);
+      if (pErr) throw pErr;
+      setAccessByUser((prev) => ({ ...prev, [editRow.id]: [...editAfd] }));
+      setPrimaryByUser((prev) => ({ ...prev, [editRow.id]: primary }));
+      setEditPrimary(primary);
+      toast.success("Afdelingsadgang opdateret");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Kunne ikke gemme afdelingsadgang");
+    } finally {
+      setAfdSaving(false);
+    }
+  };
+
 
   const onSaveEdit = async () => {
     if (!editRow) return;
@@ -256,6 +341,7 @@ function BrugerStyringSide() {
                 <TableHead>Navn</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Rolle</TableHead>
+                <TableHead>Afdelinger</TableHead>
                 <TableHead>Region</TableHead>
                 <TableHead>Sælgernr.</TableHead>
                 <TableHead>Oprettet</TableHead>
@@ -266,7 +352,7 @@ function BrugerStyringSide() {
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     Ingen brugere fundet
                   </TableCell>
                 </TableRow>
@@ -290,8 +376,17 @@ function BrugerStyringSide() {
                       <Badge variant="secondary">Sælger</Badge>
                     )}
                   </TableCell>
+                  <TableCell className="text-xs">
+                    <AfdelingCell
+                      role={r.role}
+                      afdelinger={afdelinger}
+                      access={accessByUser[r.id] ?? []}
+                      primary={primaryByUser[r.id] ?? null}
+                    />
+                  </TableCell>
                   <TableCell>{r.region || "—"}</TableCell>
                   <TableCell className="font-mono text-xs">{r.salesperson_no || "—"}</TableCell>
+
                   <TableCell>{new Date(r.created_at).toLocaleDateString("da-DK")}</TableCell>
                   <TableCell>
                     <Switch
@@ -434,7 +529,57 @@ function BrugerStyringSide() {
                   />
                 </div>
               )}
+
+              <div className="rounded-md border p-3 space-y-3">
+                <div>
+                  <Label>Afdelingsadgang</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Rolle og afdelingsadgang er uafhængige. En bruger kan have flere afdelinger.
+                  </p>
+                </div>
+                {editForm.role === "admin" && (
+                  <p className="text-xs text-muted-foreground">
+                    Administratorer har adgang til <strong>alle</strong> afdelinger uanset afkrydsning herunder.
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {afdelinger.map((a) => (
+                    <label key={a.afdeling_nr} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={editAfd.includes(a.afdeling_nr)}
+                        onCheckedChange={(v) => toggleEditAfd(a.afdeling_nr, v === true)}
+                      />
+                      {a.afdeling_nr} — {a.navn}
+                    </label>
+                  ))}
+                </div>
+                <div>
+                  <Label>Primær afdeling</Label>
+                  <Select
+                    value={editPrimary != null ? String(editPrimary) : "none"}
+                    onValueChange={(v) => setEditPrimary(v === "none" ? null : Number(v))}
+                    disabled={editAfd.length === 0}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Ingen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ingen</SelectItem>
+                      {afdelinger
+                        .filter((a) => editAfd.includes(a.afdeling_nr))
+                        .map((a) => (
+                          <SelectItem key={a.afdeling_nr} value={String(a.afdeling_nr)}>
+                            {a.afdeling_nr} — {a.navn}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button size="sm" onClick={onSaveAfdeling} disabled={afdSaving}>
+                  {afdSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Gem afdelingsadgang
+                </Button>
+              </div>
+
               <div className="flex gap-2 pt-2">
+
                 <Button variant="outline" size="sm" onClick={() => { setEmailValue(editRow.email); setEmailOpen(true); }}>
                   <Mail className="h-4 w-4 mr-1" /> Skift email
                 </Button>
@@ -486,6 +631,43 @@ function BrugerStyringSide() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/** Viser brugerens afdelinger — og markerer tydeligt hvis der ingen er. */
+function AfdelingCell({
+  role,
+  afdelinger,
+  access,
+  primary,
+}: {
+  role: AppRoleX;
+  afdelinger: Afdeling[];
+  access: number[];
+  primary: number | null;
+}) {
+  if (role === "admin") {
+    return <Badge variant="outline">Alle afdelinger (admin)</Badge>;
+  }
+  if (access.length === 0) {
+    return (
+      <Badge variant="destructive" className="whitespace-nowrap">
+        Mangler afdelingsadgang
+      </Badge>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {access.map((nr) => {
+        const navn = afdelinger.find((a) => a.afdeling_nr === nr)?.navn ?? String(nr);
+        return (
+          <Badge key={nr} variant={nr === primary ? "secondary" : "outline"} className="font-normal">
+            {nr} — {navn}
+            {nr === primary ? " ★" : ""}
+          </Badge>
+        );
+      })}
     </div>
   );
 }

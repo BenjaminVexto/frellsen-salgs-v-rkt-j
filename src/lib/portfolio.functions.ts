@@ -193,7 +193,9 @@ function shiftMonths(period: string, delta: number): string {
 
 export const getMyPortfolio = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { sellerId?: string | null }) => input ?? {})
+  // afdelingNr er et rent kosmetisk filter fra afdelingsvælgeren — den rigtige
+  // adgangskontrol ligger i RLS/my_afdelinger().
+  .inputValidator((input: { sellerId?: string | null; afdelingNr?: number | null }) => input ?? {})
   .handler(async ({ data, context }): Promise<PortfolioPayload> => {
     const { supabase, userId } = context;
     const isAdmin = await isAdminUser(supabase, userId);
@@ -236,6 +238,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           .range(from, to);
         if (appliedSellerId) q = q.eq("assigned_to", appliedSellerId);
         else q = q.not("assigned_to", "is", null);
+        if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
         const { data: comps, error } = await q;
         if (error) throw error;
         const page = comps ?? [];

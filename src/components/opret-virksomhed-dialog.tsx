@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useViewAs } from "@/contexts/view-as-context";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { ACTIVITY_TYPES, type ActivityTypeKey } from "@/lib/activity-types";
 
 function normCvr(s: string) {
@@ -41,6 +42,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("search");
   const { isImpersonating, viewAsName } = useViewAs();
+  const { stampAfdelingNr } = useAfdeling();
 
   useEffect(() => {
     if (open && isImpersonating) {
@@ -272,6 +274,8 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
       source_updated_at: new Date().toISOString(),
       assigned_to: auth.user?.id ?? null,
     };
+    // Stempl eksplicit med den valgte afdeling — stol ikke på databasedefaulten.
+    if (stampAfdelingNr != null) payload.afdeling_nr = stampAfdelingNr;
     const { data, error } = await supabase
       .from("companies")
       .insert(payload)
@@ -295,7 +299,8 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
         note: noteText || null,
         next_action: actDone ? null : nextAction || null,
         next_followup_date: actDone ? null : actFollowup || null,
-      });
+        ...(stampAfdelingNr != null ? { afdeling_nr: stampAfdelingNr } : {}),
+      } as any);
       if (actError) {
         setSaving(false);
         toast.error(

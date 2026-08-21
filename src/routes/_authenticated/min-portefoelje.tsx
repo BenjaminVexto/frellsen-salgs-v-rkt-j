@@ -25,6 +25,7 @@ import {
   type SignalRow,
 } from "@/lib/portfolio.functions";
 import { useViewAs } from "@/contexts/view-as-context";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { fmtKr } from "@/lib/sales-utils";
 
 
@@ -52,6 +53,7 @@ function PortfolioPage() {
   }, [auth.role, navigate]);
   const fn = useServerFn(getMyPortfolio);
   const { viewAsUserId, isImpersonating } = useViewAs();
+  const { afdelingFilter } = useAfdeling();
   // Når admin "ser som" sælger, låses sellerId til den sælger.
   const [sellerId, setSellerId] = useState<string | "all">(viewAsUserId ?? "all");
   useEffect(() => {
@@ -69,10 +71,10 @@ function PortfolioPage() {
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
 
   const q = useQuery({
-    queryKey: ["portfolio", sellerId, viewAsUserId],
+    queryKey: ["portfolio", sellerId, viewAsUserId, afdelingFilter],
     queryFn: () =>
       fn({
-        data: { sellerId: sellerId === "all" ? null : sellerId },
+        data: { sellerId: sellerId === "all" ? null : sellerId, afdelingNr: afdelingFilter },
       }),
   });
 

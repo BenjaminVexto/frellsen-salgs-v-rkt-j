@@ -7,22 +7,24 @@ import { Target, Activity, Wallet, Loader2, ArrowUp, ArrowDown, Minus } from "lu
 import { getMyMonthlySales, getMyNewActivitiesCount } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
 import { useViewAs } from "@/contexts/view-as-context";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { MonthActivitiesDialog } from "./month-activities-dialog";
 
 export function MyMonthZone({ teamScope = false }: { teamScope?: boolean } = {}) {
   const salesFn = useServerFn(getMyMonthlySales);
   const actFn = useServerFn(getMyNewActivitiesCount);
   const { viewAsUserId } = useViewAs();
+  const { afdelingFilter } = useAfdeling();
   const [listOpen, setListOpen] = useState(false);
 
 
   const salesQ = useQuery({
-    queryKey: ["my-month-sales", viewAsUserId, teamScope],
-    queryFn: () => salesFn({ data: { viewAsUserId, teamScope } }),
+    queryKey: ["my-month-sales", viewAsUserId, teamScope, afdelingFilter],
+    queryFn: () => salesFn({ data: { viewAsUserId, teamScope, afdelingNr: afdelingFilter } }),
   });
   const actQ = useQuery({
-    queryKey: ["my-month-activities", viewAsUserId, teamScope],
-    queryFn: () => actFn({ data: { viewAsUserId, teamScope } }),
+    queryKey: ["my-month-activities", viewAsUserId, teamScope, afdelingFilter],
+    queryFn: () => actFn({ data: { viewAsUserId, teamScope, afdelingNr: afdelingFilter } }),
   });
 
   const heading = teamScope ? "Teamets måned" : "Din måned";

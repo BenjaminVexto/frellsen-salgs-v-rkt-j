@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AfdelingBadge } from "@/components/afdeling-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -519,6 +520,7 @@ type EquipmentUnit = {
   is_free_loan: boolean;
   has_service_contract: boolean;
   udstyr_type: "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt" | null;
+  afdeling_nr?: number | null;
 };
 
 type Ownership = "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
@@ -637,7 +639,7 @@ function EquipmentBox({ location }: { location: Location }) {
     (async () => {
       const { data } = await (supabase as any)
         .from("location_equipment_units")
-        .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, udstyr_type")
+        .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, udstyr_type, afdeling_nr")
         .eq("location_id", location.id)
         .order("is_filter", { ascending: true })
         .order("machine_type", { ascending: true });
@@ -942,6 +944,7 @@ function EquipmentBox({ location }: { location: Location }) {
                 <li key={u.id} className="px-2 py-1.5 text-muted-foreground">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <OwnershipBadge kind={o.kind} label={o.label} />
+                    <AfdelingBadge afdelingNr={u.afdeling_nr} className="text-[10px] px-1.5 py-0" />
                     {expiringSoon && (
                       <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 text-[10px] px-1.5 py-0">
                         Udløber snart
