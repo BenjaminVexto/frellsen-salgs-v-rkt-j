@@ -9,6 +9,7 @@ import { getMyChurningCustomers } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
 import { DismissChurnDialog } from "./dismiss-churn-dialog";
 import { useViewAs } from "@/contexts/view-as-context";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { MutationGate } from "@/components/mutation-gate";
 
 export function ChurningCustomersCard({
@@ -17,9 +18,10 @@ export function ChurningCustomersCard({
 }: { initialVisible?: number; teamScope?: boolean } = {}) {
   const fetchFn = useServerFn(getMyChurningCustomers);
   const { viewAsUserId } = useViewAs();
+  const { afdelingFilter } = useAfdeling();
   const q = useQuery({
-    queryKey: ["my-churning", viewAsUserId, teamScope],
-    queryFn: () => fetchFn({ data: { viewAsUserId, teamScope } }),
+    queryKey: ["my-churning", viewAsUserId, teamScope, afdelingFilter],
+    queryFn: () => fetchFn({ data: { viewAsUserId, teamScope, afdelingNr: afdelingFilter } }),
   });
 
 

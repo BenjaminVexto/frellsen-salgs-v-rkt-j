@@ -20,6 +20,7 @@ import { Loader2 } from "lucide-react";
 import { getMyNewActivitiesList } from "@/lib/sales.functions";
 import { labelFor, getActivityType } from "@/lib/activity-types";
 import { useViewAs } from "@/contexts/view-as-context";
+import { useAfdeling } from "@/contexts/afdeling-context";
 
 export function MonthActivitiesDialog({
   open,
@@ -32,11 +33,12 @@ export function MonthActivitiesDialog({
 }) {
   const listFn = useServerFn(getMyNewActivitiesList);
   const { viewAsUserId } = useViewAs();
+  const { afdelingFilter } = useAfdeling();
   const [seller, setSeller] = useState<string>("all");
 
   const q = useQuery({
-    queryKey: ["my-month-activities-list", viewAsUserId, teamScope],
-    queryFn: () => listFn({ data: { viewAsUserId, teamScope } }),
+    queryKey: ["my-month-activities-list", viewAsUserId, teamScope, afdelingFilter],
+    queryFn: () => listFn({ data: { viewAsUserId, teamScope, afdelingNr: afdelingFilter } }),
     enabled: open,
   });
 

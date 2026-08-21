@@ -114,7 +114,11 @@ export function withContribution(rows: any[]) {
   }));
 }
 
-export async function getSellerCompanyIds(supabase: any, userId: string): Promise<string[]> {
+export async function getSellerCompanyIds(
+  supabase: any,
+  userId: string,
+  afdelingNr?: number | null,
+): Promise<string[]> {
   const ids = new Set<string>();
   const [{ data: assigned }, { data: assignments }, { data: opps }] = await Promise.all([
     supabase.from("companies").select("id").eq("assigned_to", userId),
@@ -124,5 +128,17 @@ export async function getSellerCompanyIds(supabase: any, userId: string): Promis
   (assigned ?? []).forEach((r: any) => r.id && ids.add(r.id));
   (assignments ?? []).forEach((r: any) => r.company_id && ids.add(r.company_id));
   (opps ?? []).forEach((r: any) => r.company_id && ids.add(r.company_id));
-  return Array.from(ids);
+  const all = Array.from(ids);
+  if (afdelingNr == null || !all.length) return all;
+  // Kosmetisk afdelingsfilter fra afdelingsvælgeren.
+  const keep = new Set<string>();
+  for (let i = 0; i < all.length; i += 200) {
+    const { data: comps } = await supabase
+      .from("companies")
+      .select("id")
+      .in("id", all.slice(i, i + 200))
+      .eq("afdeling_nr", afdelingNr);
+    (comps ?? []).forEach((c: any) => keep.add(c.id));
+  }
+  return all.filter((id) => keep.has(id));
 }

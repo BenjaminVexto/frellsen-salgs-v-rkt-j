@@ -196,7 +196,7 @@ export const getLocationSalesSummary = createServerFn({ method: "POST" })
 
 export const getMyMonthlySales = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
   .handler(async ({ data, context }): Promise<{
     revenue: number;
     companies: number;
@@ -220,13 +220,14 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
 
     if (teamScope) {
       const client = supabaseAdmin;
-      const rows = await fetchAllSalesMonthlyRows((from, to) =>
-        client
+      const rows = await fetchAllSalesMonthlyRows((from, to) => {
+        let q = client
           .from("sales_monthly")
           .select("company_id, period, revenue")
-          .in("period", [period, periodLastYear])
-          .range(from, to),
-      );
+          .in("period", [period, periodLastYear]);
+        if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
+        return q.range(from, to);
+      });
       rows.forEach((r: any) => {
         const rev = Number(r.revenue) || 0;
         if (r.period === period) {
@@ -237,7 +238,7 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
         }
       });
     } else {
-      const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
+      const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId, data.afdelingNr ?? null);
       if (!companyIds.length) {
         return { revenue: 0, companies: 0, period, revenueLastYear: 0, periodLastYear, comparisonMode: "full_month" };
       }
@@ -272,7 +273,7 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
 
 export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ count: number }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
     const teamScope =
@@ -286,6 +287,7 @@ export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
       .select("id", { count: "exact", head: true })
       .gte("created_at", monthStart);
     if (!teamScope) q = q.eq("created_by", effectiveUserId);
+    if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
     const { count, error } = await q;
     if (error) throw error;
     return { count: count ?? 0 };
@@ -305,7 +307,7 @@ export type MonthActivityRow = {
 /** Samme filter som getMyNewActivitiesCount — blot rækkerne bag tallet. */
 export const getMyNewActivitiesList = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ rows: MonthActivityRow[] }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
     const teamScope =
@@ -321,6 +323,7 @@ export const getMyNewActivitiesList = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(2000);
     if (!teamScope) q = q.eq("created_by", effectiveUserId);
+    if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
     const { data: rows, error } = await q;
     if (error) throw error;
     const list = (rows ?? []) as any[];
@@ -361,7 +364,7 @@ export type ChurningCustomer = {
 
 export const getMyChurningCustomers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean }) => input ?? {})
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ customers: ChurningCustomer[]; hasData: boolean }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
     const teamScope =
@@ -377,15 +380,16 @@ export const getMyChurningCustomers = createServerFn({ method: "POST" })
     type Row = { company_id: string; period: string; revenue: number; product_group_1: string | null };
     let rawRows: any[];
     if (teamScope) {
-      rawRows = await fetchAllSalesMonthlyRows((from, to) =>
-        supabaseAdmin
+      rawRows = await fetchAllSalesMonthlyRows((from, to) => {
+        let q = supabaseAdmin
           .from("sales_monthly")
           .select("company_id, period, revenue, product_group_1")
-          .gte("period", cutoffStr)
-          .range(from, to),
-      );
+          .gte("period", cutoffStr);
+        if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
+        return q.range(from, to);
+      });
     } else {
-      const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId);
+      const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId, data.afdelingNr ?? null);
       if (!companyIds.length) return { customers: [], hasData: false };
       rawRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
         context.supabase

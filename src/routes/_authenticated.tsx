@@ -51,8 +51,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GlobalImportIndicator } from "@/components/global-import-indicator";
 import { ViewAsProvider, useViewAs } from "@/contexts/view-as-context";
+import { AfdelingProvider, useAfdeling } from "@/contexts/afdeling-context";
+import { AfdelingVaelger } from "@/components/afdeling-vaelger";
 import { ViewAsBanner } from "@/components/view-as-banner";
 import { ViewAsPickerDialog } from "@/components/view-as-picker-dialog";
+
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -61,10 +64,13 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
   return (
     <ViewAsProvider>
-      <AuthenticatedShell />
+      <AfdelingProvider>
+        <AuthenticatedShell />
+      </AfdelingProvider>
     </ViewAsProvider>
   );
 }
+
 
 function AuthenticatedShell() {
   const auth = useAuth();
@@ -79,6 +85,7 @@ function AuthenticatedShell() {
 
   const isAdmin = auth.role === "admin";
   const viewAs = useViewAs();
+  const afd = useAfdeling();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
@@ -87,6 +94,11 @@ function AuthenticatedShell() {
     }
   }, [auth.loading, auth.session, isAdmin, location.pathname, navigate]);
 
+  const handleLogoutEarly = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/login" });
+  };
+
   if (auth.loading || !auth.session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -94,6 +106,26 @@ function AuthenticatedShell() {
       </div>
     );
   }
+
+  // Bruger uden afdelingsadgang ser tomme lister og nul-tal overalt — det
+  // ligner en nedbrudt app. Spær i stedet med en tydelig besked.
+  if (afd.hasNoAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="max-w-md text-center space-y-4">
+          <img src={frellsenLogo} alt="Frellsen" className="h-12 w-auto mx-auto object-contain invert" />
+          <h1 className="text-xl font-semibold">Din bruger mangler afdelingsadgang</h1>
+          <p className="text-sm text-muted-foreground">
+            Din bruger mangler afdelingsadgang. Kontakt en administrator.
+          </p>
+          <Button variant="outline" onClick={handleLogoutEarly}>
+            <LogOut className="h-4 w-4 mr-2" /> Log ud
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
 
 
   // Salgssupport har ingen egen portefølje/budget — skjul "Min salgsstatistik".
@@ -182,7 +214,9 @@ function AuthenticatedShell() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <AfdelingVaelger className="mt-2" />
           {auth.user?.id && (
+
             <div className="mt-2 flex justify-end">
               <NotificationBell
                 userId={auth.user.id}
@@ -253,7 +287,9 @@ function AuthenticatedShell() {
       <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-red-900 text-primary-foreground px-3 py-2 flex items-center justify-between border-b border-primary-foreground/10">
         <img src={frellsenLogo} alt="Frellsen" className="h-8 w-auto object-contain" />
         <div className="flex items-center gap-1">
+          <AfdelingVaelger className="w-40" />
           {auth.user?.id && <NotificationBell userId={auth.user.id} />}
+
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
             <LogOut className="h-4 w-4" />
           </Button>
