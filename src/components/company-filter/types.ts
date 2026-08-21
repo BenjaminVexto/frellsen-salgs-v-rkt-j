@@ -9,6 +9,8 @@ export type CompanyRow = {
   customer_type: string;
   sources: string[] | null;
   customer_segment_2: string | null;
+  afdeling_nr?: number | null;
+
   last_purchase_date: string | null;
   last_sales_date: string | null;
   last_consumable_sales_date: string | null;
