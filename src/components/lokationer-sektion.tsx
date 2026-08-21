@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AfdelingBadge } from "@/components/afdeling-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -943,6 +944,7 @@ function EquipmentBox({ location }: { location: Location }) {
                 <li key={u.id} className="px-2 py-1.5 text-muted-foreground">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <OwnershipBadge kind={o.kind} label={o.label} />
+                    <AfdelingBadge afdelingNr={u.afdeling_nr} className="text-[10px] px-1.5 py-0" />
                     {expiringSoon && (
                       <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 text-[10px] px-1.5 py-0">
                         Udløber snart
