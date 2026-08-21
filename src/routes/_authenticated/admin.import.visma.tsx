@@ -604,12 +604,14 @@ function ImportSide() {
           .filter((n) => !!n),
       ),
     );
+    const afdelingerForNames = Array.from(
+      new Set(rows.map((r) => parseInt(rowAfdelingRaw(r), 10)).filter((n) => Number.isFinite(n))),
+    );
     for (let i = 0; i < uniqueNames.length; i += 200) {
       const slice = uniqueNames.slice(i, i + 200);
-      const { data: ndata } = await supabase
-        .from("companies")
-        .select("id, name, zip")
-        .in("name", slice);
+      let nq = supabase.from("companies").select("id, name, zip, afdeling_nr").in("name", slice);
+      if (afdelingerForNames.length) nq = nq.in("afdeling_nr", afdelingerForNames);
+      const { data: ndata } = await nq;
       (ndata ?? []).forEach((d: any) => {
         const key = `${(d.name ?? "").toLowerCase()}|${d.zip ?? ""}`;
         if (!nameMap.has(key)) nameMap.set(key, d.id);
