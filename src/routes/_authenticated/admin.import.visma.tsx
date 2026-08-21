@@ -882,10 +882,8 @@ function ImportSide() {
     return out;
   }, [prepared, mapping.visma_delivery_id, mapping.name]);
 
-  const brokenRowCount = useMemo(
-    () => prepared.filter((p) => p.skipReason === "broken_row").length,
-    [prepared],
-  );
+
+
 
   const rowsByAfdeling = useMemo(() => {
     const out: Record<string, number> = {};
