@@ -1876,20 +1876,46 @@ function Stepper({ step }: { step: number }) {
 }
 
 
+function BrokenRowsCard({ rows, count }: { rows: BrokenRowRef[]; count: number }) {
+  if (!rows.length && !count) return null;
+  return (
+    <Card className="p-4 border-destructive/40 bg-destructive/5 flex gap-3 items-start">
+      <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+      <div className="text-sm">
+        <p className="font-medium mb-1">Ødelagte rækker i kildefilen — ret i Visma</p>
+        <p className="text-xs text-muted-foreground mb-2">
+          {count.toLocaleString("da-DK")} rækker ({rows.length} kunder) er feltforskudt fordi
+          e-mailfeltet indeholder flere adresser adskilt af semikolon/linjeskift. Rækkerne
+          frasorteres — kunderne bliver IKKE opdateret ved denne import.
+        </p>
+        <ul className="text-xs space-y-0.5">
+          {rows.map((r) => (
+            <li key={`${r.levKund}|${r.navn}`}>
+              <span className="font-mono">{r.levKund}</span> — {r.navn}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Card>
+  );
+}
+
 function Trin3Preview({
   prepared,
   stats,
   rowsByAfdeling,
   unknownAfdelingValues,
+  brokenRows,
   includeMissingCvr,
   setIncludeMissingCvr,
   onBack,
   onNext,
 }: {
   prepared: PreparedRow[];
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; uniqNewCount: number; uniqDupCount: number; uniqMissingCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: VismaStats;
   rowsByAfdeling: Record<string, number>;
   unknownAfdelingValues: string[];
+  brokenRows: BrokenRowRef[];
   includeMissingCvr: boolean;
   setIncludeMissingCvr: (v: boolean) => void;
   onBack: () => void;
@@ -1910,6 +1936,18 @@ function Trin3Preview({
           <span className="font-medium">{stats.wrongFirmaCount.toLocaleString("da-DK")} rækker</span> springes over fordi firma-nummeret ikke hører til en kendt afdeling.
         </Card>
       )}
+
+      {stats.noFirmaLinkCount > 0 && (
+        <Card className="p-4 border-warning/30 bg-warning/5 text-sm">
+          <span className="font-medium">Kunder uden firmatilknytning — ikke importeret:</span>{" "}
+          {stats.noFirmaLinkCount.toLocaleString("da-DK")} rækker har både Firma = 0 og Afd = 0 og
+          ekskluderes fra CRM.
+        </Card>
+      )}
+
+      <BrokenRowsCard rows={brokenRows} count={stats.brokenRowCount} />
+
+
 
       {Object.keys(rowsByAfdeling).length > 0 && (
         <Card className="p-4 text-sm">
