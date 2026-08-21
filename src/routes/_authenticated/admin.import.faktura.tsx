@@ -59,6 +59,7 @@ function FakturaImportSide() {
   const [stage, setStage] = useState<string>("");
   const [stageProgress, setStageProgress] = useState<{ done: number; total: number } | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [rowsByAfdeling, setRowsByAfdeling] = useState<Record<string, number> | null>(null);
   const [job, setJob] = useState<JobRow | null>(null);
   const pollRef = useRef<number | null>(null);
 
