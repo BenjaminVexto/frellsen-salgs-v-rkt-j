@@ -102,41 +102,54 @@ function FakturaImportSide() {
     setJob(null);
     setJobId(null);
     try {
-      // 1) Parse + aggregér i browseren (firma 10-filter + delt dato-helper)
+      // 0) Hent gyldige afdelinger — bruges til firma-filter + validering
+      setStage("Henter afdelinger…");
+      const { data: afdRows, error: afdErr } = await supabase
+        .from("afdeling")
+        .select("afdeling_nr, firma_nr")
+        .eq("aktiv", true);
+      if (afdErr) throw new Error("Kunne ikke hente afdelinger: " + afdErr.message);
+      const afdelinger = (afdRows ?? []) as Array<{ afdeling_nr: number; firma_nr: number | null }>;
+      if (!afdelinger.length) throw new Error("Ingen aktive afdelinger fundet");
+
+      // 1) Parse + aggregér i browseren (firma/afdeling-filter + delt dato-helper)
       setStage("Parser fakturajournal…");
       setStageProgress(null);
-      const { monthly, topProducts, topProductsMonthly, stats } = await parseAndAggregate(file);
+      const { monthly, topProducts, topProductsMonthly, stats } = await parseAndAggregate(file, {
+        afdelinger,
+      });
+      setRowsByAfdeling(stats.rowsByAfdeling);
       toast.message(
         `Parset: ${stats.linesRead.toLocaleString("da-DK")} linjer · ${monthly.length.toLocaleString("da-DK")} månedsrækker · ${topProducts.length.toLocaleString("da-DK")} top-vare-rækker · ${topProductsMonthly.length.toLocaleString("da-DK")} måneds-top-varer`,
       );
 
-      // 2) Slå alle delivery_nos op én gang server-side
+      // 2) Slå alle (afdeling, delivery_no)-par op én gang server-side
       setStage("Slår leverandørnumre op…");
-      const allDeliveryNos = Array.from(
-        new Set([
-          ...monthly.map((r) => r.visma_delivery_no),
-          ...topProducts.map((r) => r.visma_delivery_no),
-          ...topProductsMonthly.map((r) => r.visma_delivery_no),
-        ]),
-      );
-      const { map } = await resolveFn({ data: { deliveryNos: allDeliveryNos } });
+      const pairMap = new Map<string, { afdeling_nr: number; visma_delivery_no: string }>();
+      for (const r of [...monthly, ...topProducts, ...topProductsMonthly]) {
+        pairMap.set(`${r.afdeling_nr}|${r.visma_delivery_no}`, {
+          afdeling_nr: r.afdeling_nr,
+          visma_delivery_no: r.visma_delivery_no,
+        });
+      }
+      const pairs = Array.from(pairMap.values());
+      const { map } = await resolveFn({ data: { pairs } });
       const matched = Object.keys(map).length;
-      const unmatched = allDeliveryNos.filter((d) => !map[d]);
+      const unmatched = Array.from(pairMap.keys()).filter((k) => !map[k]);
 
-      // 3) Berig in-place med location_id / company_id
+      // 3) Berig in-place med location_id / company_id (afdelingsnøglet)
       setStage("Beriger rækker med lokation/firma…");
-      const enrichedMonthly = monthly.map((r) => ({
-        ...r,
-        location_id: map[r.visma_delivery_no]?.location_id ?? null,
-        company_id: map[r.visma_delivery_no]?.company_id ?? null,
-      }));
+      const enrichedMonthly = monthly.map((r) => {
+        const hit = map[`${r.afdeling_nr}|${r.visma_delivery_no}`];
+        return { ...r, location_id: hit?.location_id ?? null, company_id: hit?.company_id ?? null };
+      });
       const enrichedTop = topProducts.map((r) => ({
         ...r,
-        location_id: map[r.visma_delivery_no]?.location_id ?? null,
+        location_id: map[`${r.afdeling_nr}|${r.visma_delivery_no}`]?.location_id ?? null,
       }));
       const enrichedTopMonthly = topProductsMonthly.map((r) => ({
         ...r,
-        location_id: map[r.visma_delivery_no]?.location_id ?? null,
+        location_id: map[`${r.afdeling_nr}|${r.visma_delivery_no}`]?.location_id ?? null,
       }));
 
       // 4) Chunk + upload til private storage
@@ -176,6 +189,7 @@ function FakturaImportSide() {
           totalTopMonthly: enrichedTopMonthly.length,
           locationsMatched: matched,
           unmatched,
+          rowsByAfdeling: stats.rowsByAfdeling,
         },
       });
 
