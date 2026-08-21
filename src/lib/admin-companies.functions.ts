@@ -143,6 +143,7 @@ export const createImportBatch = createServerFn({ method: "POST" })
         filename: z.string().trim().max(255).optional().nullable(),
         company_count: z.number().int().min(0),
         company_ids: z.array(z.string().uuid()).min(1),
+        rows_by_afdeling: z.record(z.string(), z.number()).optional(),
       })
       .parse(input),
   )
@@ -155,6 +156,7 @@ export const createImportBatch = createServerFn({ method: "POST" })
         filename: data.filename ?? null,
         created_by: context.userId,
         company_count: uniqueCompanyIds.length,
+        payload: data.rows_by_afdeling ? { rows_by_afdeling: data.rows_by_afdeling } : null,
       })
       .select("id, created_at")
       .single();
@@ -781,7 +783,13 @@ export const importInsertLocations = createServerFn({ method: "POST" })
     // Gem den oprindelige liste af primær-markeringer FØR vi tvinger is_primary=false i selve upsert'et.
     const primaryTargets = (data.rows as Array<Record<string, any>>)
       .filter((r) => r?.is_primary === true && r?.company_id && r?.visma_delivery_no)
-      .map((r) => ({ company_id: r.company_id as string, visma_delivery_no: r.visma_delivery_no as string }));
+      .map((r) => ({
+        company_id: r.company_id as string,
+        visma_delivery_no: r.visma_delivery_no as string,
+        // Afdeling sendes eksplicit — RPC'en kører som service_role hvor
+        // auth.uid() er NULL, så my_afdelinger() ikke kan bruges.
+        afdeling_nr: Number(r.afdeling_nr ?? 11),
+      }));
 
     for (let i = 0; i < data.rows.length; i += CHUNK) {
       const slice = data.rows.slice(i, i + CHUNK);
@@ -827,6 +835,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
       const { error } = await supabaseAdmin.rpc("set_primary_location" as any, {
         p_company_id: t.company_id,
         p_visma_delivery_no: t.visma_delivery_no,
+        p_afdeling_nr: t.afdeling_nr,
       } as any);
       if (error) {
         primaryFailed++;
