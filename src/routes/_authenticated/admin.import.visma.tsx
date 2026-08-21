@@ -2157,7 +2157,20 @@ function Trin4Import({
           <> {stats.uniqMissingCount} virksomheder uden CVR springes over.</>
         )}
         {stats.errorCount > 0 && <> {stats.errorCount} rækker med fejl springes over.</>}
+        {stats.noFirmaLinkCount > 0 && (
+          <> {stats.noFirmaLinkCount} rækker uden firmatilknytning (Firma = 0, Afd = 0) importeres ikke.</>
+        )}
       </p>
+
+      <div className="space-y-3 mb-4">
+        <BrokenRowsCard rows={brokenRows} count={stats.brokenRowCount} />
+        {!afdelingerLoaded && (
+          <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start text-sm">
+            <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+            <div>Afdelinger og afdelings-alias indlæses… importen kan først startes derefter.</div>
+          </Card>
+        )}
+      </div>
 
       {importing && (
         <div className="mb-4">
@@ -2182,7 +2195,8 @@ function Trin4Import({
         <Button variant="outline" onClick={onBack} disabled={importing}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Tilbage
         </Button>
-        <Button onClick={onRun} disabled={importing || willImport === 0}>
+        <Button onClick={onRun} disabled={importing || willImport === 0 || !afdelingerLoaded}>
+
           {importing ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importerer…</>
           ) : (
