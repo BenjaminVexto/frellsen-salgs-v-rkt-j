@@ -304,6 +304,26 @@ type SkipReason = "no_firma_link" | "broken_row" | null;
 
 type ParsedRow = Record<string, string>;
 
+/** Ødelagt kilderække, rapporteret med moderrækkens Lev. kund + Navn. */
+type BrokenRowRef = { levKund: string; navn: string };
+
+type VismaStats = {
+  newCount: number;
+  dupCount: number;
+  missingCount: number;
+  errorCount: number;
+  uniqNewCount: number;
+  uniqDupCount: number;
+  uniqMissingCount: number;
+  filteredCount: number;
+  wrongFirmaCount: number;
+  noFirmaLinkCount: number;
+  brokenRowCount: number;
+  totalRows: number;
+  unmatchedSalespersonNos: string[];
+};
+
+
 interface PreparedRow {
   raw: ParsedRow;
   cvr: string | null;
