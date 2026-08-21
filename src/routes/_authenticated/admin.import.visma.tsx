@@ -725,7 +725,8 @@ function ImportSide() {
   }, [afdelinger]);
 
   const prepared = useMemo<PreparedRow[]>(() => {
-    return rows.map((r) => {
+    const base = rows.map((r) => {
+
       const afdelingRaw = rowAfdelingRaw(r);
       // Kildeafdeling → kanonisk afdeling via afdeling_alias, FØR nøgler bygges
       const afdelingNr = canonAfdeling(r);
