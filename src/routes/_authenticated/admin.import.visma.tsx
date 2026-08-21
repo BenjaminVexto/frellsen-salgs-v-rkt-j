@@ -1396,6 +1396,8 @@ function ImportSide() {
         rows.filter((r) => (mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "") === "3001300").length,
       );
       for (const r of rows) {
+        if (skippedRawRows.has(r)) continue;
+
         const name = mapping.name ? (r[mapping.name] ?? "").trim() : "";
         const vismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
         const delivery0 = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
