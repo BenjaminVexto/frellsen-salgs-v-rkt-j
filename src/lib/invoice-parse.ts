@@ -195,6 +195,35 @@ export type ParseStats = {
 /** Afdelingsopslag brugt til firma-filter og afdelingsvalidering. */
 export type AfdelingRef = { afdeling_nr: number; firma_nr: number | null };
 
+/** Række fra public.afdeling_alias: kildeværdi i Visma → kanonisk afdeling. */
+export type AfdelingAliasRef = { kilde_afdeling_nr: number; afdeling_nr: number };
+
+/**
+ * Byg et opslag fra kildeafdeling til kanonisk afdeling. Identitetsrækkerne
+ * (11→11 osv.) ligger i tabellen med vilje, så importen kun har ét opslag.
+ */
+export function buildAfdelingAliasMap(aliases: AfdelingAliasRef[] | undefined): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const a of aliases ?? []) {
+    if (Number.isFinite(a?.kilde_afdeling_nr) && Number.isFinite(a?.afdeling_nr)) {
+      m.set(Number(a.kilde_afdeling_nr), Number(a.afdeling_nr));
+    }
+  }
+  return m;
+}
+
+/**
+ * Oversæt en rå kildeafdelingsværdi til kanonisk afdeling_nr.
+ * Returnerer null hvis værdien er ukendt (→ filen skal afvises).
+ * Når alias-map er tomt (endnu ikke hentet) falder vi tilbage til råværdien.
+ */
+export function mapAfdeling(raw: unknown, aliasMap: Map<number, number>): number | null {
+  const n = parseInt(String(raw ?? "").trim(), 10);
+  if (!Number.isFinite(n)) return null;
+  if (!aliasMap.size) return n;
+  return aliasMap.get(n) ?? null;
+}
+
 export type ParseOptions = {
   /**
    * Gyldige afdelinger (hentet fra public.afdeling). Når listen er sat:
@@ -202,7 +231,13 @@ export type ParseOptions = {
    *  - detaljerækker med en ukendt afdelingsværdi afviser hele filen
    */
   afdelinger?: AfdelingRef[];
+  /**
+   * Alias-rækker fra public.afdeling_alias. Kildeværdien i filen (fx 13/23)
+   * oversættes til kanonisk afdeling (11/21) FØR aggregering og nøgleopslag.
+   */
+  afdelingAliases?: AfdelingAliasRef[];
 };
+
 
 async function fileToRows(file: File): Promise<any[][]> {
   const name = file.name.toLowerCase();
