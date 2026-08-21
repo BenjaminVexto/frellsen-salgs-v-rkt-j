@@ -1784,6 +1784,7 @@ function ImportSide() {
           stats={stats}
           rowsByAfdeling={rowsByAfdeling}
           unknownAfdelingValues={unknownAfdelingValues}
+          brokenRows={brokenRows}
           includeMissingCvr={includeMissingCvr}
           setIncludeMissingCvr={setIncludeMissingCvr}
           onBack={() => setStep(2)}
@@ -1793,6 +1794,8 @@ function ImportSide() {
       {step === 4 && (
         <Trin4Import
           stats={stats}
+          brokenRows={brokenRows}
+          afdelingerLoaded={afdelinger.length > 0 && afdelingAliases.length > 0}
           includeMissingCvr={includeMissingCvr}
           importing={importing}
           progress={progress}
@@ -1805,6 +1808,7 @@ function ImportSide() {
           onLater={goLater}
         />
       )}
+
       {step === 5 && (
         <Trin5Tildeling
           contactLists={contactLists}
