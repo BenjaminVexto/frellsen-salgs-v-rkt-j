@@ -358,16 +358,20 @@ function ImportSide() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("afdeling")
-        .select("afdeling_nr, firma_nr")
-        .eq("aktiv", true);
-      if (!cancelled) setAfdelinger((data ?? []) as any);
+      const [{ data }, { data: aliasData }] = await Promise.all([
+        supabase.from("afdeling").select("afdeling_nr, firma_nr").eq("aktiv", true),
+        supabase.from("afdeling_alias").select("kilde_afdeling_nr, afdeling_nr"),
+      ]);
+      if (!cancelled) {
+        setAfdelinger((data ?? []) as any);
+        setAfdelingAliases((aliasData ?? []) as any);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
