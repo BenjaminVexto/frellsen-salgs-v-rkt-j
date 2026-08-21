@@ -218,6 +218,7 @@ const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
 // Rå kolonner som læses direkte fra p.raw[...] (ikke mappet til DB-felt,
 // men brugt til filtrering og noter).
 const VISMA_RAW_COLUMNS = [
+  "Selskab",
   "Firma",
   "Afd",
   "Landnr.",
@@ -227,6 +228,7 @@ const VISMA_RAW_COLUMNS = [
   "Adresselinje 1",
   "Adresselinje 2",
 ] as const;
+
 
 // Felter hvor ledende nuller SKAL bevares — disse coerces eksplicit til
 // strenge på den rå celle og må aldrig konverteres via Number().
