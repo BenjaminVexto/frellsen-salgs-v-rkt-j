@@ -134,6 +134,29 @@ export type Database = {
         }
         Relationships: []
       }
+      afdeling_alias: {
+        Row: {
+          afdeling_nr: number
+          kilde_afdeling_nr: number
+        }
+        Insert: {
+          afdeling_nr: number
+          kilde_afdeling_nr: number
+        }
+        Update: {
+          afdeling_nr?: number
+          kilde_afdeling_nr?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "afdeling_alias_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+        ]
+      }
       agreement_pricing: {
         Row: {
           afdeling_nr: number

@@ -103,22 +103,28 @@ function FakturaImportSide() {
     setJob(null);
     setJobId(null);
     try {
-      // 0) Hent gyldige afdelinger — bruges til firma-filter + validering
+      // 0) Hent gyldige afdelinger + alias-map — bruges til firma-filter,
+      //    kildeafdeling→kanonisk afdeling og validering
       setStage("Henter afdelinger…");
-      const { data: afdRows, error: afdErr } = await supabase
-        .from("afdeling")
-        .select("afdeling_nr, firma_nr")
-        .eq("aktiv", true);
+      const [{ data: afdRows, error: afdErr }, { data: aliasRows, error: aliasErr }] = await Promise.all([
+        supabase.from("afdeling").select("afdeling_nr, firma_nr").eq("aktiv", true),
+        supabase.from("afdeling_alias").select("kilde_afdeling_nr, afdeling_nr"),
+      ]);
       if (afdErr) throw new Error("Kunne ikke hente afdelinger: " + afdErr.message);
+      if (aliasErr) throw new Error("Kunne ikke hente afdelings-alias: " + aliasErr.message);
       const afdelinger = (afdRows ?? []) as Array<{ afdeling_nr: number; firma_nr: number | null }>;
+      const afdelingAliases = (aliasRows ?? []) as Array<{ kilde_afdeling_nr: number; afdeling_nr: number }>;
       if (!afdelinger.length) throw new Error("Ingen aktive afdelinger fundet");
+      if (!afdelingAliases.length) throw new Error("Ingen rækker i afdeling_alias — kan ikke mappe kildeafdelinger");
 
       // 1) Parse + aggregér i browseren (firma/afdeling-filter + delt dato-helper)
       setStage("Parser fakturajournal…");
       setStageProgress(null);
       const { monthly, topProducts, topProductsMonthly, stats } = await parseAndAggregate(file, {
         afdelinger,
+        afdelingAliases,
       });
+
       setRowsByAfdeling(stats.rowsByAfdeling);
       toast.message(
         `Parset: ${stats.linesRead.toLocaleString("da-DK")} linjer · ${monthly.length.toLocaleString("da-DK")} månedsrækker · ${topProducts.length.toLocaleString("da-DK")} top-vare-rækker · ${topProductsMonthly.length.toLocaleString("da-DK")} måneds-top-varer`,

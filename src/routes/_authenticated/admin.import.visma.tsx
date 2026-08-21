@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +58,9 @@ import {
   detectDateFormat,
   parseDateWithFormat,
   type DateFormatDetection,
+  buildAfdelingAliasMap,
+  mapAfdeling,
+  type AfdelingAliasRef,
 } from "@/lib/invoice-parse";
 import {
   deriveBindingStatus,
@@ -307,6 +310,13 @@ function ImportSide() {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [mapping, setMapping] = useState<Partial<Record<SystemField, string>>>({});
   const [afdelinger, setAfdelinger] = useState<Array<{ afdeling_nr: number; firma_nr: number | null }>>([]);
+  const [afdelingAliases, setAfdelingAliases] = useState<AfdelingAliasRef[]>([]);
+  const aliasMap = useMemo(() => buildAfdelingAliasMap(afdelingAliases), [afdelingAliases]);
+  /** Kanonisk afdeling for en rå Visma-række (kildeværdi 13→11, 23→21). */
+  const canonAfdeling = useCallback(
+    (r: Record<string, string>) => mapAfdeling(rowAfdelingRaw(r), aliasMap),
+    [aliasMap],
+  );
   const [existingCvrs, setExistingCvrs] = useState<Set<string>>(new Set());
   const [existingCompanyKeys, setExistingCompanyKeys] = useState<Set<string>>(new Set());
   const [existingNameMap, setExistingNameMap] = useState<Map<string, string>>(new Map());
@@ -358,16 +368,20 @@ function ImportSide() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("afdeling")
-        .select("afdeling_nr, firma_nr")
-        .eq("aktiv", true);
-      if (!cancelled) setAfdelinger((data ?? []) as any);
+      const [{ data }, { data: aliasData }] = await Promise.all([
+        supabase.from("afdeling").select("afdeling_nr, firma_nr").eq("aktiv", true),
+        supabase.from("afdeling_alias").select("kilde_afdeling_nr, afdeling_nr"),
+      ]);
+      if (!cancelled) {
+        setAfdelinger((data ?? []) as any);
+        setAfdelingAliases((aliasData ?? []) as any);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -573,8 +587,8 @@ function ImportSide() {
       const afdelingerInFile = Array.from(
         new Set(
           rows
-            .map((r) => parseInt(rowAfdelingRaw(r), 10))
-            .filter((n) => Number.isFinite(n)),
+            .map((r) => canonAfdeling(r))
+            .filter((n): n is number => n != null),
         ),
       );
       for (let i = 0; i < vismaIds.length; i += 500) {
@@ -605,7 +619,7 @@ function ImportSide() {
       ),
     );
     const afdelingerForNames = Array.from(
-      new Set(rows.map((r) => parseInt(rowAfdelingRaw(r), 10)).filter((n) => Number.isFinite(n))),
+      new Set(rows.map((r) => canonAfdeling(r)).filter((n): n is number => n != null)),
     );
     for (let i = 0; i < uniqueNames.length; i += 200) {
       const slice = uniqueNames.slice(i, i + 200);
@@ -686,8 +700,8 @@ function ImportSide() {
   const prepared = useMemo<PreparedRow[]>(() => {
     return rows.map((r) => {
       const afdelingRaw = rowAfdelingRaw(r);
-      const afdParsed = parseInt(afdelingRaw, 10);
-      const afdelingNr = Number.isFinite(afdParsed) ? afdParsed : null;
+      // Kildeafdeling → kanonisk afdeling via afdeling_alias, FØR nøgler bygges
+      const afdelingNr = canonAfdeling(r);
       const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
       const ean = mapping.ean_number ? normEan(r[mapping.ean_number]) : null;
       const data: PreparedRow["data"] = {};
@@ -883,7 +897,7 @@ function ImportSide() {
     }
     if (unknownAfdelingValues.length) {
       toast.error(
-        `Importen er afvist: filen indeholder detaljerækker med ukendte afdelingsværdier (${unknownAfdelingValues.join(", ")}). Kendte afdelinger: ${Array.from(validAfdelingSet).sort((a, b) => a - b).join(", ")}.`,
+        `Importen er afvist: filen indeholder detaljerækker med ukendte kilde-afdelingsværdier (${unknownAfdelingValues.join(", ")}). Kendte kildeværdier (afdeling_alias): ${Array.from(aliasMap.keys()).sort((a, b) => a - b).join(", ")}. Tilføj de manglende værdier i afdeling_alias.`,
         { duration: 12000 },
       );
       return;
@@ -1283,9 +1297,7 @@ function ImportSide() {
         const delivery0 = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
         const isTarget = delivery0 === "2273904" || vismaId === "3001300";
         if (isTarget) console.log("[DIAG] target row raw:", { name, vismaId, delivery0 });
-        const afdRaw = rowAfdelingRaw(r);
-        const afdParsed = parseInt(afdRaw, 10);
-        const afdelingNr = Number.isFinite(afdParsed) ? afdParsed : null;
+        const afdelingNr = canonAfdeling(r);
         const k = companyKey(name, vismaId, afdelingNr);
         if (isTarget) console.log("[DIAG] target row key k:", k);
         if (!k) continue;
@@ -1366,9 +1378,7 @@ function ImportSide() {
         for (const r of rows) {
           const compName = mapping.name ? (r[mapping.name] ?? "").trim() : "";
           const compVismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
-          const afdRaw2 = rowAfdelingRaw(r);
-          const afdParsed2 = parseInt(afdRaw2, 10);
-          const k = companyKey(compName, compVismaId, Number.isFinite(afdParsed2) ? afdParsed2 : null);
+          const k = companyKey(compName, compVismaId, canonAfdeling(r));
           if (!k) continue;
           const companyId = keyToCompanyId.get(k);
           if (!companyId) continue;
