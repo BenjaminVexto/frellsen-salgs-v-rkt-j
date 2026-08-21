@@ -789,6 +789,13 @@ function ImportSide() {
       if (adrLinje1) notesParts.push(`Adresselinje 1: ${adrLinje1}`);
       if (bemIntern) notesParts.push(`Bem. intern: ${bemIntern}`);
       if (notesParts.length) (data as any).visma_notes = notesParts.join("\n");
+      // Frasorteringsregler (frasortér — afvis ALDRIG filen)
+      const selskabRaw = rowSelskabRaw(r);
+      const firmaRaw = rowFirmaRaw(r);
+      const brokenContinuation = !selskabRaw && !firmaRaw && !afdelingRaw;
+      let skipReason: SkipReason = null;
+      if (brokenContinuation) skipReason = "broken_row";
+      else if (isEmptyOrZero(firmaRaw) && isEmptyOrZero(afdelingRaw)) skipReason = "no_firma_link";
       return {
         raw: r,
         cvr,
@@ -805,9 +812,18 @@ function ImportSide() {
         eanMatchId,
         hasError,
         errorMessage: !data.name ? "Mangler navn" : undefined,
-      };
+        skipReason,
+        brokenContinuation,
+      } as PreparedRow;
     });
+    // Moderrækken til en ødelagt fortsættelsesrække er selv upålidelig
+    // (dens felter kan være afkortet) — frasortér BEGGE rækker i parret.
+    for (let i = 1; i < base.length; i++) {
+      if (base[i].brokenContinuation) base[i - 1].skipReason = "broken_row";
+    }
+    return base;
   }, [rows, mapping, existingCvrs, existingEanMap, existingNameMap, salespersonMap]);
+
 
   function isClosedName(name: unknown): boolean {
     if (!name) return false;
