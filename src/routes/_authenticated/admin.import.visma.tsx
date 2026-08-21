@@ -894,7 +894,7 @@ function ImportSide() {
     }
     if (unknownAfdelingValues.length) {
       toast.error(
-        `Importen er afvist: filen indeholder detaljerækker med ukendte afdelingsværdier (${unknownAfdelingValues.join(", ")}). Kendte afdelinger: ${Array.from(validAfdelingSet).sort((a, b) => a - b).join(", ")}.`,
+        `Importen er afvist: filen indeholder detaljerækker med ukendte kilde-afdelingsværdier (${unknownAfdelingValues.join(", ")}). Kendte kildeværdier (afdeling_alias): ${Array.from(aliasMap.keys()).sort((a, b) => a - b).join(", ")}. Tilføj de manglende værdier i afdeling_alias.`,
         { duration: 12000 },
       );
       return;
@@ -1294,7 +1294,6 @@ function ImportSide() {
         const delivery0 = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
         const isTarget = delivery0 === "2273904" || vismaId === "3001300";
         if (isTarget) console.log("[DIAG] target row raw:", { name, vismaId, delivery0 });
-        const afdRaw = rowAfdelingRaw(r);
         const afdelingNr = canonAfdeling(r);
         const k = companyKey(name, vismaId, afdelingNr);
         if (isTarget) console.log("[DIAG] target row key k:", k);
