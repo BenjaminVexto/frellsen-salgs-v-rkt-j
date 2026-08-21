@@ -79,6 +79,7 @@ import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
+import { AfdelingBadge } from "@/components/afdeling-badge";
 import { BindingStatusBadge } from "@/components/binding-status-badge";
 import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
@@ -420,10 +421,13 @@ function VirksomhedsKort() {
             <h1 className="text-lg font-semibold leading-tight min-w-0 break-words">
               {company.name}
             </h1>
-            <CustomerStatusBadge
-              type={company.customer_type}
-              variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
-            />
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <CustomerStatusBadge
+                type={company.customer_type}
+                variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
+              />
+              <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
@@ -510,6 +514,7 @@ function VirksomhedsKort() {
           </div>
           <SourceBadges sources={(company as any).sources} />
           <div className="flex flex-wrap gap-1.5 mt-2">
+            <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
             <BindingStatusBadge status={(company as any).binding_status} />
             <CustomerCategoryBadge category={(company as any).customer_category} />
           </div>
