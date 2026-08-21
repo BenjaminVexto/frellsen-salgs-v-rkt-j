@@ -662,8 +662,24 @@ function ImportSide() {
     return detectDateFormat(rawValues);
   }, [rows, mapping.last_purchase_date, mapping.created_in_visma]);
 
+  const validAfdelingSet = useMemo(
+    () => new Set(afdelinger.map((a) => a.afdeling_nr)),
+    [afdelinger],
+  );
+  // Tillad kun de firmaer der faktisk hører til en kendt afdeling (Frellsen 10,
+  // Høyberg 20 …). Falder tilbage til 10 indtil afdelingslisten er hentet.
+  const allowedFirmaSet = useMemo(() => {
+    const set = new Set(
+      afdelinger.map((a) => (a.firma_nr == null ? "" : String(a.firma_nr))).filter(Boolean),
+    );
+    return set.size ? set : new Set(["10"]);
+  }, [afdelinger]);
+
   const prepared = useMemo<PreparedRow[]>(() => {
     return rows.map((r) => {
+      const afdelingRaw = rowAfdelingRaw(r);
+      const afdParsed = parseInt(afdelingRaw, 10);
+      const afdelingNr = Number.isFinite(afdParsed) ? afdParsed : null;
       const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
       const ean = mapping.ean_number ? normEan(r[mapping.ean_number]) : null;
       const data: PreparedRow["data"] = {};
@@ -707,7 +723,8 @@ function ImportSide() {
       (data as any).customer_category = deriveCustomerCategory(seg3);
       // Behold is_public for bagudkompatibilitet — sand når binding er offentlig aftale
       (data as any).is_public = (data as any).binding_status === "offentlig_aftale";
-      const key = companyKey(data.name as string | null, data.visma_id as string | null);
+      if (afdelingNr != null) (data as any).afdeling_nr = afdelingNr;
+      const key = companyKey(data.name as string | null, data.visma_id as string | null, afdelingNr);
       const isDuplicate = !!key && existingCompanyKeys.has(key);
       const eanMatchId = null;
       const nameMatchId =
@@ -732,6 +749,8 @@ function ImportSide() {
         isDuplicate,
         missingCvr,
         isPublic: (data as any).is_public === true,
+        afdelingNr,
+        afdelingRaw,
         nameMatchId,
         eanMatchId,
         hasError,
@@ -748,11 +767,36 @@ function ImportSide() {
   }
 
   function isWrongFirma(p: PreparedRow): boolean {
-    // ALTID-filter: kun firma 10 (Frellsen Kaffe) må importeres.
+    // ALTID-filter: kun firmaer der hører til en kendt afdeling må importeres.
     // Tom firma = afvis (vi vil ikke importere ukendt firma-tilhørsforhold).
     const firma = (p.raw["Firma"] ?? "").trim();
-    return firma !== "10";
+    return !allowedFirmaSet.has(firma);
   }
+
+  /** Detaljerækker (efter firma-filter) med en afdelingsværdi vi ikke kender. */
+  const unknownAfdelingValues = useMemo(() => {
+    if (!validAfdelingSet.size) return [] as string[];
+    const bad = new Set<string>();
+    for (const p of prepared) {
+      const firma = (p.raw["Firma"] ?? "").trim();
+      if (!allowedFirmaSet.has(firma)) continue; // subtotal-/andet-selskab-rækker
+      if (p.afdelingNr == null || !validAfdelingSet.has(p.afdelingNr)) {
+        bad.add(p.afdelingRaw || "(tom)");
+      }
+    }
+    return Array.from(bad).sort();
+  }, [prepared, validAfdelingSet, allowedFirmaSet]);
+
+  const rowsByAfdeling = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const p of prepared) {
+      const firma = (p.raw["Firma"] ?? "").trim();
+      if (!allowedFirmaSet.has(firma)) continue;
+      if (p.afdelingNr == null) continue;
+      out[String(p.afdelingNr)] = (out[String(p.afdelingNr)] ?? 0) + 1;
+    }
+    return out;
+  }, [prepared, allowedFirmaSet]);
 
   function isFilteredByVisma(p: PreparedRow): boolean {
     // Altid: filtrér virksomheder hvis navn er markeret som lukket i Visma
@@ -797,7 +841,7 @@ function ImportSide() {
     const uniqNew = new Set<string>();
     for (const p of kept) {
       if (p.hasError) continue;
-      const k = companyKey(p.data.name as string | null, p.data.visma_id as string | null);
+      const k = companyKey(p.data.name as string | null, p.data.visma_id as string | null, p.afdelingNr);
       if (!k) continue;
       if (p.isDuplicate) uniqDup.add(k);
       else if (p.missingCvr) uniqMissing.add(k);
