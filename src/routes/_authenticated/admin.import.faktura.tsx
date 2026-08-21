@@ -322,6 +322,16 @@ function FakturaImportSide() {
               )}
             </p>
 
+            {rowsByAfdeling && Object.keys(rowsByAfdeling).length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Linjer pr. afdeling:</span>{" "}
+                {Object.entries(rowsByAfdeling)
+                  .sort((a, b) => Number(a[0]) - Number(b[0]))
+                  .map(([afd, n]) => `afd ${afd}: ${n.toLocaleString("da-DK")}`)
+                  .join(" · ")}
+              </div>
+            )}
+
             {job.status === "completed" && (
               <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
                 <CheckCircle2 className="h-4 w-4" /> Færdig — alle rækker upsertet
