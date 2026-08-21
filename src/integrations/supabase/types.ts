@@ -35,6 +35,7 @@ export type Database = {
       activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
+          afdeling_nr: number
           company_id: string
           contact_list_assignment_id: string | null
           created_at: string
@@ -48,6 +49,7 @@ export type Database = {
         }
         Insert: {
           activity_type: Database["public"]["Enums"]["activity_type"]
+          afdeling_nr?: number
           company_id: string
           contact_list_assignment_id?: string | null
           created_at?: string
@@ -61,6 +63,7 @@ export type Database = {
         }
         Update: {
           activity_type?: Database["public"]["Enums"]["activity_type"]
+          afdeling_nr?: number
           company_id?: string
           contact_list_assignment_id?: string | null
           created_at?: string
@@ -73,6 +76,13 @@ export type Database = {
           opportunity_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "activities_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
           {
             foreignKeyName: "activities_company_id_fkey"
             columns: ["company_id"]
@@ -103,8 +113,30 @@ export type Database = {
           },
         ]
       }
+      afdeling: {
+        Row: {
+          afdeling_nr: number
+          aktiv: boolean
+          firma_nr: number | null
+          navn: string
+        }
+        Insert: {
+          afdeling_nr: number
+          aktiv?: boolean
+          firma_nr?: number | null
+          navn: string
+        }
+        Update: {
+          afdeling_nr?: number
+          aktiv?: boolean
+          firma_nr?: number | null
+          navn?: string
+        }
+        Relationships: []
+      }
       agreement_pricing: {
         Row: {
+          afdeling_nr: number
           beskrivelse: string | null
           created_at: string
           fak_kundenr: string | null
@@ -131,6 +163,7 @@ export type Database = {
           varenr: string | null
         }
         Insert: {
+          afdeling_nr?: number
           beskrivelse?: string | null
           created_at?: string
           fak_kundenr?: string | null
@@ -157,6 +190,7 @@ export type Database = {
           varenr?: string | null
         }
         Update: {
+          afdeling_nr?: number
           beskrivelse?: string | null
           created_at?: string
           fak_kundenr?: string | null
@@ -182,7 +216,15 @@ export type Database = {
           updated_at?: string
           varenr?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agreement_pricing_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+        ]
       }
       agreements: {
         Row: {
@@ -333,6 +375,7 @@ export type Database = {
       companies: {
         Row: {
           address: string | null
+          afdeling_nr: number
           assigned_to: string | null
           bi_branch_1_code: string | null
           bi_branch_2_code: string | null
@@ -383,6 +426,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          afdeling_nr?: number
           assigned_to?: string | null
           bi_branch_1_code?: string | null
           bi_branch_2_code?: string | null
@@ -433,6 +477,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          afdeling_nr?: number
           assigned_to?: string | null
           bi_branch_1_code?: string | null
           bi_branch_2_code?: string | null
@@ -482,6 +527,13 @@ export type Database = {
           zip?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "companies_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
           {
             foreignKeyName: "companies_import_batch_id_fkey"
             columns: ["import_batch_id"]
@@ -1122,6 +1174,7 @@ export type Database = {
       }
       location_equipment_units: {
         Row: {
+          afdeling_nr: number
           agreement_type: string | null
           created_at: string
           has_service_contract: boolean
@@ -1138,6 +1191,7 @@ export type Database = {
           varenr: string | null
         }
         Insert: {
+          afdeling_nr?: number
           agreement_type?: string | null
           created_at?: string
           has_service_contract?: boolean
@@ -1154,6 +1208,7 @@ export type Database = {
           varenr?: string | null
         }
         Update: {
+          afdeling_nr?: number
           agreement_type?: string | null
           created_at?: string
           has_service_contract?: boolean
@@ -1171,6 +1226,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "location_equipment_units_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+          {
             foreignKeyName: "location_equipment_units_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
@@ -1182,6 +1244,7 @@ export type Database = {
       locations: {
         Row: {
           address: string | null
+          afdeling_nr: number
           agreement_types: string | null
           city: string | null
           company_id: string
@@ -1206,6 +1269,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          afdeling_nr?: number
           agreement_types?: string | null
           city?: string | null
           company_id: string
@@ -1230,6 +1294,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          afdeling_nr?: number
           agreement_types?: string | null
           city?: string | null
           company_id?: string
@@ -1254,6 +1319,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "locations_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+          {
             foreignKeyName: "locations_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -1264,6 +1336,7 @@ export type Database = {
       }
       machine_agreement_status: {
         Row: {
+          afdeling_nr: number
           company_id: string
           created_at: string
           id: string
@@ -1275,6 +1348,7 @@ export type Database = {
           updated_by: string
         }
         Insert: {
+          afdeling_nr?: number
           company_id: string
           created_at?: string
           id?: string
@@ -1286,6 +1360,7 @@ export type Database = {
           updated_by: string
         }
         Update: {
+          afdeling_nr?: number
           company_id?: string
           created_at?: string
           id?: string
@@ -1297,6 +1372,13 @@ export type Database = {
           updated_by?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "machine_agreement_status_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
           {
             foreignKeyName: "machine_agreement_status_company_id_fkey"
             columns: ["company_id"]
@@ -1322,6 +1404,7 @@ export type Database = {
       }
       machine_enrichment: {
         Row: {
+          afdeling_nr: number
           aftale_type: string | null
           beregnet_slutdato: string | null
           binding_ophor: string | null
@@ -1339,6 +1422,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          afdeling_nr?: number
           aftale_type?: string | null
           beregnet_slutdato?: string | null
           binding_ophor?: string | null
@@ -1356,6 +1440,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          afdeling_nr?: number
           aftale_type?: string | null
           beregnet_slutdato?: string | null
           binding_ophor?: string | null
@@ -1372,12 +1457,21 @@ export type Database = {
           udgaaet_dato?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "machine_enrichment_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+        ]
       }
       machines: {
         Row: {
           adresselinje2: string | null
           aendret_dato: string | null
+          afdeling_nr: number
           beskrivelse: string | null
           created_at: string
           data: Json | null
@@ -1402,6 +1496,7 @@ export type Database = {
         Insert: {
           adresselinje2?: string | null
           aendret_dato?: string | null
+          afdeling_nr?: number
           beskrivelse?: string | null
           created_at?: string
           data?: Json | null
@@ -1426,6 +1521,7 @@ export type Database = {
         Update: {
           adresselinje2?: string | null
           aendret_dato?: string | null
+          afdeling_nr?: number
           beskrivelse?: string | null
           created_at?: string
           data?: Json | null
@@ -1447,7 +1543,15 @@ export type Database = {
           updated_at?: string
           varenr?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "machines_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -1557,6 +1661,7 @@ export type Database = {
           full_name: string
           id: string
           is_active: boolean
+          primary_afdeling_nr: number | null
           region: string | null
           salesperson_no: string | null
         }
@@ -1565,6 +1670,7 @@ export type Database = {
           full_name?: string
           id: string
           is_active?: boolean
+          primary_afdeling_nr?: number | null
           region?: string | null
           salesperson_no?: string | null
         }
@@ -1573,10 +1679,19 @@ export type Database = {
           full_name?: string
           id?: string
           is_active?: boolean
+          primary_afdeling_nr?: number | null
           region?: string | null
           salesperson_no?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_primary_afdeling_nr_fkey"
+            columns: ["primary_afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+        ]
       }
       quote_lines: {
         Row: {
@@ -1724,6 +1839,7 @@ export type Database = {
       }
       sales_monthly: {
         Row: {
+          afdeling_nr: number
           company_id: string | null
           contribution: number
           id: string
@@ -1739,6 +1855,7 @@ export type Database = {
           weight_kg: number
         }
         Insert: {
+          afdeling_nr?: number
           company_id?: string | null
           contribution?: number
           id?: string
@@ -1754,6 +1871,7 @@ export type Database = {
           weight_kg?: number
         }
         Update: {
+          afdeling_nr?: number
           company_id?: string | null
           contribution?: number
           id?: string
@@ -1769,6 +1887,13 @@ export type Database = {
           weight_kg?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_monthly_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
           {
             foreignKeyName: "sales_monthly_company_id_fkey"
             columns: ["company_id"]
@@ -1787,6 +1912,7 @@ export type Database = {
       }
       sales_monthly_products: {
         Row: {
+          afdeling_nr: number
           contribution: number
           description: string | null
           id: string
@@ -1800,6 +1926,7 @@ export type Database = {
           visma_delivery_no: string
         }
         Insert: {
+          afdeling_nr?: number
           contribution?: number
           description?: string | null
           id?: string
@@ -1813,6 +1940,7 @@ export type Database = {
           visma_delivery_no: string
         }
         Update: {
+          afdeling_nr?: number
           contribution?: number
           description?: string | null
           id?: string
@@ -1826,6 +1954,13 @@ export type Database = {
           visma_delivery_no?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_monthly_products_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
           {
             foreignKeyName: "sales_monthly_products_location_id_fkey"
             columns: ["location_id"]
@@ -1893,6 +2028,7 @@ export type Database = {
       }
       sales_top_products: {
         Row: {
+          afdeling_nr: number
           contribution: number
           description: string | null
           id: string
@@ -1905,6 +2041,7 @@ export type Database = {
           visma_delivery_no: string
         }
         Insert: {
+          afdeling_nr?: number
           contribution?: number
           description?: string | null
           id?: string
@@ -1917,6 +2054,7 @@ export type Database = {
           visma_delivery_no: string
         }
         Update: {
+          afdeling_nr?: number
           contribution?: number
           description?: string | null
           id?: string
@@ -1930,11 +2068,41 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "sales_top_products_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+          {
             foreignKeyName: "sales_top_products_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_afdeling_access: {
+        Row: {
+          afdeling_nr: number
+          user_id: string
+        }
+        Insert: {
+          afdeling_nr: number
+          user_id: string
+        }
+        Update: {
+          afdeling_nr?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_afdeling_access_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
           },
         ]
       }
@@ -2003,6 +2171,7 @@ export type Database = {
       import_visma_product_master: { Args: { _data: Json }; Returns: Json }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_consumable_group: { Args: { _group: string }; Returns: boolean }
+      my_afdelinger: { Args: never; Returns: number[] }
       rebuild_products: { Args: never; Returns: number }
       recompute_all_company_statuses: { Args: never; Returns: number }
       recompute_company_status: {
