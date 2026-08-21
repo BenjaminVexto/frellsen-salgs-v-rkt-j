@@ -984,6 +984,15 @@ function ImportSide() {
       toast.error("Der kører allerede en import. Vent indtil den er færdig.");
       return;
     }
+    // Race condition-guard: uden afdelinger + afdeling_alias ville kildeværdier
+    // som 13/23 blive skrevet direkte i afdeling_nr og ramme FK-constrainten.
+    if (!afdelinger.length || !afdelingAliases.length) {
+      toast.error(
+        "Afdelinger og afdelings-alias er ikke indlæst endnu — importen kan ikke startes. Vent et øjeblik og prøv igen.",
+        { duration: 10000 },
+      );
+      return;
+    }
     if (unknownAfdelingValues.length) {
       toast.error(
         `Importen er afvist: filen indeholder detaljerækker med ukendte kilde-afdelingsværdier (${unknownAfdelingValues.join(", ")}). Kendte kildeværdier (afdeling_alias): ${Array.from(aliasMap.keys()).sort((a, b) => a - b).join(", ")}. Tilføj de manglende værdier i afdeling_alias.`,
@@ -998,6 +1007,7 @@ function ImportSide() {
 
     let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0, noCvrCount = 0;
     const toImport = prepared.filter((p) => {
+      if (p.skipReason) return false; // uden firmatilknytning / ødelagt kilderække
       if (isWrongFirma(p)) return false; // ALDRIG firma ≠ 10
       if (p.hasError) return false;
       if (isFilteredByVisma(p)) return false;
@@ -1005,6 +1015,7 @@ function ImportSide() {
       if (p.missingCvr && !p.ean && !includeMissingCvr) return false;
       return true;
     });
+
     const importSource: "visma" | "cvr" = mapping.visma_id ? "visma" : "cvr";
     const nowIso = new Date().toISOString();
     const companyIds: string[] = [];
