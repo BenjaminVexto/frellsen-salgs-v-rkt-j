@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -584,7 +584,7 @@ function ImportSide() {
       const afdelingerInFile = Array.from(
         new Set(
           rows
-            .map((r) => parseInt(rowAfdelingRaw(r), 10))
+            .map((r) => canonAfdeling(r))
             .filter((n) => Number.isFinite(n)),
         ),
       );
@@ -616,7 +616,7 @@ function ImportSide() {
       ),
     );
     const afdelingerForNames = Array.from(
-      new Set(rows.map((r) => parseInt(rowAfdelingRaw(r), 10)).filter((n) => Number.isFinite(n))),
+      new Set(rows.map((r) => canonAfdeling(r)).filter((n): n is number => n != null)),
     );
     for (let i = 0; i < uniqueNames.length; i += 200) {
       const slice = uniqueNames.slice(i, i + 200);
@@ -697,8 +697,8 @@ function ImportSide() {
   const prepared = useMemo<PreparedRow[]>(() => {
     return rows.map((r) => {
       const afdelingRaw = rowAfdelingRaw(r);
-      const afdParsed = parseInt(afdelingRaw, 10);
-      const afdelingNr = Number.isFinite(afdParsed) ? afdParsed : null;
+      // Kildeafdeling → kanonisk afdeling via afdeling_alias, FØR nøgler bygges
+      const afdelingNr = canonAfdeling(r);
       const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
       const ean = mapping.ean_number ? normEan(r[mapping.ean_number]) : null;
       const data: PreparedRow["data"] = {};
@@ -1295,8 +1295,7 @@ function ImportSide() {
         const isTarget = delivery0 === "2273904" || vismaId === "3001300";
         if (isTarget) console.log("[DIAG] target row raw:", { name, vismaId, delivery0 });
         const afdRaw = rowAfdelingRaw(r);
-        const afdParsed = parseInt(afdRaw, 10);
-        const afdelingNr = Number.isFinite(afdParsed) ? afdParsed : null;
+        const afdelingNr = canonAfdeling(r);
         const k = companyKey(name, vismaId, afdelingNr);
         if (isTarget) console.log("[DIAG] target row key k:", k);
         if (!k) continue;
@@ -1377,9 +1376,7 @@ function ImportSide() {
         for (const r of rows) {
           const compName = mapping.name ? (r[mapping.name] ?? "").trim() : "";
           const compVismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
-          const afdRaw2 = rowAfdelingRaw(r);
-          const afdParsed2 = parseInt(afdRaw2, 10);
-          const k = companyKey(compName, compVismaId, Number.isFinite(afdParsed2) ? afdParsed2 : null);
+          const k = companyKey(compName, compVismaId, canonAfdeling(r));
           if (!k) continue;
           const companyId = keyToCompanyId.get(k);
           if (!companyId) continue;
