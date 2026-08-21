@@ -12,8 +12,10 @@ export function AfdelingBadge({
   afdelingNr: number | null | undefined;
   className?: string;
 }) {
-  const { navnFor } = useAfdeling();
-  if (afdelingNr == null) return null;
+  const { navnFor, hasMultiple } = useAfdeling();
+  // Brugere med præcis én afdeling ser ingen ændring i UI.
+  if (afdelingNr == null || !hasMultiple) return null;
+
   return (
     <Badge variant="outline" className={`font-normal text-muted-foreground ${className ?? ""}`}>
       {navnFor(afdelingNr)}
