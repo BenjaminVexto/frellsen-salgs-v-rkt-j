@@ -585,7 +585,7 @@ function ImportSide() {
         new Set(
           rows
             .map((r) => canonAfdeling(r))
-            .filter((n) => Number.isFinite(n)),
+            .filter((n): n is number => n != null),
         ),
       );
       for (let i = 0; i < vismaIds.length; i += 500) {
