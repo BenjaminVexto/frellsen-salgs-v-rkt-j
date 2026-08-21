@@ -1015,6 +1015,10 @@ function ImportSide() {
       if (p.missingCvr && !p.ean && !includeMissingCvr) return false;
       return true;
     });
+    // Rå rækker der er frasorteret — lokations-/kontakt-byggerne itererer over
+    // `rows`, så de skal springe de samme rækker over.
+    const skippedRawRows = new Set(prepared.filter((p) => p.skipReason).map((p) => p.raw));
+
 
     const importSource: "visma" | "cvr" = mapping.visma_id ? "visma" : "cvr";
     const nowIso = new Date().toISOString();
