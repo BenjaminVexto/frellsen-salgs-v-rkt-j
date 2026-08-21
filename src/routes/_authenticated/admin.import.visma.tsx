@@ -307,6 +307,13 @@ function ImportSide() {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [mapping, setMapping] = useState<Partial<Record<SystemField, string>>>({});
   const [afdelinger, setAfdelinger] = useState<Array<{ afdeling_nr: number; firma_nr: number | null }>>([]);
+  const [afdelingAliases, setAfdelingAliases] = useState<AfdelingAliasRef[]>([]);
+  const aliasMap = useMemo(() => buildAfdelingAliasMap(afdelingAliases), [afdelingAliases]);
+  /** Kanonisk afdeling for en rå Visma-række (kildeværdi 13→11, 23→21). */
+  const canonAfdeling = useCallback(
+    (r: Record<string, string>) => mapAfdeling(rowAfdelingRaw(r), aliasMap),
+    [aliasMap],
+  );
   const [existingCvrs, setExistingCvrs] = useState<Set<string>>(new Set());
   const [existingCompanyKeys, setExistingCompanyKeys] = useState<Set<string>>(new Set());
   const [existingNameMap, setExistingNameMap] = useState<Map<string, string>>(new Map());
