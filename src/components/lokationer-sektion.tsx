@@ -519,6 +519,7 @@ type EquipmentUnit = {
   is_free_loan: boolean;
   has_service_contract: boolean;
   udstyr_type: "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt" | null;
+  afdeling_nr?: number | null;
 };
 
 type Ownership = "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
@@ -637,7 +638,7 @@ function EquipmentBox({ location }: { location: Location }) {
     (async () => {
       const { data } = await (supabase as any)
         .from("location_equipment_units")
-        .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, udstyr_type")
+        .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, udstyr_type, afdeling_nr")
         .eq("location_id", location.id)
         .order("is_filter", { ascending: true })
         .order("machine_type", { ascending: true });
