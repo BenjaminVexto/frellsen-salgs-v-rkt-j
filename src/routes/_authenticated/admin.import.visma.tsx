@@ -2071,6 +2071,8 @@ function Trin3Preview({
 
 function Trin4Import({
   stats,
+  brokenRows,
+  afdelingerLoaded,
   includeMissingCvr,
   importing,
   progress,
@@ -2082,8 +2084,11 @@ function Trin4Import({
   onAssignNow,
   onLater,
 }: {
-  stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; uniqNewCount: number; uniqDupCount: number; uniqMissingCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  stats: VismaStats;
+  brokenRows: BrokenRowRef[];
+  afdelingerLoaded: boolean;
   includeMissingCvr: boolean;
+
   importing: boolean;
   progress: number;
   progressLabel: string;
