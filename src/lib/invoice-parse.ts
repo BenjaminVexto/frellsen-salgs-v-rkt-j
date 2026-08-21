@@ -445,9 +445,11 @@ export async function parseAndAggregate(
 
   if (unknownAfdelinger.size) {
     throw new Error(
-      `Fakturajournalen indeholder detaljerækker med ukendte afdelingsværdier: ${Array.from(unknownAfdelinger)
+      `Fakturajournalen indeholder detaljerækker med ukendte kilde-afdelingsværdier: ${Array.from(unknownAfdelinger)
         .sort()
-        .join(", ")}. Kendte afdelinger: ${Array.from(validAfdelinger).sort((a, b) => a - b).join(", ")}.`,
+        .join(", ")}. Kendte kildeværdier (afdeling_alias): ${Array.from(aliasMap.keys())
+        .sort((a, b) => a - b)
+        .join(", ")}. Tilføj de manglende værdier i afdeling_alias.`,
     );
   }
 
