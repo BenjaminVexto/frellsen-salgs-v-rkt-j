@@ -58,6 +58,9 @@ import {
   detectDateFormat,
   parseDateWithFormat,
   type DateFormatDetection,
+  buildAfdelingAliasMap,
+  mapAfdeling,
+  type AfdelingAliasRef,
 } from "@/lib/invoice-parse";
 import {
   deriveBindingStatus,
