@@ -1662,6 +1662,8 @@ function ImportSide() {
         <Trin3Preview
           prepared={prepared}
           stats={stats}
+          rowsByAfdeling={rowsByAfdeling}
+          unknownAfdelingValues={unknownAfdelingValues}
           includeMissingCvr={includeMissingCvr}
           setIncludeMissingCvr={setIncludeMissingCvr}
           onBack={() => setStep(2)}
@@ -1753,6 +1755,8 @@ function Stepper({ step }: { step: number }) {
 function Trin3Preview({
   prepared,
   stats,
+  rowsByAfdeling,
+  unknownAfdelingValues,
   includeMissingCvr,
   setIncludeMissingCvr,
   onBack,
@@ -1760,6 +1764,8 @@ function Trin3Preview({
 }: {
   prepared: PreparedRow[];
   stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; uniqNewCount: number; uniqDupCount: number; uniqMissingCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  rowsByAfdeling: Record<string, number>;
+  unknownAfdelingValues: string[];
   includeMissingCvr: boolean;
   setIncludeMissingCvr: (v: boolean) => void;
   onBack: () => void;
@@ -1777,7 +1783,30 @@ function Trin3Preview({
 
       {stats.wrongFirmaCount > 0 && (
         <Card className="p-4 border-primary/30 bg-primary/5 text-sm">
-          <span className="font-medium">{stats.wrongFirmaCount.toLocaleString("da-DK")} rækker</span> springes over fordi <span className="font-mono">Firma ≠ "10"</span> (kun Frellsen Kaffe importeres).
+          <span className="font-medium">{stats.wrongFirmaCount.toLocaleString("da-DK")} rækker</span> springes over fordi firma-nummeret ikke hører til en kendt afdeling.
+        </Card>
+      )}
+
+      {Object.keys(rowsByAfdeling).length > 0 && (
+        <Card className="p-4 text-sm">
+          <span className="font-medium">Rækker pr. afdeling:</span>{" "}
+          {Object.entries(rowsByAfdeling)
+            .sort((a, b) => Number(a[0]) - Number(b[0]))
+            .map(([afd, n]) => `afd ${afd}: ${n.toLocaleString("da-DK")}`)
+            .join(" · ")}
+        </Card>
+      )}
+
+      {unknownAfdelingValues.length > 0 && (
+        <Card className="p-4 border-destructive/40 bg-destructive/5 flex gap-3 items-start">
+          <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+          <div className="text-sm">
+            <p className="font-medium mb-1">Ukendte afdelingsværdier — importen kan ikke køres</p>
+            <p className="text-xs text-muted-foreground">
+              Følgende værdier i kolonnen "Afd" findes ikke i afdelingstabellen:{" "}
+              <span className="font-mono">{unknownAfdelingValues.join(", ")}</span>
+            </p>
+          </div>
         </Card>
       )}
 
