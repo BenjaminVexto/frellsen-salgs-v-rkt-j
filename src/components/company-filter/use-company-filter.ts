@@ -106,8 +106,7 @@ export function useCompanyFilter({
           .from("companies")
           .select(COMPANY_COLS)
           .in("id", restrictToIds)
-          .order("name")
-          .then((res) => res);
+          .order("name");
         if (!cancelled) setRows((data ?? []) as any);
         if (!cancelled) setLoading(false);
         return;
