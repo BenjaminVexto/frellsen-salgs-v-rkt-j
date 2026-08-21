@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type MonthlyRow = {
   visma_delivery_no: string;
+  afdeling_nr: number;
   period: string; // YYYY-MM-01
   product_group_1: string;
   revenue: number;
@@ -15,6 +16,7 @@ export type MonthlyRow = {
 
 export type TopProductRow = {
   visma_delivery_no: string;
+  afdeling_nr: number;
   varenr: string;
   description: string;
   revenue: number;
@@ -38,13 +40,14 @@ async function assertAdmin(supabase: any, userId: string) {
 }
 
 /**
- * Slå mange delivery_nos op én gang fra klienten. Returnerer kun match —
- * unmatched udledes på klienten ved at sammenligne mod input.
+ * Slå mange (afdeling, delivery_no)-par op én gang fra klienten. Nøglen i det
+ * returnerede map er `${afdeling_nr}|${visma_delivery_no}` — afdeling SKAL med,
+ * ellers kobles en Høyberg-faktura til en Frellsen-lokation.
  */
 export const resolveDeliveryNos = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { deliveryNos: string[] }) => {
-    if (!Array.isArray(input?.deliveryNos)) throw new Error("deliveryNos skal være array");
+  .inputValidator((input: { pairs: Array<{ afdeling_nr: number; visma_delivery_no: string }> }) => {
+    if (!Array.isArray(input?.pairs)) throw new Error("pairs skal være array");
     return input;
   })
   .handler(
@@ -54,19 +57,31 @@ export const resolveDeliveryNos = createServerFn({ method: "POST" })
     }): Promise<{ map: Record<string, { location_id: string; company_id: string }> }> => {
       await assertAdmin(context.supabase, context.userId);
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const uniq = Array.from(new Set(data.deliveryNos.filter(Boolean)));
+      const byAfdeling = new Map<number, Set<string>>();
+      for (const p of data.pairs) {
+        if (!p?.visma_delivery_no || !Number.isFinite(p?.afdeling_nr)) continue;
+        const set = byAfdeling.get(p.afdeling_nr) ?? new Set<string>();
+        set.add(p.visma_delivery_no);
+        byAfdeling.set(p.afdeling_nr, set);
+      }
       const map: Record<string, { location_id: string; company_id: string }> = {};
       const SLICE = 500;
-      for (let i = 0; i < uniq.length; i += SLICE) {
-        const slice = uniq.slice(i, i + SLICE);
-        const { data: rows, error } = await supabaseAdmin
-          .from("locations")
-          .select("id, company_id, visma_delivery_no")
-          .in("visma_delivery_no", slice);
-        if (error) throw new Error(error.message);
-        for (const r of rows ?? []) {
-          const k = r.visma_delivery_no as string;
-          if (k && !map[k]) map[k] = { location_id: r.id, company_id: r.company_id };
+      for (const [afdeling, set] of byAfdeling.entries()) {
+        const uniq = Array.from(set);
+        for (let i = 0; i < uniq.length; i += SLICE) {
+          const slice = uniq.slice(i, i + SLICE);
+          const { data: rows, error } = await supabaseAdmin
+            .from("locations")
+            .select("id, company_id, visma_delivery_no, afdeling_nr")
+            .eq("afdeling_nr", afdeling)
+            .in("visma_delivery_no", slice);
+          if (error) throw new Error(error.message);
+          for (const r of rows ?? []) {
+            const k = `${afdeling}|${r.visma_delivery_no as string}`;
+            if (r.visma_delivery_no && !map[k]) {
+              map[k] = { location_id: r.id, company_id: r.company_id };
+            }
+          }
         }
       }
       return { map };
@@ -89,6 +104,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       totalTopMonthly: number;
       locationsMatched: number;
       unmatched: string[];
+      rowsByAfdeling?: Record<string, number>;
     }) => {
       if (!input?.jobId) throw new Error("jobId mangler");
       return input;
@@ -122,7 +138,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       saved_top_monthly: 0,
       locations_matched: data.locationsMatched,
       unmatched_delivery_nos: data.unmatched.slice(0, 500),
-      payload: {},
+      payload: { rows_by_afdeling: data.rowsByAfdeling ?? {} },
       attempts: 0,
     } as any);
     if (error) throw new Error(error.message);

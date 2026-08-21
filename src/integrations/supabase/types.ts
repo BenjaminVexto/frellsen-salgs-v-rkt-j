@@ -2192,7 +2192,11 @@ export type Database = {
         }[]
       }
       set_primary_location: {
-        Args: { p_company_id: string; p_visma_delivery_no: string }
+        Args: {
+          p_afdeling_nr: number
+          p_company_id: string
+          p_visma_delivery_no: string
+        }
         Returns: undefined
       }
     }

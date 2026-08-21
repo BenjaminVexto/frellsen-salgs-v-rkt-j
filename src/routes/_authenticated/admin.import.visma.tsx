@@ -216,6 +216,7 @@ const VISMA_MAPPING: Partial<Record<SystemField, string[]>> = {
 // men brugt til filtrering og noter).
 const VISMA_RAW_COLUMNS = [
   "Firma",
+  "Afd",
   "Landnr.",
   "Kreditspærre",
   "Rute",
@@ -257,12 +258,22 @@ function normEan(v: string | undefined | null): string | null {
 // CVR er berigelse, ikke nøgle. Navn er beskrivelse, ikke nøgle.
 // Returnerer null hvis visma_id mangler — så falder vi tilbage til name-match
 // eller insert-uden-nøgle.
+// Nøglen indeholder afdeling, så samme kundenummer i to selskaber (Frellsen 11
+// vs. Høyberg 21) aldrig flettes til én virksomhed.
 function companyKey(
   _name: string | null | undefined,
   vismaId: string | null | undefined,
+  afdelingNr: number | null | undefined,
 ): string | null {
   const v = (vismaId ?? "").trim();
-  return v || null;
+  if (!v) return null;
+  const a = afdelingNr == null ? "" : String(afdelingNr);
+  return `${a}|${v}`;
+}
+
+/** Læs afdelingsnummeret fra Visma-rækkens "Afd"-kolonne (header-navn, ikke indeks). */
+function rowAfdelingRaw(r: Record<string, string>): string {
+  return String(r["Afd"] ?? r["Afdeling"] ?? "").trim();
 }
 
 type ParsedRow = Record<string, string>;
@@ -277,6 +288,8 @@ interface PreparedRow {
   isDuplicate: boolean;
   missingCvr: boolean;
   isPublic: boolean;
+  afdelingNr: number | null;
+  afdelingRaw: string;
   nameMatchId: string | null;
   eanMatchId: string | null;
   hasError: boolean;
@@ -293,6 +306,7 @@ function ImportSide() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [mapping, setMapping] = useState<Partial<Record<SystemField, string>>>({});
+  const [afdelinger, setAfdelinger] = useState<Array<{ afdeling_nr: number; firma_nr: number | null }>>([]);
   const [existingCvrs, setExistingCvrs] = useState<Set<string>>(new Set());
   const [existingCompanyKeys, setExistingCompanyKeys] = useState<Set<string>>(new Set());
   const [existingNameMap, setExistingNameMap] = useState<Map<string, string>>(new Map());
@@ -340,6 +354,20 @@ function ImportSide() {
   const fetchQueueStatus = useServerFn(getCvrEnrichmentQueueStatus);
   const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
 
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("afdeling")
+        .select("afdeling_nr, firma_nr")
+        .eq("aktiv", true);
+      if (!cancelled) setAfdelinger((data ?? []) as any);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -542,14 +570,20 @@ function ImportSide() {
             .filter((v) => !!v),
         ),
       );
+      const afdelingerInFile = Array.from(
+        new Set(
+          rows
+            .map((r) => parseInt(rowAfdelingRaw(r), 10))
+            .filter((n) => Number.isFinite(n)),
+        ),
+      );
       for (let i = 0; i < vismaIds.length; i += 500) {
         const slice = vismaIds.slice(i, i + 500);
-        const { data } = await supabase
-          .from("companies")
-          .select("name, visma_id")
-          .in("visma_id", slice);
+        let q = supabase.from("companies").select("name, visma_id, afdeling_nr").in("visma_id", slice);
+        if (afdelingerInFile.length) q = q.in("afdeling_nr", afdelingerInFile);
+        const { data } = await q;
         (data ?? []).forEach((d: any) => {
-          const k = companyKey(d.name, d.visma_id);
+          const k = companyKey(d.name, d.visma_id, d.afdeling_nr);
           if (k) keySet.add(k);
         });
       }
@@ -570,12 +604,14 @@ function ImportSide() {
           .filter((n) => !!n),
       ),
     );
+    const afdelingerForNames = Array.from(
+      new Set(rows.map((r) => parseInt(rowAfdelingRaw(r), 10)).filter((n) => Number.isFinite(n))),
+    );
     for (let i = 0; i < uniqueNames.length; i += 200) {
       const slice = uniqueNames.slice(i, i + 200);
-      const { data: ndata } = await supabase
-        .from("companies")
-        .select("id, name, zip")
-        .in("name", slice);
+      let nq = supabase.from("companies").select("id, name, zip, afdeling_nr").in("name", slice);
+      if (afdelingerForNames.length) nq = nq.in("afdeling_nr", afdelingerForNames);
+      const { data: ndata } = await nq;
       (ndata ?? []).forEach((d: any) => {
         const key = `${(d.name ?? "").toLowerCase()}|${d.zip ?? ""}`;
         if (!nameMap.has(key)) nameMap.set(key, d.id);
@@ -634,8 +670,24 @@ function ImportSide() {
     return detectDateFormat(rawValues);
   }, [rows, mapping.last_purchase_date, mapping.created_in_visma]);
 
+  const validAfdelingSet = useMemo(
+    () => new Set(afdelinger.map((a) => a.afdeling_nr)),
+    [afdelinger],
+  );
+  // Tillad kun de firmaer der faktisk hører til en kendt afdeling (Frellsen 10,
+  // Høyberg 20 …). Falder tilbage til 10 indtil afdelingslisten er hentet.
+  const allowedFirmaSet = useMemo(() => {
+    const set = new Set(
+      afdelinger.map((a) => (a.firma_nr == null ? "" : String(a.firma_nr))).filter(Boolean),
+    );
+    return set.size ? set : new Set(["10"]);
+  }, [afdelinger]);
+
   const prepared = useMemo<PreparedRow[]>(() => {
     return rows.map((r) => {
+      const afdelingRaw = rowAfdelingRaw(r);
+      const afdParsed = parseInt(afdelingRaw, 10);
+      const afdelingNr = Number.isFinite(afdParsed) ? afdParsed : null;
       const cvr = mapping.cvr ? normCvr(r[mapping.cvr]) : null;
       const ean = mapping.ean_number ? normEan(r[mapping.ean_number]) : null;
       const data: PreparedRow["data"] = {};
@@ -679,7 +731,8 @@ function ImportSide() {
       (data as any).customer_category = deriveCustomerCategory(seg3);
       // Behold is_public for bagudkompatibilitet — sand når binding er offentlig aftale
       (data as any).is_public = (data as any).binding_status === "offentlig_aftale";
-      const key = companyKey(data.name as string | null, data.visma_id as string | null);
+      if (afdelingNr != null) (data as any).afdeling_nr = afdelingNr;
+      const key = companyKey(data.name as string | null, data.visma_id as string | null, afdelingNr);
       const isDuplicate = !!key && existingCompanyKeys.has(key);
       const eanMatchId = null;
       const nameMatchId =
@@ -704,6 +757,8 @@ function ImportSide() {
         isDuplicate,
         missingCvr,
         isPublic: (data as any).is_public === true,
+        afdelingNr,
+        afdelingRaw,
         nameMatchId,
         eanMatchId,
         hasError,
@@ -720,11 +775,36 @@ function ImportSide() {
   }
 
   function isWrongFirma(p: PreparedRow): boolean {
-    // ALTID-filter: kun firma 10 (Frellsen Kaffe) må importeres.
+    // ALTID-filter: kun firmaer der hører til en kendt afdeling må importeres.
     // Tom firma = afvis (vi vil ikke importere ukendt firma-tilhørsforhold).
     const firma = (p.raw["Firma"] ?? "").trim();
-    return firma !== "10";
+    return !allowedFirmaSet.has(firma);
   }
+
+  /** Detaljerækker (efter firma-filter) med en afdelingsværdi vi ikke kender. */
+  const unknownAfdelingValues = useMemo(() => {
+    if (!validAfdelingSet.size) return [] as string[];
+    const bad = new Set<string>();
+    for (const p of prepared) {
+      const firma = (p.raw["Firma"] ?? "").trim();
+      if (!allowedFirmaSet.has(firma)) continue; // subtotal-/andet-selskab-rækker
+      if (p.afdelingNr == null || !validAfdelingSet.has(p.afdelingNr)) {
+        bad.add(p.afdelingRaw || "(tom)");
+      }
+    }
+    return Array.from(bad).sort();
+  }, [prepared, validAfdelingSet, allowedFirmaSet]);
+
+  const rowsByAfdeling = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const p of prepared) {
+      const firma = (p.raw["Firma"] ?? "").trim();
+      if (!allowedFirmaSet.has(firma)) continue;
+      if (p.afdelingNr == null) continue;
+      out[String(p.afdelingNr)] = (out[String(p.afdelingNr)] ?? 0) + 1;
+    }
+    return out;
+  }, [prepared, allowedFirmaSet]);
 
   function isFilteredByVisma(p: PreparedRow): boolean {
     // Altid: filtrér virksomheder hvis navn er markeret som lukket i Visma
@@ -769,7 +849,7 @@ function ImportSide() {
     const uniqNew = new Set<string>();
     for (const p of kept) {
       if (p.hasError) continue;
-      const k = companyKey(p.data.name as string | null, p.data.visma_id as string | null);
+      const k = companyKey(p.data.name as string | null, p.data.visma_id as string | null, p.afdelingNr);
       if (!k) continue;
       if (p.isDuplicate) uniqDup.add(k);
       else if (p.missingCvr) uniqMissing.add(k);
@@ -799,6 +879,13 @@ function ImportSide() {
   async function runImport() {
     if (importRunner.isBusy()) {
       toast.error("Der kører allerede en import. Vent indtil den er færdig.");
+      return;
+    }
+    if (unknownAfdelingValues.length) {
+      toast.error(
+        `Importen er afvist: filen indeholder detaljerækker med ukendte afdelingsværdier (${unknownAfdelingValues.join(", ")}). Kendte afdelinger: ${Array.from(validAfdelingSet).sort((a, b) => a - b).join(", ")}.`,
+        { duration: 12000 },
+      );
       return;
     }
     importRunner.start("visma");
@@ -846,23 +933,25 @@ function ImportSide() {
       new Set(toImport.map((p) => p.nameMatchId).filter((v): v is string => !!v)),
     );
 
+    const afdelingerToFetch = Array.from(
+      new Set(toImport.map((p) => p.afdelingNr).filter((n): n is number => n != null)),
+    );
     const existingByKey = new Map<string, any>();
     const existingById = new Map<string, any>();
 
     importRunner.setLabel("Henter eksisterende virksomheder…");
     for (let i = 0; i < vismaIdsToFetch.length; i += CHUNK) {
       const slice = vismaIdsToFetch.slice(i, i + CHUNK);
-      const { data, error } = await supabase
-        .from("companies")
-        .select("*")
-        .in("visma_id", slice);
+      let q = supabase.from("companies").select("*").in("visma_id", slice);
+      if (afdelingerToFetch.length) q = q.in("afdeling_nr", afdelingerToFetch);
+      const { data, error } = await q;
       if (error) {
         toast.error("Kunne ikke hente eksisterende: " + error.message);
         importRunner.fail(progressLabel || "Import afbrudt");
         return;
       }
       (data ?? []).forEach((r: any) => {
-        const k = companyKey(r.name, r.visma_id);
+        const k = companyKey(r.name, r.visma_id, r.afdeling_nr);
         if (k) existingByKey.set(k, r);
         existingById.set(r.id, r);
       });
@@ -929,7 +1018,7 @@ function ImportSide() {
     const groupsByKey = new Map<string, Group>();
     const ungrouped: Group[] = []; // rækker uden nøgle
     for (const p of toImport) {
-      const k = companyKey(p.data.name as string, p.data.visma_id as string);
+      const k = companyKey(p.data.name as string, p.data.visma_id as string, p.afdelingNr);
       if (!k) {
         ungrouped.push({ key: null, mainRow: p, sellerId: p.matchedSellerId });
         continue;
@@ -1062,10 +1151,13 @@ function ImportSide() {
       try {
         const res = await upsertByVismaId({ data: { rows: payloads } });
         // upsert returnerer (id, visma_id) — map tilbage til jobs via visma_id
-        const idByVisma = new Map(res.results.map((r) => [String(r.visma_id ?? ""), r.id]));
+        const idByVisma = new Map(
+          res.results.map((r) => [`${(r as any).afdeling_nr ?? ""}|${String(r.visma_id ?? "")}`, r.id]),
+        );
         slice.forEach((j) => {
           const vid = String((j.payload as any)?.visma_id ?? "");
-          const id = idByVisma.get(vid);
+          const afd = (j.payload as any)?.afdeling_nr ?? "";
+          const id = idByVisma.get(`${afd}|${vid}`);
           if (!id) {
             failed++;
             return;
@@ -1161,6 +1253,7 @@ function ImportSide() {
             filename: file?.name ?? null,
             company_count: companyIds.length,
             company_ids: companyIds,
+            rows_by_afdeling: rowsByAfdeling,
           },
         });
       } catch (e: any) {
@@ -1175,7 +1268,10 @@ function ImportSide() {
     let companiesWithMultipleLocations = 0;
     try {
       type LocRow = { delivery: string; loc: Record<string, string | null> };
-      const byKey = new Map<string, { companyId: string; companyKundenr: string; list: LocRow[] }>();
+      const byKey = new Map<
+        string,
+        { companyId: string; companyKundenr: string; afdelingNr: number | null; list: LocRow[] }
+      >();
       console.log("[DIAG] keyToCompanyId has 3001300:", keyToCompanyId.get("3001300"));
       console.log(
         "[DIAG] rows med Fakt.kunde=3001300:",
@@ -1187,7 +1283,10 @@ function ImportSide() {
         const delivery0 = mapping.visma_delivery_id ? (r[mapping.visma_delivery_id] ?? "").trim() : "";
         const isTarget = delivery0 === "2273904" || vismaId === "3001300";
         if (isTarget) console.log("[DIAG] target row raw:", { name, vismaId, delivery0 });
-        const k = companyKey(name, vismaId);
+        const afdRaw = rowAfdelingRaw(r);
+        const afdParsed = parseInt(afdRaw, 10);
+        const afdelingNr = Number.isFinite(afdParsed) ? afdParsed : null;
+        const k = companyKey(name, vismaId, afdelingNr);
         if (isTarget) console.log("[DIAG] target row key k:", k);
         if (!k) continue;
         const companyId = keyToCompanyId.get(k);
@@ -1204,7 +1303,7 @@ function ImportSide() {
           email: mapping.location_email ? (r[mapping.location_email] ?? "").trim() || null : null,
           contact_person: mapping.location_contact_person ? (r[mapping.location_contact_person] ?? "").trim() || null : null,
         };
-        const entry = byKey.get(k) ?? { companyId, companyKundenr: vismaId, list: [] };
+        const entry = byKey.get(k) ?? { companyId, companyKundenr: vismaId, afdelingNr, list: [] };
         if (!entry.list.find((x) => x.delivery === delivery)) {
           entry.list.push({ delivery, loc });
           if (isTarget) console.log("[DIAG] target row PUSHED til byKey list, list.length=", entry.list.length);
@@ -1215,13 +1314,14 @@ function ImportSide() {
       }
 
 
-      for (const { companyId, companyKundenr, list } of byKey.values()) {
+      for (const { companyId, companyKundenr, afdelingNr, list } of byKey.values()) {
         // Opret ALLE lev.nr. som lokationer — også enkelt-lokations virksomheder
         // (triggeren laver én primær, denne upsert udfylder data/markerer primær korrekt).
         if (list.length >= 2) companiesWithMultipleLocations++;
         for (const row of list) {
           locRows.push({
             company_id: companyId,
+            afdeling_nr: afdelingNr ?? 11,
             visma_delivery_no: row.delivery,
             address: row.loc.address,
             zip: row.loc.zip,
@@ -1266,7 +1366,9 @@ function ImportSide() {
         for (const r of rows) {
           const compName = mapping.name ? (r[mapping.name] ?? "").trim() : "";
           const compVismaId = mapping.visma_id ? (r[mapping.visma_id] ?? "").trim() : "";
-          const k = companyKey(compName, compVismaId);
+          const afdRaw2 = rowAfdelingRaw(r);
+          const afdParsed2 = parseInt(afdRaw2, 10);
+          const k = companyKey(compName, compVismaId, Number.isFinite(afdParsed2) ? afdParsed2 : null);
           if (!k) continue;
           const companyId = keyToCompanyId.get(k);
           if (!companyId) continue;
@@ -1562,6 +1664,8 @@ function ImportSide() {
         <Trin3Preview
           prepared={prepared}
           stats={stats}
+          rowsByAfdeling={rowsByAfdeling}
+          unknownAfdelingValues={unknownAfdelingValues}
           includeMissingCvr={includeMissingCvr}
           setIncludeMissingCvr={setIncludeMissingCvr}
           onBack={() => setStep(2)}
@@ -1653,6 +1757,8 @@ function Stepper({ step }: { step: number }) {
 function Trin3Preview({
   prepared,
   stats,
+  rowsByAfdeling,
+  unknownAfdelingValues,
   includeMissingCvr,
   setIncludeMissingCvr,
   onBack,
@@ -1660,6 +1766,8 @@ function Trin3Preview({
 }: {
   prepared: PreparedRow[];
   stats: { newCount: number; dupCount: number; missingCount: number; errorCount: number; uniqNewCount: number; uniqDupCount: number; uniqMissingCount: number; filteredCount: number; wrongFirmaCount: number; totalRows: number; unmatchedSalespersonNos: string[] };
+  rowsByAfdeling: Record<string, number>;
+  unknownAfdelingValues: string[];
   includeMissingCvr: boolean;
   setIncludeMissingCvr: (v: boolean) => void;
   onBack: () => void;
@@ -1677,7 +1785,30 @@ function Trin3Preview({
 
       {stats.wrongFirmaCount > 0 && (
         <Card className="p-4 border-primary/30 bg-primary/5 text-sm">
-          <span className="font-medium">{stats.wrongFirmaCount.toLocaleString("da-DK")} rækker</span> springes over fordi <span className="font-mono">Firma ≠ "10"</span> (kun Frellsen Kaffe importeres).
+          <span className="font-medium">{stats.wrongFirmaCount.toLocaleString("da-DK")} rækker</span> springes over fordi firma-nummeret ikke hører til en kendt afdeling.
+        </Card>
+      )}
+
+      {Object.keys(rowsByAfdeling).length > 0 && (
+        <Card className="p-4 text-sm">
+          <span className="font-medium">Rækker pr. afdeling:</span>{" "}
+          {Object.entries(rowsByAfdeling)
+            .sort((a, b) => Number(a[0]) - Number(b[0]))
+            .map(([afd, n]) => `afd ${afd}: ${n.toLocaleString("da-DK")}`)
+            .join(" · ")}
+        </Card>
+      )}
+
+      {unknownAfdelingValues.length > 0 && (
+        <Card className="p-4 border-destructive/40 bg-destructive/5 flex gap-3 items-start">
+          <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+          <div className="text-sm">
+            <p className="font-medium mb-1">Ukendte afdelingsværdier — importen kan ikke køres</p>
+            <p className="text-xs text-muted-foreground">
+              Følgende værdier i kolonnen "Afd" findes ikke i afdelingstabellen:{" "}
+              <span className="font-mono">{unknownAfdelingValues.join(", ")}</span>
+            </p>
+          </div>
         </Card>
       )}
 

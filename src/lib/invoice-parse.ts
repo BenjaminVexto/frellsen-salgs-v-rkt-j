@@ -9,6 +9,7 @@ import { readFileSmart } from "./file-encoding";
 
 const COL = {
   FIRMA: 0,
+  AFDELING: 1,
   ORDER_NO: 2,
   DATE: 3,
   DELIVERY: 4,
@@ -187,6 +188,20 @@ export type ParseStats = {
   periodFrom: string | null;
   periodTo: string | null;
   totalRevenue: number;
+  /** Antal detaljelinjer pr. afdeling (nøgle = afdeling_nr som streng). */
+  rowsByAfdeling: Record<string, number>;
+};
+
+/** Afdelingsopslag brugt til firma-filter og afdelingsvalidering. */
+export type AfdelingRef = { afdeling_nr: number; firma_nr: number | null };
+
+export type ParseOptions = {
+  /**
+   * Gyldige afdelinger (hentet fra public.afdeling). Når listen er sat:
+   *  - firma-filteret bruger afdelingstabellens firma_nr i stedet for hardkodet "10"
+   *  - detaljerækker med en ukendt afdelingsværdi afviser hele filen
+   */
+  afdelinger?: AfdelingRef[];
 };
 
 async function fileToRows(file: File): Promise<any[][]> {
@@ -229,18 +244,27 @@ type TopProductAcc = {
 type TopProductMonthlyAcc = TopProductAcc & { period: string };
 
 
-export async function parseAndAggregate(file: File): Promise<{
+export async function parseAndAggregate(
+  file: File,
+  opts: ParseOptions = {},
+): Promise<{
   monthly: MonthlyRow[];
   topProducts: TopProductRow[];
   topProductsMonthly: TopProductMonthlyRow[];
   stats: ParseStats;
 }> {
   const rows = await fileToRows(file);
-  const monthlyMap = new Map<string, MonthlyAcc & { delivery: string; period: string; group: string }>();
-  // For top products: keyed by (delivery|varenr), only for rows in last 12 months
-  const topMap = new Map<string, TopProductAcc & { delivery: string; varenr: string }>();
-  // Monthly top products: keyed by (delivery|period|varenr), also last 12 months
-  const topMonthlyMap = new Map<string, TopProductMonthlyAcc & { delivery: string; varenr: string }>();
+  const monthlyMap = new Map<
+    string,
+    MonthlyAcc & { delivery: string; period: string; group: string; afdeling: number }
+  >();
+  // For top products: keyed by (afdeling|delivery|varenr), only rows in last 12 months
+  const topMap = new Map<string, TopProductAcc & { delivery: string; varenr: string; afdeling: number }>();
+  // Monthly top products: keyed by (afdeling|delivery|period|varenr), also last 12 months
+  const topMonthlyMap = new Map<
+    string,
+    TopProductMonthlyAcc & { delivery: string; varenr: string; afdeling: number }
+  >();
 
   const cutoff = new Date();
   cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
@@ -255,11 +279,21 @@ export async function parseAndAggregate(file: File): Promise<{
     periodFrom: null,
     periodTo: null,
     totalRevenue: 0,
+    rowsByAfdeling: {},
   };
   const firmaSampleSet = new Set<string>();
   const deliverySet = new Set<string>();
   let minDate: Date | null = null;
   let maxDate: Date | null = null;
+
+  // Afdelingsopslag. Uden liste: bevar gammel adfærd (kun firma 10, afdeling
+  // fra filen eller 11 som fallback) og ingen validering.
+  const afdelingList = opts.afdelinger ?? [];
+  const validAfdelinger = new Set(afdelingList.map((a) => a.afdeling_nr));
+  const allowedFirma = new Set(
+    afdelingList.map((a) => (a.firma_nr == null ? "" : String(a.firma_nr))).filter(Boolean),
+  );
+  const unknownAfdelinger = new Set<string>();
 
   for (const row of rows) {
     if (!Array.isArray(row) || row.length < 20) {
@@ -267,11 +301,23 @@ export async function parseAndAggregate(file: File): Promise<{
       continue;
     }
     const firma = String(row[COL.FIRMA] ?? "").trim();
-    if (firma && firma !== ALLOWED_FIRMA) {
+    // Firma-filteret frasorterer også per-kunde subtotalrækkerne, som har
+    // Firma="0"/Afdeling="0". Derfor kører afdelingsvalideringen EFTER dette.
+    const firmaOk = allowedFirma.size ? allowedFirma.has(firma) : !firma || firma === ALLOWED_FIRMA;
+    if (!firmaOk) {
       stats.skippedFirma++;
       if (firmaSampleSet.size < 10) firmaSampleSet.add(firma);
       continue;
     }
+    const afdRaw = String(row[COL.AFDELING] ?? "").trim();
+    const afdNum = parseInt(afdRaw, 10);
+    if (validAfdelinger.size) {
+      if (!Number.isFinite(afdNum) || !validAfdelinger.has(afdNum)) {
+        unknownAfdelinger.add(afdRaw || "(tom)");
+        continue;
+      }
+    }
+    const afdeling = Number.isFinite(afdNum) ? afdNum : 11;
     const date = parseDanishDate(row[COL.DATE]);
     const delivery = String(row[COL.DELIVERY] ?? "").trim();
     if (!date || !delivery) {
@@ -279,6 +325,7 @@ export async function parseAndAggregate(file: File): Promise<{
       continue;
     }
     stats.linesRead++;
+    stats.rowsByAfdeling[String(afdeling)] = (stats.rowsByAfdeling[String(afdeling)] ?? 0) + 1;
     const orderNo = String(row[COL.ORDER_NO] ?? "").trim();
     const varenr = String(row[COL.VARENR] ?? "").trim();
     const desc = String(row[COL.DESC] ?? "").trim();
@@ -295,13 +342,14 @@ export async function parseAndAggregate(file: File): Promise<{
 
     const period = monthStart(date);
     const dateIso = parseDanishDateIso(row[COL.DATE]);
-    const key = `${delivery}|${period}|${group1}`;
+    const key = `${afdeling}|${delivery}|${period}|${group1}`;
     let acc = monthlyMap.get(key);
     if (!acc) {
       acc = {
         delivery,
         period,
         group: group1,
+        afdeling,
         revenue: 0,
         quantity: 0,
         contribution: 0,
@@ -329,10 +377,10 @@ export async function parseAndAggregate(file: File): Promise<{
 
     // top products: only last 12 months, only real revenue (not internal)
     if (!isInternal && varenr && date >= cutoff) {
-      const tkey = `${delivery}|${varenr}`;
+      const tkey = `${afdeling}|${delivery}|${varenr}`;
       let t = topMap.get(tkey);
       if (!t) {
-        t = { delivery, varenr, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
+        t = { delivery, varenr, afdeling, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
         topMap.set(tkey, t);
       }
       t.revenue += revenue;
@@ -341,10 +389,10 @@ export async function parseAndAggregate(file: File): Promise<{
       if (!t.description && desc) t.description = desc;
       if ((!t.group || t.group === "0") && group1) t.group = group1;
 
-      const tmKey = `${delivery}|${period}|${varenr}`;
+      const tmKey = `${afdeling}|${delivery}|${period}|${varenr}`;
       let tm = topMonthlyMap.get(tmKey);
       if (!tm) {
-        tm = { delivery, period, varenr, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
+        tm = { delivery, period, varenr, afdeling, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
         topMonthlyMap.set(tmKey, tm);
       }
       tm.revenue += revenue;
@@ -356,6 +404,14 @@ export async function parseAndAggregate(file: File): Promise<{
 
   }
 
+  if (unknownAfdelinger.size) {
+    throw new Error(
+      `Fakturajournalen indeholder detaljerækker med ukendte afdelingsværdier: ${Array.from(unknownAfdelinger)
+        .sort()
+        .join(", ")}. Kendte afdelinger: ${Array.from(validAfdelinger).sort((a, b) => a - b).join(", ")}.`,
+    );
+  }
+
   stats.uniqueDeliveryNos = deliverySet.size;
   stats.periodFrom = minDate ? monthStart(minDate) : null;
   stats.periodTo = maxDate ? monthStart(maxDate) : null;
@@ -363,6 +419,7 @@ export async function parseAndAggregate(file: File): Promise<{
 
   const monthly: MonthlyRow[] = Array.from(monthlyMap.values()).map((a) => ({
     visma_delivery_no: a.delivery,
+    afdeling_nr: a.afdeling,
     period: a.period,
     product_group_1: a.group,
     revenue: Math.round(a.revenue * 100) / 100,
@@ -373,12 +430,16 @@ export async function parseAndAggregate(file: File): Promise<{
     last_invoice_date: a.lastInvoiceDate,
   }));
 
-  // Group top products by delivery, take top 15 per delivery
-  const byDelivery = new Map<string, Array<TopProductAcc & { delivery: string; varenr: string }>>();
+  // Group top products by (afdeling, delivery), take top 15 per group
+  const byDelivery = new Map<
+    string,
+    Array<TopProductAcc & { delivery: string; varenr: string; afdeling: number }>
+  >();
   topMap.forEach((v) => {
-    const arr = byDelivery.get(v.delivery) ?? [];
+    const k = `${v.afdeling}|${v.delivery}`;
+    const arr = byDelivery.get(k) ?? [];
     arr.push(v);
-    byDelivery.set(v.delivery, arr);
+    byDelivery.set(k, arr);
   });
   const topProducts: TopProductRow[] = [];
   byDelivery.forEach((arr) => {
@@ -386,6 +447,7 @@ export async function parseAndAggregate(file: File): Promise<{
     arr.slice(0, 15).forEach((t) => {
       topProducts.push({
         visma_delivery_no: t.delivery,
+        afdeling_nr: t.afdeling,
         varenr: t.varenr,
         description: t.description,
         revenue: Math.round(t.revenue * 100) / 100,
@@ -396,10 +458,13 @@ export async function parseAndAggregate(file: File): Promise<{
     });
   });
 
-  // Group monthly top products by (delivery, period), take top 15 per (delivery, period)
-  const byDeliveryPeriod = new Map<string, Array<TopProductMonthlyAcc & { delivery: string; varenr: string }>>();
+  // Group monthly top products by (afdeling, delivery, period), top 15 per group
+  const byDeliveryPeriod = new Map<
+    string,
+    Array<TopProductMonthlyAcc & { delivery: string; varenr: string; afdeling: number }>
+  >();
   topMonthlyMap.forEach((v) => {
-    const k = `${v.delivery}|${v.period}`;
+    const k = `${v.afdeling}|${v.delivery}|${v.period}`;
     const arr = byDeliveryPeriod.get(k) ?? [];
     arr.push(v);
     byDeliveryPeriod.set(k, arr);
@@ -410,6 +475,7 @@ export async function parseAndAggregate(file: File): Promise<{
     arr.slice(0, 15).forEach((t) => {
       topProductsMonthly.push({
         visma_delivery_no: t.delivery,
+        afdeling_nr: t.afdeling,
         period: t.period,
         varenr: t.varenr,
         description: t.description,
