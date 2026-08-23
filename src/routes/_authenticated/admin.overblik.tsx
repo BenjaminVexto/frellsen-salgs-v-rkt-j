@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, AlertTriangle } from "lucide-react";
+import { PenhedSyncKort } from "@/components/admin/penhed-sync-kort";
+
 
 export const Route = createFileRoute("/_authenticated/admin/overblik")({
   component: AdminOverblikPage,
