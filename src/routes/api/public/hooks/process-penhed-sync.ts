@@ -9,7 +9,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { syncPenhederByCvrs } from "@/lib/cvr-penhed-sync.server";
 
 const MAX_ATTEMPTS = 3;
-const BATCH_PER_TICK = 1;
+const BATCH_PER_TICK = 2;
 
 export const Route = createFileRoute("/api/public/hooks/process-penhed-sync")({
   server: {
