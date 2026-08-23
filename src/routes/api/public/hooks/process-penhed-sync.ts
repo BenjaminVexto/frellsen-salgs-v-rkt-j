@@ -1,15 +1,16 @@
 /**
  * CVR P-enhed-synkroniseringskø — worker endpoint.
- * Kaldes hvert minut af pg_cron. Plukker 1 pending job (kaldene er tunge),
- * markerer det 'processing', synkroniserer P-enheder og markerer
+ * Kaldes hvert minut af pg_cron. Plukker 2 pending jobs pr. tick,
+ * markerer dem 'processing', synkroniserer P-enheder og markerer
  * 'done' eller 'failed'. Max 3 forsøg pr. job.
+ * Hængende jobs ('processing' > 10 min) genoprettes før nye plukkes.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { syncPenhederByCvrs } from "@/lib/cvr-penhed-sync.server";
 
 const MAX_ATTEMPTS = 3;
-const BATCH_PER_TICK = 1;
+const BATCH_PER_TICK = 2;
 
 export const Route = createFileRoute("/api/public/hooks/process-penhed-sync")({
   server: {
@@ -25,6 +26,22 @@ export const Route = createFileRoute("/api/public/hooks/process-penhed-sync")({
         const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
         const ok = !!provided && (provided === anon || provided === service);
         if (!ok) return new Response("Unauthorized", { status: 401 });
+
+        // Genopret hængende jobs før nye plukkes.
+        // Jobs under 3 forsøg og >10 min 'processing' → 'pending' (reclaim).
+        // Jobs med ≥3 forsøg og stadig hængende → 'failed' (opgivet).
+        await supabaseAdmin
+          .from("cvr_penhed_sync_jobs")
+          .update({ status: "pending", started_at: null })
+          .eq("status", "processing")
+          .lt("started_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+          .lt("attempts", MAX_ATTEMPTS);
+        await supabaseAdmin
+          .from("cvr_penhed_sync_jobs")
+          .update({ status: "failed", last_error: "timeout/hængende job" })
+          .eq("status", "processing")
+          .lt("started_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+          .gte("attempts", MAX_ATTEMPTS);
 
         const { data: candidates, error: selErr } = await supabaseAdmin
           .from("cvr_penhed_sync_jobs")
