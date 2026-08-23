@@ -43,6 +43,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
 import { Route as ApiPublicQuotePdfTokenRouteImport } from './routes/api/public/quote-pdf.$token'
+import { Route as ApiPublicHooksProcessPenhedSyncRouteImport } from './routes/api/public/hooks/process-penhed-sync'
 import { Route as ApiPublicHooksProcessInvoiceImportRouteImport } from './routes/api/public/hooks/process-invoice-import'
 import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
 import { Route as AuthenticatedAftalerKp2CodeRouteImport } from './routes/_authenticated/aftaler.kp2.$code'
@@ -246,6 +247,12 @@ const ApiPublicQuotePdfTokenRoute = ApiPublicQuotePdfTokenRouteImport.update({
   path: '/api/public/quote-pdf/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksProcessPenhedSyncRoute =
+  ApiPublicHooksProcessPenhedSyncRouteImport.update({
+    id: '/api/public/hooks/process-penhed-sync',
+    path: '/api/public/hooks/process-penhed-sync',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksProcessInvoiceImportRoute =
   ApiPublicHooksProcessInvoiceImportRouteImport.update({
     id: '/api/public/hooks/process-invoice-import',
@@ -363,6 +370,7 @@ export interface FileRoutesByFullPath {
   '/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/api/public/hooks/process-invoice-import': typeof ApiPublicHooksProcessInvoiceImportRoute
+  '/api/public/hooks/process-penhed-sync': typeof ApiPublicHooksProcessPenhedSyncRoute
   '/api/public/quote-pdf/$token': typeof ApiPublicQuotePdfTokenRoute
   '/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
@@ -409,6 +417,7 @@ export interface FileRoutesByTo {
   '/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/api/public/hooks/process-invoice-import': typeof ApiPublicHooksProcessInvoiceImportRoute
+  '/api/public/hooks/process-penhed-sync': typeof ApiPublicHooksProcessPenhedSyncRoute
   '/api/public/quote-pdf/$token': typeof ApiPublicQuotePdfTokenRoute
   '/admin/import': typeof AuthenticatedAdminImportIndexRoute
 }
@@ -458,6 +467,7 @@ export interface FileRoutesById {
   '/_authenticated/aftaler/kp2/$code': typeof AuthenticatedAftalerKp2CodeRoute
   '/api/public/hooks/process-cvr-enrichment': typeof ApiPublicHooksProcessCvrEnrichmentRoute
   '/api/public/hooks/process-invoice-import': typeof ApiPublicHooksProcessInvoiceImportRoute
+  '/api/public/hooks/process-penhed-sync': typeof ApiPublicHooksProcessPenhedSyncRoute
   '/api/public/quote-pdf/$token': typeof ApiPublicQuotePdfTokenRoute
   '/_authenticated/admin/import/': typeof AuthenticatedAdminImportIndexRoute
 }
@@ -507,6 +517,7 @@ export interface FileRouteTypes {
     | '/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/api/public/hooks/process-invoice-import'
+    | '/api/public/hooks/process-penhed-sync'
     | '/api/public/quote-pdf/$token'
     | '/admin/import/'
   fileRoutesByTo: FileRoutesByTo
@@ -553,6 +564,7 @@ export interface FileRouteTypes {
     | '/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/api/public/hooks/process-invoice-import'
+    | '/api/public/hooks/process-penhed-sync'
     | '/api/public/quote-pdf/$token'
     | '/admin/import'
   id:
@@ -601,6 +613,7 @@ export interface FileRouteTypes {
     | '/_authenticated/aftaler/kp2/$code'
     | '/api/public/hooks/process-cvr-enrichment'
     | '/api/public/hooks/process-invoice-import'
+    | '/api/public/hooks/process-penhed-sync'
     | '/api/public/quote-pdf/$token'
     | '/_authenticated/admin/import/'
   fileRoutesById: FileRoutesById
@@ -619,6 +632,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicHooksProcessCvrEnrichmentRoute: typeof ApiPublicHooksProcessCvrEnrichmentRoute
   ApiPublicHooksProcessInvoiceImportRoute: typeof ApiPublicHooksProcessInvoiceImportRoute
+  ApiPublicHooksProcessPenhedSyncRoute: typeof ApiPublicHooksProcessPenhedSyncRoute
   ApiPublicQuotePdfTokenRoute: typeof ApiPublicQuotePdfTokenRoute
 }
 
@@ -862,6 +876,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicQuotePdfTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/process-penhed-sync': {
+      id: '/api/public/hooks/process-penhed-sync'
+      path: '/api/public/hooks/process-penhed-sync'
+      fullPath: '/api/public/hooks/process-penhed-sync'
+      preLoaderRoute: typeof ApiPublicHooksProcessPenhedSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/process-invoice-import': {
       id: '/api/public/hooks/process-invoice-import'
       path: '/api/public/hooks/process-invoice-import'
@@ -1055,6 +1076,7 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicHooksProcessCvrEnrichmentRoute,
   ApiPublicHooksProcessInvoiceImportRoute:
     ApiPublicHooksProcessInvoiceImportRoute,
+  ApiPublicHooksProcessPenhedSyncRoute: ApiPublicHooksProcessPenhedSyncRoute,
   ApiPublicQuotePdfTokenRoute: ApiPublicQuotePdfTokenRoute,
 }
 export const routeTree = rootRouteImport

@@ -2300,6 +2300,12 @@ export type Database = {
         Returns: boolean
       }
       my_afdelinger: { Args: never; Returns: number[] }
+      penhed_sync_candidates: {
+        Args: never
+        Returns: {
+          cvr: string
+        }[]
+      }
       rebuild_products: { Args: never; Returns: number }
       recompute_all_company_statuses: { Args: never; Returns: number }
       recompute_company_status: {
