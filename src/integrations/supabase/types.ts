@@ -2513,6 +2513,28 @@ export type Database = {
         }
         Relationships: []
       }
+      forbrug_signal_virksomhed: {
+        Row: {
+          aarsag_primaer: string | null
+          afdeling_nr: number | null
+          afvigelse_pct_primaer: number | null
+          akt_kg_primaer: number | null
+          assigned_to: string | null
+          base_kg_primaer: number | null
+          company_id: string | null
+          forventet_interval_mdr_primaer: number | null
+          grupper_i_alt: number | null
+          grupper_i_fald: number | null
+          handling_paakraevet: boolean | null
+          klasse_primaer: string | null
+          mdr_siden_sidste_koeb_primaer: number | null
+          sidste_koeb_primaer: string | null
+          tabt_kg_pr_mdr: number | null
+          tabt_kr_pr_mdr: number | null
+          vaerste_score: number | null
+        }
+        Relationships: []
+      }
       sales_period_completeness: {
         Row: {
           er_komplet: boolean | null
