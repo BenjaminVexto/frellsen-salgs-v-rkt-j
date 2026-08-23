@@ -1,8 +1,9 @@
 /**
  * CVR P-enhed-synkroniseringskø — worker endpoint.
- * Kaldes hvert minut af pg_cron. Plukker 1 pending job (kaldene er tunge),
- * markerer det 'processing', synkroniserer P-enheder og markerer
+ * Kaldes hvert minut af pg_cron. Plukker 2 pending jobs pr. tick,
+ * markerer dem 'processing', synkroniserer P-enheder og markerer
  * 'done' eller 'failed'. Max 3 forsøg pr. job.
+ * Hængende jobs ('processing' > 10 min) genoprettes før nye plukkes.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
