@@ -113,14 +113,24 @@ function useProfiles() {
 /* ---------- TAB 1: Horisontal mersalg ---------- */
 
 type MersalgRow = {
-  id: string;
+  company_id: string;
+  cvr: string;
   name: string;
   city: string | null;
-  cvr: string | null;
-  ourLocations: number;
-  cvrLocations: number;
   potential: number;
+  daekket: number;
+  penheder_total: number;
   assigned_to: string | null;
+  antal_kundenumre: number;
+};
+
+type PenhedRow = {
+  p_number: string;
+  penhed_navn: string | null;
+  address: string | null;
+  zip: string | null;
+  city: string | null;
+  match_status: string;
 };
 
 function HorisontalMersalg() {
@@ -130,61 +140,70 @@ function HorisontalMersalg() {
   const [seller, setSeller] = useState<string>("__all");
   const [minPot, setMinPot] = useState<number>(1);
   const [didAnalyze, setDidAnalyze] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [details, setDetails] = useState<Record<string, PenhedRow[]>>({});
+  const [detailLoading, setDetailLoading] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   async function analyse() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("companies")
-        .select("id, name, city, cvr, cvr_p_enhed_count, assigned_to, locations(count)")
-        .or("binding_status.is.null,binding_status.neq.offentlig_aftale")
-        .not("cvr", "is", null)
-        .not("cvr_p_enhed_count", "is", null)
-        .contains("sources", ["visma"])
-        .order("cvr_p_enhed_count", { ascending: false })
-        .limit(1000);
+        .from("salgsintelligens_mersalg")
+        .select(
+          "company_id, cvr, name, city, potential, daekket, penheder_total, assigned_to, antal_kundenumre",
+        )
+        .order("potential", { ascending: false })
+        .limit(2000);
 
       if (error) {
         toast.error("Kunne ikke hente data: " + error.message);
-        setLoading(false);
         return;
       }
 
-      const raw = (data ?? []) as any[];
-      if (raw.length === 0) {
-        toast.warning(
-          "Ingen virksomheder er beriget med CVR-data endnu. Kør en Visma-import for at hente antal P-enheder fra CVR.",
-          { duration: 8000 },
-        );
-      }
-
-      const mapped: MersalgRow[] = raw
-        .map((c) => {
-          const ourLocations = Array.isArray(c.locations) ? c.locations[0]?.count ?? 0 : 0;
-          const cvrLocations = c.cvr_p_enhed_count ?? 0;
-          return {
-            id: c.id,
-            name: c.name,
-            city: c.city,
-            cvr: c.cvr,
-            ourLocations,
-            cvrLocations,
-            potential: cvrLocations - ourLocations,
-            assigned_to: c.assigned_to,
-          };
-        })
-        .filter((c) => c.potential > 0)
-        .sort((a, b) => b.potential - a.potential);
-
+      const mapped = ((data ?? []) as any[]) as MersalgRow[];
       setRows(mapped);
       setDidAnalyze(true);
-      if (raw.length > 0) {
-        toast.success(`Fandt ${mapped.length} virksomheder med flere afdelinger ifølge CVR.`);
+      if (mapped.length === 0) {
+        toast.warning(
+          "Ingen P-enheder med potentiale fundet. Kør 'Synkronisér CVR P-enheder' på admin-overblikket først.",
+          { duration: 8000 },
+        );
+      } else {
+        toast.success(`Fandt ${mapped.length} virksomheder med ubearbejdede adresser.`);
       }
     } catch (e: any) {
       toast.error("Fejl ved analyse: " + (e?.message ?? String(e)));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchMissing(cvr: string): Promise<PenhedRow[]> {
+    const { data, error } = await supabase
+      .from("salgsintelligens_penhed_status")
+      .select("p_number, penhed_navn, address, zip, city, match_status")
+      .eq("cvr", cvr)
+      .eq("match_status", "none");
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as any[]) as PenhedRow[];
+  }
+
+  async function toggleRow(cvr: string) {
+    if (expanded === cvr) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(cvr);
+    if (details[cvr]) return;
+    setDetailLoading(cvr);
+    try {
+      const list = await fetchMissing(cvr);
+      setDetails((d) => ({ ...d, [cvr]: list }));
+    } catch (e: any) {
+      toast.error("Kunne ikke hente adresser: " + (e?.message ?? String(e)));
+    } finally {
+      setDetailLoading(null);
     }
   }
 
@@ -201,28 +220,45 @@ function HorisontalMersalg() {
     [rows, seller, minPot],
   );
 
-  function exportCsv() {
-    downloadCsv(
-      "horisontal-mersalg",
-      ["Navn", "CVR", "By", "Sælger", "Vores lokationer", "CVR P-enheder", "Potentiale"],
-      filtered.map((r) => [
-        r.name,
-        r.cvr ?? "",
-        r.city ?? "",
-        r.assigned_to ? profileMap.get(r.assigned_to) ?? "" : "",
-        r.ourLocations,
-        r.cvrLocations,
-        r.potential,
-      ]),
-    );
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const out: (string | number | null)[][] = [];
+      for (const r of filtered) {
+        const list = details[r.cvr] ?? (await fetchMissing(r.cvr));
+        if (!details[r.cvr]) setDetails((d) => ({ ...d, [r.cvr]: list }));
+        const saelger = r.assigned_to ? profileMap.get(r.assigned_to) ?? "" : "";
+        for (const p of list) {
+          out.push([
+            r.name,
+            r.cvr,
+            saelger,
+            p.p_number,
+            p.address ?? "",
+            p.zip ?? "",
+            p.city ?? "",
+          ]);
+        }
+      }
+      downloadCsv(
+        "horisontal-mersalg",
+        ["Virksomhed", "CVR", "Sælger", "P-nummer", "Adresse", "Postnr", "By"],
+        out,
+      );
+    } catch (e: any) {
+      toast.error("Kunne ikke eksportere: " + (e?.message ?? String(e)));
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
     <div className="space-y-4">
       <Card className="p-4 bg-muted/30">
         <p className="text-sm">
-          Find private kunder med ubearbejdede lokationer ifølge CVR-registret.
-          Kommuner og institutioner er udeladt.
+          Find aktive CVR-produktionsenheder hos eksisterende kunder, som vi ikke
+          leverer til. Offentlige kunder, interne selskaber og personaleforeninger
+          er udeladt.
         </p>
       </Card>
 
@@ -265,8 +301,18 @@ function HorisontalMersalg() {
             <p className="text-sm text-muted-foreground">
               {filtered.length} virksomheder med potentiale
             </p>
-            <Button size="sm" variant="outline" onClick={exportCsv} disabled={!filtered.length}>
-              <Download className="h-4 w-4 mr-1.5" /> Eksportér CSV
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportCsv}
+              disabled={!filtered.length || exporting}
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-1.5" />
+              )}
+              Eksportér CSV
             </Button>
           </div>
 
@@ -280,43 +326,99 @@ function HorisontalMersalg() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
+                      <th className="w-8" />
                       <th className="text-left px-4 py-2.5">Virksomhed</th>
                       <th className="text-left px-4 py-2.5">By</th>
-                      <th className="text-right px-4 py-2.5">Vores</th>
-                      <th className="text-right px-4 py-2.5">CVR</th>
+                      <th className="text-right px-4 py-2.5">Dækket</th>
+                      <th className="text-right px-4 py-2.5">P-enheder</th>
                       <th className="text-right px-4 py-2.5">Potentiale</th>
                       <th className="text-left px-4 py-2.5">Sælger</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((r) => (
-                      <tr key={r.id} className="border-t hover:bg-muted/30">
-                        <td className="px-4 py-2.5">
-                          <Link
-                            to="/virksomheder/$id"
-                            params={{ id: r.id }}
-                            hash="lokationer"
-                            className="font-medium hover:text-primary hover:underline"
+                    {filtered.map((r) => {
+                      const isOpen = expanded === r.cvr;
+                      const list = details[r.cvr];
+                      return (
+                        <>
+                          <tr
+                            key={r.cvr + r.company_id}
+                            className="border-t hover:bg-muted/30 cursor-pointer"
+                            onClick={() => toggleRow(r.cvr)}
                           >
-                            {r.name}
-                          </Link>
-                          {r.cvr && (
-                            <div className="text-xs text-muted-foreground">CVR {r.cvr}</div>
+                            <td className="pl-3 text-muted-foreground">
+                              {isOpen ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <Link
+                                to="/virksomheder/$id"
+                                params={{ id: r.company_id }}
+                                hash="lokationer"
+                                className="font-medium hover:text-primary hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {r.name}
+                              </Link>
+                              {r.antal_kundenumre > 1 && (
+                                <Badge variant="secondary" className="ml-2 text-[10px]">
+                                  {r.antal_kundenumre} kundenumre
+                                </Badge>
+                              )}
+                              <div className="text-xs text-muted-foreground">CVR {r.cvr}</div>
+                            </td>
+                            <td className="px-4 py-2.5 text-muted-foreground">{r.city ?? "—"}</td>
+                            <td className="px-4 py-2.5 text-right">{r.daekket}</td>
+                            <td className="px-4 py-2.5 text-right">{r.penheder_total}</td>
+                            <td className="px-4 py-2.5 text-right font-medium">
+                              +{r.potential} {r.potential >= 3 ? "🔥" : ""}
+                            </td>
+                            <td className="px-4 py-2.5 text-muted-foreground">
+                              {r.assigned_to ? profileMap.get(r.assigned_to) ?? "Ukendt" : (
+                                <span className="italic">Ikke tildelt</span>
+                              )}
+                            </td>
+                          </tr>
+                          {isOpen && (
+                            <tr key={r.cvr + "-detail"} className="border-t bg-muted/20">
+                              <td />
+                              <td colSpan={6} className="px-4 py-3">
+                                {detailLoading === r.cvr ? (
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    Henter adresser…
+                                  </div>
+                                ) : !list || list.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    Ingen manglende adresser fundet.
+                                  </p>
+                                ) : (
+                                  <ul className="space-y-1.5">
+                                    {list.map((p) => (
+                                      <li key={p.p_number} className="text-xs">
+                                        <span className="font-medium">
+                                          {p.address ?? "Ukendt adresse"}
+                                        </span>
+                                        <span className="text-muted-foreground">
+                                          {" · "}
+                                          {p.zip ?? ""} {p.city ?? ""}
+                                          {p.penhed_navn ? ` · ${p.penhed_navn}` : ""}
+                                          {" · P-nr "}
+                                          {p.p_number}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{r.city ?? "—"}</td>
-                        <td className="px-4 py-2.5 text-right">{r.ourLocations}</td>
-                        <td className="px-4 py-2.5 text-right">{r.cvrLocations}</td>
-                        <td className="px-4 py-2.5 text-right font-medium">
-                          +{r.potential} {r.potential >= 3 ? "🔥" : ""}
-                        </td>
-                        <td className="px-4 py-2.5 text-muted-foreground">
-                          {r.assigned_to ? profileMap.get(r.assigned_to) ?? "Ukendt" : (
-                            <span className="italic">Ikke tildelt</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                        </>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
