@@ -29,8 +29,6 @@ export const Route = createFileRoute("/api/public/hooks/process-penhed-sync")({
         // Genopret hængende jobs før nye plukkes.
         // Jobs under 3 forsøg og >10 min 'processing' → 'pending' (reclaim).
         // Jobs med ≥3 forsøg og stadig hængende → 'failed' (opgivet).
-        await supabaseAdmin.rpc("reclaim_hanging_penhed_jobs").rpc;
-        // Fald tilbage på direkte updates hvis funktionen ikke findes.
         await supabaseAdmin
           .from("cvr_penhed_sync_jobs")
           .update({ status: "pending", started_at: null })
