@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -342,9 +342,8 @@ function HorisontalMersalg() {
                       const isOpen = expanded === r.cvr;
                       const list = details[r.cvr];
                       return (
-                        <>
+                        <Fragment key={r.cvr + r.company_id}>
                           <tr
-                            key={r.cvr + r.company_id}
                             className="border-t hover:bg-muted/30 cursor-pointer"
                             onClick={() => toggleRow(r.cvr)}
                           >
@@ -385,7 +384,7 @@ function HorisontalMersalg() {
                             </td>
                           </tr>
                           {isOpen && (
-                            <tr key={r.cvr + "-detail"} className="border-t bg-muted/20">
+                            <tr className="border-t bg-muted/20">
                               <td />
                               <td colSpan={6} className="px-4 py-3">
                                 {detailLoading === r.cvr ? (
@@ -418,7 +417,7 @@ function HorisontalMersalg() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       );
                     })}
                   </tbody>
