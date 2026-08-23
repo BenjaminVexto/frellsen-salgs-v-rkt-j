@@ -1098,13 +1098,11 @@ function RankingTable({
                     )}
                     <td className="px-3 py-2">
                       <KaffeIndicator
-                        rhythmClass={r.rhythmClass}
-                        rhythmMonths={r.rhythmMonths}
-                        monthsSinceConsumable={r.monthsSinceConsumable}
-                        trendDown={r.trendDown}
+                        companyId={r.id}
                         suppliedViaName={r.supplied_via_name}
                         suppliedViaId={r.supplied_via_id}
                       />
+
                     </td>
                   </tr>
                 );
