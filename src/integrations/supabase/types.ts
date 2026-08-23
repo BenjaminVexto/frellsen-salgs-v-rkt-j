@@ -1267,7 +1267,9 @@ export type Database = {
           afdeling_nr: number | null
           afvigelse_pct: number | null
           akt_kg_pr_mdr: number | null
+          akt_omsaetning: number | null
           base_kg_pr_mdr: number | null
+          base_omsaetning: number | null
           company_id: string | null
           created_at: string
           enhed_id: string
@@ -1278,8 +1280,11 @@ export type Database = {
           location_id: string | null
           mdr_siden_sidste_koeb: number | null
           niveau: string
+          ordre_aendring_pct: number | null
           product_group_1: string
+          sidste_koeb: string | null
           snapshot_periode: string
+          stk_aendring_pct: number | null
           tabt_kg_pr_mdr: number | null
           tabt_kr_pr_mdr: number | null
         }
@@ -1288,7 +1293,9 @@ export type Database = {
           afdeling_nr?: number | null
           afvigelse_pct?: number | null
           akt_kg_pr_mdr?: number | null
+          akt_omsaetning?: number | null
           base_kg_pr_mdr?: number | null
+          base_omsaetning?: number | null
           company_id?: string | null
           created_at?: string
           enhed_id: string
@@ -1299,8 +1306,11 @@ export type Database = {
           location_id?: string | null
           mdr_siden_sidste_koeb?: number | null
           niveau: string
+          ordre_aendring_pct?: number | null
           product_group_1: string
+          sidste_koeb?: string | null
           snapshot_periode: string
+          stk_aendring_pct?: number | null
           tabt_kg_pr_mdr?: number | null
           tabt_kr_pr_mdr?: number | null
         }
@@ -1309,7 +1319,9 @@ export type Database = {
           afdeling_nr?: number | null
           afvigelse_pct?: number | null
           akt_kg_pr_mdr?: number | null
+          akt_omsaetning?: number | null
           base_kg_pr_mdr?: number | null
+          base_omsaetning?: number | null
           company_id?: string | null
           created_at?: string
           enhed_id?: string
@@ -1320,8 +1332,11 @@ export type Database = {
           location_id?: string | null
           mdr_siden_sidste_koeb?: number | null
           niveau?: string
+          ordre_aendring_pct?: number | null
           product_group_1?: string
+          sidste_koeb?: string | null
           snapshot_periode?: string
+          stk_aendring_pct?: number | null
           tabt_kg_pr_mdr?: number | null
           tabt_kr_pr_mdr?: number | null
         }
@@ -2489,6 +2504,87 @@ export type Database = {
           stk_aendring_pct: number | null
           tabt_kg_pr_mdr: number | null
           tabt_kr_pr_mdr: number | null
+        }
+        Relationships: []
+      }
+      forbrug_signal_seneste: {
+        Row: {
+          aarsag: string | null
+          afdeling_nr: number | null
+          afvigelse_pct: number | null
+          akt_kg_pr_mdr: number | null
+          akt_omsaetning: number | null
+          base_kg_pr_mdr: number | null
+          base_omsaetning: number | null
+          company_id: string | null
+          created_at: string | null
+          enhed_id: string | null
+          forventet_interval_mdr: number | null
+          handling_paakraevet: boolean | null
+          id: string | null
+          klasse: string | null
+          location_id: string | null
+          mdr_siden_sidste_koeb: number | null
+          niveau: string | null
+          ordre_aendring_pct: number | null
+          product_group_1: string | null
+          sidste_koeb: string | null
+          snapshot_periode: string | null
+          stk_aendring_pct: number | null
+          tabt_kg_pr_mdr: number | null
+          tabt_kr_pr_mdr: number | null
+        }
+        Insert: {
+          aarsag?: string | null
+          afdeling_nr?: number | null
+          afvigelse_pct?: number | null
+          akt_kg_pr_mdr?: number | null
+          akt_omsaetning?: number | null
+          base_kg_pr_mdr?: number | null
+          base_omsaetning?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          enhed_id?: string | null
+          forventet_interval_mdr?: number | null
+          handling_paakraevet?: boolean | null
+          id?: string | null
+          klasse?: string | null
+          location_id?: string | null
+          mdr_siden_sidste_koeb?: number | null
+          niveau?: string | null
+          ordre_aendring_pct?: number | null
+          product_group_1?: string | null
+          sidste_koeb?: string | null
+          snapshot_periode?: string | null
+          stk_aendring_pct?: number | null
+          tabt_kg_pr_mdr?: number | null
+          tabt_kr_pr_mdr?: number | null
+        }
+        Update: {
+          aarsag?: string | null
+          afdeling_nr?: number | null
+          afvigelse_pct?: number | null
+          akt_kg_pr_mdr?: number | null
+          akt_omsaetning?: number | null
+          base_kg_pr_mdr?: number | null
+          base_omsaetning?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          enhed_id?: string | null
+          forventet_interval_mdr?: number | null
+          handling_paakraevet?: boolean | null
+          id?: string | null
+          klasse?: string | null
+          location_id?: string | null
+          mdr_siden_sidste_koeb?: number | null
+          niveau?: string | null
+          ordre_aendring_pct?: number | null
+          product_group_1?: string | null
+          sidste_koeb?: string | null
+          snapshot_periode?: string | null
+          stk_aendring_pct?: number | null
+          tabt_kg_pr_mdr?: number | null
+          tabt_kr_pr_mdr?: number | null
         }
         Relationships: []
       }
