@@ -47,7 +47,14 @@ type PenhedRow = {
 
 function mapPenhed(p: any, syncedAt: string): PenhedRow | null {
   const pNumber = p?.pNummer != null ? String(p.pNummer) : "";
-  const cvr = p?.virksomhedCvrNummer != null ? String(p.virksomhedCvrNummer) : "";
+  // CVR-relationen ligger i virksomhedsrelation[] / metadata, ikke som et
+  // fladt virksomhedCvrNummer-felt.
+  const relLatest = pickLatest<any>(p?.virksomhedsrelation);
+  const cvrNum =
+    p?.produktionsEnhedMetadata?.nyesteCvrNummerRelation ??
+    relLatest?.cvrNummer ??
+    null;
+  const cvr = cvrNum != null ? String(cvrNum) : "";
   if (!pNumber || !cvr) return null;
 
   const addr =
@@ -70,7 +77,7 @@ function mapPenhed(p: any, syncedAt: string): PenhedRow | null {
     city: addr?.postdistrikt ?? null,
     branch_code:
       branch?.branchekode != null ? String(branch.branchekode) : null,
-    status: p?.sammensatStatus ?? null,
+    status: p?.produktionsEnhedMetadata?.sammensatStatus ?? null,
     is_active: true,
     synced_at: syncedAt,
   };
@@ -103,17 +110,27 @@ export async function syncPenhederByCvrs(
       const payload = {
         _source: [
           "VrproduktionsEnhed.pNummer",
-          "VrproduktionsEnhed.virksomhedCvrNummer",
+          "VrproduktionsEnhed.virksomhedsrelation",
+          "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteCvrNummerRelation",
+          "VrproduktionsEnhed.produktionsEnhedMetadata.sammensatStatus",
           "VrproduktionsEnhed.navne",
           "VrproduktionsEnhed.beliggenhedsadresse",
           "VrproduktionsEnhed.hovedbranche",
-          "VrproduktionsEnhed.sammensatStatus",
         ],
         query: {
           bool: {
             must: [
-              { terms: { "VrproduktionsEnhed.virksomhedCvrNummer": cvrInts } },
-              { match: { "VrproduktionsEnhed.sammensatStatus": "Aktiv" } },
+              {
+                terms: {
+                  "VrproduktionsEnhed.virksomhedsrelation.cvrNummer": cvrInts,
+                },
+              },
+              {
+                match: {
+                  "VrproduktionsEnhed.produktionsEnhedMetadata.sammensatStatus":
+                    "Aktiv",
+                },
+              },
             ],
           },
         },
