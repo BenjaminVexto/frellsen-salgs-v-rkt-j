@@ -243,3 +243,42 @@ export const getForbrugSignalForCompany = createServerFn({ method: "POST" })
       return { grupper, lokationer };
     },
   );
+
+export type ForbrugSignalKort = {
+  company_id: string;
+  klasse_primaer: string | null;
+  afvigelse_pct_primaer: number | null;
+  grupper_i_fald: number;
+  handling_paakraevet: boolean;
+  tabt_kr_pr_mdr: number | null;
+};
+
+/** Slår signalet op for en liste virksomheder (til tabeller/rangeringer). */
+export const getForbrugSignalMap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { companyIds: string[] }) => input)
+  .handler(async ({ data, context }): Promise<ForbrugSignalKort[]> => {
+    const ids = Array.from(new Set((data.companyIds ?? []).filter(Boolean)));
+    if (!ids.length) return [];
+    const out: ForbrugSignalKort[] = [];
+    for (let i = 0; i < ids.length; i += 150) {
+      const { data: rows, error } = await context.supabase
+        .from("forbrug_signal_virksomhed" as any)
+        .select(
+          "company_id, klasse_primaer, afvigelse_pct_primaer, grupper_i_fald, handling_paakraevet, tabt_kr_pr_mdr",
+        )
+        .in("company_id", ids.slice(i, i + 150));
+      if (error) throw error;
+      (rows ?? []).forEach((r: any) =>
+        out.push({
+          company_id: r.company_id,
+          klasse_primaer: r.klasse_primaer ?? null,
+          afvigelse_pct_primaer: r.afvigelse_pct_primaer != null ? Number(r.afvigelse_pct_primaer) : null,
+          grupper_i_fald: Number(r.grupper_i_fald) || 0,
+          handling_paakraevet: !!r.handling_paakraevet,
+          tabt_kr_pr_mdr: r.tabt_kr_pr_mdr != null ? Number(r.tabt_kr_pr_mdr) : null,
+        }),
+      );
+    }
+    return out;
+  });
