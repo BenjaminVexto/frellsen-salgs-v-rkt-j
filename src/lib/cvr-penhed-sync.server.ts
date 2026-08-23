@@ -154,9 +154,12 @@ export async function syncPenhederByCvrs(
       }
       const json: any = await res.json();
       const hits: any[] = json?.hits?.hits ?? [];
+      const sliceSet = new Set(slice);
       for (const hit of hits) {
         const mapped = mapPenhed(hit?._source?.VrproduktionsEnhed, syncedAt);
+        if (mapped && !sliceSet.has(mapped.cvr)) continue;
         if (mapped) rows.set(mapped.p_number, mapped);
+
       }
       if (hits.length < PAGE_SIZE) break;
     }
