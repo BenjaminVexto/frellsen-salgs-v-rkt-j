@@ -1869,6 +1869,30 @@ export type Database = {
         }
         Relationships: []
       }
+      produktgruppe_rolle: {
+        Row: {
+          created_at: string
+          er_primaer: boolean
+          navn: string
+          product_group_1: string
+          rolle: string
+        }
+        Insert: {
+          created_at?: string
+          er_primaer?: boolean
+          navn: string
+          product_group_1: string
+          rolle: string
+        }
+        Update: {
+          created_at?: string
+          er_primaer?: boolean
+          navn?: string
+          product_group_1?: string
+          rolle?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -2364,6 +2388,28 @@ export type Database = {
       }
     }
     Views: {
+      sales_period_completeness: {
+        Row: {
+          er_komplet: boolean | null
+          kg: number | null
+          lokationer: number | null
+          lokationer_sidste_aar: number | null
+          median_lokationer: number | null
+          pct_af_median: number | null
+          period: string | null
+        }
+        Relationships: []
+      }
+      sales_season_index: {
+        Row: {
+          komplette_maaneder_i_alt: number | null
+          maaned: number | null
+          maaneder_i_grundlag: number | null
+          product_group_1: string | null
+          saeson_indeks: number | null
+        }
+        Relationships: []
+      }
       salgsintelligens_mersalg: {
         Row: {
           afdeling_nr: number | null
@@ -2476,6 +2522,10 @@ export type Database = {
       }
       recompute_company_statuses_batch: {
         Args: { _company_ids: string[] }
+        Returns: number
+      }
+      saeson_faktor: {
+        Args: { _group: string; _period: string }
         Returns: number
       }
       send_quote: {
