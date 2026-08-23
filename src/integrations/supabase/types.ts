@@ -1021,6 +1021,24 @@ export type Database = {
           },
         ]
       }
+      cvr_blocklist: {
+        Row: {
+          created_at: string
+          cvr: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          cvr: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          cvr?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       cvr_enrichment_jobs: {
         Row: {
           attempts: number
@@ -1057,6 +1075,81 @@ export type Database = {
           last_error?: string | null
           started_at?: string | null
           status?: string
+        }
+        Relationships: []
+      }
+      cvr_penhed_sync_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          cvrs: string[]
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          started_at: string | null
+          status: string
+          synced_count: number | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          cvrs: string[]
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          started_at?: string | null
+          status?: string
+          synced_count?: number | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          cvrs?: string[]
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          started_at?: string | null
+          status?: string
+          synced_count?: number | null
+        }
+        Relationships: []
+      }
+      cvr_penheder: {
+        Row: {
+          address: string | null
+          branch_code: string | null
+          city: string | null
+          cvr: string
+          is_active: boolean
+          name: string | null
+          p_number: string
+          status: string | null
+          synced_at: string
+          zip: string | null
+        }
+        Insert: {
+          address?: string | null
+          branch_code?: string | null
+          city?: string | null
+          cvr: string
+          is_active?: boolean
+          name?: string | null
+          p_number: string
+          status?: string | null
+          synced_at?: string
+          zip?: string | null
+        }
+        Update: {
+          address?: string | null
+          branch_code?: string | null
+          city?: string | null
+          cvr?: string
+          is_active?: boolean
+          name?: string | null
+          p_number?: string
+          status?: string | null
+          synced_at?: string
+          zip?: string | null
         }
         Relationships: []
       }
@@ -2156,6 +2249,9 @@ export type Database = {
     }
     Functions: {
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
+      addr_base: { Args: { _addr: string }; Returns: string }
+      addr_husnr: { Args: { _addr: string }; Returns: string }
+      addr_vej: { Args: { _addr: string }; Returns: string }
       can_access_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
@@ -2194,6 +2290,15 @@ export type Database = {
       import_visma_product_master: { Args: { _data: Json }; Returns: Json }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_consumable_group: { Args: { _group: string }; Returns: boolean }
+      is_offentlig_kunde: {
+        Args: {
+          _institution_type: Database["public"]["Enums"]["institution_type"]
+          _is_public: boolean
+          _main_branch_code: string
+          _name: string
+        }
+        Returns: boolean
+      }
       my_afdelinger: { Args: never; Returns: number[] }
       rebuild_products: { Args: never; Returns: number }
       recompute_all_company_statuses: { Args: never; Returns: number }
