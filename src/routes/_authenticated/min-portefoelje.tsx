@@ -81,6 +81,32 @@ function PortfolioPage() {
   const data = q.data;
   const isAdmin = data?.isAdmin ?? false;
 
+  // Forbrugssignalet hentes separat fra forbrug_signal_virksomhed, så tabel og
+  // rangeringer viser præcis samme signal som "Faldende forbrug"-kortet.
+  const signalFn = useServerFn(getForbrugSignalMap);
+  const signalIds = useMemo(() => {
+    if (!data) return [] as string[];
+    const ids = new Set<string>();
+    data.companies.forEach((c) => ids.add(c.id));
+    const r = data.rankings as unknown as Record<string, { id: string }[] | null>;
+    ["topRevenue", "topDecliners", "topGrowers", "topContribution", "potential"].forEach((k) => {
+      (r[k] ?? []).forEach((row) => row?.id && ids.add(row.id));
+    });
+    return Array.from(ids);
+  }, [data]);
+  const signalQ = useQuery({
+    queryKey: ["forbrug-signal-map", signalIds],
+    enabled: signalIds.length > 0,
+    queryFn: () => signalFn({ data: { companyIds: signalIds } }),
+  });
+  const signalMap = useMemo(() => {
+    const m = new Map<string, ForbrugSignalKort>();
+    (signalQ.data ?? []).forEach((r) => m.set(r.company_id, r));
+    return m;
+  }, [signalQ.data]);
+
+
+
   const sortedCompanies = useMemo(() => {
     if (!data) return [] as PortfolioCompanyRow[];
     const searchLc = search.trim().toLowerCase();
