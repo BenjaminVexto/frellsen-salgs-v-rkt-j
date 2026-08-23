@@ -144,7 +144,9 @@ function PortfolioPage() {
   };
 
   return (
+    <SignalMapContext.Provider value={signalMap}>
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
+
       <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
         <div>
           <h1 className="text-2xl font-semibold">Min salgsstatistik</h1>
