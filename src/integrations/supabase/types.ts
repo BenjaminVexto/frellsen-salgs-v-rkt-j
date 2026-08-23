@@ -2401,12 +2401,16 @@ export type Database = {
           base_kg_pr_mdr: number | null
           base_mdr_i_vindue: number | null
           base_ordrer: number | null
+          base_tidlig_aktive_mdr: number | null
           company_id: string | null
           enhed_id: string | null
+          forventet_interval_mdr: number | null
           klasse: string | null
           location_id: string | null
+          mdr_siden_sidste_koeb: number | null
           niveau: string | null
           product_group_1: string | null
+          sidste_koeb: string | null
         }
         Relationships: []
       }
