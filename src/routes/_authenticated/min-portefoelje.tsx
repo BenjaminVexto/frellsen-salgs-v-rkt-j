@@ -368,13 +368,11 @@ function PortfolioPage() {
                         </td>
                         <td className="px-3 py-2">
                           <KaffeIndicator
-                            rhythmClass={c.rhythmClass}
-                            rhythmMonths={c.rhythmMonths}
-                            monthsSinceConsumable={c.monthsSinceConsumable}
-                            trendDown={c.trendDown}
+                            companyId={c.id}
                             suppliedViaName={c.supplied_via_name}
                             suppliedViaId={c.supplied_via_id}
                           />
+
                         </td>
                         <td className="px-3 py-2">
                           <Sparkline months={c.monthly} revenue12m={c.revenue12m} />
