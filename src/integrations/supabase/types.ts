@@ -91,6 +91,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "activities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "activities_contact_list_assignment_id_fkey"
             columns: ["contact_list_assignment_id"]
             isOneToOne: false
@@ -322,6 +329,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agreements_governing_party_company_id_fkey"
+            columns: ["governing_party_company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       churn_dismissals: {
@@ -371,6 +385,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "churn_dismissals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "churn_dismissals_competitor_id_fkey"
@@ -597,6 +618,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "company_briefings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "company_briefings_generated_by_fkey"
             columns: ["generated_by"]
             isOneToOne: false
@@ -651,6 +679,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "company_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "company_documents_uploaded_by_fkey"
             columns: ["uploaded_by"]
             isOneToOne: false
@@ -702,11 +737,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "company_relation_suggestions_from_company_id_fkey"
+            columns: ["from_company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "company_relation_suggestions_to_company_id_fkey"
             columns: ["to_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_relation_suggestions_to_company_id_fkey"
+            columns: ["to_company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -747,11 +796,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "company_relations_from_company_id_fkey"
+            columns: ["from_company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "company_relations_to_company_id_fkey"
             columns: ["to_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_relations_to_company_id_fkey"
+            columns: ["to_company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -793,6 +856,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "competitor_assignments_competitor_id_fkey"
@@ -922,6 +992,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contact_list_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "contact_list_assignments_contact_list_id_fkey"
             columns: ["contact_list_id"]
             isOneToOne: false
@@ -1011,6 +1088,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "contacts_location_id_fkey"
@@ -1448,6 +1532,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "locations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       machine_agreement_status: {
@@ -1501,6 +1592,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_agreement_status_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "machine_agreement_status_location_id_fkey"
@@ -1938,6 +2036,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "quotes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "quotes_delivery_location_id_fkey"
             columns: ["delivery_location_id"]
             isOneToOne: false
@@ -2016,6 +2121,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_monthly_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "sales_monthly_location_id_fkey"
@@ -2140,6 +2252,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sales_opportunities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       sales_top_products: {
@@ -2245,7 +2364,50 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      salgsintelligens_mersalg: {
+        Row: {
+          afdeling_nr: number | null
+          antal_kundenumre: number | null
+          assigned_to: string | null
+          city: string | null
+          company_id: string | null
+          cvr: string | null
+          daekket: number | null
+          name: string | null
+          penheder_total: number | null
+          potential: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+        ]
+      }
+      salgsintelligens_penhed_status: {
+        Row: {
+          address: string | null
+          afdeling_nr: number | null
+          city: string | null
+          cvr: string | null
+          match_status: string | null
+          p_number: string | null
+          penhed_navn: string | null
+          zip: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+        ]
+      }
     }
     Functions: {
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
