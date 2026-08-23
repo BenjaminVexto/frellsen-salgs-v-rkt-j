@@ -877,7 +877,8 @@ function VirksomhedsKort() {
             </TabsContent>
 
             {/* FANE: Salg */}
-            <TabsContent value="salg" className="mt-4">
+            <TabsContent value="salg" className="space-y-4 mt-4">
+              <ForbrugSignalSektion companyId={company.id} locations={locations} />
               <CompanySalesTab
                 companyId={company.id}
                 totalLocations={locations.length}
