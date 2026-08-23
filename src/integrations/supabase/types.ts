@@ -2388,6 +2388,28 @@ export type Database = {
       }
     }
     Views: {
+      forbrug_baseline: {
+        Row: {
+          afvigelse_pct: number | null
+          akt_aktive_mdr: number | null
+          akt_kg: number | null
+          akt_kg_pr_mdr: number | null
+          akt_kg_raa: number | null
+          akt_ordrer: number | null
+          base_aktive_mdr: number | null
+          base_kg: number | null
+          base_kg_pr_mdr: number | null
+          base_mdr_i_vindue: number | null
+          base_ordrer: number | null
+          company_id: string | null
+          enhed_id: string | null
+          klasse: string | null
+          location_id: string | null
+          niveau: string | null
+          product_group_1: string | null
+        }
+        Relationships: []
+      }
       sales_period_completeness: {
         Row: {
           er_komplet: boolean | null
