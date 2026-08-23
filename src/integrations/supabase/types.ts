@@ -2390,27 +2390,39 @@ export type Database = {
     Views: {
       forbrug_baseline: {
         Row: {
+          aarsag: string | null
           afvigelse_pct: number | null
           akt_aktive_mdr: number | null
           akt_kg: number | null
           akt_kg_pr_mdr: number | null
+          akt_kg_pr_ordre: number | null
           akt_kg_raa: number | null
+          akt_omsaetning: number | null
           akt_ordrer: number | null
+          akt_ordrer_pr_mdr: number | null
           base_aktive_mdr: number | null
           base_kg: number | null
           base_kg_pr_mdr: number | null
+          base_kg_pr_ordre: number | null
           base_mdr_i_vindue: number | null
+          base_omsaetning: number | null
           base_ordrer: number | null
+          base_ordrer_pr_mdr: number | null
           base_tidlig_aktive_mdr: number | null
           company_id: string | null
           enhed_id: string | null
           forventet_interval_mdr: number | null
+          handling_paakraevet: boolean | null
           klasse: string | null
           location_id: string | null
           mdr_siden_sidste_koeb: number | null
           niveau: string | null
+          ordre_aendring_pct: number | null
           product_group_1: string | null
           sidste_koeb: string | null
+          stk_aendring_pct: number | null
+          tabt_kg_pr_mdr: number | null
+          tabt_kr_pr_mdr: number | null
         }
         Relationships: []
       }
