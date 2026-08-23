@@ -84,6 +84,7 @@ import { BindingStatusBadge } from "@/components/binding-status-badge";
 import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
 import { CompanySalesTab } from "@/components/sales/company-sales-tab";
+import { ForbrugSignalSektion } from "@/components/forbrug-signal-sektion";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { CompanyPricingSummary } from "@/components/company-pricing-summary";
@@ -877,7 +878,8 @@ function VirksomhedsKort() {
             </TabsContent>
 
             {/* FANE: Salg */}
-            <TabsContent value="salg" className="mt-4">
+            <TabsContent value="salg" className="space-y-4 mt-4">
+              <ForbrugSignalSektion companyId={company.id} locations={locations} />
               <CompanySalesTab
                 companyId={company.id}
                 totalLocations={locations.length}
