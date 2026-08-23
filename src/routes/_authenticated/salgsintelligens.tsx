@@ -22,6 +22,8 @@ import {
   Search,
   TrendingUp,
   AlertTriangle,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { cvrSearchTwins } from "@/lib/cvr-lookup.functions";
 import { toast } from "sonner";
