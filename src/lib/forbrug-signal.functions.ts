@@ -187,7 +187,7 @@ export const getForbrugSignalForCompany = createServerFn({ method: "POST" })
 
       const [{ data: rows, error }, { data: roles, error: roleErr }] = await Promise.all([
         context.supabase
-          .from("forbrug_baseline" as any)
+          .from("forbrug_signal_seneste" as any)
           .select(COLS)
           .eq("company_id", data.companyId),
         context.supabase.from("produktgruppe_rolle" as any).select("product_group_1, navn, er_primaer"),
