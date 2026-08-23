@@ -26,6 +26,24 @@ export const Route = createFileRoute("/api/public/hooks/process-penhed-sync")({
         const ok = !!provided && (provided === anon || provided === service);
         if (!ok) return new Response("Unauthorized", { status: 401 });
 
+        // Genopret hængende jobs før nye plukkes.
+        // Jobs under 3 forsøg og >10 min 'processing' → 'pending' (reclaim).
+        // Jobs med ≥3 forsøg og stadig hængende → 'failed' (opgivet).
+        await supabaseAdmin.rpc("reclaim_hanging_penhed_jobs").rpc;
+        // Fald tilbage på direkte updates hvis funktionen ikke findes.
+        await supabaseAdmin
+          .from("cvr_penhed_sync_jobs")
+          .update({ status: "pending", started_at: null })
+          .eq("status", "processing")
+          .lt("started_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+          .lt("attempts", MAX_ATTEMPTS);
+        await supabaseAdmin
+          .from("cvr_penhed_sync_jobs")
+          .update({ status: "failed", last_error: "timeout/hængende job" })
+          .eq("status", "processing")
+          .lt("started_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+          .gte("attempts", MAX_ATTEMPTS);
+
         const { data: candidates, error: selErr } = await supabaseAdmin
           .from("cvr_penhed_sync_jobs")
           .select("id")
