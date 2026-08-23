@@ -24,9 +24,17 @@ import {
   type ScatterPoint,
   type SignalRow,
 } from "@/lib/portfolio.functions";
+import {
+  getForbrugSignalMap,
+  type ForbrugSignalKort,
+} from "@/lib/forbrug-signal.functions";
+import { klasseLabel, erFaldKlasse } from "@/lib/forbrug-labels";
 import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { fmtKr } from "@/lib/sales-utils";
+
+const SignalMapContext = createContext<Map<string, ForbrugSignalKort>>(new Map());
+
 
 
 export const Route = createFileRoute("/_authenticated/min-portefoelje")({
