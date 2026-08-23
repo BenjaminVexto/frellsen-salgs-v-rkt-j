@@ -535,8 +535,10 @@ function PortfolioPage() {
       )}
 
     </div>
+    </SignalMapContext.Provider>
   );
 }
+
 
 function SignalList({
   title,
