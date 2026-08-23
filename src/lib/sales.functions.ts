@@ -362,7 +362,9 @@ export type ChurningCustomer = {
   monthsWithPurchases: number;
 };
 
+// Erstattet af getFaldendeKunder i forbrug-signal.functions.ts. Ingen aktive kaldere.
 export const getMyChurningCustomers = createServerFn({ method: "POST" })
+
   .middleware([requireSupabaseAuth])
   .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ customers: ChurningCustomer[]; hasData: boolean }> => {

@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -24,9 +24,17 @@ import {
   type ScatterPoint,
   type SignalRow,
 } from "@/lib/portfolio.functions";
+import {
+  getForbrugSignalMap,
+  type ForbrugSignalKort,
+} from "@/lib/forbrug-signal.functions";
+import { klasseLabel, erFaldKlasse } from "@/lib/forbrug-labels";
 import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { fmtKr } from "@/lib/sales-utils";
+
+const SignalMapContext = createContext<Map<string, ForbrugSignalKort>>(new Map());
+
 
 
 export const Route = createFileRoute("/_authenticated/min-portefoelje")({
@@ -80,6 +88,32 @@ function PortfolioPage() {
 
   const data = q.data;
   const isAdmin = data?.isAdmin ?? false;
+
+  // Forbrugssignalet hentes separat fra forbrug_signal_virksomhed, så tabel og
+  // rangeringer viser præcis samme signal som "Faldende forbrug"-kortet.
+  const signalFn = useServerFn(getForbrugSignalMap);
+  const signalIds = useMemo(() => {
+    if (!data) return [] as string[];
+    const ids = new Set<string>();
+    data.companies.forEach((c) => ids.add(c.id));
+    const r = data.rankings as unknown as Record<string, { id: string }[] | null>;
+    ["topRevenue", "topDecliners", "topGrowers", "topContribution", "potential"].forEach((k) => {
+      (r[k] ?? []).forEach((row) => row?.id && ids.add(row.id));
+    });
+    return Array.from(ids);
+  }, [data]);
+  const signalQ = useQuery({
+    queryKey: ["forbrug-signal-map", signalIds],
+    enabled: signalIds.length > 0,
+    queryFn: () => signalFn({ data: { companyIds: signalIds } }),
+  });
+  const signalMap = useMemo(() => {
+    const m = new Map<string, ForbrugSignalKort>();
+    (signalQ.data ?? []).forEach((r) => m.set(r.company_id, r));
+    return m;
+  }, [signalQ.data]);
+
+
 
   const sortedCompanies = useMemo(() => {
     if (!data) return [] as PortfolioCompanyRow[];
@@ -144,7 +178,9 @@ function PortfolioPage() {
   };
 
   return (
+    <SignalMapContext.Provider value={signalMap}>
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
+
       <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
         <div>
           <h1 className="text-2xl font-semibold">Min salgsstatistik</h1>
@@ -332,13 +368,11 @@ function PortfolioPage() {
                         </td>
                         <td className="px-3 py-2">
                           <KaffeIndicator
-                            rhythmClass={c.rhythmClass}
-                            rhythmMonths={c.rhythmMonths}
-                            monthsSinceConsumable={c.monthsSinceConsumable}
-                            trendDown={c.trendDown}
+                            companyId={c.id}
                             suppliedViaName={c.supplied_via_name}
                             suppliedViaId={c.supplied_via_id}
                           />
+
                         </td>
                         <td className="px-3 py-2">
                           <Sparkline months={c.monthly} revenue12m={c.revenue12m} />
@@ -533,8 +567,10 @@ function PortfolioPage() {
       )}
 
     </div>
+    </SignalMapContext.Provider>
   );
 }
+
 
 function SignalList({
   title,
@@ -798,20 +834,15 @@ function Pill({
 }
 
 function KaffeIndicator({
-  rhythmClass,
-  rhythmMonths,
-  monthsSinceConsumable,
-  trendDown,
+  companyId,
   suppliedViaName,
   suppliedViaId,
 }: {
-  rhythmClass?: "normal" | "slower" | "stopped" | "never";
-  rhythmMonths?: number | null;
-  monthsSinceConsumable?: number | null;
-  trendDown?: boolean;
+  companyId: string;
   suppliedViaName: string | null;
   suppliedViaId: string | null;
 }) {
+  const signalMap = useContext(SignalMapContext);
   if (suppliedViaId && suppliedViaName) {
     return (
       <Link
@@ -825,60 +856,57 @@ function KaffeIndicator({
       </Link>
     );
   }
-  const cls = rhythmClass ?? "never";
-  if (cls === "never") {
+
+  const sig = signalMap.get(companyId);
+  const klasse = sig?.klasse_primaer ?? null;
+
+  if (!sig || !klasse) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs" title="Ingen registrerede forbrugsvarekøb">
-        <span className="h-2.5 w-2.5 rounded-full bg-destructive shrink-0" />
-        <span className="text-muted-foreground">Ingen køb</span>
+      <span className="inline-flex items-center gap-1.5 text-xs" title="Ikke nok forbrugshistorik til et signal">
+        <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/50 shrink-0" />
+        <span className="text-muted-foreground">Ikke nok historik</span>
       </span>
     );
   }
-  if (cls === "normal") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs" title="Køber inden for sin sædvanlige rytme">
-        <span className="h-2.5 w-2.5 rounded-full bg-success shrink-0" />
-        <span className="text-muted-foreground">Køber normalt</span>
-      </span>
-    );
-  }
-  if (cls === "slower") {
-    return (
-      <span
-        className="inline-flex items-center gap-1.5 text-xs"
-        title="Tid siden seneste køb er over rytmen — hold øje"
-      >
-        <span className="h-2.5 w-2.5 rounded-full bg-warning shrink-0" />
-        <span className="text-muted-foreground">
-          Køber sjældnere end før{trendDown ? " ↓" : ""}
+
+  const dot =
+    klasse === "stoppet" || klasse === "kritisk"
+      ? "bg-destructive"
+      : klasse === "markant_fald" || klasse === "let_fald"
+        ? "bg-warning"
+        : klasse === "normal" || klasse === "vaekst"
+          ? "bg-success"
+          : "bg-muted-foreground/50";
+  const textCls = erFaldKlasse(klasse)
+    ? klasse === "stoppet" || klasse === "kritisk"
+      ? "text-destructive font-medium"
+      : "text-warning-foreground font-medium"
+    : "text-muted-foreground";
+  const pct =
+    (klasse === "markant_fald" || klasse === "let_fald") && sig.afvigelse_pct_primaer != null
+      ? ` (${sig.afvigelse_pct_primaer > 0 ? "+" : ""}${sig.afvigelse_pct_primaer.toLocaleString("da-DK")} %)`
+      : "";
+  const visMaerke =
+    (klasse === "normal" || klasse === "vaekst") && (sig.grupper_i_fald ?? 0) > 0;
+
+  return (
+    <span className="inline-flex flex-col items-start gap-0 text-xs">
+      <span className="inline-flex items-center gap-1.5">
+        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${dot}`} />
+        <span className={textCls}>
+          {klasseLabel(klasse)}
+          {pct}
         </span>
       </span>
-    );
-  }
-  // stopped — vis dage-tal + rytme
-  const monthsTxt =
-    typeof monthsSinceConsumable === "number"
-      ? `${monthsSinceConsumable} mdr. siden`
-      : "ingen køb";
-  const rhythmTxt =
-    typeof rhythmMonths === "number" && rhythmMonths > 0
-      ? ` (rytme: ~${rhythmMonths.toFixed(rhythmMonths < 2 ? 1 : 0)} mdr.)`
-      : "";
-  return (
-    <span
-      className="inline-flex flex-col items-start gap-0 text-xs"
-      title="Forbrugsmønsteret er brudt — kunden bør kontaktes"
-    >
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-destructive shrink-0" />
-        <span className="text-destructive font-medium">Stoppet{trendDown ? " ↓" : ""}</span>
-      </span>
-      <span className="text-[11px] text-muted-foreground pl-4">
-        {monthsTxt}{rhythmTxt}
-      </span>
+      {visMaerke && (
+        <span className="mt-0.5 ml-4 text-[10px] px-1.5 py-0.5 rounded bg-warning/20 text-warning-foreground">
+          {sig.grupper_i_fald} {sig.grupper_i_fald === 1 ? "gruppe" : "grupper"} falder
+        </span>
+      )}
     </span>
   );
 }
+
 
 function StatusBadge({ type }: { type: string | null }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -1070,13 +1098,11 @@ function RankingTable({
                     )}
                     <td className="px-3 py-2">
                       <KaffeIndicator
-                        rhythmClass={r.rhythmClass}
-                        rhythmMonths={r.rhythmMonths}
-                        monthsSinceConsumable={r.monthsSinceConsumable}
-                        trendDown={r.trendDown}
+                        companyId={r.id}
                         suppliedViaName={r.supplied_via_name}
                         suppliedViaId={r.supplied_via_id}
                       />
+
                     </td>
                   </tr>
                 );
