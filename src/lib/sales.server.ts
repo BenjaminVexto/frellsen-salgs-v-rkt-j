@@ -142,3 +142,29 @@ export async function getSellerCompanyIds(
   }
   return all.filter((id) => keep.has(id));
 }
+
+// --- Varegruppe-hjælpere til udviklings-fanen (holdes uden for .functions.ts,
+// så tss-serverfn-split ikke kan droppe dem). ---
+export const MASKIN_KODER = new Set(["16", "17", "18", "24"]);
+export const FORBRUG_KODER = new Set(["2", "4", "6", "8", "10", "12", "14", "20", "22", "23"]);
+
+export function gruppeKode(raw: string | null | undefined): string | null {
+  return (raw ?? "").trim().match(/^(\d+)/)?.[1] ?? null;
+}
+
+export function maanederSiden(n: number): string {
+  const d = new Date();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() - n);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+export function maskinBucketNavn(kode: string, description: string | null | undefined): string {
+  const tekst = `${description ?? ""}`.toLowerCase();
+  if (kode === "17") return "Vandfiltre";
+  if (kode === "18") return "Reservedele";
+  if (/leje|lease|udlejning/.test(tekst)) return "Leje";
+  if (/montør|montor|time|service|reparation/.test(tekst)) return "Montørtimer / service";
+  if (kode === "16") return "Maskiner";
+  return "Øvrig teknik";
+}

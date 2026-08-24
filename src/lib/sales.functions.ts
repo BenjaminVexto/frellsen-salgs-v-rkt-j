@@ -12,6 +12,11 @@ import {
   stripContribution,
   withContribution,
   getSellerCompanyIds,
+  MASKIN_KODER,
+  FORBRUG_KODER,
+  gruppeKode,
+  maanederSiden,
+  maskinBucketNavn,
 } from "./sales.server";
 import { parseProductGroup, isConsumableGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
 import { getCompaniesSuppliedByOthers } from "./relations.functions";
@@ -644,20 +649,6 @@ export type UdviklingDetaljer = {
   isAdmin: boolean;
 };
 
-const MASKIN_KODER = new Set(["16", "17", "18", "24"]);
-const FORBRUG_KODER = new Set(["2", "4", "6", "8", "10", "12", "14", "20", "22", "23"]);
-
-function gruppeKode(raw: string | null | undefined): string | null {
-  return (raw ?? "").trim().match(/^(\d+)/)?.[1] ?? null;
-}
-
-function maanederSiden(n: number): string {
-  const d = new Date();
-  d.setUTCDate(1);
-  d.setUTCMonth(d.getUTCMonth() - n);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-}
-
 /** Sortimentsbredde (6 hele mdr. mod samme 6 mdr. året før) + maskin/teknik-fordeling. */
 export const getUdviklingDetaljer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -729,15 +720,7 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
       if (kode && MASKIN_KODER.has(kode) && period >= maanederSiden(12) && period < nuTil) {
         const rev = Number(r.revenue) || 0;
         const db = isAdmin ? Number((r as any).contribution) || 0 : 0;
-        const tekst = `${r.description ?? ""}`.toLowerCase();
-        let navn: string;
-        if (kode === "17") navn = "Vandfiltre";
-        else if (kode === "18") navn = "Reservedele";
-        else if (/leje|lease|udlejning/.test(tekst)) navn = "Leje";
-        else if (/montør|montor|time|service|reparation/.test(tekst)) navn = "Montørtimer / service";
-        else if (kode === "16") navn = "Maskiner";
-        else navn = "Øvrig teknik";
-        addBucket(navn, rev, db);
+        addBucket(maskinBucketNavn(kode, r.description), rev, db);
       }
     }
 
