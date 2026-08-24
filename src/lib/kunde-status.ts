@@ -173,3 +173,34 @@ export function beregnKundeStatus(rows: SalesMonthlyRow[]): KundeStatus {
       : sidsteKoebSaetning,
   };
 }
+
+/**
+ * Samme statusmodel som beregnKundeStatus, men ud fra snapshot-tal
+ * (forbrug_signal_*) i stedet for rå salgsrækker. Bruges på arbejdslister,
+ * hvor vi ikke må hente alle kunders salgshistorik.
+ * Ingen anden kode må definere status på egen hånd.
+ */
+export function statusFraSignal(input: {
+  harFald: boolean;
+  dageSidenKoeb: number | null;
+  forventetIntervalDage: number | null;
+  ordrerNok?: boolean;
+}): { kode: KundeStatusKode; tone: KundeStatusTone; label: string } {
+  const graense = Math.max((input.forventetIntervalDage ?? 0) * 2, 45);
+  if (input.dageSidenKoeb != null && input.dageSidenKoeb > graense) {
+    return { kode: "stille", tone: "rod", label: "Gået stille" };
+  }
+  if (input.harFald && input.ordrerNok !== false) {
+    return { kode: "faldende", tone: "gul", label: "Faldende" };
+  }
+  if (input.ordrerNok === false) {
+    return { kode: "for_lidt_historik", tone: "neutral", label: "For lidt historik" };
+  }
+  return { kode: "foelger_rytmen", tone: "neutral", label: "Følger sin rytme" };
+}
+
+/** Dage siden en dato, eller null. */
+export function dageSiden(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(String(iso).slice(0, 10) + "T00:00:00Z").getTime()) / 86400000);
+}
