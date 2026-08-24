@@ -688,6 +688,8 @@ export type UdviklingDetaljer = {
   sortimentMaskine: SortimentTal;
   /** Er året-før-vinduet faktisk dækket af varelinje-data? Ellers må der ikke sammenlignes. */
   foerDaekket: boolean;
+  /** Tidligste måned med varelinje-detalje (YYYY-MM-01), null hvis ingen. */
+  varelinjeStart: string | null;
   /** Fordeling inden for maskiner/teknik, baseret på registrerede varelinjer. */
   maskinBuckets: { navn: string; revenue: number; contribution: number | null }[];
   /** Varegruppekode → navn (produktgruppe_rolle). */
@@ -727,7 +729,8 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
         .maybeSingle(),
       context.supabase.from("produktgruppe_rolle" as any).select("product_group_1, navn"),
     ]);
-    const foerDaekket = !!minRow?.period && String(minRow.period).slice(0, 10) <= foerFra;
+    const varelinjeStart = minRow?.period ? String(minRow.period).slice(0, 10) : null;
+    const foerDaekket = !!varelinjeStart && varelinjeStart <= foerFra;
     const gruppeNavne: Record<string, string> = {};
     (roller ?? []).forEach((r: any) => {
       if (r?.product_group_1 && r?.navn) gruppeNavne[String(r.product_group_1)] = String(r.navn);
@@ -739,6 +742,7 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
       sortimentForbrug: { nu: 0, foer: 0 },
       sortimentMaskine: { nu: 0, foer: 0 },
       foerDaekket,
+      varelinjeStart,
       maskinBuckets: [],
       gruppeNavne,
       isAdmin,
@@ -795,6 +799,7 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
       sortimentForbrug: { nu: set.fNu.size, foer: set.fFoer.size },
       sortimentMaskine: { nu: set.mNu.size, foer: set.mFoer.size },
       foerDaekket,
+      varelinjeStart,
       maskinBuckets: Array.from(buckets.entries())
         .map(([navn, v]) => ({ navn, revenue: v.revenue, contribution: isAdmin ? v.contribution : null }))
         .sort((a, b) => b.revenue - a.revenue),
