@@ -44,6 +44,9 @@ export function SalesKpiStrip({
   const last12Sum = sumRows(last12);
   const prev12Sum = sumRows(prev12);
 
+  // Datagulv: en 12-mdr.-sammenligning kræver, at hele år-før-vinduet er dækket.
+  const kanSammenligne = harGyldigtSammenligningsvindue(m24);
+
   // Kg-forbrug: kun forbrugsvaregrupper (kaffe/te/drikke/chokolade)
   const last12ConsSum = sumRows(last12.filter((r) => isConsumableGroup(r.product_group_1)));
   const prev12ConsSum = sumRows(prev12.filter((r) => isConsumableGroup(r.product_group_1)));
@@ -53,10 +56,9 @@ export function SalesKpiStrip({
       : null;
   const kgTrend = kanSammenligne ? kgTrendRaw : null;
 
-  // Datagulv: en 12-mdr.-sammenligning kræver, at hele år-før-vinduet er dækket.
-  const kanSammenligne = harGyldigtSammenligningsvindue(m24);
   const trendRaw = prev12Sum.revenue > 0 ? (last12Sum.revenue - prev12Sum.revenue) / prev12Sum.revenue : null;
   const trend = kanSammenligne ? trendRaw : null;
+
   const lastAll = lastPurchasePeriod(rows);
   const lastCons = lastConsumablePurchasePeriod(rows);
 
