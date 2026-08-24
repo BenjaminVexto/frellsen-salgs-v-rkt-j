@@ -674,12 +674,31 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
     const foerFra = maanederSiden(18);
     const foerTil = maanederSiden(12);
 
+    // Varelinje-historikken starter senere end salgshistorikken. Uden data i hele
+    // året-før-vinduet må der ikke vises en sammenligning.
+    const [{ data: minRow }, { data: roller }] = await Promise.all([
+      context.supabase
+        .from("sales_monthly_products")
+        .select("period")
+        .order("period", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      context.supabase.from("produktgruppe_rolle" as any).select("product_group_1, navn"),
+    ]);
+    const foerDaekket = !!minRow?.period && String(minRow.period).slice(0, 10) <= foerFra;
+    const gruppeNavne: Record<string, string> = {};
+    (roller ?? []).forEach((r: any) => {
+      if (r?.product_group_1 && r?.navn) gruppeNavne[String(r.product_group_1)] = String(r.navn);
+    });
+
     const empty: UdviklingDetaljer = {
       vindueNuFra: nuFra,
       vindueFoerFra: foerFra,
       sortimentForbrug: { nu: 0, foer: 0 },
       sortimentMaskine: { nu: 0, foer: 0 },
+      foerDaekket,
       maskinBuckets: [],
+      gruppeNavne,
       isAdmin,
     };
     if (!locIds.length) return empty;
