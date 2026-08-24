@@ -58,6 +58,7 @@ type Agreement = {
   valid_from: string | null;
   valid_to: string | null;
   is_public_sector: boolean;
+  maskiner_folger_hovedaftale: boolean;
   governing_party_name: string | null;
   governing_party_company_id: string | null;
   notes: string | null;

@@ -20,6 +20,13 @@ import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } fro
 import { toast } from "sonner";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { getLocationSalesSummary } from "@/lib/sales.functions";
+import { getMasterAgreementSuppression } from "@/lib/agreements.functions";
+import {
+  isMachineWarningSuppressed,
+  masterAgreementTooltip,
+  type MasterAgreementSuppression,
+  type SuppressionMap,
+} from "@/lib/master-agreement";
 import {
   getMachineAgreementStatuses,
   MACHINE_AGREEMENT_STATUS_LABELS,
@@ -162,6 +169,19 @@ export function LokationerSektion({
       const in90D = new Date();
       in90D.setDate(in90D.getDate() + 90);
       const in90S = in90D.toISOString().slice(0, 10);
+
+      // Hovedaftale-undertrykkelse: er virksomheden dækket, tælles maskinerne
+      // ikke som "udløber snart" før hovedaftalen selv nærmer sig udløb.
+      try {
+        const sup = (await getMasterAgreementSuppression({
+          data: { companyIds: [companyId] },
+        })) as SuppressionMap;
+        if (isMachineWarningSuppressed(sup[companyId], in90S)) {
+          return new Map<string, number>();
+        }
+      } catch {
+        // Ignorer — falder tilbage til normal advarsel
+      }
 
       const locationIds = locations.map((l) => l.id);
       const { data: units } = await (supabase as any)
@@ -621,6 +641,13 @@ function pickTaellerstand(data: any): number | null {
 }
 
 function EquipmentBox({ location }: { location: Location }) {
+  const suppressionFn = useServerFn(getMasterAgreementSuppression);
+  const suppressionQ = useQuery({
+    queryKey: ["master-agreement-suppression", location.company_id],
+    queryFn: () =>
+      suppressionFn({ data: { companyIds: [location.company_id] } }) as Promise<SuppressionMap>,
+    staleTime: 5 * 60 * 1000,
+  });
   const [units, setUnits] = useState<EquipmentUnit[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [openType, setOpenType] = useState<string | null>(null);
@@ -796,7 +823,22 @@ function EquipmentBox({ location }: { location: Location }) {
     d.setDate(d.getDate() + 90);
     return d.toISOString().slice(0, 10);
   })();
+  const masterAgreement: MasterAgreementSuppression | null =
+    suppressionQ.data?.[location.company_id] ?? null;
+  const warningSuppressed = isMachineWarningSuppressed(masterAgreement, in90ISO);
   const isExpiringSoon = (enr?: EnrichmentInfo | null) => {
+    if (warningSuppressed) return false;
+    if (!enr) return false;
+    const b = enr.binding_ophor;
+    const h = enr.handlingsdato;
+    return (
+      (!!b && b >= todayISO && b <= in90ISO) ||
+      (!!h && h >= todayISO && h <= in90ISO)
+    );
+  };
+
+  /** Ville maskinen have udløst "udløber snart", hvis hovedaftalen ikke dækkede den? */
+  const isExpiringRaw = (enr?: EnrichmentInfo | null) => {
     if (!enr) return false;
     const b = enr.binding_ophor;
     const h = enr.handlingsdato;
@@ -866,6 +908,12 @@ function EquipmentBox({ location }: { location: Location }) {
       ? 0
       : list.filter((u) => isExpiringSoon(u.serial_no ? enrichBySerial.get(u.serial_no.trim()) : null))
           .length;
+    const suppressedCount =
+      opts.isFilter || !warningSuppressed || !masterAgreement
+        ? 0
+        : list.filter((u) =>
+            isExpiringRaw(u.serial_no ? enrichBySerial.get(u.serial_no.trim()) : null),
+          ).length;
     // Unikke ejerskabs-mærkater i gruppen
     const ownerships = Array.from(
       new Map(
@@ -910,6 +958,16 @@ function EquipmentBox({ location }: { location: Location }) {
                       Udløber snart{expiringCount > 1 ? ` (${expiringCount})` : ""}
                     </Badge>
                   )}
+                  {suppressedCount > 0 && masterAgreement && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs"
+                      title={masterAgreementTooltip(masterAgreement)}
+                    >
+                      Følger hovedaftale
+                      {suppressedCount > 1 ? ` (${suppressedCount})` : ""}
+                    </Badge>
+                  )}
                 </>
               )}
             </div>
@@ -940,6 +998,8 @@ function EquipmentBox({ location }: { location: Location }) {
               const bindingPassed =
                 enr?.binding_ophor && enr.binding_ophor < today ? true : false;
               const expiringSoon = !opts.isFilter && isExpiringSoon(enr);
+              const followsMaster =
+                !opts.isFilter && warningSuppressed && !!masterAgreement && isExpiringRaw(enr);
               return (
                 <li key={u.id} className="px-2 py-1.5 text-muted-foreground">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -948,6 +1008,15 @@ function EquipmentBox({ location }: { location: Location }) {
                     {expiringSoon && (
                       <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 text-[10px] px-1.5 py-0">
                         Udløber snart
+                      </Badge>
+                    )}
+                    {followsMaster && masterAgreement && (
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] px-1.5 py-0"
+                        title={masterAgreementTooltip(masterAgreement)}
+                      >
+                        Følger hovedaftale
                       </Badge>
                     )}
                     <span>
