@@ -190,6 +190,13 @@ function MaskinerTeknikKort({
 }) {
   const maskinRows = rows.filter((r) => isMachineGroup(r.product_group_1));
   const sum = sumRows(maskinRows);
+  const erArbejdstimer = (navn: string) => /montør|service|time/i.test(navn);
+  const timerDb = buckets
+    .filter((b) => erArbejdstimer(b.navn))
+    .reduce((s, b) => s + (b.contribution ?? 0), 0);
+  const dgTekst = (rev: number, db: number | null) =>
+    db != null && rev > 0 ? ` (${((db / rev) * 100).toFixed(0)} %)` : "";
+
 
   return (
     <Card className="p-5">
