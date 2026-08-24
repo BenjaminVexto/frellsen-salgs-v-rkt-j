@@ -15,6 +15,10 @@ import {
   isConsumableGroup,
   type SalesMonthlyRow,
 } from "@/lib/sales-utils";
+import {
+  harGyldigtSammenligningsvindue,
+  SAMMENLIGNING_UTILGAENGELIG_12MDR,
+} from "@/lib/kunde-status";
 
 export function SalesKpiStrip({
   rows,
@@ -43,10 +47,11 @@ export function SalesKpiStrip({
   // Kg-forbrug: kun forbrugsvaregrupper (kaffe/te/drikke/chokolade)
   const last12ConsSum = sumRows(last12.filter((r) => isConsumableGroup(r.product_group_1)));
   const prev12ConsSum = sumRows(prev12.filter((r) => isConsumableGroup(r.product_group_1)));
-  const kgTrend =
+  const kgTrendRaw =
     prev12ConsSum.weightKg > 0
       ? (last12ConsSum.weightKg - prev12ConsSum.weightKg) / prev12ConsSum.weightKg
       : null;
+  const kgTrend = kanSammenligne ? kgTrendRaw : null;
 
   // Datagulv: en 12-mdr.-sammenligning kræver, at hele år-før-vinduet er dækket.
   const kanSammenligne = harGyldigtSammenligningsvindue(m24);
@@ -74,7 +79,7 @@ export function SalesKpiStrip({
               {fmtPct(Math.abs(trend))} vs. forrige 12 mdr.
             </span>
           ) : (
-            <span className="text-xs text-muted-foreground">Ingen historik for sammenligning</span>
+            <span className="text-xs text-muted-foreground">{SAMMENLIGNING_UTILGAENGELIG_12MDR}</span>
           )
         }
       />
@@ -89,7 +94,7 @@ export function SalesKpiStrip({
               {fmtPct(Math.abs(kgTrend))} vs. forrige 12 mdr.
             </span>
           ) : (
-            <span className="text-xs text-muted-foreground">Kaffe / te / drikke / chokolade</span>
+            <span className="text-xs text-muted-foreground">{kanSammenligne ? "Kaffe / te / drikke / chokolade" : SAMMENLIGNING_UTILGAENGELIG_12MDR}</span>
           )
         }
       />
