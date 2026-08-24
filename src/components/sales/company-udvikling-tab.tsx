@@ -109,7 +109,12 @@ function SortimentsbreddeKort({
   data,
 }: {
   loading: boolean;
-  data?: { vindueFoerFra: string; sortimentForbrug: { nu: number; foer: number }; sortimentMaskine: { nu: number; foer: number } };
+  data?: {
+    vindueFoerFra: string;
+    foerDaekket: boolean;
+    sortimentForbrug: { nu: number; foer: number };
+    sortimentMaskine: { nu: number; foer: number };
+  };
 }) {
   return (
     <Card className="p-5">
