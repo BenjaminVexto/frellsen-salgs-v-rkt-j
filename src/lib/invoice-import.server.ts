@@ -141,6 +141,7 @@ export async function upsertTopMonthlySlice(
     contribution: number;
     product_group_1: string;
     location_id: string | null;
+    weight_kg?: number;
   }>,
 ): Promise<number> {
   let saved = 0;

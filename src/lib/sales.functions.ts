@@ -637,6 +637,48 @@ export const getMonthlyTopProducts = createServerFn({ method: "POST" })
     }));
   });
 
+export type MonthlyConsumableProduct = {
+  varenr: string;
+  description: string | null;
+  revenue: number;
+  quantity: number;
+  weightKg: number;
+};
+
+/** Varelinjer for én måned, kun forbrugsvarer, sorteret efter kilo faldende. */
+export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { locationIds: string[]; period: string }) => {
+    if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
+    if (!input?.period) throw new Error("period krævet");
+    return input;
+  })
+  .handler(async ({ data, context }): Promise<MonthlyConsumableProduct[]> => {
+    if (!data.locationIds.length) return [];
+    const { data: rows, error } = await context.supabase
+      .from("sales_monthly_products")
+      .select("varenr, description, revenue, quantity, weight_kg, product_group_1")
+      .in("location_id", data.locationIds)
+      .eq("period", data.period);
+    if (error) throw error;
+    const acc = new Map<string, MonthlyConsumableProduct>();
+    for (const r of (rows ?? []) as any[]) {
+      const kode = gruppeKode(r.product_group_1);
+      if (!kode || !FORBRUG_KODER.has(kode)) continue;
+      const cur =
+        acc.get(r.varenr) ??
+        { varenr: r.varenr, description: r.description ?? null, revenue: 0, quantity: 0, weightKg: 0 };
+      cur.revenue += Number(r.revenue) || 0;
+      cur.quantity += Number(r.quantity) || 0;
+      cur.weightKg += Number(r.weight_kg) || 0;
+      if (!cur.description && r.description) cur.description = r.description;
+      acc.set(r.varenr, cur);
+    }
+    return Array.from(acc.values()).sort(
+      (a, b) => b.weightKg - a.weightKg || b.revenue - a.revenue,
+    );
+  });
+
 export type SortimentTal = { nu: number; foer: number };
 
 export type UdviklingDetaljer = {
@@ -646,6 +688,8 @@ export type UdviklingDetaljer = {
   sortimentMaskine: SortimentTal;
   /** Er året-før-vinduet faktisk dækket af varelinje-data? Ellers må der ikke sammenlignes. */
   foerDaekket: boolean;
+  /** Tidligste måned med varelinje-detalje (YYYY-MM-01), null hvis ingen. */
+  varelinjeStart: string | null;
   /** Fordeling inden for maskiner/teknik, baseret på registrerede varelinjer. */
   maskinBuckets: { navn: string; revenue: number; contribution: number | null }[];
   /** Varegruppekode → navn (produktgruppe_rolle). */
@@ -685,7 +729,8 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
         .maybeSingle(),
       context.supabase.from("produktgruppe_rolle" as any).select("product_group_1, navn"),
     ]);
-    const foerDaekket = !!minRow?.period && String(minRow.period).slice(0, 10) <= foerFra;
+    const varelinjeStart = minRow?.period ? String(minRow.period).slice(0, 10) : null;
+    const foerDaekket = !!varelinjeStart && varelinjeStart <= foerFra;
     const gruppeNavne: Record<string, string> = {};
     (roller ?? []).forEach((r: any) => {
       if (r?.product_group_1 && r?.navn) gruppeNavne[String(r.product_group_1)] = String(r.navn);
@@ -697,6 +742,7 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
       sortimentForbrug: { nu: 0, foer: 0 },
       sortimentMaskine: { nu: 0, foer: 0 },
       foerDaekket,
+      varelinjeStart,
       maskinBuckets: [],
       gruppeNavne,
       isAdmin,
@@ -753,6 +799,7 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
       sortimentForbrug: { nu: set.fNu.size, foer: set.fFoer.size },
       sortimentMaskine: { nu: set.mNu.size, foer: set.mFoer.size },
       foerDaekket,
+      varelinjeStart,
       maskinBuckets: Array.from(buckets.entries())
         .map(([navn, v]) => ({ navn, revenue: v.revenue, contribution: isAdmin ? v.contribution : null }))
         .sort((a, b) => b.revenue - a.revenue),

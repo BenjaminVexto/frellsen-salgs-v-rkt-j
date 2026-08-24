@@ -27,6 +27,7 @@ export type TopProductRow = {
 
 export type TopProductMonthlyRow = TopProductRow & {
   period: string; // YYYY-MM-01
+  weight_kg: number;
 };
 
 async function assertAdmin(supabase: any, userId: string) {

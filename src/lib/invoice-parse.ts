@@ -276,7 +276,7 @@ type TopProductAcc = {
 };
 
 
-type TopProductMonthlyAcc = TopProductAcc & { period: string };
+type TopProductMonthlyAcc = TopProductAcc & { period: string; weightKg: number };
 
 
 export async function parseAndAggregate(
@@ -431,12 +431,13 @@ export async function parseAndAggregate(
       const tmKey = `${afdeling}|${delivery}|${period}|${varenr}`;
       let tm = topMonthlyMap.get(tmKey);
       if (!tm) {
-        tm = { delivery, period, varenr, afdeling, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
+        tm = { delivery, period, varenr, afdeling, description: desc, revenue: 0, quantity: 0, contribution: 0, weightKg: 0, group: group1 };
         topMonthlyMap.set(tmKey, tm);
       }
       tm.revenue += revenue;
       tm.quantity += qty;
       tm.contribution += db;
+      tm.weightKg += weightKg;
       if (!tm.description && desc) tm.description = desc;
       if ((!tm.group || tm.group === "0") && group1) tm.group = group1;
     }
@@ -523,6 +524,7 @@ export async function parseAndAggregate(
         revenue: Math.round(t.revenue * 100) / 100,
         quantity: Math.round(t.quantity * 1000) / 1000,
         contribution: Math.round(t.contribution * 100) / 100,
+        weight_kg: Math.round(t.weightKg * 1000) / 1000,
         product_group_1: t.group,
       });
     });

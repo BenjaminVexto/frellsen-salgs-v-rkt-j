@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_monthly_products ADD COLUMN IF NOT EXISTS weight_kg numeric NOT NULL DEFAULT 0;
