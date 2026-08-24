@@ -42,7 +42,7 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
       (await isTeamScopeUser(context.supabase, context.userId));
 
     const SELECT =
-      "company_id, afdeling_nr, assigned_to, klasse_primaer, aarsag_primaer, afvigelse_pct_primaer, base_kg_primaer, akt_kg_primaer, sidste_koeb_primaer, tabt_kg_pr_mdr, tabt_kr_pr_mdr, grupper_i_fald, handling_paakraevet";
+      "company_id, afdeling_nr, assigned_to, klasse_primaer, aarsag_primaer, afvigelse_pct_primaer, base_kg_primaer, akt_kg_primaer, sidste_koeb_primaer, tabt_kg_pr_mdr, tabt_kr_pr_mdr, grupper_i_fald, handling_paakraevet, forventet_interval_mdr_primaer";
 
     let signalRows: any[] = [];
     if (teamScope) {
@@ -148,6 +148,9 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
         tabt_kr_pr_mdr: r.tabt_kr_pr_mdr != null ? Number(r.tabt_kr_pr_mdr) : null,
         grupper_i_fald: Number(r.grupper_i_fald) || 0,
         assigned_to: r.assigned_to ?? null,
+        sidste_koeb_primaer: r.sidste_koeb_primaer ?? null,
+        forventet_interval_mdr:
+          r.forventet_interval_mdr_primaer != null ? Number(r.forventet_interval_mdr_primaer) : null,
       }))
       .sort((a, b) => (b.tabt_kr_pr_mdr ?? 0) - (a.tabt_kr_pr_mdr ?? 0));
 
