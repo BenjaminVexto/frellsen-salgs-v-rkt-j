@@ -172,11 +172,7 @@ function SortimentsbreddeKort({
                   nu={x.t.nu}
                   foer={x.t.foer}
                   gyldigt={gyldigt}
-                  aarsag={
-                    !data.foerDaekket
-                      ? "Ingen varelinjer for samme 6 måneder året før — vist uden sammenligning."
-                      : undefined
-                  }
+                  aarsag={!data.foerDaekket ? (startTekst ?? undefined) : undefined}
                 />
               </div>
             );
