@@ -644,8 +644,12 @@ export type UdviklingDetaljer = {
   vindueFoerFra: string;
   sortimentForbrug: SortimentTal;
   sortimentMaskine: SortimentTal;
+  /** Er året-før-vinduet faktisk dækket af varelinje-data? Ellers må der ikke sammenlignes. */
+  foerDaekket: boolean;
   /** Fordeling inden for maskiner/teknik, baseret på registrerede varelinjer. */
   maskinBuckets: { navn: string; revenue: number; contribution: number | null }[];
+  /** Varegruppekode → navn (produktgruppe_rolle). */
+  gruppeNavne: Record<string, string>;
   isAdmin: boolean;
 };
 

@@ -159,20 +159,31 @@ export function lastConsumablePurchasePeriod(rows: SalesMonthlyRow[]): string | 
 }
 
 // Group revenue by product group (label), return sorted desc, top N + "Øvrigt"
-export function groupByCategory(rows: SalesMonthlyRow[], topN = 6) {
+/** Læsevenligt navn til en varegruppe. `navne` kommer fra produktgruppe_rolle. */
+export function gruppeLabel(key: string, navne?: Record<string, string>): string {
+  if (navne?.[key]) return navne[key];
+  if (/^\d+$/.test(key)) return `Gruppe ${key}`;
+  return key;
+}
+
+export function groupByCategory(
+  rows: SalesMonthlyRow[],
+  topN = 6,
+  navne?: Record<string, string>,
+) {
   const m = new Map<string, number>();
   for (const r of rows) {
-    const label = parseProductGroup(r.product_group_1);
-    m.set(label, (m.get(label) ?? 0) + (Number(r.revenue) || 0));
+    const key = parseProductGroup(r.product_group_1);
+    m.set(key, (m.get(key) ?? 0) + (Number(r.revenue) || 0));
   }
   const sorted = Array.from(m.entries())
-    .map(([label, revenue]) => ({ label, revenue }))
+    .map(([key, revenue]) => ({ key, label: gruppeLabel(key, navne), revenue }))
     .filter((x) => x.revenue > 0)
     .sort((a, b) => b.revenue - a.revenue);
   if (sorted.length <= topN) return sorted;
   const top = sorted.slice(0, topN);
   const restSum = sorted.slice(topN).reduce((s, x) => s + x.revenue, 0);
-  if (restSum > 0) top.push({ label: "Øvrigt", revenue: restSum });
+  if (restSum > 0) top.push({ key: "Øvrigt", label: "Øvrigt", revenue: restSum });
   return top;
 }
 

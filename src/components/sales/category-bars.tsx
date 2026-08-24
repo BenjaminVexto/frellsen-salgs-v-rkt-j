@@ -10,14 +10,18 @@ export function CategoryBars({
   rows,
   title = "Kategorifordeling",
   companyId,
+  gruppeNavne,
 }: {
   rows: SalesMonthlyRow[];
   title?: string;
   companyId?: string;
+  /** Varegruppekode → navn fra produktgruppe_rolle. */
+  gruppeNavne?: Record<string, string>;
 }) {
-  const data = groupByCategory(rows, 6);
+  const data = groupByCategory(rows, 6, gruppeNavne);
   const total = data.reduce((s, x) => s + x.revenue, 0);
   const [openLabel, setOpenLabel] = useState<string | null>(null);
+
 
   if (!data.length) {
     return (
@@ -35,14 +39,14 @@ export function CategoryBars({
         {data.map((d) => {
           const pctOfTotal = total > 0 ? d.revenue / total : 0;
           const widthPct = max > 0 ? (d.revenue / max) * 100 : 0;
-          const clickable = !!companyId && d.label !== "Øvrigt";
-          const isOpen = openLabel === d.label;
+          const clickable = !!companyId && d.key !== "Øvrigt";
+          const isOpen = openLabel === d.key;
           return (
-            <li key={d.label}>
+            <li key={d.key}>
               <button
                 type="button"
                 disabled={!clickable}
-                onClick={() => setOpenLabel(isOpen ? null : d.label)}
+                onClick={() => setOpenLabel(isOpen ? null : d.key)}
                 className={`w-full text-left ${clickable ? "cursor-pointer hover:bg-muted/40 rounded-md px-1 py-0.5 -mx-1" : "cursor-default"}`}
                 aria-expanded={isOpen}
               >
@@ -64,7 +68,7 @@ export function CategoryBars({
                 </div>
               </button>
               {isOpen && clickable && companyId && (
-                <CategoryDrilldown companyId={companyId} label={d.label} />
+                <CategoryDrilldown companyId={companyId} label={d.key} />
               )}
             </li>
           );
