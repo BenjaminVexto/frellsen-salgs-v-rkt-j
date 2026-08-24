@@ -73,6 +73,7 @@ type Agreement = {
   valid_from: string | null;
   valid_to: string | null;
   is_public_sector: boolean;
+  maskiner_folger_hovedaftale: boolean;
   governing_party_name: string | null;
   governing_party_company_id: string | null;
   notes: string | null;
@@ -612,6 +613,7 @@ export function EditDialog({
   const [validFrom, setValidFrom] = useState("");
   const [validTo, setValidTo] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [maskinerFolger, setMaskinerFolger] = useState(false);
   const [governingName, setGoverningName] = useState("");
   const [governingId, setGoverningId] = useState<string | null>(null);
   const [companySearch, setCompanySearch] = useState("");
@@ -630,6 +632,7 @@ export function EditDialog({
       setValidFrom(agreement.valid_from ?? "");
       setValidTo(agreement.valid_to ?? "");
       setIsPublic(agreement.is_public_sector);
+      setMaskinerFolger(agreement.maskiner_folger_hovedaftale ?? false);
       setGoverningName(agreement.governing_party_name ?? "");
       setGoverningId(agreement.governing_party_company_id ?? null);
       setNotes(agreement.notes ?? "");
@@ -640,6 +643,7 @@ export function EditDialog({
       setValidFrom(initialValues?.valid_from ?? "");
       setValidTo(initialValues?.valid_to ?? "");
       setIsPublic(initialValues?.is_public_sector ?? false);
+      setMaskinerFolger(initialValues?.maskiner_folger_hovedaftale ?? false);
       setGoverningName(initialValues?.governing_party_name ?? "");
       setGoverningId(initialValues?.governing_party_company_id ?? null);
       setNotes(initialValues?.notes ?? "");
@@ -679,6 +683,7 @@ export function EditDialog({
       valid_from: validFrom || null,
       valid_to: validTo || null,
       is_public_sector: isPublic,
+      maskiner_folger_hovedaftale: maskinerFolger,
       governing_party_name: governingName.trim() || null,
       governing_party_company_id: governingId,
       notes: notes.trim() || null,
@@ -753,6 +758,25 @@ export function EditDialog({
                 value={validTo}
                 onChange={(e) => setValidTo(e.target.value)}
               />
+            </div>
+          </div>
+          <div className="flex items-start gap-2 pt-1">
+            <Checkbox
+              id="maskiner-folger-hovedaftale"
+              checked={maskinerFolger}
+              onCheckedChange={(c) => setMaskinerFolger(c === true)}
+            />
+            <div className="space-y-1">
+              <Label
+                htmlFor="maskiner-folger-hovedaftale"
+                className="cursor-pointer"
+              >
+                Maskiner følger hovedaftalens udløb
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Maskiner hos kunder på denne aftale markeres først som
+                'udløber snart', når hovedaftalens slutdato nærmer sig.
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-2 pt-1">
