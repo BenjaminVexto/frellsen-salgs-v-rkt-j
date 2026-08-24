@@ -216,10 +216,23 @@ function MaskinerTeknikKort({
               <div className="text-xl font-semibold tabular-nums">{fmtKr(sum.revenue)}</div>
             </div>
             {isAdmin && sum.contribution != null && (
-              <div>
-                <div className="text-xs text-muted-foreground">Dækningsbidrag</div>
-                <div className="text-xl font-semibold tabular-nums">{fmtKr(sum.contribution)}</div>
-              </div>
+              <>
+                <div>
+                  <div className="text-xs text-muted-foreground">Dækningsbidrag</div>
+                  <div className="text-xl font-semibold tabular-nums">
+                    {fmtKr(sum.contribution)}
+                    {dgTekst(sum.revenue, sum.contribution)}
+                  </div>
+                </div>
+                {timerDb > 0 && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">DB uden montørtimer</div>
+                    <div className="text-xl font-semibold tabular-nums">
+                      {fmtKr(sum.contribution - timerDb)}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
           {buckets.length > 0 && (
@@ -229,14 +242,18 @@ function MaskinerTeknikKort({
                   <span className="truncate">{b.navn}</span>
                   <span className="tabular-nums text-muted-foreground shrink-0">
                     {fmtKr(b.revenue)}
-                    {isAdmin && b.contribution != null ? ` · DB ${fmtKr(b.contribution)}` : ""}
+                    {isAdmin && b.contribution != null
+                      ? ` · DB ${fmtKr(b.contribution)}${dgTekst(b.revenue, b.contribution)}`
+                      : ""}
                   </span>
                 </li>
               ))}
             </ul>
           )}
           <p className="text-[11px] text-muted-foreground mt-3">
-            Leje og montørtimer er udskilt ud fra varelinjernes tekst.
+            Leje og montørtimer er udskilt ud fra varelinjernes tekst. Arbejdstimer har ingen
+            registreret kostpris, så deres dækningsbidrag svarer til omsætningen (100 %) og
+            trækker den samlede maskin-DG kunstigt op.
           </p>
         </>
       )}
