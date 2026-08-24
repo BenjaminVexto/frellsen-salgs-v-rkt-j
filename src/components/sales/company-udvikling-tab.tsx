@@ -71,7 +71,12 @@ export function CompanyUdviklingTab({
 
       <MaskinerTeknikKort rows={rows12} isAdmin={isAdmin} buckets={detQ.data?.maskinBuckets ?? []} />
 
-      <CategoryBars rows={rows12} title="Kategorifordeling (12 mdr.)" companyId={companyId} />
+      <CategoryBars
+        rows={rows12}
+        title="Kategorifordeling (12 mdr.)"
+        companyId={companyId}
+        gruppeNavne={detQ.data?.gruppeNavne}
+      />
 
       <RevenueSparkline rows={rows} locationIds={locationIds} />
 
