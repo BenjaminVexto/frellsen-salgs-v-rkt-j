@@ -157,7 +157,16 @@ function SortimentsbreddeKort({
               <div key={x.label} className="rounded-md border border-border p-3">
                 <div className="text-xs text-muted-foreground">{x.label}</div>
                 <div className="text-2xl font-semibold tabular-nums">{x.t.nu}</div>
-                <Diff nu={x.t.nu} foer={x.t.foer} gyldigt={gyldigt} />
+                <Diff
+                  nu={x.t.nu}
+                  foer={x.t.foer}
+                  gyldigt={gyldigt}
+                  aarsag={
+                    !data.foerDaekket
+                      ? "Ingen varelinjer for samme 6 måneder året før — vist uden sammenligning."
+                      : undefined
+                  }
+                />
               </div>
             );
           })}
