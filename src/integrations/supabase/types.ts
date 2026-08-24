@@ -270,6 +270,7 @@ export type Database = {
           is_public_sector: boolean
           kp1_code: string | null
           kp2_code: string | null
+          maskiner_folger_hovedaftale: boolean
           name: string
           notes: string | null
           updated_at: string
@@ -289,6 +290,7 @@ export type Database = {
           is_public_sector?: boolean
           kp1_code?: string | null
           kp2_code?: string | null
+          maskiner_folger_hovedaftale?: boolean
           name: string
           notes?: string | null
           updated_at?: string
@@ -308,6 +310,7 @@ export type Database = {
           is_public_sector?: boolean
           kp1_code?: string | null
           kp2_code?: string | null
+          maskiner_folger_hovedaftale?: boolean
           name?: string
           notes?: string | null
           updated_at?: string
