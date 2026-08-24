@@ -2750,7 +2750,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      latest_forbrug_snapshot_periode: { Args: never; Returns: string }
       my_afdelinger: { Args: never; Returns: number[] }
       penhed_sync_candidates: {
         Args: never
