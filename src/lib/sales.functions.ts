@@ -631,3 +631,124 @@ export const getMonthlyTopProducts = createServerFn({ method: "POST" })
       product_group_1: r.product_group_1,
     }));
   });
+
+export type SortimentTal = { nu: number; foer: number };
+
+export type UdviklingDetaljer = {
+  vindueNuFra: string;
+  vindueFoerFra: string;
+  sortimentForbrug: SortimentTal;
+  sortimentMaskine: SortimentTal;
+  /** Fordeling inden for maskiner/teknik, baseret på registrerede varelinjer. */
+  maskinBuckets: { navn: string; revenue: number; contribution: number | null }[];
+  isAdmin: boolean;
+};
+
+const MASKIN_KODER = new Set(["16", "17", "18", "24"]);
+const FORBRUG_KODER = new Set(["2", "4", "6", "8", "10", "12", "14", "20", "22", "23"]);
+
+function gruppeKode(raw: string | null | undefined): string | null {
+  return (raw ?? "").trim().match(/^(\d+)/)?.[1] ?? null;
+}
+
+function maanederSiden(n: number): string {
+  const d = new Date();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() - n);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+/** Sortimentsbredde (6 hele mdr. mod samme 6 mdr. året før) + maskin/teknik-fordeling. */
+export const getUdviklingDetaljer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { companyId: string }) => {
+    if (!input?.companyId) throw new Error("companyId krævet");
+    return input;
+  })
+  .handler(async ({ data, context }): Promise<UdviklingDetaljer> => {
+    const isAdmin = await isAdminUser(context.supabase, context.userId);
+    const { data: locs, error: lerr } = await context.supabase
+      .from("locations")
+      .select("id")
+      .eq("company_id", data.companyId);
+    if (lerr) throw lerr;
+    const locIds = (locs ?? []).map((l: any) => l.id).filter(Boolean);
+
+    const nuFra = maanederSiden(6);
+    const nuTil = maanederSiden(0);
+    const foerFra = maanederSiden(18);
+    const foerTil = maanederSiden(12);
+
+    const empty: UdviklingDetaljer = {
+      vindueNuFra: nuFra,
+      vindueFoerFra: foerFra,
+      sortimentForbrug: { nu: 0, foer: 0 },
+      sortimentMaskine: { nu: 0, foer: 0 },
+      maskinBuckets: [],
+      isAdmin,
+    };
+    if (!locIds.length) return empty;
+
+    const client = isAdmin ? supabaseAdmin : context.supabase;
+    const cols = isAdmin
+      ? "period, varenr, description, product_group_1, revenue, contribution"
+      : "period, varenr, description, product_group_1, revenue";
+    const rows = await fetchAllInChunks(locIds, 100, (slice, from, to) =>
+      client
+        .from("sales_monthly_products")
+        .select(cols)
+        .in("location_id", slice)
+        .gte("period", foerFra)
+        .lt("period", nuTil)
+        .range(from, to),
+    );
+
+    const set = { fNu: new Set<string>(), fFoer: new Set<string>(), mNu: new Set<string>(), mFoer: new Set<string>() };
+    const buckets = new Map<string, { revenue: number; contribution: number }>();
+    const addBucket = (navn: string, rev: number, db: number) => {
+      const cur = buckets.get(navn) ?? { revenue: 0, contribution: 0 };
+      cur.revenue += rev;
+      cur.contribution += db;
+      buckets.set(navn, cur);
+    };
+
+    for (const r of rows) {
+      const period = String(r.period);
+      const kode = gruppeKode(r.product_group_1);
+      const iNu = period >= nuFra && period < nuTil;
+      const iFoer = period >= foerFra && period < foerTil;
+      if (kode && FORBRUG_KODER.has(kode)) {
+        if (iNu) set.fNu.add(r.varenr);
+        if (iFoer) set.fFoer.add(r.varenr);
+      } else if (kode && MASKIN_KODER.has(kode)) {
+        if (iNu) set.mNu.add(r.varenr);
+        if (iFoer) set.mFoer.add(r.varenr);
+      }
+
+      // Maskin/teknik-fordeling: seneste 12 hele måneder
+      if (kode && MASKIN_KODER.has(kode) && period >= maanederSiden(12) && period < nuTil) {
+        const rev = Number(r.revenue) || 0;
+        const db = isAdmin ? Number((r as any).contribution) || 0 : 0;
+        const tekst = `${r.description ?? ""}`.toLowerCase();
+        let navn: string;
+        if (kode === "17") navn = "Vandfiltre";
+        else if (kode === "18") navn = "Reservedele";
+        else if (/leje|lease|udlejning/.test(tekst)) navn = "Leje";
+        else if (/montør|montor|time|service|reparation/.test(tekst)) navn = "Montørtimer / service";
+        else if (kode === "16") navn = "Maskiner";
+        else navn = "Øvrig teknik";
+        addBucket(navn, rev, db);
+      }
+    }
+
+    return {
+      vindueNuFra: nuFra,
+      vindueFoerFra: foerFra,
+      sortimentForbrug: { nu: set.fNu.size, foer: set.fFoer.size },
+      sortimentMaskine: { nu: set.mNu.size, foer: set.mFoer.size },
+      maskinBuckets: Array.from(buckets.entries())
+        .map(([navn, v]) => ({ navn, revenue: v.revenue, contribution: isAdmin ? v.contribution : null }))
+        .sort((a, b) => b.revenue - a.revenue),
+      isAdmin,
+    };
+  });
