@@ -752,9 +752,11 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
       vindueFoerFra: foerFra,
       sortimentForbrug: { nu: set.fNu.size, foer: set.fFoer.size },
       sortimentMaskine: { nu: set.mNu.size, foer: set.mFoer.size },
+      foerDaekket,
       maskinBuckets: Array.from(buckets.entries())
         .map(([navn, v]) => ({ navn, revenue: v.revenue, contribution: isAdmin ? v.contribution : null }))
         .sort((a, b) => b.revenue - a.revenue),
+      gruppeNavne,
       isAdmin,
     };
   });
