@@ -137,7 +137,8 @@ function SortimentsbreddeKort({
             { label: "Forbrugsvarer", t: data.sortimentForbrug },
             { label: "Maskiner & teknik", t: data.sortimentMaskine },
           ].map((x) => {
-            const gyldigt = harGyldigtSammenligningsvindue(data.vindueFoerFra);
+            const gyldigt =
+              harGyldigtSammenligningsvindue(data.vindueFoerFra) && data.foerDaekket;
             return (
               <div key={x.label} className="rounded-md border border-border p-3">
                 <div className="text-xs text-muted-foreground">{x.label}</div>
