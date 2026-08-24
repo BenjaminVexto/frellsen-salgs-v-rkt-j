@@ -26,6 +26,7 @@ const baseInput = {
   valid_from: z.string().nullable().optional(),
   valid_to: z.string().nullable().optional(),
   is_public_sector: z.boolean(),
+  maskiner_folger_hovedaftale: z.boolean().optional(),
   governing_party_name: z.string().trim().max(255).nullable().optional(),
   governing_party_company_id: z.string().uuid().nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
@@ -86,6 +87,7 @@ export const createAgreement = createServerFn({ method: "POST" })
         valid_from: data.valid_from ?? null,
         valid_to: data.valid_to ?? null,
         is_public_sector: data.is_public_sector,
+        maskiner_folger_hovedaftale: data.maskiner_folger_hovedaftale ?? false,
         governing_party_name: data.governing_party_name ?? null,
         governing_party_company_id: data.governing_party_company_id ?? null,
         notes: data.notes ?? null,
@@ -125,6 +127,7 @@ export const updateAgreement = createServerFn({ method: "POST" })
         valid_from: rest.valid_from ?? null,
         valid_to: rest.valid_to ?? null,
         is_public_sector: rest.is_public_sector,
+        maskiner_folger_hovedaftale: rest.maskiner_folger_hovedaftale ?? false,
         governing_party_name: rest.governing_party_name ?? null,
         governing_party_company_id: rest.governing_party_company_id ?? null,
         notes: rest.notes ?? null,
@@ -323,6 +326,59 @@ export const listAgreementCompanies = createServerFn({ method: "POST" })
       ...r,
       seller_name: r.assigned_to ? sellerMap[r.assigned_to] ?? null : null,
     }));
+  });
+
+// ============================================================
+// Hovedaftale-undertrykkelse: virksomheder på en aftale med
+// maskiner_folger_hovedaftale = true skal ikke give "udløber snart"-støj
+// på maskineniveau.
+// ============================================================
+export const getMasterAgreementSuppression = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ companyIds: z.array(z.string().uuid()).max(5000) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const result: Record<
+      string,
+      { agreementId: string; agreementName: string; validTo: string | null }
+    > = {};
+    if (!data.companyIds.length) return result;
+
+    const { data: agreements, error: aErr } = await supabaseAdmin
+      .from("agreements")
+      .select("id, name, kp1_code, valid_to")
+      .eq("maskiner_folger_hovedaftale", true);
+    if (aErr) throw new Error(aErr.message);
+    const byKp1 = new Map<string, { id: string; name: string; valid_to: string | null }>();
+    for (const a of (agreements ?? []) as any[]) {
+      const code = a.kp1_code ? String(a.kp1_code).trim() : "";
+      if (!code) continue;
+      byKp1.set(code, { id: a.id, name: a.name, valid_to: a.valid_to ?? null });
+    }
+    if (byKp1.size === 0) return result;
+
+    const CHUNK = 500;
+    for (let i = 0; i < data.companyIds.length; i += CHUNK) {
+      const slice = data.companyIds.slice(i, i + CHUNK);
+      const { data: companies, error: cErr } = await supabaseAdmin
+        .from("companies")
+        .select("id, customer_segment_1")
+        .in("id", slice);
+      if (cErr) throw new Error(cErr.message);
+      for (const c of (companies ?? []) as any[]) {
+        const kp1 = String(c.customer_segment_1 ?? "").match(/^(\d+)/)?.[1];
+        if (!kp1) continue;
+        const agr = byKp1.get(kp1);
+        if (!agr) continue;
+        result[c.id] = {
+          agreementId: agr.id,
+          agreementName: agr.name,
+          validTo: agr.valid_to,
+        };
+      }
+    }
+    return result;
   });
 
 export const getAgreementByKp1 = createServerFn({ method: "POST" })
