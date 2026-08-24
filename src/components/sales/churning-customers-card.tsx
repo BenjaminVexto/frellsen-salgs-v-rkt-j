@@ -4,40 +4,19 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingDown, Loader2, X, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, Loader2, X, ChevronDown } from "lucide-react";
 import { getFaldendeKunder } from "@/lib/forbrug-signal.functions";
 import { fmtKr } from "@/lib/sales-utils";
-import { klasseLabel, aarsagLabel, erFaldKlasse } from "@/lib/forbrug-labels";
+import { aarsagLabel, erFaldKlasse } from "@/lib/forbrug-labels";
+import { dageSiden, statusFraSignal } from "@/lib/kunde-status";
 import { DismissChurnDialog } from "./dismiss-churn-dialog";
 import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { MutationGate } from "@/components/mutation-gate";
 
-function overskrift(row: {
-  klasse_primaer: string | null;
-  afvigelse_pct_primaer: number | null;
-  grupper_i_fald: number;
-}): string {
-  if (erFaldKlasse(row.klasse_primaer)) {
-    const pct =
-      row.afvigelse_pct_primaer != null
-        ? ` (${row.afvigelse_pct_primaer > 0 ? "+" : ""}${row.afvigelse_pct_primaer.toLocaleString("da-DK")} %)`
-        : "";
-    return `Kaffe: ${klasseLabel(row.klasse_primaer)}${pct}`;
-  }
-  if (row.klasse_primaer && row.grupper_i_fald > 0) {
-    return `Kaffe stabil — men ${row.grupper_i_fald} ${
-      row.grupper_i_fald === 1 ? "anden gruppe falder" : "andre grupper falder"
-    }`;
-  }
-  if (!row.klasse_primaer) {
-    return `${row.grupper_i_fald} ${row.grupper_i_fald === 1 ? "produktgruppe" : "produktgrupper"} i fald`;
-  }
-  return klasseLabel(row.klasse_primaer);
-}
+const SIDE = 20;
 
 export function ChurningCustomersCard({
-  initialVisible = 2,
   teamScope = false,
 }: { initialVisible?: number; teamScope?: boolean } = {}) {
   const fetchFn = useServerFn(getFaldendeKunder);
@@ -49,35 +28,32 @@ export function ChurningCustomersCard({
   });
 
   const [dismiss, setDismiss] = useState<{ id: string; name: string } | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [limit, setLimit] = useState(SIDE);
 
   const loading = q.isLoading;
   const customers = q.data?.customers ?? [];
   const hasData = q.data?.hasData ?? false;
   const count = customers.length;
   const tabtKrTotal = customers.reduce((s, c) => s + (c.tabt_kr_pr_mdr ?? 0), 0);
-  const visible = expanded ? customers : customers.slice(0, initialVisible);
-  const hiddenCount = Math.max(0, count - initialVisible);
+  const visible = customers.slice(0, limit);
 
   return (
     <Card className="p-4 md:p-6">
-      <div className="flex items-center justify-between mb-3 md:mb-4">
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-md flex items-center justify-center bg-warning/15 text-warning-foreground">
-            <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-semibold text-foreground leading-tight truncate">
-              Faldende forbrug
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {loading
-                ? "Henter…"
-                : `${count} ${count === 1 ? "kunde" : "kunder"}${
-                    tabtKrTotal > 0 ? ` · -${fmtKr(tabtKrTotal)}/md` : ""
-                  }`}
-            </p>
-          </div>
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 mb-3 md:mb-4">
+        <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-md flex items-center justify-center bg-destructive/15 text-destructive">
+          <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm sm:text-base font-semibold text-foreground leading-tight truncate">
+            Dine mest kritiske kunder
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {loading
+              ? "Henter…"
+              : `${count} ${count === 1 ? "kunde" : "kunder"}${
+                  tabtKrTotal > 0 ? ` · -${fmtKr(tabtKrTotal)}/md` : ""
+                } · sorteret efter tabte kroner`}
+          </p>
         </div>
       </div>
 
@@ -92,12 +68,20 @@ export function ChurningCustomersCard({
           </p>
         ) : count === 0 ? (
           <p className="text-sm text-muted-foreground py-2">
-            Intet faldende forbrug lige nu — godt arbejde 🌱
+            Ingen kritiske kunder lige nu — godt arbejde 🌱
           </p>
         ) : (
           <div>
             {visible.map((c) => {
+              const dage = dageSiden(c.sidste_koeb_primaer);
+              const status = statusFraSignal({
+                harFald: erFaldKlasse(c.klasse_primaer),
+                dageSidenKoeb: dage,
+                forventetIntervalDage:
+                  c.forventet_interval_mdr != null ? c.forventet_interval_mdr * 30.4 : null,
+              });
               const aarsag = aarsagLabel(c.aarsag_primaer);
+              const tabt3 = c.tabt_kr_pr_mdr != null ? c.tabt_kr_pr_mdr * 3 : null;
               return (
                 <div
                   key={c.company_id}
@@ -108,13 +92,24 @@ export function ChurningCustomersCard({
                       {c.navn}
                       {c.by ? <span className="text-muted-foreground font-normal"> · {c.by}</span> : null}
                     </div>
-                    <div className="text-xs text-foreground/80 truncate mt-0.5">{overskrift(c)}</div>
+                    <div className="text-xs mt-0.5">
+                      <span
+                        className={
+                          status.tone === "rod"
+                            ? "text-destructive font-medium"
+                            : status.tone === "gul"
+                              ? "text-warning-foreground font-medium"
+                              : "text-muted-foreground"
+                        }
+                      >
+                        {status.label}
+                      </span>
+                      {aarsag ? <span className="text-muted-foreground"> · {aarsag}</span> : null}
+                    </div>
                     <div className="text-xs text-muted-foreground truncate mt-0.5 tabular-nums">
-                      {c.tabt_kg_pr_mdr != null
-                        ? `-${c.tabt_kg_pr_mdr.toLocaleString("da-DK", { maximumFractionDigits: 1 })} kg/mdr`
-                        : "—"}
-                      {c.tabt_kr_pr_mdr != null ? ` · -${fmtKr(c.tabt_kr_pr_mdr)}/mdr` : ""}
-                      {aarsag ? ` · ${aarsag}` : ""}
+                      {c.tabt_kr_pr_mdr != null ? `-${fmtKr(c.tabt_kr_pr_mdr)}/mdr` : "—"}
+                      {tabt3 != null ? ` · ca. -${fmtKr(tabt3)} over 3 mdr.` : ""}
+                      {dage != null ? ` · ${dage} dage siden sidste forbrugskøb` : " · intet forbrugskøb"}
                     </div>
                   </Link>
                   <MutationGate>
@@ -136,17 +131,14 @@ export function ChurningCustomersCard({
                 </div>
               );
             })}
-            {hiddenCount > 0 && (
+            {count > limit && (
               <button
                 type="button"
-                onClick={() => setExpanded((v) => !v)}
+                onClick={() => setLimit((v) => v + SIDE)}
                 className="mt-2 w-full flex items-center justify-center gap-1 text-xs font-medium text-primary hover:underline py-2"
               >
-                {expanded ? (
-                  <>Vis færre <ChevronUp className="h-3.5 w-3.5" /></>
-                ) : (
-                  <>Se alle {count} <ChevronDown className="h-3.5 w-3.5" /></>
-                )}
+                Hent {Math.min(SIDE, count - limit)} flere ({limit} af {count})
+                <ChevronDown className="h-3.5 w-3.5" />
               </button>
             )}
           </div>

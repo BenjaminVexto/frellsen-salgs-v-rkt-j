@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { harGyldigtSammenligningsvindue } from "./kunde-status";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { isConsumableGroup } from "./sales-utils";
@@ -531,8 +532,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const revenue12mPrior = agg?.revenue12mPrior ?? 0;
 
       // growthPct + trendDown
+      // Datagulv: en 12-mdr.-sammenligning kræver, at hele år-før-vinduet er
+      // dækket af salgshistorik. Ellers vises ingen procent.
       const growthPct =
-        revenue12mPrior > 0
+        harGyldigtSammenligningsvindue(startPrior) && revenue12mPrior > 0
           ? ((revenue12m - revenue12mPrior) / revenue12mPrior) * 100
           : null;
       const trendDown =

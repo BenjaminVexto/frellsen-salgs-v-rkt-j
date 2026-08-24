@@ -19,7 +19,10 @@ export type FaldendeKunde = {
   tabt_kr_pr_mdr: number | null;
   grupper_i_fald: number;
   assigned_to: string | null;
+  sidste_koeb_primaer: string | null;
+  forventet_interval_mdr: number | null;
 };
+
 
 export const getFaldendeKunder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -39,7 +42,7 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
       (await isTeamScopeUser(context.supabase, context.userId));
 
     const SELECT =
-      "company_id, afdeling_nr, assigned_to, klasse_primaer, aarsag_primaer, afvigelse_pct_primaer, base_kg_primaer, akt_kg_primaer, sidste_koeb_primaer, tabt_kg_pr_mdr, tabt_kr_pr_mdr, grupper_i_fald, handling_paakraevet";
+      "company_id, afdeling_nr, assigned_to, klasse_primaer, aarsag_primaer, afvigelse_pct_primaer, base_kg_primaer, akt_kg_primaer, sidste_koeb_primaer, tabt_kg_pr_mdr, tabt_kr_pr_mdr, grupper_i_fald, handling_paakraevet, forventet_interval_mdr_primaer";
 
     let signalRows: any[] = [];
     if (teamScope) {
@@ -145,6 +148,9 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
         tabt_kr_pr_mdr: r.tabt_kr_pr_mdr != null ? Number(r.tabt_kr_pr_mdr) : null,
         grupper_i_fald: Number(r.grupper_i_fald) || 0,
         assigned_to: r.assigned_to ?? null,
+        sidste_koeb_primaer: r.sidste_koeb_primaer ?? null,
+        forventet_interval_mdr:
+          r.forventet_interval_mdr_primaer != null ? Number(r.forventet_interval_mdr_primaer) : null,
       }))
       .sort((a, b) => (b.tabt_kr_pr_mdr ?? 0) - (a.tabt_kr_pr_mdr ?? 0));
 
@@ -281,4 +287,119 @@ export const getForbrugSignalMap = createServerFn({ method: "POST" })
       );
     }
     return out;
+  });
+
+export type RytmeKunde = {
+  company_id: string;
+  navn: string;
+  by: string | null;
+  dage_siden_koeb: number | null;
+  forventet_interval_dage: number | null;
+  sidste_koeb: string | null;
+};
+
+/**
+ * "Passeret deres rytme" — kunder hvis seneste forbrugskøb netop er passeret
+ * det forventede interval, men endnu ikke 2× (så er de "gået stille" og hører
+ * til på den kritiske liste). Kræver ingen år-før-data.
+ */
+export const getPasseretRytme = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) =>
+      input ?? {},
+  )
+  .handler(async ({ data, context }): Promise<{ customers: RytmeKunde[]; hasData: boolean }> => {
+    const effectiveUserId = await resolveEffectiveUserId(
+      context.supabase,
+      context.userId,
+      data.viewAsUserId,
+    );
+    const teamScope =
+      !!data.teamScope &&
+      !data.viewAsUserId &&
+      (await isTeamScopeUser(context.supabase, context.userId));
+
+    const SELECT =
+      "company_id, afdeling_nr, sidste_koeb_primaer, forventet_interval_mdr_primaer";
+
+    const rows: any[] = [];
+    if (teamScope) {
+      let q = context.supabase
+        .from("forbrug_signal_virksomhed" as any)
+        .select(SELECT)
+        .not("forventet_interval_mdr_primaer", "is", null);
+      if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
+      const { data: r, error } = await q;
+      if (error) throw error;
+      rows.push(...(r ?? []));
+    } else {
+      const companyIds = await getSellerCompanyIds(
+        context.supabase,
+        effectiveUserId,
+        data.afdelingNr ?? null,
+      );
+      if (!companyIds.length) return { customers: [], hasData: false };
+      for (let i = 0; i < companyIds.length; i += 150) {
+        const { data: r, error } = await context.supabase
+          .from("forbrug_signal_virksomhed" as any)
+          .select(SELECT)
+          .not("forventet_interval_mdr_primaer", "is", null)
+          .in("company_id", companyIds.slice(i, i + 150));
+        if (error) throw error;
+        rows.push(...(r ?? []));
+      }
+    }
+
+    const kandidater = rows
+      .map((r) => {
+        const intervalDage =
+          r.forventet_interval_mdr_primaer != null
+            ? Number(r.forventet_interval_mdr_primaer) * 30.4
+            : null;
+        const sidste: string | null = r.sidste_koeb_primaer ?? null;
+        const dage = sidste
+          ? Math.floor(
+              (Date.now() - new Date(String(sidste).slice(0, 10) + "T00:00:00Z").getTime()) /
+                86400000,
+            )
+          : null;
+        return {
+          company_id: r.company_id as string,
+          dage_siden_koeb: dage,
+          forventet_interval_dage: intervalDage,
+          sidste_koeb: sidste,
+          ratio: intervalDage && dage != null ? dage / intervalDage : 0,
+        };
+      })
+      .filter((r) => r.ratio > 1 && r.ratio <= 2 && (r.dage_siden_koeb ?? 0) > 14)
+      .sort((a, b) => b.ratio - a.ratio)
+      .slice(0, 25);
+
+    if (!kandidater.length) return { customers: [], hasData: true };
+
+    const compMap = new Map<string, { name: string; city: string | null }>();
+    for (let i = 0; i < kandidater.length; i += 150) {
+      const { data: comps, error } = await context.supabase
+        .from("companies")
+        .select("id, name, city")
+        .in(
+          "id",
+          kandidater.slice(i, i + 150).map((r) => r.company_id),
+        );
+      if (error) throw error;
+      (comps ?? []).forEach((c: any) => compMap.set(c.id, { name: c.name, city: c.city ?? null }));
+    }
+
+    return {
+      customers: kandidater.map((r) => ({
+        company_id: r.company_id,
+        navn: compMap.get(r.company_id)?.name ?? "",
+        by: compMap.get(r.company_id)?.city ?? null,
+        dage_siden_koeb: r.dage_siden_koeb,
+        forventet_interval_dage: r.forventet_interval_dage,
+        sidste_koeb: r.sidste_koeb,
+      })),
+      hasData: true,
+    };
   });
