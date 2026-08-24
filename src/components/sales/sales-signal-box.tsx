@@ -5,11 +5,13 @@ import {
   filterByPeriod,
   sumRows,
   monthsAgo,
+  currentMonthStart,
   lastConsumablePurchasePeriod,
   daysSince,
   isMachineGroup,
   type SalesMonthlyRow,
 } from "@/lib/sales-utils";
+import { bestaarStoejtest } from "@/lib/kunde-status";
 
 export function SalesSignalBox({
   rows,
@@ -77,29 +79,24 @@ function ConsumableDropSignal({
 }
 
 function RevenueDropSignal({ rows }: { rows: SalesMonthlyRow[] }) {
-  // Last 3 months vs same 3 months previous year
+  // 6 hele måneder mod samme 6 måneder året før. Den igangværende måned indgår ikke.
   const nonMachineRows = rows.filter((r) => !isMachineGroup(r.product_group_1));
 
-  const now = new Date();
-  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
-    .toISOString()
-    .slice(0, 10);
-  const m3 = monthsAgo(2);
-  const m12 = monthsAgo(14); // 12 mo before m3
-  const m15 = monthsAgo(11);
+  // Støjtesten forhindrer, at en bestillingsrytme i store partier ser ud som et fald.
+  if (!bestaarStoejtest(rows)) return null;
 
-  const recent = sumRows(filterByPeriod(nonMachineRows, m3, nextMonth));
-  const yoy = sumRows(filterByPeriod(nonMachineRows, m12, m15));
+  const nu = currentMonthStart();
+  const nuFra = monthsAgo(6);
+  const foerFra = monthsAgo(18);
+  const foerTil = monthsAgo(12);
+
+  const recent = sumRows(filterByPeriod(nonMachineRows, nuFra, nu));
+  const yoy = sumRows(filterByPeriod(nonMachineRows, foerFra, foerTil));
 
   if (yoy.revenue <= 0) return null;
   if (recent.revenue >= yoy.revenue) return null;
-  const recentMonthsWithRevenue = new Set(
-    filterByPeriod(nonMachineRows, m3, nextMonth)
-      .filter((r) => (Number(r.revenue) || 0) > 0)
-      .map((r) => r.period),
-  ).size;
-  if (recentMonthsWithRevenue < 2) return null;
   const drop = (yoy.revenue - recent.revenue) / yoy.revenue;
+  if (drop < 0.25) return null;
 
   return (
     <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/60 p-4 flex items-start gap-3">
@@ -109,7 +106,7 @@ function RevenueDropSignal({ rows }: { rows: SalesMonthlyRow[] }) {
           Forbrugsvare-omsætning faldende — ned {fmtPct(drop, 0)}
         </div>
         <div className="text-amber-900/80 dark:text-amber-100/80 mt-0.5">
-          Ekskl. maskinsalg. Seneste 3 mdr.: <b>{fmtKr(recent.revenue)}</b> · samme periode året før: <b>{fmtKr(yoy.revenue)}</b>
+          Ekskl. maskinsalg. Seneste 6 hele mdr.: <b>{fmtKr(recent.revenue)}</b> · samme 6 mdr. året før: <b>{fmtKr(yoy.revenue)}</b>
         </div>
       </div>
     </div>

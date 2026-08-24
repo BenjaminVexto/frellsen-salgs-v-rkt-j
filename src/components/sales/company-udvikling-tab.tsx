@@ -71,7 +71,12 @@ export function CompanyUdviklingTab({
 
       <MaskinerTeknikKort rows={rows12} isAdmin={isAdmin} buckets={detQ.data?.maskinBuckets ?? []} />
 
-      <CategoryBars rows={rows12} title="Kategorifordeling (12 mdr.)" companyId={companyId} />
+      <CategoryBars
+        rows={rows12}
+        title="Kategorifordeling (12 mdr.)"
+        companyId={companyId}
+        gruppeNavne={detQ.data?.gruppeNavne}
+      />
 
       <RevenueSparkline rows={rows} locationIds={locationIds} />
 
@@ -85,9 +90,23 @@ export function CompanyUdviklingTab({
   );
 }
 
-function Diff({ nu, foer, gyldigt }: { nu: number; foer: number; gyldigt: boolean }) {
+function Diff({
+  nu,
+  foer,
+  gyldigt,
+  aarsag,
+}: {
+  nu: number;
+  foer: number;
+  gyldigt: boolean;
+  aarsag?: string;
+}) {
   if (!gyldigt) {
-    return <span className="text-xs text-muted-foreground">{SAMMENLIGNING_UTILGAENGELIG_12MDR}</span>;
+    return (
+      <span className="text-xs text-muted-foreground">
+        {aarsag ?? SAMMENLIGNING_UTILGAENGELIG_12MDR}
+      </span>
+    );
   }
   const d = nu - foer;
   const cls = d < 0 ? "text-destructive" : d > 0 ? "text-success" : "text-muted-foreground";
@@ -104,7 +123,12 @@ function SortimentsbreddeKort({
   data,
 }: {
   loading: boolean;
-  data?: { vindueFoerFra: string; sortimentForbrug: { nu: number; foer: number }; sortimentMaskine: { nu: number; foer: number } };
+  data?: {
+    vindueFoerFra: string;
+    foerDaekket: boolean;
+    sortimentForbrug: { nu: number; foer: number };
+    sortimentMaskine: { nu: number; foer: number };
+  };
 }) {
   return (
     <Card className="p-5">
@@ -127,12 +151,22 @@ function SortimentsbreddeKort({
             { label: "Forbrugsvarer", t: data.sortimentForbrug },
             { label: "Maskiner & teknik", t: data.sortimentMaskine },
           ].map((x) => {
-            const gyldigt = harGyldigtSammenligningsvindue(data.vindueFoerFra);
+            const gyldigt =
+              harGyldigtSammenligningsvindue(data.vindueFoerFra) && data.foerDaekket;
             return (
               <div key={x.label} className="rounded-md border border-border p-3">
                 <div className="text-xs text-muted-foreground">{x.label}</div>
                 <div className="text-2xl font-semibold tabular-nums">{x.t.nu}</div>
-                <Diff nu={x.t.nu} foer={x.t.foer} gyldigt={gyldigt} />
+                <Diff
+                  nu={x.t.nu}
+                  foer={x.t.foer}
+                  gyldigt={gyldigt}
+                  aarsag={
+                    !data.foerDaekket
+                      ? "Ingen varelinjer for samme 6 måneder året før — vist uden sammenligning."
+                      : undefined
+                  }
+                />
               </div>
             );
           })}
@@ -156,6 +190,13 @@ function MaskinerTeknikKort({
 }) {
   const maskinRows = rows.filter((r) => isMachineGroup(r.product_group_1));
   const sum = sumRows(maskinRows);
+  const erArbejdstimer = (navn: string) => /montør|service|time/i.test(navn);
+  const timerDb = buckets
+    .filter((b) => erArbejdstimer(b.navn))
+    .reduce((s, b) => s + (b.contribution ?? 0), 0);
+  const dgTekst = (rev: number, db: number | null) =>
+    db != null && rev > 0 ? ` (${((db / rev) * 100).toFixed(0)} %)` : "";
+
 
   return (
     <Card className="p-5">
@@ -175,10 +216,23 @@ function MaskinerTeknikKort({
               <div className="text-xl font-semibold tabular-nums">{fmtKr(sum.revenue)}</div>
             </div>
             {isAdmin && sum.contribution != null && (
-              <div>
-                <div className="text-xs text-muted-foreground">Dækningsbidrag</div>
-                <div className="text-xl font-semibold tabular-nums">{fmtKr(sum.contribution)}</div>
-              </div>
+              <>
+                <div>
+                  <div className="text-xs text-muted-foreground">Dækningsbidrag</div>
+                  <div className="text-xl font-semibold tabular-nums">
+                    {fmtKr(sum.contribution)}
+                    {dgTekst(sum.revenue, sum.contribution)}
+                  </div>
+                </div>
+                {timerDb > 0 && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">DB uden montørtimer</div>
+                    <div className="text-xl font-semibold tabular-nums">
+                      {fmtKr(sum.contribution - timerDb)}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
           {buckets.length > 0 && (
@@ -188,14 +242,18 @@ function MaskinerTeknikKort({
                   <span className="truncate">{b.navn}</span>
                   <span className="tabular-nums text-muted-foreground shrink-0">
                     {fmtKr(b.revenue)}
-                    {isAdmin && b.contribution != null ? ` · DB ${fmtKr(b.contribution)}` : ""}
+                    {isAdmin && b.contribution != null
+                      ? ` · DB ${fmtKr(b.contribution)}${dgTekst(b.revenue, b.contribution)}`
+                      : ""}
                   </span>
                 </li>
               ))}
             </ul>
           )}
           <p className="text-[11px] text-muted-foreground mt-3">
-            Leje og montørtimer er udskilt ud fra varelinjernes tekst.
+            Leje og montørtimer er udskilt ud fra varelinjernes tekst. Arbejdstimer har ingen
+            registreret kostpris, så deres dækningsbidrag svarer til omsætningen (100 %) og
+            trækker den samlede maskin-DG kunstigt op.
           </p>
         </>
       )}

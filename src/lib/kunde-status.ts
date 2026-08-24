@@ -175,6 +175,30 @@ export function beregnKundeStatus(rows: SalesMonthlyRow[]): KundeStatus {
 }
 
 /**
+ * Støjtesten alene: mindst 6 forbrugsordrer seneste 12 hele mdr., ingen enkeltmåned
+ * over 40 % af årets kilo, og et dækket sammenligningsvindue. Bruges af signaler,
+ * der ellers ville farve en bestillingsrytme som et fald.
+ */
+export function bestaarStoejtest(rows: SalesMonthlyRow[]): boolean {
+  const forbrug = rows.filter((r) => isConsumableGroup(r.product_group_1));
+  const helt12 = filterByPeriod(forbrug, monthsAgo(12), currentMonthStart());
+  const ordrer12 = helt12.reduce((s, r) => s + (Number(r.order_count) || 0), 0);
+  const kgPrMaaned = new Map<string, number>();
+  for (const r of helt12) {
+    kgPrMaaned.set(r.period, (kgPrMaaned.get(r.period) ?? 0) + (Number(r.weight_kg) || 0));
+  }
+  const kg12 = sumKg(helt12);
+  const stoersteMaaned = Math.max(0, ...Array.from(kgPrMaaned.values()));
+  return (
+    ordrer12 >= 6 &&
+    kg12 > 0 &&
+    stoersteMaaned <= kg12 * 0.4 &&
+    harGyldigtSammenligningsvindue(monthsAgo(18))
+  );
+}
+
+
+/**
  * Samme statusmodel som beregnKundeStatus, men ud fra snapshot-tal
  * (forbrug_signal_*) i stedet for rå salgsrækker. Bruges på arbejdslister,
  * hvor vi ikke må hente alle kunders salgshistorik.

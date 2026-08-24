@@ -154,7 +154,7 @@ export function ForbrugSignalSektion({
     <Card className="p-4">
       <h3 className="font-semibold">Forbrugsudvikling</h3>
       <p className="text-sm text-muted-foreground mt-0.5">
-        Sæsonkorrigeret forbrug i kilo, seneste 3 måneder mod de 12 måneder før.
+        Sæsonkorrigeret forbrug i kilo, seneste 6 hele måneder mod de samme 6 måneder året før.
       </p>
 
       {isLoading ? (
