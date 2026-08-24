@@ -1,4 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getMasterAgreementSuppression } from "@/lib/agreements.functions";
+import {
+  isMachineWarningSuppressed,
+  type SuppressionMap,
+} from "@/lib/master-agreement";
 
 export type ExpiringMachineDetail = {
   companyId: string;
@@ -103,6 +108,17 @@ export async function fetchExpiringMachines(
   );
   if (compById.size === 0) return [];
 
+  // 4b. Hovedaftale-undertrykkelse: maskiner hos kunder på en hovedaftale
+  //     tæller ikke som "udløber snart", før hovedaftalen selv nærmer sig udløb.
+  let suppression: SuppressionMap = {};
+  try {
+    suppression = (await getMasterAgreementSuppression({
+      data: { companyIds: Array.from(compById.keys()) },
+    })) as SuppressionMap;
+  } catch {
+    suppression = {};
+  }
+
   // 5. Byg detalje-rækker pr. maskine — bedste (nærmeste) udløbsdato i vinduet
   const details: ExpiringMachineDetail[] = [];
   for (const u of units) {
@@ -110,6 +126,7 @@ export async function fetchExpiringMachines(
     if (!loc) continue;
     const comp = compById.get(loc.company_id);
     if (!comp) continue;
+    if (isMachineWarningSuppressed(suppression[comp.id], in90S)) continue;
     const e = enrBySerial.get(String(u.serial_no));
     if (!e) continue;
 
