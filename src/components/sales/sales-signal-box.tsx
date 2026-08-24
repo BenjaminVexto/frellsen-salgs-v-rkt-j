@@ -5,11 +5,13 @@ import {
   filterByPeriod,
   sumRows,
   monthsAgo,
+  currentMonthStart,
   lastConsumablePurchasePeriod,
   daysSince,
   isMachineGroup,
   type SalesMonthlyRow,
 } from "@/lib/sales-utils";
+import { bestaarStoejtest } from "@/lib/kunde-status";
 
 export function SalesSignalBox({
   rows,
