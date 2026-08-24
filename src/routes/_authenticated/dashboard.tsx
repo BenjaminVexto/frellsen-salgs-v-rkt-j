@@ -32,6 +32,7 @@ import { da } from "date-fns/locale";
 import { PersonalGreeting } from "@/components/sales/personal-greeting";
 import { MyMonthZone } from "@/components/sales/my-month-zone";
 import { ChurningCustomersCard } from "@/components/sales/churning-customers-card";
+import { PasseretRytmeCard } from "@/components/sales/passeret-rytme-card";
 import { fetchExpiringMachines, type ExpiringCustomerGroup, type ExpiringMachineDetail } from "@/lib/expiring-machines";
 import {
   getMachineAgreementStatuses,
@@ -332,9 +333,14 @@ function DashboardPage() {
         </PanelCard>
       </div>
 
-      {/* 3. KUNDER PÅ VEJ VÆK + AFTALER UDLØBER (side om side) */}
+      {/* 3. ARBEJDSLISTE + TIDLIG ADVARSEL */}
       <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
-        <ChurningCustomersCard initialVisible={2} teamScope={isAdmin} />
+        <ChurningCustomersCard teamScope={isAdmin} />
+        <PasseretRytmeCard teamScope={isAdmin} />
+      </div>
+
+      {/* 4. AFTALER UDLØBER */}
+      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
         <ExpiringCustomersCard
           customers={expiringMachines}
           loading={expiringMachinesQuery.isLoading}
