@@ -19,7 +19,10 @@ export type FaldendeKunde = {
   tabt_kr_pr_mdr: number | null;
   grupper_i_fald: number;
   assigned_to: string | null;
+  sidste_koeb_primaer: string | null;
+  forventet_interval_mdr: number | null;
 };
+
 
 export const getFaldendeKunder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
