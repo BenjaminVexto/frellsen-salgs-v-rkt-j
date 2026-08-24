@@ -90,9 +90,23 @@ export function CompanyUdviklingTab({
   );
 }
 
-function Diff({ nu, foer, gyldigt }: { nu: number; foer: number; gyldigt: boolean }) {
+function Diff({
+  nu,
+  foer,
+  gyldigt,
+  aarsag,
+}: {
+  nu: number;
+  foer: number;
+  gyldigt: boolean;
+  aarsag?: string;
+}) {
   if (!gyldigt) {
-    return <span className="text-xs text-muted-foreground">{SAMMENLIGNING_UTILGAENGELIG_12MDR}</span>;
+    return (
+      <span className="text-xs text-muted-foreground">
+        {aarsag ?? SAMMENLIGNING_UTILGAENGELIG_12MDR}
+      </span>
+    );
   }
   const d = nu - foer;
   const cls = d < 0 ? "text-destructive" : d > 0 ? "text-success" : "text-muted-foreground";
