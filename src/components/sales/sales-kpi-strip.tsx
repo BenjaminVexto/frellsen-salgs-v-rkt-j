@@ -48,9 +48,13 @@ export function SalesKpiStrip({
       ? (last12ConsSum.weightKg - prev12ConsSum.weightKg) / prev12ConsSum.weightKg
       : null;
 
-  const trend = prev12Sum.revenue > 0 ? (last12Sum.revenue - prev12Sum.revenue) / prev12Sum.revenue : null;
+  // Datagulv: en 12-mdr.-sammenligning kræver, at hele år-før-vinduet er dækket.
+  const kanSammenligne = harGyldigtSammenligningsvindue(m24);
+  const trendRaw = prev12Sum.revenue > 0 ? (last12Sum.revenue - prev12Sum.revenue) / prev12Sum.revenue : null;
+  const trend = kanSammenligne ? trendRaw : null;
   const lastAll = lastPurchasePeriod(rows);
   const lastCons = lastConsumablePurchasePeriod(rows);
+
 
   // DG = contribution / revenue
   const dg = isAdmin && last12Sum.contribution != null && last12Sum.revenue > 0
