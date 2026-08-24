@@ -2771,6 +2771,28 @@ export type Database = {
         Args: { _group: string; _period: string }
         Returns: number
       }
+      sales_period_completeness_rows: {
+        Args: never
+        Returns: {
+          er_komplet: boolean
+          kg: number
+          lokationer: number
+          lokationer_sidste_aar: number
+          median_lokationer: number
+          pct_af_median: number
+          period: string
+        }[]
+      }
+      sales_season_index_rows: {
+        Args: never
+        Returns: {
+          komplette_maaneder_i_alt: number
+          maaned: number
+          maaneder_i_grundlag: number
+          product_group_1: string
+          saeson_indeks: number
+        }[]
+      }
       send_quote: {
         Args: { _quote_id: string }
         Returns: {
