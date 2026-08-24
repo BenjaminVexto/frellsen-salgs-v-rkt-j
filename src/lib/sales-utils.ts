@@ -120,9 +120,10 @@ export function lastPurchasePeriod(rows: SalesMonthlyRow[]): string | null {
   return max;
 }
 
-// Forbrugsvare-grupper: kaffe (2), te (4), drikke & automatvarer (6), chokolade (10).
-// Bruges til "kunde på vej væk"-signalet — IKKE til status.
-const CONSUMABLE_CODES = new Set(["2", "4", "6", "10"]);
+// Forbrugsvarer = det kunden drikker/spiser + engangs/tilbehør til forbrug.
+// Varegruppe 1-koder: 2 kaffe, 4 te, 6 chokodrik/mælkepulver, 8 filtre/engangs,
+// 10 chokolade/konfekt, 12, 14 sukker, 20, 22, 23.
+const CONSUMABLE_CODES = new Set(["2", "4", "6", "8", "10", "12", "14", "20", "22", "23"]);
 export function isConsumableGroup(raw: string | null | undefined): boolean {
   const s = (raw ?? "").trim();
   const m = s.match(/^(\d+)/);
@@ -130,15 +131,16 @@ export function isConsumableGroup(raw: string | null | undefined): boolean {
   return CONSUMABLE_CODES.has(m[1]);
 }
 
-// Maskiner/service (gruppe 16) — ekskluderes fra omsætnings-trend-signaler,
-// da engangs-maskinsalg/leasing-opsætning forvrænger YoY-sammenligning.
-const MACHINE_CODES = new Set(["16"]);
+// Maskiner & teknik: 16 maskiner/leje/montørtimer, 17 vandfiltre/Brita,
+// 18 reservedele, 24. Må ALDRIG indgå i forbrugstal.
+const MACHINE_CODES = new Set(["16", "17", "18", "24"]);
 export function isMachineGroup(raw: string | null | undefined): boolean {
   const s = (raw ?? "").trim();
   const m = s.match(/^(\d+)/);
   if (!m) return false;
   return MACHINE_CODES.has(m[1]);
 }
+
 
 // Sidste forbrugsvarekøb (kaffe/te/chokolade/drikke).
 export function lastConsumablePurchasePeriod(rows: SalesMonthlyRow[]): string | null {
