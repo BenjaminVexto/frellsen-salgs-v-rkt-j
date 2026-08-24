@@ -2426,6 +2426,72 @@ export type Database = {
           },
         ]
       }
+      tmp_crm_nord: {
+        Row: {
+          afdeling_nr: number | null
+          assigned_to: string | null
+          cc: string | null
+          city: string | null
+          ct: string | null
+          cvr: string | null
+          has_active_equipment: boolean | null
+          id: string | null
+          last_consumable_sales_date: string | null
+          last_sales_date: string | null
+          name: string | null
+          nn: string | null
+          zip: string | null
+        }
+        Insert: {
+          afdeling_nr?: number | null
+          assigned_to?: string | null
+          cc?: string | null
+          city?: string | null
+          ct?: string | null
+          cvr?: string | null
+          has_active_equipment?: boolean | null
+          id?: string | null
+          last_consumable_sales_date?: string | null
+          last_sales_date?: string | null
+          name?: string | null
+          nn?: string | null
+          zip?: string | null
+        }
+        Update: {
+          afdeling_nr?: number | null
+          assigned_to?: string | null
+          cc?: string | null
+          city?: string | null
+          ct?: string | null
+          cvr?: string | null
+          has_active_equipment?: boolean | null
+          id?: string | null
+          last_consumable_sales_date?: string | null
+          last_sales_date?: string | null
+          name?: string | null
+          nn?: string | null
+          zip?: string | null
+        }
+        Relationships: []
+      }
+      tmp_leads_nordjylland: {
+        Row: {
+          cvr: string | null
+          navn: string | null
+          postnr: string | null
+        }
+        Insert: {
+          cvr?: string | null
+          navn?: string | null
+          postnr?: string | null
+        }
+        Update: {
+          cvr?: string | null
+          navn?: string | null
+          postnr?: string | null
+        }
+        Relationships: []
+      }
       user_afdeling_access: {
         Row: {
           afdeling_nr: number
@@ -2813,6 +2879,8 @@ export type Database = {
         }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       snapshot_forbrug_signal: { Args: never; Returns: number }
     }
     Enums: {
