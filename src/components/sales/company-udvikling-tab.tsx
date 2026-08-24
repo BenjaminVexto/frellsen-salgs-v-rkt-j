@@ -126,10 +126,21 @@ function SortimentsbreddeKort({
   data?: {
     vindueFoerFra: string;
     foerDaekket: boolean;
+    varelinjeStart: string | null;
     sortimentForbrug: { nu: number; foer: number };
     sortimentMaskine: { nu: number; foer: number };
   };
 }) {
+  const startTekst = (() => {
+    if (!data || data.foerDaekket) return null;
+    if (!data.varelinjeStart) return "Ingen varelinje-historik registreret endnu.";
+    const start = new Date(data.varelinjeStart + "T00:00:00Z");
+    const klar = new Date(
+      Date.UTC(start.getUTCFullYear() + 1, start.getUTCMonth() + 6, 1),
+    );
+    const f = (d: Date) => d.toLocaleDateString("da-DK", { month: "long", year: "numeric" });
+    return `Varelinje-historik starter ${f(start)} — sammenligning mulig fra ${f(klar)}.`;
+  })();
   return (
     <Card className="p-5">
       <h3 className="text-sm font-semibold flex items-center gap-2 mb-1">

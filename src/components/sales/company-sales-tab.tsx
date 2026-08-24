@@ -51,7 +51,7 @@ export function CompanySalesTab({
       <SuppliedViaBanner companyId={companyId} />
       <KundeStatusLinje rows={rows} />
       <SalesFactsStrip rows={rows} isAdmin={isAdmin} />
-      <ConsumableKgChart rows={rows} months={18} />
+      <ConsumableKgChart rows={rows} months={18} locationIds={locationIds} />
     </div>
   );
 }
