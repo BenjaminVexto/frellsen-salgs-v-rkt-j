@@ -84,6 +84,7 @@ import { BindingStatusBadge } from "@/components/binding-status-badge";
 import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
 import { CompanySalesTab } from "@/components/sales/company-sales-tab";
+import { CompanyUdviklingTab } from "@/components/sales/company-udvikling-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { CompanyPricingSummary } from "@/components/company-pricing-summary";
@@ -156,7 +157,7 @@ type Activity = Database["public"]["Tables"]["activities"]["Row"];
 type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"];
 type Opportunity = Database["public"]["Tables"]["sales_opportunities"]["Row"];
 
-type TabKey = "oversigt" | "aktivitet" | "salg" | "lokationer" | "relationer" | "aftaler";
+type TabKey = "oversigt" | "aktivitet" | "salg" | "udvikling" | "lokationer" | "relationer" | "aftaler";
 
 
 const firstFilled = (...values: Array<string | null | undefined>) => {
@@ -725,6 +726,7 @@ function VirksomhedsKort() {
                 { v: "oversigt", label: "Oversigt" },
                 { v: "aktivitet", label: "Aktivitet" },
                 { v: "salg", label: "Salg" },
+                { v: "udvikling", label: "Udvikling" },
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
                 { v: "aftaler", label: "Aftaler" },
@@ -885,6 +887,14 @@ function VirksomhedsKort() {
               />
             </TabsContent>
 
+            {/* FANE: Udvikling */}
+            <TabsContent value="udvikling" className="space-y-4 mt-4">
+              <CompanyUdviklingTab
+                companyId={company.id}
+                locations={locations}
+                locationIds={locations.map((l) => l.id)}
+              />
+            </TabsContent>
 
             {/* FANE: Lokationer */}
             <TabsContent value="lokationer" className="space-y-4 mt-4">
