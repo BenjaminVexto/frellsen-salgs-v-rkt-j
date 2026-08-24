@@ -2257,6 +2257,7 @@ export type Database = {
           updated_at: string
           varenr: string
           visma_delivery_no: string
+          weight_kg: number
         }
         Insert: {
           afdeling_nr?: number
@@ -2271,6 +2272,7 @@ export type Database = {
           updated_at?: string
           varenr: string
           visma_delivery_no: string
+          weight_kg?: number
         }
         Update: {
           afdeling_nr?: number
@@ -2285,6 +2287,7 @@ export type Database = {
           updated_at?: string
           varenr?: string
           visma_delivery_no?: string
+          weight_kg?: number
         }
         Relationships: [
           {
