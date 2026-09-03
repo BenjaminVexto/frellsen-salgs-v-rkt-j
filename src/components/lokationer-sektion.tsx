@@ -527,6 +527,16 @@ function LokationRow({
             {lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel}
           </span>
         )}
+        {showMachineCount && (
+          <span
+            className={`text-xs flex-shrink-0 tabular-nums ${machineCount ? "text-muted-foreground" : "text-destructive"}`}
+          >
+            {machineCount
+              ? `${machineCount} maskine${machineCount === 1 ? "" : "r"}`
+              : "Ingen maskiner"}
+          </span>
+        )}
+
         {open ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         ) : (
