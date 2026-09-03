@@ -327,6 +327,8 @@ export function LokationerSektion({
                 <SelectItem value="street">Vejnavn</SelectItem>
                 <SelectItem value="revenue">Omsætning (høj→lav)</SelectItem>
                 <SelectItem value="lastPurchase">Sidst købt (nyest→ældst)</SelectItem>
+                <SelectItem value="machines">Antal maskiner (flest→færrest)</SelectItem>
+
 
               </SelectContent>
             </Select>
