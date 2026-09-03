@@ -168,32 +168,39 @@ export const getLocationSalesSummary = createServerFn({ method: "POST" })
     if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
     return input;
   })
-  .handler(async ({ data, context }): Promise<Record<string, { revenue12m: number; lastPeriod: string | null }>> => {
+  .handler(async ({ data, context }): Promise<Record<string, { revenue12m: number; lastPeriod: string | null; lastPurchase: string | null }>> => {
     if (data.locationIds.length === 0) return {};
     const cutoff = new Date();
     cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
     cutoff.setUTCDate(1);
     const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
-    const out: Record<string, { revenue12m: number; lastPeriod: string | null }> = {};
+    const out: Record<string, { revenue12m: number; lastPeriod: string | null; lastPurchase: string | null }> = {};
+    // Hele historikken hentes, så "sidst købt" også dækker lokationer der ikke
+    // har købt i 12 mdr. Omsætningen tælles kun for de seneste 12 mdr.
     const rows = await fetchAllInChunks(data.locationIds, 100, (slice, from, to) =>
       context.supabase
         .from("sales_monthly")
-        .select("location_id, period, revenue")
+        .select("location_id, period, revenue, last_invoice_date")
         .in("location_id", slice)
-        .gte("period", cutoffStr)
         .range(from, to),
     );
     rows.forEach((r: any) => {
       if (!r.location_id) return;
-      const cur = out[r.location_id] ?? { revenue12m: 0, lastPeriod: null };
+      const cur = out[r.location_id] ?? { revenue12m: 0, lastPeriod: null, lastPurchase: null };
       const rev = Number(r.revenue) || 0;
-      cur.revenue12m += rev;
-      if (rev > 0 && (!cur.lastPeriod || r.period > cur.lastPeriod)) cur.lastPeriod = r.period;
+      if (r.period >= cutoffStr) cur.revenue12m += rev;
+      if (rev > 0) {
+        if (!cur.lastPeriod || r.period > cur.lastPeriod) cur.lastPeriod = r.period;
+        // Dagspræcist når fakturadatoen findes, ellers månedens 1.
+        const d = r.last_invoice_date ?? r.period;
+        if (d && (!cur.lastPurchase || d > cur.lastPurchase)) cur.lastPurchase = d;
+      }
       out[r.location_id] = cur;
     });
     return out;
   });
+
 
 // --- Seller dashboard ---
 
