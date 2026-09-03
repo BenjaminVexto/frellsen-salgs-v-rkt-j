@@ -222,12 +222,46 @@ export function LokationerSektion({
     },
   });
 
+  // Antal maskiner pr. lokation (ikke-filter udstyrsenheder)
+  const machineCountQ = useQuery({
+    enabled: locations.length > 0,
+    queryKey: [
+      "location-machine-counts",
+      locations.map((l) => l.id).sort().join(","),
+    ],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("location_equipment_units")
+        .select("location_id")
+        .eq("is_filter", false)
+        .in(
+          "location_id",
+          locations.map((l) => l.id),
+        );
+      const byLoc: Record<string, number> = {};
+      for (const u of ((data ?? []) as any[])) {
+        if (!u.location_id) continue;
+        byLoc[u.location_id] = (byLoc[u.location_id] ?? 0) + 1;
+      }
+      return byLoc;
+    },
+  });
+
   const sortedLocations = useMemo(() => {
     if (sortMode === "street") {
       return [...locations].sort((a, b) => {
         const sa = streetName(a.address) ?? "";
         const sb = streetName(b.address) ?? "";
         return sa.localeCompare(sb, "da") || (a.address ?? "").localeCompare(b.address ?? "", "da");
+      });
+    }
+    if (sortMode === "machines") {
+      const counts = machineCountQ.data ?? {};
+      return [...locations].sort((a, b) => {
+        const ca = counts[a.id] ?? 0;
+        const cb = counts[b.id] ?? 0;
+        if (cb !== ca) return cb - ca;
+        return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
       });
     }
     if (sortMode === "lastPurchase") {
@@ -241,6 +275,7 @@ export function LokationerSektion({
         return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
       });
     }
+
     if (sortMode !== "revenue") {
       return [...locations].sort(
         (a, b) =>
