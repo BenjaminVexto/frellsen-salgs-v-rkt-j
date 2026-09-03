@@ -111,8 +111,9 @@ export function LokationerSektion({
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [sortMode, setSortMode] = useState<
-    "default" | "revenue" | "street" | "lastPurchase"
+    "default" | "revenue" | "street" | "lastPurchase" | "machines"
   >("default");
+
 
 
 
