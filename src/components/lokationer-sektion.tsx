@@ -293,7 +293,7 @@ export function LokationerSektion({
       if (rb !== ra) return rb - ra;
       return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
     });
-  }, [locations, sortMode, summaryQ.data]);
+  }, [locations, sortMode, summaryQ.data, machineCountQ.data]);
 
   const expiringByLoc = expiringQ.data ?? new Map<string, number>();
   const expiringTotal = Array.from(expiringByLoc.values()).reduce((n, v) => n + v, 0);
