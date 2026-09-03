@@ -429,6 +429,8 @@ function LokationRow({
   fallbackAddress,
   fallbackZip,
   fallbackCity,
+  lastPurchase,
+  showLastPurchase,
 }: {
   location: Location;
   isPrimary?: boolean;
@@ -440,12 +442,21 @@ function LokationRow({
   fallbackAddress?: string | null;
   fallbackZip?: string | null;
   fallbackCity?: string | null;
+  lastPurchase?: string | null;
+  showLastPurchase?: boolean;
 }) {
   const address = firstFilled(location.address, fallbackAddress);
   const zip = firstFilled(location.zip, fallbackZip);
   const city = firstFilled(location.city, fallbackCity);
   const cityLine = [zip, city].filter(Boolean).join(" ");
   const headline = [address, cityLine].filter(Boolean).join(", ") || "Lokation";
+  const lastPurchaseLabel = lastPurchase
+    ? new Date(lastPurchase + "T00:00:00Z").toLocaleDateString("da-DK", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "Intet køb registreret";
 
   return (
     <li id={`location-${location.id}`} className="scroll-mt-20">
@@ -463,11 +474,19 @@ function LokationRow({
             </Badge>
           )}
         </span>
+        {showLastPurchase && (
+          <span
+            className={`text-xs flex-shrink-0 tabular-nums ${lastPurchase ? "text-muted-foreground" : "text-destructive"}`}
+          >
+            {lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel}
+          </span>
+        )}
         {open ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         ) : (
           <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         )}
+
       </button>
       {open && (
         <div className="pl-6 pb-3 pt-1 space-y-1 text-sm">
