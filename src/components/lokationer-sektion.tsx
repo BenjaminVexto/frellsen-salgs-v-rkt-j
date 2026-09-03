@@ -472,6 +472,8 @@ function LokationRow({
   fallbackCity,
   lastPurchase,
   showLastPurchase,
+  machineCount,
+  showMachineCount,
 }: {
   location: Location;
   isPrimary?: boolean;
@@ -485,7 +487,10 @@ function LokationRow({
   fallbackCity?: string | null;
   lastPurchase?: string | null;
   showLastPurchase?: boolean;
+  machineCount?: number;
+  showMachineCount?: boolean;
 }) {
+
   const address = firstFilled(location.address, fallbackAddress);
   const zip = firstFilled(location.zip, fallbackZip);
   const city = firstFilled(location.city, fallbackCity);
