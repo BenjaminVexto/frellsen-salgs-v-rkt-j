@@ -110,7 +110,10 @@ export function LokationerSektion({
   const [expanded, setExpanded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [sortMode, setSortMode] = useState<"default" | "revenue" | "street">("default");
+  const [sortMode, setSortMode] = useState<
+    "default" | "revenue" | "street" | "lastPurchase"
+  >("default");
+
 
 
   const load = async () => {
@@ -226,6 +229,17 @@ export function LokationerSektion({
         return sa.localeCompare(sb, "da") || (a.address ?? "").localeCompare(b.address ?? "", "da");
       });
     }
+    if (sortMode === "lastPurchase") {
+      const summary = summaryQ.data ?? {};
+      // Nyeste køb først; lokationer uden køb lægges nederst, så det er let at
+      // se hvilke afdelinger der ikke handler.
+      return [...locations].sort((a, b) => {
+        const da = summary[a.id]?.lastPurchase ?? "";
+        const db = summary[b.id]?.lastPurchase ?? "";
+        if (da !== db) return db.localeCompare(da);
+        return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
+      });
+    }
     if (sortMode !== "revenue") {
       return [...locations].sort(
         (a, b) =>
@@ -236,6 +250,7 @@ export function LokationerSektion({
       );
     }
     const summary = summaryQ.data ?? {};
+
     return [...locations].sort((a, b) => {
       const ra = summary[a.id]?.revenue12m ?? 0;
       const rb = summary[b.id]?.revenue12m ?? 0;
@@ -275,6 +290,8 @@ export function LokationerSektion({
                 <SelectItem value="default">Primær / by</SelectItem>
                 <SelectItem value="street">Vejnavn</SelectItem>
                 <SelectItem value="revenue">Omsætning (høj→lav)</SelectItem>
+                <SelectItem value="lastPurchase">Sidst købt (nyest→ældst)</SelectItem>
+
               </SelectContent>
             </Select>
           )}
@@ -357,6 +374,9 @@ export function LokationerSektion({
                 fallbackZip={l.is_primary ? companyFallbackZip : null}
                 fallbackCity={l.is_primary ? companyFallbackCity : null}
                 onRegister={() => onRegisterActivity(l.id)}
+                lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
+                showLastPurchase={sortMode === "lastPurchase"}
+
               />
             ))}
           </ul>
@@ -409,6 +429,8 @@ function LokationRow({
   fallbackAddress,
   fallbackZip,
   fallbackCity,
+  lastPurchase,
+  showLastPurchase,
 }: {
   location: Location;
   isPrimary?: boolean;
@@ -420,12 +442,21 @@ function LokationRow({
   fallbackAddress?: string | null;
   fallbackZip?: string | null;
   fallbackCity?: string | null;
+  lastPurchase?: string | null;
+  showLastPurchase?: boolean;
 }) {
   const address = firstFilled(location.address, fallbackAddress);
   const zip = firstFilled(location.zip, fallbackZip);
   const city = firstFilled(location.city, fallbackCity);
   const cityLine = [zip, city].filter(Boolean).join(" ");
   const headline = [address, cityLine].filter(Boolean).join(", ") || "Lokation";
+  const lastPurchaseLabel = lastPurchase
+    ? new Date(lastPurchase + "T00:00:00Z").toLocaleDateString("da-DK", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "Intet køb registreret";
 
   return (
     <li id={`location-${location.id}`} className="scroll-mt-20">
@@ -443,11 +474,19 @@ function LokationRow({
             </Badge>
           )}
         </span>
+        {showLastPurchase && (
+          <span
+            className={`text-xs flex-shrink-0 tabular-nums ${lastPurchase ? "text-muted-foreground" : "text-destructive"}`}
+          >
+            {lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel}
+          </span>
+        )}
         {open ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         ) : (
           <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         )}
+
       </button>
       {open && (
         <div className="pl-6 pb-3 pt-1 space-y-1 text-sm">
