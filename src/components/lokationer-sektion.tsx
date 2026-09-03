@@ -414,6 +414,9 @@ export function LokationerSektion({
                 onRegister={() => onRegisterActivity(l.id)}
                 lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
                 showLastPurchase={sortMode === "lastPurchase"}
+                machineCount={machineCountQ.data?.[l.id] ?? 0}
+                showMachineCount={sortMode === "machines"}
+
 
               />
             ))}
