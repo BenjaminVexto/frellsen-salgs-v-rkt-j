@@ -111,8 +111,9 @@ export function LokationerSektion({
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [sortMode, setSortMode] = useState<
-    "default" | "revenue" | "street" | "lastPurchase"
+    "default" | "revenue" | "street" | "lastPurchase" | "machines"
   >("default");
+
 
 
 
@@ -221,12 +222,46 @@ export function LokationerSektion({
     },
   });
 
+  // Antal maskiner pr. lokation (ikke-filter udstyrsenheder)
+  const machineCountQ = useQuery({
+    enabled: locations.length > 0,
+    queryKey: [
+      "location-machine-counts",
+      locations.map((l) => l.id).sort().join(","),
+    ],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("location_equipment_units")
+        .select("location_id")
+        .eq("is_filter", false)
+        .in(
+          "location_id",
+          locations.map((l) => l.id),
+        );
+      const byLoc: Record<string, number> = {};
+      for (const u of ((data ?? []) as any[])) {
+        if (!u.location_id) continue;
+        byLoc[u.location_id] = (byLoc[u.location_id] ?? 0) + 1;
+      }
+      return byLoc;
+    },
+  });
+
   const sortedLocations = useMemo(() => {
     if (sortMode === "street") {
       return [...locations].sort((a, b) => {
         const sa = streetName(a.address) ?? "";
         const sb = streetName(b.address) ?? "";
         return sa.localeCompare(sb, "da") || (a.address ?? "").localeCompare(b.address ?? "", "da");
+      });
+    }
+    if (sortMode === "machines") {
+      const counts = machineCountQ.data ?? {};
+      return [...locations].sort((a, b) => {
+        const ca = counts[a.id] ?? 0;
+        const cb = counts[b.id] ?? 0;
+        if (cb !== ca) return cb - ca;
+        return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
       });
     }
     if (sortMode === "lastPurchase") {
@@ -240,6 +275,7 @@ export function LokationerSektion({
         return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
       });
     }
+
     if (sortMode !== "revenue") {
       return [...locations].sort(
         (a, b) =>
@@ -257,7 +293,7 @@ export function LokationerSektion({
       if (rb !== ra) return rb - ra;
       return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
     });
-  }, [locations, sortMode, summaryQ.data]);
+  }, [locations, sortMode, summaryQ.data, machineCountQ.data]);
 
   const expiringByLoc = expiringQ.data ?? new Map<string, number>();
   const expiringTotal = Array.from(expiringByLoc.values()).reduce((n, v) => n + v, 0);
@@ -291,6 +327,8 @@ export function LokationerSektion({
                 <SelectItem value="street">Vejnavn</SelectItem>
                 <SelectItem value="revenue">Omsætning (høj→lav)</SelectItem>
                 <SelectItem value="lastPurchase">Sidst købt (nyest→ældst)</SelectItem>
+                <SelectItem value="machines">Antal maskiner (flest→færrest)</SelectItem>
+
 
               </SelectContent>
             </Select>
@@ -376,6 +414,9 @@ export function LokationerSektion({
                 onRegister={() => onRegisterActivity(l.id)}
                 lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
                 showLastPurchase={sortMode === "lastPurchase"}
+                machineCount={machineCountQ.data?.[l.id] ?? 0}
+                showMachineCount={sortMode === "machines"}
+
 
               />
             ))}
@@ -431,6 +472,8 @@ function LokationRow({
   fallbackCity,
   lastPurchase,
   showLastPurchase,
+  machineCount,
+  showMachineCount,
 }: {
   location: Location;
   isPrimary?: boolean;
@@ -444,7 +487,10 @@ function LokationRow({
   fallbackCity?: string | null;
   lastPurchase?: string | null;
   showLastPurchase?: boolean;
+  machineCount?: number;
+  showMachineCount?: boolean;
 }) {
+
   const address = firstFilled(location.address, fallbackAddress);
   const zip = firstFilled(location.zip, fallbackZip);
   const city = firstFilled(location.city, fallbackCity);
@@ -481,6 +527,16 @@ function LokationRow({
             {lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel}
           </span>
         )}
+        {showMachineCount && (
+          <span
+            className={`text-xs flex-shrink-0 tabular-nums ${machineCount ? "text-muted-foreground" : "text-destructive"}`}
+          >
+            {machineCount
+              ? `${machineCount} maskine${machineCount === 1 ? "" : "r"}`
+              : "Ingen maskiner"}
+          </span>
+        )}
+
         {open ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         ) : (
