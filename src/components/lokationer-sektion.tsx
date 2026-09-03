@@ -110,7 +110,10 @@ export function LokationerSektion({
   const [expanded, setExpanded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [sortMode, setSortMode] = useState<"default" | "revenue" | "street">("default");
+  const [sortMode, setSortMode] = useState<
+    "default" | "revenue" | "street" | "lastPurchase"
+  >("default");
+
 
 
   const load = async () => {
