@@ -374,6 +374,9 @@ export function LokationerSektion({
                 fallbackZip={l.is_primary ? companyFallbackZip : null}
                 fallbackCity={l.is_primary ? companyFallbackCity : null}
                 onRegister={() => onRegisterActivity(l.id)}
+                lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
+                showLastPurchase={sortMode === "lastPurchase"}
+
               />
             ))}
           </ul>
