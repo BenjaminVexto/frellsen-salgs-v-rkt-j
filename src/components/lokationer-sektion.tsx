@@ -229,6 +229,17 @@ export function LokationerSektion({
         return sa.localeCompare(sb, "da") || (a.address ?? "").localeCompare(b.address ?? "", "da");
       });
     }
+    if (sortMode === "lastPurchase") {
+      const summary = summaryQ.data ?? {};
+      // Nyeste køb først; lokationer uden køb lægges nederst, så det er let at
+      // se hvilke afdelinger der ikke handler.
+      return [...locations].sort((a, b) => {
+        const da = summary[a.id]?.lastPurchase ?? "";
+        const db = summary[b.id]?.lastPurchase ?? "";
+        if (da !== db) return db.localeCompare(da);
+        return (a.is_primary ? 0 : 1) - (b.is_primary ? 0 : 1);
+      });
+    }
     if (sortMode !== "revenue") {
       return [...locations].sort(
         (a, b) =>
@@ -239,6 +250,7 @@ export function LokationerSektion({
       );
     }
     const summary = summaryQ.data ?? {};
+
     return [...locations].sort((a, b) => {
       const ra = summary[a.id]?.revenue12m ?? 0;
       const rb = summary[b.id]?.revenue12m ?? 0;
