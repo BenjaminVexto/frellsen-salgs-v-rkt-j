@@ -16,18 +16,53 @@ type Valg = {
   title: string;
   description: string;
   hint: string;
+  raekkefoelge?: number;
 };
 
-const VALG: Valg[] = [
+const VISMA_VALG: Valg[] = [
   {
     to: "/admin/import/visma",
     icon: FileSpreadsheet,
     emoji: "📊",
-    title: "Visma-import",
+    title: "Aktør (debitorliste)",
+    raekkefoelge: 1,
     description:
       "Importér kundekartotek direkte fra Visma ERP. Alle kolonner auto-mappet. Upload din CSV-eksport fra Visma.",
     hint: "Brug dette når du eksporterer debitorliste fra Visma",
   },
+  {
+    to: "/admin/import/faktura",
+    icon: Receipt,
+    emoji: "💰",
+    title: "Faktura Journal",
+    raekkefoelge: 2,
+    description:
+      "Importér rå fakturajournal fra Visma. Aggregeres automatisk pr. lev.nr. × måned × produktgruppe. Idempotent: kør samme periode flere gange uden dubletter.",
+    hint: "Brug dette til at opdatere salgstal og top-varer pr. lokation",
+  },
+  {
+    to: "/admin/import/maskiner",
+    icon: Cog,
+    emoji: "⚙️",
+    title: "Maskinliste + Wittenborg SN-liste",
+    raekkefoelge: 3,
+    description:
+      "Importér Maskinlisten og Wittenborg SN-listen til de separate tabeller machines og machine_enrichment (joinet på serienr). Rækkefølge-uafhængig.",
+    hint: "Brug dette til at synkronisere det rå maskinregister med Wittenborg-data",
+  },
+  {
+    to: "/admin/import/prismatrix",
+    icon: Tag,
+    emoji: "🏷️",
+    title: "Prismatrix",
+    raekkefoelge: 4,
+    description:
+      "Importér prismatrix til agreement_pricing. Header findes automatisk via ankerfelter, og en afledt rabat_kategori (Hele bønner, VAC kaffe, Instant, Maskiner, Tilbehør, Øvrige) beregnes pr. række.",
+    hint: "Brug dette til at synkronisere kundepriser og rabatlinjer",
+  },
+];
+
+const OEVRIGE_VALG: Valg[] = [
   {
     to: "/admin/import/cvr",
     icon: Search,
@@ -36,24 +71,6 @@ const VALG: Valg[] = [
     description:
       "Find nye potentielle kunder direkte i CVR-registret. Filtrer på kommune, branche og virksomhedsform. Ingen fil nødvendig.",
     hint: "Brug dette til at finde nye emner",
-  },
-  {
-    to: "/admin/import/anden",
-    icon: Database,
-    emoji: "📁",
-    title: "Anden fil (manuel mapping) — kun ad hoc",
-    description:
-      "Kun til ad hoc Excel-lister, messekontakter og andre engangs-kilder. Du matcher selv kolonnerne. Aktør-data fra Visma SKAL køres via Visma-import (xlsx) — ellers risikerer du encoding-fejl og manglende datoer.",
-    hint: "Brug IKKE til aktør-eksport fra Visma — brug Visma-import",
-  },
-  {
-    to: "/admin/import/maskiner",
-    icon: Cog,
-    emoji: "⚙️",
-    title: "Maskiner & Wittenborg-enrichment",
-    description:
-      "Importér Maskinlisten og Wittenborg SN-listen til de separate tabeller machines og machine_enrichment (joinet på serienr). Rækkefølge-uafhængig.",
-    hint: "Brug dette til at synkronisere det rå maskinregister med Wittenborg-data",
   },
   {
     to: "/admin/import/aftale-emner",
@@ -65,22 +82,13 @@ const VALG: Valg[] = [
     hint: "Brug dette når en aftale leverer en liste af medlemmer/emner",
   },
   {
-    to: "/admin/import/faktura",
-    icon: Receipt,
-    emoji: "💰",
-    title: "Faktura/salgsdata",
+    to: "/admin/import/anden",
+    icon: Database,
+    emoji: "📁",
+    title: "Anden fil (manuel mapping) — kun ad hoc",
     description:
-      "Importér rå fakturajournal fra Visma. Aggregeres automatisk pr. lev.nr. × måned × produktgruppe. Idempotent: kør samme periode flere gange uden dubletter.",
-    hint: "Brug dette til at opdatere salgstal og top-varer pr. lokation",
-  },
-  {
-    to: "/admin/import/prismatrix",
-    icon: Tag,
-    emoji: "🏷️",
-    title: "Pris- og rabatmatrix",
-    description:
-      "Importér prismatrix til agreement_pricing. Header findes automatisk via ankerfelter, og en afledt rabat_kategori (Hele bønner, VAC kaffe, Instant, Maskiner, Tilbehør, Øvrige) beregnes pr. række.",
-    hint: "Brug dette til at synkronisere kundepriser og rabatlinjer",
+      "Kun til ad hoc Excel-lister, messekontakter og andre engangs-kilder. Du matcher selv kolonnerne. Aktør-data fra Visma SKAL køres via Visma-import (xlsx) — ellers risikerer du encoding-fejl og manglende datoer.",
+    hint: "Brug IKKE til aktør-eksport fra Visma — brug Visma-import",
   },
 ];
 
