@@ -21,6 +21,11 @@ import {
 import { parseProductGroup, isConsumableGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
 import { getCompaniesSuppliedByOthers } from "./relations.functions";
 
+/** PostgREST-filter der begrænser til maskin-/teknikgrupper (16, 17, 18, 24). */
+const MASKIN_KODER_LIKE = Array.from(MASKIN_KODER)
+  .map((k) => `product_group_1.like.${k}*`)
+  .join(",");
+
 
 export const getSalesForCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
