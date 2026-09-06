@@ -286,10 +286,11 @@ function DubletterSide() {
     });
   }, [alle, q, afd, skjulOffentlige, visAfviste]);
 
-  const sikre = filtered.filter((p) => p.identisk_navn);
-  const sandsynlige = filtered
-    .filter((p) => !p.identisk_navn)
-    .sort((a, b) => b.lighed - a.lighed);
+  const sorteret = (k: DubletPar["kategori"]) =>
+    filtered.filter((p) => p.kategori === k).sort((a, b) => b.lighed - a.lighed);
+  const dubletter = sorteret("dublet");
+  const leveringssteder = sorteret("leveringssted");
+  const separateEnheder = sorteret("separat_enhed");
 
   async function afloes(par: DubletPar, afloestAf: string | null) {
     setBusyId(par.doed.id);
