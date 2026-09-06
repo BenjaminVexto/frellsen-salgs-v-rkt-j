@@ -233,6 +233,7 @@ function TilbudskatalogPage() {
                 <TableHead className="w-[110px]">Varenr</TableHead>
                 <TableHead>Beskrivelse</TableHead>
                 <TableHead className="w-[170px]">Kategori</TableHead>
+                <TableHead className="w-[190px]">Visma-varegruppe</TableHead>
                 <TableHead className="w-[150px]">Tetype</TableHead>
                 <TableHead className="w-[110px] text-right">Listepris</TableHead>
                 <TableHead className="w-[80px]">Leje</TableHead>
