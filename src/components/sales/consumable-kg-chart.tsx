@@ -14,14 +14,18 @@ import {
   fmtKr,
   gruppeKodeOf,
   gruppeValgmuligheder,
+  isConsumableGroup,
   KAFFE_KODE,
   kodeLabel,
   type SalesMonthlyRow,
 } from "@/lib/sales-utils";
 import { getMonthlyConsumableProducts } from "@/lib/sales.functions";
 
-function serie(rows: SalesMonthlyRow[], months: number, kode: string) {
-  const out: { period: string; label: string; kg: number }[] = [];
+const ALLE = "ALLE";
+type Enhed = "kg" | "kr";
+
+function serie(rows: SalesMonthlyRow[], months: number, kode: string, enhed: Enhed) {
+  const out: { period: string; label: string; value: number }[] = [];
   const now = new Date();
   // Kun hele måneder — den igangværende måned indgår ikke.
   for (let i = months; i >= 1; i--) {
@@ -30,14 +34,19 @@ function serie(rows: SalesMonthlyRow[], months: number, kode: string) {
     out.push({
       period,
       label: d.toLocaleDateString("da-DK", { month: "short" }),
-      kg: 0,
+      value: 0,
     });
   }
   const idx = new Map(out.map((o, i) => [o.period, i]));
   for (const r of rows) {
-    if (gruppeKodeOf(r.product_group_1) !== kode) continue;
+    const match =
+      kode === ALLE
+        ? isConsumableGroup(r.product_group_1)
+        : gruppeKodeOf(r.product_group_1) === kode;
+    if (!match) continue;
     const i = idx.get(r.period);
-    if (i != null) out[i].kg += Number(r.weight_kg) || 0;
+    if (i != null)
+      out[i].value += (enhed === "kg" ? Number(r.weight_kg) : Number(r.revenue)) || 0;
   }
   return out;
 }
@@ -63,9 +72,12 @@ export function ConsumableKgChart({
   const defaultKode = valg.includes(KAFFE_KODE) ? KAFFE_KODE : (valg[0] ?? KAFFE_KODE);
   const [kode, setKode] = useState<string | null>(null);
   const aktivKode = kode ?? defaultKode;
+  const [enhed, setEnhed] = useState<Enhed>("kg");
 
-  const data = serie(rows, months, aktivKode);
-  const max = Math.max(1, ...data.map((d) => d.kg));
+  const fmtVal = (n: number) => (enhed === "kg" ? fmtKg(n, 1) : fmtKr(n));
+
+  const data = serie(rows, months, aktivKode, enhed);
+  const max = Math.max(1, ...data.map((d) => d.value));
   const [openPeriod, setOpenPeriod] = useState<string | null>(null);
   const clickable = !!locationIds && locationIds.length > 0;
 
@@ -74,16 +86,46 @@ export function ConsumableKgChart({
     queryKey: [
       "monthly-consumable-products",
       openPeriod,
+      aktivKode,
       locationIds?.slice().sort().join(","),
     ],
     queryFn: () =>
-      fetchFn({ data: { locationIds: locationIds ?? [], period: openPeriod! } }),
+      fetchFn({
+        data: {
+          locationIds: locationIds ?? [],
+          period: openPeriod!,
+          gruppeKode: aktivKode === ALLE ? null : aktivKode,
+        },
+      }),
     enabled: !!openPeriod && clickable,
   });
-  const varer = varerQ.data ?? [];
+  const varer = useMemo(() => {
+    const list = varerQ.data ?? [];
+    return list
+      .slice()
+      .sort((a, b) =>
+        enhed === "kg"
+          ? b.weightKg - a.weightKg || b.revenue - a.revenue
+          : b.revenue - a.revenue || b.weightKg - a.weightKg,
+      );
+  }, [varerQ.data, enhed]);
   const harKg = varer.some((v) => v.weightKg > 0);
 
-  const titel = aktivKode === KAFFE_KODE ? "Kg kaffe pr. måned" : `Kg ${kodeLabel(aktivKode, gruppeNavne).toLowerCase()} pr. måned`;
+  const gruppeNavnAktiv = aktivKode === ALLE ? "I alt" : kodeLabel(aktivKode, gruppeNavne);
+  const titel =
+    aktivKode === ALLE
+      ? "I alt pr. måned"
+      : aktivKode === KAFFE_KODE
+        ? enhed === "kg"
+          ? "Kg kaffe pr. måned"
+          : "Kr. kaffe pr. måned"
+        : `${enhed === "kg" ? "Kg" : "Kr."} ${gruppeNavnAktiv.toLowerCase()} pr. måned`;
+
+  const vaelgGruppe = (k: string) => {
+    setKode(k);
+    // Kilo på tværs af grupper kan ikke sammenlignes.
+    if (k === ALLE) setEnhed("kr");
+  };
 
   return (
     <>
@@ -96,24 +138,40 @@ export function ConsumableKgChart({
               {clickable ? " Klik på en søjle for at se varelinjerne." : ""}
             </p>
           </div>
-          {valg.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap gap-1">
-              {valg.map((k) => (
+              {[ALLE, ...valg].map((k) => (
                 <button
                   key={k}
                   type="button"
-                  onClick={() => setKode(k)}
+                  onClick={() => vaelgGruppe(k)}
                   className={`text-xs rounded-full border px-2.5 py-1 transition-colors ${
                     k === aktivKode
                       ? "bg-primary text-primary-foreground border-primary"
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  {kodeLabel(k, gruppeNavne)}
+                  {k === ALLE ? "I alt" : kodeLabel(k, gruppeNavne)}
                 </button>
               ))}
             </div>
-          )}
+            <div className="flex gap-1">
+              {(["kg", "kr"] as Enhed[]).map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => setEnhed(e)}
+                  className={`text-xs rounded-full border px-2.5 py-1 transition-colors ${
+                    e === enhed
+                      ? "bg-secondary text-secondary-foreground border-secondary"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="flex gap-1.5 h-36 mt-3">
           {data.map((d) => (
@@ -126,9 +184,9 @@ export function ConsumableKgChart({
                   className={`w-full bg-primary/60 rounded-t transition-colors ${
                     clickable ? "cursor-pointer hover:bg-primary" : "cursor-default"
                   }`}
-                  style={{ height: `${(d.kg / max) * 100}%`, minHeight: d.kg > 0 ? 2 : 0 }}
-                  title={`${d.label}: ${fmtKg(d.kg, 1)}${clickable ? " — klik for varelinjer" : ""}`}
-                  aria-label={`${d.label}: ${fmtKg(d.kg, 1)}`}
+                  style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value > 0 ? 2 : 0 }}
+                  title={`${d.label}: ${fmtVal(d.value)}${clickable ? " — klik for varelinjer" : ""}`}
+                  aria-label={`${d.label}: ${fmtVal(d.value)}`}
                 />
               </div>
               <span className="text-[10px] text-muted-foreground">{d.label}</span>
@@ -139,6 +197,7 @@ export function ConsumableKgChart({
           Den igangværende måned indgår ikke.
         </p>
       </Card>
+
 
 
       <Dialog open={!!openPeriod} onOpenChange={(o) => !o && setOpenPeriod(null)}>
