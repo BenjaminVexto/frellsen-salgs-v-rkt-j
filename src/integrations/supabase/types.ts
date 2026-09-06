@@ -3000,6 +3000,18 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
       snapshot_forbrug_signal: { Args: never; Returns: number }
       sortiment_daekning: { Args: { _company_id: string }; Returns: Json }
+      te_sortiment_kunde: { Args: { _company_id: string }; Returns: Json }
+      te_sortiment_oversigt: {
+        Args: never
+        Returns: {
+          company_id: string
+          customer_segment_1: string
+          kg_pr_type: Json
+          kg_total: number
+          name: string
+          saelger: string
+        }[]
+      }
     }
     Enums: {
       activity_type:

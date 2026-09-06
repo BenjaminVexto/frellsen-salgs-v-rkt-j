@@ -17,6 +17,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TTokenRouteImport } from './routes/t.$token'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
+import { Route as AuthenticatedTeSortimentRouteImport } from './routes/_authenticated/te-sortiment'
 import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
 import { Route as AuthenticatedSalgsintelligensRouteImport } from './routes/_authenticated/salgsintelligens'
 import { Route as AuthenticatedMinPortefoeljeRouteImport } from './routes/_authenticated/min-portefoelje'
@@ -96,6 +97,12 @@ const AuthenticatedVirksomhederRoute =
   AuthenticatedVirksomhederRouteImport.update({
     id: '/virksomheder',
     path: '/virksomheder',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedTeSortimentRoute =
+  AuthenticatedTeSortimentRouteImport.update({
+    id: '/te-sortiment',
+    path: '/te-sortiment',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSalgsmulighederRoute =
@@ -347,6 +354,7 @@ export interface FileRoutesByFullPath {
   '/min-portefoelje': typeof AuthenticatedMinPortefoeljeRoute
   '/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
+  '/te-sortiment': typeof AuthenticatedTeSortimentRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/t/$token': typeof TTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -396,6 +404,7 @@ export interface FileRoutesByTo {
   '/min-portefoelje': typeof AuthenticatedMinPortefoeljeRoute
   '/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
+  '/te-sortiment': typeof AuthenticatedTeSortimentRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/t/$token': typeof TTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -446,6 +455,7 @@ export interface FileRoutesById {
   '/_authenticated/min-portefoelje': typeof AuthenticatedMinPortefoeljeRoute
   '/_authenticated/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
+  '/_authenticated/te-sortiment': typeof AuthenticatedTeSortimentRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
   '/t/$token': typeof TTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -497,6 +507,7 @@ export interface FileRouteTypes {
     | '/min-portefoelje'
     | '/salgsintelligens'
     | '/salgsmuligheder'
+    | '/te-sortiment'
     | '/virksomheder'
     | '/t/$token'
     | '/.lovable/oauth/consent'
@@ -546,6 +557,7 @@ export interface FileRouteTypes {
     | '/min-portefoelje'
     | '/salgsintelligens'
     | '/salgsmuligheder'
+    | '/te-sortiment'
     | '/virksomheder'
     | '/t/$token'
     | '/.lovable/oauth/consent'
@@ -595,6 +607,7 @@ export interface FileRouteTypes {
     | '/_authenticated/min-portefoelje'
     | '/_authenticated/salgsintelligens'
     | '/_authenticated/salgsmuligheder'
+    | '/_authenticated/te-sortiment'
     | '/_authenticated/virksomheder'
     | '/t/$token'
     | '/.lovable/oauth/consent'
@@ -705,6 +718,13 @@ declare module '@tanstack/react-router' {
       path: '/virksomheder'
       fullPath: '/virksomheder'
       preLoaderRoute: typeof AuthenticatedVirksomhederRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/te-sortiment': {
+      id: '/_authenticated/te-sortiment'
+      path: '/te-sortiment'
+      fullPath: '/te-sortiment'
+      preLoaderRoute: typeof AuthenticatedTeSortimentRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/salgsmuligheder': {
@@ -1028,6 +1048,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMinPortefoeljeRoute: typeof AuthenticatedMinPortefoeljeRoute
   AuthenticatedSalgsintelligensRoute: typeof AuthenticatedSalgsintelligensRoute
   AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
+  AuthenticatedTeSortimentRoute: typeof AuthenticatedTeSortimentRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
   AuthenticatedAdminBrugereRoute: typeof AuthenticatedAdminBrugereRoute
   AuthenticatedAdminCvrDebugRoute: typeof AuthenticatedAdminCvrDebugRoute
@@ -1056,6 +1077,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMinPortefoeljeRoute: AuthenticatedMinPortefoeljeRoute,
   AuthenticatedSalgsintelligensRoute: AuthenticatedSalgsintelligensRoute,
   AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
+  AuthenticatedTeSortimentRoute: AuthenticatedTeSortimentRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,
   AuthenticatedAdminBrugereRoute: AuthenticatedAdminBrugereRoute,
   AuthenticatedAdminCvrDebugRoute: AuthenticatedAdminCvrDebugRoute,

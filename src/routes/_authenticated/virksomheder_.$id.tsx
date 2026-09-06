@@ -94,6 +94,7 @@ import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion } from "@/components/ai-briefing-sektion";
 import { SortimentDaekningSektion } from "@/components/sortiment-daekning-sektion";
+import { TeSortimentSektion } from "@/components/te-sortiment-sektion";
 import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 
 import { getActivityType, labelFor } from "@/lib/activity-types";
@@ -837,6 +838,15 @@ function VirksomhedsKort() {
                   afdelingNr={(company as any).afdeling_nr}
                 />
               )}
+
+              {!afloestAf && (
+                <TeSortimentSektion
+                  companyId={company.id}
+                  afdelingNr={(company as any).afdeling_nr}
+                />
+              )}
+
+
 
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-3">
