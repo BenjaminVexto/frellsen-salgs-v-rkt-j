@@ -451,26 +451,38 @@ function BrugerStyringSide() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Navn</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Rolle</TableHead>
-                <TableHead>Afdelinger</TableHead>
-                <TableHead>Region</TableHead>
-                <TableHead>Sælgernr.</TableHead>
-                <TableHead>Oprettet</TableHead>
-                <TableHead>Aktiv</TableHead>
+                {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                  <TableHead key={key}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(key)}
+                      className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      {SORT_LABELS[key]}
+                      {sortKey === key ? (
+                        sortDir === "asc" ? (
+                          <ArrowUp className="h-3 w-3" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 opacity-30" />
+                      )}
+                    </button>
+                  </TableHead>
+                ))}
                 <TableHead className="text-right">Handlinger</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 && (
+              {sortedRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     Ingen brugere fundet
                   </TableCell>
                 </TableRow>
               )}
-              {rows.map((r) => (
+              {sortedRows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.full_name || "—"}</TableCell>
                   <TableCell>
