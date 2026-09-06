@@ -440,6 +440,7 @@ export type Database = {
           customer_type: Database["public"]["Enums"]["customer_type"]
           cvr: string | null
           cvr_p_enhed_count: number | null
+          dublet_afvist_at: string | null
           ean_number: string | null
           email: string | null
           employees: number | null
@@ -492,6 +493,7 @@ export type Database = {
           customer_type?: Database["public"]["Enums"]["customer_type"]
           cvr?: string | null
           cvr_p_enhed_count?: number | null
+          dublet_afvist_at?: string | null
           ean_number?: string | null
           email?: string | null
           employees?: number | null
@@ -544,6 +546,7 @@ export type Database = {
           customer_type?: Database["public"]["Enums"]["customer_type"]
           cvr?: string | null
           cvr_p_enhed_count?: number | null
+          dublet_afvist_at?: string | null
           ean_number?: string | null
           email?: string | null
           employees?: number | null
@@ -2808,6 +2811,33 @@ export type Database = {
         Args: { _name: string }
         Returns: Database["public"]["Enums"]["agreement_type"]
       }
+      dublet_kandidater: {
+        Args: never
+        Returns: {
+          alive_afdeling_nr: number
+          alive_created_in_visma: string
+          alive_id: string
+          alive_last_varekoeb: string
+          alive_name: string
+          alive_turnover_12m: number
+          alive_visma_id: string
+          alive_zip: string
+          cvr: string
+          dead_afdeling_nr: number
+          dead_afloest_af_company_id: string
+          dead_afvist_at: string
+          dead_binding_status: string
+          dead_created_in_visma: string
+          dead_id: string
+          dead_name: string
+          dead_visma_id: string
+          dead_zip: string
+          lighed: number
+          samme_adresse: boolean
+          samme_postnr: boolean
+        }[]
+      }
+      dublet_navn_norm: { Args: { _name: string }; Returns: string }
       get_public_quote: { Args: { _token: string }; Returns: Json }
       get_quote_floor_discount: {
         Args: { p_company_id: string; p_varenr: string }
