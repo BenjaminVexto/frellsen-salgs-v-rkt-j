@@ -455,6 +455,11 @@ function VirksomhedsKort() {
           <div className="flex items-start justify-between gap-2">
             <h1 className="text-lg font-semibold leading-tight min-w-0 break-words">
               {company.name}
+              {(company as any).visma_enhed && (
+                <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                  · {(company as any).visma_enhed}
+                </span>
+              )}
             </h1>
             <div className="flex flex-col items-end gap-1 shrink-0">
               <CustomerStatusBadge
@@ -545,7 +550,14 @@ function VirksomhedsKort() {
 
           </div>
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h1 className="text-xl font-semibold leading-tight">{company.name}</h1>
+            <h1 className="text-xl font-semibold leading-tight">
+              {company.name}
+              {(company as any).visma_enhed && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  · {(company as any).visma_enhed}
+                </span>
+              )}
+            </h1>
           </div>
           <SourceBadges sources={(company as any).sources} />
           <div className="flex flex-wrap gap-1.5 mt-2">
