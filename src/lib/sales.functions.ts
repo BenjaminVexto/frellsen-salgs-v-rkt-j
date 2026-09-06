@@ -335,37 +335,33 @@ export type MonthActivityRow = {
   created_by_name: string | null;
 };
 
-/** Samme filter som getMyNewActivitiesCount — blot rækkerne bag tallet. */
+/** Samme filter som getMyNewActivitiesCount — blot rækkerne bag tallet. Paget. */
 export const getMyNewActivitiesList = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
-  .handler(async ({ data, context }): Promise<{ rows: MonthActivityRow[] }> => {
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null; offset?: number; limit?: number }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{ rows: MonthActivityRow[]; nextOffset: number | null }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
     const teamScope =
       !!data.teamScope &&
       !data.viewAsUserId &&
       (await isTeamScopeUser(context.supabase, context.userId));
+    const offset = Math.max(0, Number(data.offset) || 0);
+    const limit = Math.min(100, Math.max(1, Number(data.limit) || 100));
     const d = new Date();
     const monthStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
     let q = context.supabase
       .from("activities")
-      .select("id, created_at, activity_type, note, company_id, created_by, companies(name)")
+      .select(
+        "id, created_at, activity_type, note, company_id, created_by, companies(name), profiles!activities_created_by_profiles_fkey(full_name)",
+      )
       .gte("created_at", monthStart)
       .order("created_at", { ascending: false })
-      .limit(2000);
+      .range(offset, offset + limit - 1);
     if (!teamScope) q = q.eq("created_by", effectiveUserId);
     if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
     const { data: rows, error } = await q;
     if (error) throw error;
     const list = (rows ?? []) as any[];
-
-    const userIds = [...new Set(list.map((r) => r.created_by).filter(Boolean))];
-    const { data: profs } = userIds.length
-      ? await context.supabase.from("profiles").select("id, full_name").in("id", userIds)
-      : { data: [] as any[] };
-    const nameById = new Map<string, string>(
-      ((profs ?? []) as any[]).map((p) => [p.id as string, p.full_name as string]),
-    );
 
     return {
       rows: list.map((r) => ({
@@ -376,10 +372,12 @@ export const getMyNewActivitiesList = createServerFn({ method: "POST" })
         company_id: r.company_id,
         company_name: r.companies?.name ?? null,
         created_by: r.created_by,
-        created_by_name: nameById.get(r.created_by) ?? null,
+        created_by_name: r.profiles?.full_name ?? null,
       })),
+      nextOffset: list.length === limit ? offset + limit : null,
     };
   });
+
 
 
 
