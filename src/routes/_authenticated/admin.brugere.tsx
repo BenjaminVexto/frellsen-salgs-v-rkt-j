@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   adminListUsers,
@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Pencil, KeyRound, Mail } from "lucide-react";
+import { Loader2, Plus, Pencil, KeyRound, Mail, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { CvrApiStatusKort } from "@/components/cvr-api-status-kort";
 import { toast } from "sonner";
 
@@ -62,6 +62,28 @@ type Row = {
 };
 type Afdeling = { afdeling_nr: number; navn: string };
 
+/** Kolonner der kan sorteres — alfabetisk for tekst, numerisk for tal/dato. */
+type SortKey =
+  | "full_name"
+  | "email"
+  | "role"
+  | "afdeling"
+  | "region"
+  | "salesperson_no"
+  | "created_at"
+  | "is_active";
+const SORT_LABELS: Record<SortKey, string> = {
+  full_name: "Navn",
+  email: "Email",
+  role: "Rolle",
+  afdeling: "Afdelinger",
+  region: "Region",
+  salesperson_no: "Sælgernr.",
+  created_at: "Oprettet",
+  is_active: "Aktiv",
+};
+
+
 function BrugerStyringSide() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -74,6 +96,8 @@ function BrugerStyringSide() {
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("full_name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   // Afdelingsadgang er en akse for sig — uafhængig af rollen i user_roles.
   const [afdelinger, setAfdelinger] = useState<Afdeling[]>([]);
   const [accessByUser, setAccessByUser] = useState<Record<string, number[]>>({});
@@ -94,6 +118,57 @@ function BrugerStyringSide() {
   const [creating, setCreating] = useState(false);
   const [createAfd, setCreateAfd] = useState<number[]>([]);
   const [createPrimary, setCreatePrimary] = useState<number | null>(null);
+
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir(key === "created_at" || key === "is_active" ? "desc" : "asc");
+    }
+  };
+
+  const sortedRows = useMemo(() => {
+    const roleRank: Record<string, number> = { admin: 0, salgssupport: 1, saelger: 2 };
+    const num = (r: Row): number | null => {
+      switch (sortKey) {
+        case "created_at":
+          return new Date(r.created_at).getTime();
+        case "is_active":
+          return r.is_active ? 1 : 0;
+        case "role":
+          return roleRank[r.role] ?? 99;
+        case "afdeling":
+          return (accessByUser[r.id] ?? [])[0] ?? Number.POSITIVE_INFINITY;
+        default:
+          return null;
+      }
+    };
+    const txt = (r: Row): string => {
+      switch (sortKey) {
+        case "email":
+          return r.email ?? "";
+        case "region":
+          return r.region ?? "";
+        case "salesperson_no":
+          return r.salesperson_no ?? "";
+        default:
+          return r.full_name ?? "";
+      }
+    };
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const na = num(a);
+      if (na !== null) {
+        const nb = num(b) ?? 0;
+        if (na !== nb) return (na - nb) * dir;
+        return (a.full_name ?? "").localeCompare(b.full_name ?? "", "da-DK");
+      }
+      const cmp = txt(a).localeCompare(txt(b), "da-DK", { numeric: true, sensitivity: "base" });
+      if (cmp !== 0) return cmp * dir;
+      return (a.full_name ?? "").localeCompare(b.full_name ?? "", "da-DK");
+    });
+  }, [rows, sortKey, sortDir, accessByUser]);
+
 
   const [editRow, setEditRow] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState({
@@ -376,26 +451,38 @@ function BrugerStyringSide() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Navn</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Rolle</TableHead>
-                <TableHead>Afdelinger</TableHead>
-                <TableHead>Region</TableHead>
-                <TableHead>Sælgernr.</TableHead>
-                <TableHead>Oprettet</TableHead>
-                <TableHead>Aktiv</TableHead>
+                {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                  <TableHead key={key}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(key)}
+                      className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      {SORT_LABELS[key]}
+                      {sortKey === key ? (
+                        sortDir === "asc" ? (
+                          <ArrowUp className="h-3 w-3" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 opacity-30" />
+                      )}
+                    </button>
+                  </TableHead>
+                ))}
                 <TableHead className="text-right">Handlinger</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 && (
+              {sortedRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     Ingen brugere fundet
                   </TableCell>
                 </TableRow>
               )}
-              {rows.map((r) => (
+              {sortedRows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.full_name || "—"}</TableCell>
                   <TableCell>
