@@ -21,6 +21,8 @@ import { recomputeAllCompanyStatuses } from "@/lib/recompute.functions";
 
 import { CvrEnrichmentQueueBadge } from "@/components/cvr-enrichment-queue-badge";
 import { Card } from "@/components/ui/card";
+import { ImportKolonneTjekliste } from "@/components/import-kolonne-tjekliste";
+import { IMPORT_KONTRAKTER } from "@/lib/import-kontrakter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1773,7 +1775,7 @@ function ImportSide() {
       >
         <ArrowLeft className="h-4 w-4 mr-1" /> Vælg anden importtype
       </Link>
-      <h1 className="text-2xl md:text-3xl font-semibold mb-2">Visma-import</h1>
+      <h1 className="text-2xl md:text-3xl font-semibold mb-2">Aktør (debitorliste)</h1>
       <p className="text-sm text-muted-foreground mb-4">
         CSV-eksport fra Visma Debitorliste. Kolonner auto-mappes — du behøver ikke matche manuelt.
       </p>
@@ -1783,7 +1785,12 @@ function ImportSide() {
 
       <Stepper step={step} />
 
-      {step === 1 && <Trin1VismaUpload onFile={handleFile} />}
+      {step === 1 && (
+        <>
+          <Trin1VismaUpload onFile={handleFile} />
+          <ImportKolonneTjekliste kontrakt={IMPORT_KONTRAKTER.aktoer} />
+        </>
+      )}
       {step === 2 && (
         <Trin2VismaConfirm
           report={autoMatchReport}
