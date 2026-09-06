@@ -186,6 +186,8 @@ function TilbudskatalogPage() {
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return rows.filter((r) => {
+      if (gruppeFilter !== "alle" && (r.produktprisgruppe_1 ?? "") !== gruppeFilter)
+        return false;
       if (filter === "tilbudsegnede" && !r.is_tilbudsegnet) return false;
       if (filter === "udgaaede" && r.record_status !== "udgaaet") return false;
       if (filter === "te_uden_type") {
@@ -203,7 +205,18 @@ function TilbudskatalogPage() {
         (r.beskrivelse ?? "").toLowerCase().includes(s)
       );
     });
-  }, [rows, filter, search]);
+  }, [rows, filter, gruppeFilter, search]);
+
+  const gruppeOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (r.produktprisgruppe_1) set.add(r.produktprisgruppe_1);
+    });
+    return Array.from(set).sort(
+      (a, b) => (Number(a) || 0) - (Number(b) || 0) || a.localeCompare(b),
+    );
+  }, [rows]);
+
 
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
