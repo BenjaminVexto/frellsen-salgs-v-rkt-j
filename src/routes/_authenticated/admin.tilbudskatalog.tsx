@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   listProducts,
+  listProductGroupNames,
   updateProductSalesFields,
   KATEGORI_VALUES,
   TE_TYPE_VALUES,
@@ -87,6 +88,7 @@ function TilbudskatalogPage() {
   }, [auth.loading, auth.session, auth.role, navigate]);
 
   const list = useServerFn(listProducts);
+  const listGroups = useServerFn(listProductGroupNames);
   const update = useServerFn(updateProductSalesFields);
   const qc = useQueryClient();
 
@@ -94,6 +96,12 @@ function TilbudskatalogPage() {
     queryKey: ["admin", "products"],
     queryFn: () => list(),
   });
+
+  const groupsQuery = useQuery({
+    queryKey: ["admin", "produktgruppe-navne"],
+    queryFn: () => listGroups(),
+  });
+  const gruppeNavne = groupsQuery.data ?? {};
 
   const mutation = useMutation({
     mutationFn: (input: Record<string, unknown> & { varenr: string }) =>
@@ -225,6 +233,7 @@ function TilbudskatalogPage() {
                 <TableHead className="w-[110px]">Varenr</TableHead>
                 <TableHead>Beskrivelse</TableHead>
                 <TableHead className="w-[170px]">Kategori</TableHead>
+                <TableHead className="w-[190px]">Visma-varegruppe</TableHead>
                 <TableHead className="w-[150px]">Tetype</TableHead>
                 <TableHead className="w-[110px] text-right">Listepris</TableHead>
                 <TableHead className="w-[80px]">Leje</TableHead>
@@ -265,6 +274,17 @@ function TilbudskatalogPage() {
                           </Badge>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {r.produktprisgruppe_1 ? (
+                        <span>
+                          <span className="font-mono">{r.produktprisgruppe_1}</span>
+                          {" · "}
+                          {gruppeNavne[r.produktprisgruppe_1] ?? "Ukendt"}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {r.kategori === "te" ? (
@@ -336,7 +356,7 @@ function TilbudskatalogPage() {
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
                     Ingen varer matcher filteret
                   </TableCell>
                 </TableRow>

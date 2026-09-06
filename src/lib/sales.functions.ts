@@ -765,7 +765,13 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
 
     // Varelinje-historikken starter senere end salgshistorikken. Uden data i hele
     // året-før-vinduet må der ikke vises en sammenligning.
-    const [{ data: minRow }, { data: roller }] = await Promise.all([
+    const { data: firma } = await context.supabase
+      .from("companies")
+      .select("afdeling_nr")
+      .eq("id", data.companyId)
+      .maybeSingle();
+
+    const [{ data: minRow }, { data: roller }, { data: afdNavne }] = await Promise.all([
       context.supabase
         .from("sales_monthly_products")
         .select("period")
@@ -773,11 +779,21 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
         .limit(1)
         .maybeSingle(),
       context.supabase.from("produktgruppe_rolle" as any).select("product_group_1, navn"),
+      firma?.afdeling_nr != null
+        ? context.supabase
+            .from("produktgruppe_navn" as any)
+            .select("product_group_1, navn")
+            .eq("afdeling_nr", firma.afdeling_nr)
+        : Promise.resolve({ data: [] as any[] }),
     ]);
     const varelinjeStart = minRow?.period ? String(minRow.period).slice(0, 10) : null;
     const foerDaekket = !!varelinjeStart && varelinjeStart <= foerFra;
     const gruppeNavne: Record<string, string> = {};
     (roller ?? []).forEach((r: any) => {
+      if (r?.product_group_1 && r?.navn) gruppeNavne[String(r.product_group_1)] = String(r.navn);
+    });
+    // Afdelingsspecifikke navne vinder over de globale
+    (afdNavne ?? []).forEach((r: any) => {
       if (r?.product_group_1 && r?.navn) gruppeNavne[String(r.product_group_1)] = String(r.navn);
     });
 

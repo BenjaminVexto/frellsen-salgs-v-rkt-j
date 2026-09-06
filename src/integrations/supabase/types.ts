@@ -1985,6 +1985,38 @@ export type Database = {
         }
         Relationships: []
       }
+      produktgruppe_navn: {
+        Row: {
+          afdeling_nr: number
+          created_at: string
+          navn: string
+          product_group_1: string
+          updated_at: string
+        }
+        Insert: {
+          afdeling_nr: number
+          created_at?: string
+          navn: string
+          product_group_1: string
+          updated_at?: string
+        }
+        Update: {
+          afdeling_nr?: number
+          created_at?: string
+          navn?: string
+          product_group_1?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produktgruppe_navn_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+        ]
+      }
       produktgruppe_rolle: {
         Row: {
           created_at: string
@@ -2881,6 +2913,10 @@ export type Database = {
         }[]
       }
       get_user_region: { Args: { _user_id: string }; Returns: string }
+      gruppe_navn: {
+        Args: { _afdeling_nr: number; _group: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
