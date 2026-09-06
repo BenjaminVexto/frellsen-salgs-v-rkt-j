@@ -22,6 +22,8 @@ import {
 import { getMonthlyConsumableProducts } from "@/lib/sales.functions";
 
 const ALLE = "ALLE";
+/** Maskiner, vandfiltre og maskindele registreres uden vægt. */
+const MASKIN_TEKNIK_KODER = new Set(["16", "17", "18"]);
 type Enhed = "kg" | "kr";
 
 function serie(rows: SalesMonthlyRow[], months: number, kode: string, enhed: Enhed) {
@@ -74,7 +76,7 @@ export function ConsumableKgChart({
   const aktivKode = kode ?? defaultKode;
   const [enhed, setEnhed] = useState<Enhed>("kg");
 
-  const fmtVal = (n: number) => (enhed === "kg" ? fmtKg(n, 1) : fmtKr(n));
+  
 
   // Maskiner/teknik registreres uden vægt.
   const erMaskinTeknik = MASKIN_TEKNIK_KODER.has(aktivKode);
@@ -82,6 +84,7 @@ export function ConsumableKgChart({
   const harKgIPerioden = kgSerie.some((d) => d.value > 0);
   const kgDeaktiveret = erMaskinTeknik;
   const effektivEnhed: Enhed = kgDeaktiveret ? "kr" : enhed;
+  const fmtVal = (n: number) => (effektivEnhed === "kg" ? fmtKg(n, 1) : fmtKr(n));
 
   const data = useMemo(
     () => serie(rows, months, aktivKode, effektivEnhed),
