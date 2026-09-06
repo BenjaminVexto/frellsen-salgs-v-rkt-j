@@ -379,7 +379,8 @@ function DubletterSide() {
       </div>
 
       <p className="text-xs text-muted-foreground mt-3">
-        {sikre.length} sikre · {sandsynlige.length} sandsynlige · {antalAfvist} afvist ·{" "}
+        {dubletter.length} sandsynlige dubletter · {leveringssteder.length} selvstændige
+        leveringssteder · {separateEnheder.length} separate enheder · {antalAfvist} afvist ·{" "}
         {antalMarkeret} markeret som afløst
       </p>
 
@@ -396,49 +397,57 @@ function DubletterSide() {
 
       {!kandQ.isLoading && (
         <div className="mt-5 space-y-8">
-          <section>
-            <h2 className="text-sm font-medium mb-3">
-              Sikker — identisk navn ({sikre.length})
-            </h2>
-            <div className="space-y-3">
-              {sikre.map((p) => (
-                <ParKort
-                  key={p.doed.id}
-                  par={p}
-                  busy={busyId === p.doed.id}
-                  onAfloes={(v) => afloes(p, v)}
-                  onAfvis={(v) => afvis(p, v)}
-                />
-              ))}
-              {!sikre.length && (
-                <Card className="p-6 text-center text-sm text-muted-foreground">
-                  Ingen par med identisk navn.
-                </Card>
-              )}
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-sm font-medium mb-3">
-              Sandsynlig ({sandsynlige.length})
-            </h2>
-            <div className="space-y-3">
-              {sandsynlige.map((p) => (
-                <ParKort
-                  key={p.doed.id}
-                  par={p}
-                  busy={busyId === p.doed.id}
-                  onAfloes={(v) => afloes(p, v)}
-                  onAfvis={(v) => afvis(p, v)}
-                />
-              ))}
-              {!sandsynlige.length && (
-                <Card className="p-6 text-center text-sm text-muted-foreground">
-                  Ingen sandsynlige par.
-                </Card>
-              )}
-            </div>
-          </section>
+          {(
+            [
+              {
+                key: "dublet",
+                titel: "Sandsynlig dublet",
+                beskrivelse:
+                  "Samme adresse og samme (eller ingen) enhed — den gamle post er formodentlig erstattet.",
+                liste: dubletter,
+                tom: "Ingen sandsynlige dubletter.",
+              },
+              {
+                key: "leveringssted",
+                titel: "Selvstændigt leveringssted",
+                beskrivelse:
+                  "Forskellig adresse — som regel to reelle adresser under samme CVR.",
+                liste: leveringssteder,
+                tom: "Ingen selvstændige leveringssteder.",
+              },
+              {
+                key: "separat_enhed",
+                titel: "Separat enhed på samme adresse",
+                beskrivelse:
+                  "Samme adresse, men forskellig enhed i Visma — afregnes hver for sig.",
+                liste: separateEnheder,
+                tom: "Ingen separate enheder.",
+              },
+            ] as const
+          ).map((sek) => (
+            <section key={sek.key}>
+              <h2 className="text-sm font-medium">
+                {sek.titel} ({sek.liste.length})
+              </h2>
+              <p className="text-xs text-muted-foreground mb-3">{sek.beskrivelse}</p>
+              <div className="space-y-3">
+                {sek.liste.map((p) => (
+                  <ParKort
+                    key={p.doed.id}
+                    par={p}
+                    busy={busyId === p.doed.id}
+                    onAfloes={(v) => afloes(p, v)}
+                    onAfvis={(v) => afvis(p, v)}
+                  />
+                ))}
+                {!sek.liste.length && (
+                  <Card className="p-6 text-center text-sm text-muted-foreground">
+                    {sek.tom}
+                  </Card>
+                )}
+              </div>
+            </section>
+          ))}
         </div>
       )}
     </div>
