@@ -2857,6 +2857,14 @@ export type Database = {
         Returns: boolean
       }
       classify_te_types: { Args: never; Returns: number }
+      company_sales_summary: {
+        Args: { _company_ids: string[] }
+        Returns: {
+          company_id: string
+          last_purchase: string
+          revenue_12m: number
+        }[]
+      }
       create_quote_draft: {
         Args: {
           _company_id: string
@@ -2935,6 +2943,27 @@ export type Database = {
           _name: string
         }
         Returns: boolean
+      }
+      location_sales_summary: {
+        Args: { _location_ids: string[] }
+        Returns: {
+          last_period: string
+          last_purchase: string
+          location_id: string
+          revenue_12m: number
+        }[]
+      }
+      monthly_revenue_totals: {
+        Args: {
+          _afdeling_nr?: number
+          _company_ids?: string[]
+          _periods: string[]
+        }
+        Returns: {
+          companies_with_sales: number
+          period: string
+          revenue: number
+        }[]
       }
       my_afdelinger: { Args: never; Returns: number[] }
       penhed_sync_candidates: {
