@@ -500,7 +500,7 @@ export async function parseAndAggregate(
     });
   });
 
-  // Group monthly top products by (afdeling, delivery, period), top 15 per group
+  // Group monthly products by (afdeling, delivery, period) — gem ALLE varelinjer
   const byDeliveryPeriod = new Map<
     string,
     Array<TopProductMonthlyAcc & { delivery: string; varenr: string; afdeling: number }>
@@ -514,7 +514,7 @@ export async function parseAndAggregate(
   const topProductsMonthly: TopProductMonthlyRow[] = [];
   byDeliveryPeriod.forEach((arr) => {
     arr.sort((a, b) => b.revenue - a.revenue);
-    arr.slice(0, 15).forEach((t) => {
+    arr.forEach((t) => {
       topProductsMonthly.push({
         visma_delivery_no: t.delivery,
         afdeling_nr: t.afdeling,
