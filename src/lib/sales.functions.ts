@@ -294,7 +294,7 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
 
     return {
       revenue,
-      companies: compsWithSales.size,
+      companies,
       period,
       revenueLastYear,
       periodLastYear,
