@@ -48,6 +48,48 @@ export const Route = createFileRoute("/_authenticated/admin/tilbudskatalog")({
 
 type Filter = "alle" | "tilbudsegnede" | "udgaaede" | "te_uden_type";
 
+function SortHead({
+  sortKey,
+  active,
+  dir,
+  onSort,
+  className,
+  align = "left",
+  children,
+}: {
+  sortKey: SortKey;
+  active: SortKey;
+  dir: "asc" | "desc";
+  onSort: (k: SortKey) => void;
+  className?: string;
+  align?: "left" | "right" | "center";
+  children: React.ReactNode;
+}) {
+  const isActive = active === sortKey;
+  const justify =
+    align === "right"
+      ? "justify-end"
+      : align === "center"
+        ? "justify-center"
+        : "justify-start";
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`flex w-full items-center gap-1 ${justify} hover:text-foreground transition-colors ${
+          isActive ? "text-foreground font-medium" : ""
+        }`}
+      >
+        <span>{children}</span>
+        <span className="text-xs text-muted-foreground">
+          {isActive ? (dir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </TableHead>
+  );
+}
+
 type SortKey =
   | "varenr"
   | "beskrivelse"
