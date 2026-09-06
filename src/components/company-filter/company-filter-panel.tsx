@@ -409,6 +409,21 @@ export function CompanyFilterPanel({
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center gap-2 pt-5">
+              <Checkbox
+                id="vis-afloeste"
+                checked={filters.visAfloeste}
+                onCheckedChange={(v) =>
+                  setFilters((f) => ({ ...f, visAfloeste: v === true }))
+                }
+              />
+              <Label
+                htmlFor="vis-afloeste"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Vis afløste
+              </Label>
+            </div>
           </div>
         </Card>
       </CollapsibleContent>

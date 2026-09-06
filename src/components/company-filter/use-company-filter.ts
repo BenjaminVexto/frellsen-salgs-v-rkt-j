@@ -13,7 +13,7 @@ import {
 } from "./types";
 
 const COMPANY_COLS =
-  "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,afdeling_nr,last_purchase_date,last_sales_date,last_consumable_sales_date,has_active_equipment,employees,is_public,binding_status,customer_category,assigned_to,visma_id,visma_delivery_id";
+  "id,name,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,afdeling_nr,last_purchase_date,last_sales_date,last_consumable_sales_date,has_active_equipment,employees,is_public,binding_status,customer_category,afloest_af_company_id,assigned_to,visma_id,visma_delivery_id";
 
 function matchesMachines(eq: EquipmentSummary | undefined, modes: string[]) {
   if (!modes.length) return true;
@@ -263,6 +263,8 @@ export function useCompanyFilter({
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
+      // Afløste debitorposter er som standard skjult (kun synlige via "Vis afløste").
+      if (!filters.visAfloeste && (r as any).afloest_af_company_id) return false;
       if (q) {
         const rawQuery = q.trim();
         if (rawQuery) {

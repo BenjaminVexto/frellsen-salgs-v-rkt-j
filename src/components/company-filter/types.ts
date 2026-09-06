@@ -21,6 +21,7 @@ export type CompanyRow = {
   customer_category: string | null;
   visma_id?: string | null;
   visma_delivery_id?: string | null;
+  afloest_af_company_id?: string | null;
 };
 
 export type AssignmentRow = { company_id: string; assigned_to: string | null };
@@ -56,6 +57,7 @@ export type FilterState = {
   lastPurchase: string[];
   employeeRanges: string[];
   binding: "all" | "offentlig_aftale" | "frit_salg" | "intern_privat" | "unknown";
+  visAfloeste: boolean;
 };
 
 export const DEFAULT_FILTERS: FilterState = {
@@ -72,6 +74,7 @@ export const DEFAULT_FILTERS: FilterState = {
   lastPurchase: [],
   employeeRanges: [],
   binding: "all",
+  visAfloeste: false,
 };
 
 export function normalizeFilterConfig(input: any): FilterState {
@@ -99,6 +102,7 @@ export function isFilterActive(f: FilterState): boolean {
     f.zipTo !== "" ||
     f.lastPurchase.length > 0 ||
     f.employeeRanges.length > 0 ||
-    f.binding !== "all"
+    f.binding !== "all" ||
+    f.visAfloeste
   );
 }
