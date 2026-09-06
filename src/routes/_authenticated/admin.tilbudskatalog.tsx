@@ -335,6 +335,20 @@ function TilbudskatalogPage() {
             </button>
           ))}
         </div>
+        <Select value={gruppeFilter} onValueChange={setGruppeFilter}>
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="Alle varegrupper" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[320px]">
+            <SelectItem value="alle">Alle varegrupper</SelectItem>
+            {gruppeOptions.map((g) => (
+              <SelectItem key={g} value={g}>
+                {g} — {gruppeNavne[g] ?? "Ukendt"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <div className="ml-auto text-sm text-muted-foreground">
           Viser {filtered.length} af {rows.length}
         </div>
