@@ -423,6 +423,7 @@ export type Database = {
         Row: {
           address: string | null
           afdeling_nr: number
+          afloest_af_company_id: string | null
           assigned_to: string | null
           bi_branch_1_code: string | null
           bi_branch_2_code: string | null
@@ -474,6 +475,7 @@ export type Database = {
         Insert: {
           address?: string | null
           afdeling_nr?: number
+          afloest_af_company_id?: string | null
           assigned_to?: string | null
           bi_branch_1_code?: string | null
           bi_branch_2_code?: string | null
@@ -525,6 +527,7 @@ export type Database = {
         Update: {
           address?: string | null
           afdeling_nr?: number
+          afloest_af_company_id?: string | null
           assigned_to?: string | null
           bi_branch_1_code?: string | null
           bi_branch_2_code?: string | null
@@ -580,6 +583,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "afdeling"
             referencedColumns: ["afdeling_nr"]
+          },
+          {
+            foreignKeyName: "companies_afloest_af_company_id_fkey"
+            columns: ["afloest_af_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companies_afloest_af_company_id_fkey"
+            columns: ["afloest_af_company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "companies_import_batch_id_fkey"

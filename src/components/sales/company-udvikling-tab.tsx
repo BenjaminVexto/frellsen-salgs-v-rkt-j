@@ -27,10 +27,13 @@ export function CompanyUdviklingTab({
   companyId,
   locations,
   locationIds,
+  skjulSignaler,
 }: {
   companyId: string;
   locations: Location[];
   locationIds?: string[];
+  /** Afløst debitorpost: forbrugssignal og advarsler skjules. */
+  skjulSignaler?: boolean;
 }) {
   const fetchSales = useServerFn(getSalesForCompany);
   const fetchDetaljer = useServerFn(getUdviklingDetaljer);
@@ -62,7 +65,9 @@ export function CompanyUdviklingTab({
 
   return (
     <div className="space-y-4">
-      <ForbrugSignalSektion companyId={companyId} locations={locations} />
+      {!skjulSignaler && (
+        <ForbrugSignalSektion companyId={companyId} locations={locations} />
+      )}
 
       <SortimentsbreddeKort
         loading={detQ.isLoading}
@@ -80,7 +85,7 @@ export function CompanyUdviklingTab({
 
       <RevenueSparkline rows={rows} locationIds={locationIds} />
 
-      <SalesSignalBox rows={rows} />
+      {!skjulSignaler && <SalesSignalBox rows={rows} />}
 
       <p className="text-xs text-muted-foreground">
         Sammenligninger på denne fane er 6 hele måneder mod samme 6 måneder året før. Den

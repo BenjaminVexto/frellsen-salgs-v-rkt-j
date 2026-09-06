@@ -31,6 +31,7 @@ import {
   ChevronDown,
   Eye,
   MoreHorizontal,
+  Copy,
 } from "lucide-react";
 import {
   Sheet,
@@ -152,6 +153,7 @@ function AuthenticatedShell() {
     { to: "/admin/import", label: "Import", icon: Upload },
     { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
+    { to: "/admin/dubletter", label: "Dubletter", icon: Copy },
     { to: "/admin/overblik", label: "Admin-overblik", icon: BarChart3 },
   ];
 
