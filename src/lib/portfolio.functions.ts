@@ -237,6 +237,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           .from("companies")
           .select("id, customer_segment_3")
           .range(from, to);
+        // Afløste debitorposter indgår ikke i porteføljestatistik.
+        q = q.is("afloest_af_company_id", null);
         if (appliedSellerId) q = q.eq("assigned_to", appliedSellerId);
         else q = q.not("assigned_to", "is", null);
         if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);

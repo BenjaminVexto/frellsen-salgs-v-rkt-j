@@ -126,6 +126,7 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
       const { data: comps, error } = await context.supabase
         .from("companies")
         .select("id, name, city")
+        .is("afloest_af_company_id", null)
         .in(
           "id",
           kept.slice(i, i + 150).map((r) => r.company_id),
@@ -134,7 +135,9 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
       (comps ?? []).forEach((c: any) => compMap.set(c.id, { name: c.name, city: c.city ?? null }));
     }
 
+    // Afløste debitorposter blev filtreret væk i companies-opslaget ovenfor.
     const customers: FaldendeKunde[] = kept
+      .filter((r) => compMap.has(r.company_id))
       .map((r) => ({
         company_id: r.company_id as string,
         navn: compMap.get(r.company_id)?.name ?? "",
@@ -383,6 +386,7 @@ export const getPasseretRytme = createServerFn({ method: "POST" })
       const { data: comps, error } = await context.supabase
         .from("companies")
         .select("id, name, city")
+        .is("afloest_af_company_id", null)
         .in(
           "id",
           kandidater.slice(i, i + 150).map((r) => r.company_id),
@@ -392,7 +396,9 @@ export const getPasseretRytme = createServerFn({ method: "POST" })
     }
 
     return {
-      customers: kandidater.map((r) => ({
+      customers: kandidater
+        .filter((r) => compMap.has(r.company_id))
+        .map((r) => ({
         company_id: r.company_id,
         navn: compMap.get(r.company_id)?.name ?? "",
         by: compMap.get(r.company_id)?.city ?? null,
