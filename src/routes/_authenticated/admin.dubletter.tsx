@@ -93,7 +93,16 @@ function PostKolonne({
       >
         {post.name}
       </Link>
+      {post.visma_enhed && (
+        <div className="mt-1 text-xs font-medium text-foreground truncate">
+          Enhed: {post.visma_enhed}
+        </div>
+      )}
       <dl className="mt-2 text-xs text-muted-foreground space-y-0.5">
+        <div className="truncate">
+          {post.address ?? "—"}
+          {post.zip ? ` · ${post.zip}` : ""}
+        </div>
         <div>Visma-nr. {post.visma_id ?? "—"}</div>
         <div>Oprettet i Visma {fmtDato(post.created_in_visma)}</div>
         <div>Sidste varekøb {fmtDato(post.sidste_varekoeb)}</div>
@@ -118,10 +127,24 @@ function ParKort({
   if (par.identisk_navn) begrundelser.push("identisk navn");
   else begrundelser.push(`navnelighed ${Math.round(par.lighed * 100)} %`);
   if (par.samme_postnr) begrundelser.push("samme postnummer");
-  if (par.samme_adresse) begrundelser.push("samme adresse");
+
+  if (par.kategori === "leveringssted") {
+    begrundelser.push("forskellig adresse");
+  } else if (par.kategori === "separat_enhed") {
+    begrundelser.push(
+      `samme adresse, men forskellig enhed: ${par.doed.visma_enhed} vs. ${par.aktiv.visma_enhed}`,
+    );
+  } else {
+    begrundelser.push(
+      par.doed.visma_enhed || par.aktiv.visma_enhed
+        ? `samme adresse og samme enhed${par.doed.visma_enhed ? `: ${par.doed.visma_enhed}` : ""}`
+        : "samme adresse, ingen enhed angivet",
+    );
+  }
 
   const markeret = !!par.afloest_af_company_id;
   const afvist = !!par.afvist_at;
+  const dubletPrimaer = par.kategori === "dublet";
 
   return (
     <Card className="p-4">
@@ -135,7 +158,7 @@ function ParKort({
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
         <p className="text-xs text-muted-foreground">
-          CVR {par.cvr} · match på {begrundelser.join(", ")}
+          CVR {par.cvr} · {begrundelser.join(", ")}
           {markeret && (
             <>
               {" · "}
@@ -145,32 +168,63 @@ function ParKort({
           {afvist && (
             <>
               {" · "}
-              <span className="text-foreground">afvist som dublet</span>
+              <span className="text-foreground">
+                {dubletPrimaer ? "afvist som dublet" : "markeret som selvstændigt"}
+              </span>
             </>
           )}
         </p>
         <div className="flex flex-wrap gap-2">
-          {markeret ? (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => onAfloes(null)}>
-              <Undo2 className="h-4 w-4 mr-1.5" /> Fortryd afløsning
+          {dubletPrimaer ? (
+            markeret ? (
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => onAfloes(null)}>
+                <Undo2 className="h-4 w-4 mr-1.5" /> Fortryd afløsning
+              </Button>
+            ) : (
+              <Button size="sm" disabled={busy || afvist} onClick={() => onAfloes(par.aktiv.id)}>
+                Markér som afløst
+              </Button>
+            )
+          ) : afvist ? (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => onAfvis(false)}>
+              <Undo2 className="h-4 w-4 mr-1.5" /> Fortryd
             </Button>
           ) : (
+            <Button size="sm" disabled={busy || markeret} onClick={() => onAfvis(true)}>
+              Selvstændigt leveringssted
+            </Button>
+          )}
+
+          {!dubletPrimaer && !afvist && !markeret && (
             <Button
               size="sm"
-              disabled={busy || afvist}
+              variant="outline"
+              disabled={busy}
               onClick={() => onAfloes(par.aktiv.id)}
             >
               Markér som afløst
             </Button>
           )}
-          {afvist ? (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => onAfvis(false)}>
-              <Undo2 className="h-4 w-4 mr-1.5" /> Fortryd afvisning
-            </Button>
-          ) : (
+
+          {dubletPrimaer &&
+            (afvist ? (
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => onAfvis(false)}>
+                <Undo2 className="h-4 w-4 mr-1.5" /> Fortryd afvisning
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy || markeret}
+                onClick={() => onAfvis(true)}
+              >
+                <Ban className="h-4 w-4 mr-1.5" /> Ikke en dublet
+              </Button>
+            ))}
+          {!dubletPrimaer && !afvist && (
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               disabled={busy || markeret}
               onClick={() => onAfvis(true)}
             >
