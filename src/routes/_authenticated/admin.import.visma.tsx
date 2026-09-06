@@ -1783,7 +1783,12 @@ function ImportSide() {
 
       <Stepper step={step} />
 
-      {step === 1 && <Trin1VismaUpload onFile={handleFile} />}
+      {step === 1 && (
+        <>
+          <Trin1VismaUpload onFile={handleFile} />
+          <ImportKolonneTjekliste kontrakt={IMPORT_KONTRAKTER.aktoer} />
+        </>
+      )}
       {step === 2 && (
         <Trin2VismaConfirm
           report={autoMatchReport}
