@@ -160,6 +160,49 @@ function TilbudskatalogPage() {
     });
   }, [rows, filter, search]);
 
+  const sorted = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const val = (r: ProductRow): string | number => {
+      switch (sortKey) {
+        case "varenr":
+          return r.varenr.toLowerCase();
+        case "beskrivelse":
+          return (r.beskrivelse ?? "").toLowerCase();
+        case "kategori":
+          return (KATEGORI_LABEL[r.kategori ?? ""] ?? r.kategori ?? "").toLowerCase();
+        case "gruppe": {
+          const g = r.produktprisgruppe_1;
+          if (!g) return "";
+          const num = Number(g);
+          return Number.isFinite(num) ? num : g.toLowerCase();
+        }
+        case "te_type":
+          return (TE_TYPE_LABEL[r.te_type ?? ""] ?? "").toLowerCase();
+        case "listepris":
+          return r.listepris ?? -1;
+        case "kan_lejes":
+          return r.kan_lejes ? 1 : 0;
+        case "record_status":
+          return r.record_status.toLowerCase();
+        case "is_tilbudsegnet":
+          return r.is_tilbudsegnet ? 1 : 0;
+      }
+    };
+    return [...filtered].sort((a, b) => {
+      const av = val(a);
+      const bv = val(b);
+      if (typeof av === "number" && typeof bv === "number") {
+        return (av - bv) * dir;
+      }
+      const cmp = String(av).localeCompare(String(bv), "da-DK", {
+        numeric: true,
+        sensitivity: "base",
+      });
+      if (cmp !== 0) return cmp * dir;
+      return a.varenr.localeCompare(b.varenr, "da-DK", { numeric: true });
+    });
+  }, [filtered, sortKey, sortDir]);
+
   const stats = useMemo(() => {
     const aktive = rows.filter((r) => r.record_status === "aktiv").length;
     const tilbud = rows.filter((r) => r.is_tilbudsegnet).length;
