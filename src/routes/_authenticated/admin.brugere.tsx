@@ -92,6 +92,8 @@ function BrugerStyringSide() {
     salesperson_no: "",
   });
   const [creating, setCreating] = useState(false);
+  const [createAfd, setCreateAfd] = useState<number[]>([]);
+  const [createPrimary, setCreatePrimary] = useState<number | null>(null);
 
   const [editRow, setEditRow] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState({
@@ -152,14 +154,70 @@ function BrugerStyringSide() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.role]);
 
+  /**
+   * Gemmer afdelingsadgang + primær afdeling for en bruger.
+   * Bruges både ved oprettelse og redigering.
+   */
+  const saveAfdelingAccess = async (
+    userId: string,
+    afdeling: number[],
+    primaryWanted: number | null,
+  ): Promise<number | null> => {
+    const current = accessByUser[userId] ?? [];
+    const toAdd = afdeling.filter((n) => !current.includes(n));
+    const toRemove = current.filter((n) => !afdeling.includes(n));
+    if (toRemove.length) {
+      const { error } = await supabase
+        .from("user_afdeling_access")
+        .delete()
+        .eq("user_id", userId)
+        .in("afdeling_nr", toRemove);
+      if (error) throw error;
+    }
+    if (toAdd.length) {
+      const { error } = await supabase
+        .from("user_afdeling_access")
+        .insert(toAdd.map((nr) => ({ user_id: userId, afdeling_nr: nr })));
+      if (error) throw error;
+    }
+    const primary =
+      primaryWanted != null && afdeling.includes(primaryWanted) ? primaryWanted : (afdeling[0] ?? null);
+    const { error: pErr } = await supabase
+      .from("profiles")
+      .update({ primary_afdeling_nr: primary })
+      .eq("id", userId);
+    if (pErr) throw pErr;
+    setAccessByUser((prev) => ({ ...prev, [userId]: [...afdeling] }));
+    setPrimaryByUser((prev) => ({ ...prev, [userId]: primary }));
+    return primary;
+  };
+
+  /** Primær afdeling skal altid være én af de valgte afdelinger. */
+  const toggleCreateAfd = (nr: number, on: boolean) => {
+    const next = on ? [...createAfd, nr].sort((a, b) => a - b) : createAfd.filter((x) => x !== nr);
+    setCreateAfd(next);
+    if (createPrimary != null && !next.includes(createPrimary)) {
+      setCreatePrimary(next[0] ?? null);
+    } else if (createPrimary == null && next.length) {
+      setCreatePrimary(next[0]);
+    }
+  };
+
   const onCreate = async () => {
     if (!createForm.full_name.trim() || !createForm.email.trim() || createForm.password.length < 8) {
       toast.error("Udfyld navn, email og adgangskode (min. 8 tegn)");
       return;
     }
+    if (
+      (createForm.role === "saelger" || createForm.role === "salgssupport") &&
+      createAfd.length === 0
+    ) {
+      toast.error("Vælg mindst én afdeling");
+      return;
+    }
     setCreating(true);
     try {
-      await createFn({
+      const created = await createFn({
         data: {
           ...createForm,
           region: createForm.region || null,
@@ -169,9 +227,12 @@ function BrugerStyringSide() {
               : null,
         },
       });
+      await saveAfdelingAccess((created as { id: string }).id, createAfd, createPrimary);
       toast.success("Bruger oprettet");
       setCreateOpen(false);
       setCreateForm({ full_name: "", email: "", password: "", role: "saelger", region: "", salesperson_no: "" });
+      setCreateAfd([]);
+      setCreatePrimary(null);
       await load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Fejl ved oprettelse");
@@ -179,6 +240,7 @@ function BrugerStyringSide() {
       setCreating(false);
     }
   };
+
 
   const openEdit = (r: Row) => {
     setEditRow(r);
@@ -207,31 +269,7 @@ function BrugerStyringSide() {
     if (!editRow) return;
     setAfdSaving(true);
     try {
-      const current = accessByUser[editRow.id] ?? [];
-      const toAdd = editAfd.filter((n) => !current.includes(n));
-      const toRemove = current.filter((n) => !editAfd.includes(n));
-      if (toRemove.length) {
-        const { error } = await supabase
-          .from("user_afdeling_access")
-          .delete()
-          .eq("user_id", editRow.id)
-          .in("afdeling_nr", toRemove);
-        if (error) throw error;
-      }
-      if (toAdd.length) {
-        const { error } = await supabase
-          .from("user_afdeling_access")
-          .insert(toAdd.map((nr) => ({ user_id: editRow.id, afdeling_nr: nr })));
-        if (error) throw error;
-      }
-      const primary = editPrimary != null && editAfd.includes(editPrimary) ? editPrimary : (editAfd[0] ?? null);
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({ primary_afdeling_nr: primary })
-        .eq("id", editRow.id);
-      if (pErr) throw pErr;
-      setAccessByUser((prev) => ({ ...prev, [editRow.id]: [...editAfd] }));
-      setPrimaryByUser((prev) => ({ ...prev, [editRow.id]: primary }));
+      const primary = await saveAfdelingAccess(editRow.id, editAfd, editPrimary);
       setEditPrimary(primary);
       toast.success("Afdelingsadgang opdateret");
     } catch (e: unknown) {
@@ -473,6 +511,51 @@ function BrugerStyringSide() {
                 </p>
               </div>
             )}
+            <div className="border-t pt-4 space-y-3">
+              <div>
+                <Label>Afdelingsadgang</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Rolle og afdelingsadgang er uafhængige. En bruger kan have flere afdelinger.
+                </p>
+                {createForm.role === "admin" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Administratorer har adgang til <strong>alle</strong> afdelinger uanset afkrydsning herunder.
+                  </p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {afdelinger.map((a) => (
+                  <label key={a.afdeling_nr} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={createAfd.includes(a.afdeling_nr)}
+                      onCheckedChange={(v) => toggleCreateAfd(a.afdeling_nr, v === true)}
+                    />
+                    {a.afdeling_nr} — {a.navn}
+                  </label>
+                ))}
+              </div>
+              <div>
+                <Label>Primær afdeling</Label>
+                <Select
+                  value={createPrimary != null ? String(createPrimary) : ""}
+                  onValueChange={(v) => setCreatePrimary(v ? Number(v) : null)}
+                  disabled={createAfd.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Vælg primær afdeling" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {afdelinger
+                      .filter((a) => createAfd.includes(a.afdeling_nr))
+                      .map((a) => (
+                        <SelectItem key={a.afdeling_nr} value={String(a.afdeling_nr)}>
+                          {a.afdeling_nr} — {a.navn}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annullér</Button>
