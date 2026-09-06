@@ -356,7 +356,7 @@ function TilbudskatalogPage() {
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
                     Ingen varer matcher filteret
                   </TableCell>
                 </TableRow>
