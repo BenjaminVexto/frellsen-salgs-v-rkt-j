@@ -297,7 +297,7 @@ function TilbudskatalogPage() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
-
+                    <TableCell className="text-right tabular-nums">
                       {formatKr(r.listepris)}
                     </TableCell>
                     <TableCell>
