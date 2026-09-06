@@ -74,6 +74,8 @@ function BrugerStyringSide() {
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("full_name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   // Afdelingsadgang er en akse for sig — uafhængig af rollen i user_roles.
   const [afdelinger, setAfdelinger] = useState<Afdeling[]>([]);
   const [accessByUser, setAccessByUser] = useState<Record<string, number[]>>({});
