@@ -187,33 +187,19 @@ export const getLocationSalesSummary = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<Record<string, { revenue12m: number; lastPeriod: string | null; lastPurchase: string | null }>> => {
     if (data.locationIds.length === 0) return {};
-    const cutoff = new Date();
-    cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
-    cutoff.setUTCDate(1);
-    const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
-
+    // Summeringen sker i databasen (SECURITY INVOKER, så RLS/afdelingsadgang gælder).
+    const { data: rows, error } = await (context.supabase as any).rpc("location_sales_summary", {
+      _location_ids: data.locationIds,
+    });
+    if (error) throw error;
     const out: Record<string, { revenue12m: number; lastPeriod: string | null; lastPurchase: string | null }> = {};
-    // Hele historikken hentes, så "sidst købt" også dækker lokationer der ikke
-    // har købt i 12 mdr. Omsætningen tælles kun for de seneste 12 mdr.
-    const rows = await fetchAllInChunks(data.locationIds, 100, (slice, from, to) =>
-      context.supabase
-        .from("sales_monthly")
-        .select("location_id, period, revenue, last_invoice_date")
-        .in("location_id", slice)
-        .range(from, to),
-    );
-    rows.forEach((r: any) => {
+    ((rows ?? []) as any[]).forEach((r) => {
       if (!r.location_id) return;
-      const cur = out[r.location_id] ?? { revenue12m: 0, lastPeriod: null, lastPurchase: null };
-      const rev = Number(r.revenue) || 0;
-      if (r.period >= cutoffStr) cur.revenue12m += rev;
-      if (rev > 0) {
-        if (!cur.lastPeriod || r.period > cur.lastPeriod) cur.lastPeriod = r.period;
-        // Dagspræcist når fakturadatoen findes, ellers månedens 1.
-        const d = r.last_invoice_date ?? r.period;
-        if (d && (!cur.lastPurchase || d > cur.lastPurchase)) cur.lastPurchase = d;
-      }
-      out[r.location_id] = cur;
+      out[r.location_id] = {
+        revenue12m: Number(r.revenue_12m) || 0,
+        lastPeriod: r.last_period ?? null,
+        lastPurchase: r.last_purchase ?? null,
+      };
     });
     return out;
   });
@@ -228,32 +214,21 @@ export const getCompanySalesSummary = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<Record<string, { revenue12m: number; lastPurchase: string | null }>> => {
     if (data.companyIds.length === 0) return {};
-    const cutoff = new Date();
-    cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
-    cutoff.setUTCDate(1);
-    const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
-
+    const { data: rows, error } = await (context.supabase as any).rpc("company_sales_summary", {
+      _company_ids: data.companyIds,
+    });
+    if (error) throw error;
     const out: Record<string, { revenue12m: number; lastPurchase: string | null }> = {};
-    const rows = await fetchAllInChunks(data.companyIds, 100, (slice, from, to) =>
-      context.supabase
-        .from("sales_monthly")
-        .select("company_id, period, revenue, last_invoice_date")
-        .in("company_id", slice)
-        .range(from, to),
-    );
-    rows.forEach((r: any) => {
+    ((rows ?? []) as any[]).forEach((r) => {
       if (!r.company_id) return;
-      const cur = out[r.company_id] ?? { revenue12m: 0, lastPurchase: null };
-      const rev = Number(r.revenue) || 0;
-      if (r.period >= cutoffStr) cur.revenue12m += rev;
-      if (rev > 0) {
-        const d = r.last_invoice_date ?? r.period;
-        if (d && (!cur.lastPurchase || d > cur.lastPurchase)) cur.lastPurchase = d;
-      }
-      out[r.company_id] = cur;
+      out[r.company_id] = {
+        revenue12m: Number(r.revenue_12m) || 0,
+        lastPurchase: r.last_purchase ?? null,
+      };
     });
     return out;
   });
+
 
 
 
@@ -283,54 +258,43 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
 
     let revenue = 0;
     let revenueLastYear = 0;
-    const compsWithSales = new Set<string>();
+    let companies = 0;
 
+    // Summeringen sker i databasen. Funktionen er SECURITY INVOKER, så en sælger
+    // kun kan se egne afdelinger; team-scope bruger som før admin-klienten.
+    let rpcRes: any;
     if (teamScope) {
-      const client = supabaseAdmin;
-      const rows = await fetchAllSalesMonthlyRows((from, to) => {
-        let q = client
-          .from("sales_monthly")
-          .select("company_id, period, revenue")
-          .in("period", [period, periodLastYear]);
-        if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
-        return q.range(from, to);
-      });
-      rows.forEach((r: any) => {
-        const rev = Number(r.revenue) || 0;
-        if (r.period === period) {
-          revenue += rev;
-          if (r.company_id) compsWithSales.add(r.company_id);
-        } else if (r.period === periodLastYear) {
-          revenueLastYear += rev;
-        }
+      rpcRes = await (supabaseAdmin as any).rpc("monthly_revenue_totals", {
+        _periods: [period, periodLastYear],
+        _afdeling_nr: data.afdelingNr ?? null,
+        _company_ids: null,
       });
     } else {
       const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId, data.afdelingNr ?? null);
       if (!companyIds.length) {
         return { revenue: 0, companies: 0, period, revenueLastYear: 0, periodLastYear, comparisonMode: "full_month" };
       }
-      const rows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
-        context.supabase
-          .from("sales_monthly")
-          .select("company_id, period, revenue")
-          .in("company_id", slice)
-          .in("period", [period, periodLastYear])
-          .range(from, to),
-      );
-      rows.forEach((r: any) => {
-        const rev = Number(r.revenue) || 0;
-        if (r.period === period) {
-          revenue += rev;
-          if (r.company_id) compsWithSales.add(r.company_id);
-        } else if (r.period === periodLastYear) {
-          revenueLastYear += rev;
-        }
+      rpcRes = await (context.supabase as any).rpc("monthly_revenue_totals", {
+        _periods: [period, periodLastYear],
+        _afdeling_nr: null,
+        _company_ids: companyIds,
       });
     }
+    if (rpcRes.error) throw rpcRes.error;
+    ((rpcRes.data ?? []) as any[]).forEach((r) => {
+      const rev = Number(r.revenue) || 0;
+      if (r.period === period) {
+        revenue += rev;
+        companies = Number(r.companies_with_sales) || 0;
+      } else if (r.period === periodLastYear) {
+        revenueLastYear += rev;
+      }
+    });
+
 
     return {
       revenue,
-      companies: compsWithSales.size,
+      companies,
       period,
       revenueLastYear,
       periodLastYear,
@@ -371,37 +335,33 @@ export type MonthActivityRow = {
   created_by_name: string | null;
 };
 
-/** Samme filter som getMyNewActivitiesCount — blot rækkerne bag tallet. */
+/** Samme filter som getMyNewActivitiesCount — blot rækkerne bag tallet. Paget. */
 export const getMyNewActivitiesList = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
-  .handler(async ({ data, context }): Promise<{ rows: MonthActivityRow[] }> => {
+  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null; offset?: number; limit?: number }) => input ?? {})
+  .handler(async ({ data, context }): Promise<{ rows: MonthActivityRow[]; nextOffset: number | null }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
     const teamScope =
       !!data.teamScope &&
       !data.viewAsUserId &&
       (await isTeamScopeUser(context.supabase, context.userId));
+    const offset = Math.max(0, Number(data.offset) || 0);
+    const limit = Math.min(100, Math.max(1, Number(data.limit) || 100));
     const d = new Date();
     const monthStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
     let q = context.supabase
       .from("activities")
-      .select("id, created_at, activity_type, note, company_id, created_by, companies(name)")
+      .select(
+        "id, created_at, activity_type, note, company_id, created_by, companies(name), profiles!activities_created_by_profiles_fkey(full_name)",
+      )
       .gte("created_at", monthStart)
       .order("created_at", { ascending: false })
-      .limit(2000);
+      .range(offset, offset + limit - 1);
     if (!teamScope) q = q.eq("created_by", effectiveUserId);
     if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
     const { data: rows, error } = await q;
     if (error) throw error;
     const list = (rows ?? []) as any[];
-
-    const userIds = [...new Set(list.map((r) => r.created_by).filter(Boolean))];
-    const { data: profs } = userIds.length
-      ? await context.supabase.from("profiles").select("id, full_name").in("id", userIds)
-      : { data: [] as any[] };
-    const nameById = new Map<string, string>(
-      ((profs ?? []) as any[]).map((p) => [p.id as string, p.full_name as string]),
-    );
 
     return {
       rows: list.map((r) => ({
@@ -412,8 +372,9 @@ export const getMyNewActivitiesList = createServerFn({ method: "POST" })
         company_id: r.company_id,
         company_name: r.companies?.name ?? null,
         created_by: r.created_by,
-        created_by_name: nameById.get(r.created_by) ?? null,
+        created_by_name: r.profiles?.full_name ?? null,
       })),
+      nextOffset: list.length === limit ? offset + limit : null,
     };
   });
 
@@ -421,167 +382,7 @@ export const getMyNewActivitiesList = createServerFn({ method: "POST" })
 
 
 
-export type ChurningCustomer = {
-  company_id: string;
-  company_name: string;
-  daysSinceLastPurchase: number;
-  monthlyAverageRevenue: number;
-  monthsWithPurchases: number;
-};
 
-// Erstattet af getFaldendeKunder i forbrug-signal.functions.ts. Ingen aktive kaldere.
-export const getMyChurningCustomers = createServerFn({ method: "POST" })
-
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
-  .handler(async ({ data, context }): Promise<{ customers: ChurningCustomer[]; hasData: boolean }> => {
-    const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
-    const teamScope =
-      !!data.teamScope &&
-      !data.viewAsUserId &&
-      (await isTeamScopeUser(context.supabase, context.userId));
-
-    const cutoff = new Date();
-    cutoff.setUTCMonth(cutoff.getUTCMonth() - 24);
-    cutoff.setUTCDate(1);
-    const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
-
-    type Row = { company_id: string; period: string; revenue: number; product_group_1: string | null };
-    let rawRows: any[];
-    if (teamScope) {
-      rawRows = await fetchAllSalesMonthlyRows((from, to) => {
-        let q = supabaseAdmin
-          .from("sales_monthly")
-          .select("company_id, period, revenue, product_group_1")
-          .gte("period", cutoffStr);
-        if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
-        return q.range(from, to);
-      });
-    } else {
-      const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId, data.afdelingNr ?? null);
-      if (!companyIds.length) return { customers: [], hasData: false };
-      rawRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
-        context.supabase
-          .from("sales_monthly")
-          .select("company_id, period, revenue, product_group_1")
-          .in("company_id", slice)
-          .gte("period", cutoffStr)
-          .range(from, to),
-      );
-    }
-    const rows: Row[] = rawRows
-      .filter((r: any) => r.company_id)
-      .map((r: any) => ({
-        company_id: r.company_id,
-        period: r.period,
-        revenue: Number(r.revenue) || 0,
-        product_group_1: r.product_group_1 ?? null,
-      }));
-
-    if (!rows.length) return { customers: [], hasData: false };
-
-
-    type Acc = { periods: Set<string>; lastPeriod: string | null; totalRevenue: number };
-    const byCompany = new Map<string, Acc>();
-    for (const r of rows) {
-      if (!isConsumableGroup(r.product_group_1)) continue; // kun kaffe/te/chokolade/drikke tæller
-      const acc = byCompany.get(r.company_id) ?? { periods: new Set(), lastPeriod: null, totalRevenue: 0 };
-      if (r.revenue > 0) {
-        acc.periods.add(r.period);
-        acc.totalRevenue += r.revenue;
-        if (!acc.lastPeriod || r.period > acc.lastPeriod) acc.lastPeriod = r.period;
-      }
-      byCompany.set(r.company_id, acc);
-    }
-
-    const cutoffDays = 60;
-    const now = Date.now();
-    const candidates: { company_id: string; lastPeriod: string; daysSinceLastPurchase: number; monthsWithPurchases: number; monthlyAverageRevenue: number }[] = [];
-    byCompany.forEach((acc, company_id) => {
-      if (!acc.lastPeriod || acc.periods.size < 3) return;
-      const last = new Date(acc.lastPeriod + "T00:00:00Z").getTime();
-      const days = Math.floor((now - last) / 86400000);
-      const monthEnd = new Date(acc.lastPeriod + "T00:00:00Z");
-      monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
-      const daysSinceMonthEnd = Math.floor((now - monthEnd.getTime()) / 86400000);
-      if (daysSinceMonthEnd < cutoffDays) return;
-      candidates.push({
-        company_id,
-        lastPeriod: acc.lastPeriod,
-        daysSinceLastPurchase: days,
-        monthsWithPurchases: acc.periods.size,
-        monthlyAverageRevenue: acc.totalRevenue / acc.periods.size,
-      });
-    });
-
-    if (!candidates.length) return { customers: [], hasData: true };
-
-    // Filter out dismissed (reset rule: any consumable purchase after dismissal ignores it)
-    const candIds = candidates.map((c) => c.company_id);
-    const CHUNK = 150;
-    const dismissals: any[] = [];
-    for (let i = 0; i < candIds.length; i += CHUNK) {
-      const slice = candIds.slice(i, i + CHUNK);
-      const { data } = await context.supabase
-        .from("churn_dismissals")
-        .select("company_id, reason, snooze_user_id, snooze_until, created_at")
-        .in("company_id", slice);
-      if (data) dismissals.push(...data);
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-    const dismissedSet = new Set<string>();
-    for (const cand of candidates) {
-      const lastEndDate = new Date(cand.lastPeriod + "T00:00:00Z");
-      lastEndDate.setUTCMonth(lastEndDate.getUTCMonth() + 1);
-      const lastEndMs = lastEndDate.getTime();
-      const relevant = (dismissals ?? []).filter(
-        (d: any) =>
-          d.company_id === cand.company_id &&
-          new Date(d.created_at).getTime() >= lastEndMs,
-      );
-      for (const d of relevant) {
-        if (d.reason === "paused") {
-          if ((teamScope || d.snooze_user_id === effectiveUserId) && d.snooze_until && d.snooze_until >= today) {
-            dismissedSet.add(cand.company_id);
-            break;
-          }
-        } else {
-          dismissedSet.add(cand.company_id);
-          break;
-        }
-      }
-    }
-
-    // Exclude companies that are supplied via another company (kantine-mønster)
-    const suppliedSet = await getCompaniesSuppliedByOthers(context.supabase, candIds);
-
-    const filtered = candidates.filter(
-      (c) => !dismissedSet.has(c.company_id) && !suppliedSet.has(c.company_id),
-    );
-    filtered.sort((a, b) => b.monthlyAverageRevenue - a.monthlyAverageRevenue);
-    const top = filtered.slice(0, 10);
-    if (!top.length) return { customers: [], hasData: true };
-
-    const { data: comps, error: compErr } = await context.supabase
-      .from("companies")
-      .select("id, name")
-      .in("id", top.map((c) => c.company_id));
-    if (compErr) throw compErr;
-    const nameMap = new Map<string, string>();
-    (comps ?? []).forEach((c: any) => nameMap.set(c.id, c.name));
-
-    return {
-      customers: top.map((c) => ({
-        company_id: c.company_id,
-        company_name: nameMap.get(c.company_id) ?? "Ukendt",
-        daysSinceLastPurchase: c.daysSinceLastPurchase,
-        monthlyAverageRevenue: c.monthlyAverageRevenue,
-        monthsWithPurchases: c.monthsWithPurchases,
-      })),
-      hasData: true,
-    };
-  });
 
 type DismissReason = "lost_competitor" | "lost_tender" | "closed" | "paused";
 

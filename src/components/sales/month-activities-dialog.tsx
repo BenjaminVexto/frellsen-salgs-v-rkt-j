@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import {
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { getMyNewActivitiesList } from "@/lib/sales.functions";
 import { labelFor, getActivityType } from "@/lib/activity-types";
 import { useViewAs } from "@/contexts/view-as-context";
@@ -36,13 +37,18 @@ export function MonthActivitiesDialog({
   const { afdelingFilter } = useAfdeling();
   const [seller, setSeller] = useState<string>("all");
 
-  const q = useQuery({
+  const q = useInfiniteQuery({
     queryKey: ["my-month-activities-list", viewAsUserId, teamScope, afdelingFilter],
-    queryFn: () => listFn({ data: { viewAsUserId, teamScope, afdelingNr: afdelingFilter } }),
+    queryFn: ({ pageParam }) =>
+      listFn({
+        data: { viewAsUserId, teamScope, afdelingNr: afdelingFilter, offset: pageParam as number, limit: 100 },
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset,
     enabled: open,
   });
 
-  const rows = q.data?.rows ?? [];
+  const rows = useMemo(() => (q.data?.pages ?? []).flatMap((p) => p.rows), [q.data]);
 
   const sellers = useMemo(() => {
     const map = new Map<string, string>();
@@ -137,6 +143,18 @@ export function MonthActivitiesDialog({
               </div>
             );
           })}
+          {q.hasNextPage && (
+            <div className="py-3 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => q.fetchNextPage()}
+                disabled={q.isFetchingNextPage}
+              >
+                {q.isFetchingNextPage ? "Henter…" : "Hent flere"}
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
