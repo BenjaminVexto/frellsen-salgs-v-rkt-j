@@ -3012,6 +3012,18 @@ export type Database = {
           saelger: string
         }[]
       }
+      tick_cvr_enrichment: {
+        Args: { _apikey: string; _url: string }
+        Returns: boolean
+      }
+      tick_invoice_import: {
+        Args: { _apikey: string; _url: string }
+        Returns: boolean
+      }
+      tick_penhed_sync: {
+        Args: { _apikey: string; _url: string }
+        Returns: boolean
+      }
     }
     Enums: {
       activity_type:
