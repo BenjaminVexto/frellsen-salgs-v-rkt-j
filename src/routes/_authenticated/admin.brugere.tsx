@@ -119,6 +119,57 @@ function BrugerStyringSide() {
   const [createAfd, setCreateAfd] = useState<number[]>([]);
   const [createPrimary, setCreatePrimary] = useState<number | null>(null);
 
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir(key === "created_at" || key === "is_active" ? "desc" : "asc");
+    }
+  };
+
+  const sortedRows = useMemo(() => {
+    const roleRank: Record<string, number> = { admin: 0, salgssupport: 1, saelger: 2 };
+    const num = (r: Row): number | null => {
+      switch (sortKey) {
+        case "created_at":
+          return new Date(r.created_at).getTime();
+        case "is_active":
+          return r.is_active ? 1 : 0;
+        case "role":
+          return roleRank[r.role] ?? 99;
+        case "afdeling":
+          return (accessByUser[r.id] ?? [])[0] ?? Number.POSITIVE_INFINITY;
+        default:
+          return null;
+      }
+    };
+    const txt = (r: Row): string => {
+      switch (sortKey) {
+        case "email":
+          return r.email ?? "";
+        case "region":
+          return r.region ?? "";
+        case "salesperson_no":
+          return r.salesperson_no ?? "";
+        default:
+          return r.full_name ?? "";
+      }
+    };
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const na = num(a);
+      if (na !== null) {
+        const nb = num(b) ?? 0;
+        if (na !== nb) return (na - nb) * dir;
+        return (a.full_name ?? "").localeCompare(b.full_name ?? "", "da-DK");
+      }
+      const cmp = txt(a).localeCompare(txt(b), "da-DK", { numeric: true, sensitivity: "base" });
+      if (cmp !== 0) return cmp * dir;
+      return (a.full_name ?? "").localeCompare(b.full_name ?? "", "da-DK");
+    });
+  }, [rows, sortKey, sortDir, accessByUser]);
+
+
   const [editRow, setEditRow] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState({
     full_name: "",
