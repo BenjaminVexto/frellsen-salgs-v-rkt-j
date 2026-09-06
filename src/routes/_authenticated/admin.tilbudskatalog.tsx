@@ -6,6 +6,7 @@ import {
   listProducts,
   updateProductSalesFields,
   KATEGORI_VALUES,
+  TE_TYPE_VALUES,
   type ProductRow,
 } from "@/lib/products.functions";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,7 +45,7 @@ export const Route = createFileRoute("/_authenticated/admin/tilbudskatalog")({
   component: TilbudskatalogPage,
 });
 
-type Filter = "alle" | "tilbudsegnede" | "udgaaede";
+type Filter = "alle" | "tilbudsegnede" | "udgaaede" | "te_uden_type";
 
 function formatKr(n: number | null) {
   if (n == null) return "—";
@@ -60,6 +61,20 @@ const KATEGORI_LABEL: Record<string, string> = {
   tilbehoer: "Tilbehør",
   ovrigt: "Øvrigt",
 };
+
+const TE_TYPE_LABEL: Record<string, string> = {
+  sort: "Sort",
+  groen: "Grøn",
+  hvid: "Hvid",
+  oolong: "Oolong",
+  rooibos: "Rooibos",
+  urte: "Urte",
+  frugt: "Frugt",
+  matcha: "Matcha",
+  chai: "Chai",
+  ukendt: "Ukendt",
+};
+
 
 function TilbudskatalogPage() {
   const auth = useAuth();
@@ -98,6 +113,11 @@ function TilbudskatalogPage() {
     return rows.filter((r) => {
       if (filter === "tilbudsegnede" && !r.is_tilbudsegnet) return false;
       if (filter === "udgaaede" && r.record_status !== "udgaaet") return false;
+      if (filter === "te_uden_type") {
+        if (r.record_status === "udgaaet") return false;
+        if (r.kategori !== "te") return false;
+        if (r.te_type && r.te_type !== "ukendt") return false;
+      }
       if (filter === "alle" && r.record_status === "udgaaet") {
         // alle = aktive; brug "udgåede" for at se de gamle
         return false;
@@ -168,6 +188,7 @@ function TilbudskatalogPage() {
             ["alle", "Alle aktive"],
             ["tilbudsegnede", "Kun tilbudsegnede"],
             ["udgaaede", "Udgåede"],
+            ["te_uden_type", "Kun te uden type"],
           ] as const).map(([k, label]) => (
             <button
               key={k}
@@ -204,6 +225,7 @@ function TilbudskatalogPage() {
                 <TableHead className="w-[110px]">Varenr</TableHead>
                 <TableHead>Beskrivelse</TableHead>
                 <TableHead className="w-[170px]">Kategori</TableHead>
+                <TableHead className="w-[150px]">Tetype</TableHead>
                 <TableHead className="w-[110px] text-right">Listepris</TableHead>
                 <TableHead className="w-[80px]">Leje</TableHead>
                 <TableHead className="w-[110px]">Status</TableHead>
@@ -244,6 +266,37 @@ function TilbudskatalogPage() {
                         )}
                       </div>
                     </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {r.kategori === "te" ? (
+                        <div className="flex items-center gap-1">
+                          <Select
+                            value={r.te_type ?? "ukendt"}
+                            disabled={mutation.isPending}
+                            onValueChange={(v) =>
+                              mutation.mutate({ varenr: r.varenr, te_type: v })
+                            }
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TE_TYPE_VALUES.map((t) => (
+                                <SelectItem key={t} value={t}>
+                                  {TE_TYPE_LABEL[t]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {r.te_type_manuel && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              manuel
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatKr(r.listepris)}
                     </TableCell>
@@ -283,7 +336,7 @@ function TilbudskatalogPage() {
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
                     Ingen varer matcher filteret
                   </TableCell>
                 </TableRow>

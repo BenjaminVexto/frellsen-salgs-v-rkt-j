@@ -19,6 +19,8 @@ export type ProductRow = {
   salgsbeskrivelse: string | null;
   billede_url: string | null;
   sort_order: number | null;
+  te_type: string | null;
+  te_type_manuel: boolean;
   updated_at: string;
 };
 
@@ -30,6 +32,19 @@ export const KATEGORI_VALUES = [
   "maskine",
   "tilbehoer",
   "ovrigt",
+] as const;
+
+export const TE_TYPE_VALUES = [
+  "sort",
+  "groen",
+  "hvid",
+  "oolong",
+  "rooibos",
+  "urte",
+  "frugt",
+  "matcha",
+  "chai",
+  "ukendt",
 ] as const;
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
@@ -70,6 +85,7 @@ const UpdateSchema = z
     salgsbeskrivelse: z.string().max(2000).nullable().optional(),
     sort_order: z.number().int().nullable().optional(),
     billede_url: z.string().max(2000).nullable().optional(),
+    te_type: z.enum(TE_TYPE_VALUES).optional(),
   })
   .strict();
 
@@ -112,6 +128,10 @@ export const updateProductSalesFields = createServerFn({ method: "POST" })
       patch.salgsbeskrivelse = data.salgsbeskrivelse;
     if (data.sort_order !== undefined) patch.sort_order = data.sort_order;
     if (data.billede_url !== undefined) patch.billede_url = data.billede_url;
+    if (data.te_type !== undefined) {
+      patch.te_type = data.te_type;
+      patch.te_type_manuel = true;
+    }
 
     if (Object.keys(patch).length === 0) return { ok: true };
 
