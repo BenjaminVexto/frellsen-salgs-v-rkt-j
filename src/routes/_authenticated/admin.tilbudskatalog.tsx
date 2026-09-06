@@ -6,6 +6,7 @@ import {
   listProducts,
   updateProductSalesFields,
   KATEGORI_VALUES,
+  TE_TYPE_VALUES,
   type ProductRow,
 } from "@/lib/products.functions";
 import { useAuth } from "@/hooks/useAuth";
