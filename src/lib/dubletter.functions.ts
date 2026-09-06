@@ -3,6 +3,9 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+const norm = (v: unknown) =>
+  typeof v === "string" ? v.trim().toLowerCase() : "";
+
 async function ensureAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("user_roles")
@@ -21,6 +24,8 @@ export type DubletPost = {
   afdeling_nr: number | null;
   created_in_visma: string | null;
   zip: string | null;
+  address: string | null;
+  visma_enhed: string | null;
   sidste_varekoeb: string | null;
   omsaetning_12m: number | null;
 };
@@ -31,6 +36,8 @@ export type DubletPar = {
   samme_postnr: boolean;
   samme_adresse: boolean;
   identisk_navn: boolean;
+  /** 1 = forskellig adresse, 2 = samme adresse men forskellig enhed, 3 = sandsynlig dublet */
+  kategori: "leveringssted" | "separat_enhed" | "dublet";
   afvist_at: string | null;
   afloest_af_company_id: string | null;
   er_offentlig: boolean;
@@ -61,6 +68,12 @@ export const getDubletKandidater = createServerFn({ method: "POST" })
       afvist_at: r.dead_afvist_at ?? null,
       afloest_af_company_id: r.dead_afloest_af_company_id ?? null,
       er_offentlig: r.dead_binding_status === "offentlig_aftale",
+      kategori: !r.samme_adresse
+        ? ("leveringssted" as const)
+        : norm(r.dead_visma_enhed) && norm(r.alive_visma_enhed) &&
+            norm(r.dead_visma_enhed) !== norm(r.alive_visma_enhed)
+          ? ("separat_enhed" as const)
+          : ("dublet" as const),
       doed: {
         id: r.dead_id,
         name: r.dead_name,
@@ -68,6 +81,8 @@ export const getDubletKandidater = createServerFn({ method: "POST" })
         afdeling_nr: r.dead_afdeling_nr ?? null,
         created_in_visma: r.dead_created_in_visma ?? null,
         zip: r.dead_zip ?? null,
+        address: r.dead_address ?? null,
+        visma_enhed: r.dead_visma_enhed ?? null,
         sidste_varekoeb: null,
         omsaetning_12m: null,
       },
@@ -78,6 +93,8 @@ export const getDubletKandidater = createServerFn({ method: "POST" })
         afdeling_nr: r.alive_afdeling_nr ?? null,
         created_in_visma: r.alive_created_in_visma ?? null,
         zip: r.alive_zip ?? null,
+        address: r.alive_address ?? null,
+        visma_enhed: r.alive_visma_enhed ?? null,
         sidste_varekoeb: r.alive_last_varekoeb ?? null,
         omsaetning_12m:
           r.alive_turnover_12m != null ? Number(r.alive_turnover_12m) : null,
