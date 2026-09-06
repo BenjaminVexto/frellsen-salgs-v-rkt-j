@@ -11,6 +11,7 @@ import {
   type ForbrugSignalLokation,
 } from "@/lib/forbrug-signal.functions";
 import { aarsagLabel, erFaldKlasse, klasseLabel } from "@/lib/forbrug-labels";
+import { gruppeKodeOf, KAFFE_KODE } from "@/lib/sales-utils";
 import type { Location } from "@/components/lokationer-sektion";
 
 const DOT: Record<string, string> = {
@@ -27,17 +28,17 @@ const DOT: Record<string, string> = {
 const dotClass = (klasse?: string | null) =>
   (klasse && DOT[klasse]) || "bg-muted-foreground";
 
-const kg = (v: number | null) =>
-  v == null ? "–" : `${v.toLocaleString("da-DK", { maximumFractionDigits: 1 })} kg/mdr`;
-
-const kr = (v: number | null) =>
-  v == null ? null : `${Math.round(v).toLocaleString("da-DK")} kr/mdr`;
+const kgTal = (v: number | null) =>
+  v == null ? "–" : v.toLocaleString("da-DK", { maximumFractionDigits: 1 });
 
 const pct = (v: number | null) =>
   v == null ? "–" : `${v > 0 ? "+" : ""}${v.toLocaleString("da-DK", { maximumFractionDigits: 1 })} %`;
 
 const dato = (v: string | null) =>
   v ? new Date(v).toLocaleDateString("da-DK", { month: "short", year: "numeric" }) : "ukendt";
+
+const kr = (v: number | null) =>
+  v == null ? null : `${Math.round(v).toLocaleString("da-DK")} kr/mdr`;
 
 function GruppeLinje({
   row,
@@ -50,6 +51,9 @@ function GruppeLinje({
   const fald = erFaldKlasse(row.klasse);
   const erNy = row.klasse === "ny";
   const navn = label ?? row.gruppe_navn ?? row.product_group_1 ?? "Ukendt gruppe";
+  const foer = row.base_kg_pr_mdr ?? 0;
+  const nu = row.akt_kg_pr_mdr ?? 0;
+  const skala = Math.max(foer, nu, 0.0001);
 
   return (
     <div className="py-2.5">
@@ -67,14 +71,36 @@ function GruppeLinje({
           Ny kunde, for kort historik til sammenligning.
         </p>
       ) : (
-        <p className="text-sm text-muted-foreground mt-0.5 ml-[18px]">
-          {kg(row.base_kg_pr_mdr)} → {kg(row.akt_kg_pr_mdr)} ({pct(row.afvigelse_pct)})
-        </p>
+        <div className="mt-1 ml-[18px] flex items-center gap-3">
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary/25"
+                style={{ width: `${Math.min(100, (foer / skala) * 100)}%` }}
+                title={`Før: ${kgTal(foer)} kg/mdr`}
+              />
+            </div>
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${Math.min(100, (nu / skala) * 100)}%` }}
+                title={`Nu: ${kgTal(nu)} kg/mdr`}
+              />
+            </div>
+          </div>
+          <div className="shrink-0 text-right text-xs tabular-nums leading-tight">
+            <div className="text-muted-foreground">{kgTal(foer)} kg/mdr før</div>
+            <div className="font-medium">
+              {kgTal(nu)} kg/mdr nu{" "}
+              <span className="text-muted-foreground font-normal">({pct(row.afvigelse_pct)})</span>
+            </div>
+          </div>
+        </div>
       )}
 
       {fald && (
         <>
-          <p className="text-sm mt-0.5 ml-[18px]">
+          <p className="text-sm mt-1 ml-[18px]">
             {aarsagLabel(row.aarsag) ?? "Uklart mønster"}
             {kr(row.tabt_kr_pr_mdr) ? (
               <span className="text-muted-foreground"> · {kr(row.tabt_kr_pr_mdr)}</span>
@@ -121,6 +147,7 @@ export function ForbrugSignalSektion({
     queryFn: () => fetchSignal({ data: { companyId } }),
   });
   const [lokOpen, setLokOpen] = useState(false);
+  const [visAlle, setVisAlle] = useState(false);
 
   const grupper = data?.grupper ?? [];
   const lokationer = data?.lokationer ?? [];
@@ -136,6 +163,23 @@ export function ForbrugSignalSektion({
     () => new Set(lokationer.map((r) => r.location_id).filter(Boolean)).size,
     [lokationer],
   );
+
+  // Kaffe altid øverst, derefter kg faldende.
+  const sorteredeGrupper = useMemo(() => {
+    const arr = [...grupper];
+    arr.sort((a, b) => {
+      const ka = gruppeKodeOf(a.product_group_1) === KAFFE_KODE ? 0 : 1;
+      const kb = gruppeKodeOf(b.product_group_1) === KAFFE_KODE ? 0 : 1;
+      if (ka !== kb) return ka - kb;
+      return (b.akt_kg_pr_mdr ?? 0) - (a.akt_kg_pr_mdr ?? 0);
+    });
+    return arr;
+  }, [grupper]);
+
+  const smaa = (g: ForbrugSignalGruppe) =>
+    (g.akt_kg_pr_mdr ?? 0) < 1 && (g.base_kg_pr_mdr ?? 0) < 1;
+  const synlige = visAlle ? sorteredeGrupper : sorteredeGrupper.filter((g) => !smaa(g));
+  const skjulte = sorteredeGrupper.length - sorteredeGrupper.filter((g) => !smaa(g)).length;
 
   const sorteredeLok = useMemo(() => {
     const arr = [...lokationer];
@@ -153,9 +197,6 @@ export function ForbrugSignalSektion({
   return (
     <Card className="p-4">
       <h3 className="font-semibold">Forbrugsudvikling</h3>
-      <p className="text-sm text-muted-foreground mt-0.5">
-        Sæsonkorrigeret forbrug i kilo, seneste 6 hele måneder mod de samme 6 måneder året før.
-      </p>
 
       {isLoading ? (
         <div className="mt-3 space-y-2">
@@ -170,15 +211,25 @@ export function ForbrugSignalSektion({
       ) : (
         <>
           {!nogenIFald && (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-3">
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-2">
               Forbruget følger det normale mønster.
             </p>
           )}
           <div className="mt-2 divide-y">
-            {grupper.map((g, i) => (
+            {synlige.map((g, i) => (
               <GruppeLinje key={`${g.product_group_1}-${i}`} row={g} />
             ))}
           </div>
+          {!visAlle && skjulte > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-1 mt-1 text-xs text-muted-foreground"
+              onClick={() => setVisAlle(true)}
+            >
+              Vis alle ({skjulte} små grupper)
+            </Button>
+          )}
 
           {distinkteLok > 1 && (
             <div className="mt-3 border-t pt-2">
@@ -210,10 +261,6 @@ export function ForbrugSignalSektion({
           )}
         </>
       )}
-
-      <p className="text-[11px] text-muted-foreground mt-3">
-        Beregnet på seneste komplette måned. Igangværende måned indgår ikke.
-      </p>
     </Card>
   );
 }

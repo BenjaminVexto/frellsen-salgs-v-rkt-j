@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
@@ -9,10 +9,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
-import { fmtKg, fmtKr, isConsumableGroup, type SalesMonthlyRow } from "@/lib/sales-utils";
+import {
+  fmtKg,
+  fmtKr,
+  gruppeKodeOf,
+  gruppeValgmuligheder,
+  KAFFE_KODE,
+  kodeLabel,
+  type SalesMonthlyRow,
+} from "@/lib/sales-utils";
 import { getMonthlyConsumableProducts } from "@/lib/sales.functions";
 
-function serie(rows: SalesMonthlyRow[], months: number) {
+function serie(rows: SalesMonthlyRow[], months: number, kode: string) {
   const out: { period: string; label: string; kg: number }[] = [];
   const now = new Date();
   // Kun hele måneder — den igangværende måned indgår ikke.
@@ -27,7 +35,7 @@ function serie(rows: SalesMonthlyRow[], months: number) {
   }
   const idx = new Map(out.map((o, i) => [o.period, i]));
   for (const r of rows) {
-    if (!isConsumableGroup(r.product_group_1)) continue;
+    if (gruppeKodeOf(r.product_group_1) !== kode) continue;
     const i = idx.get(r.period);
     if (i != null) out[i].kg += Number(r.weight_kg) || 0;
   }
@@ -43,12 +51,20 @@ export function ConsumableKgChart({
   rows,
   months = 18,
   locationIds,
+  gruppeNavne,
 }: {
   rows: SalesMonthlyRow[];
   months?: number;
   locationIds?: string[];
+  gruppeNavne?: Record<string, string>;
 }) {
-  const data = serie(rows, months);
+  const valg = useMemo(() => gruppeValgmuligheder(rows), [rows]);
+  // Kaffe som standard; ellers kundens største gruppe.
+  const defaultKode = valg.includes(KAFFE_KODE) ? KAFFE_KODE : (valg[0] ?? KAFFE_KODE);
+  const [kode, setKode] = useState<string | null>(null);
+  const aktivKode = kode ?? defaultKode;
+
+  const data = serie(rows, months, aktivKode);
   const max = Math.max(1, ...data.map((d) => d.kg));
   const [openPeriod, setOpenPeriod] = useState<string | null>(null);
   const clickable = !!locationIds && locationIds.length > 0;
@@ -67,15 +83,39 @@ export function ConsumableKgChart({
   const varer = varerQ.data ?? [];
   const harKg = varer.some((v) => v.weightKg > 0);
 
+  const titel = aktivKode === KAFFE_KODE ? "Kg kaffe pr. måned" : `Kg ${kodeLabel(aktivKode, gruppeNavne).toLowerCase()} pr. måned`;
+
   return (
     <>
       <Card className="p-5">
-        <h3 className="text-sm font-semibold">Kg forbrugsvarer pr. måned</h3>
-        <p className="text-xs text-muted-foreground mt-0.5 mb-3">
-          Seneste {months} hele måneder. Tomme måneder er normalt hos kunder, der bestiller i partier.
-          {clickable ? " Klik på en søjle for at se varelinjerne." : ""}
-        </p>
-        <div className="flex gap-1.5 h-36">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold">{titel}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Seneste {months} hele måneder. Tomme måneder er normalt hos kunder, der bestiller i partier.
+              {clickable ? " Klik på en søjle for at se varelinjerne." : ""}
+            </p>
+          </div>
+          {valg.length > 1 && (
+            <div className="flex flex-wrap gap-1">
+              {valg.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setKode(k)}
+                  className={`text-xs rounded-full border px-2.5 py-1 transition-colors ${
+                    k === aktivKode
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {kodeLabel(k, gruppeNavne)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-1.5 h-36 mt-3">
           {data.map((d) => (
             <div key={d.period} className="flex-1 flex flex-col items-center gap-1 h-full">
               <div className="flex-1 w-full flex items-end min-h-0">
@@ -99,6 +139,7 @@ export function ConsumableKgChart({
           Den igangværende måned indgår ikke.
         </p>
       </Card>
+
 
       <Dialog open={!!openPeriod} onOpenChange={(o) => !o && setOpenPeriod(null)}>
         <DialogContent className="sm:max-w-lg">

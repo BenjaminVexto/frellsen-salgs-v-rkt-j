@@ -39,10 +39,22 @@ export function RevenueSparkline({
     enabled: !!openPeriod && clickable,
   });
 
+  const total = series.reduce((s, x) => s + x.revenue, 0);
+  const [hover, setHover] = useState<number | null>(null);
+  const vist = hover != null ? series[hover] : null;
+
   return (
     <>
       <Card className="p-5">
-        <h3 className="text-sm font-semibold mb-3">{title}</h3>
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <div className="text-right">
+            <div className="text-lg font-semibold tabular-nums">{fmtKr(total)}</div>
+            <div className="text-xs text-muted-foreground h-4">
+              {vist ? `${vist.label}: ${fmtKr(vist.revenue)}` : "samlet for perioden"}
+            </div>
+          </div>
+        </div>
         <div className="flex gap-1.5 h-32">
           {series.map((s, i) => {
             const h = max > 0 ? (s.revenue / max) * 100 : 0;
@@ -54,6 +66,9 @@ export function RevenueSparkline({
                     type="button"
                     disabled={!canClick}
                     onClick={() => canClick && setOpenPeriod(s.period)}
+                    onMouseEnter={() => setHover(i)}
+                    onMouseLeave={() => setHover((cur) => (cur === i ? null : cur))}
+                    onFocus={() => setHover(i)}
                     className={`w-full bg-primary/60 rounded-t transition-colors ${
                       canClick ? "cursor-pointer hover:bg-primary" : "cursor-default"
                     }`}
@@ -68,6 +83,7 @@ export function RevenueSparkline({
           })}
         </div>
       </Card>
+
 
       <Dialog open={!!openPeriod} onOpenChange={(o) => !o && setOpenPeriod(null)}>
         <DialogContent className="sm:max-w-lg">

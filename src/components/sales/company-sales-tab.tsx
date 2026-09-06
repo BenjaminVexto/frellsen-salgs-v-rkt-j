@@ -54,7 +54,13 @@ export function CompanySalesTab({
       <SuppliedViaBanner companyId={companyId} />
       {!skjulSignaler && <KundeStatusLinje rows={rows} />}
       <SalesFactsStrip rows={rows} isAdmin={isAdmin} />
-      <ConsumableKgChart rows={rows} months={18} locationIds={locationIds} />
+      <ConsumableKgChart
+        rows={rows}
+        months={18}
+        locationIds={locationIds}
+        gruppeNavne={q.data?.gruppeNavne}
+      />
     </div>
   );
 }
+
