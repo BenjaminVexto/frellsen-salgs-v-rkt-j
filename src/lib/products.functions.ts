@@ -19,6 +19,8 @@ export type ProductRow = {
   salgsbeskrivelse: string | null;
   billede_url: string | null;
   sort_order: number | null;
+  te_type: string | null;
+  te_type_manuel: boolean;
   updated_at: string;
 };
 
@@ -30,6 +32,19 @@ export const KATEGORI_VALUES = [
   "maskine",
   "tilbehoer",
   "ovrigt",
+] as const;
+
+export const TE_TYPE_VALUES = [
+  "sort",
+  "groen",
+  "hvid",
+  "oolong",
+  "rooibos",
+  "urte",
+  "frugt",
+  "matcha",
+  "chai",
+  "ukendt",
 ] as const;
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
