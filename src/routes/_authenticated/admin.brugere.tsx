@@ -511,6 +511,51 @@ function BrugerStyringSide() {
                 </p>
               </div>
             )}
+            <div className="border-t pt-4 space-y-3">
+              <div>
+                <Label>Afdelingsadgang</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Rolle og afdelingsadgang er uafhængige. En bruger kan have flere afdelinger.
+                </p>
+                {createForm.role === "admin" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Administratorer har adgang til <strong>alle</strong> afdelinger uanset afkrydsning herunder.
+                  </p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {afdelinger.map((a) => (
+                  <label key={a.afdeling_nr} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={createAfd.includes(a.afdeling_nr)}
+                      onCheckedChange={(v) => toggleCreateAfd(a.afdeling_nr, v === true)}
+                    />
+                    {a.afdeling_nr} — {a.navn}
+                  </label>
+                ))}
+              </div>
+              <div>
+                <Label>Primær afdeling</Label>
+                <Select
+                  value={createPrimary != null ? String(createPrimary) : ""}
+                  onValueChange={(v) => setCreatePrimary(v ? Number(v) : null)}
+                  disabled={createAfd.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Vælg primær afdeling" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {afdelinger
+                      .filter((a) => createAfd.includes(a.afdeling_nr))
+                      .map((a) => (
+                        <SelectItem key={a.afdeling_nr} value={String(a.afdeling_nr)}>
+                          {a.afdeling_nr} — {a.navn}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annullér</Button>
