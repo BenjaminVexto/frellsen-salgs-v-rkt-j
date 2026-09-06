@@ -652,17 +652,24 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
     const cols = isAdmin
       ? "period, varenr, description, product_group_1, revenue, contribution"
       : "period, varenr, description, product_group_1, revenue";
-    const rows = await fetchAllInChunks(locIds, 100, (slice, from, to) =>
-      client
-        .from("sales_monthly_products")
-        .select(cols)
-        .in("location_id", slice)
-        .gte("period", foerFra)
-        .lt("period", nuTil)
-        .range(from, to),
-    );
+    const maskinFra = maanederSiden(12);
+    const [breddeRes, rows] = await Promise.all([
+      (context.supabase as any).rpc("company_sortiment_bredde", { _company_id: data.companyId }),
+      // Maskin/teknik-fordeling: kun maskingrupper, kun seneste 12 hele måneder
+      fetchAllInChunks(locIds, 100, (slice, from, to) =>
+        client
+          .from("sales_monthly_products")
+          .select(cols)
+          .in("location_id", slice)
+          .gte("period", maskinFra)
+          .lt("period", nuTil)
+          .or(MASKIN_KODER_LIKE)
+          .range(from, to),
+      ),
+    ]);
+    if (breddeRes.error) throw breddeRes.error;
+    const bredde = ((breddeRes.data as any[]) ?? [])[0] ?? {};
 
-    const set = { fNu: new Set<string>(), fFoer: new Set<string>(), mNu: new Set<string>(), mFoer: new Set<string>() };
     const buckets = new Map<string, { revenue: number; contribution: number }>();
     const addBucket = (navn: string, rev: number, db: number) => {
       const cur = buckets.get(navn) ?? { revenue: 0, contribution: 0 };
@@ -672,25 +679,13 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
     };
 
     for (const r of rows) {
-      const period = String(r.period);
       const kode = gruppeKode(r.product_group_1);
-      const iNu = period >= nuFra && period < nuTil;
-      const iFoer = period >= foerFra && period < foerTil;
-      if (kode && FORBRUG_KODER.has(kode)) {
-        if (iNu) set.fNu.add(r.varenr);
-        if (iFoer) set.fFoer.add(r.varenr);
-      } else if (kode && MASKIN_KODER.has(kode)) {
-        if (iNu) set.mNu.add(r.varenr);
-        if (iFoer) set.mFoer.add(r.varenr);
-      }
-
-      // Maskin/teknik-fordeling: seneste 12 hele måneder
-      if (kode && MASKIN_KODER.has(kode) && period >= maanederSiden(12) && period < nuTil) {
-        const rev = Number(r.revenue) || 0;
-        const db = isAdmin ? Number((r as any).contribution) || 0 : 0;
-        addBucket(maskinBucketNavn(kode, r.description), rev, db);
-      }
+      if (!kode || !MASKIN_KODER.has(kode)) continue;
+      const rev = Number(r.revenue) || 0;
+      const db = isAdmin ? Number((r as any).contribution) || 0 : 0;
+      addBucket(maskinBucketNavn(kode, r.description), rev, db);
     }
+
 
     return {
       vindueNuFra: nuFra,
