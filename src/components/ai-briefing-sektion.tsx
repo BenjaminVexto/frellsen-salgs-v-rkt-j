@@ -15,15 +15,25 @@ const loadingSteps = [
   "Genererer briefing...",
 ];
 
-export function AiBriefingSektion({ companyId }: { companyId: string }) {
-  const [briefing, setBriefing] = useState<{ text: string; created_at: string } | null>(null);
+type Briefing = { text: string; created_at: string } | null;
+
+export type BriefingState = {
+  briefing: Briefing;
+  generating: boolean;
+  loadingStep: number;
+  generate: () => void;
+};
+
+/** Deles mellem kortet på Oversigt og knappen i Handlinger-panelet. */
+export function useCompanyBriefing(companyId: string): BriefingState {
+  const [briefing, setBriefing] = useState<Briefing>(null);
   const [generating, setGenerating] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
-  const [briefingExpanded, setBriefingExpanded] = useState(false);
   const generateFn = useServerFn(generateCompanyBriefing);
 
   useEffect(() => {
     let cancelled = false;
+    setBriefing(null);
     supabase
       .from("company_briefings")
       .select("briefing_text, created_at")
@@ -49,7 +59,7 @@ export function AiBriefingSektion({ companyId }: { companyId: string }) {
     return () => clearInterval(interval);
   }, [generating]);
 
-  async function handleGenerate() {
+  async function generate() {
     setGenerating(true);
     try {
       const res = await generateFn({ data: { company_id: companyId } });
@@ -62,6 +72,35 @@ export function AiBriefingSektion({ companyId }: { companyId: string }) {
     }
   }
 
+  return { briefing, generating, loadingStep, generate };
+}
+
+/** Knappen i Handlinger-panelet, når der endnu ikke findes en briefing. */
+export function AiBriefingKnap({ state }: { state: BriefingState }) {
+  return (
+    <Button
+      variant="outline"
+      className="w-full justify-start"
+      disabled={state.generating}
+      onClick={state.generate}
+    >
+      {state.generating ? (
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+      ) : (
+        <Sparkles className="h-4 w-4 mr-2" />
+      )}
+      Generér briefing
+    </Button>
+  );
+}
+
+export function AiBriefingSektion({ state }: { state: BriefingState }) {
+  const { briefing, generating, loadingStep } = state;
+  const [briefingExpanded, setBriefingExpanded] = useState(false);
+
+  // Intet at vise, før en briefing findes eller er under generering.
+  if (!briefing && !generating) return null;
+
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
@@ -69,7 +108,7 @@ export function AiBriefingSektion({ companyId }: { companyId: string }) {
           <Sparkles className="h-4 w-4 text-primary" /> AI Briefing
         </h2>
         {briefing && !generating && (
-          <Button size="sm" variant="outline" onClick={handleGenerate}>
+          <Button size="sm" variant="outline" onClick={state.generate}>
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Generér ny
           </Button>
         )}
@@ -126,14 +165,7 @@ export function AiBriefingSektion({ companyId }: { companyId: string }) {
             </div>
           </div>
         </>
-      ) : (
-        <div className="text-center py-4">
-          <p className="text-sm text-muted-foreground mb-3">Ingen briefing genereret endnu</p>
-          <Button size="lg" onClick={handleGenerate}>
-            <Sparkles className="h-4 w-4 mr-2" /> Generér briefing
-          </Button>
-        </div>
-      )}
+      ) : null}
     </Card>
   );
 }

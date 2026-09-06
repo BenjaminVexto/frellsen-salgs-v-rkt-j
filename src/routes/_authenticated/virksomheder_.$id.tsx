@@ -92,7 +92,7 @@ import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktper
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
-import { AiBriefingSektion } from "@/components/ai-briefing-sektion";
+import { AiBriefingSektion, AiBriefingKnap, useCompanyBriefing } from "@/components/ai-briefing-sektion";
 import { SortimentKort } from "@/components/sortiment-kort";
 import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 
@@ -194,6 +194,7 @@ function VirksomhedsKort() {
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [locationReloadKey, setLocationReloadKey] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
+  const briefingState = useCompanyBriefing(id);
   const [presetLocationId, setPresetLocationId] = useState<string | null>(null);
   const [mailOpen, setMailOpen] = useState(false);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
@@ -508,7 +509,7 @@ function VirksomhedsKort() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          {!afloestAf && <AiBriefingSektion companyId={company.id} />}
+          {!afloestAf && <AiBriefingSektion state={briefingState} />}
           <div className="grid grid-cols-1 gap-1.5 text-sm border-t pt-3">
             {(() => {
               const c = contacts.find((c) => c.is_primary) ?? contacts[0];
@@ -829,7 +830,7 @@ function VirksomhedsKort() {
 
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
-              {!afloestAf && <AiBriefingSektion companyId={company.id} />}
+              {!afloestAf && <AiBriefingSektion state={briefingState} />}
 
               {!afloestAf && (
                 <SortimentKort
@@ -1015,6 +1016,9 @@ function VirksomhedsKort() {
 
           <h2 className="font-semibold mb-4">Handlinger</h2>
           <div className="space-y-2">
+            {!afloestAf && !briefingState.briefing && (
+              <AiBriefingKnap state={briefingState} />
+            )}
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
             </Button>
