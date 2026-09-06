@@ -258,50 +258,39 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
 
     let revenue = 0;
     let revenueLastYear = 0;
-    const compsWithSales = new Set<string>();
+    let companies = 0;
 
+    // Summeringen sker i databasen. Funktionen er SECURITY INVOKER, så en sælger
+    // kun kan se egne afdelinger; team-scope bruger som før admin-klienten.
+    let rpcRes: any;
     if (teamScope) {
-      const client = supabaseAdmin;
-      const rows = await fetchAllSalesMonthlyRows((from, to) => {
-        let q = client
-          .from("sales_monthly")
-          .select("company_id, period, revenue")
-          .in("period", [period, periodLastYear]);
-        if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
-        return q.range(from, to);
-      });
-      rows.forEach((r: any) => {
-        const rev = Number(r.revenue) || 0;
-        if (r.period === period) {
-          revenue += rev;
-          if (r.company_id) compsWithSales.add(r.company_id);
-        } else if (r.period === periodLastYear) {
-          revenueLastYear += rev;
-        }
+      rpcRes = await (supabaseAdmin as any).rpc("monthly_revenue_totals", {
+        _periods: [period, periodLastYear],
+        _afdeling_nr: data.afdelingNr ?? null,
+        _company_ids: null,
       });
     } else {
       const companyIds = await getSellerCompanyIds(context.supabase, effectiveUserId, data.afdelingNr ?? null);
       if (!companyIds.length) {
         return { revenue: 0, companies: 0, period, revenueLastYear: 0, periodLastYear, comparisonMode: "full_month" };
       }
-      const rows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
-        context.supabase
-          .from("sales_monthly")
-          .select("company_id, period, revenue")
-          .in("company_id", slice)
-          .in("period", [period, periodLastYear])
-          .range(from, to),
-      );
-      rows.forEach((r: any) => {
-        const rev = Number(r.revenue) || 0;
-        if (r.period === period) {
-          revenue += rev;
-          if (r.company_id) compsWithSales.add(r.company_id);
-        } else if (r.period === periodLastYear) {
-          revenueLastYear += rev;
-        }
+      rpcRes = await (context.supabase as any).rpc("monthly_revenue_totals", {
+        _periods: [period, periodLastYear],
+        _afdeling_nr: null,
+        _company_ids: companyIds,
       });
     }
+    if (rpcRes.error) throw rpcRes.error;
+    ((rpcRes.data ?? []) as any[]).forEach((r) => {
+      const rev = Number(r.revenue) || 0;
+      if (r.period === period) {
+        revenue += rev;
+        companies = Number(r.companies_with_sales) || 0;
+      } else if (r.period === periodLastYear) {
+        revenueLastYear += rev;
+      }
+    });
+
 
     return {
       revenue,
