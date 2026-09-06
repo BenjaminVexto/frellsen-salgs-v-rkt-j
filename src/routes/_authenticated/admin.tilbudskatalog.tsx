@@ -266,7 +266,38 @@ function TilbudskatalogPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {r.kategori === "te" ? (
+                        <div className="flex items-center gap-1">
+                          <Select
+                            value={r.te_type ?? "ukendt"}
+                            disabled={mutation.isPending}
+                            onValueChange={(v) =>
+                              mutation.mutate({ varenr: r.varenr, te_type: v })
+                            }
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TE_TYPE_VALUES.map((t) => (
+                                <SelectItem key={t} value={t}>
+                                  {TE_TYPE_LABEL[t]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {r.te_type_manuel && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              manuel
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+
                       {formatKr(r.listepris)}
                     </TableCell>
                     <TableCell>
