@@ -811,6 +811,9 @@ function ImportSide() {
       if (adrLinje1) notesParts.push(`Adresselinje 1: ${adrLinje1}`);
       if (bemIntern) notesParts.push(`Bem. intern: ${bemIntern}`);
       if (notesParts.length) (data as any).visma_notes = notesParts.join("\n");
+      // Enhedsmarkør: "Adresselinje 1" angiver hvilken enhed på adressen der
+      // afregnes separat (Shop, Personale, Kantinen …).
+      (data as any).visma_enhed = adrLinje1 || null;
       // Frasorteringsregler (frasortér — afvis ALDRIG filen)
       const selskabRaw = rowSelskabRaw(r);
       const firmaRaw = rowFirmaRaw(r);
@@ -1055,7 +1058,7 @@ function ImportSide() {
       "visma_id", "visma_delivery_id", "created_in_visma",
       "turnover_12m", "last_purchase_date",
       "customer_segment_1", "customer_segment_2", "customer_segment_3",
-      "visma_notes",
+      "visma_notes", "visma_enhed",
     ]);
 
     // 1) Hent eksisterende virksomheder via (name, visma_id)-par.
@@ -1442,6 +1445,7 @@ function ImportSide() {
           phone: mapping.location_phone ? (r[mapping.location_phone] ?? "").trim() || null : null,
           email: mapping.location_email ? (r[mapping.location_email] ?? "").trim() || null : null,
           contact_person: mapping.location_contact_person ? (r[mapping.location_contact_person] ?? "").trim() || null : null,
+          visma_enhed: (r["Adresselinje 1"] ?? "").trim() || null,
         };
         const entry = byKey.get(k) ?? { companyId, companyKundenr: vismaId, afdelingNr, list: [] };
         if (!entry.list.find((x) => x.delivery === delivery)) {
@@ -1469,6 +1473,7 @@ function ImportSide() {
             phone: row.loc.phone,
             email: row.loc.email,
             contact_person: row.loc.contact_person,
+            visma_enhed: row.loc.visma_enhed,
             is_primary: !!companyKundenr && row.delivery === companyKundenr,
           });
         }
