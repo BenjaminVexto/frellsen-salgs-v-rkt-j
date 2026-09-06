@@ -201,6 +201,44 @@ export const getLocationSalesSummary = createServerFn({ method: "POST" })
     return out;
   });
 
+// Omsætning 12 mdr. + sidste køb pr. company_id (samme kilde som fanen "Salg").
+// companies.turnover_12m er tom og bruges ikke.
+export const getCompanySalesSummary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { companyIds: string[] }) => {
+    if (!Array.isArray(input?.companyIds)) throw new Error("companyIds krævet");
+    return input;
+  })
+  .handler(async ({ data, context }): Promise<Record<string, { revenue12m: number; lastPurchase: string | null }>> => {
+    if (data.companyIds.length === 0) return {};
+    const cutoff = new Date();
+    cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
+    cutoff.setUTCDate(1);
+    const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
+
+    const out: Record<string, { revenue12m: number; lastPurchase: string | null }> = {};
+    const rows = await fetchAllInChunks(data.companyIds, 100, (slice, from, to) =>
+      context.supabase
+        .from("sales_monthly")
+        .select("company_id, period, revenue, last_invoice_date")
+        .in("company_id", slice)
+        .range(from, to),
+    );
+    rows.forEach((r: any) => {
+      if (!r.company_id) return;
+      const cur = out[r.company_id] ?? { revenue12m: 0, lastPurchase: null };
+      const rev = Number(r.revenue) || 0;
+      if (r.period >= cutoffStr) cur.revenue12m += rev;
+      if (rev > 0) {
+        const d = r.last_invoice_date ?? r.period;
+        if (d && (!cur.lastPurchase || d > cur.lastPurchase)) cur.lastPurchase = d;
+      }
+      out[r.company_id] = cur;
+    });
+    return out;
+  });
+
+
 
 // --- Seller dashboard ---
 
