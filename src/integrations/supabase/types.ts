@@ -1931,6 +1931,8 @@ export type Database = {
           record_status: string
           salgsbeskrivelse: string | null
           sort_order: number | null
+          te_type: string | null
+          te_type_manuel: boolean
           udlejningspris: number | null
           updated_at: string
           varenr: string
@@ -1952,6 +1954,8 @@ export type Database = {
           record_status?: string
           salgsbeskrivelse?: string | null
           sort_order?: number | null
+          te_type?: string | null
+          te_type_manuel?: boolean
           udlejningspris?: number | null
           updated_at?: string
           varenr: string
@@ -1973,6 +1977,8 @@ export type Database = {
           record_status?: string
           salgsbeskrivelse?: string | null
           sort_order?: number | null
+          te_type?: string | null
+          te_type_manuel?: boolean
           udlejningspris?: number | null
           updated_at?: string
           varenr?: string
@@ -2805,6 +2811,7 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      classify_te_types: { Args: never; Returns: number }
       create_quote_draft: {
         Args: {
           _company_id: string
@@ -2817,6 +2824,7 @@ export type Database = {
         Args: { _name: string }
         Returns: Database["public"]["Enums"]["agreement_type"]
       }
+      derive_te_type: { Args: { _beskrivelse: string }; Returns: string }
       dublet_kandidater: {
         Args: never
         Returns: {
