@@ -318,6 +318,11 @@ function VirksomhederListe() {
                         <span className="font-medium text-sm md:text-base">
                           {r.name}
                         </span>
+                        {(r as any).visma_enhed && (
+                          <span className="text-xs text-muted-foreground">
+                            · {(r as any).visma_enhed}
+                          </span>
+                        )}
                       </div>
 
                       <div className="text-xs text-muted-foreground mt-0.5">

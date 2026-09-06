@@ -1,6 +1,7 @@
 export type CompanyRow = {
   id: string;
   name: string;
+  visma_enhed?: string | null;
   cvr: string | null;
   address: string | null;
   city: string | null;
