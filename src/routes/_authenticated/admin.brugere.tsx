@@ -154,14 +154,70 @@ function BrugerStyringSide() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.role]);
 
+  /**
+   * Gemmer afdelingsadgang + primær afdeling for en bruger.
+   * Bruges både ved oprettelse og redigering.
+   */
+  const saveAfdelingAccess = async (
+    userId: string,
+    afdeling: number[],
+    primaryWanted: number | null,
+  ): Promise<number | null> => {
+    const current = accessByUser[userId] ?? [];
+    const toAdd = afdeling.filter((n) => !current.includes(n));
+    const toRemove = current.filter((n) => !afdeling.includes(n));
+    if (toRemove.length) {
+      const { error } = await supabase
+        .from("user_afdeling_access")
+        .delete()
+        .eq("user_id", userId)
+        .in("afdeling_nr", toRemove);
+      if (error) throw error;
+    }
+    if (toAdd.length) {
+      const { error } = await supabase
+        .from("user_afdeling_access")
+        .insert(toAdd.map((nr) => ({ user_id: userId, afdeling_nr: nr })));
+      if (error) throw error;
+    }
+    const primary =
+      primaryWanted != null && afdeling.includes(primaryWanted) ? primaryWanted : (afdeling[0] ?? null);
+    const { error: pErr } = await supabase
+      .from("profiles")
+      .update({ primary_afdeling_nr: primary })
+      .eq("id", userId);
+    if (pErr) throw pErr;
+    setAccessByUser((prev) => ({ ...prev, [userId]: [...afdeling] }));
+    setPrimaryByUser((prev) => ({ ...prev, [userId]: primary }));
+    return primary;
+  };
+
+  /** Primær afdeling skal altid være én af de valgte afdelinger. */
+  const toggleCreateAfd = (nr: number, on: boolean) => {
+    const next = on ? [...createAfd, nr].sort((a, b) => a - b) : createAfd.filter((x) => x !== nr);
+    setCreateAfd(next);
+    if (createPrimary != null && !next.includes(createPrimary)) {
+      setCreatePrimary(next[0] ?? null);
+    } else if (createPrimary == null && next.length) {
+      setCreatePrimary(next[0]);
+    }
+  };
+
   const onCreate = async () => {
     if (!createForm.full_name.trim() || !createForm.email.trim() || createForm.password.length < 8) {
       toast.error("Udfyld navn, email og adgangskode (min. 8 tegn)");
       return;
     }
+    if (
+      (createForm.role === "saelger" || createForm.role === "salgssupport") &&
+      createAfd.length === 0
+    ) {
+      toast.error("Vælg mindst én afdeling");
+      return;
+    }
     setCreating(true);
     try {
-      await createFn({
+      const created = await createFn({
         data: {
           ...createForm,
           region: createForm.region || null,
@@ -171,9 +227,12 @@ function BrugerStyringSide() {
               : null,
         },
       });
+      await saveAfdelingAccess((created as { id: string }).id, createAfd, createPrimary);
       toast.success("Bruger oprettet");
       setCreateOpen(false);
       setCreateForm({ full_name: "", email: "", password: "", role: "saelger", region: "", salesperson_no: "" });
+      setCreateAfd([]);
+      setCreatePrimary(null);
       await load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Fejl ved oprettelse");
@@ -181,6 +240,7 @@ function BrugerStyringSide() {
       setCreating(false);
     }
   };
+
 
   const openEdit = (r: Row) => {
     setEditRow(r);
