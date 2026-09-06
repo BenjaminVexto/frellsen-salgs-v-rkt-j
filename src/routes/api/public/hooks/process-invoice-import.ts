@@ -178,6 +178,15 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             );
             if (recomputeErr) {
               console.error("[invoice-import] recompute_all_company_statuses fejlede:", recomputeErr);
+              // Synliggør fejlen i UI'et — ikke kun i konsollen.
+              await supabaseAdmin
+                .from("invoice_import_jobs")
+                .update({
+                  last_error:
+                    "Kundestatus blev ikke genberegnet: " +
+                    String(recomputeErr.message ?? recomputeErr).slice(0, 1000),
+                })
+                .eq("id", jobId);
             }
           }
 
