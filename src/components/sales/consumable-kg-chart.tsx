@@ -204,7 +204,7 @@ export function ConsumableKgChart({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              Forbrugsvarer · {openPeriod ? formatPeriodLabel(openPeriod) : ""}
+              {gruppeNavnAktiv} · {openPeriod ? formatPeriodLabel(openPeriod) : ""}
             </DialogTitle>
           </DialogHeader>
           {varerQ.isLoading ? (
@@ -215,8 +215,11 @@ export function ConsumableKgChart({
             <p className="text-sm text-destructive py-4">Kunne ikke hente varelinjer.</p>
           ) : varer.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">
-              Ingen forbrugsvarer købt i denne måned.
+              {aktivKode === ALLE
+                ? `Ingen forbrugsvarer købt i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`
+                : `Ingen køb i denne gruppe i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`}
             </p>
+
           ) : (
             <>
               <ul className="divide-y text-sm max-h-[60vh] overflow-y-auto">
