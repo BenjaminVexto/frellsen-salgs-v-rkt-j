@@ -187,33 +187,19 @@ export const getLocationSalesSummary = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<Record<string, { revenue12m: number; lastPeriod: string | null; lastPurchase: string | null }>> => {
     if (data.locationIds.length === 0) return {};
-    const cutoff = new Date();
-    cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
-    cutoff.setUTCDate(1);
-    const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
-
+    // Summeringen sker i databasen (SECURITY INVOKER, så RLS/afdelingsadgang gælder).
+    const { data: rows, error } = await (context.supabase as any).rpc("location_sales_summary", {
+      _location_ids: data.locationIds,
+    });
+    if (error) throw error;
     const out: Record<string, { revenue12m: number; lastPeriod: string | null; lastPurchase: string | null }> = {};
-    // Hele historikken hentes, så "sidst købt" også dækker lokationer der ikke
-    // har købt i 12 mdr. Omsætningen tælles kun for de seneste 12 mdr.
-    const rows = await fetchAllInChunks(data.locationIds, 100, (slice, from, to) =>
-      context.supabase
-        .from("sales_monthly")
-        .select("location_id, period, revenue, last_invoice_date")
-        .in("location_id", slice)
-        .range(from, to),
-    );
-    rows.forEach((r: any) => {
+    ((rows ?? []) as any[]).forEach((r) => {
       if (!r.location_id) return;
-      const cur = out[r.location_id] ?? { revenue12m: 0, lastPeriod: null, lastPurchase: null };
-      const rev = Number(r.revenue) || 0;
-      if (r.period >= cutoffStr) cur.revenue12m += rev;
-      if (rev > 0) {
-        if (!cur.lastPeriod || r.period > cur.lastPeriod) cur.lastPeriod = r.period;
-        // Dagspræcist når fakturadatoen findes, ellers månedens 1.
-        const d = r.last_invoice_date ?? r.period;
-        if (d && (!cur.lastPurchase || d > cur.lastPurchase)) cur.lastPurchase = d;
-      }
-      out[r.location_id] = cur;
+      out[r.location_id] = {
+        revenue12m: Number(r.revenue_12m) || 0,
+        lastPeriod: r.last_period ?? null,
+        lastPurchase: r.last_purchase ?? null,
+      };
     });
     return out;
   });
@@ -228,32 +214,21 @@ export const getCompanySalesSummary = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<Record<string, { revenue12m: number; lastPurchase: string | null }>> => {
     if (data.companyIds.length === 0) return {};
-    const cutoff = new Date();
-    cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
-    cutoff.setUTCDate(1);
-    const cutoffStr = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
-
+    const { data: rows, error } = await (context.supabase as any).rpc("company_sales_summary", {
+      _company_ids: data.companyIds,
+    });
+    if (error) throw error;
     const out: Record<string, { revenue12m: number; lastPurchase: string | null }> = {};
-    const rows = await fetchAllInChunks(data.companyIds, 100, (slice, from, to) =>
-      context.supabase
-        .from("sales_monthly")
-        .select("company_id, period, revenue, last_invoice_date")
-        .in("company_id", slice)
-        .range(from, to),
-    );
-    rows.forEach((r: any) => {
+    ((rows ?? []) as any[]).forEach((r) => {
       if (!r.company_id) return;
-      const cur = out[r.company_id] ?? { revenue12m: 0, lastPurchase: null };
-      const rev = Number(r.revenue) || 0;
-      if (r.period >= cutoffStr) cur.revenue12m += rev;
-      if (rev > 0) {
-        const d = r.last_invoice_date ?? r.period;
-        if (d && (!cur.lastPurchase || d > cur.lastPurchase)) cur.lastPurchase = d;
-      }
-      out[r.company_id] = cur;
+      out[r.company_id] = {
+        revenue12m: Number(r.revenue_12m) || 0,
+        lastPurchase: r.last_purchase ?? null,
+      };
     });
     return out;
   });
+
 
 
 
