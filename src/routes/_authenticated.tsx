@@ -31,6 +31,7 @@ import {
   ChevronDown,
   Eye,
   MoreHorizontal,
+  Copy,
 } from "lucide-react";
 import {
   Sheet,
