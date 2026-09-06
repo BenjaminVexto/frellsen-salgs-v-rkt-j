@@ -244,3 +244,25 @@ export const listSellers = createServerFn({ method: "GET" })
         })),
     };
   });
+
+/**
+ * Sælgernummer → user_id (kun admins). Sælgernumre kan ikke længere læses
+ * direkte fra klienten, derfor hentes de her serverside.
+ */
+export const getSalespersonMap = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<Array<[string, string]>> => {
+    await ensureAdmin(context.userId);
+    const { data, error } = await supabaseAdmin
+      .from("profiles")
+      .select("id, salesperson_no, is_active")
+      .not("salesperson_no", "is", null);
+    if (error) throw new Error(error.message);
+    const out: Array<[string, string]> = [];
+    for (const p of (data ?? []) as any[]) {
+      if (p.salesperson_no && p.is_active !== false) {
+        out.push([String(p.salesperson_no).trim(), p.id as string]);
+      }
+    }
+    return out;
+  });
