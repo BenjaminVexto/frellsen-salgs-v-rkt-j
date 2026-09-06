@@ -11,6 +11,7 @@ import {
   type ProductRow,
 } from "@/lib/products.functions";
 import { useAuth } from "@/hooks/useAuth";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -133,6 +134,7 @@ const TE_TYPE_LABEL: Record<string, string> = {
 function TilbudskatalogPage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { afdelingFilter } = useAfdeling();
 
   useEffect(() => {
     if (!auth.loading && auth.session && auth.role !== "admin") {
@@ -151,10 +153,11 @@ function TilbudskatalogPage() {
   });
 
   const groupsQuery = useQuery({
-    queryKey: ["admin", "produktgruppe-navne"],
-    queryFn: () => listGroups(),
+    queryKey: ["admin", "produktgruppe-navne", afdelingFilter],
+    queryFn: () => listGroups({ data: { afdelingNr: afdelingFilter } }),
   });
   const gruppeNavne = groupsQuery.data ?? {};
+
 
   const mutation = useMutation({
     mutationFn: (input: Record<string, unknown> & { varenr: string }) =>
@@ -164,10 +167,12 @@ function TilbudskatalogPage() {
   });
 
   const [filter, setFilter] = useState<Filter>("alle");
+  const [gruppeFilter, setGruppeFilter] = useState<string>("alle");
   const [search, setSearch] = useState("");
   const [openVarenr, setOpenVarenr] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("varenr");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
 
   function toggleSort(k: SortKey) {
     if (k === sortKey) {
@@ -183,6 +188,8 @@ function TilbudskatalogPage() {
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return rows.filter((r) => {
+      if (gruppeFilter !== "alle" && (r.produktprisgruppe_1 ?? "") !== gruppeFilter)
+        return false;
       if (filter === "tilbudsegnede" && !r.is_tilbudsegnet) return false;
       if (filter === "udgaaede" && r.record_status !== "udgaaet") return false;
       if (filter === "te_uden_type") {
@@ -200,7 +207,18 @@ function TilbudskatalogPage() {
         (r.beskrivelse ?? "").toLowerCase().includes(s)
       );
     });
-  }, [rows, filter, search]);
+  }, [rows, filter, gruppeFilter, search]);
+
+  const gruppeOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (r.produktprisgruppe_1) set.add(r.produktprisgruppe_1);
+    });
+    return Array.from(set).sort(
+      (a, b) => (Number(a) || 0) - (Number(b) || 0) || a.localeCompare(b),
+    );
+  }, [rows]);
+
 
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -319,6 +337,20 @@ function TilbudskatalogPage() {
             </button>
           ))}
         </div>
+        <Select value={gruppeFilter} onValueChange={setGruppeFilter}>
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="Alle varegrupper" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[320px]">
+            <SelectItem value="alle">Alle varegrupper</SelectItem>
+            {gruppeOptions.map((g) => (
+              <SelectItem key={g} value={g}>
+                {g} — {gruppeNavne[g] ?? "Ukendt"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <div className="ml-auto text-sm text-muted-foreground">
           Viser {filtered.length} af {rows.length}
         </div>
