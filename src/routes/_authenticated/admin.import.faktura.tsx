@@ -345,7 +345,7 @@ function FakturaImportSide() {
                 <CheckCircle2 className="h-4 w-4" /> Færdig — alle rækker upsertet
               </div>
             )}
-            {job.status === "failed" && job.last_error && (
+            {job.last_error && (
               <p className="text-xs text-destructive">Fejl: {job.last_error}</p>
             )}
           </div>
