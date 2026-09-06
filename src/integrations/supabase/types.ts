@@ -1989,6 +1989,7 @@ export type Database = {
         Row: {
           created_at: string
           er_primaer: boolean
+          indgaar_i_sortiment: boolean
           navn: string
           product_group_1: string
           rolle: string
@@ -1996,6 +1997,7 @@ export type Database = {
         Insert: {
           created_at?: string
           er_primaer?: boolean
+          indgaar_i_sortiment?: boolean
           navn: string
           product_group_1: string
           rolle: string
@@ -2003,6 +2005,7 @@ export type Database = {
         Update: {
           created_at?: string
           er_primaer?: boolean
+          indgaar_i_sortiment?: boolean
           navn?: string
           product_group_1?: string
           rolle?: string
@@ -2801,6 +2804,16 @@ export type Database = {
           },
         ]
       }
+      sortiment_penetration: {
+        Row: {
+          customer_segment_1: string | null
+          kunder_i_alt: number | null
+          kunder_med_gruppen: number | null
+          pct: number | null
+          product_group_1: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
@@ -2950,6 +2963,7 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       snapshot_forbrug_signal: { Args: never; Returns: number }
+      sortiment_daekning: { Args: { _company_id: string }; Returns: Json }
     }
     Enums: {
       activity_type:
