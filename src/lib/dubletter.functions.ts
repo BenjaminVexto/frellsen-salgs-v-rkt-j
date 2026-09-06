@@ -14,120 +14,77 @@ async function ensureAdmin(userId: string) {
   if (!data) throw new Error("Forbidden: kun administratorer");
 }
 
-export type DubletSoeskende = {
+export type DubletPost = {
   id: string;
   name: string;
   visma_id: string | null;
   afdeling_nr: number | null;
+  created_in_visma: string | null;
+  zip: string | null;
   sidste_varekoeb: string | null;
   omsaetning_12m: number | null;
 };
 
-export type DubletKandidat = {
-  id: string;
-  name: string;
+export type DubletPar = {
   cvr: string;
-  visma_id: string | null;
-  afdeling_nr: number | null;
-  created_in_visma: string | null;
+  lighed: number;
+  samme_postnr: boolean;
+  samme_adresse: boolean;
+  identisk_navn: boolean;
+  afvist_at: string | null;
   afloest_af_company_id: string | null;
-  afloest_af_navn: string | null;
-  soeskende: DubletSoeskende[];
+  er_offentlig: boolean;
+  doed: DubletPost;
+  aktiv: DubletPost;
 };
 
-const KAND_COLS =
-  "id,name,cvr,visma_id,afdeling_nr,created_in_visma,afloest_af_company_id";
-const SIB_COLS =
-  "id,name,cvr,visma_id,afdeling_nr,last_sales_date,last_purchase_date,turnover_12m";
-
 /**
- * Kandidater til "afløst af": virksomheder der deler CVR med mindst én anden
- * virksomhed, og som selv er tomme (intet salg, intet aktivt udstyr).
+ * Kandidater til "afløst af" er PAR: en død debitorpost (intet salg, intet
+ * aktivt udstyr) sammen med den aktive søskende under samme CVR, hvor de
+ * normaliserede navne er mindst 60% ens. Samme CVR alene er ikke nok — en
+ * kommune har ét CVR og mange selvstændige institutioner.
  */
 export const getDubletKandidater = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
 
-    const PAGE = 1000;
-    const kandidater: any[] = [];
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabaseAdmin
-        .from("companies")
-        .select(KAND_COLS)
-        .not("cvr", "is", null)
-        .is("last_purchase_date", null)
-        .is("last_sales_date", null)
-        .eq("has_active_equipment", false)
-        .order("name")
-        .range(from, from + PAGE - 1);
-      if (error) throw new Error(error.message);
-      const batch = data ?? [];
-      kandidater.push(...batch);
-      if (batch.length < PAGE) break;
-    }
+    const { data, error } = await (supabaseAdmin as any).rpc("dublet_kandidater");
+    if (error) throw new Error(error.message);
 
-    const cvrs = Array.from(
-      new Set(
-        kandidater
-          .map((c) => (c.cvr ?? "").trim())
-          .filter((v) => v.length > 0),
-      ),
-    );
-    if (!cvrs.length) return { kandidater: [] as DubletKandidat[] };
+    const par: DubletPar[] = ((data ?? []) as any[]).map((r) => ({
+      cvr: r.cvr ?? "",
+      lighed: Number(r.lighed ?? 0),
+      samme_postnr: !!r.samme_postnr,
+      samme_adresse: !!r.samme_adresse,
+      identisk_navn: Number(r.lighed ?? 0) >= 0.999,
+      afvist_at: r.dead_afvist_at ?? null,
+      afloest_af_company_id: r.dead_afloest_af_company_id ?? null,
+      er_offentlig: r.dead_binding_status === "offentlig_aftale",
+      doed: {
+        id: r.dead_id,
+        name: r.dead_name,
+        visma_id: r.dead_visma_id ?? null,
+        afdeling_nr: r.dead_afdeling_nr ?? null,
+        created_in_visma: r.dead_created_in_visma ?? null,
+        zip: r.dead_zip ?? null,
+        sidste_varekoeb: null,
+        omsaetning_12m: null,
+      },
+      aktiv: {
+        id: r.alive_id,
+        name: r.alive_name,
+        visma_id: r.alive_visma_id ?? null,
+        afdeling_nr: r.alive_afdeling_nr ?? null,
+        created_in_visma: r.alive_created_in_visma ?? null,
+        zip: r.alive_zip ?? null,
+        sidste_varekoeb: r.alive_last_varekoeb ?? null,
+        omsaetning_12m:
+          r.alive_turnover_12m != null ? Number(r.alive_turnover_12m) : null,
+      },
+    }));
 
-    const byCvr = new Map<string, any[]>();
-    for (let i = 0; i < cvrs.length; i += 200) {
-      const slice = cvrs.slice(i, i + 200);
-      const { data, error } = await supabaseAdmin
-        .from("companies")
-        .select(SIB_COLS)
-        .in("cvr", slice);
-      if (error) throw new Error(error.message);
-      for (const row of (data ?? []) as any[]) {
-        const key = (row.cvr ?? "").trim();
-        const arr = byCvr.get(key) ?? [];
-        arr.push(row);
-        byCvr.set(key, arr);
-      }
-    }
-
-    const navnById = new Map<string, string>();
-    for (const arr of byCvr.values())
-      for (const r of arr) navnById.set(r.id, r.name);
-
-    const result: DubletKandidat[] = [];
-    for (const k of kandidater) {
-      const cvr = (k.cvr ?? "").trim();
-      const group = byCvr.get(cvr) ?? [];
-      if (group.length < 2) continue;
-      const soeskende: DubletSoeskende[] = group
-        .filter((r) => r.id !== k.id)
-        .map((r) => ({
-          id: r.id,
-          name: r.name,
-          visma_id: r.visma_id ?? null,
-          afdeling_nr: r.afdeling_nr ?? null,
-          sidste_varekoeb: r.last_sales_date ?? r.last_purchase_date ?? null,
-          omsaetning_12m: r.turnover_12m != null ? Number(r.turnover_12m) : null,
-        }))
-        .sort((a, b) => (b.omsaetning_12m ?? 0) - (a.omsaetning_12m ?? 0));
-      result.push({
-        id: k.id,
-        name: k.name,
-        cvr,
-        visma_id: k.visma_id ?? null,
-        afdeling_nr: k.afdeling_nr ?? null,
-        created_in_visma: k.created_in_visma ?? null,
-        afloest_af_company_id: k.afloest_af_company_id ?? null,
-        afloest_af_navn: k.afloest_af_company_id
-          ? (navnById.get(k.afloest_af_company_id) ?? null)
-          : null,
-        soeskende,
-      });
-    }
-
-    return { kandidater: result };
+    return { par };
   });
 
 /** Sæt eller fjern markeringen "afløst af". */
@@ -148,6 +105,27 @@ export const setAfloestAf = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("companies")
       .update({ afloest_af_company_id: data.afloest_af_company_id })
+      .eq("id", data.company_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Markér forslaget som "ikke en dublet" — eller fortryd afvisningen. */
+export const setDubletAfvist = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        company_id: z.string().uuid(),
+        afvist: z.boolean(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const { error } = await (supabaseAdmin as any)
+      .from("companies")
+      .update({ dublet_afvist_at: data.afvist ? new Date().toISOString() : null })
       .eq("id", data.company_id);
     if (error) throw new Error(error.message);
     return { ok: true };
