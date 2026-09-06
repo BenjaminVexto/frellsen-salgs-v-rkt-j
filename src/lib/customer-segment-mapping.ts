@@ -38,6 +38,8 @@ export function parseSegment3(
   if (!raw) return { code: null, category: null };
   const s = String(raw).trim();
   if (!s) return { code: null, category: null };
+  // Java Brænderiet/Høyberg udfylder ikke Kundeprisgruppe 3 — Visma sender "0"/"00"
+  if (/^0+$/.test(s)) return { code: null, category: null };
   const m = s.match(/^\s*(\d+)\s*\[\s*(.+?)\s*\]\s*$/);
   if (m) return { code: m[1], category: m[2] };
   // Også acceptér "[Kategori]" eller bare "Kategori"
