@@ -93,8 +93,7 @@ import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion } from "@/components/ai-briefing-sektion";
-import { SortimentDaekningSektion } from "@/components/sortiment-daekning-sektion";
-import { TeSortimentSektion } from "@/components/te-sortiment-sektion";
+import { SortimentKort } from "@/components/sortiment-kort";
 import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 
 import { getActivityType, labelFor } from "@/lib/activity-types";
@@ -833,14 +832,7 @@ function VirksomhedsKort() {
               {!afloestAf && <AiBriefingSektion companyId={company.id} />}
 
               {!afloestAf && (
-                <SortimentDaekningSektion
-                  companyId={company.id}
-                  afdelingNr={(company as any).afdeling_nr}
-                />
-              )}
-
-              {!afloestAf && (
-                <TeSortimentSektion
+                <SortimentKort
                   companyId={company.id}
                   afdelingNr={(company as any).afdeling_nr}
                 />

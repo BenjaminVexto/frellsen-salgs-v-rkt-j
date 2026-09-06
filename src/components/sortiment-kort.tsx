@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -83,10 +83,14 @@ export function SortimentKort({
   const hentDaekning = useServerFn(getSortimentDaekning);
   const hentTe = useServerFn(getTeSortimentKunde);
 
-  const [foldet, setFoldet] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(FOLD_KEY) === "1";
-  });
+  const [foldet, setFoldet] = useState(false);
+  useEffect(() => {
+    try {
+      setFoldet(window.localStorage.getItem(FOLD_KEY) === "1");
+    } catch {
+      /* ignoreres */
+    }
+  }, []);
   const [aaben, setAaben] = useState<string | null>(null);
 
   const daekning = useQuery({
