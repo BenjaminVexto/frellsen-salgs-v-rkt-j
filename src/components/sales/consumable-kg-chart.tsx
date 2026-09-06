@@ -170,46 +170,63 @@ export function ConsumableKgChart({
               ))}
             </div>
             <div className="flex gap-1">
-              {(["kg", "kr"] as Enhed[]).map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => setEnhed(e)}
-                  className={`text-xs rounded-full border px-2.5 py-1 transition-colors ${
-                    e === enhed
-                      ? "bg-secondary text-secondary-foreground border-secondary"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {e}
-                </button>
-              ))}
+              {(["kg", "kr"] as Enhed[]).map((e) => {
+                const disabled = e === "kg" && kgDeaktiveret;
+                return (
+                  <button
+                    key={e}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => !disabled && setEnhed(e)}
+                    title={disabled ? "Maskiner og teknik vejes ikke" : undefined}
+                    className={`text-xs rounded-full border px-2.5 py-1 transition-colors ${
+                      disabled
+                        ? "border-border text-muted-foreground/50 cursor-not-allowed"
+                        : e === effektivEnhed
+                          ? "bg-secondary text-secondary-foreground border-secondary"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {e}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
-        <div className="flex gap-1.5 h-36 mt-3">
-          {data.map((d) => (
-            <div key={d.period} className="flex-1 flex flex-col items-center gap-1 h-full">
-              <div className="flex-1 w-full flex items-end min-h-0">
-                <button
-                  type="button"
-                  disabled={!clickable}
-                  onClick={() => clickable && setOpenPeriod(d.period)}
-                  className={`w-full bg-primary/60 rounded-t transition-colors ${
-                    clickable ? "cursor-pointer hover:bg-primary" : "cursor-default"
-                  }`}
-                  style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value > 0 ? 2 : 0 }}
-                  title={`${d.label}: ${fmtVal(d.value)}${clickable ? " — klik for varelinjer" : ""}`}
-                  aria-label={`${d.label}: ${fmtVal(d.value)}`}
-                />
+        {kgDeaktiveret && (
+          <p className="text-[11px] text-muted-foreground mt-2">Maskiner og teknik vejes ikke.</p>
+        )}
+        {tomKg ? (
+          <div className="h-36 mt-3 flex items-center justify-center text-sm text-muted-foreground border border-dashed rounded-md">
+            Ingen kg registreret i denne gruppe — skift til kr
+          </div>
+        ) : (
+          <div className="flex gap-1.5 h-36 mt-3">
+            {visData.map((d) => (
+              <div key={d.period} className="flex-1 flex flex-col items-center gap-1 h-full">
+                <div className="flex-1 w-full flex items-end min-h-0">
+                  <button
+                    type="button"
+                    disabled={!clickable}
+                    onClick={() => clickable && setOpenPeriod(d.period)}
+                    className={`w-full bg-primary/60 rounded-t transition-colors ${
+                      clickable ? "cursor-pointer hover:bg-primary" : "cursor-default"
+                    }`}
+                    style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value > 0 ? 2 : 0 }}
+                    title={`${d.label}: ${fmtVal(d.value)}${clickable ? " — klik for varelinjer" : ""}`}
+                    aria-label={`${d.label}: ${fmtVal(d.value)}`}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground">{d.label}</span>
               </div>
-              <span className="text-[10px] text-muted-foreground">{d.label}</span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         <p className="text-[11px] text-muted-foreground mt-2">
           Den igangværende måned indgår ikke.
         </p>
+
       </Card>
 
 
