@@ -165,10 +165,12 @@ function TilbudskatalogPage() {
   });
 
   const [filter, setFilter] = useState<Filter>("alle");
+  const [gruppeFilter, setGruppeFilter] = useState<string>("alle");
   const [search, setSearch] = useState("");
   const [openVarenr, setOpenVarenr] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("varenr");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
 
   function toggleSort(k: SortKey) {
     if (k === sortKey) {
