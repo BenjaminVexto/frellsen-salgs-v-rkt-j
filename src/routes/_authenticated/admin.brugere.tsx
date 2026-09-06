@@ -62,6 +62,28 @@ type Row = {
 };
 type Afdeling = { afdeling_nr: number; navn: string };
 
+/** Kolonner der kan sorteres — alfabetisk for tekst, numerisk for tal/dato. */
+type SortKey =
+  | "full_name"
+  | "email"
+  | "role"
+  | "afdeling"
+  | "region"
+  | "salesperson_no"
+  | "created_at"
+  | "is_active";
+const SORT_LABELS: Record<SortKey, string> = {
+  full_name: "Navn",
+  email: "Email",
+  role: "Rolle",
+  afdeling: "Afdelinger",
+  region: "Region",
+  salesperson_no: "Sælgernr.",
+  created_at: "Oprettet",
+  is_active: "Aktiv",
+};
+
+
 function BrugerStyringSide() {
   const auth = useAuth();
   const navigate = useNavigate();
