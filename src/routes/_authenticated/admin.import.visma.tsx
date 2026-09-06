@@ -1603,28 +1603,15 @@ function ImportSide() {
         ? `Import afbrudt af bruger: ${companyIds.length.toLocaleString("da-DK")} virksomheder nåede at blive importeret`
         : failed > 0
         ? `Import afsluttet med fejl: ${companyIds.length.toLocaleString("da-DK")} virksomheder`
-        : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder`,
+        : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder${statusSuffix}`,
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
     if (wasAborted) toast.warning(`Import stoppet — ${companyIds.length.toLocaleString("da-DK")} virksomheder importeret før afbrydelse`);
     else if (failed > 0) toast.error(`Import afsluttet med fejl (${failed.toLocaleString("da-DK")})`);
+    else if (recomputeRows !== null)
+      toast.success(`Import gennemført · ${recomputeRows.toLocaleString("da-DK")} kundestatusser genberegnet`);
     else toast.success("Import gennemført");
 
-    // Genberegn customer_type / last_sales_date / has_active_equipment ud fra
-    // friske last_purchase_date-værdier. Ikke-blokerende: en fejl må ikke
-    // vælte selve importen. Samme mønster som faktura-importen.
-    if (!wasAborted && companyIds.length > 0) {
-      (async () => {
-        try {
-          const res = await recomputeStatuses();
-          if (!res.ok) {
-            console.error("[visma-import] recompute_all_company_statuses fejlede:", res.error);
-          }
-        } catch (err) {
-          console.error("[visma-import] recompute_all_company_statuses kastede:", err);
-        }
-      })();
-    }
 
     if (companiesWithMultipleLocations > 0) {
       toast.success(
