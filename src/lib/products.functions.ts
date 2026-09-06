@@ -76,21 +76,40 @@ export const listProducts = createServerFn({ method: "GET" })
     return out;
   });
 
-/** Varegruppekode → navn (globale navne fra produktgruppe_rolle). */
+/** Varegruppekode → navn. Afdelingsnavne (produktgruppe_navn) vinder over globale. */
 export const listProductGroupNames = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<Record<string, string>> => {
+  .inputValidator((input: unknown) =>
+    z
+      .object({ afdelingNr: z.number().int().nullable().optional() })
+      .optional()
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data, context }): Promise<Record<string, string>> => {
     await assertAdmin(context);
-    const { data, error } = await context.supabase
+    const { data: globale, error } = await context.supabase
       .from("produktgruppe_rolle" as any)
       .select("product_group_1, navn");
     if (error) throw new Error(error.message);
     const out: Record<string, string> = {};
-    (data ?? []).forEach((r: any) => {
+    (globale ?? []).forEach((r: any) => {
       if (r?.product_group_1 && r?.navn) out[String(r.product_group_1)] = String(r.navn);
     });
+
+    const afdelingNr = data?.afdelingNr ?? null;
+    if (afdelingNr != null) {
+      const { data: lokale, error: e2 } = await context.supabase
+        .from("produktgruppe_navn" as any)
+        .select("product_group_1, navn")
+        .eq("afdeling_nr", afdelingNr);
+      if (e2) throw new Error(e2.message);
+      (lokale ?? []).forEach((r: any) => {
+        if (r?.product_group_1 && r?.navn) out[String(r.product_group_1)] = String(r.navn);
+      });
+    }
     return out;
   });
+
 
 const UpdateSchema = z
   .object({
