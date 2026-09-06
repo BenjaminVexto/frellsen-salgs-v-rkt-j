@@ -710,7 +710,7 @@ export type MonthlyConsumableProduct = {
 /** Varelinjer for én måned, kun forbrugsvarer, sorteret efter kilo faldende. */
 export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { locationIds: string[]; period: string }) => {
+  .inputValidator((input: { locationIds: string[]; period: string; gruppeKode?: string | null }) => {
     if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
     if (!input?.period) throw new Error("period krævet");
     return input;
@@ -723,10 +723,12 @@ export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
       .in("location_id", data.locationIds)
       .eq("period", data.period);
     if (error) throw error;
+    const filterKode = data.gruppeKode ?? null;
     const acc = new Map<string, MonthlyConsumableProduct>();
     for (const r of (rows ?? []) as any[]) {
       const kode = gruppeKode(r.product_group_1);
       if (!kode || !FORBRUG_KODER.has(kode)) continue;
+      if (filterKode && kode !== filterKode) continue;
       const cur =
         acc.get(r.varenr) ??
         { varenr: r.varenr, description: r.description ?? null, revenue: 0, quantity: 0, weightKg: 0 };
@@ -740,6 +742,7 @@ export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
       (a, b) => b.weightKg - a.weightKg || b.revenue - a.revenue,
     );
   });
+
 
 export type SortimentTal = { nu: number; foer: number };
 
