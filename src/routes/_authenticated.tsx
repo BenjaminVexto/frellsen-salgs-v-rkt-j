@@ -32,6 +32,7 @@ import {
   Eye,
   MoreHorizontal,
   Copy,
+  Leaf,
 } from "lucide-react";
 import {
   Sheet,
