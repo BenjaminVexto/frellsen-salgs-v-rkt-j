@@ -269,31 +269,7 @@ function BrugerStyringSide() {
     if (!editRow) return;
     setAfdSaving(true);
     try {
-      const current = accessByUser[editRow.id] ?? [];
-      const toAdd = editAfd.filter((n) => !current.includes(n));
-      const toRemove = current.filter((n) => !editAfd.includes(n));
-      if (toRemove.length) {
-        const { error } = await supabase
-          .from("user_afdeling_access")
-          .delete()
-          .eq("user_id", editRow.id)
-          .in("afdeling_nr", toRemove);
-        if (error) throw error;
-      }
-      if (toAdd.length) {
-        const { error } = await supabase
-          .from("user_afdeling_access")
-          .insert(toAdd.map((nr) => ({ user_id: editRow.id, afdeling_nr: nr })));
-        if (error) throw error;
-      }
-      const primary = editPrimary != null && editAfd.includes(editPrimary) ? editPrimary : (editAfd[0] ?? null);
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({ primary_afdeling_nr: primary })
-        .eq("id", editRow.id);
-      if (pErr) throw pErr;
-      setAccessByUser((prev) => ({ ...prev, [editRow.id]: [...editAfd] }));
-      setPrimaryByUser((prev) => ({ ...prev, [editRow.id]: primary }));
+      const primary = await saveAfdelingAccess(editRow.id, editAfd, editPrimary);
       setEditPrimary(primary);
       toast.success("Afdelingsadgang opdateret");
     } catch (e: unknown) {
