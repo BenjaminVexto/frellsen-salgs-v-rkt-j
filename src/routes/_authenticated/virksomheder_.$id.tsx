@@ -174,6 +174,12 @@ function VirksomhedsKort() {
   const isAdmin = role === "admin";
   const canWriteDocs = role === "admin" || role === "salgssupport";
   const [company, setCompany] = useState<Company | null>(null);
+  // Afløst debitorpost (Visma-post erstattet af en nyere) → banner + skjulte signaler.
+  const [afloestAf, setAfloestAf] = useState<{
+    id: string;
+    name: string;
+    visma_id: string | null;
+  } | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -282,6 +288,18 @@ function VirksomhedsKort() {
     setLocations(((locs ?? []) as Location[]));
     setOpportunities((opps ?? []) as Opportunity[]);
     setDocCount(dcount ?? 0);
+
+    const afloestId = (c as any)?.afloest_af_company_id ?? null;
+    if (afloestId) {
+      const { data: sup } = await supabase
+        .from("companies")
+        .select("id, name, visma_id")
+        .eq("id", afloestId)
+        .maybeSingle();
+      setAfloestAf((sup as any) ?? null);
+    } else {
+      setAfloestAf(null);
+    }
 
     // Hent navne på aktivitetsskrivere
     const creatorIds = Array.from(
@@ -414,6 +432,22 @@ function VirksomhedsKort() {
         </Link>
       </div>
 
+      {afloestAf && (
+        <Card className="mb-4 p-3 bg-muted/50 border-border">
+          <p className="text-sm text-muted-foreground">
+            Afløst af{" "}
+            <Link
+              to="/virksomheder/$id"
+              params={{ id: afloestAf.id }}
+              className="font-medium text-foreground hover:underline"
+            >
+              {afloestAf.name}
+            </Link>
+            {afloestAf.visma_id ? ` · ${afloestAf.visma_id}` : ""}
+          </p>
+        </Card>
+      )}
+
       {/* MOBIL møde-brief — vises kun på telefon, øverst, så sælgeren straks ser
           firma, status, AI-brief og kan starte aktivitet/mail uden at scrolle. */}
       <div className="lg:hidden mb-4">
@@ -468,7 +502,7 @@ function VirksomhedsKort() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <AiBriefingSektion companyId={company.id} />
+          {!afloestAf && <AiBriefingSektion companyId={company.id} />}
           <div className="grid grid-cols-1 gap-1.5 text-sm border-t pt-3">
             {(() => {
               const c = contacts.find((c) => c.is_primary) ?? contacts[0];
@@ -782,7 +816,7 @@ function VirksomhedsKort() {
 
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
-              <AiBriefingSektion companyId={company.id} />
+              {!afloestAf && <AiBriefingSektion companyId={company.id} />}
 
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-3">
@@ -884,6 +918,7 @@ function VirksomhedsKort() {
                 companyId={company.id}
                 totalLocations={locations.length}
                 locationIds={locations.map((l) => l.id)}
+                skjulSignaler={!!afloestAf}
               />
             </TabsContent>
 
@@ -893,6 +928,7 @@ function VirksomhedsKort() {
                 companyId={company.id}
                 locations={locations}
                 locationIds={locations.map((l) => l.id)}
+                skjulSignaler={!!afloestAf}
               />
             </TabsContent>
 
