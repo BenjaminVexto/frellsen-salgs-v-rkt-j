@@ -151,10 +151,11 @@ function TilbudskatalogPage() {
   });
 
   const groupsQuery = useQuery({
-    queryKey: ["admin", "produktgruppe-navne"],
-    queryFn: () => listGroups(),
+    queryKey: ["admin", "produktgruppe-navne", afdelingFilter],
+    queryFn: () => listGroups({ data: { afdelingNr: afdelingFilter } }),
   });
   const gruppeNavne = groupsQuery.data ?? {};
+
 
   const mutation = useMutation({
     mutationFn: (input: Record<string, unknown> & { varenr: string }) =>
