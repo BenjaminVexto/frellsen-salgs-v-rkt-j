@@ -20,6 +20,8 @@ export type SortimentDaekning = {
   kunder_i_alt?: number;
   paalidelig?: boolean;
   relevante_i_alt?: number;
+  foerer_relevante?: number;
+  mangler_i_alt?: number;
   foerer?: { gruppe: string; navn: string }[];
   mangler?: SortimentGruppe[];
 };

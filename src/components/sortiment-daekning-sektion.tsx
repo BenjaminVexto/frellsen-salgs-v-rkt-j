@@ -43,7 +43,7 @@ export function SortimentDaekningSektion({
   const foerer = data.foerer ?? [];
   const mangler = data.mangler ?? [];
   const relevante = data.relevante_i_alt ?? 0;
-  const foererRelevante = foerer.length;
+  const foererRelevante = data.foerer_relevante ?? 0;
   const paalidelig = data.paalidelig !== false;
 
   return (
@@ -51,7 +51,7 @@ export function SortimentDaekningSektion({
       <div className="flex items-start justify-between gap-3 mb-1">
         <h2 className="font-semibold flex items-center gap-2">
           <PackageSearch className="h-4 w-4" />
-          Sortiment: {Math.max(relevante - mangler.length, foererRelevante > relevante ? relevante : relevante - mangler.length)} af {relevante} varegrupper
+          Sortiment: {foererRelevante} af {relevante} varegrupper
         </h2>
       </div>
       <p className="text-xs text-muted-foreground mb-4">

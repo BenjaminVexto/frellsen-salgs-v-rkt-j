@@ -93,6 +93,7 @@ import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion } from "@/components/ai-briefing-sektion";
+import { SortimentDaekningSektion } from "@/components/sortiment-daekning-sektion";
 import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 
 import { getActivityType, labelFor } from "@/lib/activity-types";
@@ -829,6 +830,13 @@ function VirksomhedsKort() {
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
               {!afloestAf && <AiBriefingSektion companyId={company.id} />}
+
+              {!afloestAf && (
+                <SortimentDaekningSektion
+                  companyId={company.id}
+                  afdelingNr={(company as any).afdeling_nr}
+                />
+              )}
 
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-3">
