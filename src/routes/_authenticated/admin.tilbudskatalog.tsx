@@ -48,6 +48,17 @@ export const Route = createFileRoute("/_authenticated/admin/tilbudskatalog")({
 
 type Filter = "alle" | "tilbudsegnede" | "udgaaede" | "te_uden_type";
 
+type SortKey =
+  | "varenr"
+  | "beskrivelse"
+  | "kategori"
+  | "gruppe"
+  | "te_type"
+  | "listepris"
+  | "kan_lejes"
+  | "record_status"
+  | "is_tilbudsegnet";
+
 function formatKr(n: number | null) {
   if (n == null) return "—";
   return n.toLocaleString("da-DK", { style: "currency", currency: "DKK" });
