@@ -2820,15 +2820,18 @@ export type Database = {
       dublet_kandidater: {
         Args: never
         Returns: {
+          alive_address: string
           alive_afdeling_nr: number
           alive_created_in_visma: string
           alive_id: string
           alive_last_varekoeb: string
           alive_name: string
           alive_turnover_12m: number
+          alive_visma_enhed: string
           alive_visma_id: string
           alive_zip: string
           cvr: string
+          dead_address: string
           dead_afdeling_nr: number
           dead_afloest_af_company_id: string
           dead_afvist_at: string
@@ -2836,6 +2839,7 @@ export type Database = {
           dead_created_in_visma: string
           dead_id: string
           dead_name: string
+          dead_visma_enhed: string
           dead_visma_id: string
           dead_zip: string
           lighed: number
