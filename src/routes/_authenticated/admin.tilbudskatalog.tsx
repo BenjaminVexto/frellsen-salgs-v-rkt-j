@@ -11,6 +11,7 @@ import {
   type ProductRow,
 } from "@/lib/products.functions";
 import { useAuth } from "@/hooks/useAuth";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -133,6 +134,7 @@ const TE_TYPE_LABEL: Record<string, string> = {
 function TilbudskatalogPage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { afdelingFilter } = useAfdeling();
 
   useEffect(() => {
     if (!auth.loading && auth.session && auth.role !== "admin") {
