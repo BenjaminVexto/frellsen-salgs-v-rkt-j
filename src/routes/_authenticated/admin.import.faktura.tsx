@@ -239,7 +239,7 @@ function FakturaImportSide() {
           <ArrowLeft className="h-4 w-4" /> Tilbage
         </Link>
         <h1 className="text-2xl md:text-3xl font-semibold flex items-center gap-2">
-          <Receipt className="h-6 w-6" /> Faktura/salgsdata
+          <Receipt className="h-6 w-6" /> Faktura Journal
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Browseren parser fakturajournalen og uploader færdige data-chunks. Workeren upserter i baggrunden — du kan lukke fanen, så snart upload er færdig.
