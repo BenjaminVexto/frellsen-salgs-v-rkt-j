@@ -92,6 +92,8 @@ function BrugerStyringSide() {
     salesperson_no: "",
   });
   const [creating, setCreating] = useState(false);
+  const [createAfd, setCreateAfd] = useState<number[]>([]);
+  const [createPrimary, setCreatePrimary] = useState<number | null>(null);
 
   const [editRow, setEditRow] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState({
