@@ -88,6 +88,7 @@ function TilbudskatalogPage() {
   }, [auth.loading, auth.session, auth.role, navigate]);
 
   const list = useServerFn(listProducts);
+  const listGroups = useServerFn(listProductGroupNames);
   const update = useServerFn(updateProductSalesFields);
   const qc = useQueryClient();
 
@@ -95,6 +96,12 @@ function TilbudskatalogPage() {
     queryKey: ["admin", "products"],
     queryFn: () => list(),
   });
+
+  const groupsQuery = useQuery({
+    queryKey: ["admin", "produktgruppe-navne"],
+    queryFn: () => listGroups(),
+  });
+  const gruppeNavne = groupsQuery.data ?? {};
 
   const mutation = useMutation({
     mutationFn: (input: Record<string, unknown> & { varenr: string }) =>
