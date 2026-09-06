@@ -49,8 +49,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { importRunner, useImportRunner } from "@/lib/import-runner";
-import {
 import { getSalespersonMap } from "@/lib/admin-users.functions";
+import {
   deriveBindingStatus,
   deriveCustomerCategory,
 } from "@/lib/customer-segment-mapping";
