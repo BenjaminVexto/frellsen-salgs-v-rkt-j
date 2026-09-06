@@ -246,11 +246,12 @@ export function ConsumableKgChart({
             <p className="text-sm text-destructive py-4">Kunne ikke hente varelinjer.</p>
           ) : varer.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">
-              {aktivKode === ALLE
-                ? `Ingen forbrugsvarer købt i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`
-                : `Ingen køb i denne gruppe i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`}
+              {grafSum > 0
+                ? daekningsTekst
+                : aktivKode === ALLE
+                  ? `Ingen forbrugsvarer købt i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`
+                  : `Ingen køb i denne gruppe i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`}
             </p>
-
           ) : (
             <>
               <ul className="divide-y text-sm max-h-[60vh] overflow-y-auto">
@@ -277,13 +278,17 @@ export function ConsumableKgChart({
                   </li>
                 ))}
               </ul>
-              {!harKg && (
+              {afviger && (
+                <p className="text-[11px] text-muted-foreground">{daekningsTekst}</p>
+              )}
+              {!harKg && effektivEnhed === "kr" && (
                 <p className="text-[11px] text-muted-foreground">
                   Kilo pr. varelinje udfyldes ved næste fakturaimport — indtil da vises kun antal og kroner.
                 </p>
               )}
             </>
           )}
+
         </DialogContent>
       </Dialog>
     </>
