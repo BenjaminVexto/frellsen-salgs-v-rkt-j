@@ -85,6 +85,7 @@ const UpdateSchema = z
     salgsbeskrivelse: z.string().max(2000).nullable().optional(),
     sort_order: z.number().int().nullable().optional(),
     billede_url: z.string().max(2000).nullable().optional(),
+    te_type: z.enum(TE_TYPE_VALUES).optional(),
   })
   .strict();
 
