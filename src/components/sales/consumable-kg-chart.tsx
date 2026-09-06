@@ -22,6 +22,8 @@ import {
 import { getMonthlyConsumableProducts } from "@/lib/sales.functions";
 
 const ALLE = "ALLE";
+/** Maskiner, vandfiltre og maskindele registreres uden vægt. */
+const MASKIN_TEKNIK_KODER = new Set(["16", "17", "18"]);
 type Enhed = "kg" | "kr";
 
 function serie(rows: SalesMonthlyRow[], months: number, kode: string, enhed: Enhed) {
@@ -74,12 +76,25 @@ export function ConsumableKgChart({
   const aktivKode = kode ?? defaultKode;
   const [enhed, setEnhed] = useState<Enhed>("kg");
 
-  const fmtVal = (n: number) => (enhed === "kg" ? fmtKg(n, 1) : fmtKr(n));
+  
 
-  const data = serie(rows, months, aktivKode, enhed);
-  const max = Math.max(1, ...data.map((d) => d.value));
+  // Maskiner/teknik registreres uden vægt.
+  const erMaskinTeknik = MASKIN_TEKNIK_KODER.has(aktivKode);
+  const kgSerie = useMemo(() => serie(rows, months, aktivKode, "kg"), [rows, months, aktivKode]);
+  const harKgIPerioden = kgSerie.some((d) => d.value > 0);
+  const kgDeaktiveret = erMaskinTeknik;
+  const effektivEnhed: Enhed = kgDeaktiveret ? "kr" : enhed;
+  const fmtVal = (n: number) => (effektivEnhed === "kg" ? fmtKg(n, 1) : fmtKr(n));
+
+  const data = useMemo(
+    () => serie(rows, months, aktivKode, effektivEnhed),
+    [rows, months, aktivKode, effektivEnhed],
+  );
+  const tomKg = effektivEnhed === "kg" && !harKgIPerioden;
+  const visData = tomKg ? [] : data;
+  const max = Math.max(1, ...visData.map((d) => d.value));
   const [openPeriod, setOpenPeriod] = useState<string | null>(null);
-  const clickable = !!locationIds && locationIds.length > 0;
+  const clickable = !!locationIds && locationIds.length > 0 && !tomKg;
 
   const fetchFn = useServerFn(getMonthlyConsumableProducts);
   const varerQ = useQuery({
@@ -87,6 +102,7 @@ export function ConsumableKgChart({
       "monthly-consumable-products",
       openPeriod,
       aktivKode,
+      effektivEnhed,
       locationIds?.slice().sort().join(","),
     ],
     queryFn: () =>
@@ -95,37 +111,38 @@ export function ConsumableKgChart({
           locationIds: locationIds ?? [],
           period: openPeriod!,
           gruppeKode: aktivKode === ALLE ? null : aktivKode,
+          enhed: effektivEnhed,
         },
       }),
     enabled: !!openPeriod && clickable,
   });
-  const varer = useMemo(() => {
-    const list = varerQ.data ?? [];
-    return list
-      .slice()
-      .sort((a, b) =>
-        enhed === "kg"
-          ? b.weightKg - a.weightKg || b.revenue - a.revenue
-          : b.revenue - a.revenue || b.weightKg - a.weightKg,
-      );
-  }, [varerQ.data, enhed]);
+  const varer = useMemo(() => varerQ.data ?? [], [varerQ.data]);
   const harKg = varer.some((v) => v.weightKg > 0);
+  const grafSum = openPeriod ? (data.find((d) => d.period === openPeriod)?.value ?? 0) : 0;
+  const linjeSum = varer.reduce(
+    (s, v) => s + (effektivEnhed === "kg" ? v.weightKg : v.revenue),
+    0,
+  );
+  const afviger = grafSum > 0 && Math.abs(grafSum - linjeSum) > Math.max(1, grafSum * 0.005);
+  const daekningsTekst = `Varelinjerne dækker ${fmtVal(linjeSum)} af ${fmtVal(grafSum)} for måneden — resten mangler varelinje-historik.`;
 
   const gruppeNavnAktiv = aktivKode === ALLE ? "I alt" : kodeLabel(aktivKode, gruppeNavne);
   const titel =
     aktivKode === ALLE
       ? "I alt pr. måned"
       : aktivKode === KAFFE_KODE
-        ? enhed === "kg"
+        ? effektivEnhed === "kg"
           ? "Kg kaffe pr. måned"
           : "Kr. kaffe pr. måned"
-        : `${enhed === "kg" ? "Kg" : "Kr."} ${gruppeNavnAktiv.toLowerCase()} pr. måned`;
+        : `${effektivEnhed === "kg" ? "Kg" : "Kr."} ${gruppeNavnAktiv.toLowerCase()} pr. måned`;
 
   const vaelgGruppe = (k: string) => {
     setKode(k);
     // Kilo på tværs af grupper kan ikke sammenlignes.
     if (k === ALLE) setEnhed("kr");
+    if (MASKIN_TEKNIK_KODER.has(k)) setEnhed("kr");
   };
+
 
   return (
     <>
@@ -156,46 +173,63 @@ export function ConsumableKgChart({
               ))}
             </div>
             <div className="flex gap-1">
-              {(["kg", "kr"] as Enhed[]).map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => setEnhed(e)}
-                  className={`text-xs rounded-full border px-2.5 py-1 transition-colors ${
-                    e === enhed
-                      ? "bg-secondary text-secondary-foreground border-secondary"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {e}
-                </button>
-              ))}
+              {(["kg", "kr"] as Enhed[]).map((e) => {
+                const disabled = e === "kg" && kgDeaktiveret;
+                return (
+                  <button
+                    key={e}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => !disabled && setEnhed(e)}
+                    title={disabled ? "Maskiner og teknik vejes ikke" : undefined}
+                    className={`text-xs rounded-full border px-2.5 py-1 transition-colors ${
+                      disabled
+                        ? "border-border text-muted-foreground/50 cursor-not-allowed"
+                        : e === effektivEnhed
+                          ? "bg-secondary text-secondary-foreground border-secondary"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {e}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
-        <div className="flex gap-1.5 h-36 mt-3">
-          {data.map((d) => (
-            <div key={d.period} className="flex-1 flex flex-col items-center gap-1 h-full">
-              <div className="flex-1 w-full flex items-end min-h-0">
-                <button
-                  type="button"
-                  disabled={!clickable}
-                  onClick={() => clickable && setOpenPeriod(d.period)}
-                  className={`w-full bg-primary/60 rounded-t transition-colors ${
-                    clickable ? "cursor-pointer hover:bg-primary" : "cursor-default"
-                  }`}
-                  style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value > 0 ? 2 : 0 }}
-                  title={`${d.label}: ${fmtVal(d.value)}${clickable ? " — klik for varelinjer" : ""}`}
-                  aria-label={`${d.label}: ${fmtVal(d.value)}`}
-                />
+        {kgDeaktiveret && (
+          <p className="text-[11px] text-muted-foreground mt-2">Maskiner og teknik vejes ikke.</p>
+        )}
+        {tomKg ? (
+          <div className="h-36 mt-3 flex items-center justify-center text-sm text-muted-foreground border border-dashed rounded-md">
+            Ingen kg registreret i denne gruppe — skift til kr
+          </div>
+        ) : (
+          <div className="flex gap-1.5 h-36 mt-3">
+            {visData.map((d) => (
+              <div key={d.period} className="flex-1 flex flex-col items-center gap-1 h-full">
+                <div className="flex-1 w-full flex items-end min-h-0">
+                  <button
+                    type="button"
+                    disabled={!clickable}
+                    onClick={() => clickable && setOpenPeriod(d.period)}
+                    className={`w-full bg-primary/60 rounded-t transition-colors ${
+                      clickable ? "cursor-pointer hover:bg-primary" : "cursor-default"
+                    }`}
+                    style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value > 0 ? 2 : 0 }}
+                    title={`${d.label}: ${fmtVal(d.value)}${clickable ? " — klik for varelinjer" : ""}`}
+                    aria-label={`${d.label}: ${fmtVal(d.value)}`}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground">{d.label}</span>
               </div>
-              <span className="text-[10px] text-muted-foreground">{d.label}</span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         <p className="text-[11px] text-muted-foreground mt-2">
           Den igangværende måned indgår ikke.
         </p>
+
       </Card>
 
 
@@ -215,11 +249,12 @@ export function ConsumableKgChart({
             <p className="text-sm text-destructive py-4">Kunne ikke hente varelinjer.</p>
           ) : varer.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">
-              {aktivKode === ALLE
-                ? `Ingen forbrugsvarer købt i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`
-                : `Ingen køb i denne gruppe i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`}
+              {grafSum > 0
+                ? daekningsTekst
+                : aktivKode === ALLE
+                  ? `Ingen forbrugsvarer købt i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`
+                  : `Ingen køb i denne gruppe i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`}
             </p>
-
           ) : (
             <>
               <ul className="divide-y text-sm max-h-[60vh] overflow-y-auto">
@@ -246,13 +281,17 @@ export function ConsumableKgChart({
                   </li>
                 ))}
               </ul>
-              {!harKg && (
+              {afviger && (
+                <p className="text-[11px] text-muted-foreground">{daekningsTekst}</p>
+              )}
+              {!harKg && effektivEnhed === "kr" && (
                 <p className="text-[11px] text-muted-foreground">
                   Kilo pr. varelinje udfyldes ved næste fakturaimport — indtil da vises kun antal og kroner.
                 </p>
               )}
             </>
           )}
+
         </DialogContent>
       </Dialog>
     </>

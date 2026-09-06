@@ -707,14 +707,21 @@ export type MonthlyConsumableProduct = {
   weightKg: number;
 };
 
-/** Varelinjer for én måned, kun forbrugsvarer, sorteret efter kilo faldende. */
+/** Varelinjer for én måned. Filtreres og sorteres efter den valgte enhed. */
 export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { locationIds: string[]; period: string; gruppeKode?: string | null }) => {
-    if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
-    if (!input?.period) throw new Error("period krævet");
-    return input;
-  })
+  .inputValidator(
+    (input: {
+      locationIds: string[];
+      period: string;
+      gruppeKode?: string | null;
+      enhed?: "kg" | "kr";
+    }) => {
+      if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
+      if (!input?.period) throw new Error("period krævet");
+      return input;
+    },
+  )
   .handler(async ({ data, context }): Promise<MonthlyConsumableProduct[]> => {
     if (!data.locationIds.length) return [];
     const { data: rows, error } = await context.supabase
@@ -724,11 +731,12 @@ export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
       .eq("period", data.period);
     if (error) throw error;
     const filterKode = data.gruppeKode ?? null;
+    const enhed = data.enhed === "kg" ? "kg" : "kr";
     const acc = new Map<string, MonthlyConsumableProduct>();
     for (const r of (rows ?? []) as any[]) {
       const kode = gruppeKode(r.product_group_1);
-      if (!kode || !FORBRUG_KODER.has(kode)) continue;
-      if (filterKode && kode !== filterKode) continue;
+      if (!kode) continue;
+      if (filterKode ? kode !== filterKode : !FORBRUG_KODER.has(kode)) continue;
       const cur =
         acc.get(r.varenr) ??
         { varenr: r.varenr, description: r.description ?? null, revenue: 0, quantity: 0, weightKg: 0 };
@@ -738,10 +746,15 @@ export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
       if (!cur.description && r.description) cur.description = r.description;
       acc.set(r.varenr, cur);
     }
-    return Array.from(acc.values()).sort(
-      (a, b) => b.weightKg - a.weightKg || b.revenue - a.revenue,
-    );
+    return Array.from(acc.values())
+      .filter((v) => (enhed === "kg" ? v.weightKg > 0 : v.revenue !== 0))
+      .sort((a, b) =>
+        enhed === "kg"
+          ? b.weightKg - a.weightKg || b.revenue - a.revenue
+          : b.revenue - a.revenue || b.weightKg - a.weightKg,
+      );
   });
+
 
 
 export type SortimentTal = { nu: number; foer: number };
