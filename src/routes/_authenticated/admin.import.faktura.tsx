@@ -351,6 +351,8 @@ function FakturaImportSide() {
           </div>
         )}
       </Card>
+
+      <ImportKolonneTjekliste kontrakt={IMPORT_KONTRAKTER.faktura} />
     </div>
   );
 }
