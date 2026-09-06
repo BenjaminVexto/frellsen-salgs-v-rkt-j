@@ -1568,6 +1568,36 @@ function ImportSide() {
     setImportedRowAssignments(rowAssignments);
     setResult(resultPayload);
     const wasAborted = importRunner.isAborted();
+
+    // Genberegn customer_type / last_sales_date / has_active_equipment.
+    // Afventes FØR importRunner.finish, så status ikke forbliver forældet
+    // hvis brugeren lukker fanen lige efter importen.
+    let recomputeRows: number | null = null;
+    let recomputeError: string | null = null;
+    if (!wasAborted && companyIds.length > 0) {
+      importRunner.setLabel("Genberegner kundestatus…");
+      try {
+        const res = await recomputeStatuses();
+        if (res.ok) {
+          recomputeRows = res.rows ?? 0;
+        } else {
+          recomputeError = res.error ?? "ukendt fejl";
+        }
+      } catch (err: any) {
+        recomputeError = err?.message ?? String(err);
+      }
+      if (recomputeError) {
+        console.error("[visma-import] recompute_all_company_statuses fejlede:", recomputeError);
+        toast.error(`Kundestatus blev IKKE genberegnet: ${recomputeError}`, { duration: 15000 });
+      }
+    }
+
+    const statusSuffix = recomputeError
+      ? " · kundestatus fejlede"
+      : recomputeRows !== null
+        ? ` · ${recomputeRows.toLocaleString("da-DK")} kundestatusser genberegnet`
+        : "";
+
     importRunner.finish(
       wasAborted
         ? `Import afbrudt af bruger: ${companyIds.length.toLocaleString("da-DK")} virksomheder nåede at blive importeret`
