@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   adminListUsers,
@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Pencil, KeyRound, Mail } from "lucide-react";
+import { Loader2, Plus, Pencil, KeyRound, Mail, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { CvrApiStatusKort } from "@/components/cvr-api-status-kort";
 import { toast } from "sonner";
 
