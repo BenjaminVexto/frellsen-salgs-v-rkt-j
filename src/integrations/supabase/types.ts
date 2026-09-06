@@ -468,6 +468,7 @@ export type Database = {
           sources: string[]
           turnover_12m: number | null
           visma_delivery_id: string | null
+          visma_enhed: string | null
           visma_id: string | null
           visma_notes: string | null
           website: string | null
@@ -521,6 +522,7 @@ export type Database = {
           sources?: string[]
           turnover_12m?: number | null
           visma_delivery_id?: string | null
+          visma_enhed?: string | null
           visma_id?: string | null
           visma_notes?: string | null
           website?: string | null
@@ -574,6 +576,7 @@ export type Database = {
           sources?: string[]
           turnover_12m?: number | null
           visma_delivery_id?: string | null
+          visma_enhed?: string | null
           visma_id?: string | null
           visma_notes?: string | null
           website?: string | null
@@ -1569,6 +1572,7 @@ export type Database = {
           phone: string | null
           sales_signal: string | null
           visma_delivery_no: string | null
+          visma_enhed: string | null
           zip: string | null
         }
         Insert: {
@@ -1594,6 +1598,7 @@ export type Database = {
           phone?: string | null
           sales_signal?: string | null
           visma_delivery_no?: string | null
+          visma_enhed?: string | null
           zip?: string | null
         }
         Update: {
@@ -1619,6 +1624,7 @@ export type Database = {
           phone?: string | null
           sales_signal?: string | null
           visma_delivery_no?: string | null
+          visma_enhed?: string | null
           zip?: string | null
         }
         Relationships: [
