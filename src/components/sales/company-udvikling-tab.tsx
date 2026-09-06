@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
 import { Loader2, Boxes, Wrench, Receipt, Info } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getSalesForCompany, getUdviklingDetaljer } from "@/lib/sales.functions";
 import {
   filterByPeriod,
@@ -202,6 +202,7 @@ function MaskinerTeknikKort({
     <Card className="p-5">
       <h3 className="text-sm font-semibold flex items-center gap-2 mb-1">
         <Wrench className="h-4 w-4" /> Maskiner &amp; teknik (12 mdr.)
+        <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <button type="button" aria-label="Om beregningen" className="text-muted-foreground">
@@ -214,6 +215,7 @@ function MaskinerTeknikKort({
             den samlede maskin-DG kunstigt op.
           </TooltipContent>
         </Tooltip>
+        </TooltipProvider>
       </h3>
       <p className="text-xs text-muted-foreground mb-3">
         Varegruppe 16, 17 og 18. Indgår aldrig i forbrugstal.
