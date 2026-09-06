@@ -113,6 +113,11 @@ function TilbudskatalogPage() {
     return rows.filter((r) => {
       if (filter === "tilbudsegnede" && !r.is_tilbudsegnet) return false;
       if (filter === "udgaaede" && r.record_status !== "udgaaet") return false;
+      if (filter === "te_uden_type") {
+        if (r.record_status === "udgaaet") return false;
+        if (r.kategori !== "te") return false;
+        if (r.te_type && r.te_type !== "ukendt") return false;
+      }
       if (filter === "alle" && r.record_status === "udgaaet") {
         // alle = aktive; brug "udgåede" for at se de gamle
         return false;
