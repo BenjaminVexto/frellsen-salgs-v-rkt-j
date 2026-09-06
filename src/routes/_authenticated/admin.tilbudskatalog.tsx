@@ -188,6 +188,7 @@ function TilbudskatalogPage() {
             ["alle", "Alle aktive"],
             ["tilbudsegnede", "Kun tilbudsegnede"],
             ["udgaaede", "Udgåede"],
+            ["te_uden_type", "Kun te uden type"],
           ] as const).map(([k, label]) => (
             <button
               key={k}
