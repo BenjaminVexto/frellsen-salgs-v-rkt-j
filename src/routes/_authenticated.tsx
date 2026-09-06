@@ -144,6 +144,10 @@ function AuthenticatedShell() {
       : [{ to: "/kontaktlister", label: "Kontaktlister", shortLabel: "Lister", icon: ListChecks }]),
     { to: "/konkurrenter", label: "Konkurrenter", shortLabel: "Konkur.", icon: ShieldAlert },
     { to: "/salgsmuligheder", label: "Salgsmuligheder", shortLabel: "Salg", icon: Target },
+    // Kun Java Brænderiet (afdeling 21) har te-sortimentslogik.
+    ...(auth.afdelinger.includes(21) && afd.afdelingFilter === 21
+      ? [{ to: "/te-sortiment", label: "Te-sortiment", shortLabel: "Te", icon: Leaf }]
+      : []),
   ];
 
 
