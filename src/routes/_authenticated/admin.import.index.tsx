@@ -142,3 +142,32 @@ function ImportValgSide() {
     </div>
   );
 }
+
+function ValgKort({ valg: v }: { valg: Valg }) {
+  const Icon = v.icon;
+  return (
+    <Link to={v.to} className="block group">
+      <Card className="p-6 transition hover:border-primary hover:shadow-md cursor-pointer">
+        <div className="flex items-start gap-4">
+          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-2xl">
+            {v.emoji}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-lg mb-1 flex items-center gap-2">
+              <Icon className="h-5 w-5 text-muted-foreground" />
+              {v.raekkefoelge != null && (
+                <span className="text-muted-foreground tabular-nums">{v.raekkefoelge}.</span>
+              )}
+              {v.title}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-2">{v.description}</p>
+            <p className="text-xs text-muted-foreground">→ {v.hint}</p>
+          </div>
+          <div className="text-primary font-medium text-sm shrink-0 inline-flex items-center gap-1 group-hover:translate-x-1 transition">
+            Vælg <ArrowRight className="h-4 w-4" />
+          </div>
+        </div>
+      </Card>
+    </Link>
+  );
+}
