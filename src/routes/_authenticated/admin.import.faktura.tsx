@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { enqueueInvoiceImport, resolveDeliveryNos } from "@/lib/invoice-import.functions";
 import { parseAndAggregate } from "@/lib/invoice-parse";
+import { ImportKolonneTjekliste } from "@/components/import-kolonne-tjekliste";
+import { IMPORT_KONTRAKTER } from "@/lib/import-kontrakter";
 
 export const Route = createFileRoute("/_authenticated/admin/import/faktura")({
   component: FakturaImportSide,
