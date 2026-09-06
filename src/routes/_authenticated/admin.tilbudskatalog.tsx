@@ -45,7 +45,7 @@ export const Route = createFileRoute("/_authenticated/admin/tilbudskatalog")({
   component: TilbudskatalogPage,
 });
 
-type Filter = "alle" | "tilbudsegnede" | "udgaaede";
+type Filter = "alle" | "tilbudsegnede" | "udgaaede" | "te_uden_type";
 
 function formatKr(n: number | null) {
   if (n == null) return "—";
@@ -61,6 +61,20 @@ const KATEGORI_LABEL: Record<string, string> = {
   tilbehoer: "Tilbehør",
   ovrigt: "Øvrigt",
 };
+
+const TE_TYPE_LABEL: Record<string, string> = {
+  sort: "Sort",
+  groen: "Grøn",
+  hvid: "Hvid",
+  oolong: "Oolong",
+  rooibos: "Rooibos",
+  urte: "Urte",
+  frugt: "Frugt",
+  matcha: "Matcha",
+  chai: "Chai",
+  ukendt: "Ukendt",
+};
+
 
 function TilbudskatalogPage() {
   const auth = useAuth();
