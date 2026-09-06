@@ -21,6 +21,8 @@ import { recomputeAllCompanyStatuses } from "@/lib/recompute.functions";
 
 import { CvrEnrichmentQueueBadge } from "@/components/cvr-enrichment-queue-badge";
 import { Card } from "@/components/ui/card";
+import { ImportKolonneTjekliste } from "@/components/import-kolonne-tjekliste";
+import { IMPORT_KONTRAKTER } from "@/lib/import-kontrakter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
