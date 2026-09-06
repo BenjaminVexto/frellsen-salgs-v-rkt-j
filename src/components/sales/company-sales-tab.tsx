@@ -11,10 +11,13 @@ import { Loader2, BarChart3 } from "lucide-react";
 export function CompanySalesTab({
   companyId,
   locationIds,
+  skjulSignaler,
 }: {
   companyId: string;
   totalLocations?: number;
   locationIds?: string[];
+  /** Afløst debitorpost: statuslinje/advarsler giver ingen mening. */
+  skjulSignaler?: boolean;
 }) {
   const fetchFn = useServerFn(getSalesForCompany);
   const q = useQuery({
@@ -49,7 +52,7 @@ export function CompanySalesTab({
   return (
     <div className="space-y-4">
       <SuppliedViaBanner companyId={companyId} />
-      <KundeStatusLinje rows={rows} />
+      {!skjulSignaler && <KundeStatusLinje rows={rows} />}
       <SalesFactsStrip rows={rows} isAdmin={isAdmin} />
       <ConsumableKgChart rows={rows} months={18} locationIds={locationIds} />
     </div>
