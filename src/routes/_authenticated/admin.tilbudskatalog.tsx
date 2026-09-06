@@ -48,6 +48,59 @@ export const Route = createFileRoute("/_authenticated/admin/tilbudskatalog")({
 
 type Filter = "alle" | "tilbudsegnede" | "udgaaede" | "te_uden_type";
 
+function SortHead({
+  sortKey,
+  active,
+  dir,
+  onSort,
+  className,
+  align = "left",
+  children,
+}: {
+  sortKey: SortKey;
+  active: SortKey;
+  dir: "asc" | "desc";
+  onSort: (k: SortKey) => void;
+  className?: string;
+  align?: "left" | "right" | "center";
+  children: React.ReactNode;
+}) {
+  const isActive = active === sortKey;
+  const justify =
+    align === "right"
+      ? "justify-end"
+      : align === "center"
+        ? "justify-center"
+        : "justify-start";
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`flex w-full items-center gap-1 ${justify} hover:text-foreground transition-colors ${
+          isActive ? "text-foreground font-medium" : ""
+        }`}
+      >
+        <span>{children}</span>
+        <span className="text-xs text-muted-foreground">
+          {isActive ? (dir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </TableHead>
+  );
+}
+
+type SortKey =
+  | "varenr"
+  | "beskrivelse"
+  | "kategori"
+  | "gruppe"
+  | "te_type"
+  | "listepris"
+  | "kan_lejes"
+  | "record_status"
+  | "is_tilbudsegnet";
+
 function formatKr(n: number | null) {
   if (n == null) return "—";
   return n.toLocaleString("da-DK", { style: "currency", currency: "DKK" });
@@ -113,6 +166,17 @@ function TilbudskatalogPage() {
   const [filter, setFilter] = useState<Filter>("alle");
   const [search, setSearch] = useState("");
   const [openVarenr, setOpenVarenr] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("varenr");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  function toggleSort(k: SortKey) {
+    if (k === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(k);
+      setSortDir("asc");
+    }
+  }
 
   const rows = (query.data ?? []) as ProductRow[];
 
@@ -137,6 +201,49 @@ function TilbudskatalogPage() {
       );
     });
   }, [rows, filter, search]);
+
+  const sorted = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const val = (r: ProductRow): string | number => {
+      switch (sortKey) {
+        case "varenr":
+          return r.varenr.toLowerCase();
+        case "beskrivelse":
+          return (r.beskrivelse ?? "").toLowerCase();
+        case "kategori":
+          return (KATEGORI_LABEL[r.kategori ?? ""] ?? r.kategori ?? "").toLowerCase();
+        case "gruppe": {
+          const g = r.produktprisgruppe_1;
+          if (!g) return "";
+          const num = Number(g);
+          return Number.isFinite(num) ? num : g.toLowerCase();
+        }
+        case "te_type":
+          return (TE_TYPE_LABEL[r.te_type ?? ""] ?? "").toLowerCase();
+        case "listepris":
+          return r.listepris ?? -1;
+        case "kan_lejes":
+          return r.kan_lejes ? 1 : 0;
+        case "record_status":
+          return r.record_status.toLowerCase();
+        case "is_tilbudsegnet":
+          return r.is_tilbudsegnet ? 1 : 0;
+      }
+    };
+    return [...filtered].sort((a, b) => {
+      const av = val(a);
+      const bv = val(b);
+      if (typeof av === "number" && typeof bv === "number") {
+        return (av - bv) * dir;
+      }
+      const cmp = String(av).localeCompare(String(bv), "da-DK", {
+        numeric: true,
+        sensitivity: "base",
+      });
+      if (cmp !== 0) return cmp * dir;
+      return a.varenr.localeCompare(b.varenr, "da-DK", { numeric: true });
+    });
+  }, [filtered, sortKey, sortDir]);
 
   const stats = useMemo(() => {
     const aktive = rows.filter((r) => r.record_status === "aktiv").length;
@@ -230,21 +337,19 @@ function TilbudskatalogPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[110px]">Varenr</TableHead>
-                <TableHead>Beskrivelse</TableHead>
-                <TableHead className="w-[170px]">Kategori</TableHead>
-                <TableHead className="w-[190px]">Visma-varegruppe</TableHead>
-                <TableHead className="w-[150px]">Tetype</TableHead>
-                <TableHead className="w-[110px] text-right">Listepris</TableHead>
-                <TableHead className="w-[80px]">Leje</TableHead>
-                <TableHead className="w-[110px]">Status</TableHead>
-                <TableHead className="w-[130px] text-center">
-                  Tilbudsegnet
-                </TableHead>
+                <SortHead sortKey="varenr" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[110px]">Varenr</SortHead>
+                <SortHead sortKey="beskrivelse" active={sortKey} dir={sortDir} onSort={toggleSort}>Beskrivelse</SortHead>
+                <SortHead sortKey="kategori" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[170px]">Kategori</SortHead>
+                <SortHead sortKey="gruppe" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[190px]">Visma-varegruppe</SortHead>
+                <SortHead sortKey="te_type" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[150px]">Tetype</SortHead>
+                <SortHead sortKey="listepris" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[110px]" align="right">Listepris</SortHead>
+                <SortHead sortKey="kan_lejes" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[80px]">Leje</SortHead>
+                <SortHead sortKey="record_status" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[110px]">Status</SortHead>
+                <SortHead sortKey="is_tilbudsegnet" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[130px]" align="center">Tilbudsegnet</SortHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((r) => {
+              {sorted.map((r) => {
                 const erUdgaaet = r.record_status === "udgaaet";
                 return (
                   <TableRow
