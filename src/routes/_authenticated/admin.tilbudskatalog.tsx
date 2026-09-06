@@ -275,6 +275,17 @@ function TilbudskatalogPage() {
                         )}
                       </div>
                     </TableCell>
+                    <TableCell className="text-xs">
+                      {r.produktprisgruppe_1 ? (
+                        <span>
+                          <span className="font-mono">{r.produktprisgruppe_1}</span>
+                          {" · "}
+                          {gruppeNavne[r.produktprisgruppe_1] ?? "Ukendt"}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {r.kategori === "te" ? (
                         <div className="flex items-center gap-1">
