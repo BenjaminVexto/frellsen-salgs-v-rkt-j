@@ -76,6 +76,22 @@ export const listProducts = createServerFn({ method: "GET" })
     return out;
   });
 
+/** Varegruppekode → navn (globale navne fra produktgruppe_rolle). */
+export const listProductGroupNames = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<Record<string, string>> => {
+    await assertAdmin(context);
+    const { data, error } = await context.supabase
+      .from("produktgruppe_rolle" as any)
+      .select("product_group_1, navn");
+    if (error) throw new Error(error.message);
+    const out: Record<string, string> = {};
+    (data ?? []).forEach((r: any) => {
+      if (r?.product_group_1 && r?.navn) out[String(r.product_group_1)] = String(r.navn);
+    });
+    return out;
+  });
+
 const UpdateSchema = z
   .object({
     varenr: z.string().min(1),
