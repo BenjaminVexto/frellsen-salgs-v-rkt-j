@@ -690,8 +690,9 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
     return {
       vindueNuFra: nuFra,
       vindueFoerFra: foerFra,
-      sortimentForbrug: { nu: set.fNu.size, foer: set.fFoer.size },
-      sortimentMaskine: { nu: set.mNu.size, foer: set.mFoer.size },
+      sortimentForbrug: { nu: Number(bredde.antal_forbrug_nu) || 0, foer: Number(bredde.antal_forbrug_foer) || 0 },
+      sortimentMaskine: { nu: Number(bredde.antal_maskine_nu) || 0, foer: Number(bredde.antal_maskine_foer) || 0 },
+
       foerDaekket,
       varelinjeStart,
       maskinBuckets: Array.from(buckets.entries())
