@@ -194,13 +194,28 @@ export const getForbrugSignalForCompany = createServerFn({ method: "POST" })
       const COLS =
         "niveau, location_id, product_group_1, klasse, aarsag, afvigelse_pct, base_kg_pr_mdr, akt_kg_pr_mdr, base_omsaetning, akt_omsaetning, tabt_kg_pr_mdr, tabt_kr_pr_mdr, ordre_aendring_pct, stk_aendring_pct, sidste_koeb, mdr_siden_sidste_koeb, forventet_interval_mdr, handling_paakraevet";
 
-      const [{ data: rows, error }, { data: roles, error: roleErr }] = await Promise.all([
-        context.supabase
-          .from("forbrug_signal_seneste" as any)
-          .select(COLS)
-          .eq("company_id", data.companyId),
-        context.supabase.from("produktgruppe_rolle" as any).select("product_group_1, navn, er_primaer"),
-      ]);
+      const { data: firma } = await context.supabase
+        .from("companies")
+        .select("afdeling_nr")
+        .eq("id", data.companyId)
+        .maybeSingle();
+
+      const [{ data: rows, error }, { data: roles, error: roleErr }, { data: afdNavne }] =
+        await Promise.all([
+          context.supabase
+            .from("forbrug_signal_seneste" as any)
+            .select(COLS)
+            .eq("company_id", data.companyId),
+          context.supabase
+            .from("produktgruppe_rolle" as any)
+            .select("product_group_1, navn, er_primaer"),
+          firma?.afdeling_nr != null
+            ? context.supabase
+                .from("produktgruppe_navn" as any)
+                .select("product_group_1, navn")
+                .eq("afdeling_nr", firma.afdeling_nr)
+            : Promise.resolve({ data: [] as any[] }),
+        ]);
       if (error) throw error;
       if (roleErr) throw roleErr;
 
@@ -208,6 +223,12 @@ export const getForbrugSignalForCompany = createServerFn({ method: "POST" })
       (roles ?? []).forEach((r: any) =>
         roleMap.set(String(r.product_group_1), { navn: r.navn ?? null, er_primaer: !!r.er_primaer }),
       );
+      // Afdelingsspecifikke navne vinder over de globale
+      (afdNavne ?? []).forEach((r: any) => {
+        const key = String(r.product_group_1);
+        const cur = roleMap.get(key);
+        roleMap.set(key, { navn: r.navn ?? cur?.navn ?? null, er_primaer: !!cur?.er_primaer });
+      });
 
       const num = (v: any) => (v != null ? Number(v) : null);
       const map = (r: any) => {
