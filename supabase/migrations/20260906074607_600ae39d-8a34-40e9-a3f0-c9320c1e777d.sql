@@ -1,0 +1,1 @@
+update public.companies set customer_category = null where customer_category ~ '^0+$';
