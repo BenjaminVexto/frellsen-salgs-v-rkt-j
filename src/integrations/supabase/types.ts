@@ -2864,12 +2864,35 @@ export type Database = {
         Returns: boolean
       }
       classify_te_types: { Args: never; Returns: number }
+      company_group_monthly: {
+        Args: { _company_id: string }
+        Returns: {
+          contribution: number
+          last_invoice_date: string
+          order_count: number
+          period: string
+          product_group_1: string
+          quantity: number
+          revenue: number
+          weight_kg: number
+        }[]
+      }
       company_sales_summary: {
         Args: { _company_ids: string[] }
         Returns: {
           company_id: string
           last_purchase: string
           revenue_12m: number
+        }[]
+      }
+      company_sortiment_bredde: {
+        Args: { _company_id: string }
+        Returns: {
+          antal_forbrug_foer: number
+          antal_forbrug_nu: number
+          antal_maskine_foer: number
+          antal_maskine_nu: number
+          varelinje_start: string
         }[]
       }
       create_quote_draft: {

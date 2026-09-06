@@ -21,6 +21,11 @@ import {
 import { parseProductGroup, isConsumableGroup, type SalesMonthlyRow, type TopProductRow } from "./sales-utils";
 import { getCompaniesSuppliedByOthers } from "./relations.functions";
 
+/** PostgREST-filter der begrænser til maskin-/teknikgrupper (16, 17, 18, 24). */
+const MASKIN_KODER_LIKE = Array.from(MASKIN_KODER)
+  .map((k) => `product_group_1.like.${k}*`)
+  .join(",");
+
 
 export const getSalesForCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -30,19 +35,8 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean; hasActiveEquipment: boolean; gruppeNavne: Record<string, string> }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
-    const salesClient = isAdmin ? supabaseAdmin : context.supabase;
-    const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
-    const [rows, companyRes, rolleRes] = await Promise.all([
-      fetchAllSalesMonthlyRows(async (from, to) => {
-        return await salesClient
-          .from("sales_monthly")
-          .select(cols)
-          .eq("company_id", data.companyId)
-          .order("period", { ascending: true })
-          .order("visma_delivery_no", { ascending: true })
-          .order("product_group_1", { ascending: true })
-          .range(from, to);
-      }),
+    const [aggRes, companyRes, rolleRes] = await Promise.all([
+      (context.supabase as any).rpc("company_group_monthly", { _company_id: data.companyId }),
       context.supabase
         .from("companies")
         .select("has_active_equipment, afdeling_nr")
@@ -50,6 +44,21 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
         .maybeSingle(),
       context.supabase.from("produktgruppe_rolle" as any).select("product_group_1, navn"),
     ]);
+    if (aggRes.error) throw aggRes.error;
+    const rows: SalesMonthlyRow[] = ((aggRes.data as any[]) ?? []).map((r: any) => ({
+      visma_delivery_no: "",
+      location_id: null,
+      company_id: data.companyId,
+      period: String(r.period).slice(0, 10),
+      last_invoice_date: r.last_invoice_date ? String(r.last_invoice_date).slice(0, 10) : null,
+      product_group_1: r.product_group_1,
+      revenue: Number(r.revenue) || 0,
+      quantity: Number(r.quantity) || 0,
+      weight_kg: Number(r.weight_kg) || 0,
+      contribution: r.contribution == null ? null : Number(r.contribution) || 0,
+      order_count: Number(r.order_count) || 0,
+    }));
+
     const gruppeNavne: Record<string, string> = {};
     ((rolleRes as any).data ?? []).forEach((r: any) => {
       if (r?.product_group_1 && r?.navn) gruppeNavne[String(r.product_group_1)] = String(r.navn);
@@ -648,17 +657,24 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
     const cols = isAdmin
       ? "period, varenr, description, product_group_1, revenue, contribution"
       : "period, varenr, description, product_group_1, revenue";
-    const rows = await fetchAllInChunks(locIds, 100, (slice, from, to) =>
-      client
-        .from("sales_monthly_products")
-        .select(cols)
-        .in("location_id", slice)
-        .gte("period", foerFra)
-        .lt("period", nuTil)
-        .range(from, to),
-    );
+    const maskinFra = maanederSiden(12);
+    const [breddeRes, rows] = await Promise.all([
+      (context.supabase as any).rpc("company_sortiment_bredde", { _company_id: data.companyId }),
+      // Maskin/teknik-fordeling: kun maskingrupper, kun seneste 12 hele måneder
+      fetchAllInChunks(locIds, 100, (slice, from, to) =>
+        client
+          .from("sales_monthly_products")
+          .select(cols)
+          .in("location_id", slice)
+          .gte("period", maskinFra)
+          .lt("period", nuTil)
+          .or(MASKIN_KODER_LIKE)
+          .range(from, to),
+      ),
+    ]);
+    if (breddeRes.error) throw breddeRes.error;
+    const bredde = ((breddeRes.data as any[]) ?? [])[0] ?? {};
 
-    const set = { fNu: new Set<string>(), fFoer: new Set<string>(), mNu: new Set<string>(), mFoer: new Set<string>() };
     const buckets = new Map<string, { revenue: number; contribution: number }>();
     const addBucket = (navn: string, rev: number, db: number) => {
       const cur = buckets.get(navn) ?? { revenue: 0, contribution: 0 };
@@ -668,31 +684,20 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
     };
 
     for (const r of rows) {
-      const period = String(r.period);
       const kode = gruppeKode(r.product_group_1);
-      const iNu = period >= nuFra && period < nuTil;
-      const iFoer = period >= foerFra && period < foerTil;
-      if (kode && FORBRUG_KODER.has(kode)) {
-        if (iNu) set.fNu.add(r.varenr);
-        if (iFoer) set.fFoer.add(r.varenr);
-      } else if (kode && MASKIN_KODER.has(kode)) {
-        if (iNu) set.mNu.add(r.varenr);
-        if (iFoer) set.mFoer.add(r.varenr);
-      }
-
-      // Maskin/teknik-fordeling: seneste 12 hele måneder
-      if (kode && MASKIN_KODER.has(kode) && period >= maanederSiden(12) && period < nuTil) {
-        const rev = Number(r.revenue) || 0;
-        const db = isAdmin ? Number((r as any).contribution) || 0 : 0;
-        addBucket(maskinBucketNavn(kode, r.description), rev, db);
-      }
+      if (!kode || !MASKIN_KODER.has(kode)) continue;
+      const rev = Number(r.revenue) || 0;
+      const db = isAdmin ? Number((r as any).contribution) || 0 : 0;
+      addBucket(maskinBucketNavn(kode, r.description), rev, db);
     }
+
 
     return {
       vindueNuFra: nuFra,
       vindueFoerFra: foerFra,
-      sortimentForbrug: { nu: set.fNu.size, foer: set.fFoer.size },
-      sortimentMaskine: { nu: set.mNu.size, foer: set.mFoer.size },
+      sortimentForbrug: { nu: Number(bredde.antal_forbrug_nu) || 0, foer: Number(bredde.antal_forbrug_foer) || 0 },
+      sortimentMaskine: { nu: Number(bredde.antal_maskine_nu) || 0, foer: Number(bredde.antal_maskine_foer) || 0 },
+
       foerDaekket,
       varelinjeStart,
       maskinBuckets: Array.from(buckets.entries())
