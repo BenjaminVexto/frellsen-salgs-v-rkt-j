@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { importRunner, useImportRunner } from "@/lib/import-runner";
+import { getSalespersonMap } from "@/lib/admin-users.functions";
 import {
   deriveBindingStatus,
   deriveCustomerCategory,
@@ -382,17 +383,8 @@ function ImportSide() {
     setExistingEanMap(new Map());
 
     // Hent sælgernumre → user_id-mapping
-    const { data: profs } = await supabase
-      .from("profiles")
-      .select("id, salesperson_no, is_active")
-      .not("salesperson_no", "is", null);
-    const map = new Map<string, string>();
-    for (const p of (profs ?? []) as any[]) {
-      if (p.salesperson_no && p.is_active !== false) {
-        map.set(String(p.salesperson_no).trim(), p.id);
-      }
-    }
-    setSalespersonMap(map);
+    const salespersonPairs = await getSalespersonMap();
+    setSalespersonMap(new Map(salespersonPairs));
 
     setStep(3);
   }
