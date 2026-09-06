@@ -30,19 +30,8 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean; hasActiveEquipment: boolean; gruppeNavne: Record<string, string> }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
-    const salesClient = isAdmin ? supabaseAdmin : context.supabase;
-    const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
-    const [rows, companyRes, rolleRes] = await Promise.all([
-      fetchAllSalesMonthlyRows(async (from, to) => {
-        return await salesClient
-          .from("sales_monthly")
-          .select(cols)
-          .eq("company_id", data.companyId)
-          .order("period", { ascending: true })
-          .order("visma_delivery_no", { ascending: true })
-          .order("product_group_1", { ascending: true })
-          .range(from, to);
-      }),
+    const [aggRes, companyRes, rolleRes] = await Promise.all([
+      (context.supabase as any).rpc("company_group_monthly", { _company_id: data.companyId }),
       context.supabase
         .from("companies")
         .select("has_active_equipment, afdeling_nr")
@@ -50,6 +39,21 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
         .maybeSingle(),
       context.supabase.from("produktgruppe_rolle" as any).select("product_group_1, navn"),
     ]);
+    if (aggRes.error) throw aggRes.error;
+    const rows: SalesMonthlyRow[] = ((aggRes.data as any[]) ?? []).map((r: any) => ({
+      visma_delivery_no: "",
+      location_id: null,
+      company_id: data.companyId,
+      period: String(r.period).slice(0, 10),
+      last_invoice_date: r.last_invoice_date ? String(r.last_invoice_date).slice(0, 10) : null,
+      product_group_1: r.product_group_1,
+      revenue: Number(r.revenue) || 0,
+      quantity: Number(r.quantity) || 0,
+      weight_kg: Number(r.weight_kg) || 0,
+      contribution: r.contribution == null ? null : Number(r.contribution) || 0,
+      order_count: Number(r.order_count) || 0,
+    }));
+
     const gruppeNavne: Record<string, string> = {};
     ((rolleRes as any).data ?? []).forEach((r: any) => {
       if (r?.product_group_1 && r?.navn) gruppeNavne[String(r.product_group_1)] = String(r.navn);
