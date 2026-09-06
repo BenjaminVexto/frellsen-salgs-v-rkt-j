@@ -141,6 +141,64 @@ export function isMachineGroup(raw: string | null | undefined): boolean {
   return MACHINE_CODES.has(m[1]);
 }
 
+/** Varegruppekoden ("2 [Kaffe]" -> "2"). */
+export function gruppeKodeOf(raw: string | null | undefined): string | null {
+  const m = (raw ?? "").trim().match(/^(\d+)/);
+  return m ? m[1] : null;
+}
+
+/** Kaffe = varegruppe 2. */
+export const KAFFE_KODE = "2";
+
+/** Navn på en varegruppekode, med afdelingens navne først. */
+export function kodeLabel(kode: string, navne?: Record<string, string>): string {
+  return navne?.[kode] ?? `Gruppe ${kode}`;
+}
+
+/** Rullende 12 mdr. inkl. indeværende måned: [fra, til). */
+export function rullende12(): { fra: string; til: string } {
+  const d = new Date();
+  const til = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+  const fra = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 11, 1));
+  const f = (x: Date) =>
+    `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  return { fra: f(fra), til: f(til) };
+}
+
+/** Kg pr. varegruppekode i et periodevindue. */
+export function kgPrGruppe(
+  rows: SalesMonthlyRow[],
+  fra: string,
+  til: string,
+): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const r of rows) {
+    if (r.period < fra || r.period >= til) continue;
+    const k = gruppeKodeOf(r.product_group_1);
+    if (!k) continue;
+    m.set(k, (m.get(k) ?? 0) + (Number(r.weight_kg) || 0));
+  }
+  return m;
+}
+
+/** Grupper med omsætning/mængde de seneste 12 mdr. (inkl. indeværende), størst først. */
+export function gruppeValgmuligheder(rows: SalesMonthlyRow[]): string[] {
+  const { fra, til } = rullende12();
+  const m = new Map<string, number>();
+  for (const r of rows) {
+    if (r.period < fra || r.period >= til) continue;
+    const k = gruppeKodeOf(r.product_group_1);
+    if (!k) continue;
+    const vaegt = (Number(r.weight_kg) || 0) * 1000 + (Number(r.revenue) || 0);
+    if (vaegt <= 0) continue;
+    m.set(k, (m.get(k) ?? 0) + vaegt);
+  }
+  return Array.from(m.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([k]) => k);
+}
+
+
 
 // Sidste forbrugsvarekøb (kaffe/te/chokolade/drikke).
 export function lastConsumablePurchasePeriod(rows: SalesMonthlyRow[]): string | null {

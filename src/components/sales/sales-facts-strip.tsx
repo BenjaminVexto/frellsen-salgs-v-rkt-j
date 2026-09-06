@@ -9,8 +9,11 @@ import {
   fmtKg,
   fmtKr,
   isConsumableGroup,
+  KAFFE_KODE,
+  gruppeKodeOf,
   lastConsumablePurchasePeriod,
   monthsAgo,
+  rullende12,
   sumRows,
   type SalesMonthlyRow,
 } from "@/lib/sales-utils";
@@ -30,6 +33,14 @@ export function SalesFactsStrip({
   const cons = sumRows(last12Cons);
   const lastCons = lastConsumablePurchasePeriod(rows);
 
+  // Kaffe: kun varegruppe 2, rullende 12 mdr. inkl. indeværende måned.
+  const { fra, til } = rullende12();
+  const kaffeKg = sumRows(
+    filterByPeriod(rows, fra, til).filter(
+      (r) => gruppeKodeOf(r.product_group_1) === KAFFE_KODE,
+    ),
+  ).weightKg;
+
   const dg =
     isAdmin && cons.contribution != null && cons.revenue > 0
       ? cons.contribution / cons.revenue
@@ -45,10 +56,11 @@ export function SalesFactsStrip({
       />
       <Fact
         icon={<Coffee className="h-4 w-4" />}
-        label="Kg forbrugsvarer 12 mdr."
-        value={fmtKg(cons.weightKg)}
-        note="Kaffe, te, chokolade m.m."
+        label="Kg kaffe 12 mdr."
+        value={kaffeKg > 0 ? fmtKg(kaffeKg) : "—"}
+        note={kaffeKg > 0 ? "Varegruppe 2 · kaffe" : "Ingen kaffekøb registreret"}
       />
+
       {isAdmin && (
         <Fact
           icon={<Wallet className="h-4 w-4" />}

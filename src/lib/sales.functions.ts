@@ -28,11 +28,11 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
     if (!input?.companyId) throw new Error("companyId krævet");
     return input;
   })
-  .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean; hasActiveEquipment: boolean }> => {
+  .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean; hasActiveEquipment: boolean; gruppeNavne: Record<string, string> }> => {
     const isAdmin = await isAdminUser(context.supabase, context.userId);
     const salesClient = isAdmin ? supabaseAdmin : context.supabase;
     const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
-    const [rows, companyRes] = await Promise.all([
+    const [rows, companyRes, rolleRes] = await Promise.all([
       fetchAllSalesMonthlyRows(async (from, to) => {
         return await salesClient
           .from("sales_monthly")
@@ -45,16 +45,33 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
       }),
       context.supabase
         .from("companies")
-        .select("has_active_equipment")
+        .select("has_active_equipment, afdeling_nr")
         .eq("id", data.companyId)
         .maybeSingle(),
+      context.supabase.from("produktgruppe_rolle" as any).select("product_group_1, navn"),
     ]);
+    const gruppeNavne: Record<string, string> = {};
+    ((rolleRes as any).data ?? []).forEach((r: any) => {
+      if (r?.product_group_1 && r?.navn) gruppeNavne[String(r.product_group_1)] = String(r.navn);
+    });
+    const afdNr = (companyRes.data as any)?.afdeling_nr;
+    if (afdNr != null) {
+      const { data: lokale } = await context.supabase
+        .from("produktgruppe_navn" as any)
+        .select("product_group_1, navn")
+        .eq("afdeling_nr", afdNr);
+      ((lokale as any[]) ?? []).forEach((r: any) => {
+        if (r?.product_group_1 && r?.navn) gruppeNavne[String(r.product_group_1)] = String(r.navn);
+      });
+    }
     return {
       rows: isAdmin ? withContribution(rows ?? []) : stripContribution(rows ?? []),
       isAdmin,
       hasActiveEquipment: !!(companyRes.data as any)?.has_active_equipment,
+      gruppeNavne,
     };
   });
+
 
 export const getSalesForLocation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
