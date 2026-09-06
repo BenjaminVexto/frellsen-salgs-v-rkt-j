@@ -128,6 +128,10 @@ export const updateProductSalesFields = createServerFn({ method: "POST" })
       patch.salgsbeskrivelse = data.salgsbeskrivelse;
     if (data.sort_order !== undefined) patch.sort_order = data.sort_order;
     if (data.billede_url !== undefined) patch.billede_url = data.billede_url;
+    if (data.te_type !== undefined) {
+      patch.te_type = data.te_type;
+      patch.te_type_manuel = true;
+    }
 
     if (Object.keys(patch).length === 0) return { ok: true };
 
