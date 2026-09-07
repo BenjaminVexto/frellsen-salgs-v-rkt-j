@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/popover";
 import { Loader2, Download, ArrowUpDown, ChevronDown } from "lucide-react";
 import { fmtKr, fmtKg } from "@/lib/sales-utils";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getAnalysePivot,
   getAnalyseFiltre,
@@ -38,6 +39,8 @@ const OPDEL_LABEL: Record<AnalyseOpdeling, string> = {
   varegruppe: "Varegruppe",
   kundeprisgruppe: "Kundeprisgruppe",
   saelger: "Sælger",
+  region: "Region",
+  postnummer: "Postnummer",
 };
 
 // --- måneds-hjælpere ("YYYY-MM") ---
@@ -95,6 +98,7 @@ export function AnalyseFane({
   const [saelgerIds, setSaelgerIds] = useState<string[]>([]);
   const [prisgrupper, setPrisgrupper] = useState<string[]>([]);
   const [varegrupper, setVaregrupper] = useState<string[]>([]);
+  const [regioner, setRegioner] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>("omsaetning");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -115,6 +119,20 @@ export function AnalyseFane({
   const foregaaendeOk = addM(fra, -antalMdr) >= DATA_START;
   const aaretFoerOk = addM(fra, -12) >= DATA_START;
 
+  const regionerQ = useQuery({
+    queryKey: ["analyse-regioner"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("postnummer_region")
+        .select("region")
+        .order("region");
+      if (error) throw new Error(error.message);
+      const set = new Set<string>((data ?? []).map((r: any) => String(r.region)));
+      set.add("Ukendt");
+      return Array.from(set).sort((a, b) => a.localeCompare(b, "da-DK"));
+    },
+  });
+
   const filtreQ = useQuery({
     queryKey: ["analyse-filtre", afdelingNr, fra, til],
     queryFn: () => filtreFn({ data: { afdelingNr, fra: firstDay(fra), til: lastDay(til) } }),
@@ -126,6 +144,7 @@ export function AnalyseFane({
     saelgerIds: saelgerIds.length ? saelgerIds : null,
     kundeprisgrupper: prisgrupper.length ? prisgrupper : null,
     varegrupper: varegrupper.length ? varegrupper : null,
+    regioner: regioner.length ? regioner : null,
   };
 
   const q = useQuery({
@@ -153,7 +172,7 @@ export function AnalyseFane({
   const [visAntal, setVisAntal] = useState(200);
   useEffect(() => {
     setVisAntal(200);
-  }, [fra, til, opdel, sortKey, sortDir, saelgerIds, prisgrupper, varegrupper]);
+  }, [fra, til, opdel, sortKey, sortDir, saelgerIds, prisgrupper, varegrupper, regioner]);
 
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -329,6 +348,12 @@ export function AnalyseFane({
             options={(filtreQ.data?.varegrupper ?? []).map((v) => ({ value: v.kode, label: v.navn }))}
             selected={varegrupper}
             onChange={setVaregrupper}
+          />
+          <MultiVaelger
+            label="Region"
+            options={(regionerQ.data ?? []).map((r) => ({ value: r, label: r }))}
+            selected={regioner}
+            onChange={setRegioner}
           />
 
           <div className="ml-auto flex items-center gap-3">
