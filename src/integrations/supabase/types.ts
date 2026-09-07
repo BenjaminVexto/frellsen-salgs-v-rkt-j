@@ -1418,15 +1418,23 @@ export type Database = {
           finished_at: string | null
           id: string
           last_error: string | null
+          lines_afdelinger: number[] | null
+          lines_batch_id: string | null
+          lines_date_from: string | null
+          lines_date_to: string | null
+          lines_deleted: number
           locations_matched: number
           payload: Json
           phase: string
+          prune_month_idx: number
+          saved_lines: number
           saved_monthly: number
           saved_top: number
           saved_top_monthly: number
           started_at: string | null
           status: string
           top_deleted: boolean
+          total_lines: number
           total_monthly: number
           total_top: number
           total_top_monthly: number
@@ -1443,15 +1451,23 @@ export type Database = {
           finished_at?: string | null
           id?: string
           last_error?: string | null
+          lines_afdelinger?: number[] | null
+          lines_batch_id?: string | null
+          lines_date_from?: string | null
+          lines_date_to?: string | null
+          lines_deleted?: number
           locations_matched?: number
           payload: Json
           phase?: string
+          prune_month_idx?: number
+          saved_lines?: number
           saved_monthly?: number
           saved_top?: number
           saved_top_monthly?: number
           started_at?: string | null
           status?: string
           top_deleted?: boolean
+          total_lines?: number
           total_monthly?: number
           total_top?: number
           total_top_monthly?: number
@@ -1468,21 +1484,113 @@ export type Database = {
           finished_at?: string | null
           id?: string
           last_error?: string | null
+          lines_afdelinger?: number[] | null
+          lines_batch_id?: string | null
+          lines_date_from?: string | null
+          lines_date_to?: string | null
+          lines_deleted?: number
           locations_matched?: number
           payload?: Json
           phase?: string
+          prune_month_idx?: number
+          saved_lines?: number
           saved_monthly?: number
           saved_top?: number
           saved_top_monthly?: number
           started_at?: string | null
           status?: string
           top_deleted?: boolean
+          total_lines?: number
           total_monthly?: number
           total_top?: number
           total_top_monthly?: number
           unmatched_delivery_nos?: Json
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      invoice_lines: {
+        Row: {
+          afdeling_nr: number
+          antal: number | null
+          beloeb: number | null
+          created_at: string
+          db: number | null
+          dg: number | null
+          enhedspris: number | null
+          faktura_dato: string
+          firma_nr: string | null
+          id: number
+          import_batch_id: string
+          initialer: string | null
+          kilde_afdeling_nr: number | null
+          kostpris: number | null
+          kunde_navn: string | null
+          kundeprisgruppe_1: string | null
+          kundeprisgruppe_2: string | null
+          nettovaegt: number | null
+          ordre_nr: string | null
+          period: string | null
+          varegruppe_1: string | null
+          varegruppe_2: string | null
+          varenr: string | null
+          varetekst: string | null
+          visma_delivery_no: string
+        }
+        Insert: {
+          afdeling_nr: number
+          antal?: number | null
+          beloeb?: number | null
+          created_at?: string
+          db?: number | null
+          dg?: number | null
+          enhedspris?: number | null
+          faktura_dato: string
+          firma_nr?: string | null
+          id?: number
+          import_batch_id: string
+          initialer?: string | null
+          kilde_afdeling_nr?: number | null
+          kostpris?: number | null
+          kunde_navn?: string | null
+          kundeprisgruppe_1?: string | null
+          kundeprisgruppe_2?: string | null
+          nettovaegt?: number | null
+          ordre_nr?: string | null
+          period?: string | null
+          varegruppe_1?: string | null
+          varegruppe_2?: string | null
+          varenr?: string | null
+          varetekst?: string | null
+          visma_delivery_no: string
+        }
+        Update: {
+          afdeling_nr?: number
+          antal?: number | null
+          beloeb?: number | null
+          created_at?: string
+          db?: number | null
+          dg?: number | null
+          enhedspris?: number | null
+          faktura_dato?: string
+          firma_nr?: string | null
+          id?: number
+          import_batch_id?: string
+          initialer?: string | null
+          kilde_afdeling_nr?: number | null
+          kostpris?: number | null
+          kunde_navn?: string | null
+          kundeprisgruppe_1?: string | null
+          kundeprisgruppe_2?: string | null
+          nettovaegt?: number | null
+          ordre_nr?: string | null
+          period?: string | null
+          varegruppe_1?: string | null
+          varegruppe_2?: string | null
+          varenr?: string | null
+          varetekst?: string | null
+          visma_delivery_no?: string
         }
         Relationships: []
       }
@@ -3059,6 +3167,16 @@ export type Database = {
         Returns: {
           cvr: string
         }[]
+      }
+      prune_invoice_lines_month: {
+        Args: {
+          _afdelinger: number[]
+          _batch_id: string
+          _from: string
+          _month_start: string
+          _to: string
+        }
+        Returns: number
       }
       rebuild_products: { Args: never; Returns: number }
       recompute_all_company_statuses: { Args: never; Returns: number }
