@@ -27,6 +27,11 @@ type JobRow = {
   total_top: number;
   saved_monthly: number;
   saved_top: number;
+  total_lines: number | null;
+  saved_lines: number | null;
+  lines_deleted: number | null;
+  lines_date_from: string | null;
+  lines_date_to: string | null;
   locations_matched: number;
   unmatched_delivery_nos: string[] | null;
   last_error: string | null;
@@ -34,8 +39,11 @@ type JobRow = {
 };
 
 const PHASE_LABEL: Record<string, string> = {
+  lines: "Skriver fakturalinjer…",
+  prune: "Rydder gamle fakturalinjer…",
   monthly: "Gemmer månedsdata…",
   top: "Gemmer top-varer…",
+  top_monthly: "Gemmer varelinjer pr. måned…",
   done: "Færdig",
 };
 
@@ -44,8 +52,11 @@ const CHUNK_SIZE = 20_000;
 // Varelinjer pr. måned er den tungeste upsert — mindre chunks holder os under
 // Postgres' statement timeout.
 const TOP_MONTHLY_CHUNK_SIZE = 4_000;
+// Rå fakturalinjer: 5.000 pr. chunk (SKAL matche workeren).
+const LINES_CHUNK_SIZE = 5_000;
 
 const BUCKET = "invoice-uploads";
+
 
 function chunked<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
