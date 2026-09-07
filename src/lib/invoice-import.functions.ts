@@ -106,6 +106,11 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       locationsMatched: number;
       unmatched: string[];
       rowsByAfdeling?: Record<string, number>;
+      totalLines?: number;
+      linesBatchId?: string | null;
+      dateFrom?: string | null;
+      dateTo?: string | null;
+      afdelinger?: number[];
     }) => {
       if (!input?.jobId) throw new Error("jobId mangler");
       return input;
@@ -115,7 +120,10 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const firstPhase =
+    const totalLines = data.totalLines ?? 0;
+    // Rålinjer skrives FØRST. Først når alle linjer står i databasen ryddes de
+    // gamle (fase "prune") — fejler uploaden undervejs, står de gamle urørt.
+    const aggregatePhase =
       data.totalMonthly > 0
         ? "monthly"
         : data.totalTop > 0
@@ -123,6 +131,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
           : data.totalTopMonthly > 0
             ? "top_monthly"
             : "done";
+    const firstPhase = totalLines > 0 ? "lines" : aggregatePhase;
 
     const { error } = await supabaseAdmin.from("invoice_import_jobs").insert({
       id: data.jobId,
@@ -137,6 +146,14 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       saved_monthly: 0,
       saved_top: 0,
       saved_top_monthly: 0,
+      total_lines: totalLines,
+      saved_lines: 0,
+      lines_deleted: 0,
+      prune_month_idx: 0,
+      lines_batch_id: data.linesBatchId ?? null,
+      lines_date_from: data.dateFrom ?? null,
+      lines_date_to: data.dateTo ?? null,
+      lines_afdelinger: data.afdelinger ?? [],
       locations_matched: data.locationsMatched,
       unmatched_delivery_nos: data.unmatched.slice(0, 500),
       payload: { rows_by_afdeling: data.rowsByAfdeling ?? {} },
@@ -145,3 +162,4 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { jobId: data.jobId };
   });
+
