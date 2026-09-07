@@ -168,7 +168,7 @@ function FakturaImportSide() {
       const newJobId = crypto.randomUUID();
       const monthlyChunks = chunked(enrichedMonthly, CHUNK_SIZE);
       const topChunks = chunked(enrichedTop, CHUNK_SIZE);
-      const topMonthlyChunks = chunked(enrichedTopMonthly, CHUNK_SIZE);
+      const topMonthlyChunks = chunked(enrichedTopMonthly, TOP_MONTHLY_CHUNK_SIZE);
       const totalUploads = monthlyChunks.length + topChunks.length + topMonthlyChunks.length;
       let uploadIdx = 0;
 
