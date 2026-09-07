@@ -17,7 +17,7 @@ import {
   enqueueCvrEnrichment,
   getCvrEnrichmentQueueStatus,
 } from "@/lib/admin-companies.functions";
-import { recomputeAllCompanyStatuses } from "@/lib/recompute.functions";
+import { recomputeAllCompanyStatuses, relinkSalesLocations } from "@/lib/recompute.functions";
 
 import { CvrEnrichmentQueueBadge } from "@/components/cvr-enrichment-queue-badge";
 import { Card } from "@/components/ui/card";
@@ -413,6 +413,7 @@ function ImportSide() {
   const enqueueEnrich = useServerFn(enqueueCvrEnrichment);
   const fetchQueueStatus = useServerFn(getCvrEnrichmentQueueStatus);
   const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
+  const relinkSales = useServerFn(relinkSalesLocations);
 
 
   useEffect(() => {
@@ -914,22 +915,48 @@ function ImportSide() {
     return out;
   }, [prepared, allowedFirmaSet]);
 
+  /**
+   * Landnr. 45/1/tom = Danmark. Alt andet (46 SE, 47 NO, 298 FO, 354 IS,
+   * 359 …) er udenlandsk.
+   */
+  function isForeignRow(p: PreparedRow): boolean {
+    const land = (p.raw["Landnr."] ?? "").trim();
+    return !(!land || land === "1" || land === "45");
+  }
+
+  /** Udenlandske rækker pr. afdeling, opdelt i frasorteret vs. importeret. */
+  const foreignByAfdeling = useMemo(() => {
+    const out: Record<string, { excluded: number; imported: number }> = {};
+    for (const p of prepared) {
+      if (p.skipReason) continue;
+      const firma = rowFirmaRaw(p.raw);
+      if (!allowedFirmaSet.has(firma)) continue;
+      if (!isForeignRow(p)) continue;
+      const key = p.afdelingNr == null ? "?" : String(p.afdelingNr);
+      const entry = out[key] ?? { excluded: 0, imported: 0 };
+      if (vismaFilters.excludeForeign && p.afdelingNr === 11) entry.excluded += 1;
+      else entry.imported += 1;
+      out[key] = entry;
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prepared, allowedFirmaSet, vismaFilters.excludeForeign]);
 
   function isFilteredByVisma(p: PreparedRow): boolean {
+
     // Altid: filtrér virksomheder hvis navn er markeret som lukket i Visma
     if (isClosedName(p.data.name)) return true;
     if (vismaFilters.excludeInternal) {
       const seg1 = String(p.data.customer_segment_1 ?? "").toLowerCase();
       if (seg1.includes("personale") || seg1.includes("interne")) return true;
     }
-    if (vismaFilters.excludeForeign) {
-      const land = (p.raw["Landnr."] ?? "").trim();
-      // 45 = Danmark (dansk telefonkode brugt i Visma)
-      // 1 = alternativ dansk kode
-      // tom = dansk (ikke udfyldt)
-      const isDanish = !land || land === "1" || land === "45";
-      if (!isDanish) return true;
+    // Udenlandsk-filteret gælder KUN afdeling 11. Høyberg (22) er grossistled
+    // med eksport, og Java (21) har også udenlandske kunder — de importeres
+    // uanset landekode.
+    if (vismaFilters.excludeForeign && p.afdelingNr === 11 && isForeignRow(p)) {
+      return true;
     }
+
     if (vismaFilters.excludeCreditBlocked) {
       const credit = (p.raw["Kreditspærre"] ?? "").trim();
       if (credit) return true;
@@ -1569,6 +1596,22 @@ function ImportSide() {
     // Genberegn customer_type / last_sales_date / has_active_equipment.
     // Afventes FØR importRunner.finish, så status ikke forbliver forældet
     // hvis brugeren lukker fanen lige efter importen.
+    // Knyt eksisterende salgshistorik til (nye) lokationer/virksomheder ud fra
+    // afdeling + leveringsnummer, så historikken følger med nyoprettede kunder.
+    let relinkedRows: number | null = null;
+    if (!wasAborted && companyIds.length > 0) {
+      importRunner.setLabel("Knytter salgshistorik til lokationer…");
+      try {
+        const res = await relinkSales();
+        if (res.ok) relinkedRows = (res.monthly ?? 0) + (res.products ?? 0);
+        else throw new Error(res.error);
+      } catch (err: any) {
+        const msg = err?.message ?? String(err);
+        console.error("[visma-import] relink_sales_locations fejlede:", msg);
+        toast.error(`Salgshistorik blev IKKE knyttet til lokationer: ${msg}`, { duration: 15000 });
+      }
+    }
+
     let recomputeRows: number | null = null;
     let recomputeError: string | null = null;
     if (!wasAborted && companyIds.length > 0) {
@@ -1589,6 +1632,10 @@ function ImportSide() {
       }
     }
 
+    const relinkSuffix =
+      relinkedRows !== null && relinkedRows > 0
+        ? ` · ${relinkedRows.toLocaleString("da-DK")} salgsrækker knyttet til lokationer`
+        : "";
     const statusSuffix = recomputeError
       ? " · kundestatus fejlede"
       : recomputeRows !== null
@@ -1600,7 +1647,7 @@ function ImportSide() {
         ? `Import afbrudt af bruger: ${companyIds.length.toLocaleString("da-DK")} virksomheder nåede at blive importeret`
         : failed > 0
         ? `Import afsluttet med fejl: ${companyIds.length.toLocaleString("da-DK")} virksomheder`
-        : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder${statusSuffix}`,
+        : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder${relinkSuffix}${statusSuffix}`,
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
     if (wasAborted) toast.warning(`Import stoppet — ${companyIds.length.toLocaleString("da-DK")} virksomheder importeret før afbrydelse`);
@@ -1824,6 +1871,7 @@ function ImportSide() {
           prepared={prepared}
           stats={stats}
           rowsByAfdeling={rowsByAfdeling}
+          foreignByAfdeling={foreignByAfdeling}
           unknownAfdelingValues={unknownAfdelingValues}
           brokenRows={brokenRows}
           includeMissingCvr={includeMissingCvr}
@@ -1945,6 +1993,7 @@ function Trin3Preview({
   prepared,
   stats,
   rowsByAfdeling,
+  foreignByAfdeling,
   unknownAfdelingValues,
   brokenRows,
   includeMissingCvr,
@@ -1955,6 +2004,7 @@ function Trin3Preview({
   prepared: PreparedRow[];
   stats: VismaStats;
   rowsByAfdeling: Record<string, number>;
+  foreignByAfdeling: Record<string, { excluded: number; imported: number }>;
   unknownAfdelingValues: string[];
   brokenRows: BrokenRowRef[];
   includeMissingCvr: boolean;
@@ -1997,6 +2047,24 @@ function Trin3Preview({
             .sort((a, b) => Number(a[0]) - Number(b[0]))
             .map(([afd, n]) => `afd ${afd}: ${n.toLocaleString("da-DK")}`)
             .join(" · ")}
+        </Card>
+      )}
+
+      {Object.keys(foreignByAfdeling).length > 0 && (
+        <Card className="p-4 text-sm">
+          <span className="font-medium">Udenlandske rækker:</span>{" "}
+          {Object.entries(foreignByAfdeling)
+            .sort((a, b) => Number(a[0]) - Number(b[0]))
+            .map(([afd, v]) =>
+              v.excluded > 0
+                ? `${v.excluded.toLocaleString("da-DK")} udenlandske rækker frasorteres i afdeling ${afd}`
+                : `${v.imported.toLocaleString("da-DK")} importeres i afdeling ${afd}`,
+            )
+            .join(" · ")}
+          <div className="text-xs text-muted-foreground mt-1">
+            Filteret "Udeluk udenlandske kunder" gælder kun afdeling 11. Afdeling 21 og 22
+            importeres uanset landekode.
+          </div>
         </Card>
       )}
 
@@ -2602,7 +2670,10 @@ function Trin2VismaConfirm({
             />
             <div>
               <div className="font-medium">Udeluk udenlandske kunder</div>
-              <div className="text-xs text-muted-foreground">Landnr. er hverken 1, 45 eller tom</div>
+              <div className="text-xs text-muted-foreground">
+                Landnr. er hverken 1, 45 eller tom. Gælder kun afdeling 11 — afdeling 21 og 22
+                importeres uanset landekode.
+              </div>
             </div>
           </label>
           <label className="flex items-start gap-3 text-sm cursor-pointer">

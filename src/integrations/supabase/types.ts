@@ -3070,6 +3070,7 @@ export type Database = {
         Returns: number
       }
       region_for_postnr: { Args: { _zip: string }; Returns: string }
+      relink_sales_locations: { Args: never; Returns: Json }
       saelger_navn: { Args: { _id: string }; Returns: string }
       saeson_faktor: {
         Args: { _group: string; _period: string }

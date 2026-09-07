@@ -53,3 +53,29 @@ export const recomputeAllCompanyStatuses = createServerFn({ method: "POST" })
     }
     return { ok: true as const, rows: totalRows };
   });
+
+/**
+ * Knyt eksisterende salgsrækker til lokationer/virksomheder ud fra
+ * (afdeling_nr, visma_delivery_no). Kaldes efter Visma-importen så historikken
+ * følger med nyoprettede lokationer — ikke kun fremtidige fakturaer.
+ */
+export const relinkSalesLocations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) {
+      return { ok: false as const, error: "Forbidden: kun administratorer" };
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("relink_sales_locations");
+    if (error) return { ok: false as const, error: error.message };
+    const res = (data ?? {}) as { sales_monthly?: number; sales_monthly_products?: number };
+    return {
+      ok: true as const,
+      monthly: res.sales_monthly ?? 0,
+      products: res.sales_monthly_products ?? 0,
+    };
+  });
