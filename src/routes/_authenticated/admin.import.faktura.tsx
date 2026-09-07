@@ -385,8 +385,17 @@ function FakturaImportSide() {
             )}
 
             {job.status === "completed" && (
-              <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                <CheckCircle2 className="h-4 w-4" /> Færdig — alle rækker upsertet
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                  <CheckCircle2 className="h-4 w-4" /> Færdig — alle rækker upsertet
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {(job.saved_lines ?? 0).toLocaleString("da-DK")} fakturalinjer skrevet ·{" "}
+                  {(job.lines_deleted ?? 0).toLocaleString("da-DK")} gamle linjer slettet
+                  {job.lines_date_from && job.lines_date_to && (
+                    <> · periode {job.lines_date_from} – {job.lines_date_to}</>
+                  )}
+                </p>
               </div>
             )}
             {job.last_error && (
