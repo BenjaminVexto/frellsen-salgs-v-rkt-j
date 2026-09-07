@@ -17,7 +17,7 @@ import {
   enqueueCvrEnrichment,
   getCvrEnrichmentQueueStatus,
 } from "@/lib/admin-companies.functions";
-import { recomputeAllCompanyStatuses } from "@/lib/recompute.functions";
+import { recomputeAllCompanyStatuses, relinkSalesLocations } from "@/lib/recompute.functions";
 
 import { CvrEnrichmentQueueBadge } from "@/components/cvr-enrichment-queue-badge";
 import { Card } from "@/components/ui/card";
@@ -413,6 +413,7 @@ function ImportSide() {
   const enqueueEnrich = useServerFn(enqueueCvrEnrichment);
   const fetchQueueStatus = useServerFn(getCvrEnrichmentQueueStatus);
   const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
+  const relinkSales = useServerFn(relinkSalesLocations);
 
 
   useEffect(() => {
@@ -1595,6 +1596,22 @@ function ImportSide() {
     // Genberegn customer_type / last_sales_date / has_active_equipment.
     // Afventes FØR importRunner.finish, så status ikke forbliver forældet
     // hvis brugeren lukker fanen lige efter importen.
+    // Knyt eksisterende salgshistorik til (nye) lokationer/virksomheder ud fra
+    // afdeling + leveringsnummer, så historikken følger med nyoprettede kunder.
+    let relinkedRows: number | null = null;
+    if (!wasAborted && companyIds.length > 0) {
+      importRunner.setLabel("Knytter salgshistorik til lokationer…");
+      try {
+        const res = await relinkSales();
+        if (res.ok) relinkedRows = (res.monthly ?? 0) + (res.products ?? 0);
+        else throw new Error(res.error);
+      } catch (err: any) {
+        const msg = err?.message ?? String(err);
+        console.error("[visma-import] relink_sales_locations fejlede:", msg);
+        toast.error(`Salgshistorik blev IKKE knyttet til lokationer: ${msg}`, { duration: 15000 });
+      }
+    }
+
     let recomputeRows: number | null = null;
     let recomputeError: string | null = null;
     if (!wasAborted && companyIds.length > 0) {
@@ -1615,6 +1632,10 @@ function ImportSide() {
       }
     }
 
+    const relinkSuffix =
+      relinkedRows !== null && relinkedRows > 0
+        ? ` · ${relinkedRows.toLocaleString("da-DK")} salgsrækker knyttet til lokationer`
+        : "";
     const statusSuffix = recomputeError
       ? " · kundestatus fejlede"
       : recomputeRows !== null
@@ -1626,7 +1647,7 @@ function ImportSide() {
         ? `Import afbrudt af bruger: ${companyIds.length.toLocaleString("da-DK")} virksomheder nåede at blive importeret`
         : failed > 0
         ? `Import afsluttet med fejl: ${companyIds.length.toLocaleString("da-DK")} virksomheder`
-        : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder${statusSuffix}`,
+        : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder${relinkSuffix}${statusSuffix}`,
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
     if (wasAborted) toast.warning(`Import stoppet — ${companyIds.length.toLocaleString("da-DK")} virksomheder importeret før afbrydelse`);
@@ -2649,7 +2670,10 @@ function Trin2VismaConfirm({
             />
             <div>
               <div className="font-medium">Udeluk udenlandske kunder</div>
-              <div className="text-xs text-muted-foreground">Landnr. er hverken 1, 45 eller tom</div>
+              <div className="text-xs text-muted-foreground">
+                Landnr. er hverken 1, 45 eller tom. Gælder kun afdeling 11 — afdeling 21 og 22
+                importeres uanset landekode.
+              </div>
             </div>
           </label>
           <label className="flex items-start gap-3 text-sm cursor-pointer">
