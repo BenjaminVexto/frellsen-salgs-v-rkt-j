@@ -107,42 +107,53 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             const totalLines = (job.total_lines as number) ?? 0;
             // Vandmærke fra databasen selv → en fejlet chunk kan køres igen
             // uden dubletter og uden at starte forfra.
-            const already = await countInvoiceLines(supabaseAdmin, batchId);
+            let already = await countInvoiceLines(supabaseAdmin, batchId);
+            let processed = 0;
+            let chunks = 0;
+            // Flere chunks pr. tick, indtil fasen er færdig eller budgettet er brugt.
+            while (already < totalLines && hasBudget()) {
+              const chunkIdx = Math.floor(already / LINES_CHUNK_SIZE);
+              const offsetInChunk = already - chunkIdx * LINES_CHUNK_SIZE;
+              const path = `${prefix}/lines-${chunkIdx}.json`;
+              const { data: blob, error: dlErr } = await supabaseAdmin.storage
+                .from(BUCKET)
+                .download(path);
+              if (dlErr || !blob) throw new Error(`kunne ikke hente ${path}: ${dlErr?.message}`);
+              const rows = JSON.parse(await blob.text()) as any[];
+              const inserted = await insertInvoiceLinesChunk(
+                supabaseAdmin,
+                batchId,
+                rows,
+                offsetInChunk,
+              );
+              already += inserted;
+              processed += inserted;
+              chunks++;
+              // Fremdrift gemmes efter HVER chunk → afbrydelse midt i løkken
+              // genoptages præcis hvor den slap.
+              await supabaseAdmin
+                .from("invoice_import_jobs")
+                .update({
+                  saved_lines: already,
+                  phase: already >= totalLines ? "prune" : "lines",
+                  status: "queued",
+                  attempts: 0,
+                  last_error: null,
+                })
+                .eq("id", jobId);
+              // Ingen fremdrift på denne chunk → undgå uendelig løkke.
+              if (inserted === 0) break;
+            }
             if (already >= totalLines) {
               await supabaseAdmin
                 .from("invoice_import_jobs")
                 .update({ phase: "prune", saved_lines: already, status: "queued", attempts: 0 })
                 .eq("id", jobId);
-              return Response.json({ processed: 0, jobId, phase: "lines", next: "prune" });
+              return Response.json({ processed, chunks, jobId, phase: "lines", next: "prune" });
             }
-            const chunkIdx = Math.floor(already / LINES_CHUNK_SIZE);
-            const offsetInChunk = already - chunkIdx * LINES_CHUNK_SIZE;
-            const path = `${prefix}/lines-${chunkIdx}.json`;
-            const { data: blob, error: dlErr } = await supabaseAdmin.storage
-              .from(BUCKET)
-              .download(path);
-            if (dlErr || !blob) throw new Error(`kunne ikke hente ${path}: ${dlErr?.message}`);
-            const rows = JSON.parse(await blob.text()) as any[];
-            const inserted = await insertInvoiceLinesChunk(
-              supabaseAdmin,
-              batchId,
-              rows,
-              offsetInChunk,
-            );
-            const savedNow = already + inserted;
-            const doneLines = savedNow >= totalLines;
-            await supabaseAdmin
-              .from("invoice_import_jobs")
-              .update({
-                saved_lines: savedNow,
-                phase: doneLines ? "prune" : "lines",
-                status: "queued",
-                attempts: 0,
-                last_error: null,
-              })
-              .eq("id", jobId);
-            return Response.json({ processed: inserted, jobId, phase: "lines", savedNow });
+            return Response.json({ processed, chunks, jobId, phase: "lines", savedNow: already });
           }
+
 
           // ---- Fase 2: ryd gamle rålinjer, måned for måned ----
           if (phase === "prune") {
