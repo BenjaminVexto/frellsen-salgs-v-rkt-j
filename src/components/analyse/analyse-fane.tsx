@@ -150,6 +150,11 @@ export function AnalyseFane({
 
   const rows = q.data ?? [];
 
+  const [visAntal, setVisAntal] = useState(200);
+  useEffect(() => {
+    setVisAntal(200);
+  }, [fra, til, opdel, sortKey, sortDir, saelgerIds, prisgrupper, varegrupper]);
+
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
     const val = (r: AnalysePivotRow): number =>
@@ -401,7 +406,7 @@ export function AnalyseFane({
                     </>
                   )}
                 </tr>
-                {sorted.map((r) => {
+                {sorted.slice(0, visAntal).map((r) => {
                   const before = sammenMap.get(r.noegle)?.omsaetning ?? 0;
                   return (
                     <tr key={r.noegle} className="border-t border-border hover:bg-accent/30">
@@ -432,6 +437,15 @@ export function AnalyseFane({
                     </tr>
                   );
                 })}
+                {sorted.length > visAntal && (
+                  <tr>
+                    <td colSpan={99} className="px-3 py-3 text-center">
+                      <Button variant="outline" size="sm" onClick={() => setVisAntal((n) => n + 200)}>
+                        Vis flere ({(sorted.length - visAntal).toLocaleString("da-DK")} tilbage)
+                      </Button>
+                    </td>
+                  </tr>
+                )}
                 {!sorted.length && (
                   <tr>
                     <td colSpan={99} className="px-3 py-10 text-center text-muted-foreground">

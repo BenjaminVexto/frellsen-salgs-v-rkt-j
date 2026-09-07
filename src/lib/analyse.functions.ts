@@ -39,17 +39,28 @@ export const getAnalysePivot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => pivotInput.parse(input))
   .handler(async ({ data, context }): Promise<AnalysePivotRow[]> => {
-    const { data: rows, error } = await (context.supabase as any).rpc("analyse_pivot", {
-      _fra: data.fra,
-      _til: data.til,
-      _opdel: data.opdel,
-      _afdeling_nr: data.afdelingNr,
-      _saelger_ids: data.saelgerIds?.length ? data.saelgerIds : null,
-      _kundeprisgrupper: data.kundeprisgrupper?.length ? data.kundeprisgrupper : null,
-      _varegrupper: data.varegrupper?.length ? data.varegrupper : null,
-    });
-    if (error) throw new Error(error.message);
-    return ((rows ?? []) as any[]).map((r) => ({
+    // PostgREST returnerer højst 1.000 rækker pr. kald — hent alle sider,
+    // ellers bliver totalrækken forkert ved opdeling pr. kunde.
+    const PAGE = 1000;
+    const rows: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error } = await (context.supabase as any)
+        .rpc("analyse_pivot", {
+          _fra: data.fra,
+          _til: data.til,
+          _opdel: data.opdel,
+          _afdeling_nr: data.afdelingNr,
+          _saelger_ids: data.saelgerIds?.length ? data.saelgerIds : null,
+          _kundeprisgrupper: data.kundeprisgrupper?.length ? data.kundeprisgrupper : null,
+          _varegrupper: data.varegrupper?.length ? data.varegrupper : null,
+        })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(error.message);
+      const arr = (page ?? []) as any[];
+      rows.push(...arr);
+      if (arr.length < PAGE) break;
+    }
+    return (rows as any[]).map((r) => ({
       noegle: String(r.noegle),
       navn: r.navn ?? null,
       omsaetning: Number(r.omsaetning) || 0,
