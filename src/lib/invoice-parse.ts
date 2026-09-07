@@ -358,6 +358,8 @@ export async function parseAndAggregate(
     uniqueDeliveryNos: 0,
     periodFrom: null,
     periodTo: null,
+    dateFrom: null,
+    dateTo: null,
     totalRevenue: 0,
     rowsByAfdeling: {},
   };
