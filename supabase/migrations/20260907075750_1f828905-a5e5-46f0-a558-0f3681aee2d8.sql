@@ -1,0 +1,1 @@
+drop function if exists public.analyse_pivot(date, date, text, integer, uuid[], text[], text[]);

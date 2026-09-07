@@ -1920,6 +1920,30 @@ export type Database = {
         }
         Relationships: []
       }
+      postnummer_region: {
+        Row: {
+          created_at: string
+          postnr_fra: number
+          postnr_til: number
+          region: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          postnr_fra: number
+          postnr_til: number
+          region: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          postnr_fra?: number
+          postnr_til?: number
+          region?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           beskrivelse: string | null
@@ -2875,6 +2899,7 @@ export type Database = {
           _fra: string
           _kundeprisgrupper?: string[]
           _opdel: string
+          _regioner?: string[]
           _saelger_ids?: string[]
           _til: string
           _varegrupper?: string[]
@@ -3044,6 +3069,7 @@ export type Database = {
         Args: { _company_ids: string[] }
         Returns: number
       }
+      region_for_postnr: { Args: { _zip: string }; Returns: string }
       saelger_navn: { Args: { _id: string }; Returns: string }
       saeson_faktor: {
         Args: { _group: string; _period: string }

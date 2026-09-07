@@ -2,7 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-export type AnalyseOpdeling = "kunde" | "varegruppe" | "kundeprisgruppe" | "saelger";
+export type AnalyseOpdeling =
+  | "kunde"
+  | "varegruppe"
+  | "kundeprisgruppe"
+  | "saelger"
+  | "region"
+  | "postnummer";
 
 export type AnalysePivotRow = {
   noegle: string;
@@ -23,11 +29,12 @@ export type AnalyseFiltre = {
 const pivotInput = z.object({
   fra: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   til: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  opdel: z.enum(["kunde", "varegruppe", "kundeprisgruppe", "saelger"]),
+  opdel: z.enum(["kunde", "varegruppe", "kundeprisgruppe", "saelger", "region", "postnummer"]),
   afdelingNr: z.number().int(),
   saelgerIds: z.array(z.string().uuid()).nullable().optional(),
   kundeprisgrupper: z.array(z.string()).nullable().optional(),
   varegrupper: z.array(z.string()).nullable().optional(),
+  regioner: z.array(z.string()).nullable().optional(),
 });
 
 /**
@@ -53,6 +60,7 @@ export const getAnalysePivot = createServerFn({ method: "POST" })
           _saelger_ids: data.saelgerIds?.length ? data.saelgerIds : null,
           _kundeprisgrupper: data.kundeprisgrupper?.length ? data.kundeprisgrupper : null,
           _varegrupper: data.varegrupper?.length ? data.varegrupper : null,
+          _regioner: data.regioner?.length ? data.regioner : null,
         })
         .range(from, from + PAGE - 1);
       if (error) throw new Error(error.message);

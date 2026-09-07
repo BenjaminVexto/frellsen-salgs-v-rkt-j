@@ -33,6 +33,7 @@ import {
   MoreHorizontal,
   Copy,
   Leaf,
+  MapPin,
 } from "lucide-react";
 import {
   Sheet,
@@ -160,6 +161,7 @@ function AuthenticatedShell() {
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
     { to: "/admin/dubletter", label: "Dubletter", icon: Copy },
     { to: "/admin/overblik", label: "Admin-overblik", icon: BarChart3 },
+    { to: "/admin/postnumre", label: "Postnumre og regioner", icon: MapPin },
   ];
 
   const handleLogout = async () => {
