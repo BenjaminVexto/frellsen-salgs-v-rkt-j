@@ -914,8 +914,35 @@ function ImportSide() {
     return out;
   }, [prepared, allowedFirmaSet]);
 
+  /**
+   * Landnr. 45/1/tom = Danmark. Alt andet (46 SE, 47 NO, 298 FO, 354 IS,
+   * 359 …) er udenlandsk.
+   */
+  function isForeignRow(p: PreparedRow): boolean {
+    const land = (p.raw["Landnr."] ?? "").trim();
+    return !(!land || land === "1" || land === "45");
+  }
+
+  /** Udenlandske rækker pr. afdeling, opdelt i frasorteret vs. importeret. */
+  const foreignByAfdeling = useMemo(() => {
+    const out: Record<string, { excluded: number; imported: number }> = {};
+    for (const p of prepared) {
+      if (p.skipReason) continue;
+      const firma = rowFirmaRaw(p.raw);
+      if (!allowedFirmaSet.has(firma)) continue;
+      if (!isForeignRow(p)) continue;
+      const key = p.afdelingNr == null ? "?" : String(p.afdelingNr);
+      const entry = out[key] ?? { excluded: 0, imported: 0 };
+      if (vismaFilters.excludeForeign && p.afdelingNr === 11) entry.excluded += 1;
+      else entry.imported += 1;
+      out[key] = entry;
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prepared, allowedFirmaSet, vismaFilters.excludeForeign]);
 
   function isFilteredByVisma(p: PreparedRow): boolean {
+
     // Altid: filtrér virksomheder hvis navn er markeret som lukket i Visma
     if (isClosedName(p.data.name)) return true;
     if (vismaFilters.excludeInternal) {
