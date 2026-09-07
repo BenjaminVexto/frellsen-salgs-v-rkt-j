@@ -2057,6 +2057,8 @@ export type Database = {
           full_name: string
           id: string
           is_active: boolean
+          maa_se_analyse: boolean
+          maa_se_db: boolean
           primary_afdeling_nr: number | null
           region: string | null
           salesperson_no: string | null
@@ -2066,6 +2068,8 @@ export type Database = {
           full_name?: string
           id: string
           is_active?: boolean
+          maa_se_analyse?: boolean
+          maa_se_db?: boolean
           primary_afdeling_nr?: number | null
           region?: string | null
           salesperson_no?: string | null
@@ -2075,6 +2079,8 @@ export type Database = {
           full_name?: string
           id?: string
           is_active?: boolean
+          maa_se_analyse?: boolean
+          maa_se_db?: boolean
           primary_afdeling_nr?: number | null
           region?: string | null
           salesperson_no?: string | null
@@ -2859,6 +2865,30 @@ export type Database = {
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
       addr_vej: { Args: { _addr: string }; Returns: string }
+      analyse_filtre: {
+        Args: { _afdeling_nr: number; _fra: string; _til: string }
+        Returns: Json
+      }
+      analyse_pivot: {
+        Args: {
+          _afdeling_nr: number
+          _fra: string
+          _kundeprisgrupper?: string[]
+          _opdel: string
+          _saelger_ids?: string[]
+          _til: string
+          _varegrupper?: string[]
+        }
+        Returns: {
+          antal_kunder: number
+          db: number
+          kg: number
+          navn: string
+          noegle: string
+          omsaetning: number
+          stk: number
+        }[]
+      }
       can_access_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
@@ -2983,6 +3013,8 @@ export type Database = {
           revenue_12m: number
         }[]
       }
+      maa_se_analyse: { Args: { _user_id: string }; Returns: boolean }
+      maa_se_db: { Args: { _user_id: string }; Returns: boolean }
       monthly_revenue_totals: {
         Args: {
           _afdeling_nr?: number
@@ -3012,6 +3044,7 @@ export type Database = {
         Args: { _company_ids: string[] }
         Returns: number
       }
+      saelger_navn: { Args: { _id: string }; Returns: string }
       saeson_faktor: {
         Args: { _group: string; _period: string }
         Returns: number

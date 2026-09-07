@@ -57,6 +57,8 @@ type Row = {
   role: AppRoleX;
   region: string | null;
   salesperson_no: string | null;
+  maa_se_db?: boolean;
+  maa_se_analyse?: boolean;
   is_active: boolean;
   created_at: string;
 };
@@ -176,6 +178,8 @@ function BrugerStyringSide() {
     role: "saelger" as AppRoleX,
     region: "",
     salesperson_no: "",
+    maa_se_db: false,
+    maa_se_analyse: false,
   });
   const [saving, setSaving] = useState(false);
 
@@ -324,6 +328,8 @@ function BrugerStyringSide() {
       role: r.role,
       region: r.region ?? "",
       salesperson_no: r.salesperson_no ?? "",
+      maa_se_db: r.maa_se_db === true,
+      maa_se_analyse: r.maa_se_analyse === true,
     });
     setEditAfd(accessByUser[r.id] ?? []);
     setEditPrimary(primaryByUser[r.id] ?? null);
@@ -369,6 +375,8 @@ function BrugerStyringSide() {
             (editForm.role === "saelger" || editForm.role === "admin") && editForm.salesperson_no.trim()
               ? editForm.salesperson_no.trim()
               : null,
+          maa_se_db: editForm.maa_se_db,
+          maa_se_analyse: editForm.maa_se_analyse,
         },
       });
       toast.success("Bruger opdateret");
@@ -697,6 +705,29 @@ function BrugerStyringSide() {
                     onChange={(e) => setEditForm({ ...editForm, salesperson_no: e.target.value })}
                     placeholder="fx 106"
                   />
+                </div>
+              )}
+
+              {auth.role === "admin" && (
+                <div className="rounded-md border p-3 space-y-2">
+                  <Label>Særlige rettigheder</Label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={editForm.maa_se_db}
+                      onCheckedChange={(v) => setEditForm({ ...editForm, maa_se_db: v === true })}
+                    />
+                    Må se dækningsbidrag
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={editForm.maa_se_analyse}
+                      onCheckedChange={(v) => setEditForm({ ...editForm, maa_se_analyse: v === true })}
+                    />
+                    Må se analysefanen
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Administratorer har begge rettigheder uanset afkrydsning.
+                  </p>
                 </div>
               )}
 

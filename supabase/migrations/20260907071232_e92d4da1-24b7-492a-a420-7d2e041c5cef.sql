@@ -1,0 +1,1 @@
+grant select (maa_se_db, maa_se_analyse) on public.profiles to authenticated;

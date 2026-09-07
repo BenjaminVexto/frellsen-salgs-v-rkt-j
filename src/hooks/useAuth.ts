@@ -15,6 +15,10 @@ export interface AuthState {
   afdelinger: number[];
   /** profiles.primary_afdeling_nr — default-valg i afdelingsvælgeren. */
   primaryAfdeling: number | null;
+  /** Må se dækningsbidrag (admin eller profiles.maa_se_db). */
+  maaSeDb: boolean;
+  /** Må se analysefanen (admin eller profiles.maa_se_analyse). */
+  maaSeAnalyse: boolean;
 }
 
 const EMPTY: AuthState = {
@@ -26,7 +30,10 @@ const EMPTY: AuthState = {
   region: null,
   afdelinger: [],
   primaryAfdeling: null,
+  maaSeDb: false,
+  maaSeAnalyse: false,
 };
+
 
 export function useAuth(): AuthState {
   const [state, setState] = useState<AuthState>(EMPTY);
@@ -47,7 +54,7 @@ export function useAuth(): AuthState {
           .returns<{ role: AppRole }[]>(),
         supabase
           .from("profiles")
-          .select("full_name, region, primary_afdeling_nr")
+          .select("full_name, region, primary_afdeling_nr, maa_se_db, maa_se_analyse")
           .eq("id", session.user.id)
           .maybeSingle(),
         supabase.rpc("my_afdelinger"),
@@ -71,6 +78,8 @@ export function useAuth(): AuthState {
         afdelinger,
         primaryAfdeling:
           primaryRaw != null && afdelinger.includes(primaryRaw) ? primaryRaw : (afdelinger[0] ?? null),
+        maaSeDb: role === "admin" || (profile as any)?.maa_se_db === true,
+        maaSeAnalyse: role === "admin" || (profile as any)?.maa_se_analyse === true,
       });
     };
 
