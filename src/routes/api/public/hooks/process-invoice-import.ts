@@ -28,10 +28,15 @@ const CHUNK_SIZE = 20_000; // SKAL matche klientens chunk-størrelse
 const TOP_MONTHLY_CHUNK_SIZE = 4_000;
 // Rå fakturalinjer: 5.000 pr. chunk (SKAL matche klienten).
 const LINES_CHUNK_SIZE = 5_000;
+// Tidsbudget pr. tick: vi fortsætter med flere chunks/måneder i samme kald,
+// indtil budgettet er brugt. 45 s holder os under platformens timeout på
+// requestet, og fremdriften gemmes efter hver chunk, så et afbrudt tick
+// genoptages præcis hvor det slap.
+const TICK_BUDGET_MS = 45_000;
 // Sletning af gamle rålinjer sker måned for måned — flere måneder pr. tick,
 // men aldrig i én sætning, så vi ikke rammer statement timeout.
-const PRUNE_MONTHS_PER_TICK = 2;
 const BUCKET = "invoice-uploads";
+
 
 
 function isAuthorized(provided: string | null): boolean {
