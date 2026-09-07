@@ -304,116 +304,179 @@ export function AnalyseFane({
 
   return (
     <div className="space-y-4">
-      <Card className="p-4 space-y-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <Label className="text-xs text-muted-foreground">Fra måned</Label>
-            <Input
-              type="month"
-              value={fra}
-              max={til}
-              onChange={(e) => e.target.value && setFra(e.target.value)}
-              className="h-9 w-[150px]"
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Til måned (inkl.)</Label>
-            <Input
-              type="month"
-              value={til}
-              min={fra}
-              onChange={(e) => e.target.value && setTil(e.target.value)}
-              className="h-9 w-[150px]"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {genveje().map((g) => (
-              <Button
-                key={g.label}
-                size="sm"
-                variant={fra === g.fra && til === g.til ? "default" : "outline"}
-                onClick={() => {
-                  setFra(g.fra);
-                  setTil(g.til);
-                }}
-              >
-                {g.label}
+      <Card className="p-3 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Periode */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 font-normal">
+                <Calendar className="h-4 w-4 mr-2 opacity-60" />
+                {periodeTekst}
+                <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
               </Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <Label className="text-xs text-muted-foreground">Sammenligning</Label>
-            <Select value={sammenlign} onValueChange={(v) => setSammenlign(v as Sammenlign)}>
-              <SelectTrigger className="h-9 w-[240px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ingen">Ingen sammenligning</SelectItem>
-                <SelectItem value="foregaaende" disabled={!foregaaendeOk}>
-                  Foregående periode
-                  {!foregaaendeOk && " — ikke dækket"}
-                </SelectItem>
-                <SelectItem value="aaret-foer" disabled={!aaretFoerOk}>
-                  Samme periode året før
-                  {!aaretFoerOk && " — ikke dækket"}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {((sammenlign === "foregaaende" && !foregaaendeOk) ||
-              (sammenlign === "aaret-foer" && !aaretFoerOk)) && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Sammenligningsperioden er ikke dækket af data
-              </p>
-            )}
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Opdeling</Label>
-            <Select value={opdel} onValueChange={(v) => setOpdel(v as AnalyseOpdeling)}>
-              <SelectTrigger className="h-9 w-[190px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {(Object.keys(OPDEL_LABEL) as AnalyseOpdeling[]).map((k) => (
-                  <SelectItem key={k} value={k}>{OPDEL_LABEL[k]}</SelectItem>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px] p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {genveje().map((g) => (
+                  <Button
+                    key={g.label}
+                    size="sm"
+                    className="h-8 text-xs"
+                    variant={fra === g.fra && til === g.til ? "default" : "outline"}
+                    onClick={() => {
+                      setFra(g.fra);
+                      setTil(g.til);
+                    }}
+                  >
+                    {g.label}
+                  </Button>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">Fra måned</Label>
+                  <Input
+                    type="month"
+                    value={fra}
+                    max={til}
+                    onChange={(e) => e.target.value && setFra(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">Til måned (inkl.)</Label>
+                  <Input
+                    type="month"
+                    value={til}
+                    min={fra}
+                    onChange={(e) => e.target.value && setTil(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
 
-          <MultiVaelger
-            label="Sælger"
-            options={(filtreQ.data?.saelgere ?? []).map((s) => ({ value: s.id, label: s.navn }))}
-            selected={saelgerIds}
-            onChange={setSaelgerIds}
-          />
-          <MultiVaelger
-            label="Kundeprisgruppe"
-            options={(filtreQ.data?.prisgrupper ?? []).map((p) => ({ value: p, label: p }))}
-            selected={prisgrupper}
-            onChange={setPrisgrupper}
-          />
-          <MultiVaelger
-            label="Varegruppe"
-            options={(filtreQ.data?.varegrupper ?? []).map((v) => ({ value: v.kode, label: v.navn }))}
-            selected={varegrupper}
-            onChange={setVaregrupper}
-          />
-          <MultiVaelger
-            label="Region"
-            options={(regionerQ.data ?? []).map((r) => ({ value: r, label: r }))}
-            selected={regioner}
-            onChange={setRegioner}
-          />
+          <Select value={opdel} onValueChange={(v) => setOpdel(v as AnalyseOpdeling)}>
+            <SelectTrigger className="h-9 w-[170px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(OPDEL_LABEL) as AnalyseOpdeling[]).map((k) => (
+                <SelectItem key={k} value={k}>
+                  Opdel: {OPDEL_LABEL[k]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">
-              Afdeling {afdelingNr} — {afdelingNavn} · {antalMdr} mdr.
-            </span>
-            <Button size="sm" variant="outline" onClick={exportCsv} disabled={!rows.length}>
-              <Download className="h-4 w-4 mr-1" /> CSV
-            </Button>
-          </div>
+          <Select value={sammenlign} onValueChange={(v) => setSammenlign(v as Sammenlign)}>
+            <SelectTrigger className="h-9 w-[230px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ingen">Ingen sammenligning</SelectItem>
+              <SelectItem value="foregaaende" disabled={!foregaaendeOk}>
+                Foregående periode
+                {!foregaaendeOk && " — ikke dækket af data"}
+              </SelectItem>
+              <SelectItem value="aaret-foer" disabled={!aaretFoerOk}>
+                Samme periode året før
+                {!aaretFoerOk && " — ikke dækket af data"}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Filtre */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 font-normal">
+                <SlidersHorizontal className="h-4 w-4 mr-2 opacity-60" />
+                Filtre
+                {aktiveFiltre.length > 0 && (
+                  <span className="ml-2 rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground">
+                    {aktiveFiltre.length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[280px] p-3 space-y-3">
+              <MultiVaelger
+                label="Sælger"
+                options={(filtreQ.data?.saelgere ?? []).map((s) => ({ value: s.id, label: s.navn }))}
+                selected={saelgerIds}
+                onChange={setSaelgerIds}
+              />
+              <MultiVaelger
+                label="Kundeprisgruppe"
+                options={(filtreQ.data?.prisgrupper ?? []).map((p) => ({ value: p, label: p }))}
+                selected={prisgrupper}
+                onChange={setPrisgrupper}
+              />
+              <MultiVaelger
+                label="Varegruppe"
+                options={(filtreQ.data?.varegrupper ?? []).map((v) => ({ value: v.kode, label: v.navn }))}
+                selected={varegrupper}
+                onChange={setVaregrupper}
+              />
+              <MultiVaelger
+                label="Region"
+                options={(regionerQ.data ?? []).map((r) => ({ value: r, label: r }))}
+                selected={regioner}
+                onChange={setRegioner}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <span className="text-xs text-muted-foreground">
+            Afdeling {afdelingNr} — {afdelingNavn} · {antalMdr} mdr.
+          </span>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={exportCsv}
+            disabled={!rows.length}
+            className="ml-auto h-9"
+          >
+            <Download className="h-4 w-4 mr-1" /> CSV
+          </Button>
         </div>
+
+        {aktiveFiltre.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {aktiveFiltre.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={f.remove}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs hover:bg-muted"
+              >
+                {f.label}
+                <X className="h-3 w-3 opacity-60" />
+              </button>
+            ))}
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:underline px-1"
+              onClick={() => {
+                setSaelgerIds([]);
+                setPrisgrupper([]);
+                setVaregrupper([]);
+                setRegioner([]);
+              }}
+            >
+              Nulstil alle
+            </button>
+          </div>
+        )}
+
+        {((sammenlign === "foregaaende" && !foregaaendeOk) ||
+          (sammenlign === "aaret-foer" && !aaretFoerOk)) && (
+          <p className="text-xs text-muted-foreground">Sammenligningsperioden er ikke dækket af data</p>
+        )}
       </Card>
+
 
       <Card className="overflow-hidden">
         {q.isLoading ? (
