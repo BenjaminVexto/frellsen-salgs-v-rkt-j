@@ -35,6 +35,8 @@ const pivotInput = z.object({
   kundeprisgrupper: z.array(z.string()).nullable().optional(),
   varegrupper: z.array(z.string()).nullable().optional(),
   regioner: z.array(z.string()).nullable().optional(),
+  /** Varegruppe hvis kg skal summeres — standard "2" (kaffe). */
+  kgGruppe: z.string().nullable().optional(),
 });
 
 /**
@@ -61,6 +63,7 @@ export const getAnalysePivot = createServerFn({ method: "POST" })
           _kundeprisgrupper: data.kundeprisgrupper?.length ? data.kundeprisgrupper : null,
           _varegrupper: data.varegrupper?.length ? data.varegrupper : null,
           _regioner: data.regioner?.length ? data.regioner : null,
+          _kg_gruppe: data.kgGruppe ?? "2",
         })
         .range(from, from + PAGE - 1);
       if (error) throw new Error(error.message);
