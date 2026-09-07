@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      _location_dedup_report: {
+        Row: {
+          created_at: string
+          detail: string | null
+          id: number
+          kind: string
+          n: number | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          id?: number
+          kind: string
+          n?: number | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          id?: number
+          kind?: string
+          n?: number | null
+        }
+        Relationships: []
+      }
       _product_master_import_log: {
         Row: {
           id: number
