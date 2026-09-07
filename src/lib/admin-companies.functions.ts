@@ -791,6 +791,47 @@ export const importInsertLocations = createServerFn({ method: "POST" })
         afdeling_nr: Number(r.afdeling_nr ?? 11),
       }));
 
+    // Findes leveringsnummeret allerede under en ANDEN virksomhed i samme afdeling,
+    // så FLYT den eksisterende lokation over på den nye virksomhed i stedet for at
+    // oprette en dublet (locations har unik nøgle på (visma_delivery_no, afdeling_nr)).
+    let movedToNewCompany = 0;
+    {
+      type Wanted = { company_id: string; afdeling_nr: number };
+      const wanted = new Map<string, Wanted>(); // key: `${afdeling_nr}|${delivery}`
+      for (const r of data.rows as Array<Record<string, any>>) {
+        if (!r?.company_id || !r?.visma_delivery_no) continue;
+        const afd = Number(r.afdeling_nr ?? 11);
+        wanted.set(`${afd}|${r.visma_delivery_no}`, { company_id: r.company_id, afdeling_nr: afd });
+      }
+      const deliveries = [...new Set([...wanted.keys()].map((k) => k.split("|").slice(1).join("|")))];
+      const LOOKUP_CHUNK = 500;
+      const moves: Array<{ id: string; company_id: string }> = [];
+      for (let i = 0; i < deliveries.length; i += LOOKUP_CHUNK) {
+        const slice = deliveries.slice(i, i + LOOKUP_CHUNK);
+        const { data: existing, error } = await supabaseAdmin
+          .from("locations")
+          .select("id, company_id, visma_delivery_no, afdeling_nr")
+          .in("visma_delivery_no", slice);
+        if (error) {
+          console.error("[locations] opslag før flyt fejlede:", error.message);
+          continue;
+        }
+        for (const l of (existing ?? []) as Array<Record<string, any>>) {
+          const w = wanted.get(`${Number(l.afdeling_nr ?? 11)}|${l.visma_delivery_no}`);
+          if (w && w.company_id !== l.company_id) moves.push({ id: l.id, company_id: w.company_id });
+        }
+      }
+      for (const m of moves) {
+        const { error } = await supabaseAdmin
+          .from("locations")
+          .update({ company_id: m.company_id, is_primary: false } as any)
+          .eq("id", m.id);
+        if (error) console.error("[locations] flyt til ny virksomhed fejlede:", m.id, error.message);
+        else movedToNewCompany++;
+      }
+      if (movedToNewCompany) console.log(`[locations] ${movedToNewCompany} lokationer flyttet til ny virksomhed`);
+    }
+
     for (let i = 0; i < data.rows.length; i += CHUNK) {
       const slice = data.rows.slice(i, i + CHUNK);
       // Sæt is_primary=false på alle rækker i bulk-upsert'et for at undgå kollision
@@ -845,7 +886,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
       }
     }
 
-    return { inserted, failed, errorSamples, primaryFixed, primaryFailed };
+    return { inserted, failed, errorSamples, primaryFixed, primaryFailed, movedToNewCompany };
   });
 
 export const importUpsertContacts = createServerFn({ method: "POST" })
