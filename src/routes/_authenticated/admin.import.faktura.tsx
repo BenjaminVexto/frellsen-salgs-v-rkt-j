@@ -177,16 +177,23 @@ function FakturaImportSide() {
 
       // 4) Chunk + upload til private storage
       const newJobId = crypto.randomUUID();
+      const linesBatchId = crypto.randomUUID();
       const monthlyChunks = chunked(enrichedMonthly, CHUNK_SIZE);
       const topChunks = chunked(enrichedTop, CHUNK_SIZE);
       const topMonthlyChunks = chunked(enrichedTopMonthly, TOP_MONTHLY_CHUNK_SIZE);
-      const totalUploads = monthlyChunks.length + topChunks.length + topMonthlyChunks.length;
+      const lineChunks = chunked(rawLines, LINES_CHUNK_SIZE);
+      const totalUploads =
+        monthlyChunks.length + topChunks.length + topMonthlyChunks.length + lineChunks.length;
       let uploadIdx = 0;
 
       setStage("Uploader data-chunks til server…");
       setStageProgress({ done: 0, total: totalUploads });
 
-      async function uploadChunk(kind: "monthly" | "top" | "top_monthly", idx: number, rows: unknown[]) {
+      async function uploadChunk(
+        kind: "monthly" | "top" | "top_monthly" | "lines",
+        idx: number,
+        rows: unknown[],
+      ) {
         const path = `${newJobId}/${kind}-${idx}.json`;
         const body = new Blob([JSON.stringify(rows)], { type: "application/json" });
         const { error } = await supabase.storage
@@ -197,6 +204,7 @@ function FakturaImportSide() {
         setStageProgress({ done: uploadIdx, total: totalUploads });
       }
 
+      for (let i = 0; i < lineChunks.length; i++) await uploadChunk("lines", i, lineChunks[i]);
       for (let i = 0; i < monthlyChunks.length; i++) await uploadChunk("monthly", i, monthlyChunks[i]);
       for (let i = 0; i < topChunks.length; i++) await uploadChunk("top", i, topChunks[i]);
       for (let i = 0; i < topMonthlyChunks.length; i++) await uploadChunk("top_monthly", i, topMonthlyChunks[i]);
@@ -213,6 +221,11 @@ function FakturaImportSide() {
           locationsMatched: matched,
           unmatched,
           rowsByAfdeling: stats.rowsByAfdeling,
+          totalLines: rawLines.length,
+          linesBatchId,
+          dateFrom: stats.dateFrom,
+          dateTo: stats.dateTo,
+          afdelinger: Object.keys(stats.rowsByAfdeling).map((k) => Number(k)),
         },
       });
 
