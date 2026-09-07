@@ -542,6 +542,8 @@ export async function parseAndAggregate(
   stats.uniqueDeliveryNos = deliverySet.size;
   stats.periodFrom = minDate ? monthStart(minDate) : null;
   stats.periodTo = maxDate ? monthStart(maxDate) : null;
+  stats.dateFrom = minDate ? (minDate as Date).toISOString().slice(0, 10) : null;
+  stats.dateTo = maxDate ? (maxDate as Date).toISOString().slice(0, 10) : null;
   stats.skippedFirmaSamples = Array.from(firmaSampleSet).sort();
 
   const monthly: MonthlyRow[] = Array.from(monthlyMap.values()).map((a) => ({
