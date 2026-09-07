@@ -1,0 +1,10 @@
+revoke all on function public.maa_se_db(uuid) from public, anon;
+revoke all on function public.maa_se_analyse(uuid) from public, anon;
+revoke all on function public.saelger_navn(uuid) from public, anon;
+revoke all on function public.analyse_filtre(int, date, date) from public, anon;
+revoke all on function public.analyse_pivot(date, date, text, int, uuid[], text[], text[]) from public, anon;
+grant execute on function public.maa_se_db(uuid) to authenticated;
+grant execute on function public.maa_se_analyse(uuid) to authenticated;
+grant execute on function public.saelger_navn(uuid) to authenticated;
+grant execute on function public.analyse_filtre(int, date, date) to authenticated;
+grant execute on function public.analyse_pivot(date, date, text, int, uuid[], text[], text[]) to authenticated;

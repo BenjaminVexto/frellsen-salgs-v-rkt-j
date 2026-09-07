@@ -76,6 +76,8 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
         role: z.enum(["admin", "saelger", "salgssupport"]),
         region: z.string().trim().max(120).optional().nullable(),
         salesperson_no: z.string().trim().max(32).optional().nullable(),
+        maa_se_db: z.boolean().optional(),
+        maa_se_analyse: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -88,7 +90,9 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
         full_name: data.full_name,
         region: data.region ?? null,
         salesperson_no: data.salesperson_no ?? null,
-      })
+        ...(data.maa_se_db === undefined ? {} : { maa_se_db: data.maa_se_db }),
+        ...(data.maa_se_analyse === undefined ? {} : { maa_se_analyse: data.maa_se_analyse }),
+      } as any)
       .eq("id", data.user_id);
     if (profErr) throw new Error(profErr.message);
 
@@ -179,7 +183,7 @@ export const adminListUsers = createServerFn({ method: "GET" })
 
     const { data: profiles, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, region, is_active, created_at, salesperson_no");
+      .select("id, full_name, region, is_active, created_at, salesperson_no, maa_se_db, maa_se_analyse");
     if (profErr) throw new Error(profErr.message);
 
     const { data: roles, error: rolesErr } = await supabaseAdmin
@@ -212,6 +216,8 @@ export const adminListUsers = createServerFn({ method: "GET" })
       salesperson_no: p.salesperson_no ?? null,
       is_active: p.is_active,
       created_at: p.created_at,
+      maa_se_db: p.maa_se_db === true,
+      maa_se_analyse: p.maa_se_analyse === true,
     }));
   });
 

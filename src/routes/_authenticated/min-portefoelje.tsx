@@ -32,6 +32,7 @@ import { klasseLabel, erFaldKlasse } from "@/lib/forbrug-labels";
 import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { fmtKr } from "@/lib/sales-utils";
+import { AnalyseFane } from "@/components/analyse/analyse-fane";
 
 const SignalMapContext = createContext<Map<string, ForbrugSignalKort>>(new Map());
 
@@ -61,7 +62,7 @@ function PortfolioPage() {
   }, [auth.role, navigate]);
   const fn = useServerFn(getMyPortfolio);
   const { viewAsUserId, isImpersonating } = useViewAs();
-  const { afdelingFilter } = useAfdeling();
+  const { afdelingFilter, stampAfdelingNr, navnFor } = useAfdeling();
   // Når admin "ser som" sælger, låses sellerId til den sælger.
   const [sellerId, setSellerId] = useState<string | "all">(viewAsUserId ?? "all");
   useEffect(() => {
@@ -77,6 +78,15 @@ function PortfolioPage() {
   const [showDB, setShowDB] = useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
+  const [tab, setTab] = useState<"portefoelje" | "analyse">("portefoelje");
+
+  // Analysefanen dækker hele den valgte afdeling — den vises kun for brugere
+  // med rettigheden og kun når de har adgang til afdelingen.
+  const analyseAfdeling = afdelingFilter ?? stampAfdelingNr;
+  const visAnalyse =
+    auth.maaSeAnalyse &&
+    analyseAfdeling != null &&
+    auth.afdelinger.includes(analyseAfdeling);
 
   const q = useQuery({
     queryKey: ["portfolio", sellerId, viewAsUserId, afdelingFilter],
@@ -177,6 +187,368 @@ function PortfolioPage() {
     }
   };
 
+  const portefoeljeIndhold = (
+    <>
+        {q.isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground py-8">
+            <Loader2 className="h-4 w-4 animate-spin" /> Henter portefølje…
+          </div>
+        ) : !data ? (
+          <Card className="p-6 text-sm text-muted-foreground">Ingen data.</Card>
+        ) : (
+          <>
+            {/* PULS */}
+            <section className="mb-6">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Porteføljens puls
+              </h2>
+              <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+                <RevenueCard
+                  label="Porteføljeomsætning · År-til-Dato"
+                  current={data.totals.revenueYtd}
+                  prior={data.totals.revenueYtdPriorSamePeriod}
+                  latestPeriod={data.totals.ytdLatestPeriod}
+                  kgCurrent={data.totals.weightKgYtd}
+                  kgPrior={data.totals.weightKgYtdPriorSamePeriod}
+                />
+
+                <Card className="p-4">
+                  <div className="text-xs text-muted-foreground mb-1">Fordeling</div>
+                  <div className="text-lg font-semibold mb-2">
+                    {data.statusCounts.total}{" "}
+                    <span className="text-sm text-muted-foreground font-normal">kunder</span>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <Pill color="success" label="aktive" n={data.statusCounts.aktive} prior={data.statusCountsPrior.aktive} hint="Købt inden for 12 mdr." />
+                    <Pill color="warning" label="sovende" n={data.statusCounts.sovende} prior={data.statusCountsPrior.sovende} hint="12–24 mdr. siden seneste køb." />
+                    <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} prior={data.statusCountsPrior.paaVejVaek} hint="Aktiv kunde med udstyr, men forbruget falder." />
+                  </div>
+                </Card>
+                {isAdmin && (
+                  <Card className="p-4">
+                    <div className="text-xs text-muted-foreground mb-1">DB · 12 mdr. (admin)</div>
+                    <div className="text-2xl font-semibold tabular-nums">
+                      {fmtKr(data.totals.contribution12m ?? 0)}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      DG:{" "}
+                      {data.totals.revenue12m > 0
+                        ? `${Math.round(
+                            ((data.totals.contribution12m ?? 0) / data.totals.revenue12m) * 100,
+                          )} %`
+                        : "—"}
+                    </div>
+                  </Card>
+                )}
+              </div>
+            </section>
+
+            {/* FILTRE + TABEL */}
+            <Card className="overflow-hidden">
+              <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[200px] max-w-sm">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Søg kunde…"
+                    className="pl-8 h-9"
+                  />
+                </div>
+                <Select value={kaffeFilter} onValueChange={(v) => setKaffeFilter(v as any)}>
+                  <SelectTrigger className="h-9 w-[160px]">
+                    <SelectValue placeholder="Kaffe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Kaffe: alle</SelectItem>
+                    <SelectItem value="green">Køber normalt</SelectItem>
+                    <SelectItem value="yellow">Køber sjældnere end før</SelectItem>
+                    <SelectItem value="red">Stoppet / aldrig købt</SelectItem>
+                    <SelectItem value="via">Via anden konto</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+                  <SelectTrigger className="h-9 w-[170px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Status: alle</SelectItem>
+                    <SelectItem value="aktiv">Aktiv</SelectItem>
+                    <SelectItem value="sovende">Sovende</SelectItem>
+                    <SelectItem value="paavejvaek">På vej væk</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="ml-auto flex items-center gap-4">
+                  {isAdmin && (
+                    <div className="flex items-center gap-2">
+                      <Switch id="show-db" checked={showDB} onCheckedChange={setShowDB} />
+                      <Label htmlFor="show-db" className="text-xs text-muted-foreground cursor-pointer">
+                        Vis DB
+                      </Label>
+                    </div>
+                  )}
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {sortedCompanies.length.toLocaleString("da-DK")} kunder
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <Th onClick={() => toggleSort("name")} active={sortKey === "name"} dir={sortDir}>
+                        Kunde
+                      </Th>
+                      <Th onClick={() => toggleSort("consumable")} active={sortKey === "consumable"} dir={sortDir}>
+                        Kaffe
+                      </Th>
+                      <th className="px-3 py-2 text-left" title="Løbende forbrug (kaffe, drikke m.m.) pr. måned — ekskl. årlig maskinservice/-leje. 5 seneste hele måneder.">
+                        Trend · løbende forbrug
+                        <div className="text-[10px] font-normal text-muted-foreground">ekskl. maskinservice</div>
+                      </th>
+                      <Th
+                        onClick={() => toggleSort("month:last")}
+                        active={sortKey === "month:last"}
+                        dir={sortDir}
+                        align="right"
+                        title="Omsætning i seneste hele kalendermåned (alle produktgrupper)."
+                      >
+                        Seneste md.
+                      </Th>
+                      <Th
+                        onClick={() => toggleSort("revenue12m")}
+                        active={sortKey === "revenue12m"}
+                        dir={sortDir}
+                        align="right"
+                        title="Samlet omsætning de seneste 12 måneder (rullende, alle produktgrupper)."
+                      >
+                        12 mdr.
+                      </Th>
+                      <Th onClick={() => toggleSort("status")} active={sortKey === "status"} dir={sortDir}>
+                        Status
+                      </Th>
+                      {isAdmin && showDB && <th className="px-3 py-2 text-right">DB 12m</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedCompanies.slice(0, visibleCount).map((c) => {
+                      const lastMonth = c.monthly[c.monthly.length - 1]?.revenue ?? 0;
+                      return (
+                        <tr key={c.id} className="border-t border-border hover:bg-accent/30">
+                          <td className="px-3 py-2">
+                            <Link
+                              to="/virksomheder/$id"
+                              params={{ id: c.id }}
+                              className="font-medium hover:underline"
+                            >
+                              {c.name}
+                            </Link>
+                            {c.city && (
+                              <div className="text-xs text-muted-foreground">{c.city}</div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <KaffeIndicator
+                              companyId={c.id}
+                              suppliedViaName={c.supplied_via_name}
+                              suppliedViaId={c.supplied_via_id}
+                            />
+
+                          </td>
+                          <td className="px-3 py-2">
+                            <Sparkline months={c.monthly} revenue12m={c.revenue12m} />
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {lastMonth > 0 ? fmtKr(lastMonth) : "—"}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums font-medium">
+                            {c.revenue12m > 0 ? fmtKr(c.revenue12m) : "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            <StatusBadge type={c.customer_type} />
+                          </td>
+                          {isAdmin && showDB && (
+                            <td className="px-3 py-2 text-right tabular-nums">
+                              {(c.contribution12m ?? 0) !== 0 ? fmtKr(c.contribution12m ?? 0) : "—"}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                    {!sortedCompanies.length && (
+                      <tr>
+                        <td colSpan={99} className="px-3 py-10 text-center text-muted-foreground">
+                          Ingen kunder matcher filtrene.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {sortedCompanies.length > visibleCount && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((n) => (n < 50 ? 50 : n + 50))}
+                  className="w-full px-4 py-3 text-sm text-muted-foreground hover:bg-accent/40 border-t border-border"
+                >
+                  {visibleCount < 50
+                    ? `Udvid (vis 50 ad gangen, ${(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)`
+                    : `Vis 50 flere (${(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)`}
+                </button>
+              )}
+            </Card>
+
+            {/* RANKINGS — Lag 2 */}
+            <section className="mt-8">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Top &amp; bund — rangeringer
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setRankingsExpanded((v) => !v)}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {rankingsExpanded ? "Vis kun top 5" : "Udvid (vis top 25)"}
+                </button>
+              </div>
+              <Tabs defaultValue="revenue">
+                <TabsList>
+                  <TabsTrigger value="revenue">Omsætning</TabsTrigger>
+                  {isAdmin && <TabsTrigger value="db">Dækningsbidrag</TabsTrigger>}
+                  <TabsTrigger value="potential">Potentiale-ratio</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="revenue" className="mt-4">
+                  <Tabs defaultValue="decliners">
+                    <TabsList>
+                      <TabsTrigger value="decliners">Største fald</TabsTrigger>
+                      <TabsTrigger value="growers">Største vækst</TabsTrigger>
+                      <TabsTrigger value="top">Højest omsætning</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="decliners" className="mt-4">
+                      <RankingTable
+                        title={rankingsExpanded ? "Top 25 — største fald (YTD vs. samme periode sidste år)" : "Top 5 — største fald (YTD vs. samme periode sidste år)"}
+                        rows={data.rankings.topDecliners}
+                        valueLabel="Omsætning YTD"
+                        valueField="revenueYtd"
+                        showTrend
+                        emptyText="Ingen kunder med fald i porteføljen."
+                        limit={rankingsExpanded ? undefined : 5}
+                      />
+                    </TabsContent>
+                    <TabsContent value="growers" className="mt-4">
+                      <RankingTable
+                        title={rankingsExpanded ? "Top 25 — største vækst (YTD vs. samme periode sidste år)" : "Top 5 — største vækst (YTD vs. samme periode sidste år)"}
+                        rows={data.rankings.topGrowers}
+                        valueLabel="Omsætning YTD"
+                        valueField="revenueYtd"
+                        showTrend
+                        emptyText="Ingen kunder med vækst i porteføljen."
+                        limit={rankingsExpanded ? undefined : 5}
+                      />
+                    </TabsContent>
+                    <TabsContent value="top" className="mt-4">
+                      <RankingTable
+                        title={rankingsExpanded ? "Top 25 — højest omsætning (år-til-dato)" : "Top 5 — højest omsætning (år-til-dato)"}
+                        rows={data.rankings.topRevenue}
+                        valueLabel="Omsætning YTD"
+                        valueField="revenueYtd"
+                        showTrend
+                        limit={rankingsExpanded ? undefined : 5}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </TabsContent>
+
+
+
+                {isAdmin && data.rankings.topContribution && (
+                  <TabsContent value="db" className="mt-4">
+                    <RankingTable
+                      title={rankingsExpanded ? "Top 25 — mest profitable kunder (DB 12 mdr.)" : "Top 5 — mest profitable kunder (DB 12 mdr.)"}
+                      rows={data.rankings.topContribution}
+                      valueLabel="DB"
+                      valueField="contribution12m"
+                      showTrend={false}
+                      limit={rankingsExpanded ? undefined : 5}
+                    />
+                  </TabsContent>
+                )}
+
+                <TabsContent value="potential" className="mt-4 space-y-4">
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground">
+                      Potentiale-ratio = omsætning 12 mdr. ÷ antal medarbejdere.
+                      Aktive privatkunder med kendt medarbejdertal. Offentlige kunder
+                      (kundeprisgruppe 40/45) er udeladt.
+                      {data.rankings.potentialMissingEmployees > 0 && (
+                        <>
+                          {" "}
+                          <span className="font-medium text-foreground">
+                            {data.rankings.potentialMissingEmployees}
+                          </span>{" "}
+                          kunder mangler medarbejdertal og indgår ikke.
+                        </>
+                      )}
+                    </div>
+                  </Card>
+                  <ScatterPlot points={data.rankings.potentialScatter} />
+                  <RankingTable
+                    title={rankingsExpanded ? "25 kunder med størst uudnyttet potentiale" : "5 kunder med størst uudnyttet potentiale"}
+                    rows={data.rankings.potential}
+                    valueLabel="kr./ansat"
+                    valueField="ratio"
+                    showEmployees
+                    showTrend={false}
+                    limit={rankingsExpanded ? undefined : 5}
+                  />
+                </TabsContent>
+              </Tabs>
+            </section>
+
+            {/* MULIGHEDER & TRUSLER — Lag 3 */}
+            <section className="mt-8">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 pb-2 border-b border-border">
+                Muligheder &amp; trusler
+              </h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                <SignalList
+                  title="Sælg mere – kunde mangler produktgruppe"
+                  description="Køber kaffe, men mangler te, chokolade eller drikke/automatvarer."
+                  rows={data.signals.whiteSpace}
+                  kind="whitespace"
+                  initial={5}
+                />
+                <SignalList
+                  title="I vækst — køber mere end sidste år"
+                  description="Omsætning 12 mdr. er højere end forrige 12 mdr. Værd at fastholde."
+                  rows={data.signals.growing}
+                  kind="growth"
+                  initial={5}
+                />
+                <SignalList
+                  title="Maskine men ingen kaffe"
+                  description="Aktivt udstyr, ingen forbrugsvarekøb 60+ dage. Forsynes_af-kunder er ikke med."
+                  rows={data.signals.machineNoCoffee}
+                  kind="machine"
+                  initial={5}
+                />
+                <SignalList
+                  title="Faldende — køber mindre end sidste år"
+                  description="Omsætning er faldet, men kunden køber stadig. Tidlig advarsel."
+                  rows={data.signals.declining}
+                  kind="decline"
+                  initial={5}
+                />
+              </div>
+            </section>
+
+          </>
+        )}
+    </>
+  );
+
   return (
     <SignalMapContext.Provider value={signalMap}>
     <div className="px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
@@ -208,362 +580,23 @@ function PortfolioPage() {
         )}
       </div>
 
-      {q.isLoading ? (
-        <div className="flex items-center gap-2 text-muted-foreground py-8">
-          <Loader2 className="h-4 w-4 animate-spin" /> Henter portefølje…
-        </div>
-      ) : !data ? (
-        <Card className="p-6 text-sm text-muted-foreground">Ingen data.</Card>
+      {visAnalyse ? (
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "portefoelje" | "analyse")}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="portefoelje">Portefølje</TabsTrigger>
+            <TabsTrigger value="analyse">Analyse</TabsTrigger>
+          </TabsList>
+          <TabsContent value="portefoelje">{portefoeljeIndhold}</TabsContent>
+          <TabsContent value="analyse">
+            <AnalyseFane
+              afdelingNr={analyseAfdeling!}
+              afdelingNavn={navnFor(analyseAfdeling)}
+              maaSeDb={auth.maaSeDb}
+            />
+          </TabsContent>
+        </Tabs>
       ) : (
-        <>
-          {/* PULS */}
-          <section className="mb-6">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Porteføljens puls
-            </h2>
-            <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
-              <RevenueCard
-                label="Porteføljeomsætning · År-til-Dato"
-                current={data.totals.revenueYtd}
-                prior={data.totals.revenueYtdPriorSamePeriod}
-                latestPeriod={data.totals.ytdLatestPeriod}
-                kgCurrent={data.totals.weightKgYtd}
-                kgPrior={data.totals.weightKgYtdPriorSamePeriod}
-              />
-
-              <Card className="p-4">
-                <div className="text-xs text-muted-foreground mb-1">Fordeling</div>
-                <div className="text-lg font-semibold mb-2">
-                  {data.statusCounts.total}{" "}
-                  <span className="text-sm text-muted-foreground font-normal">kunder</span>
-                </div>
-                <div className="space-y-1 text-sm">
-                  <Pill color="success" label="aktive" n={data.statusCounts.aktive} prior={data.statusCountsPrior.aktive} hint="Købt inden for 12 mdr." />
-                  <Pill color="warning" label="sovende" n={data.statusCounts.sovende} prior={data.statusCountsPrior.sovende} hint="12–24 mdr. siden seneste køb." />
-                  <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} prior={data.statusCountsPrior.paaVejVaek} hint="Aktiv kunde med udstyr, men forbruget falder." />
-                </div>
-              </Card>
-              {isAdmin && (
-                <Card className="p-4">
-                  <div className="text-xs text-muted-foreground mb-1">DB · 12 mdr. (admin)</div>
-                  <div className="text-2xl font-semibold tabular-nums">
-                    {fmtKr(data.totals.contribution12m ?? 0)}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    DG:{" "}
-                    {data.totals.revenue12m > 0
-                      ? `${Math.round(
-                          ((data.totals.contribution12m ?? 0) / data.totals.revenue12m) * 100,
-                        )} %`
-                      : "—"}
-                  </div>
-                </Card>
-              )}
-            </div>
-          </section>
-
-          {/* FILTRE + TABEL */}
-          <Card className="overflow-hidden">
-            <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
-              <div className="relative flex-1 min-w-[200px] max-w-sm">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Søg kunde…"
-                  className="pl-8 h-9"
-                />
-              </div>
-              <Select value={kaffeFilter} onValueChange={(v) => setKaffeFilter(v as any)}>
-                <SelectTrigger className="h-9 w-[160px]">
-                  <SelectValue placeholder="Kaffe" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Kaffe: alle</SelectItem>
-                  <SelectItem value="green">Køber normalt</SelectItem>
-                  <SelectItem value="yellow">Køber sjældnere end før</SelectItem>
-                  <SelectItem value="red">Stoppet / aldrig købt</SelectItem>
-                  <SelectItem value="via">Via anden konto</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-                <SelectTrigger className="h-9 w-[170px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Status: alle</SelectItem>
-                  <SelectItem value="aktiv">Aktiv</SelectItem>
-                  <SelectItem value="sovende">Sovende</SelectItem>
-                  <SelectItem value="paavejvaek">På vej væk</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="ml-auto flex items-center gap-4">
-                {isAdmin && (
-                  <div className="flex items-center gap-2">
-                    <Switch id="show-db" checked={showDB} onCheckedChange={setShowDB} />
-                    <Label htmlFor="show-db" className="text-xs text-muted-foreground cursor-pointer">
-                      Vis DB
-                    </Label>
-                  </div>
-                )}
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {sortedCompanies.length.toLocaleString("da-DK")} kunder
-                </span>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <Th onClick={() => toggleSort("name")} active={sortKey === "name"} dir={sortDir}>
-                      Kunde
-                    </Th>
-                    <Th onClick={() => toggleSort("consumable")} active={sortKey === "consumable"} dir={sortDir}>
-                      Kaffe
-                    </Th>
-                    <th className="px-3 py-2 text-left" title="Løbende forbrug (kaffe, drikke m.m.) pr. måned — ekskl. årlig maskinservice/-leje. 5 seneste hele måneder.">
-                      Trend · løbende forbrug
-                      <div className="text-[10px] font-normal text-muted-foreground">ekskl. maskinservice</div>
-                    </th>
-                    <Th
-                      onClick={() => toggleSort("month:last")}
-                      active={sortKey === "month:last"}
-                      dir={sortDir}
-                      align="right"
-                      title="Omsætning i seneste hele kalendermåned (alle produktgrupper)."
-                    >
-                      Seneste md.
-                    </Th>
-                    <Th
-                      onClick={() => toggleSort("revenue12m")}
-                      active={sortKey === "revenue12m"}
-                      dir={sortDir}
-                      align="right"
-                      title="Samlet omsætning de seneste 12 måneder (rullende, alle produktgrupper)."
-                    >
-                      12 mdr.
-                    </Th>
-                    <Th onClick={() => toggleSort("status")} active={sortKey === "status"} dir={sortDir}>
-                      Status
-                    </Th>
-                    {isAdmin && showDB && <th className="px-3 py-2 text-right">DB 12m</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedCompanies.slice(0, visibleCount).map((c) => {
-                    const lastMonth = c.monthly[c.monthly.length - 1]?.revenue ?? 0;
-                    return (
-                      <tr key={c.id} className="border-t border-border hover:bg-accent/30">
-                        <td className="px-3 py-2">
-                          <Link
-                            to="/virksomheder/$id"
-                            params={{ id: c.id }}
-                            className="font-medium hover:underline"
-                          >
-                            {c.name}
-                          </Link>
-                          {c.city && (
-                            <div className="text-xs text-muted-foreground">{c.city}</div>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          <KaffeIndicator
-                            companyId={c.id}
-                            suppliedViaName={c.supplied_via_name}
-                            suppliedViaId={c.supplied_via_id}
-                          />
-
-                        </td>
-                        <td className="px-3 py-2">
-                          <Sparkline months={c.monthly} revenue12m={c.revenue12m} />
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
-                          {lastMonth > 0 ? fmtKr(lastMonth) : "—"}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums font-medium">
-                          {c.revenue12m > 0 ? fmtKr(c.revenue12m) : "—"}
-                        </td>
-                        <td className="px-3 py-2">
-                          <StatusBadge type={c.customer_type} />
-                        </td>
-                        {isAdmin && showDB && (
-                          <td className="px-3 py-2 text-right tabular-nums">
-                            {(c.contribution12m ?? 0) !== 0 ? fmtKr(c.contribution12m ?? 0) : "—"}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                  {!sortedCompanies.length && (
-                    <tr>
-                      <td colSpan={99} className="px-3 py-10 text-center text-muted-foreground">
-                        Ingen kunder matcher filtrene.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {sortedCompanies.length > visibleCount && (
-              <button
-                type="button"
-                onClick={() => setVisibleCount((n) => (n < 50 ? 50 : n + 50))}
-                className="w-full px-4 py-3 text-sm text-muted-foreground hover:bg-accent/40 border-t border-border"
-              >
-                {visibleCount < 50
-                  ? `Udvid (vis 50 ad gangen, ${(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)`
-                  : `Vis 50 flere (${(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)`}
-              </button>
-            )}
-          </Card>
-
-          {/* RANKINGS — Lag 2 */}
-          <section className="mt-8">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Top &amp; bund — rangeringer
-              </h2>
-              <button
-                type="button"
-                onClick={() => setRankingsExpanded((v) => !v)}
-                className="text-xs text-primary hover:underline"
-              >
-                {rankingsExpanded ? "Vis kun top 5" : "Udvid (vis top 25)"}
-              </button>
-            </div>
-            <Tabs defaultValue="revenue">
-              <TabsList>
-                <TabsTrigger value="revenue">Omsætning</TabsTrigger>
-                {isAdmin && <TabsTrigger value="db">Dækningsbidrag</TabsTrigger>}
-                <TabsTrigger value="potential">Potentiale-ratio</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="revenue" className="mt-4">
-                <Tabs defaultValue="decliners">
-                  <TabsList>
-                    <TabsTrigger value="decliners">Største fald</TabsTrigger>
-                    <TabsTrigger value="growers">Største vækst</TabsTrigger>
-                    <TabsTrigger value="top">Højest omsætning</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="decliners" className="mt-4">
-                    <RankingTable
-                      title={rankingsExpanded ? "Top 25 — største fald (YTD vs. samme periode sidste år)" : "Top 5 — største fald (YTD vs. samme periode sidste år)"}
-                      rows={data.rankings.topDecliners}
-                      valueLabel="Omsætning YTD"
-                      valueField="revenueYtd"
-                      showTrend
-                      emptyText="Ingen kunder med fald i porteføljen."
-                      limit={rankingsExpanded ? undefined : 5}
-                    />
-                  </TabsContent>
-                  <TabsContent value="growers" className="mt-4">
-                    <RankingTable
-                      title={rankingsExpanded ? "Top 25 — største vækst (YTD vs. samme periode sidste år)" : "Top 5 — største vækst (YTD vs. samme periode sidste år)"}
-                      rows={data.rankings.topGrowers}
-                      valueLabel="Omsætning YTD"
-                      valueField="revenueYtd"
-                      showTrend
-                      emptyText="Ingen kunder med vækst i porteføljen."
-                      limit={rankingsExpanded ? undefined : 5}
-                    />
-                  </TabsContent>
-                  <TabsContent value="top" className="mt-4">
-                    <RankingTable
-                      title={rankingsExpanded ? "Top 25 — højest omsætning (år-til-dato)" : "Top 5 — højest omsætning (år-til-dato)"}
-                      rows={data.rankings.topRevenue}
-                      valueLabel="Omsætning YTD"
-                      valueField="revenueYtd"
-                      showTrend
-                      limit={rankingsExpanded ? undefined : 5}
-                    />
-                  </TabsContent>
-                </Tabs>
-              </TabsContent>
-
-
-
-              {isAdmin && data.rankings.topContribution && (
-                <TabsContent value="db" className="mt-4">
-                  <RankingTable
-                    title={rankingsExpanded ? "Top 25 — mest profitable kunder (DB 12 mdr.)" : "Top 5 — mest profitable kunder (DB 12 mdr.)"}
-                    rows={data.rankings.topContribution}
-                    valueLabel="DB"
-                    valueField="contribution12m"
-                    showTrend={false}
-                    limit={rankingsExpanded ? undefined : 5}
-                  />
-                </TabsContent>
-              )}
-
-              <TabsContent value="potential" className="mt-4 space-y-4">
-                <Card className="p-4">
-                  <div className="text-sm text-muted-foreground">
-                    Potentiale-ratio = omsætning 12 mdr. ÷ antal medarbejdere.
-                    Aktive privatkunder med kendt medarbejdertal. Offentlige kunder
-                    (kundeprisgruppe 40/45) er udeladt.
-                    {data.rankings.potentialMissingEmployees > 0 && (
-                      <>
-                        {" "}
-                        <span className="font-medium text-foreground">
-                          {data.rankings.potentialMissingEmployees}
-                        </span>{" "}
-                        kunder mangler medarbejdertal og indgår ikke.
-                      </>
-                    )}
-                  </div>
-                </Card>
-                <ScatterPlot points={data.rankings.potentialScatter} />
-                <RankingTable
-                  title={rankingsExpanded ? "25 kunder med størst uudnyttet potentiale" : "5 kunder med størst uudnyttet potentiale"}
-                  rows={data.rankings.potential}
-                  valueLabel="kr./ansat"
-                  valueField="ratio"
-                  showEmployees
-                  showTrend={false}
-                  limit={rankingsExpanded ? undefined : 5}
-                />
-              </TabsContent>
-            </Tabs>
-          </section>
-
-          {/* MULIGHEDER & TRUSLER — Lag 3 */}
-          <section className="mt-8">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 pb-2 border-b border-border">
-              Muligheder &amp; trusler
-            </h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              <SignalList
-                title="Sælg mere – kunde mangler produktgruppe"
-                description="Køber kaffe, men mangler te, chokolade eller drikke/automatvarer."
-                rows={data.signals.whiteSpace}
-                kind="whitespace"
-                initial={5}
-              />
-              <SignalList
-                title="I vækst — køber mere end sidste år"
-                description="Omsætning 12 mdr. er højere end forrige 12 mdr. Værd at fastholde."
-                rows={data.signals.growing}
-                kind="growth"
-                initial={5}
-              />
-              <SignalList
-                title="Maskine men ingen kaffe"
-                description="Aktivt udstyr, ingen forbrugsvarekøb 60+ dage. Forsynes_af-kunder er ikke med."
-                rows={data.signals.machineNoCoffee}
-                kind="machine"
-                initial={5}
-              />
-              <SignalList
-                title="Faldende — køber mindre end sidste år"
-                description="Omsætning er faldet, men kunden køber stadig. Tidlig advarsel."
-                rows={data.signals.declining}
-                kind="decline"
-                initial={5}
-              />
-            </div>
-          </section>
-
-        </>
+        portefoeljeIndhold
       )}
 
     </div>
