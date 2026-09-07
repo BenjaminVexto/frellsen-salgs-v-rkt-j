@@ -32,7 +32,7 @@ import {
 const DATA_START = "2025-01";
 
 type Sammenlign = "ingen" | "foregaaende" | "aaret-foer";
-type SortKey = "navn" | "omsaetning" | "kg" | "stk" | "antal_kunder" | "db" | "dg";
+type SortKey = "navn" | "omsaetning" | "andel" | "kg" | "stk" | "antal_kunder" | "db" | "dg";
 
 const OPDEL_LABEL: Record<AnalyseOpdeling, string> = {
   kunde: "Kunde",
@@ -191,7 +191,9 @@ export function AnalyseFane({
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
     const val = (r: AnalysePivotRow): number =>
-      sortKey === "dg"
+      sortKey === "andel"
+        ? r.omsaetning
+        : sortKey === "dg"
         ? r.omsaetning > 0
           ? (r.db ?? 0) / r.omsaetning
           : -1
@@ -488,9 +490,9 @@ export function AnalyseFane({
             {q.error instanceof Error ? q.error.message : "Kunne ikke hente tal"}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+              <thead className="sticky top-0 z-20 bg-muted text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <Th onClick={() => toggleSort("navn")} active={sortKey === "navn"} dir={sortDir}>
                     {OPDEL_LABEL[opdel]}
@@ -499,11 +501,16 @@ export function AnalyseFane({
                     Omsætning
                   </Th>
                   {visSammen && <th className="px-3 py-2 text-right">Ændring</th>}
-                  <Th onClick={() => toggleSort("kg")} active={sortKey === "kg"} dir={sortDir} align="right">Kg</Th>
-                  <Th onClick={() => toggleSort("stk")} active={sortKey === "stk"} dir={sortDir} align="right">Stk.</Th>
-                  <Th onClick={() => toggleSort("antal_kunder")} active={sortKey === "antal_kunder"} dir={sortDir} align="right">
-                    Antal kunder
+                  <Th onClick={() => toggleSort("andel")} active={sortKey === "andel"} dir={sortDir} align="right">
+                    Andel
                   </Th>
+                  <Th onClick={() => toggleSort("kg")} active={sortKey === "kg"} dir={sortDir} align="right">{kgLabel}</Th>
+                  <Th onClick={() => toggleSort("stk")} active={sortKey === "stk"} dir={sortDir} align="right">Stk.</Th>
+                  {visAntalKunder && (
+                    <Th onClick={() => toggleSort("antal_kunder")} active={sortKey === "antal_kunder"} dir={sortDir} align="right">
+                      Antal kunder
+                    </Th>
+                  )}
                   {maaSeDb && (
                     <>
                       <Th onClick={() => toggleSort("db")} active={sortKey === "db"} dir={sortDir} align="right">DB</Th>
@@ -513,7 +520,7 @@ export function AnalyseFane({
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-t border-border bg-muted/20 font-semibold">
+                <tr className="sticky top-9 z-10 border-t border-border bg-muted font-semibold">
                   <td className="px-3 py-2">Total</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtKr(total.omsaetning)}</td>
                   {visSammen && (
@@ -524,11 +531,14 @@ export function AnalyseFane({
                       />
                     </td>
                   )}
+                  <td className="px-3 py-2 text-right tabular-nums">100 %</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtKg(total.kg)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {total.stk.toLocaleString("da-DK", { maximumFractionDigits: 0 })}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{total.antal_kunder.toLocaleString("da-DK")}</td>
+                  {visAntalKunder && (
+                    <td className="px-3 py-2 text-right tabular-nums">{total.antal_kunder.toLocaleString("da-DK")}</td>
+                  )}
                   {maaSeDb && (
                     <>
                       <td className="px-3 py-2 text-right tabular-nums">
@@ -553,11 +563,16 @@ export function AnalyseFane({
                           <Delta now={r.omsaetning} before={before} />
                         </td>
                       )}
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {andel(r.omsaetning).toFixed(1).replace(".", ",")} %
+                      </td>
                       <td className="px-3 py-2 text-right tabular-nums">{r.kg > 0 ? fmtKg(r.kg) : "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums">
                         {r.stk.toLocaleString("da-DK", { maximumFractionDigits: 0 })}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums">{r.antal_kunder.toLocaleString("da-DK")}</td>
+                      {visAntalKunder && (
+                        <td className="px-3 py-2 text-right tabular-nums">{r.antal_kunder.toLocaleString("da-DK")}</td>
+                      )}
                       {maaSeDb && (
                         <>
                           <td className="px-3 py-2 text-right tabular-nums">
