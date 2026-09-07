@@ -252,50 +252,65 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
           }
 
           const chunkSize = phase === "top_monthly" ? TOP_MONTHLY_CHUNK_SIZE : CHUNK_SIZE;
-          const chunkIdx = Math.floor(saved / chunkSize);
-          const chunkPath = `${prefix}/${chunkPrefix}-${chunkIdx}.json`;
-          const { data: blob, error: dlErr } = await supabaseAdmin.storage
-            .from(BUCKET)
-            .download(chunkPath);
-          if (dlErr || !blob) {
-            throw new Error("Kunne ikke hente chunk " + chunkPath + ": " + (dlErr?.message ?? ""));
-          }
-          const rows = JSON.parse(await blob.text()) as any[];
-          const upsertedRows =
-            phase === "monthly"
-              ? await upsertMonthlySlice(supabaseAdmin, rows)
-              : phase === "top"
-                ? await upsertTopSlice(supabaseAdmin, rows)
-                : await upsertTopMonthlySlice(supabaseAdmin, rows);
-          // VIGTIGT: tæl chunk-bredden (rows.length), ikke faktisk upsertede.
-          const savedRows = rows.length;
-          const newSaved = saved + savedRows;
-          const phaseDone = newSaved >= total;
-
           let nextPhase = phase;
           let nextStatus = "running";
           let finishedAt: string | null = null;
+          let chunkIdx = Math.floor(saved / chunkSize);
+          let chunks = 0;
+          let upsertedRows = 0;
+          let savedRows = 0;
 
-          if (phaseDone) {
-            nextPhase = nextPhaseAfter(phase);
-            if (nextPhase === "done") {
-              nextStatus = "completed";
-              finishedAt = new Date().toISOString();
+          // Flere chunks pr. tick i samme fase, indtil fasen er færdig eller
+          // tidsbudgettet er brugt. Fremdriften gemmes efter hver chunk.
+          while (saved < total && hasBudget()) {
+            chunkIdx = Math.floor(saved / chunkSize);
+            const chunkPath = `${prefix}/${chunkPrefix}-${chunkIdx}.json`;
+            const { data: blob, error: dlErr } = await supabaseAdmin.storage
+              .from(BUCKET)
+              .download(chunkPath);
+            if (dlErr || !blob) {
+              throw new Error("Kunne ikke hente chunk " + chunkPath + ": " + (dlErr?.message ?? ""));
             }
+            const rows = JSON.parse(await blob.text()) as any[];
+            upsertedRows +=
+              phase === "monthly"
+                ? await upsertMonthlySlice(supabaseAdmin, rows)
+                : phase === "top"
+                  ? await upsertTopSlice(supabaseAdmin, rows)
+                  : await upsertTopMonthlySlice(supabaseAdmin, rows);
+            // VIGTIGT: tæl chunk-bredden (rows.length), ikke faktisk upsertede.
+            savedRows = rows.length;
+            saved += savedRows;
+            chunks++;
+            const phaseDone = saved >= total;
+
+            if (phaseDone) {
+              nextPhase = nextPhaseAfter(phase);
+              if (nextPhase === "done") {
+                nextStatus = "completed";
+                finishedAt = new Date().toISOString();
+              }
+            }
+
+            const updatePayload: any = {
+              [savedCol]: saved,
+              phase: nextPhase,
+              status: nextStatus,
+              // Nulstil forsøg efter en gennemført chunk, så et langt job ikke
+              // bliver markeret failed blot fordi det har kørt mange ticks.
+              attempts: 0,
+              last_error: null,
+            };
+            if (finishedAt) updatePayload.finished_at = finishedAt;
+
+            await supabaseAdmin.from("invoice_import_jobs").update(updatePayload).eq("id", jobId);
+
+            // Tom chunk → ingen fremdrift; undgå uendelig løkke.
+            if (savedRows === 0) break;
           }
 
-          const updatePayload: any = {
-            [savedCol]: newSaved,
-            phase: nextPhase,
-            status: nextStatus,
-            // Nulstil forsøg efter en gennemført chunk, så et langt job ikke
-            // bliver markeret failed blot fordi det har kørt mange ticks.
-            attempts: 0,
-            last_error: null,
-          };
-          if (finishedAt) updatePayload.finished_at = finishedAt;
+          const newSaved = saved;
 
-          await supabaseAdmin.from("invoice_import_jobs").update(updatePayload).eq("id", jobId);
 
           // Ryd op når jobbet er færdigt + genberegn kundestatus
           if (nextPhase === "done") {
