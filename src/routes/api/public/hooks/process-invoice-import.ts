@@ -281,6 +281,8 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             for (let i = 0; i < monthlyCount; i++) allChunks.push(`${prefix}/monthly-${i}.json`);
             for (let i = 0; i < topCount; i++) allChunks.push(`${prefix}/top-${i}.json`);
             for (let i = 0; i < topMonthlyCount; i++) allChunks.push(`${prefix}/top_monthly-${i}.json`);
+            const linesCount = Math.ceil((job.total_lines ?? 0) / LINES_CHUNK_SIZE);
+            for (let i = 0; i < linesCount; i++) allChunks.push(`${prefix}/lines-${i}.json`);
             if (allChunks.length) {
               await supabaseAdmin.storage.from(BUCKET).remove(allChunks);
             }
