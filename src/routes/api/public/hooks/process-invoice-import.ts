@@ -172,7 +172,9 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             const months = monthsInRange(from, to);
             let idx = (job.prune_month_idx as number) ?? 0;
             let deleted = (job.lines_deleted as number) ?? 0;
-            for (let i = 0; i < PRUNE_MONTHS_PER_TICK && idx < months.length; i++, idx++) {
+            // Flere måneder pr. tick, indtil intervallet er ryddet eller
+            // tidsbudgettet er brugt. prune_month_idx gemmes efter hver måned.
+            while (idx < months.length && hasBudget()) {
               const { data: n, error: pErr } = await supabaseAdmin.rpc("prune_invoice_lines_month", {
                 _batch_id: batchId,
                 _afdelinger: afdelinger,
