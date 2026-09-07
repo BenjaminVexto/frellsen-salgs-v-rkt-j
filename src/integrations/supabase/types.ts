@@ -2893,48 +2893,27 @@ export type Database = {
         Args: { _afdeling_nr: number; _fra: string; _til: string }
         Returns: Json
       }
-      analyse_pivot:
-        | {
-            Args: {
-              _afdeling_nr: number
-              _fra: string
-              _kundeprisgrupper?: string[]
-              _opdel: string
-              _saelger_ids?: string[]
-              _til: string
-              _varegrupper?: string[]
-            }
-            Returns: {
-              antal_kunder: number
-              db: number
-              kg: number
-              navn: string
-              noegle: string
-              omsaetning: number
-              stk: number
-            }[]
-          }
-        | {
-            Args: {
-              _afdeling_nr: number
-              _fra: string
-              _kundeprisgrupper?: string[]
-              _opdel: string
-              _regioner?: string[]
-              _saelger_ids?: string[]
-              _til: string
-              _varegrupper?: string[]
-            }
-            Returns: {
-              antal_kunder: number
-              db: number
-              kg: number
-              navn: string
-              noegle: string
-              omsaetning: number
-              stk: number
-            }[]
-          }
+      analyse_pivot: {
+        Args: {
+          _afdeling_nr: number
+          _fra: string
+          _kundeprisgrupper?: string[]
+          _opdel: string
+          _regioner?: string[]
+          _saelger_ids?: string[]
+          _til: string
+          _varegrupper?: string[]
+        }
+        Returns: {
+          antal_kunder: number
+          db: number
+          kg: number
+          navn: string
+          noegle: string
+          omsaetning: number
+          stk: number
+        }[]
+      }
       can_access_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
