@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         const { data: candidates, error: selErr } = await supabaseAdmin
           .from("invoice_import_jobs")
           .select(
-            "id, phase, attempts, aggregated_path, saved_monthly, saved_top, saved_top_monthly, total_monthly, total_top, total_top_monthly",
+            "id, phase, attempts, aggregated_path, saved_monthly, saved_top, saved_top_monthly, total_monthly, total_top, total_top_monthly, total_lines, saved_lines, lines_deleted, prune_month_idx, lines_batch_id, lines_date_from, lines_date_to, lines_afdelinger",
           )
           .in("status", ["queued", "running"])
           .neq("phase", "done")
