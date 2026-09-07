@@ -33,6 +33,7 @@ import {
   MoreHorizontal,
   Copy,
   Leaf,
+  MapPin,
 } from "lucide-react";
 import {
   Sheet,
