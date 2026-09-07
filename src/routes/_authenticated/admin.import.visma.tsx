@@ -1850,6 +1850,7 @@ function ImportSide() {
           prepared={prepared}
           stats={stats}
           rowsByAfdeling={rowsByAfdeling}
+          foreignByAfdeling={foreignByAfdeling}
           unknownAfdelingValues={unknownAfdelingValues}
           brokenRows={brokenRows}
           includeMissingCvr={includeMissingCvr}
@@ -1971,6 +1972,7 @@ function Trin3Preview({
   prepared,
   stats,
   rowsByAfdeling,
+  foreignByAfdeling,
   unknownAfdelingValues,
   brokenRows,
   includeMissingCvr,
@@ -1981,6 +1983,7 @@ function Trin3Preview({
   prepared: PreparedRow[];
   stats: VismaStats;
   rowsByAfdeling: Record<string, number>;
+  foreignByAfdeling: Record<string, { excluded: number; imported: number }>;
   unknownAfdelingValues: string[];
   brokenRows: BrokenRowRef[];
   includeMissingCvr: boolean;
@@ -2023,6 +2026,24 @@ function Trin3Preview({
             .sort((a, b) => Number(a[0]) - Number(b[0]))
             .map(([afd, n]) => `afd ${afd}: ${n.toLocaleString("da-DK")}`)
             .join(" · ")}
+        </Card>
+      )}
+
+      {Object.keys(foreignByAfdeling).length > 0 && (
+        <Card className="p-4 text-sm">
+          <span className="font-medium">Udenlandske rækker:</span>{" "}
+          {Object.entries(foreignByAfdeling)
+            .sort((a, b) => Number(a[0]) - Number(b[0]))
+            .map(([afd, v]) =>
+              v.excluded > 0
+                ? `${v.excluded.toLocaleString("da-DK")} udenlandske rækker frasorteres i afdeling ${afd}`
+                : `${v.imported.toLocaleString("da-DK")} importeres i afdeling ${afd}`,
+            )
+            .join(" · ")}
+          <div className="text-xs text-muted-foreground mt-1">
+            Filteret "Udeluk udenlandske kunder" gælder kun afdeling 11. Afdeling 21 og 22
+            importeres uanset landekode.
+          </div>
         </Card>
       )}
 
