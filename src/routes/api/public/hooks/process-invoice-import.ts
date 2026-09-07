@@ -16,6 +16,9 @@ import {
   upsertMonthlySlice,
   upsertTopSlice,
   upsertTopMonthlySlice,
+  insertInvoiceLinesChunk,
+  countInvoiceLines,
+  monthsInRange,
 } from "@/lib/invoice-import.server";
 
 const MAX_ATTEMPTS = 5;
@@ -23,7 +26,13 @@ const CHUNK_SIZE = 20_000; // SKAL matche klientens chunk-størrelse
 // Varelinjer pr. måned upsertes i mindre chunks — den tabel er tungest og
 // ramte tidligere Postgres' statement timeout ved 20k rækker.
 const TOP_MONTHLY_CHUNK_SIZE = 4_000;
+// Rå fakturalinjer: 5.000 pr. chunk (SKAL matche klienten).
+const LINES_CHUNK_SIZE = 5_000;
+// Sletning af gamle rålinjer sker måned for måned — flere måneder pr. tick,
+// men aldrig i én sætning, så vi ikke rammer statement timeout.
+const PRUNE_MONTHS_PER_TICK = 2;
 const BUCKET = "invoice-uploads";
+
 
 function isAuthorized(provided: string | null): boolean {
   if (!provided) return false;
