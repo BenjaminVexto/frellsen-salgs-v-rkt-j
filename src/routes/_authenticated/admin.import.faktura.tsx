@@ -136,10 +136,10 @@ function FakturaImportSide() {
       // 1) Parse + aggregér i browseren (firma/afdeling-filter + delt dato-helper)
       setStage("Parser fakturajournal…");
       setStageProgress(null);
-      const { monthly, topProducts, topProductsMonthly, stats } = await parseAndAggregate(file, {
-        afdelinger,
-        afdelingAliases,
-      });
+      const { monthly, topProducts, topProductsMonthly, rawLines, stats } = await parseAndAggregate(
+        file,
+        { afdelinger, afdelingAliases },
+      );
 
       setRowsByAfdeling(stats.rowsByAfdeling);
       toast.message(
