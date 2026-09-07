@@ -18,7 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Download, ArrowUpDown, ChevronDown } from "lucide-react";
+import { Loader2, Download, ArrowUpDown, ChevronDown, Calendar, SlidersHorizontal, X } from "lucide-react";
 import { fmtKr, fmtKg } from "@/lib/sales-utils";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -61,6 +61,12 @@ const lastDay = (s: string) => {
   const { y, m0 } = parseM(s);
   const d = new Date(Date.UTC(y, m0 + 1, 0));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+};
+
+const MDR = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const maanedNavn = (s: string) => {
+  const { y, m0 } = parseM(s);
+  return `${MDR[m0]} ${y}`;
 };
 
 function genveje(): { label: string; fra: string; til: string }[] {
@@ -138,6 +144,13 @@ export function AnalyseFane({
     queryFn: () => filtreFn({ data: { afdelingNr, fra: firstDay(fra), til: lastDay(til) } }),
   });
 
+  /** Kg-kolonnen viser kun én varegruppe: den valgte, ellers kaffe (gruppe 2). */
+  const kgGruppe = varegrupper.length === 1 ? varegrupper[0] : "2";
+  const kgGruppeNavn =
+    (filtreQ.data?.varegrupper ?? []).find((v) => v.kode === kgGruppe)?.navn ??
+    (kgGruppe === "2" ? "kaffe" : `gruppe ${kgGruppe}`);
+  const kgLabel = `Kg ${kgGruppeNavn.toLowerCase()}`;
+
   const argsBase = {
     opdel,
     afdelingNr,
@@ -145,6 +158,7 @@ export function AnalyseFane({
     kundeprisgrupper: prisgrupper.length ? prisgrupper : null,
     varegrupper: varegrupper.length ? varegrupper : null,
     regioner: regioner.length ? regioner : null,
+    kgGruppe,
   };
 
   const q = useQuery({
@@ -169,9 +183,9 @@ export function AnalyseFane({
 
   const rows = q.data ?? [];
 
-  const [visAntal, setVisAntal] = useState(200);
+  const [visAntal, setVisAntal] = useState(25);
   useEffect(() => {
-    setVisAntal(200);
+    setVisAntal(25);
   }, [fra, til, opdel, sortKey, sortDir, saelgerIds, prisgrupper, varegrupper, regioner]);
 
   const sorted = useMemo(() => {
@@ -228,8 +242,41 @@ export function AnalyseFane({
     }
   };
 
+  /** Antal kunder er altid 1 pr. række ved kunde-/postnummeropdeling. */
+  const visAntalKunder = opdel !== "kunde" && opdel !== "postnummer";
+  const andel = (v: number) => (total.omsaetning > 0 ? (v / total.omsaetning) * 100 : 0);
+
+  const aktiveFiltre = useMemo(() => {
+    const out: { key: string; label: string; remove: () => void }[] = [];
+    for (const id of saelgerIds) {
+      const navn = (filtreQ.data?.saelgere ?? []).find((s) => s.id === id)?.navn ?? id;
+      out.push({ key: `s-${id}`, label: `Sælger: ${navn}`, remove: () => setSaelgerIds(saelgerIds.filter((x) => x !== id)) });
+    }
+    for (const p of prisgrupper) {
+      out.push({ key: `p-${p}`, label: `Kundeprisgruppe: ${p}`, remove: () => setPrisgrupper(prisgrupper.filter((x) => x !== p)) });
+    }
+    for (const v of varegrupper) {
+      const navn = (filtreQ.data?.varegrupper ?? []).find((x) => x.kode === v)?.navn ?? v;
+      out.push({ key: `v-${v}`, label: `Varegruppe: ${navn}`, remove: () => setVaregrupper(varegrupper.filter((x) => x !== v)) });
+    }
+    for (const r of regioner) {
+      out.push({ key: `r-${r}`, label: `Region: ${r}`, remove: () => setRegioner(regioner.filter((x) => x !== r)) });
+    }
+    return out;
+  }, [saelgerIds, prisgrupper, varegrupper, regioner, filtreQ.data]);
+
+  const periodeTekst = `${maanedNavn(fra)}–${maanedNavn(til)}`;
+
   const exportCsv = () => {
-    const head = [OPDEL_LABEL[opdel], "Omsætning", "Kg", "Stk", "Antal kunder", ...(maaSeDb ? ["DB", "DG %"] : [])];
+    const head = [
+      OPDEL_LABEL[opdel],
+      "Omsætning",
+      "Andel %",
+      kgLabel,
+      "Stk",
+      ...(visAntalKunder ? ["Antal kunder"] : []),
+      ...(maaSeDb ? ["DB", "DG %"] : []),
+    ];
     const lines = [head.join(";")];
     for (const r of sorted) {
       const dg = r.omsaetning > 0 && r.db != null ? ((r.db / r.omsaetning) * 100).toFixed(1) : "";
@@ -237,9 +284,10 @@ export function AnalyseFane({
         [
           `"${(r.navn ?? r.noegle).replace(/"/g, '""')}"`,
           r.omsaetning.toFixed(2).replace(".", ","),
+          andel(r.omsaetning).toFixed(1).replace(".", ","),
           r.kg.toFixed(2).replace(".", ","),
           r.stk.toFixed(2).replace(".", ","),
-          String(r.antal_kunder),
+          ...(visAntalKunder ? [String(r.antal_kunder)] : []),
           ...(maaSeDb ? [(r.db ?? 0).toFixed(2).replace(".", ","), dg] : []),
         ].join(";"),
       );
@@ -465,7 +513,7 @@ export function AnalyseFane({
                 {sorted.length > visAntal && (
                   <tr>
                     <td colSpan={99} className="px-3 py-3 text-center">
-                      <Button variant="outline" size="sm" onClick={() => setVisAntal((n) => n + 200)}>
+                      <Button variant="outline" size="sm" onClick={() => setVisAntal((n) => n + 25)}>
                         Vis flere ({(sorted.length - visAntal).toLocaleString("da-DK")} tilbage)
                       </Button>
                     </td>
