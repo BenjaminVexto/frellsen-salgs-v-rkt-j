@@ -332,6 +332,23 @@ function FakturaImportSide() {
               </span>
             </div>
 
+            {(job.total_lines ?? 0) > 0 && (
+              <div>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span>Fakturalinjer (rådata)</span>
+                  <span className="text-muted-foreground">
+                    {(job.saved_lines ?? 0).toLocaleString("da-DK")} /{" "}
+                    {(job.total_lines ?? 0).toLocaleString("da-DK")}
+                  </span>
+                </div>
+                <Progress
+                  value={Math.min(
+                    100,
+                    Math.round(((job.saved_lines ?? 0) / (job.total_lines || 1)) * 100),
+                  )}
+                />
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between text-xs mb-1">
                 <span>Månedsrækker</span>
