@@ -27,6 +27,11 @@ type JobRow = {
   total_top: number;
   saved_monthly: number;
   saved_top: number;
+  total_lines: number | null;
+  saved_lines: number | null;
+  lines_deleted: number | null;
+  lines_date_from: string | null;
+  lines_date_to: string | null;
   locations_matched: number;
   unmatched_delivery_nos: string[] | null;
   last_error: string | null;
@@ -34,8 +39,11 @@ type JobRow = {
 };
 
 const PHASE_LABEL: Record<string, string> = {
+  lines: "Skriver fakturalinjer…",
+  prune: "Rydder gamle fakturalinjer…",
   monthly: "Gemmer månedsdata…",
   top: "Gemmer top-varer…",
+  top_monthly: "Gemmer varelinjer pr. måned…",
   done: "Færdig",
 };
 
@@ -44,8 +52,11 @@ const CHUNK_SIZE = 20_000;
 // Varelinjer pr. måned er den tungeste upsert — mindre chunks holder os under
 // Postgres' statement timeout.
 const TOP_MONTHLY_CHUNK_SIZE = 4_000;
+// Rå fakturalinjer: 5.000 pr. chunk (SKAL matche workeren).
+const LINES_CHUNK_SIZE = 5_000;
 
 const BUCKET = "invoice-uploads";
+
 
 function chunked<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -82,7 +93,7 @@ function FakturaImportSide() {
       const { data, error } = await supabase
         .from("invoice_import_jobs")
         .select(
-          "id,status,phase,total_monthly,total_top,saved_monthly,saved_top,locations_matched,unmatched_delivery_nos,last_error,attempts",
+          "id,status,phase,total_monthly,total_top,saved_monthly,saved_top,total_lines,saved_lines,lines_deleted,lines_date_from,lines_date_to,locations_matched,unmatched_delivery_nos,last_error,attempts",
         )
         .eq("id", jobId!)
         .maybeSingle();
@@ -125,10 +136,10 @@ function FakturaImportSide() {
       // 1) Parse + aggregér i browseren (firma/afdeling-filter + delt dato-helper)
       setStage("Parser fakturajournal…");
       setStageProgress(null);
-      const { monthly, topProducts, topProductsMonthly, stats } = await parseAndAggregate(file, {
-        afdelinger,
-        afdelingAliases,
-      });
+      const { monthly, topProducts, topProductsMonthly, rawLines, stats } = await parseAndAggregate(
+        file,
+        { afdelinger, afdelingAliases },
+      );
 
       setRowsByAfdeling(stats.rowsByAfdeling);
       toast.message(
@@ -166,16 +177,23 @@ function FakturaImportSide() {
 
       // 4) Chunk + upload til private storage
       const newJobId = crypto.randomUUID();
+      const linesBatchId = crypto.randomUUID();
       const monthlyChunks = chunked(enrichedMonthly, CHUNK_SIZE);
       const topChunks = chunked(enrichedTop, CHUNK_SIZE);
       const topMonthlyChunks = chunked(enrichedTopMonthly, TOP_MONTHLY_CHUNK_SIZE);
-      const totalUploads = monthlyChunks.length + topChunks.length + topMonthlyChunks.length;
+      const lineChunks = chunked(rawLines, LINES_CHUNK_SIZE);
+      const totalUploads =
+        monthlyChunks.length + topChunks.length + topMonthlyChunks.length + lineChunks.length;
       let uploadIdx = 0;
 
       setStage("Uploader data-chunks til server…");
       setStageProgress({ done: 0, total: totalUploads });
 
-      async function uploadChunk(kind: "monthly" | "top" | "top_monthly", idx: number, rows: unknown[]) {
+      async function uploadChunk(
+        kind: "monthly" | "top" | "top_monthly" | "lines",
+        idx: number,
+        rows: unknown[],
+      ) {
         const path = `${newJobId}/${kind}-${idx}.json`;
         const body = new Blob([JSON.stringify(rows)], { type: "application/json" });
         const { error } = await supabase.storage
@@ -186,6 +204,7 @@ function FakturaImportSide() {
         setStageProgress({ done: uploadIdx, total: totalUploads });
       }
 
+      for (let i = 0; i < lineChunks.length; i++) await uploadChunk("lines", i, lineChunks[i]);
       for (let i = 0; i < monthlyChunks.length; i++) await uploadChunk("monthly", i, monthlyChunks[i]);
       for (let i = 0; i < topChunks.length; i++) await uploadChunk("top", i, topChunks[i]);
       for (let i = 0; i < topMonthlyChunks.length; i++) await uploadChunk("top_monthly", i, topMonthlyChunks[i]);
@@ -202,6 +221,11 @@ function FakturaImportSide() {
           locationsMatched: matched,
           unmatched,
           rowsByAfdeling: stats.rowsByAfdeling,
+          totalLines: rawLines.length,
+          linesBatchId,
+          dateFrom: stats.dateFrom,
+          dateTo: stats.dateTo,
+          afdelinger: Object.keys(stats.rowsByAfdeling).map((k) => Number(k)),
         },
       });
 
@@ -308,6 +332,23 @@ function FakturaImportSide() {
               </span>
             </div>
 
+            {(job.total_lines ?? 0) > 0 && (
+              <div>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span>Fakturalinjer (rådata)</span>
+                  <span className="text-muted-foreground">
+                    {(job.saved_lines ?? 0).toLocaleString("da-DK")} /{" "}
+                    {(job.total_lines ?? 0).toLocaleString("da-DK")}
+                  </span>
+                </div>
+                <Progress
+                  value={Math.min(
+                    100,
+                    Math.round(((job.saved_lines ?? 0) / (job.total_lines || 1)) * 100),
+                  )}
+                />
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between text-xs mb-1">
                 <span>Månedsrækker</span>
@@ -344,8 +385,17 @@ function FakturaImportSide() {
             )}
 
             {job.status === "completed" && (
-              <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                <CheckCircle2 className="h-4 w-4" /> Færdig — alle rækker upsertet
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                  <CheckCircle2 className="h-4 w-4" /> Færdig — alle rækker upsertet
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {(job.saved_lines ?? 0).toLocaleString("da-DK")} fakturalinjer skrevet ·{" "}
+                  {(job.lines_deleted ?? 0).toLocaleString("da-DK")} gamle linjer slettet
+                  {job.lines_date_from && job.lines_date_to && (
+                    <> · periode {job.lines_date_from} – {job.lines_date_to}</>
+                  )}
+                </p>
               </div>
             )}
             {job.last_error && (

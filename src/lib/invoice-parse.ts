@@ -13,14 +13,23 @@ const COL = {
   ORDER_NO: 2,
   DATE: 3,
   DELIVERY: 4,
+  KUNDENAVN: 5,
+  KPG1: 6,
+  KPG2: 7,
   VARENR: 8,
   DESC: 9,
   QTY: 10,
   GROUP1: 11,
+  GROUP2: 12,
   NETTOVAEGT: 13,
+  KOSTPRIS: 14,
+  ENHEDSPRIS: 15,
   REVENUE: 16,
   DB: 17,
+  DG: 18,
+  INITIALER: 19,
 } as const;
+
 
 // Kun firma 10 (Frellsen Kaffe) må importeres. Alt andet (20/30/40/50/70 …) springes over.
 const ALLOWED_FIRMA = "10";
@@ -178,6 +187,36 @@ function monthStart(d: Date): string {
   return `${y}-${m}-01`;
 }
 
+/**
+ * Én rå detaljelinje fra fakturajournalen, gemt 1:1 i public.invoice_lines.
+ * Ingen forretningsregler er anvendt: interne posteringer (beløb 0, DB ≠ 0)
+ * er med, og alle 20 kolonner bevares — også dem vi ikke bruger i dag.
+ */
+export type InvoiceLineRaw = {
+  firma_nr: string | null;
+  kilde_afdeling_nr: number | null;
+  afdeling_nr: number;
+  ordre_nr: string | null;
+  faktura_dato: string; // YYYY-MM-DD
+  visma_delivery_no: string;
+  kunde_navn: string | null;
+  kundeprisgruppe_1: string | null;
+  kundeprisgruppe_2: string | null;
+  varenr: string | null;
+  varetekst: string | null;
+  antal: number | null;
+  varegruppe_1: string | null;
+  varegruppe_2: string | null;
+  nettovaegt: number | null;
+  kostpris: number | null;
+  enhedspris: number | null;
+  beloeb: number | null;
+  db: number | null;
+  dg: number | null;
+  initialer: string | null;
+};
+
+
 export type ParseStats = {
   linesRead: number;
   internalServicePostings: number;
@@ -187,6 +226,9 @@ export type ParseStats = {
   uniqueDeliveryNos: number;
   periodFrom: string | null;
   periodTo: string | null;
+  /** Præcis tidligste/seneste fakturadato i filen (YYYY-MM-DD). */
+  dateFrom: string | null;
+  dateTo: string | null;
   totalRevenue: number;
   /** Antal detaljelinjer pr. afdeling (nøgle = afdeling_nr som streng). */
   rowsByAfdeling: Record<string, number>;
@@ -286,9 +328,12 @@ export async function parseAndAggregate(
   monthly: MonthlyRow[];
   topProducts: TopProductRow[];
   topProductsMonthly: TopProductMonthlyRow[];
+  /** Rå detaljelinjer — én pr. linje i filen, uden forretningsregler. */
+  rawLines: InvoiceLineRaw[];
   stats: ParseStats;
 }> {
   const rows = await fileToRows(file);
+  const rawLines: InvoiceLineRaw[] = [];
   const monthlyMap = new Map<
     string,
     MonthlyAcc & { delivery: string; period: string; group: string; afdeling: number }
@@ -313,6 +358,8 @@ export async function parseAndAggregate(
     uniqueDeliveryNos: 0,
     periodFrom: null,
     periodTo: null,
+    dateFrom: null,
+    dateTo: null,
     totalRevenue: 0,
     rowsByAfdeling: {},
   };
@@ -380,7 +427,41 @@ export async function parseAndAggregate(
     stats.totalRevenue += revenue;
 
     const period = monthStart(date);
-    const dateIso = parseDanishDateIso(row[COL.DATE]);
+    const dateIso = parseDanishDateIso(row[COL.DATE]) ?? date.toISOString().slice(0, 10);
+
+    // Rådata: gem linjen som den står i filen — ingen regler anvendt her.
+    const strOrNull = (v: unknown): string | null => {
+      const s = String(v ?? "").trim();
+      return s ? s : null;
+    };
+    const numOrNull = (v: unknown): number | null => {
+      const s = String(v ?? "").trim();
+      return s ? parseDanishNumber(v) : null;
+    };
+    rawLines.push({
+      firma_nr: strOrNull(row[COL.FIRMA]),
+      kilde_afdeling_nr: Number.isFinite(parseInt(afdRaw, 10)) ? parseInt(afdRaw, 10) : null,
+      afdeling_nr: afdeling,
+      ordre_nr: strOrNull(row[COL.ORDER_NO]),
+      faktura_dato: dateIso,
+      visma_delivery_no: delivery,
+      kunde_navn: strOrNull(row[COL.KUNDENAVN]),
+      kundeprisgruppe_1: strOrNull(row[COL.KPG1]),
+      kundeprisgruppe_2: strOrNull(row[COL.KPG2]),
+      varenr: strOrNull(row[COL.VARENR]),
+      varetekst: strOrNull(row[COL.DESC]),
+      antal: numOrNull(row[COL.QTY]),
+      varegruppe_1: strOrNull(row[COL.GROUP1]),
+      varegruppe_2: strOrNull(row[COL.GROUP2]),
+      nettovaegt: numOrNull(row[COL.NETTOVAEGT]),
+      kostpris: numOrNull(row[COL.KOSTPRIS]),
+      enhedspris: numOrNull(row[COL.ENHEDSPRIS]),
+      beloeb: numOrNull(row[COL.REVENUE]),
+      db: numOrNull(row[COL.DB]),
+      dg: numOrNull(row[COL.DG]),
+      initialer: strOrNull(row[COL.INITIALER]),
+    });
+
     const key = `${afdeling}|${delivery}|${period}|${group1}`;
     let acc = monthlyMap.get(key);
     if (!acc) {
@@ -461,6 +542,8 @@ export async function parseAndAggregate(
   stats.uniqueDeliveryNos = deliverySet.size;
   stats.periodFrom = minDate ? monthStart(minDate) : null;
   stats.periodTo = maxDate ? monthStart(maxDate) : null;
+  stats.dateFrom = minDate ? (minDate as Date).toISOString().slice(0, 10) : null;
+  stats.dateTo = maxDate ? (maxDate as Date).toISOString().slice(0, 10) : null;
   stats.skippedFirmaSamples = Array.from(firmaSampleSet).sort();
 
   const monthly: MonthlyRow[] = Array.from(monthlyMap.values()).map((a) => ({
@@ -534,5 +617,5 @@ export async function parseAndAggregate(
     });
   });
 
-  return { monthly, topProducts, topProductsMonthly, stats };
+  return { monthly, topProducts, topProductsMonthly, rawLines, stats };
 }
