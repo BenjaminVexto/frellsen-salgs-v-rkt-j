@@ -184,6 +184,11 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
               });
               if (pErr) throw new Error("prune_invoice_lines_month: " + pErr.message);
               deleted += (n as number) ?? 0;
+              idx++;
+              await supabaseAdmin
+                .from("invoice_import_jobs")
+                .update({ prune_month_idx: idx, lines_deleted: deleted })
+                .eq("id", jobId);
             }
             const prunedAll = idx >= months.length;
             const np = prunedAll ? firstAggregatePhase() : "prune";
