@@ -50,6 +50,10 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Tidsstempel FØR alt arbejde — bruges som budget i alle faseløkker.
+        const tickStart = Date.now();
+        const hasBudget = () => Date.now() - tickStart < TICK_BUDGET_MS;
+
         const provided =
           request.headers.get("apikey") ??
           request.headers.get("x-cron-secret") ??
