@@ -82,9 +82,107 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         try {
           // Find ud af hvilken chunk vi mangler
           let phase = job.phase as string;
+
+          /** Første aggregatfase efter rålinjer + oprydning. */
+          const firstAggregatePhase = (): string => {
+            if ((job.total_monthly as number) > 0) return "monthly";
+            if ((job.total_top as number) > 0) return "top";
+            if ((job.total_top_monthly as number) > 0) return "top_monthly";
+            return "done";
+          };
+
+          // ---- Fase 1: rå fakturalinjer ----
+          if (phase === "lines") {
+            const batchId = job.lines_batch_id as string | null;
+            if (!batchId) throw new Error("lines_batch_id mangler på jobbet");
+            const totalLines = (job.total_lines as number) ?? 0;
+            // Vandmærke fra databasen selv → en fejlet chunk kan køres igen
+            // uden dubletter og uden at starte forfra.
+            const already = await countInvoiceLines(supabaseAdmin, batchId);
+            if (already >= totalLines) {
+              await supabaseAdmin
+                .from("invoice_import_jobs")
+                .update({ phase: "prune", saved_lines: already, status: "queued", attempts: 0 })
+                .eq("id", jobId);
+              return Response.json({ processed: 0, jobId, phase: "lines", next: "prune" });
+            }
+            const chunkIdx = Math.floor(already / LINES_CHUNK_SIZE);
+            const offsetInChunk = already - chunkIdx * LINES_CHUNK_SIZE;
+            const path = `${prefix}/lines-${chunkIdx}.json`;
+            const { data: blob, error: dlErr } = await supabaseAdmin.storage
+              .from(BUCKET)
+              .download(path);
+            if (dlErr || !blob) throw new Error(`kunne ikke hente ${path}: ${dlErr?.message}`);
+            const rows = JSON.parse(await blob.text()) as any[];
+            const inserted = await insertInvoiceLinesChunk(
+              supabaseAdmin,
+              batchId,
+              rows,
+              offsetInChunk,
+            );
+            const savedNow = already + inserted;
+            const doneLines = savedNow >= totalLines;
+            await supabaseAdmin
+              .from("invoice_import_jobs")
+              .update({
+                saved_lines: savedNow,
+                phase: doneLines ? "prune" : "lines",
+                status: "queued",
+                attempts: 0,
+                last_error: null,
+              })
+              .eq("id", jobId);
+            return Response.json({ processed: inserted, jobId, phase: "lines", savedNow });
+          }
+
+          // ---- Fase 2: ryd gamle rålinjer, måned for måned ----
+          if (phase === "prune") {
+            const batchId = job.lines_batch_id as string | null;
+            const from = job.lines_date_from as string | null;
+            const to = job.lines_date_to as string | null;
+            const afdelinger = (job.lines_afdelinger as number[]) ?? [];
+            if (!batchId || !from || !to || !afdelinger.length) {
+              const np = firstAggregatePhase();
+              await supabaseAdmin
+                .from("invoice_import_jobs")
+                .update({ phase: np, status: np === "done" ? "completed" : "queued", attempts: 0 })
+                .eq("id", jobId);
+              return Response.json({ processed: 0, jobId, phase: "prune", next: np });
+            }
+            const months = monthsInRange(from, to);
+            let idx = (job.prune_month_idx as number) ?? 0;
+            let deleted = (job.lines_deleted as number) ?? 0;
+            for (let i = 0; i < PRUNE_MONTHS_PER_TICK && idx < months.length; i++, idx++) {
+              const { data: n, error: pErr } = await supabaseAdmin.rpc("prune_invoice_lines_month", {
+                p_batch_id: batchId,
+                p_afdelinger: afdelinger,
+                p_month: months[idx],
+                p_date_from: from,
+                p_date_to: to,
+              });
+              if (pErr) throw new Error("prune_invoice_lines_month: " + pErr.message);
+              deleted += (n as number) ?? 0;
+            }
+            const prunedAll = idx >= months.length;
+            const np = prunedAll ? firstAggregatePhase() : "prune";
+            await supabaseAdmin
+              .from("invoice_import_jobs")
+              .update({
+                prune_month_idx: idx,
+                lines_deleted: deleted,
+                phase: np,
+                status: np === "done" ? "completed" : "queued",
+                attempts: 0,
+                last_error: null,
+              })
+              .eq("id", jobId);
+            return Response.json({ processed: deleted, jobId, phase: "prune", next: np });
+          }
+
           if (phase !== "monthly" && phase !== "top" && phase !== "top_monthly") {
             throw new Error("Ukendt phase: " + phase + " (forventede monthly|top|top_monthly)");
           }
+
 
           const savedCol =
             phase === "monthly"
