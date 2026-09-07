@@ -18,7 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Download, ArrowUpDown, ChevronDown } from "lucide-react";
+import { Loader2, Download, ArrowUpDown, ChevronDown, Calendar, SlidersHorizontal, X } from "lucide-react";
 import { fmtKr, fmtKg } from "@/lib/sales-utils";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -32,7 +32,7 @@ import {
 const DATA_START = "2025-01";
 
 type Sammenlign = "ingen" | "foregaaende" | "aaret-foer";
-type SortKey = "navn" | "omsaetning" | "kg" | "stk" | "antal_kunder" | "db" | "dg";
+type SortKey = "navn" | "omsaetning" | "andel" | "kg" | "stk" | "antal_kunder" | "db" | "dg";
 
 const OPDEL_LABEL: Record<AnalyseOpdeling, string> = {
   kunde: "Kunde",
@@ -61,6 +61,12 @@ const lastDay = (s: string) => {
   const { y, m0 } = parseM(s);
   const d = new Date(Date.UTC(y, m0 + 1, 0));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+};
+
+const MDR = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const maanedNavn = (s: string) => {
+  const { y, m0 } = parseM(s);
+  return `${MDR[m0]} ${y}`;
 };
 
 function genveje(): { label: string; fra: string; til: string }[] {
@@ -138,6 +144,13 @@ export function AnalyseFane({
     queryFn: () => filtreFn({ data: { afdelingNr, fra: firstDay(fra), til: lastDay(til) } }),
   });
 
+  /** Kg-kolonnen viser kun én varegruppe: den valgte, ellers kaffe (gruppe 2). */
+  const kgGruppe = varegrupper.length === 1 ? varegrupper[0] : "2";
+  const kgGruppeNavn =
+    (filtreQ.data?.varegrupper ?? []).find((v) => v.kode === kgGruppe)?.navn ??
+    (kgGruppe === "2" ? "kaffe" : `gruppe ${kgGruppe}`);
+  const kgLabel = `Kg ${kgGruppeNavn.toLowerCase()}`;
+
   const argsBase = {
     opdel,
     afdelingNr,
@@ -145,6 +158,7 @@ export function AnalyseFane({
     kundeprisgrupper: prisgrupper.length ? prisgrupper : null,
     varegrupper: varegrupper.length ? varegrupper : null,
     regioner: regioner.length ? regioner : null,
+    kgGruppe,
   };
 
   const q = useQuery({
@@ -169,15 +183,17 @@ export function AnalyseFane({
 
   const rows = q.data ?? [];
 
-  const [visAntal, setVisAntal] = useState(200);
+  const [visAntal, setVisAntal] = useState(25);
   useEffect(() => {
-    setVisAntal(200);
+    setVisAntal(25);
   }, [fra, til, opdel, sortKey, sortDir, saelgerIds, prisgrupper, varegrupper, regioner]);
 
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
     const val = (r: AnalysePivotRow): number =>
-      sortKey === "dg"
+      sortKey === "andel"
+        ? r.omsaetning
+        : sortKey === "dg"
         ? r.omsaetning > 0
           ? (r.db ?? 0) / r.omsaetning
           : -1
@@ -228,8 +244,41 @@ export function AnalyseFane({
     }
   };
 
+  /** Antal kunder er altid 1 pr. række ved kunde-/postnummeropdeling. */
+  const visAntalKunder = opdel !== "kunde" && opdel !== "postnummer";
+  const andel = (v: number) => (total.omsaetning > 0 ? (v / total.omsaetning) * 100 : 0);
+
+  const aktiveFiltre = useMemo(() => {
+    const out: { key: string; label: string; remove: () => void }[] = [];
+    for (const id of saelgerIds) {
+      const navn = (filtreQ.data?.saelgere ?? []).find((s) => s.id === id)?.navn ?? id;
+      out.push({ key: `s-${id}`, label: `Sælger: ${navn}`, remove: () => setSaelgerIds(saelgerIds.filter((x) => x !== id)) });
+    }
+    for (const p of prisgrupper) {
+      out.push({ key: `p-${p}`, label: `Kundeprisgruppe: ${p}`, remove: () => setPrisgrupper(prisgrupper.filter((x) => x !== p)) });
+    }
+    for (const v of varegrupper) {
+      const navn = (filtreQ.data?.varegrupper ?? []).find((x) => x.kode === v)?.navn ?? v;
+      out.push({ key: `v-${v}`, label: `Varegruppe: ${navn}`, remove: () => setVaregrupper(varegrupper.filter((x) => x !== v)) });
+    }
+    for (const r of regioner) {
+      out.push({ key: `r-${r}`, label: `Region: ${r}`, remove: () => setRegioner(regioner.filter((x) => x !== r)) });
+    }
+    return out;
+  }, [saelgerIds, prisgrupper, varegrupper, regioner, filtreQ.data]);
+
+  const periodeTekst = `${maanedNavn(fra)}–${maanedNavn(til)}`;
+
   const exportCsv = () => {
-    const head = [OPDEL_LABEL[opdel], "Omsætning", "Kg", "Stk", "Antal kunder", ...(maaSeDb ? ["DB", "DG %"] : [])];
+    const head = [
+      OPDEL_LABEL[opdel],
+      "Omsætning",
+      "Andel %",
+      kgLabel,
+      "Stk",
+      ...(visAntalKunder ? ["Antal kunder"] : []),
+      ...(maaSeDb ? ["DB", "DG %"] : []),
+    ];
     const lines = [head.join(";")];
     for (const r of sorted) {
       const dg = r.omsaetning > 0 && r.db != null ? ((r.db / r.omsaetning) * 100).toFixed(1) : "";
@@ -237,9 +286,10 @@ export function AnalyseFane({
         [
           `"${(r.navn ?? r.noegle).replace(/"/g, '""')}"`,
           r.omsaetning.toFixed(2).replace(".", ","),
+          andel(r.omsaetning).toFixed(1).replace(".", ","),
           r.kg.toFixed(2).replace(".", ","),
           r.stk.toFixed(2).replace(".", ","),
-          String(r.antal_kunder),
+          ...(visAntalKunder ? [String(r.antal_kunder)] : []),
           ...(maaSeDb ? [(r.db ?? 0).toFixed(2).replace(".", ","), dg] : []),
         ].join(";"),
       );
@@ -256,116 +306,179 @@ export function AnalyseFane({
 
   return (
     <div className="space-y-4">
-      <Card className="p-4 space-y-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <Label className="text-xs text-muted-foreground">Fra måned</Label>
-            <Input
-              type="month"
-              value={fra}
-              max={til}
-              onChange={(e) => e.target.value && setFra(e.target.value)}
-              className="h-9 w-[150px]"
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Til måned (inkl.)</Label>
-            <Input
-              type="month"
-              value={til}
-              min={fra}
-              onChange={(e) => e.target.value && setTil(e.target.value)}
-              className="h-9 w-[150px]"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {genveje().map((g) => (
-              <Button
-                key={g.label}
-                size="sm"
-                variant={fra === g.fra && til === g.til ? "default" : "outline"}
-                onClick={() => {
-                  setFra(g.fra);
-                  setTil(g.til);
-                }}
-              >
-                {g.label}
+      <Card className="p-3 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Periode */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 font-normal">
+                <Calendar className="h-4 w-4 mr-2 opacity-60" />
+                {periodeTekst}
+                <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
               </Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <Label className="text-xs text-muted-foreground">Sammenligning</Label>
-            <Select value={sammenlign} onValueChange={(v) => setSammenlign(v as Sammenlign)}>
-              <SelectTrigger className="h-9 w-[240px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ingen">Ingen sammenligning</SelectItem>
-                <SelectItem value="foregaaende" disabled={!foregaaendeOk}>
-                  Foregående periode
-                  {!foregaaendeOk && " — ikke dækket"}
-                </SelectItem>
-                <SelectItem value="aaret-foer" disabled={!aaretFoerOk}>
-                  Samme periode året før
-                  {!aaretFoerOk && " — ikke dækket"}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {((sammenlign === "foregaaende" && !foregaaendeOk) ||
-              (sammenlign === "aaret-foer" && !aaretFoerOk)) && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Sammenligningsperioden er ikke dækket af data
-              </p>
-            )}
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Opdeling</Label>
-            <Select value={opdel} onValueChange={(v) => setOpdel(v as AnalyseOpdeling)}>
-              <SelectTrigger className="h-9 w-[190px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {(Object.keys(OPDEL_LABEL) as AnalyseOpdeling[]).map((k) => (
-                  <SelectItem key={k} value={k}>{OPDEL_LABEL[k]}</SelectItem>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px] p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {genveje().map((g) => (
+                  <Button
+                    key={g.label}
+                    size="sm"
+                    className="h-8 text-xs"
+                    variant={fra === g.fra && til === g.til ? "default" : "outline"}
+                    onClick={() => {
+                      setFra(g.fra);
+                      setTil(g.til);
+                    }}
+                  >
+                    {g.label}
+                  </Button>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">Fra måned</Label>
+                  <Input
+                    type="month"
+                    value={fra}
+                    max={til}
+                    onChange={(e) => e.target.value && setFra(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">Til måned (inkl.)</Label>
+                  <Input
+                    type="month"
+                    value={til}
+                    min={fra}
+                    onChange={(e) => e.target.value && setTil(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
 
-          <MultiVaelger
-            label="Sælger"
-            options={(filtreQ.data?.saelgere ?? []).map((s) => ({ value: s.id, label: s.navn }))}
-            selected={saelgerIds}
-            onChange={setSaelgerIds}
-          />
-          <MultiVaelger
-            label="Kundeprisgruppe"
-            options={(filtreQ.data?.prisgrupper ?? []).map((p) => ({ value: p, label: p }))}
-            selected={prisgrupper}
-            onChange={setPrisgrupper}
-          />
-          <MultiVaelger
-            label="Varegruppe"
-            options={(filtreQ.data?.varegrupper ?? []).map((v) => ({ value: v.kode, label: v.navn }))}
-            selected={varegrupper}
-            onChange={setVaregrupper}
-          />
-          <MultiVaelger
-            label="Region"
-            options={(regionerQ.data ?? []).map((r) => ({ value: r, label: r }))}
-            selected={regioner}
-            onChange={setRegioner}
-          />
+          <Select value={opdel} onValueChange={(v) => setOpdel(v as AnalyseOpdeling)}>
+            <SelectTrigger className="h-9 w-[170px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(OPDEL_LABEL) as AnalyseOpdeling[]).map((k) => (
+                <SelectItem key={k} value={k}>
+                  Opdel: {OPDEL_LABEL[k]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">
-              Afdeling {afdelingNr} — {afdelingNavn} · {antalMdr} mdr.
-            </span>
-            <Button size="sm" variant="outline" onClick={exportCsv} disabled={!rows.length}>
-              <Download className="h-4 w-4 mr-1" /> CSV
-            </Button>
-          </div>
+          <Select value={sammenlign} onValueChange={(v) => setSammenlign(v as Sammenlign)}>
+            <SelectTrigger className="h-9 w-[230px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ingen">Ingen sammenligning</SelectItem>
+              <SelectItem value="foregaaende" disabled={!foregaaendeOk}>
+                Foregående periode
+                {!foregaaendeOk && " — ikke dækket af data"}
+              </SelectItem>
+              <SelectItem value="aaret-foer" disabled={!aaretFoerOk}>
+                Samme periode året før
+                {!aaretFoerOk && " — ikke dækket af data"}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Filtre */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 font-normal">
+                <SlidersHorizontal className="h-4 w-4 mr-2 opacity-60" />
+                Filtre
+                {aktiveFiltre.length > 0 && (
+                  <span className="ml-2 rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground">
+                    {aktiveFiltre.length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[280px] p-3 space-y-3">
+              <MultiVaelger
+                label="Sælger"
+                options={(filtreQ.data?.saelgere ?? []).map((s) => ({ value: s.id, label: s.navn }))}
+                selected={saelgerIds}
+                onChange={setSaelgerIds}
+              />
+              <MultiVaelger
+                label="Kundeprisgruppe"
+                options={(filtreQ.data?.prisgrupper ?? []).map((p) => ({ value: p, label: p }))}
+                selected={prisgrupper}
+                onChange={setPrisgrupper}
+              />
+              <MultiVaelger
+                label="Varegruppe"
+                options={(filtreQ.data?.varegrupper ?? []).map((v) => ({ value: v.kode, label: v.navn }))}
+                selected={varegrupper}
+                onChange={setVaregrupper}
+              />
+              <MultiVaelger
+                label="Region"
+                options={(regionerQ.data ?? []).map((r) => ({ value: r, label: r }))}
+                selected={regioner}
+                onChange={setRegioner}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <span className="text-xs text-muted-foreground">
+            Afdeling {afdelingNr} — {afdelingNavn} · {antalMdr} mdr.
+          </span>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={exportCsv}
+            disabled={!rows.length}
+            className="ml-auto h-9"
+          >
+            <Download className="h-4 w-4 mr-1" /> CSV
+          </Button>
         </div>
+
+        {aktiveFiltre.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {aktiveFiltre.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={f.remove}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs hover:bg-muted"
+              >
+                {f.label}
+                <X className="h-3 w-3 opacity-60" />
+              </button>
+            ))}
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:underline px-1"
+              onClick={() => {
+                setSaelgerIds([]);
+                setPrisgrupper([]);
+                setVaregrupper([]);
+                setRegioner([]);
+              }}
+            >
+              Nulstil alle
+            </button>
+          </div>
+        )}
+
+        {((sammenlign === "foregaaende" && !foregaaendeOk) ||
+          (sammenlign === "aaret-foer" && !aaretFoerOk)) && (
+          <p className="text-xs text-muted-foreground">Sammenligningsperioden er ikke dækket af data</p>
+        )}
       </Card>
+
 
       <Card className="overflow-hidden">
         {q.isLoading ? (
@@ -377,9 +490,9 @@ export function AnalyseFane({
             {q.error instanceof Error ? q.error.message : "Kunne ikke hente tal"}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+              <thead className="sticky top-0 z-20 bg-muted text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <Th onClick={() => toggleSort("navn")} active={sortKey === "navn"} dir={sortDir}>
                     {OPDEL_LABEL[opdel]}
@@ -388,11 +501,16 @@ export function AnalyseFane({
                     Omsætning
                   </Th>
                   {visSammen && <th className="px-3 py-2 text-right">Ændring</th>}
-                  <Th onClick={() => toggleSort("kg")} active={sortKey === "kg"} dir={sortDir} align="right">Kg</Th>
-                  <Th onClick={() => toggleSort("stk")} active={sortKey === "stk"} dir={sortDir} align="right">Stk.</Th>
-                  <Th onClick={() => toggleSort("antal_kunder")} active={sortKey === "antal_kunder"} dir={sortDir} align="right">
-                    Antal kunder
+                  <Th onClick={() => toggleSort("andel")} active={sortKey === "andel"} dir={sortDir} align="right">
+                    Andel
                   </Th>
+                  <Th onClick={() => toggleSort("kg")} active={sortKey === "kg"} dir={sortDir} align="right">{kgLabel}</Th>
+                  <Th onClick={() => toggleSort("stk")} active={sortKey === "stk"} dir={sortDir} align="right">Stk.</Th>
+                  {visAntalKunder && (
+                    <Th onClick={() => toggleSort("antal_kunder")} active={sortKey === "antal_kunder"} dir={sortDir} align="right">
+                      Antal kunder
+                    </Th>
+                  )}
                   {maaSeDb && (
                     <>
                       <Th onClick={() => toggleSort("db")} active={sortKey === "db"} dir={sortDir} align="right">DB</Th>
@@ -402,7 +520,7 @@ export function AnalyseFane({
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-t border-border bg-muted/20 font-semibold">
+                <tr className="sticky top-9 z-10 border-t border-border bg-muted font-semibold">
                   <td className="px-3 py-2">Total</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtKr(total.omsaetning)}</td>
                   {visSammen && (
@@ -413,11 +531,14 @@ export function AnalyseFane({
                       />
                     </td>
                   )}
+                  <td className="px-3 py-2 text-right tabular-nums">100 %</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtKg(total.kg)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {total.stk.toLocaleString("da-DK", { maximumFractionDigits: 0 })}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{total.antal_kunder.toLocaleString("da-DK")}</td>
+                  {visAntalKunder && (
+                    <td className="px-3 py-2 text-right tabular-nums">{total.antal_kunder.toLocaleString("da-DK")}</td>
+                  )}
                   {maaSeDb && (
                     <>
                       <td className="px-3 py-2 text-right tabular-nums">
@@ -442,11 +563,16 @@ export function AnalyseFane({
                           <Delta now={r.omsaetning} before={before} />
                         </td>
                       )}
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {andel(r.omsaetning).toFixed(1).replace(".", ",")} %
+                      </td>
                       <td className="px-3 py-2 text-right tabular-nums">{r.kg > 0 ? fmtKg(r.kg) : "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums">
                         {r.stk.toLocaleString("da-DK", { maximumFractionDigits: 0 })}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums">{r.antal_kunder.toLocaleString("da-DK")}</td>
+                      {visAntalKunder && (
+                        <td className="px-3 py-2 text-right tabular-nums">{r.antal_kunder.toLocaleString("da-DK")}</td>
+                      )}
                       {maaSeDb && (
                         <>
                           <td className="px-3 py-2 text-right tabular-nums">
@@ -465,7 +591,7 @@ export function AnalyseFane({
                 {sorted.length > visAntal && (
                   <tr>
                     <td colSpan={99} className="px-3 py-3 text-center">
-                      <Button variant="outline" size="sm" onClick={() => setVisAntal((n) => n + 200)}>
+                      <Button variant="outline" size="sm" onClick={() => setVisAntal((n) => n + 25)}>
                         Vis flere ({(sorted.length - visAntal).toLocaleString("da-DK")} tilbage)
                       </Button>
                     </td>

@@ -2897,6 +2897,7 @@ export type Database = {
         Args: {
           _afdeling_nr: number
           _fra: string
+          _kg_gruppe?: string
           _kundeprisgrupper?: string[]
           _opdel: string
           _regioner?: string[]
