@@ -93,7 +93,7 @@ function FakturaImportSide() {
       const { data, error } = await supabase
         .from("invoice_import_jobs")
         .select(
-          "id,status,phase,total_monthly,total_top,saved_monthly,saved_top,locations_matched,unmatched_delivery_nos,last_error,attempts",
+          "id,status,phase,total_monthly,total_top,saved_monthly,saved_top,total_lines,saved_lines,lines_deleted,lines_date_from,lines_date_to,locations_matched,unmatched_delivery_nos,last_error,attempts",
         )
         .eq("id", jobId!)
         .maybeSingle();
