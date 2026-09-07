@@ -224,7 +224,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
                 ? "total_top"
                 : "total_top_monthly";
           const chunkPrefix = phase === "top_monthly" ? "top_monthly" : phase;
-          const saved = (job[savedCol] as number) ?? 0;
+          let saved = (job[savedCol] as number) ?? 0;
           const total = (job[totalCol] as number) ?? 0;
 
           function nextPhaseAfter(current: string): string {
