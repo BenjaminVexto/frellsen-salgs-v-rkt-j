@@ -922,14 +922,13 @@ function ImportSide() {
       const seg1 = String(p.data.customer_segment_1 ?? "").toLowerCase();
       if (seg1.includes("personale") || seg1.includes("interne")) return true;
     }
-    if (vismaFilters.excludeForeign) {
-      const land = (p.raw["Landnr."] ?? "").trim();
-      // 45 = Danmark (dansk telefonkode brugt i Visma)
-      // 1 = alternativ dansk kode
-      // tom = dansk (ikke udfyldt)
-      const isDanish = !land || land === "1" || land === "45";
-      if (!isDanish) return true;
+    // Udenlandsk-filteret gælder KUN afdeling 11. Høyberg (22) er grossistled
+    // med eksport, og Java (21) har også udenlandske kunder — de importeres
+    // uanset landekode.
+    if (vismaFilters.excludeForeign && p.afdelingNr === 11 && isForeignRow(p)) {
+      return true;
     }
+
     if (vismaFilters.excludeCreditBlocked) {
       const credit = (p.raw["Kreditspærre"] ?? "").trim();
       if (credit) return true;
