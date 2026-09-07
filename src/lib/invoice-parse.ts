@@ -617,5 +617,5 @@ export async function parseAndAggregate(
     });
   });
 
-  return { monthly, topProducts, topProductsMonthly, stats };
+  return { monthly, topProducts, topProductsMonthly, rawLines, stats };
 }
