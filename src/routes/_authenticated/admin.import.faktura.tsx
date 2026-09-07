@@ -39,8 +39,11 @@ const PHASE_LABEL: Record<string, string> = {
   done: "Færdig",
 };
 
-// Skal matche CHUNK_SIZE i process-invoice-import.ts
+// Skal matche CHUNK_SIZE / TOP_MONTHLY_CHUNK_SIZE i process-invoice-import.ts
 const CHUNK_SIZE = 20_000;
+// Varelinjer pr. måned er den tungeste upsert — mindre chunks holder os under
+// Postgres' statement timeout.
+const TOP_MONTHLY_CHUNK_SIZE = 4_000;
 
 const BUCKET = "invoice-uploads";
 
@@ -165,7 +168,7 @@ function FakturaImportSide() {
       const newJobId = crypto.randomUUID();
       const monthlyChunks = chunked(enrichedMonthly, CHUNK_SIZE);
       const topChunks = chunked(enrichedTop, CHUNK_SIZE);
-      const topMonthlyChunks = chunked(enrichedTopMonthly, CHUNK_SIZE);
+      const topMonthlyChunks = chunked(enrichedTopMonthly, TOP_MONTHLY_CHUNK_SIZE);
       const totalUploads = monthlyChunks.length + topChunks.length + topMonthlyChunks.length;
       let uploadIdx = 0;
 

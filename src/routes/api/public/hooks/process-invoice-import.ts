@@ -20,6 +20,9 @@ import {
 
 const MAX_ATTEMPTS = 5;
 const CHUNK_SIZE = 20_000; // SKAL matche klientens chunk-størrelse
+// Varelinjer pr. måned upsertes i mindre chunks — den tabel er tungest og
+// ramte tidligere Postgres' statement timeout ved 20k rækker.
+const TOP_MONTHLY_CHUNK_SIZE = 4_000;
 const BUCKET = "invoice-uploads";
 
 function isAuthorized(provided: string | null): boolean {
@@ -114,7 +117,8 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             return Response.json({ jobId, advancedTo: nextUpdate.phase });
           }
 
-          const chunkIdx = Math.floor(saved / CHUNK_SIZE);
+          const chunkSize = phase === "top_monthly" ? TOP_MONTHLY_CHUNK_SIZE : CHUNK_SIZE;
+          const chunkIdx = Math.floor(saved / chunkSize);
           const chunkPath = `${prefix}/${chunkPrefix}-${chunkIdx}.json`;
           const { data: blob, error: dlErr } = await supabaseAdmin.storage
             .from(BUCKET)
@@ -150,7 +154,9 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             [savedCol]: newSaved,
             phase: nextPhase,
             status: nextStatus,
-            attempts: attempts + 1,
+            // Nulstil forsøg efter en gennemført chunk, så et langt job ikke
+            // bliver markeret failed blot fordi det har kørt mange ticks.
+            attempts: 0,
             last_error: null,
           };
           if (finishedAt) updatePayload.finished_at = finishedAt;
@@ -162,7 +168,9 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             const allChunks: string[] = [];
             const monthlyCount = Math.ceil((job.total_monthly ?? 0) / CHUNK_SIZE);
             const topCount = Math.ceil((job.total_top ?? 0) / CHUNK_SIZE);
-            const topMonthlyCount = Math.ceil((job.total_top_monthly ?? 0) / CHUNK_SIZE);
+            const topMonthlyCount = Math.ceil(
+              (job.total_top_monthly ?? 0) / TOP_MONTHLY_CHUNK_SIZE,
+            );
             for (let i = 0; i < monthlyCount; i++) allChunks.push(`${prefix}/monthly-${i}.json`);
             for (let i = 0; i < topCount; i++) allChunks.push(`${prefix}/top-${i}.json`);
             for (let i = 0; i < topMonthlyCount; i++) allChunks.push(`${prefix}/top_monthly-${i}.json`);
@@ -188,6 +196,12 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
                 })
                 .eq("id", jobId);
             }
+            // Koble salgsrækker til lokation/virksomhed ud fra
+            // (afdeling_nr, visma_delivery_no) — historikken skal med.
+            const { error: relinkErr } = await supabaseAdmin.rpc("relink_sales_locations");
+            if (relinkErr) {
+              console.error("[invoice-import] relink_sales_locations fejlede:", relinkErr);
+            }
           }
 
 
@@ -196,6 +210,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             phase: nextPhase,
             status: nextStatus,
             chunk: chunkIdx,
+            chunkSize,
             chunkRows: savedRows,
             upsertedRows,
             [savedCol]: newSaved,

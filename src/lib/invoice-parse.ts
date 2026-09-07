@@ -414,19 +414,22 @@ export async function parseAndAggregate(
       if (orderNo) acc.orders.add(orderNo);
     }
 
-    // top products: only last 12 months, only real revenue (not internal)
-    if (!isInternal && varenr && date >= cutoff) {
-      const tkey = `${afdeling}|${delivery}|${varenr}`;
-      let t = topMap.get(tkey);
-      if (!t) {
-        t = { delivery, varenr, afdeling, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
-        topMap.set(tkey, t);
+    // Varelinjer: rullende top-liste (topMap) kun sidste 12 mdr., mens
+    // månedsvise varelinjer (topMonthlyMap) aggregeres for ALLE perioder i filen.
+    if (!isInternal && varenr) {
+      if (date >= cutoff) {
+        const tkey = `${afdeling}|${delivery}|${varenr}`;
+        let t = topMap.get(tkey);
+        if (!t) {
+          t = { delivery, varenr, afdeling, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
+          topMap.set(tkey, t);
+        }
+        t.revenue += revenue;
+        t.quantity += qty;
+        t.contribution += db;
+        if (!t.description && desc) t.description = desc;
+        if ((!t.group || t.group === "0") && group1) t.group = group1;
       }
-      t.revenue += revenue;
-      t.quantity += qty;
-      t.contribution += db;
-      if (!t.description && desc) t.description = desc;
-      if ((!t.group || t.group === "0") && group1) t.group = group1;
 
       const tmKey = `${afdeling}|${delivery}|${period}|${varenr}`;
       let tm = topMonthlyMap.get(tmKey);
@@ -441,6 +444,7 @@ export async function parseAndAggregate(
       if (!tm.description && desc) tm.description = desc;
       if ((!tm.group || tm.group === "0") && group1) tm.group = group1;
     }
+
 
   }
 
