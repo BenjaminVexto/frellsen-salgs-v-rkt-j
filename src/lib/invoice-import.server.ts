@@ -95,6 +95,9 @@ export async function parseAndResolve(
 }
 
 const UPSERT_BATCH = 500;
+// sales_monthly_products er den tungeste tabel — små batches holder hver
+// upsert under Postgres' statement timeout.
+const TOP_MONTHLY_UPSERT_BATCH = 250;
 
 export async function upsertMonthlySlice(
   supabaseAdmin: any,
@@ -145,8 +148,8 @@ export async function upsertTopMonthlySlice(
   }>,
 ): Promise<number> {
   let saved = 0;
-  for (let i = 0; i < rows.length; i += UPSERT_BATCH) {
-    const batch = rows.slice(i, i + UPSERT_BATCH);
+  for (let i = 0; i < rows.length; i += TOP_MONTHLY_UPSERT_BATCH) {
+    const batch = rows.slice(i, i + TOP_MONTHLY_UPSERT_BATCH);
     const { error } = await supabaseAdmin
       .from("sales_monthly_products")
       .upsert(batch, { onConflict: "afdeling_nr,visma_delivery_no,period,varenr" });

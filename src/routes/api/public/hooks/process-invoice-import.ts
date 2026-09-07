@@ -196,6 +196,12 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
                 })
                 .eq("id", jobId);
             }
+            // Koble salgsrækker til lokation/virksomhed ud fra
+            // (afdeling_nr, visma_delivery_no) — historikken skal med.
+            const { error: relinkErr } = await supabaseAdmin.rpc("relink_sales_locations");
+            if (relinkErr) {
+              console.error("[invoice-import] relink_sales_locations fejlede:", relinkErr);
+            }
           }
 
 
