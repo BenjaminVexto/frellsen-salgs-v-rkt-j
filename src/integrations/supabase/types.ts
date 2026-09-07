@@ -2521,6 +2521,105 @@ export type Database = {
           },
         ]
       }
+      sales_monthly_products_rebuilt: {
+        Row: {
+          afdeling_nr: number
+          contribution: number
+          description: string | null
+          id: string
+          location_id: string | null
+          period: string
+          product_group_1: string | null
+          quantity: number
+          revenue: number
+          updated_at: string
+          varenr: string
+          visma_delivery_no: string
+          weight_kg: number
+        }
+        Insert: {
+          afdeling_nr?: number
+          contribution?: number
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          period: string
+          product_group_1?: string | null
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          varenr: string
+          visma_delivery_no: string
+          weight_kg?: number
+        }
+        Update: {
+          afdeling_nr?: number
+          contribution?: number
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          period?: string
+          product_group_1?: string | null
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          varenr?: string
+          visma_delivery_no?: string
+          weight_kg?: number
+        }
+        Relationships: []
+      }
+      sales_monthly_rebuilt: {
+        Row: {
+          afdeling_nr: number
+          company_id: string | null
+          contribution: number
+          id: string
+          last_invoice_date: string | null
+          location_id: string | null
+          order_count: number
+          period: string
+          product_group_1: string
+          quantity: number
+          revenue: number
+          updated_at: string
+          visma_delivery_no: string
+          weight_kg: number
+        }
+        Insert: {
+          afdeling_nr?: number
+          company_id?: string | null
+          contribution?: number
+          id?: string
+          last_invoice_date?: string | null
+          location_id?: string | null
+          order_count?: number
+          period: string
+          product_group_1: string
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          visma_delivery_no: string
+          weight_kg?: number
+        }
+        Update: {
+          afdeling_nr?: number
+          company_id?: string | null
+          contribution?: number
+          id?: string
+          last_invoice_date?: string | null
+          location_id?: string | null
+          order_count?: number
+          period?: string
+          product_group_1?: string
+          quantity?: number
+          revenue?: number
+          updated_at?: string
+          visma_delivery_no?: string
+          weight_kg?: number
+        }
+        Relationships: []
+      }
       sales_opportunities: {
         Row: {
           assigned_to: string | null
@@ -3059,6 +3158,19 @@ export type Database = {
           varelinje_start: string
         }[]
       }
+      compare_sales_aggregates: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          afdeling_nr: number
+          kilde: string
+          maaned: string
+          monthly_kg: number
+          monthly_revenue: number
+          monthly_rows: number
+          product_revenue: number
+          product_rows: number
+        }[]
+      }
       create_quote_draft: {
         Args: {
           _company_id: string
@@ -3179,6 +3291,14 @@ export type Database = {
         Returns: number
       }
       rebuild_products: { Args: never; Returns: number }
+      rebuild_sales_aggregates: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          maaned: string
+          monthly_rows: number
+          product_rows: number
+        }[]
+      }
       recompute_all_company_statuses: { Args: never; Returns: number }
       recompute_company_status: {
         Args: { _company_id: string }
