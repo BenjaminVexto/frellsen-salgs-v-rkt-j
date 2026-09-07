@@ -154,11 +154,11 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             let deleted = (job.lines_deleted as number) ?? 0;
             for (let i = 0; i < PRUNE_MONTHS_PER_TICK && idx < months.length; i++, idx++) {
               const { data: n, error: pErr } = await supabaseAdmin.rpc("prune_invoice_lines_month", {
-                p_batch_id: batchId,
-                p_afdelinger: afdelinger,
-                p_month: months[idx],
-                p_date_from: from,
-                p_date_to: to,
+                _batch_id: batchId,
+                _afdelinger: afdelinger,
+                _month_start: months[idx],
+                _from: from,
+                _to: to,
               });
               if (pErr) throw new Error("prune_invoice_lines_month: " + pErr.message);
               deleted += (n as number) ?? 0;
