@@ -886,7 +886,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
       }
     }
 
-    return { inserted, failed, errorSamples, primaryFixed, primaryFailed };
+    return { inserted, failed, errorSamples, primaryFixed, primaryFailed, movedToNewCompany };
   });
 
 export const importUpsertContacts = createServerFn({ method: "POST" })
