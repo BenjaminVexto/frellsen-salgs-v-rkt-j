@@ -565,7 +565,7 @@ function PortfolioPage() {
             Puls og månedlig udvikling på din portefølje.
           </p>
         </div>
-        {isAdmin && (
+        {maaVaelgeSaelger && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Sælger:</span>
             <Select value={sellerId} onValueChange={(v) => setSellerId(v as any)}>
@@ -583,6 +583,7 @@ function PortfolioPage() {
             </Select>
           </div>
         )}
+
       </div>
 
       {visAnalyse || visMaalepunkter ? (
