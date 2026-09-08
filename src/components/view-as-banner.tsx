@@ -3,10 +3,40 @@ import { Button } from "@/components/ui/button";
 import { useViewAs } from "@/contexts/view-as-context";
 import { useQueryClient } from "@tanstack/react-query";
 
+const ROLLE_NAVN: Record<string, string> = {
+  admin: "administrator",
+  saelger: "sælger",
+  salgssupport: "salgssupport",
+};
+
 export function ViewAsBanner() {
-  const { isImpersonating, viewAsName, clearViewAs } = useViewAs();
+  const {
+    isImpersonating,
+    viewAsName,
+    clearViewAs,
+    effectiveRole,
+    effectiveMaaSeDb,
+    effectiveMaaSeAnalyse,
+    effectivePermsLoading,
+  } = useViewAs();
   const qc = useQueryClient();
   if (!isImpersonating) return null;
+
+  const rolle = effectiveRole ? (ROLLE_NAVN[effectiveRole] ?? effectiveRole) : null;
+  const mangler = [
+    ...(effectiveMaaSeDb ? [] : ["DB"]),
+    ...(effectiveMaaSeAnalyse ? [] : ["Analyse"]),
+  ];
+  const rettigheder = effectivePermsLoading
+    ? "henter rettigheder …"
+    : [
+        rolle,
+        mangler.length === 0
+          ? "med adgang til DB og Analyse"
+          : `uden adgang til ${mangler.join(" og ")}`,
+      ]
+        .filter(Boolean)
+        .join(", ");
 
   return (
     <div className="sticky top-0 z-40 bg-amber-500 text-amber-950 border-b border-amber-700 shadow-sm">
