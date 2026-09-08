@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
@@ -568,6 +568,7 @@ function DetaljePanel({
   });
 
   const rows = q.data ?? [];
+  const [udfoldede, setUdfoldede] = useState<Record<string, boolean>>({});
   const navn = (r: any) => (
     <Link
       to="/virksomheder/$id"
@@ -577,6 +578,28 @@ function DetaljePanel({
       {r.navn}
     </Link>
   );
+
+  /** Nye kunder kommer som én række pr. konto, grupperet pr. kunde (samme adresse). */
+  const nyeGrupper = useMemo(() => {
+    if (drill?.slags !== "nye") return [];
+    const map = new Map<string, { key: string; navn: string; by: string | null; oprettet: string; antal: number; konti: any[] }>();
+    rows.forEach((r: any) => {
+      const k = String(r.gruppe_key ?? r.company_id);
+      if (!map.has(k)) {
+        map.set(k, {
+          key: k,
+          navn: r.gruppe_navn ?? r.navn,
+          by: r.gruppe_by ?? r.by,
+          oprettet: r.gruppe_oprettet ?? r.oprettet,
+          antal: Number(r.antal_konti ?? 1),
+          konti: [],
+        });
+      }
+      map.get(k)!.konti.push(r);
+    });
+    return Array.from(map.values());
+  }, [rows, drill?.slags]);
+
 
   return (
     <Dialog open={!!drill} onOpenChange={(o) => !o && onClose()}>
@@ -624,40 +647,80 @@ function DetaljePanel({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r: any, i: number) => (
-                <tr key={`${r.company_id}-${i}`} className="border-b last:border-0">
-                  <td className="py-1.5 pr-3">{navn(r)}</td>
-                  <td className="py-1.5 pr-3">{r.by ?? "—"}</td>
-                  {drill?.slags === "db" && (
-                    <>
-                      <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.db) || 0)}</td>
-                      <td className="py-1.5 text-right">{fmtTal(Number(r.omsaetning) || 0)}</td>
-                    </>
-                  )}
-                  {drill?.slags === "maskiner" && (
-                    <>
-                      <td className="py-1.5 pr-3">{r.model ?? "—"}</td>
-                      <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.antal) || 0)}</td>
-                      <td className="py-1.5 pr-3">{fmtDato(r.faktura_dato)}</td>
-                      <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.beloeb) || 0)}</td>
-                      <td className="py-1.5">{r.brugt ? "Brugt" : "Ny"}</td>
-                    </>
-                  )}
-                  {drill?.slags === "nye" && (
-                    <>
-                      <td className="py-1.5 pr-3">{fmtDato(r.oprettet)}</td>
-                      <td className="py-1.5 pr-3">{r.kundeprisgruppe_2 ?? "—"}</td>
-                      <td className="py-1.5 pr-3 text-right">
-                        {fmtTal(Number(r.omsaetning) || 0)}
-                      </td>
-                      <td className="py-1.5">
-                        {r.sidste_koeb ? fmtDato(r.sidste_koeb) : "Har aldrig købt"}
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
+              {drill?.slags === "nye"
+                ? nyeGrupper.map((g) => {
+                    const aaben = !!udfoldede[g.key];
+                    const oms = g.konti.reduce((s, k) => s + (Number(k.omsaetning) || 0), 0);
+                    const sidste = g.konti
+                      .map((k) => k.sidste_koeb)
+                      .filter(Boolean)
+                      .sort()
+                      .pop();
+                    const foerste = g.konti[0];
+                    return (
+                      <Fragment key={g.key}>
+                        <tr className="border-b last:border-0">
+                          <td className="py-1.5 pr-3">
+                            {navn({ company_id: foerste.company_id, navn: g.navn })}
+                            {g.antal > 1 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setUdfoldede((p) => ({ ...p, [g.key]: !p[g.key] }))
+                                }
+                                className="ml-2 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                {g.antal} konti {aaben ? "▲" : "▼"}
+                              </button>
+                            )}
+                          </td>
+                          <td className="py-1.5 pr-3">{g.by ?? "—"}</td>
+                          <td className="py-1.5 pr-3">{fmtDato(g.oprettet)}</td>
+                          <td className="py-1.5 pr-3">{foerste.kundeprisgruppe_2 ?? "—"}</td>
+                          <td className="py-1.5 pr-3 text-right">{fmtTal(oms)}</td>
+                          <td className="py-1.5">{sidste ? fmtDato(sidste) : "Har aldrig købt"}</td>
+                        </tr>
+                        {aaben &&
+                          g.konti.map((k: any) => (
+                            <tr key={`${g.key}-${k.company_id}`} className="border-b bg-muted/30">
+                              <td className="py-1 pr-3 pl-6 text-xs">{navn(k)}</td>
+                              <td className="py-1 pr-3 text-xs">{k.by ?? "—"}</td>
+                              <td className="py-1 pr-3 text-xs">{fmtDato(k.oprettet)}</td>
+                              <td className="py-1 pr-3 text-xs">{k.kundeprisgruppe_2 ?? "—"}</td>
+                              <td className="py-1 pr-3 text-right text-xs">
+                                {fmtTal(Number(k.omsaetning) || 0)}
+                              </td>
+                              <td className="py-1 text-xs">
+                                {k.sidste_koeb ? fmtDato(k.sidste_koeb) : "Har aldrig købt"}
+                              </td>
+                            </tr>
+                          ))}
+                      </Fragment>
+                    );
+                  })
+                : rows.map((r: any, i: number) => (
+                    <tr key={`${r.company_id}-${i}`} className="border-b last:border-0">
+                      <td className="py-1.5 pr-3">{navn(r)}</td>
+                      <td className="py-1.5 pr-3">{r.by ?? "—"}</td>
+                      {drill?.slags === "db" && (
+                        <>
+                          <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.db) || 0)}</td>
+                          <td className="py-1.5 text-right">{fmtTal(Number(r.omsaetning) || 0)}</td>
+                        </>
+                      )}
+                      {drill?.slags === "maskiner" && (
+                        <>
+                          <td className="py-1.5 pr-3">{r.model ?? "—"}</td>
+                          <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.antal) || 0)}</td>
+                          <td className="py-1.5 pr-3">{fmtDato(r.faktura_dato)}</td>
+                          <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.beloeb) || 0)}</td>
+                          <td className="py-1.5">{r.brugt ? "Brugt" : "Ny"}</td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
             </tbody>
+
           </table>
         )}
       </DialogContent>

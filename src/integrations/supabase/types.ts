@@ -3378,8 +3378,13 @@ export type Database = {
           _til: string
         }
         Returns: {
+          antal_konti: number
           by: string
           company_id: string
+          gruppe_by: string
+          gruppe_key: string
+          gruppe_navn: string
+          gruppe_oprettet: string
           kundeprisgruppe_2: string
           navn: string
           omsaetning: number
