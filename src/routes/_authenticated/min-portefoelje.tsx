@@ -33,6 +33,7 @@ import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { fmtKr } from "@/lib/sales-utils";
 import { AnalyseFane } from "@/components/analyse/analyse-fane";
+import { MaalepunkterFane } from "@/components/maalepunkter/maalepunkter-fane";
 
 const SignalMapContext = createContext<Map<string, ForbrugSignalKort>>(new Map());
 
