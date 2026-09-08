@@ -33,6 +33,7 @@ import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { fmtKr } from "@/lib/sales-utils";
 import { AnalyseFane } from "@/components/analyse/analyse-fane";
+import { MaalepunkterFane } from "@/components/maalepunkter/maalepunkter-fane";
 
 const SignalMapContext = createContext<Map<string, ForbrugSignalKort>>(new Map());
 
@@ -78,7 +79,7 @@ function PortfolioPage() {
   const [showDB, setShowDB] = useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
-  const [tab, setTab] = useState<"portefoelje" | "analyse">("portefoelje");
+  const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter">("portefoelje");
 
   // Analysefanen dækker hele den valgte afdeling — den vises kun for brugere
   // med rettigheden og kun når de har adgang til afdelingen.
@@ -87,6 +88,10 @@ function PortfolioPage() {
     auth.maaSeAnalyse &&
     analyseAfdeling != null &&
     auth.afdelinger.includes(analyseAfdeling);
+  // Målepunkter findes kun for afdeling 11.
+  const visMaalepunkter =
+    auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
+
 
   const q = useQuery({
     queryKey: ["portfolio", sellerId, viewAsUserId, afdelingFilter],
@@ -580,24 +585,33 @@ function PortfolioPage() {
         )}
       </div>
 
-      {visAnalyse ? (
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "portefoelje" | "analyse")}>
+      {visAnalyse || visMaalepunkter ? (
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList className="mb-4">
             <TabsTrigger value="portefoelje">Portefølje</TabsTrigger>
-            <TabsTrigger value="analyse">Analyse</TabsTrigger>
+            {visAnalyse && <TabsTrigger value="analyse">Analyse</TabsTrigger>}
+            {visMaalepunkter && <TabsTrigger value="maalepunkter">Målepunkter</TabsTrigger>}
           </TabsList>
           <TabsContent value="portefoelje">{portefoeljeIndhold}</TabsContent>
-          <TabsContent value="analyse">
-            <AnalyseFane
-              afdelingNr={analyseAfdeling!}
-              afdelingNavn={navnFor(analyseAfdeling)}
-              maaSeDb={auth.maaSeDb}
-            />
-          </TabsContent>
+          {visAnalyse && (
+            <TabsContent value="analyse">
+              <AnalyseFane
+                afdelingNr={analyseAfdeling!}
+                afdelingNavn={navnFor(analyseAfdeling)}
+                maaSeDb={auth.maaSeDb}
+              />
+            </TabsContent>
+          )}
+          {visMaalepunkter && (
+            <TabsContent value="maalepunkter">
+              <MaalepunkterFane />
+            </TabsContent>
+          )}
         </Tabs>
       ) : (
         portefoeljeIndhold
       )}
+
 
     </div>
     </SignalMapContext.Provider>
