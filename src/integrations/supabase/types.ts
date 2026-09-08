@@ -1434,6 +1434,7 @@ export type Database = {
       }
       invoice_import_jobs: {
         Row: {
+          aggregate_month_idx: number
           aggregated_path: string | null
           attempts: number
           created_at: string
@@ -1448,6 +1449,7 @@ export type Database = {
           lines_date_to: string | null
           lines_deleted: number
           locations_matched: number
+          months_rebuilt: number
           payload: Json
           phase: string
           prune_month_idx: number
@@ -1467,6 +1469,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          aggregate_month_idx?: number
           aggregated_path?: string | null
           attempts?: number
           created_at?: string
@@ -1481,6 +1484,7 @@ export type Database = {
           lines_date_to?: string | null
           lines_deleted?: number
           locations_matched?: number
+          months_rebuilt?: number
           payload: Json
           phase?: string
           prune_month_idx?: number
@@ -1500,6 +1504,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          aggregate_month_idx?: number
           aggregated_path?: string | null
           attempts?: number
           created_at?: string
@@ -1514,6 +1519,7 @@ export type Database = {
           lines_date_to?: string | null
           lines_deleted?: number
           locations_matched?: number
+          months_rebuilt?: number
           payload?: Json
           phase?: string
           prune_month_idx?: number
@@ -3316,12 +3322,21 @@ export type Database = {
       }
       rebuild_products: { Args: never; Returns: number }
       rebuild_sales_aggregates: {
-        Args: { _from: string; _to: string }
+        Args: {
+          _from: string
+          _kun_afdelinger?: number[]
+          _med_top?: boolean
+          _to: string
+        }
         Returns: {
           maaned: string
           monthly_rows: number
           product_rows: number
         }[]
+      }
+      rebuild_top_products: {
+        Args: { _kun_afdelinger?: number[] }
+        Returns: number
       }
       recompute_all_company_statuses: { Args: never; Returns: number }
       recompute_company_status: {

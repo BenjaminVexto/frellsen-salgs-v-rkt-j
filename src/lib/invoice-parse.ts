@@ -1,11 +1,12 @@
-// Client-side parser + aggregator for Visma invoice journal.
+// Client-side parser for Visma invoice journal.
 // Input: raw xlsx/csv file (ISO-8859-1 for CSV, no header, 18 positional cols).
-// Output: aggregated monthly rows + top-15 products per location (last 12 mo).
+// Output: rå detaljelinjer til public.invoice_lines. Aggregaterne beregnes i
+// databasen (rebuild_sales_aggregates) — ikke længere i browseren.
 
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import type { MonthlyRow, TopProductRow, TopProductMonthlyRow } from "./invoice-import.functions";
 import { readFileSmart } from "./file-encoding";
+
 
 const COL = {
   FIRMA: 0,
@@ -301,53 +302,23 @@ async function fileToRows(file: File): Promise<any[][]> {
   return parsed.data as any[][];
 }
 
-type MonthlyAcc = {
-  revenue: number;
-  quantity: number;
-  contribution: number;
-  weightKg: number;
-  orders: Set<string>;
-  lastInvoiceDate: string | null;
-};
-type TopProductAcc = {
-  description: string;
-  revenue: number;
-  quantity: number;
-  contribution: number;
-  group: string;
-};
-
-
-type TopProductMonthlyAcc = TopProductAcc & { period: string; weightKg: number };
-
-
-export async function parseAndAggregate(
+/**
+ * Parser fakturajournalen til RÅ linjer. Aggregaterne (sales_monthly,
+ * sales_monthly_products, sales_top_products) beregnes i databasen ud fra
+ * invoice_lines — derfor bygger parseren ingen summer længere.
+ * Beholdt her: firma-filter, afdelings-alias-opslag og afvisning af ukendte
+ * afdelingsværdier. De oversætter kilden, de er ikke forretningsregler.
+ */
+export async function parseInvoiceJournal(
   file: File,
   opts: ParseOptions = {},
 ): Promise<{
-  monthly: MonthlyRow[];
-  topProducts: TopProductRow[];
-  topProductsMonthly: TopProductMonthlyRow[];
   /** Rå detaljelinjer — én pr. linje i filen, uden forretningsregler. */
   rawLines: InvoiceLineRaw[];
   stats: ParseStats;
 }> {
   const rows = await fileToRows(file);
   const rawLines: InvoiceLineRaw[] = [];
-  const monthlyMap = new Map<
-    string,
-    MonthlyAcc & { delivery: string; period: string; group: string; afdeling: number }
-  >();
-  // For top products: keyed by (afdeling|delivery|varenr), only rows in last 12 months
-  const topMap = new Map<string, TopProductAcc & { delivery: string; varenr: string; afdeling: number }>();
-  // Monthly top products: keyed by (afdeling|delivery|period|varenr), also last 12 months
-  const topMonthlyMap = new Map<
-    string,
-    TopProductMonthlyAcc & { delivery: string; varenr: string; afdeling: number }
-  >();
-
-  const cutoff = new Date();
-  cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);
 
   const stats: ParseStats = {
     linesRead: 0,
@@ -394,7 +365,7 @@ export async function parseAndAggregate(
     }
     const afdRaw = String(row[COL.AFDELING] ?? "").trim();
     // Kildeværdien oversættes gennem afdeling_alias til kanonisk afdeling
-    // (13→11, 23→21) FØR aggregering og nøgleopslag.
+    // (13→11, 23→21) FØR nøgleopslag.
     const mapped = mapAfdeling(afdRaw, aliasMap);
     if (validAfdelinger.size) {
       if (mapped == null || !validAfdelinger.has(mapped)) {
@@ -412,21 +383,16 @@ export async function parseAndAggregate(
     }
     stats.linesRead++;
     stats.rowsByAfdeling[String(afdeling)] = (stats.rowsByAfdeling[String(afdeling)] ?? 0) + 1;
-    const orderNo = String(row[COL.ORDER_NO] ?? "").trim();
-    const varenr = String(row[COL.VARENR] ?? "").trim();
-    const desc = String(row[COL.DESC] ?? "").trim();
-    const qty = parseDanishNumber(row[COL.QTY]);
-    const group1 = String(row[COL.GROUP1] ?? "").trim() || "0";
     const revenue = parseDanishNumber(row[COL.REVENUE]);
     const db = parseDanishNumber(row[COL.DB]);
-    const weightKg = parseDanishNumber(row[COL.NETTOVAEGT]);
 
     deliverySet.add(delivery);
     if (!minDate || date < minDate) minDate = date;
     if (!maxDate || date > maxDate) maxDate = date;
     stats.totalRevenue += revenue;
+    // Kun statistik til previewet — reglen anvendes ved aggregering i databasen.
+    if (revenue === 0 && db !== 0) stats.internalServicePostings++;
 
-    const period = monthStart(date);
     const dateIso = parseDanishDateIso(row[COL.DATE]) ?? date.toISOString().slice(0, 10);
 
     // Rådata: gem linjen som den står i filen — ingen regler anvendt her.
@@ -461,72 +427,6 @@ export async function parseAndAggregate(
       dg: numOrNull(row[COL.DG]),
       initialer: strOrNull(row[COL.INITIALER]),
     });
-
-    const key = `${afdeling}|${delivery}|${period}|${group1}`;
-    let acc = monthlyMap.get(key);
-    if (!acc) {
-      acc = {
-        delivery,
-        period,
-        group: group1,
-        afdeling,
-        revenue: 0,
-        quantity: 0,
-        contribution: 0,
-        weightKg: 0,
-        orders: new Set(),
-        lastInvoiceDate: null,
-      };
-      monthlyMap.set(key, acc);
-    }
-    if (dateIso && (!acc.lastInvoiceDate || dateIso > acc.lastInvoiceDate)) {
-      acc.lastInvoiceDate = dateIso;
-    }
-
-    const isInternal = revenue === 0 && db !== 0;
-    if (isInternal) {
-      stats.internalServicePostings++;
-      acc.contribution += db;
-    } else {
-      acc.revenue += revenue;
-      acc.quantity += qty;
-      acc.contribution += db;
-      acc.weightKg += weightKg;
-      if (orderNo) acc.orders.add(orderNo);
-    }
-
-    // Varelinjer: rullende top-liste (topMap) kun sidste 12 mdr., mens
-    // månedsvise varelinjer (topMonthlyMap) aggregeres for ALLE perioder i filen.
-    if (!isInternal && varenr) {
-      if (date >= cutoff) {
-        const tkey = `${afdeling}|${delivery}|${varenr}`;
-        let t = topMap.get(tkey);
-        if (!t) {
-          t = { delivery, varenr, afdeling, description: desc, revenue: 0, quantity: 0, contribution: 0, group: group1 };
-          topMap.set(tkey, t);
-        }
-        t.revenue += revenue;
-        t.quantity += qty;
-        t.contribution += db;
-        if (!t.description && desc) t.description = desc;
-        if ((!t.group || t.group === "0") && group1) t.group = group1;
-      }
-
-      const tmKey = `${afdeling}|${delivery}|${period}|${varenr}`;
-      let tm = topMonthlyMap.get(tmKey);
-      if (!tm) {
-        tm = { delivery, period, varenr, afdeling, description: desc, revenue: 0, quantity: 0, contribution: 0, weightKg: 0, group: group1 };
-        topMonthlyMap.set(tmKey, tm);
-      }
-      tm.revenue += revenue;
-      tm.quantity += qty;
-      tm.contribution += db;
-      tm.weightKg += weightKg;
-      if (!tm.description && desc) tm.description = desc;
-      if ((!tm.group || tm.group === "0") && group1) tm.group = group1;
-    }
-
-
   }
 
   if (unknownAfdelinger.size) {
@@ -546,76 +446,6 @@ export async function parseAndAggregate(
   stats.dateTo = maxDate ? (maxDate as Date).toISOString().slice(0, 10) : null;
   stats.skippedFirmaSamples = Array.from(firmaSampleSet).sort();
 
-  const monthly: MonthlyRow[] = Array.from(monthlyMap.values()).map((a) => ({
-    visma_delivery_no: a.delivery,
-    afdeling_nr: a.afdeling,
-    period: a.period,
-    product_group_1: a.group,
-    revenue: Math.round(a.revenue * 100) / 100,
-    quantity: Math.round(a.quantity * 1000) / 1000,
-    contribution: Math.round(a.contribution * 100) / 100,
-    weight_kg: Math.round(a.weightKg * 1000) / 1000,
-    order_count: a.orders.size,
-    last_invoice_date: a.lastInvoiceDate,
-  }));
-
-  // Group top products by (afdeling, delivery), take top 15 per group
-  const byDelivery = new Map<
-    string,
-    Array<TopProductAcc & { delivery: string; varenr: string; afdeling: number }>
-  >();
-  topMap.forEach((v) => {
-    const k = `${v.afdeling}|${v.delivery}`;
-    const arr = byDelivery.get(k) ?? [];
-    arr.push(v);
-    byDelivery.set(k, arr);
-  });
-  const topProducts: TopProductRow[] = [];
-  byDelivery.forEach((arr) => {
-    arr.sort((a, b) => b.revenue - a.revenue);
-    arr.slice(0, 15).forEach((t) => {
-      topProducts.push({
-        visma_delivery_no: t.delivery,
-        afdeling_nr: t.afdeling,
-        varenr: t.varenr,
-        description: t.description,
-        revenue: Math.round(t.revenue * 100) / 100,
-        quantity: Math.round(t.quantity * 1000) / 1000,
-        contribution: Math.round(t.contribution * 100) / 100,
-        product_group_1: t.group,
-      });
-    });
-  });
-
-  // Group monthly products by (afdeling, delivery, period) — gem ALLE varelinjer
-  const byDeliveryPeriod = new Map<
-    string,
-    Array<TopProductMonthlyAcc & { delivery: string; varenr: string; afdeling: number }>
-  >();
-  topMonthlyMap.forEach((v) => {
-    const k = `${v.afdeling}|${v.delivery}|${v.period}`;
-    const arr = byDeliveryPeriod.get(k) ?? [];
-    arr.push(v);
-    byDeliveryPeriod.set(k, arr);
-  });
-  const topProductsMonthly: TopProductMonthlyRow[] = [];
-  byDeliveryPeriod.forEach((arr) => {
-    arr.sort((a, b) => b.revenue - a.revenue);
-    arr.forEach((t) => {
-      topProductsMonthly.push({
-        visma_delivery_no: t.delivery,
-        afdeling_nr: t.afdeling,
-        period: t.period,
-        varenr: t.varenr,
-        description: t.description,
-        revenue: Math.round(t.revenue * 100) / 100,
-        quantity: Math.round(t.quantity * 1000) / 1000,
-        contribution: Math.round(t.contribution * 100) / 100,
-        weight_kg: Math.round(t.weightKg * 1000) / 1000,
-        product_group_1: t.group,
-      });
-    });
-  });
-
-  return { monthly, topProducts, topProductsMonthly, rawLines, stats };
+  return { rawLines, stats };
 }
+

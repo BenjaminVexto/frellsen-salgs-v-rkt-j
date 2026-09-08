@@ -2,30 +2,26 @@
  * Faktura-import worker. Kaldes hvert minut af pg_cron (sender anon-key som
  * apikey-header) — accepteres også med service-role for manuelle test-kald.
  *
- * Klienten har allerede parset, location-resolvet og uploadet chunk-filer i
- * invoice-uploads bucket: {jobId}/monthly-{idx}.json og top-{idx}.json.
- * Workeren downloader én chunk pr. tick og upserter den.
+ * Klienten har parset filen og uploadet rålinje-chunks i invoice-uploads
+ * bucket: {jobId}/lines-{idx}.json.
  *
  * Faser pr. tick (én job ad gangen):
- *   monthly → upsert næste chunk; når saved_monthly >= total_monthly → phase=top
- *   top     → upsert næste chunk; når saved_top >= total_top → status=completed
+ *   lines     → indsæt rålinjer i invoice_lines
+ *   prune     → slet gamle rålinjer i filens datointerval, måned for måned
+ *   aggregate → genberegn sales_monthly / sales_monthly_products /
+ *               sales_top_products i databasen, én måned pr. iteration
+ *   relink    → kobl salgsrækker til lokation/virksomhed
+ *   done
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
-  upsertMonthlySlice,
-  upsertTopSlice,
-  upsertTopMonthlySlice,
   insertInvoiceLinesChunk,
   countInvoiceLines,
   monthsInRange,
 } from "@/lib/invoice-import.server";
 
 const MAX_ATTEMPTS = 5;
-const CHUNK_SIZE = 20_000; // SKAL matche klientens chunk-størrelse
-// Varelinjer pr. måned upsertes i mindre chunks — den tabel er tungest og
-// ramte tidligere Postgres' statement timeout ved 20k rækker.
-const TOP_MONTHLY_CHUNK_SIZE = 4_000;
 // Rå fakturalinjer: 5.000 pr. chunk (SKAL matche klienten).
 const LINES_CHUNK_SIZE = 5_000;
 // Tidsbudget pr. tick: vi fortsætter med flere chunks/måneder i samme kald,
@@ -33,11 +29,7 @@ const LINES_CHUNK_SIZE = 5_000;
 // requestet, og fremdriften gemmes efter hver chunk, så et afbrudt tick
 // genoptages præcis hvor det slap.
 const TICK_BUDGET_MS = 45_000;
-// Sletning af gamle rålinjer sker måned for måned — flere måneder pr. tick,
-// men aldrig i én sætning, så vi ikke rammer statement timeout.
 const BUCKET = "invoice-uploads";
-
-
 
 function isAuthorized(provided: string | null): boolean {
   if (!provided) return false;
@@ -67,7 +59,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         const { data: candidates, error: selErr } = await supabaseAdmin
           .from("invoice_import_jobs")
           .select(
-            "id, phase, attempts, aggregated_path, saved_monthly, saved_top, saved_top_monthly, total_monthly, total_top, total_top_monthly, total_lines, saved_lines, lines_deleted, prune_month_idx, lines_batch_id, lines_date_from, lines_date_to, lines_afdelinger",
+            "id, phase, attempts, aggregated_path, total_lines, saved_lines, lines_deleted, prune_month_idx, aggregate_month_idx, months_rebuilt, lines_batch_id, lines_date_from, lines_date_to, lines_afdelinger",
           )
           .in("status", ["queued", "running"])
           .neq("phase", "done")
@@ -89,16 +81,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         if (claimErr) return Response.json({ error: claimErr.message }, { status: 500 });
 
         try {
-          // Find ud af hvilken chunk vi mangler
-          let phase = job.phase as string;
-
-          /** Første aggregatfase efter rålinjer + oprydning. */
-          const firstAggregatePhase = (): string => {
-            if ((job.total_monthly as number) > 0) return "monthly";
-            if ((job.total_top as number) > 0) return "top";
-            if ((job.total_top_monthly as number) > 0) return "top_monthly";
-            return "done";
-          };
+          const phase = job.phase as string;
 
           // ---- Fase 1: rå fakturalinjer ----
           if (phase === "lines") {
@@ -154,7 +137,6 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             return Response.json({ processed, chunks, jobId, phase: "lines", savedNow: already });
           }
 
-
           // ---- Fase 2: ryd gamle rålinjer, måned for måned ----
           if (phase === "prune") {
             const batchId = job.lines_batch_id as string | null;
@@ -162,12 +144,11 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             const to = job.lines_date_to as string | null;
             const afdelinger = (job.lines_afdelinger as number[]) ?? [];
             if (!batchId || !from || !to || !afdelinger.length) {
-              const np = firstAggregatePhase();
               await supabaseAdmin
                 .from("invoice_import_jobs")
-                .update({ phase: np, status: np === "done" ? "completed" : "queued", attempts: 0 })
+                .update({ phase: "aggregate", status: "queued", attempts: 0 })
                 .eq("id", jobId);
-              return Response.json({ processed: 0, jobId, phase: "prune", next: np });
+              return Response.json({ processed: 0, jobId, phase: "prune", next: "aggregate" });
             }
             const months = monthsInRange(from, to);
             let idx = (job.prune_month_idx as number) ?? 0;
@@ -190,15 +171,14 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
                 .update({ prune_month_idx: idx, lines_deleted: deleted })
                 .eq("id", jobId);
             }
-            const prunedAll = idx >= months.length;
-            const np = prunedAll ? firstAggregatePhase() : "prune";
+            const np = idx >= months.length ? "aggregate" : "prune";
             await supabaseAdmin
               .from("invoice_import_jobs")
               .update({
                 prune_month_idx: idx,
                 lines_deleted: deleted,
                 phase: np,
-                status: np === "done" ? "completed" : "queued",
+                status: "queued",
                 attempts: 0,
                 last_error: null,
               })
@@ -206,166 +186,101 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             return Response.json({ processed: deleted, jobId, phase: "prune", next: np });
           }
 
-          if (phase !== "monthly" && phase !== "top" && phase !== "top_monthly") {
-            throw new Error("Ukendt phase: " + phase + " (forventede monthly|top|top_monthly)");
-          }
-
-
-          const savedCol =
-            phase === "monthly"
-              ? "saved_monthly"
-              : phase === "top"
-                ? "saved_top"
-                : "saved_top_monthly";
-          const totalCol =
-            phase === "monthly"
-              ? "total_monthly"
-              : phase === "top"
-                ? "total_top"
-                : "total_top_monthly";
-          const chunkPrefix = phase === "top_monthly" ? "top_monthly" : phase;
-          let saved = (job[savedCol] as number) ?? 0;
-          const total = (job[totalCol] as number) ?? 0;
-
-          function nextPhaseAfter(current: string): string {
-            if (current === "monthly") {
-              if ((job.total_top as number) > 0) return "top";
-              if ((job.total_top_monthly as number) > 0) return "top_monthly";
-              return "done";
-            }
-            if (current === "top") {
-              if ((job.total_top_monthly as number) > 0) return "top_monthly";
-              return "done";
-            }
-            return "done";
-          }
-
-          if (saved >= total) {
-            // intet at gøre i denne fase — flyt videre
-            const np = nextPhaseAfter(phase);
-            const nextUpdate: any =
-              np === "done"
-                ? { phase: "done", status: "completed", finished_at: new Date().toISOString() }
-                : { phase: np };
-            await supabaseAdmin.from("invoice_import_jobs").update(nextUpdate).eq("id", jobId);
-            return Response.json({ jobId, advancedTo: nextUpdate.phase });
-          }
-
-          const chunkSize = phase === "top_monthly" ? TOP_MONTHLY_CHUNK_SIZE : CHUNK_SIZE;
-          let nextPhase = phase;
-          let nextStatus = "running";
-          let finishedAt: string | null = null;
-          let chunkIdx = Math.floor(saved / chunkSize);
-          let chunks = 0;
-          let upsertedRows = 0;
-          let savedRows = 0;
-
-          // Flere chunks pr. tick i samme fase, indtil fasen er færdig eller
-          // tidsbudgettet er brugt. Fremdriften gemmes efter hver chunk.
-          while (saved < total && hasBudget()) {
-            chunkIdx = Math.floor(saved / chunkSize);
-            const chunkPath = `${prefix}/${chunkPrefix}-${chunkIdx}.json`;
-            const { data: blob, error: dlErr } = await supabaseAdmin.storage
-              .from(BUCKET)
-              .download(chunkPath);
-            if (dlErr || !blob) {
-              throw new Error("Kunne ikke hente chunk " + chunkPath + ": " + (dlErr?.message ?? ""));
-            }
-            const rows = JSON.parse(await blob.text()) as any[];
-            upsertedRows +=
-              phase === "monthly"
-                ? await upsertMonthlySlice(supabaseAdmin, rows)
-                : phase === "top"
-                  ? await upsertTopSlice(supabaseAdmin, rows)
-                  : await upsertTopMonthlySlice(supabaseAdmin, rows);
-            // VIGTIGT: tæl chunk-bredden (rows.length), ikke faktisk upsertede.
-            savedRows = rows.length;
-            saved += savedRows;
-            chunks++;
-            const phaseDone = saved >= total;
-
-            if (phaseDone) {
-              nextPhase = nextPhaseAfter(phase);
-              if (nextPhase === "done") {
-                nextStatus = "completed";
-                finishedAt = new Date().toISOString();
-              }
-            }
-
-            const updatePayload: any = {
-              [savedCol]: saved,
-              phase: nextPhase,
-              status: nextStatus,
-              // Nulstil forsøg efter en gennemført chunk, så et langt job ikke
-              // bliver markeret failed blot fordi det har kørt mange ticks.
-              attempts: 0,
-              last_error: null,
-            };
-            if (finishedAt) updatePayload.finished_at = finishedAt;
-
-            await supabaseAdmin.from("invoice_import_jobs").update(updatePayload).eq("id", jobId);
-
-            // Tom chunk → ingen fremdrift; undgå uendelig løkke.
-            if (savedRows === 0) break;
-          }
-
-          const newSaved = saved;
-
-
-          // Ryd op når jobbet er færdigt + genberegn kundestatus
-          if (nextPhase === "done") {
-            const allChunks: string[] = [];
-            const monthlyCount = Math.ceil((job.total_monthly ?? 0) / CHUNK_SIZE);
-            const topCount = Math.ceil((job.total_top ?? 0) / CHUNK_SIZE);
-            const topMonthlyCount = Math.ceil(
-              (job.total_top_monthly ?? 0) / TOP_MONTHLY_CHUNK_SIZE,
-            );
-            for (let i = 0; i < monthlyCount; i++) allChunks.push(`${prefix}/monthly-${i}.json`);
-            for (let i = 0; i < topCount; i++) allChunks.push(`${prefix}/top-${i}.json`);
-            for (let i = 0; i < topMonthlyCount; i++) allChunks.push(`${prefix}/top_monthly-${i}.json`);
-            const linesCount = Math.ceil((job.total_lines ?? 0) / LINES_CHUNK_SIZE);
-            for (let i = 0; i < linesCount; i++) allChunks.push(`${prefix}/lines-${i}.json`);
-            if (allChunks.length) {
-              await supabaseAdmin.storage.from(BUCKET).remove(allChunks);
-            }
-            // Genberegn last_sales_date / last_consumable_sales_date /
-            // has_active_equipment / customer_type for alle firmaer ud fra
-            // den friske sales_monthly. Funktionen er sat-baseret og kører på
-            // ~8s for 14k firmaer × 233k rækker — ingen chunking nødvendig.
-            const { error: recomputeErr } = await supabaseAdmin.rpc(
-              "recompute_all_company_statuses",
-            );
-            if (recomputeErr) {
-              console.error("[invoice-import] recompute_all_company_statuses fejlede:", recomputeErr);
-              // Synliggør fejlen i UI'et — ikke kun i konsollen.
+          // ---- Fase 3: genberegn aggregater fra rålinjerne, én måned pr. iteration ----
+          if (phase === "aggregate") {
+            const from = job.lines_date_from as string | null;
+            const to = job.lines_date_to as string | null;
+            const afdelinger = (job.lines_afdelinger as number[]) ?? [];
+            if (!from || !to) {
               await supabaseAdmin
                 .from("invoice_import_jobs")
-                .update({
-                  last_error:
-                    "Kundestatus blev ikke genberegnet: " +
-                    String(recomputeErr.message ?? recomputeErr).slice(0, 1000),
-                })
+                .update({ phase: "relink", status: "queued", attempts: 0 })
+                .eq("id", jobId);
+              return Response.json({ jobId, phase: "aggregate", next: "relink" });
+            }
+            const months = monthsInRange(from, to);
+            let idx = (job.aggregate_month_idx as number) ?? 0;
+            let rebuilt = (job.months_rebuilt as number) ?? 0;
+            while (idx < months.length && hasBudget()) {
+              const month = months[idx];
+              const isLast = idx === months.length - 1;
+              const { error: aggErr } = await supabaseAdmin.rpc("rebuild_sales_aggregates", {
+                _from: month,
+                _to: month,
+                _kun_afdelinger: afdelinger.length ? afdelinger : undefined,
+                // Top-varelisten er rullende 12 mdr. — beregnes én gang til sidst.
+                _med_top: isLast,
+              });
+              if (aggErr) throw new Error("rebuild_sales_aggregates: " + aggErr.message);
+              idx++;
+              rebuilt++;
+              await supabaseAdmin
+                .from("invoice_import_jobs")
+                .update({ aggregate_month_idx: idx, months_rebuilt: rebuilt })
                 .eq("id", jobId);
             }
+            const np = idx >= months.length ? "relink" : "aggregate";
+            await supabaseAdmin
+              .from("invoice_import_jobs")
+              .update({
+                aggregate_month_idx: idx,
+                months_rebuilt: rebuilt,
+                phase: np,
+                status: "queued",
+                attempts: 0,
+                last_error: null,
+              })
+              .eq("id", jobId);
+            return Response.json({ jobId, phase: "aggregate", monthsRebuilt: rebuilt, next: np });
+          }
+
+          // ---- Fase 4: kobl salgsrækker til lokation/virksomhed + afslut ----
+          if (phase === "relink") {
             // Koble salgsrækker til lokation/virksomhed ud fra
             // (afdeling_nr, visma_delivery_no) — historikken skal med.
             const { error: relinkErr } = await supabaseAdmin.rpc("relink_sales_locations");
             if (relinkErr) {
               console.error("[invoice-import] relink_sales_locations fejlede:", relinkErr);
             }
+            // Genberegn kundestatus ud fra den friske sales_monthly.
+            const { error: recomputeErr } = await supabaseAdmin.rpc(
+              "recompute_all_company_statuses",
+            );
+            if (recomputeErr) {
+              console.error(
+                "[invoice-import] recompute_all_company_statuses fejlede:",
+                recomputeErr,
+              );
+            }
+            // Ryd chunk-filerne op.
+            const linesCount = Math.ceil((job.total_lines ?? 0) / LINES_CHUNK_SIZE);
+            const allChunks: string[] = [];
+            for (let i = 0; i < linesCount; i++) allChunks.push(`${prefix}/lines-${i}.json`);
+            if (allChunks.length) {
+              await supabaseAdmin.storage.from(BUCKET).remove(allChunks);
+            }
+            await supabaseAdmin
+              .from("invoice_import_jobs")
+              .update({
+                phase: "done",
+                status: "completed",
+                finished_at: new Date().toISOString(),
+                attempts: 0,
+                last_error: recomputeErr
+                  ? "Kundestatus blev ikke genberegnet: " +
+                    String(recomputeErr.message ?? recomputeErr).slice(0, 1000)
+                  : relinkErr
+                    ? "Kobling af salgsrækker fejlede: " +
+                      String(relinkErr.message ?? relinkErr).slice(0, 1000)
+                    : null,
+              })
+              .eq("id", jobId);
+            return Response.json({ jobId, phase: "done", status: "completed" });
           }
 
-
-          return Response.json({
-            jobId,
-            phase: nextPhase,
-            status: nextStatus,
-            chunk: chunkIdx,
-            chunkSize,
-            chunkRows: savedRows,
-            upsertedRows,
-            [savedCol]: newSaved,
-          });
+          throw new Error(
+            "Ukendt phase: " + phase + " (forventede lines|prune|aggregate|relink|done)",
+          );
         } catch (e: any) {
           const newAttempts = attempts + 1;
           const finalFailed = newAttempts >= MAX_ATTEMPTS;
