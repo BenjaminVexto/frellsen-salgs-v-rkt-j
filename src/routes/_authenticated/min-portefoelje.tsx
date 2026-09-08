@@ -62,7 +62,7 @@ function PortfolioPage() {
     }
   }, [auth.role, navigate]);
   const fn = useServerFn(getMyPortfolio);
-  const { viewAsUserId, isImpersonating } = useViewAs();
+  const { viewAsUserId, isImpersonating, effectiveMaaSeDb, effectiveMaaSeAnalyse } = useViewAs();
   const { afdelingFilter, stampAfdelingNr, navnFor } = useAfdeling();
   // Når admin "ser som" sælger, låses sellerId til den sælger.
   const [sellerId, setSellerId] = useState<string | "all">(viewAsUserId ?? "all");
@@ -85,7 +85,7 @@ function PortfolioPage() {
   // med rettigheden og kun når de har adgang til afdelingen.
   const analyseAfdeling = afdelingFilter ?? stampAfdelingNr;
   const visAnalyse =
-    auth.maaSeAnalyse &&
+    effectiveMaaSeAnalyse &&
     analyseAfdeling != null &&
     auth.afdelinger.includes(analyseAfdeling);
   // Målepunkter findes kun for afdeling 11.
@@ -103,6 +103,9 @@ function PortfolioPage() {
 
   const data = q.data;
   const isAdmin = data?.isAdmin ?? false;
+  // DB vises kun når den EFFEKTIVE bruger må se dækningsbidrag — under
+  // "Se som sælger" er det sælgerens rettighed, ikke administratorens.
+  const visDb = isAdmin && effectiveMaaSeDb;
   // Sælgervælgeren må kun bruges af admin og brugere med maa_se_analyse —
   // og aldrig under "Se som sælger", hvor kun den viste sælgers egne tal må vises.
   const maaVaelgeSaelger = (isAdmin || auth.maaSeAnalyse) && !isImpersonating;
@@ -215,7 +218,7 @@ function PortfolioPage() {
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Porteføljens puls
               </h2>
-              <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+              <div className={`grid gap-3 ${visDb ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 <RevenueCard
                   label="Porteføljeomsætning · År-til-Dato"
                   current={data.totals.revenueYtd}
@@ -237,7 +240,7 @@ function PortfolioPage() {
                     <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} prior={data.statusCountsPrior.paaVejVaek} hint="Aktiv kunde med udstyr, men forbruget falder." />
                   </div>
                 </Card>
-                {isAdmin && (
+                {visDb && (
                   <Card className="p-4">
                     <div className="text-xs text-muted-foreground mb-1">DB · 12 mdr. (admin)</div>
                     <div className="text-2xl font-semibold tabular-nums">
@@ -292,7 +295,7 @@ function PortfolioPage() {
                   </SelectContent>
                 </Select>
                 <div className="ml-auto flex items-center gap-4">
-                  {isAdmin && (
+                  {visDb && (
                     <div className="flex items-center gap-2">
                       <Switch id="show-db" checked={showDB} onCheckedChange={setShowDB} />
                       <Label htmlFor="show-db" className="text-xs text-muted-foreground cursor-pointer">
@@ -340,7 +343,7 @@ function PortfolioPage() {
                       <Th onClick={() => toggleSort("status")} active={sortKey === "status"} dir={sortDir}>
                         Status
                       </Th>
-                      {isAdmin && showDB && <th className="px-3 py-2 text-right">DB 12m</th>}
+                      {visDb && showDB && <th className="px-3 py-2 text-right">DB 12m</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -380,7 +383,7 @@ function PortfolioPage() {
                           <td className="px-3 py-2">
                             <StatusBadge type={c.customer_type} />
                           </td>
-                          {isAdmin && showDB && (
+                          {visDb && showDB && (
                             <td className="px-3 py-2 text-right tabular-nums">
                               {(c.contribution12m ?? 0) !== 0 ? fmtKr(c.contribution12m ?? 0) : "—"}
                             </td>
@@ -428,7 +431,7 @@ function PortfolioPage() {
               <Tabs defaultValue="revenue">
                 <TabsList>
                   <TabsTrigger value="revenue">Omsætning</TabsTrigger>
-                  {isAdmin && <TabsTrigger value="db">Dækningsbidrag</TabsTrigger>}
+                  {visDb && <TabsTrigger value="db">Dækningsbidrag</TabsTrigger>}
                   <TabsTrigger value="potential">Potentiale-ratio</TabsTrigger>
                 </TabsList>
 
@@ -476,7 +479,7 @@ function PortfolioPage() {
 
 
 
-                {isAdmin && data.rankings.topContribution && (
+                {visDb && data.rankings.topContribution && (
                   <TabsContent value="db" className="mt-4">
                     <RankingTable
                       title={rankingsExpanded ? "Top 25 — mest profitable kunder (DB 12 mdr.)" : "Top 5 — mest profitable kunder (DB 12 mdr.)"}
@@ -607,7 +610,7 @@ function PortfolioPage() {
               <AnalyseFane
                 afdelingNr={analyseAfdeling!}
                 afdelingNavn={navnFor(analyseAfdeling)}
-                maaSeDb={auth.maaSeDb}
+                maaSeDb={effectiveMaaSeDb}
               />
             </TabsContent>
           )}
