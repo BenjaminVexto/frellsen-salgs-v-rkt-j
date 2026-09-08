@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Calendar, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,6 +40,22 @@ const maanedListe = (fra: string, til: string) => {
 
 const fmtTal = (n: number, dec = 0) =>
   n.toLocaleString("da-DK", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+const fmtDato = (d: string | null) =>
+  d ? new Date(d).toLocaleDateString("da-DK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+
+type Kundetype = "alle" | "offentlig" | "privat";
+
+/** Hvad panelet skal vise. Månedsnøgle null = hele perioden. */
+type Drill =
+  | { slags: "db"; kategori: string; label: string; maaned: string | null }
+  | {
+      slags: "maskiner";
+      maerke: string;
+      brugt: boolean | null;
+      label: string;
+      maaned: string | null;
+    }
+  | { slags: "nye"; kategori: string; label: string; maaned: string | null };
 
 /**
  * Sælger-id kommer fra siden, så adgangsreglen kun findes ét sted:
@@ -67,6 +86,8 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const [tilRaw, setTilRaw] = useState(sidsteHele);
   const til = tilRaw > sidsteHele ? sidsteHele : tilRaw;
   const [visBrugte, setVisBrugte] = useState(false);
+  const [kundetype, setKundetype] = useState<Kundetype>("alle");
+  const [drill, setDrill] = useState<Drill | null>(null);
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
   const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
@@ -82,10 +103,13 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   });
 
   const maskinerQ = useQuery({
-    queryKey: ["maalepunkt-maskiner", saelgerId, fra, til],
+    queryKey: ["maalepunkt-maskiner", saelgerId, fra, til, kundetype],
     enabled: !!saelgerId,
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("maalepunkt_maskiner", args);
+      const { data, error } = await (supabase as any).rpc("maalepunkt_maskiner", {
+        ...args,
+        _kundetype: kundetype,
+      });
       if (error) throw new Error(error.message);
       return (data ?? []) as { maaned: string; maerke: string; brugt: boolean; antal: number }[];
     },
@@ -113,13 +137,13 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       const key = mNøgle(r.maaned);
       m.set(key, (m.get(key) ?? 0) + Number(r.vaerdi || 0));
     });
-    const rows: { label: string; per: Map<string, number> }[] = [
-      { label: "Private kunder", per: map.get("privat") ?? new Map() },
-      { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map() },
+    const rows: { label: string; per: Map<string, number>; kategori: string }[] = [
+      { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
     const andet = map.get("andet");
     if (andet && Array.from(andet.values()).some((v) => Math.abs(v) > 0.005)) {
-      rows.push({ label: "Andet", per: andet });
+      rows.push({ label: "Andet", per: andet, kategori: "andet" });
     }
     return rows;
   }, [dbQ.data]);
@@ -127,7 +151,8 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   // --- Tabel 2: maskiner ---
   const MAERKER = ["Wittenborg", "Animo", "Rex-Royal", "Andet"];
   const maskinTabel = useMemo(() => {
-    const rows: { label: string; per: Map<string, number> }[] = [];
+    const rows: { label: string; per: Map<string, number>; maerke: string; brugt: boolean | null }[] =
+      [];
     const pick = (maerke: string, brugt: boolean | null) => {
       const m = new Map<string, number>();
       (maskinerQ.data ?? []).forEach((r) => {
@@ -140,10 +165,10 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     };
     for (const maerke of MAERKER) {
       if (visBrugte) {
-        rows.push({ label: `${maerke} — ny`, per: pick(maerke, false) });
-        rows.push({ label: `${maerke} — brugt`, per: pick(maerke, true) });
+        rows.push({ label: `${maerke} — ny`, per: pick(maerke, false), maerke, brugt: false });
+        rows.push({ label: `${maerke} — brugt`, per: pick(maerke, true), maerke, brugt: true });
       } else {
-        rows.push({ label: maerke, per: pick(maerke, null) });
+        rows.push({ label: maerke, per: pick(maerke, null), maerke, brugt: null });
       }
     }
     return rows;
@@ -159,13 +184,13 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       const key = mNøgle(r.maaned);
       m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
     });
-    const rows: { label: string; per: Map<string, number> }[] = [
-      { label: "Private", per: map.get("privat") ?? new Map() },
-      { label: "Offentlige", per: map.get("offentlig") ?? new Map() },
+    const rows: { label: string; per: Map<string, number>; kategori: string }[] = [
+      { label: "Private", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
     const andet = map.get("andet");
     if (andet && Array.from(andet.values()).some((v) => v > 0)) {
-      rows.push({ label: "Andet", per: andet });
+      rows.push({ label: "Andet", per: andet, kategori: "andet" });
     }
     return rows;
   }, [nyeQ.data]);
@@ -233,25 +258,33 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     );
   }
 
-
   const Tabel = ({
     titel,
     rows,
     dec,
     loading,
     error,
+    onRow,
+    onCell,
+    hoved,
   }: {
     titel: string;
     rows: { label: string; per: Map<string, number> }[];
     dec: number;
     loading: boolean;
     error?: string | null;
+    onRow?: (i: number) => void;
+    onCell?: (i: number, maaned: string) => void;
+    hoved?: React.ReactNode;
   }) => {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
     return (
       <Card className="p-4 space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">{titel}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide">{titel}</h2>
+          {hoved}
+        </div>
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : loading ? (
@@ -273,12 +306,27 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {rows.map((r, i) => (
                   <tr key={r.label} className="border-b last:border-0">
-                    <td className="py-1.5 pr-3 whitespace-nowrap">{r.label}</td>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">
+                      <button
+                        type="button"
+                        className="hover:underline text-left"
+                        onClick={() => onRow?.(i)}
+                      >
+                        {r.label}
+                      </button>
+                    </td>
                     {maaneder.map((m) => (
                       <td key={m} className="text-right py-1.5 px-2">
-                        {fmtTal(r.per.get(m) ?? 0, dec)}
+                        <button
+                          type="button"
+                          className="hover:underline disabled:no-underline disabled:cursor-default"
+                          disabled={!(r.per.get(m) ?? 0)}
+                          onClick={() => onCell?.(i, m)}
+                        >
+                          {fmtTal(r.per.get(m) ?? 0, dec)}
+                        </button>
                       </td>
                     ))}
                     <td className="text-right py-1.5 pl-3 font-semibold">
@@ -306,7 +354,8 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   return (
     <div className="space-y-4 max-w-full">
       <p className="text-sm text-muted-foreground">
-        Dækningsbidrag, solgte maskiner og nye kunder pr. hel måned — afdeling 11.
+        Dækningsbidrag, solgte maskiner og nye kunder pr. hel måned — afdeling 11. Klik på et tal
+        eller en kategori for at se hvilke virksomheder det består af.
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -355,13 +404,6 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
           </PopoverContent>
         </Popover>
 
-        <div className="flex items-center gap-2 ml-1">
-          <Switch id="brugte" checked={visBrugte} onCheckedChange={setVisBrugte} />
-          <Label htmlFor="brugte" className="text-sm">
-            Vis brugte separat
-          </Label>
-        </div>
-
         <Button variant="outline" size="sm" className="ml-auto" onClick={csv}>
           <Download className="h-4 w-4 mr-2" /> CSV
         </Button>
@@ -373,6 +415,22 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
         dec={0}
         loading={dbQ.isLoading}
         error={dbQ.error ? (dbQ.error as Error).message : null}
+        onRow={(i) =>
+          setDrill({
+            slags: "db",
+            kategori: dbTabel[i].kategori,
+            label: `${dbTabel[i].label} — ${maanedNavn(fra)}–${maanedNavn(til)}`,
+            maaned: null,
+          })
+        }
+        onCell={(i, m) =>
+          setDrill({
+            slags: "db",
+            kategori: dbTabel[i].kategori,
+            label: `${dbTabel[i].label} — ${maanedNavn(m)}`,
+            maaned: m,
+          })
+        }
       />
       <Tabel
         titel="Solgte maskiner pr. måned (stk.)"
@@ -380,6 +438,45 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
         dec={0}
         loading={maskinerQ.isLoading}
         error={maskinerQ.error ? (maskinerQ.error as Error).message : null}
+        hoved={
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Switch id="brugte" checked={visBrugte} onCheckedChange={setVisBrugte} />
+              <Label htmlFor="brugte" className="text-sm font-normal">
+                Vis brugte separat
+              </Label>
+            </div>
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={kundetype}
+              onValueChange={(v) => v && setKundetype(v as Kundetype)}
+            >
+              <ToggleGroupItem value="offentlig">Offentlige</ToggleGroupItem>
+              <ToggleGroupItem value="privat">Private</ToggleGroupItem>
+              <ToggleGroupItem value="alle">Alle</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        }
+        onRow={(i) =>
+          setDrill({
+            slags: "maskiner",
+            maerke: maskinTabel[i].maerke,
+            brugt: maskinTabel[i].brugt,
+            label: `${maskinTabel[i].label} — ${maanedNavn(fra)}–${maanedNavn(til)}`,
+            maaned: null,
+          })
+        }
+        onCell={(i, m) =>
+          setDrill({
+            slags: "maskiner",
+            maerke: maskinTabel[i].maerke,
+            brugt: maskinTabel[i].brugt,
+            label: `${maskinTabel[i].label} — ${maanedNavn(m)}`,
+            maaned: m,
+          })
+        }
       />
       <Tabel
         titel="Nye kunder pr. måned"
@@ -387,7 +484,183 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
         dec={0}
         loading={nyeQ.isLoading}
         error={nyeQ.error ? (nyeQ.error as Error).message : null}
+        onRow={(i) =>
+          setDrill({
+            slags: "nye",
+            kategori: nyeTabel[i].kategori,
+            label: `${nyeTabel[i].label} — ${maanedNavn(fra)}–${maanedNavn(til)}`,
+            maaned: null,
+          })
+        }
+        onCell={(i, m) =>
+          setDrill({
+            slags: "nye",
+            kategori: nyeTabel[i].kategori,
+            label: `${nyeTabel[i].label} — ${maanedNavn(m)}`,
+            maaned: m,
+          })
+        }
+      />
+
+      <DetaljePanel
+        drill={drill}
+        saelgerId={saelgerId}
+        fra={fra}
+        til={til}
+        kundetype={kundetype}
+        onClose={() => setDrill(null)}
       />
     </div>
+  );
+}
+
+/** Ét panel ad gangen — viser hvilke virksomheder tallet består af. */
+function DetaljePanel({
+  drill,
+  saelgerId,
+  fra,
+  til,
+  kundetype,
+  onClose,
+}: {
+  drill: Drill | null;
+  saelgerId: string;
+  fra: string;
+  til: string;
+  kundetype: Kundetype;
+  onClose: () => void;
+}) {
+  const q = useQuery({
+    queryKey: ["maalepunkt-detaljer", saelgerId, fra, til, kundetype, drill],
+    enabled: !!drill,
+    queryFn: async () => {
+      const d = drill!;
+      const base = {
+        _saelger: saelgerId,
+        _fra: d.maaned ? firstDay(d.maaned) : firstDay(fra),
+        _til: d.maaned ? firstDay(d.maaned) : firstDay(til),
+      };
+      if (d.slags === "db") {
+        const { data, error } = await (supabase as any).rpc("maalepunkt_db_detaljer", {
+          ...base,
+          _kategori: d.kategori,
+        });
+        if (error) throw new Error(error.message);
+        return (data ?? []) as any[];
+      }
+      if (d.slags === "maskiner") {
+        const { data, error } = await (supabase as any).rpc("maalepunkt_maskiner_detaljer", {
+          ...base,
+          _maerke: d.maerke,
+          _brugt: d.brugt,
+          _kundetype: kundetype,
+        });
+        if (error) throw new Error(error.message);
+        return (data ?? []) as any[];
+      }
+      const { data, error } = await (supabase as any).rpc("maalepunkt_nye_kunder_detaljer", {
+        ...base,
+        _kategori: d.kategori,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as any[];
+    },
+  });
+
+  const rows = q.data ?? [];
+  const navn = (r: any) => (
+    <Link
+      to="/virksomheder/$id"
+      params={{ id: r.company_id }}
+      className="text-primary hover:underline"
+    >
+      {r.navn}
+    </Link>
+  );
+
+  return (
+    <Dialog open={!!drill} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{drill?.label ?? ""}</DialogTitle>
+        </DialogHeader>
+        {q.isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
+            <Loader2 className="h-4 w-4 animate-spin" /> Henter…
+          </div>
+        ) : q.error ? (
+          <p className="text-sm text-destructive">{(q.error as Error).message}</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">Ingen virksomheder i dette tal.</p>
+        ) : (
+          <table className="w-full text-sm tabular-nums">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="py-2 pr-3 font-medium">Virksomhed</th>
+                <th className="py-2 pr-3 font-medium">By</th>
+                {drill?.slags === "db" && (
+                  <>
+                    <th className="py-2 pr-3 font-medium text-right">DB</th>
+                    <th className="py-2 font-medium text-right">Omsætning</th>
+                  </>
+                )}
+                {drill?.slags === "maskiner" && (
+                  <>
+                    <th className="py-2 pr-3 font-medium">Model</th>
+                    <th className="py-2 pr-3 font-medium text-right">Antal</th>
+                    <th className="py-2 pr-3 font-medium">Fakturadato</th>
+                    <th className="py-2 pr-3 font-medium text-right">Beløb</th>
+                    <th className="py-2 font-medium">Stand</th>
+                  </>
+                )}
+                {drill?.slags === "nye" && (
+                  <>
+                    <th className="py-2 pr-3 font-medium">Oprettet i Visma</th>
+                    <th className="py-2 pr-3 font-medium">Kundeprisgruppe 2</th>
+                    <th className="py-2 pr-3 font-medium text-right">Omsætning siden</th>
+                    <th className="py-2 font-medium">Sidste køb</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r: any, i: number) => (
+                <tr key={`${r.company_id}-${i}`} className="border-b last:border-0">
+                  <td className="py-1.5 pr-3">{navn(r)}</td>
+                  <td className="py-1.5 pr-3">{r.by ?? "—"}</td>
+                  {drill?.slags === "db" && (
+                    <>
+                      <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.db) || 0)}</td>
+                      <td className="py-1.5 text-right">{fmtTal(Number(r.omsaetning) || 0)}</td>
+                    </>
+                  )}
+                  {drill?.slags === "maskiner" && (
+                    <>
+                      <td className="py-1.5 pr-3">{r.model ?? "—"}</td>
+                      <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.antal) || 0)}</td>
+                      <td className="py-1.5 pr-3">{fmtDato(r.faktura_dato)}</td>
+                      <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.beloeb) || 0)}</td>
+                      <td className="py-1.5">{r.brugt ? "Brugt" : "Ny"}</td>
+                    </>
+                  )}
+                  {drill?.slags === "nye" && (
+                    <>
+                      <td className="py-1.5 pr-3">{fmtDato(r.oprettet)}</td>
+                      <td className="py-1.5 pr-3">{r.kundeprisgruppe_2 ?? "—"}</td>
+                      <td className="py-1.5 pr-3 text-right">
+                        {fmtTal(Number(r.omsaetning) || 0)}
+                      </td>
+                      <td className="py-1.5">
+                        {r.sidste_koeb ? fmtDato(r.sidste_koeb) : "Har aldrig købt"}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
