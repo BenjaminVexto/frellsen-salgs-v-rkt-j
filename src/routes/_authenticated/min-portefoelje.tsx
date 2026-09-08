@@ -103,6 +103,14 @@ function PortfolioPage() {
 
   const data = q.data;
   const isAdmin = data?.isAdmin ?? false;
+  // Sælgervælgeren må kun bruges af admin og brugere med maa_se_analyse —
+  // og aldrig under "Se som sælger", hvor kun den viste sælgers egne tal må vises.
+  const maaVaelgeSaelger = (isAdmin || auth.maaSeAnalyse) && !isImpersonating;
+  const maalepunkterSaelgerId = isImpersonating
+    ? (viewAsUserId ?? "")
+    : maaVaelgeSaelger
+      ? (sellerId === "all" ? "" : sellerId)
+      : (auth.user?.id ?? "");
 
   // Forbrugssignalet hentes separat fra forbrug_signal_virksomhed, så tabel og
   // rangeringer viser præcis samme signal som "Faldende forbrug"-kortet.
@@ -565,7 +573,7 @@ function PortfolioPage() {
             Puls og månedlig udvikling på din portefølje.
           </p>
         </div>
-        {isAdmin && (
+        {maaVaelgeSaelger && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Sælger:</span>
             <Select value={sellerId} onValueChange={(v) => setSellerId(v as any)}>
@@ -583,6 +591,7 @@ function PortfolioPage() {
             </Select>
           </div>
         )}
+
       </div>
 
       {visAnalyse || visMaalepunkter ? (
@@ -604,7 +613,7 @@ function PortfolioPage() {
           )}
           {visMaalepunkter && (
             <TabsContent value="maalepunkter">
-              <MaalepunkterFane />
+              <MaalepunkterFane saelgerId={maalepunkterSaelgerId} />
             </TabsContent>
           )}
         </Tabs>

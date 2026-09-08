@@ -6,13 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Calendar, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,7 +38,12 @@ const maanedListe = (fra: string, til: string) => {
 const fmtTal = (n: number, dec = 0) =>
   n.toLocaleString("da-DK", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 
-export function MaalepunkterFane() {
+/**
+ * Sælger-id kommer fra siden, så adgangsreglen kun findes ét sted:
+ * kun admin og brugere med maa_se_analyse kan vælge en anden sælger,
+ * og aldrig under "Se som sælger".
+ */
+export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const auth = useAuth();
   const afd = useAfdeling();
 
@@ -69,24 +67,6 @@ export function MaalepunkterFane() {
   const [tilRaw, setTilRaw] = useState(sidsteHele);
   const til = tilRaw > sidsteHele ? sidsteHele : tilRaw;
   const [visBrugte, setVisBrugte] = useState(false);
-  const [valgtSaelger, setValgtSaelger] = useState<string>("");
-
-  const kanVaelgeSaelger = auth.role === "admin" || auth.maaSeAnalyse;
-  const saelgerId = kanVaelgeSaelger && valgtSaelger ? valgtSaelger : (auth.user?.id ?? "");
-
-  const saelgereQ = useQuery({
-    queryKey: ["maalepunkter-saelgere"],
-    enabled: kanVaelgeSaelger,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .eq("is_active", true)
-        .order("full_name");
-      if (error) throw new Error(error.message);
-      return (data ?? []) as { id: string; full_name: string }[];
-    },
-  });
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
   const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
@@ -245,6 +225,15 @@ export function MaalepunkterFane() {
     );
   }
 
+  if (!saelgerId) {
+    return (
+      <Card className="p-6 text-sm text-muted-foreground">
+        Vælg en sælger i vælgeren øverst for at se målepunkter.
+      </Card>
+    );
+  }
+
+
   const Tabel = ({
     titel,
     rows,
@@ -365,21 +354,6 @@ export function MaalepunkterFane() {
             </p>
           </PopoverContent>
         </Popover>
-
-        {kanVaelgeSaelger && (
-          <Select value={saelgerId} onValueChange={setValgtSaelger}>
-            <SelectTrigger className="h-9 w-[240px]">
-              <SelectValue placeholder="Vælg sælger" />
-            </SelectTrigger>
-            <SelectContent>
-              {(saelgereQ.data ?? []).map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.full_name || s.id.slice(0, 8)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
 
         <div className="flex items-center gap-2 ml-1">
           <Switch id="brugte" checked={visBrugte} onCheckedChange={setVisBrugte} />
