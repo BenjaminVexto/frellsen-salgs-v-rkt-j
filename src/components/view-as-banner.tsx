@@ -44,7 +44,8 @@ export function ViewAsBanner() {
         <div className="flex items-center gap-2 min-w-0">
           <Eye className="h-4 w-4 shrink-0" />
           <span className="truncate">
-            Du ser som <strong>{viewAsName}</strong> — read-only. Handlinger der ændrer data er deaktiveret.
+            Du ser som <strong>{viewAsName}</strong> — {rettigheder}. Read-only: handlinger der
+            ændrer data er deaktiveret.
           </span>
         </div>
         <Button
