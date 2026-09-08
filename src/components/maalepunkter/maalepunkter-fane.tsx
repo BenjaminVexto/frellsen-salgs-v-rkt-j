@@ -230,7 +230,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     };
     block("Dækningsbidrag pr. måned (kr.)", dbTabel, 2);
     block("Solgte maskiner pr. måned (stk.)", maskinTabel, 0);
-    block("Nye kunder pr. måned (antal)", nyeTabel, 0);
+    block("Nye kunder pr. måned (antal, måned for første ordre)", nyeTabel, 0);
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -479,7 +479,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
         }
       />
       <Tabel
-        titel="Nye kunder pr. måned"
+        titel="Nye kunder pr. måned (tælles i måneden for første ordre)"
         rows={nyeTabel}
         dec={0}
         loading={nyeQ.isLoading}
@@ -582,7 +582,7 @@ function DetaljePanel({
   /** Nye kunder kommer som én række pr. konto, grupperet pr. kunde (samme adresse). */
   const nyeGrupper = useMemo(() => {
     if (drill?.slags !== "nye") return [];
-    const map = new Map<string, { key: string; navn: string; by: string | null; oprettet: string; antal: number; konti: any[] }>();
+    const map = new Map<string, { key: string; navn: string; by: string | null; oprettet: string; foersteOrdre: string | null; antal: number; konti: any[] }>();
     rows.forEach((r: any) => {
       const k = String(r.gruppe_key ?? r.company_id);
       if (!map.has(k)) {
@@ -591,6 +591,7 @@ function DetaljePanel({
           navn: r.gruppe_navn ?? r.navn,
           by: r.gruppe_by ?? r.by,
           oprettet: r.gruppe_oprettet ?? r.oprettet,
+          foersteOrdre: r.gruppe_foerste_ordre ?? r.foerste_ordre ?? null,
           antal: Number(r.antal_konti ?? 1),
           konti: [],
         });
@@ -639,6 +640,7 @@ function DetaljePanel({
                 {drill?.slags === "nye" && (
                   <>
                     <th className="py-2 pr-3 font-medium">Oprettet i Visma</th>
+                    <th className="py-2 pr-3 font-medium">Første ordre</th>
                     <th className="py-2 pr-3 font-medium">Kundeprisgruppe 2</th>
                     <th className="py-2 pr-3 font-medium text-right">Omsætning siden</th>
                     <th className="py-2 font-medium">Sidste køb</th>
@@ -676,6 +678,9 @@ function DetaljePanel({
                           </td>
                           <td className="py-1.5 pr-3">{g.by ?? "—"}</td>
                           <td className="py-1.5 pr-3">{fmtDato(g.oprettet)}</td>
+                          <td className="py-1.5 pr-3">
+                            {g.foersteOrdre ? fmtDato(g.foersteOrdre) : "—"}
+                          </td>
                           <td className="py-1.5 pr-3">{foerste.kundeprisgruppe_2 ?? "—"}</td>
                           <td className="py-1.5 pr-3 text-right">{fmtTal(oms)}</td>
                           <td className="py-1.5">{sidste ? fmtDato(sidste) : "Har aldrig købt"}</td>
@@ -686,6 +691,9 @@ function DetaljePanel({
                               <td className="py-1 pr-3 pl-6 text-xs">{navn(k)}</td>
                               <td className="py-1 pr-3 text-xs">{k.by ?? "—"}</td>
                               <td className="py-1 pr-3 text-xs">{fmtDato(k.oprettet)}</td>
+                              <td className="py-1 pr-3 text-xs">
+                                {k.foerste_ordre ? fmtDato(k.foerste_ordre) : "—"}
+                              </td>
                               <td className="py-1 pr-3 text-xs">{k.kundeprisgruppe_2 ?? "—"}</td>
                               <td className="py-1 pr-3 text-right text-xs">
                                 {fmtTal(Number(k.omsaetning) || 0)}

@@ -3381,7 +3381,9 @@ export type Database = {
           antal_konti: number
           by: string
           company_id: string
+          foerste_ordre: string
           gruppe_by: string
+          gruppe_foerste_ordre: string
           gruppe_key: string
           gruppe_navn: string
           gruppe_oprettet: string
