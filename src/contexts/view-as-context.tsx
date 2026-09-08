@@ -126,6 +126,10 @@ export function useViewAs(): ViewAsContextValue {
       isImpersonating: false,
       effectiveUserId: null,
       realUserId: null,
+      effectiveRole: null,
+      effectiveMaaSeDb: false,
+      effectiveMaaSeAnalyse: false,
+      effectivePermsLoading: false,
       setViewAs: () => {},
       clearViewAs: () => {},
     };
