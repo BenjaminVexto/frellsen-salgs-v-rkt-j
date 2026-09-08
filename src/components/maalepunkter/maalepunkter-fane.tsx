@@ -225,6 +225,15 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     );
   }
 
+  if (!saelgerId) {
+    return (
+      <Card className="p-6 text-sm text-muted-foreground">
+        Vælg en sælger i vælgeren øverst for at se målepunkter.
+      </Card>
+    );
+  }
+
+
   const Tabel = ({
     titel,
     rows,
