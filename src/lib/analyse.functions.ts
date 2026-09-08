@@ -20,6 +20,19 @@ export type AnalysePivotRow = {
   antal_kunder: number;
 };
 
+export type AnalysePivotResultat = {
+  rows: AnalysePivotRow[];
+  /** Samlet antal grupper i perioden — uafhængigt af limit. */
+  totalGrupper: number;
+  totaler: {
+    omsaetning: number;
+    kg: number;
+    stk: number;
+    db: number | null;
+    antal_kunder: number;
+  };
+};
+
 export type AnalyseFiltre = {
   saelgere: { id: string; navn: string }[];
   prisgrupper: string[];
@@ -37,6 +50,9 @@ const pivotInput = z.object({
   regioner: z.array(z.string()).nullable().optional(),
   /** Varegruppe hvis kg skal summeres — standard "2" (kaffe). */
   kgGruppe: z.string().nullable().optional(),
+  /** Antal grupper der returneres. null/0 = alle (bruges til CSV). */
+  limit: z.number().int().nullable().optional(),
+  offset: z.number().int().nonnegative().nullable().optional(),
 });
 
 /**
@@ -47,40 +63,60 @@ const pivotInput = z.object({
 export const getAnalysePivot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => pivotInput.parse(input))
-  .handler(async ({ data, context }): Promise<AnalysePivotRow[]> => {
+  .handler(async ({ data, context }): Promise<AnalysePivotResultat> => {
+    const limit = data.limit ?? 200;
+    const alle = !limit || limit <= 0;
+    const params = {
+      _fra: data.fra,
+      _til: data.til,
+      _opdel: data.opdel,
+      _afdeling_nr: data.afdelingNr,
+      _saelger_ids: data.saelgerIds?.length ? data.saelgerIds : null,
+      _kundeprisgrupper: data.kundeprisgrupper?.length ? data.kundeprisgrupper : null,
+      _varegrupper: data.varegrupper?.length ? data.varegrupper : null,
+      _regioner: data.regioner?.length ? data.regioner : null,
+      _kg_gruppe: data.kgGruppe ?? "2",
+      _limit: alle ? 0 : limit,
+      _offset: data.offset ?? 0,
+    };
+
     // PostgREST returnerer højst 1.000 rækker pr. kald — hent alle sider,
-    // ellers bliver totalrækken forkert ved opdeling pr. kunde.
+    // så CSV-eksporten får hele datasættet.
     const PAGE = 1000;
     const rows: any[] = [];
     for (let from = 0; ; from += PAGE) {
       const { data: page, error } = await (context.supabase as any)
-        .rpc("analyse_pivot", {
-          _fra: data.fra,
-          _til: data.til,
-          _opdel: data.opdel,
-          _afdeling_nr: data.afdelingNr,
-          _saelger_ids: data.saelgerIds?.length ? data.saelgerIds : null,
-          _kundeprisgrupper: data.kundeprisgrupper?.length ? data.kundeprisgrupper : null,
-          _varegrupper: data.varegrupper?.length ? data.varegrupper : null,
-          _regioner: data.regioner?.length ? data.regioner : null,
-          _kg_gruppe: data.kgGruppe ?? "2",
-        })
+        .rpc("analyse_pivot", params)
         .range(from, from + PAGE - 1);
       if (error) throw new Error(error.message);
       const arr = (page ?? []) as any[];
       rows.push(...arr);
       if (arr.length < PAGE) break;
+      if (!alle && rows.length >= limit) break;
     }
-    return (rows as any[]).map((r) => ({
-      noegle: String(r.noegle),
-      navn: r.navn ?? null,
-      omsaetning: Number(r.omsaetning) || 0,
-      kg: Number(r.kg) || 0,
-      stk: Number(r.stk) || 0,
-      db: r.db == null ? null : Number(r.db) || 0,
-      antal_kunder: Number(r.antal_kunder) || 0,
-    }));
+
+    const f = rows[0];
+    return {
+      rows: rows.map((r) => ({
+        noegle: String(r.noegle),
+        navn: r.navn ?? null,
+        omsaetning: Number(r.omsaetning) || 0,
+        kg: Number(r.kg) || 0,
+        stk: Number(r.stk) || 0,
+        db: r.db == null ? null : Number(r.db) || 0,
+        antal_kunder: Number(r.antal_kunder) || 0,
+      })),
+      totalGrupper: f ? Number(f.total_grupper) || 0 : 0,
+      totaler: {
+        omsaetning: f ? Number(f.total_omsaetning) || 0 : 0,
+        kg: f ? Number(f.total_kg) || 0 : 0,
+        stk: f ? Number(f.total_stk) || 0 : 0,
+        db: f && f.total_db != null ? Number(f.total_db) || 0 : null,
+        antal_kunder: f ? Number(f.total_kunder) || 0 : 0,
+      },
+    };
   });
+
 
 export const getAnalyseFiltre = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
