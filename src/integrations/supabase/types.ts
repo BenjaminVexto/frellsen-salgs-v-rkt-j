@@ -3300,13 +3300,65 @@ export type Database = {
           vaerdi: number
         }[]
       }
-      maalepunkt_maskiner: {
-        Args: { _fra: string; _saelger: string; _til: string }
+      maalepunkt_db_detaljer: {
+        Args: {
+          _fra: string
+          _kategori: string
+          _maaned?: string
+          _saelger: string
+          _til: string
+        }
+        Returns: {
+          by: string
+          company_id: string
+          db: number
+          navn: string
+          omsaetning: number
+        }[]
+      }
+      maalepunkt_maskiner:
+        | {
+            Args: { _fra: string; _saelger: string; _til: string }
+            Returns: {
+              antal: number
+              brugt: boolean
+              maaned: string
+              maerke: string
+            }[]
+          }
+        | {
+            Args: {
+              _fra: string
+              _kundetype?: string
+              _saelger: string
+              _til: string
+            }
+            Returns: {
+              antal: number
+              brugt: boolean
+              maaned: string
+              maerke: string
+            }[]
+          }
+      maalepunkt_maskiner_detaljer: {
+        Args: {
+          _brugt?: boolean
+          _fra: string
+          _kundetype?: string
+          _maaned?: string
+          _maerke: string
+          _saelger: string
+          _til: string
+        }
         Returns: {
           antal: number
+          beloeb: number
           brugt: boolean
-          maaned: string
-          maerke: string
+          by: string
+          company_id: string
+          faktura_dato: string
+          model: string
+          navn: string
         }[]
       }
       maalepunkt_nye_kunder: {
@@ -3315,6 +3367,24 @@ export type Database = {
           antal: number
           kategori: string
           maaned: string
+        }[]
+      }
+      maalepunkt_nye_kunder_detaljer: {
+        Args: {
+          _fra: string
+          _kategori: string
+          _maaned?: string
+          _saelger: string
+          _til: string
+        }
+        Returns: {
+          by: string
+          company_id: string
+          kundeprisgruppe_2: string
+          navn: string
+          omsaetning: number
+          oprettet: string
+          sidste_koeb: string
         }[]
       }
       monthly_revenue_totals: {
