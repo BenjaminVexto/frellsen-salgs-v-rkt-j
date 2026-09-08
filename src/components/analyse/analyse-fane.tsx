@@ -260,38 +260,50 @@ export function AnalyseFane({
 
   const periodeTekst = `${maanedNavn(fra)}–${maanedNavn(til)}`;
 
-  const exportCsv = () => {
-    const head = [
-      OPDEL_LABEL[opdel],
-      "Omsætning",
-      "Andel %",
-      kgLabel,
-      "Stk",
-      ...(visAntalKunder ? ["Antal kunder"] : []),
-      ...(maaSeDb ? ["DB", "DG %"] : []),
-    ];
-    const lines = [head.join(";")];
-    for (const r of sorted) {
-      const dg = r.omsaetning > 0 && r.db != null ? ((r.db / r.omsaetning) * 100).toFixed(1) : "";
-      lines.push(
-        [
-          `"${(r.navn ?? r.noegle).replace(/"/g, '""')}"`,
-          r.omsaetning.toFixed(2).replace(".", ","),
-          andel(r.omsaetning).toFixed(1).replace(".", ","),
-          r.kg.toFixed(2).replace(".", ","),
-          r.stk.toFixed(2).replace(".", ","),
-          ...(visAntalKunder ? [String(r.antal_kunder)] : []),
-          ...(maaSeDb ? [(r.db ?? 0).toFixed(2).replace(".", ","), dg] : []),
-        ].join(";"),
-      );
+  const [csvHenter, setCsvHenter] = useState(false);
+
+  const exportCsv = async () => {
+    setCsvHenter(true);
+    try {
+      // CSV indeholder altid alle rækker — limit 0 henter hele datasættet.
+      const alle = await pivotFn({
+        data: { ...argsBase, fra: firstDay(fra), til: lastDay(til), limit: 0 },
+      });
+      const head = [
+        OPDEL_LABEL[opdel],
+        "Omsætning",
+        "Andel %",
+        kgLabel,
+        "Stk",
+        ...(visAntalKunder ? ["Antal kunder"] : []),
+        ...(maaSeDb ? ["DB", "DG %"] : []),
+      ];
+      const lines = [head.join(";")];
+      for (const r of alle.rows) {
+        const dg = r.omsaetning > 0 && r.db != null ? ((r.db / r.omsaetning) * 100).toFixed(1) : "";
+        lines.push(
+          [
+            `"${(r.navn ?? r.noegle).replace(/"/g, '""')}"`,
+            r.omsaetning.toFixed(2).replace(".", ","),
+            andel(r.omsaetning).toFixed(1).replace(".", ","),
+            r.kg.toFixed(2).replace(".", ","),
+            r.stk.toFixed(2).replace(".", ","),
+            ...(visAntalKunder ? [String(r.antal_kunder)] : []),
+            ...(maaSeDb ? [(r.db ?? 0).toFixed(2).replace(".", ","), dg] : []),
+          ].join(";"),
+        );
+      }
+      const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `analyse-${opdel}-${fra}-${til}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally {
+      setCsvHenter(false);
     }
-    const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `analyse-${opdel}-${fra}-${til}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
   };
+
 
   const visSammen = !!sammenPeriode && daekket(sammenPeriode);
 
