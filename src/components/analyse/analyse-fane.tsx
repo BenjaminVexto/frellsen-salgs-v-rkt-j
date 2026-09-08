@@ -597,15 +597,30 @@ export function AnalyseFane({
                     </tr>
                   );
                 })}
-                {sorted.length > visAntal && (
+                {totalGrupper > 0 && (
                   <tr>
-                    <td colSpan={99} className="px-3 py-3 text-center">
-                      <Button variant="outline" size="sm" onClick={() => setVisAntal((n) => n + 25)}>
-                        Vis flere ({(sorted.length - visAntal).toLocaleString("da-DK")} tilbage)
-                      </Button>
+                    <td colSpan={99} className="px-3 py-3 text-center space-y-2">
+                      <div className="text-xs text-muted-foreground">
+                        Viser {rows.length.toLocaleString("da-DK")} af{" "}
+                        {totalGrupper.toLocaleString("da-DK")}
+                      </div>
+                      {rows.length < totalGrupper && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={q.isFetching}
+                          onClick={() => setVisAntal((n) => n + SIDE)}
+                        >
+                          {q.isFetching ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : null}
+                          Vis flere ({(totalGrupper - rows.length).toLocaleString("da-DK")} tilbage)
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 )}
+
                 {!sorted.length && (
                   <tr>
                     <td colSpan={99} className="px-3 py-10 text-center text-muted-foreground">
