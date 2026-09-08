@@ -536,7 +536,7 @@ export function AnalyseFane({
                     <td className="px-3 py-2 text-right tabular-nums">
                       <Delta
                         now={total.omsaetning}
-                        before={(qSammen.data ?? []).reduce((s, r) => s + r.omsaetning, 0)}
+                        before={qSammen.data?.totaler.omsaetning ?? 0}
                       />
                     </td>
                   )}
