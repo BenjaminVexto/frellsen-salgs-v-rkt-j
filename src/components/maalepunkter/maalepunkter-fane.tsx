@@ -230,7 +230,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     };
     block("Dækningsbidrag pr. måned (kr.)", dbTabel, 2);
     block("Solgte maskiner pr. måned (stk.)", maskinTabel, 0);
-    block("Nye kunder pr. måned (antal)", nyeTabel, 0);
+    block("Nye kunder pr. måned (antal, måned for første ordre)", nyeTabel, 0);
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
