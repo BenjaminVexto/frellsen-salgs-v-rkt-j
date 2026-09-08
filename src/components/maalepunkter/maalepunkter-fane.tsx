@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,27 +17,6 @@ import { Calendar, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
-
-export const Route = createFileRoute("/_authenticated/maalepunkter")({
-  component: MaalepunkterSide,
-  head: () => ({
-    meta: [
-      { title: "Målepunkter — månedlige salgsmål pr. sælger" },
-      {
-        name: "description",
-        content:
-          "Månedlige målepunkter for Frellsen: dækningsbidrag, solgte maskiner og nye kunder pr. sælger.",
-      },
-      { property: "og:title", content: "Målepunkter — månedlige salgsmål pr. sælger" },
-      {
-        property: "og:description",
-        content: "Dækningsbidrag, solgte maskiner og nye kunder pr. måned for den enkelte sælger.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
-});
 
 // --- måneds-hjælpere ("YYYY-MM") ---
 const mKey = (y: number, m0: number) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
@@ -67,7 +45,7 @@ const maanedListe = (fra: string, til: string) => {
 const fmtTal = (n: number, dec = 0) =>
   n.toLocaleString("da-DK", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 
-function MaalepunkterSide() {
+export function MaalepunkterFane() {
   const auth = useAuth();
   const afd = useAfdeling();
 
@@ -259,7 +237,7 @@ function MaalepunkterSide() {
   const kunAfd11 = afd.afdelingFilter === 11 || afd.afdelingFilter === null;
   if (!auth.afdelinger.includes(11) || !kunAfd11) {
     return (
-      <div className="p-6">
+      <div>
         <Card className="p-6 text-sm text-muted-foreground">
           Målepunkter findes kun for afdeling 11. Vælg afdeling 11 i topbaren.
         </Card>
@@ -337,13 +315,10 @@ function MaalepunkterSide() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-4 max-w-full">
-      <div>
-        <h1 className="text-2xl font-semibold">Målepunkter</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Dækningsbidrag, solgte maskiner og nye kunder pr. hel måned — afdeling 11.
-        </p>
-      </div>
+    <div className="space-y-4 max-w-full">
+      <p className="text-sm text-muted-foreground">
+        Dækningsbidrag, solgte maskiner og nye kunder pr. hel måned — afdeling 11.
+      </p>
 
       <div className="flex flex-wrap items-center gap-2">
         <Popover>
