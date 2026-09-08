@@ -88,14 +88,6 @@ function PortfolioPage() {
     auth.maaSeAnalyse &&
     analyseAfdeling != null &&
     auth.afdelinger.includes(analyseAfdeling);
-  // Sælgervælgeren må kun bruges af admin og brugere med maa_se_analyse —
-  // og aldrig under "Se som sælger", hvor kun den viste sælgers egne tal må vises.
-  const maaVaelgeSaelger = (isAdmin || auth.maaSeAnalyse) && !isImpersonating;
-  const maalepunkterSaelgerId = isImpersonating
-    ? (viewAsUserId ?? "")
-    : maaVaelgeSaelger
-      ? (sellerId === "all" ? "" : sellerId)
-      : (auth.user?.id ?? "");
   // Målepunkter findes kun for afdeling 11.
   const visMaalepunkter =
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
@@ -111,6 +103,14 @@ function PortfolioPage() {
 
   const data = q.data;
   const isAdmin = data?.isAdmin ?? false;
+  // Sælgervælgeren må kun bruges af admin og brugere med maa_se_analyse —
+  // og aldrig under "Se som sælger", hvor kun den viste sælgers egne tal må vises.
+  const maaVaelgeSaelger = (isAdmin || auth.maaSeAnalyse) && !isImpersonating;
+  const maalepunkterSaelgerId = isImpersonating
+    ? (viewAsUserId ?? "")
+    : maaVaelgeSaelger
+      ? (sellerId === "all" ? "" : sellerId)
+      : (auth.user?.id ?? "");
 
   // Forbrugssignalet hentes separat fra forbrug_signal_virksomhed, så tabel og
   // rangeringer viser præcis samme signal som "Faldende forbrug"-kortet.
