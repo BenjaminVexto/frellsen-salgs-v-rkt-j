@@ -3291,6 +3291,32 @@ export type Database = {
       }
       maa_se_analyse: { Args: { _user_id: string }; Returns: boolean }
       maa_se_db: { Args: { _user_id: string }; Returns: boolean }
+      maalepunkt_adgang: { Args: { _saelger: string }; Returns: boolean }
+      maalepunkt_db: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          kategori: string
+          maaned: string
+          vaerdi: number
+        }[]
+      }
+      maalepunkt_maskiner: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          antal: number
+          brugt: boolean
+          maaned: string
+          maerke: string
+        }[]
+      }
+      maalepunkt_nye_kunder: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          antal: number
+          kategori: string
+          maaned: string
+        }[]
+      }
       monthly_revenue_totals: {
         Args: {
           _afdeling_nr?: number
