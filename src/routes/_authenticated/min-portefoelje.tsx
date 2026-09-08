@@ -584,24 +584,33 @@ function PortfolioPage() {
         )}
       </div>
 
-      {visAnalyse ? (
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "portefoelje" | "analyse")}>
+      {visAnalyse || visMaalepunkter ? (
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList className="mb-4">
             <TabsTrigger value="portefoelje">Portefølje</TabsTrigger>
-            <TabsTrigger value="analyse">Analyse</TabsTrigger>
+            {visAnalyse && <TabsTrigger value="analyse">Analyse</TabsTrigger>}
+            {visMaalepunkter && <TabsTrigger value="maalepunkter">Målepunkter</TabsTrigger>}
           </TabsList>
           <TabsContent value="portefoelje">{portefoeljeIndhold}</TabsContent>
-          <TabsContent value="analyse">
-            <AnalyseFane
-              afdelingNr={analyseAfdeling!}
-              afdelingNavn={navnFor(analyseAfdeling)}
-              maaSeDb={auth.maaSeDb}
-            />
-          </TabsContent>
+          {visAnalyse && (
+            <TabsContent value="analyse">
+              <AnalyseFane
+                afdelingNr={analyseAfdeling!}
+                afdelingNavn={navnFor(analyseAfdeling)}
+                maaSeDb={auth.maaSeDb}
+              />
+            </TabsContent>
+          )}
+          {visMaalepunkter && (
+            <TabsContent value="maalepunkter">
+              <MaalepunkterFane />
+            </TabsContent>
+          )}
         </Tabs>
       ) : (
         portefoeljeIndhold
       )}
+
 
     </div>
     </SignalMapContext.Provider>
