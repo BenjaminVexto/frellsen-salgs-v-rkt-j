@@ -161,32 +161,40 @@ export function AnalyseFane({
     kgGruppe,
   };
 
+  const SIDE = 200;
+  const [visAntal, setVisAntal] = useState(SIDE);
+  useEffect(() => {
+    setVisAntal(SIDE);
+  }, [fra, til, opdel, saelgerIds, prisgrupper, varegrupper, regioner]);
+
   const q = useQuery({
-    queryKey: ["analyse-pivot", fra, til, argsBase],
-    queryFn: () => pivotFn({ data: { ...argsBase, fra: firstDay(fra), til: lastDay(til) } }),
+    queryKey: ["analyse-pivot", fra, til, argsBase, visAntal],
+    queryFn: () =>
+      pivotFn({ data: { ...argsBase, fra: firstDay(fra), til: lastDay(til), limit: visAntal } }),
   });
 
   const qSammen = useQuery({
-    queryKey: ["analyse-pivot-sammen", sammenPeriode, argsBase],
+    queryKey: ["analyse-pivot-sammen", sammenPeriode, argsBase, visAntal],
     enabled: !!sammenPeriode && daekket(sammenPeriode),
     queryFn: () =>
       pivotFn({
-        data: { ...argsBase, fra: firstDay(sammenPeriode!.fra), til: lastDay(sammenPeriode!.til) },
+        data: {
+          ...argsBase,
+          fra: firstDay(sammenPeriode!.fra),
+          til: lastDay(sammenPeriode!.til),
+          limit: visAntal,
+        },
       }),
   });
 
   const sammenMap = useMemo(() => {
     const m = new Map<string, AnalysePivotRow>();
-    (qSammen.data ?? []).forEach((r) => m.set(r.noegle, r));
+    (qSammen.data?.rows ?? []).forEach((r) => m.set(r.noegle, r));
     return m;
   }, [qSammen.data]);
 
-  const rows = q.data ?? [];
-
-  const [visAntal, setVisAntal] = useState(25);
-  useEffect(() => {
-    setVisAntal(25);
-  }, [fra, til, opdel, sortKey, sortDir, saelgerIds, prisgrupper, varegrupper, regioner]);
+  const rows = q.data?.rows ?? [];
+  const totalGrupper = q.data?.totalGrupper ?? 0;
 
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -216,25 +224,8 @@ export function AnalyseFane({
     });
   }, [rows, sortKey, sortDir]);
 
-  const total = useMemo(() => {
-    let omsaetning = 0, kg = 0, stk = 0, db = 0;
-    let harDb = false;
-    const kunder = new Set<string>();
-    for (const r of rows) {
-      omsaetning += r.omsaetning;
-      kg += r.kg;
-      stk += r.stk;
-      if (r.db != null) { db += r.db; harDb = true; }
-      if (opdel === "kunde") kunder.add(r.noegle);
-    }
-    return {
-      omsaetning,
-      kg,
-      stk,
-      db: harDb ? db : null,
-      antal_kunder: opdel === "kunde" ? kunder.size : Math.max(...rows.map((r) => r.antal_kunder), 0),
-    };
-  }, [rows, opdel]);
+  const total = q.data?.totaler ?? { omsaetning: 0, kg: 0, stk: 0, db: null, antal_kunder: 0 };
+
 
   const toggleSort = (k: SortKey) => {
     if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -269,38 +260,50 @@ export function AnalyseFane({
 
   const periodeTekst = `${maanedNavn(fra)}–${maanedNavn(til)}`;
 
-  const exportCsv = () => {
-    const head = [
-      OPDEL_LABEL[opdel],
-      "Omsætning",
-      "Andel %",
-      kgLabel,
-      "Stk",
-      ...(visAntalKunder ? ["Antal kunder"] : []),
-      ...(maaSeDb ? ["DB", "DG %"] : []),
-    ];
-    const lines = [head.join(";")];
-    for (const r of sorted) {
-      const dg = r.omsaetning > 0 && r.db != null ? ((r.db / r.omsaetning) * 100).toFixed(1) : "";
-      lines.push(
-        [
-          `"${(r.navn ?? r.noegle).replace(/"/g, '""')}"`,
-          r.omsaetning.toFixed(2).replace(".", ","),
-          andel(r.omsaetning).toFixed(1).replace(".", ","),
-          r.kg.toFixed(2).replace(".", ","),
-          r.stk.toFixed(2).replace(".", ","),
-          ...(visAntalKunder ? [String(r.antal_kunder)] : []),
-          ...(maaSeDb ? [(r.db ?? 0).toFixed(2).replace(".", ","), dg] : []),
-        ].join(";"),
-      );
+  const [csvHenter, setCsvHenter] = useState(false);
+
+  const exportCsv = async () => {
+    setCsvHenter(true);
+    try {
+      // CSV indeholder altid alle rækker — limit 0 henter hele datasættet.
+      const alle = await pivotFn({
+        data: { ...argsBase, fra: firstDay(fra), til: lastDay(til), limit: 0 },
+      });
+      const head = [
+        OPDEL_LABEL[opdel],
+        "Omsætning",
+        "Andel %",
+        kgLabel,
+        "Stk",
+        ...(visAntalKunder ? ["Antal kunder"] : []),
+        ...(maaSeDb ? ["DB", "DG %"] : []),
+      ];
+      const lines = [head.join(";")];
+      for (const r of alle.rows) {
+        const dg = r.omsaetning > 0 && r.db != null ? ((r.db / r.omsaetning) * 100).toFixed(1) : "";
+        lines.push(
+          [
+            `"${(r.navn ?? r.noegle).replace(/"/g, '""')}"`,
+            r.omsaetning.toFixed(2).replace(".", ","),
+            andel(r.omsaetning).toFixed(1).replace(".", ","),
+            r.kg.toFixed(2).replace(".", ","),
+            r.stk.toFixed(2).replace(".", ","),
+            ...(visAntalKunder ? [String(r.antal_kunder)] : []),
+            ...(maaSeDb ? [(r.db ?? 0).toFixed(2).replace(".", ","), dg] : []),
+          ].join(";"),
+        );
+      }
+      const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `analyse-${opdel}-${fra}-${til}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally {
+      setCsvHenter(false);
     }
-    const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `analyse-${opdel}-${fra}-${til}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
   };
+
 
   const visSammen = !!sammenPeriode && daekket(sammenPeriode);
 
@@ -437,12 +440,18 @@ export function AnalyseFane({
           <Button
             size="sm"
             variant="outline"
-            onClick={exportCsv}
-            disabled={!rows.length}
+            onClick={() => void exportCsv()}
+            disabled={!rows.length || csvHenter}
             className="ml-auto h-9"
           >
-            <Download className="h-4 w-4 mr-1" /> CSV
+            {csvHenter ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-1" />
+            )}
+            CSV
           </Button>
+
         </div>
 
         {aktiveFiltre.length > 0 && (
@@ -527,7 +536,7 @@ export function AnalyseFane({
                     <td className="px-3 py-2 text-right tabular-nums">
                       <Delta
                         now={total.omsaetning}
-                        before={(qSammen.data ?? []).reduce((s, r) => s + r.omsaetning, 0)}
+                        before={qSammen.data?.totaler.omsaetning ?? 0}
                       />
                     </td>
                   )}
@@ -552,7 +561,7 @@ export function AnalyseFane({
                     </>
                   )}
                 </tr>
-                {sorted.slice(0, visAntal).map((r) => {
+                {sorted.map((r) => {
                   const before = sammenMap.get(r.noegle)?.omsaetning ?? 0;
                   return (
                     <tr key={r.noegle} className="border-t border-border hover:bg-accent/30">
@@ -588,15 +597,30 @@ export function AnalyseFane({
                     </tr>
                   );
                 })}
-                {sorted.length > visAntal && (
+                {totalGrupper > 0 && (
                   <tr>
-                    <td colSpan={99} className="px-3 py-3 text-center">
-                      <Button variant="outline" size="sm" onClick={() => setVisAntal((n) => n + 25)}>
-                        Vis flere ({(sorted.length - visAntal).toLocaleString("da-DK")} tilbage)
-                      </Button>
+                    <td colSpan={99} className="px-3 py-3 text-center space-y-2">
+                      <div className="text-xs text-muted-foreground">
+                        Viser {rows.length.toLocaleString("da-DK")} af{" "}
+                        {totalGrupper.toLocaleString("da-DK")}
+                      </div>
+                      {rows.length < totalGrupper && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={q.isFetching}
+                          onClick={() => setVisAntal((n) => n + SIDE)}
+                        >
+                          {q.isFetching ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : null}
+                          Vis flere ({(totalGrupper - rows.length).toLocaleString("da-DK")} tilbage)
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 )}
+
                 {!sorted.length && (
                   <tr>
                     <td colSpan={99} className="px-3 py-10 text-center text-muted-foreground">

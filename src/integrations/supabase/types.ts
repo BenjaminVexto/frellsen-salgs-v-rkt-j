@@ -1715,10 +1715,12 @@ export type Database = {
           id: string
           is_primary: boolean
           phone: string | null
+          region: string | null
           sales_signal: string | null
           visma_delivery_no: string | null
           visma_enhed: string | null
           zip: string | null
+          zip_norm: string | null
         }
         Insert: {
           address?: string | null
@@ -1741,10 +1743,12 @@ export type Database = {
           id?: string
           is_primary?: boolean
           phone?: string | null
+          region?: string | null
           sales_signal?: string | null
           visma_delivery_no?: string | null
           visma_enhed?: string | null
           zip?: string | null
+          zip_norm?: string | null
         }
         Update: {
           address?: string | null
@@ -1767,10 +1771,12 @@ export type Database = {
           id?: string
           is_primary?: boolean
           phone?: string | null
+          region?: string | null
           sales_signal?: string | null
           visma_delivery_no?: string | null
           visma_enhed?: string | null
           zip?: string | null
+          zip_norm?: string | null
         }
         Relationships: [
           {
@@ -3136,6 +3142,8 @@ export type Database = {
           _fra: string
           _kg_gruppe?: string
           _kundeprisgrupper?: string[]
+          _limit?: number
+          _offset?: number
           _opdel: string
           _regioner?: string[]
           _saelger_ids?: string[]
@@ -3150,6 +3158,12 @@ export type Database = {
           noegle: string
           omsaetning: number
           stk: number
+          total_db: number
+          total_grupper: number
+          total_kg: number
+          total_kunder: number
+          total_omsaetning: number
+          total_stk: number
         }[]
       }
       can_access_company: {
