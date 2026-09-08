@@ -7,7 +7,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, type AppRole } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getEffektiveRettigheder } from "@/lib/permissions.functions";
 
 type ViewAsState = {
   viewAsUserId: string | null;
@@ -20,6 +23,12 @@ type ViewAsContextValue = ViewAsState & {
   /** The userId the UI should read data for: viewAs target if impersonating, else real user. */
   effectiveUserId: string | null;
   realUserId: string | null;
+  /** Rettigheder for den EFFEKTIVE bruger — den man ser som, ikke den man er logget ind som. */
+  effectiveRole: AppRole | null;
+  effectiveMaaSeDb: boolean;
+  effectiveMaaSeAnalyse: boolean;
+  /** True mens den viste sælgers rettigheder hentes. */
+  effectivePermsLoading: boolean;
   setViewAs: (id: string, name: string) => void;
   clearViewAs: () => void;
 };
