@@ -78,7 +78,7 @@ function PortfolioPage() {
   const [showDB, setShowDB] = useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
-  const [tab, setTab] = useState<"portefoelje" | "analyse">("portefoelje");
+  const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter">("portefoelje");
 
   // Analysefanen dækker hele den valgte afdeling — den vises kun for brugere
   // med rettigheden og kun når de har adgang til afdelingen.
@@ -87,6 +87,10 @@ function PortfolioPage() {
     auth.maaSeAnalyse &&
     analyseAfdeling != null &&
     auth.afdelinger.includes(analyseAfdeling);
+  // Målepunkter findes kun for afdeling 11.
+  const visMaalepunkter =
+    auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
+
 
   const q = useQuery({
     queryKey: ["portfolio", sellerId, viewAsUserId, afdelingFilter],
