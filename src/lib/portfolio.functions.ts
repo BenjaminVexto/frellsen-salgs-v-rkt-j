@@ -1,8 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { harGyldigtSammenligningsvindue } from "./kunde-status";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { isConsumableGroup } from "./sales-utils";
 
 const PAGE = 1000;
 
@@ -16,25 +14,6 @@ async function isAdminUser(supabase: any, userId: string): Promise<boolean> {
   return !!data;
 }
 
-async function fetchAllInChunks(
-  ids: string[],
-  chunkSize: number,
-  queryPage: (slice: string[], from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>,
-): Promise<any[]> {
-  const rows: any[] = [];
-  for (let i = 0; i < ids.length; i += chunkSize) {
-    const slice = ids.slice(i, i + chunkSize);
-    for (let from = 0; ; from += PAGE) {
-      const to = from + PAGE - 1;
-      const { data, error } = await queryPage(slice, from, to);
-      if (error) throw error;
-      const page = data ?? [];
-      rows.push(...page);
-      if (page.length < PAGE) break;
-    }
-  }
-  return rows;
-}
 
 export type RhythmClass = "normal" | "slower" | "stopped" | "never";
 
@@ -226,33 +205,6 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       ? (data.sellerId ?? null) // null = alle sælgere
       : userId;
 
-    // Determine portfolio company ids — paginate to avoid the 1000-row PostgREST cap.
-    // Udeluk interne konti (Kundeprisgruppe 3 = "5 [Interne]") fra al statistik.
-    const INTERNAL_RE = /^\s*5\s*\[/;
-    let companyIds: string[] = [];
-    {
-      for (let from = 0; ; from += PAGE) {
-        const to = from + PAGE - 1;
-        let q = supabase
-          .from("companies")
-          .select("id, customer_segment_3")
-          .range(from, to);
-        // Afløste debitorposter indgår ikke i porteføljestatistik.
-        q = q.is("afloest_af_company_id", null);
-        if (appliedSellerId) q = q.eq("assigned_to", appliedSellerId);
-        else q = q.not("assigned_to", "is", null);
-        if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
-        const { data: comps, error } = await q;
-        if (error) throw error;
-        const page = comps ?? [];
-        for (const c of page as any[]) {
-          if (c.customer_segment_3 && INTERNAL_RE.test(c.customer_segment_3)) continue;
-          companyIds.push(c.id);
-        }
-        if (page.length < PAGE) break;
-      }
-    }
-
     // Month windows
     const now = new Date();
     const thisMonth = monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)));
@@ -265,11 +217,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       label: new Date(p + "T00:00:00Z").toLocaleDateString("da-DK", { month: "short" }),
     }));
 
-    // 12-month current window (including current partial)
-    const startCur = shiftMonths(thisMonth, -11);
-    // 12-month prior year window
+    // 12-month prior year window (bruges til datagulv for growthPct)
     const startPrior = shiftMonths(thisMonth, -23);
-    const endPriorExcl = shiftMonths(thisMonth, -11); // exclusive
 
     const emptyRankings = {
       topRevenue: [] as RankingRow[],
@@ -289,7 +238,24 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       expiringCompetitor: [] as SignalRow[],
     };
 
-    if (!companyIds.length) {
+    // --- Aggregering sker i databasen: én række pr. virksomhed + én totalrække. ---
+    const rpcArgs = {
+      _saelger: appliedSellerId,
+      _afdeling_nr: data.afdelingNr ?? null,
+    };
+    // Ét kald hver: aggregatet leveres som JSON, så 1.000-rækkegrænsen ikke
+    // tvinger funktionen til at køre om for hver side.
+    const [aggSvar, totSvar] = await Promise.all([
+      (supabase as any).rpc("portfolio_aggregat_json", rpcArgs),
+      (supabase as any).rpc("portfolio_totaler", rpcArgs),
+    ]);
+    if (aggSvar.error) throw aggSvar.error;
+    if (totSvar.error) throw totSvar.error;
+    const aggRows: any[] = (aggSvar.data ?? []) as any[];
+    const totRows = totSvar.data;
+    const tot = (Array.isArray(totRows) ? totRows[0] : totRows) ?? null;
+
+    if (!aggRows.length) {
       return {
         isAdmin,
         appliedSellerId: isAdmin ? appliedSellerId : null,
@@ -315,48 +281,29 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       };
     }
 
+    const companyIdSet = new Set<string>(aggRows.map((r) => r.id as string));
 
-    // Fetch companies meta (incl. last_sales_date til prior status-snapshot).
-    // last_purchase_date bruges ikke — upålidelig (manuel Visma-opdatering).
-    const compsMeta = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
-      supabase
-        .from("companies")
-        .select(
-          "id, name, city, customer_type, has_active_equipment, last_consumable_sales_date, last_sales_date, employees, is_public",
-        )
-        .in("id", slice)
-        .range(from, to),
-    );
-
-    // Fetch sales_monthly for the prior-year window through now
-    const select = isAdmin
-      ? "company_id, period, revenue, contribution, product_group_1, weight_kg"
-      : "company_id, period, revenue, product_group_1, weight_kg";
-    const salesClient = isAdmin ? supabaseAdmin : supabase;
-    const salesRows = await fetchAllInChunks(companyIds, 100, (slice, from, to) =>
-      salesClient
-        .from("sales_monthly")
-        .select(select)
-        .in("company_id", slice)
-        .gte("period", startPrior)
-        .range(from, to),
-    );
-
-    // Fetch supplied_via relations (forsynes_af) where from_company_id in portfolio
-    const relRows = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
-      supabase
+    // Forsyningsrelationer (forsynes_af) — få rækker i alt, hentes i ét kald.
+    const relRows: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error } = await supabase
         .from("company_relations")
         .select("from_company_id, to:companies!company_relations_to_company_id_fkey(id, name)")
         .eq("relation_type", "forsynes_af")
-        .in("from_company_id", slice)
-        .range(from, to),
-    );
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      const arr = (page ?? []) as any[];
+      relRows.push(...arr);
+      if (arr.length < PAGE) break;
+    }
     const suppliedMap = new Map<string, { id: string; name: string }>();
-    for (const r of relRows as any[]) {
-      if (r.to) suppliedMap.set(r.from_company_id, { id: r.to.id, name: r.to.name });
+    for (const r of relRows) {
+      if (r.to && companyIdSet.has(r.from_company_id)) {
+        suppliedMap.set(r.from_company_id, { id: r.to.id, name: r.to.name });
+      }
     }
 
-    // Aggregate per company
+    // Pr-kunde aggregater fra databasen
     type Agg = {
       monthly: Map<string, number>;
       revenue12m: number;
@@ -366,137 +313,65 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       revenueYtdPrior: number;
       ytdPriorLastMonthRev: number;
     };
-
     const aggs = new Map<string, Agg>();
-    let totalRev12 = 0;
-    let totalRevPrior = 0;
-    let totalContrib = 0;
-    // YTD-akkumulatorer — vinduer afgøres efter første sweep (refPeriod = max(period))
-    let totalRevYtd = 0;
-    let totalRevYtdPrior = 0;
-    let ytdCurLastMonthRev = 0;
-    let ytdPriorLastMonthRev = 0;
-    let totalWeightKgYtd = 0;
-    let totalWeightKgYtdPrior = 0;
-    let ytdPriorLastMonthWeightKg = 0;
-    // Find seneste periode i datasættet for YTD-referencepunkt.
-    let latestPeriod: string | null = null;
-    for (const r of salesRows) {
-      const p = r.period as string;
-      if (!latestPeriod || p > latestPeriod) latestPeriod = p;
-    }
-    const refPeriod = latestPeriod ?? thisMonth;
-    const refYear = parseInt(refPeriod.slice(0, 4), 10);
-    const refMonth = parseInt(refPeriod.slice(5, 7), 10);
-    const startCurYtd = `${refYear}-01-01`;
-    const startPriorYtd = `${refYear - 1}-01-01`;
-    const endPriorYtd = `${refYear - 1}-${String(refMonth).padStart(2, "0")}-01`;
-    const last5Set = new Set(last5);
-    // Trend (monthly) måler LØBENDE FORBRUG = al omsætning UNDTAGEN
-    // produktgruppe "16 [Maskiner/Service]". Maskingruppen klumper i januar
-    // pga. årlig service-/leje-fakturering og giver ellers falske fald.
-    // revenue12m/contribution12m bevares som TOTAL (inkl. maskiner).
-    const isMachineGroup = (groupRaw: string): boolean => {
-      const code = groupRaw.trim().match(/^(\d+)/)?.[1] ?? null;
-      return code === "16";
-    };
-
-    // --- Pr-kunde sporing for rytme + prior-snapshot ---
-    // Aktive consumable-måneder (revenue > 0 i prisgruppe 2/4/6/10) — bruges til rytme-median.
     const consPeriodsByCompany = new Map<string, Set<string>>();
-    // Seneste salgs-/consumable-måned for "nu" (alle perioder i salesRows) og for
-    // "30 dage siden" (kun perioder < indeværende måned).
     const lastSalesNow = new Map<string, string>();
     const lastSalesPrior = new Map<string, string>();
     const lastConsNow = new Map<string, string>();
     const lastConsPrior = new Map<string, string>();
+    const groupsByCompany = new Map<string, Set<string>>();
+    const consumableRev = new Map<string, number>();
+    const compsMeta = aggRows.map((r) => ({
+      id: r.id as string,
+      name: r.name as string,
+      city: r.city ?? null,
+      customer_type: r.customer_type ?? null,
+      has_active_equipment: !!r.has_active_equipment,
+      last_consumable_sales_date: r.last_consumable_sales_date ?? null,
+      last_sales_date: r.last_sales_date ?? null,
+      employees: r.employees ?? null,
+      is_public: !!r.is_public,
+    }));
 
-
-    for (const r of salesRows) {
-      const cid = r.company_id as string;
-      if (!cid) continue;
-      const period = r.period as string;
-      const rev = Number(r.revenue) || 0;
-      const weightKg = Number((r as any).weight_kg) || 0;
-      const inCurrent = period >= startCur && period <= thisMonth;
-      const inPrior = period >= startPrior && period < endPriorExcl;
-      const groupRaw = String((r as any).product_group_1 ?? "");
-      const isMachine = isMachineGroup(groupRaw);
-      const groupCode = groupRaw.trim().match(/^(\d+)/)?.[1] ?? null;
-      const isConsumable =
-        groupCode === "2" || groupCode === "4" || groupCode === "6" || groupCode === "10";
-
-      // Spor seneste salgs-/consumable-måned (kun måneder med faktisk omsætning)
-      if (rev > 0) {
-        const lsn = lastSalesNow.get(cid);
-        if (!lsn || period > lsn) lastSalesNow.set(cid, period);
-        if (period < thisMonth) {
-          const lsp = lastSalesPrior.get(cid);
-          if (!lsp || period > lsp) lastSalesPrior.set(cid, period);
-        }
-        if (isConsumable) {
-          const lcn = lastConsNow.get(cid);
-          if (!lcn || period > lcn) lastConsNow.set(cid, period);
-          if (period < thisMonth) {
-            const lcp = lastConsPrior.get(cid);
-            if (!lcp || period > lcp) lastConsPrior.set(cid, period);
-          }
-          let cps = consPeriodsByCompany.get(cid);
-          if (!cps) {
-            cps = new Set();
-            consPeriodsByCompany.set(cid, cps);
-          }
-          cps.add(period);
-        }
-      }
-
-      const agg =
-        aggs.get(cid) ?? {
-          monthly: new Map(),
-          revenue12m: 0,
-          revenue12mPrior: 0,
-          contribution12m: 0,
-          revenueYtd: 0,
-          revenueYtdPrior: 0,
-          ytdPriorLastMonthRev: 0,
-        };
-      // YTD-vinduer (samme periode sidste år, sammenlignet på måned)
-      if (period >= startCurYtd && period <= refPeriod) {
-        totalRevYtd += rev;
-        agg.revenueYtd += rev;
-        if (period === refPeriod) ytdCurLastMonthRev += rev;
-        if (isConsumable) totalWeightKgYtd += weightKg;
-        aggs.set(cid, agg);
-      }
-      if (period >= startPriorYtd && period <= endPriorYtd) {
-        totalRevYtdPrior += rev;
-        agg.revenueYtdPrior += rev;
-        if (period === endPriorYtd) {
-          ytdPriorLastMonthRev += rev;
-          agg.ytdPriorLastMonthRev += rev;
-        }
-        if (isConsumable) {
-          totalWeightKgYtdPrior += weightKg;
-          if (period === endPriorYtd) ytdPriorLastMonthWeightKg += weightKg;
-        }
-        aggs.set(cid, agg);
-      }
-
-      if (inCurrent) {
-        totalRev12 += rev;
-        if (isAdmin) totalContrib += Number((r as any).contribution) || 0;
-        agg.revenue12m += rev;
-        if (isAdmin) agg.contribution12m += Number((r as any).contribution) || 0;
-        if (last5Set.has(period) && !isMachine) {
-          agg.monthly.set(period, (agg.monthly.get(period) ?? 0) + rev);
-        }
-        aggs.set(cid, agg);
-      } else if (inPrior) {
-        totalRevPrior += rev;
-        agg.revenue12mPrior += rev;
-        aggs.set(cid, agg);
-      }
+    for (const r of aggRows) {
+      const cid = r.id as string;
+      const monthly = new Map<string, number>();
+      const arr = (r.monthly ?? []) as any[];
+      last5.forEach((p, i) => monthly.set(p, Number(arr[i]) || 0));
+      aggs.set(cid, {
+        monthly,
+        revenue12m: Number(r.revenue12m) || 0,
+        revenue12mPrior: Number(r.revenue12m_prior) || 0,
+        contribution12m: Number(r.contribution12m) || 0,
+        revenueYtd: Number(r.revenue_ytd) || 0,
+        revenueYtdPrior: Number(r.revenue_ytd_prior) || 0,
+        ytdPriorLastMonthRev: Number(r.ytd_prior_last_month_rev) || 0,
+      });
+      const cons = (r.cons_perioder ?? []) as string[];
+      if (cons.length) consPeriodsByCompany.set(cid, new Set(cons));
+      const grupper = (r.vare_grupper ?? []) as string[];
+      if (grupper.length) groupsByCompany.set(cid, new Set(grupper));
+      consumableRev.set(cid, Number(r.consumable_rev12m) || 0);
+      if (r.last_sales_now) lastSalesNow.set(cid, r.last_sales_now as string);
+      if (r.last_sales_prior) lastSalesPrior.set(cid, r.last_sales_prior as string);
+      if (r.last_cons_now) lastConsNow.set(cid, r.last_cons_now as string);
+      if (r.last_cons_prior) lastConsPrior.set(cid, r.last_cons_prior as string);
     }
+
+    // Totaler fra databasen
+    const totalRev12 = Number(tot?.revenue12m) || 0;
+    const totalRevPrior = Number(tot?.revenue12m_prior_year) || 0;
+    const totalRevYtd = Number(tot?.revenue_ytd) || 0;
+    const totalRevYtdPrior = Number(tot?.revenue_ytd_prior) || 0;
+    const ytdPriorLastMonthRev = Number(tot?.ytd_prior_last_month_rev) || 0;
+    const totalWeightKgYtd = Number(tot?.weight_kg_ytd) || 0;
+    const totalWeightKgYtdPrior = Number(tot?.weight_kg_ytd_prior) || 0;
+    const ytdPriorLastMonthWeightKg = Number(tot?.ytd_prior_last_month_weight_kg) || 0;
+    const totalContrib = Number(tot?.contribution12m) || 0;
+    const latestPeriod: string | null = (tot?.latest_period as string | null) ?? null;
+    const refPeriod = latestPeriod ?? thisMonth;
+    const refYear = parseInt(refPeriod.slice(0, 4), 10);
+    const refMonth = parseInt(refPeriod.slice(5, 7), 10);
 
 
     // Pro-rata fraction for YTD prior (samme udregning som totals nedenfor)
@@ -742,26 +617,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     }));
 
     // --- Lag 3: Muligheder & trusler ---
-    // Per-company product-group set and consumable revenue in last 12 months
-    const groupsByCompany = new Map<string, Set<string>>();
-    const consumableRev = new Map<string, number>();
-    for (const r of salesRows) {
-      const cid = r.company_id as string;
-      if (!cid) continue;
-      const period = r.period as string;
-      if (!(period >= startCur && period <= thisMonth)) continue;
-      const raw = (r.product_group_1 ?? "").trim();
-      const m = raw.match(/^(\d+)/);
-      const code = m ? m[1] : null;
-      if (code) {
-        let s = groupsByCompany.get(cid);
-        if (!s) { s = new Set(); groupsByCompany.set(cid, s); }
-        s.add(code);
-        if (code === "2" || code === "4" || code === "6" || code === "10") {
-          consumableRev.set(cid, (consumableRev.get(cid) ?? 0) + (Number(r.revenue) || 0));
-        }
-      }
-    }
+    // groupsByCompany + consumableRev kommer fra databaseaggregatet ovenfor.
+
 
     const blankSignal = (c: PortfolioCompanyRow): SignalRow => ({
       id: c.id,
@@ -843,17 +700,35 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     const in90_s = in90.toISOString().slice(0, 10);
     const compNameById = new Map(companies.map((c) => [c.id, c] as const));
 
-    const docRows = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
-      supabase
+    // Ét kald pr. tabel: filtrér på sælger/afdeling via join til companies.
+    const hentAlle = async (byg: (from: number, to: number) => any) => {
+      const ud: any[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data: page, error } = await byg(from, from + PAGE - 1);
+        if (error) throw error;
+        const arr = (page ?? []) as any[];
+        ud.push(...arr);
+        if (arr.length < PAGE) break;
+      }
+      return ud;
+    };
+
+    const docRows = await hentAlle((from, to) => {
+      let q = supabase
         .from("company_documents")
-        .select("id, filename, document_type, expires_at, company_id")
-        .in("company_id", slice)
+        .select("id, filename, document_type, expires_at, company_id, companies!inner(id)")
         .not("expires_at", "is", null)
         .gte("expires_at", today_s)
         .lte("expires_at", in90_s)
+        .is("companies.afloest_af_company_id", null)
         .order("expires_at", { ascending: true })
-        .range(from, to),
-    );
+        .range(from, to);
+      if (appliedSellerId) q = q.eq("companies.assigned_to", appliedSellerId);
+      else q = q.not("companies.assigned_to", "is", null);
+      if (data.afdelingNr != null) q = q.eq("companies.afdeling_nr", data.afdelingNr);
+      return q;
+    });
+
     const expiringAgreements: SignalRow[] = (docRows as any[])
       .map((d) => {
         const c = compNameById.get(d.company_id);
@@ -867,17 +742,24 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       })
       .filter(Boolean) as SignalRow[];
 
-    const compAssRows = await fetchAllInChunks(companyIds, 200, (slice, from, to) =>
-      supabase
+    const compAssRows = await hentAlle((from, to) => {
+      let q = supabase
         .from("competitor_assignments")
-        .select("id, contract_expires_at, company_id, competitors(name)")
-        .in("company_id", slice)
+        .select(
+          "id, contract_expires_at, company_id, competitors(name), companies!inner(id)",
+        )
         .not("contract_expires_at", "is", null)
         .gte("contract_expires_at", today_s)
         .lte("contract_expires_at", in90_s)
+        .is("companies.afloest_af_company_id", null)
         .order("contract_expires_at", { ascending: true })
-        .range(from, to),
-    );
+        .range(from, to);
+      if (appliedSellerId) q = q.eq("companies.assigned_to", appliedSellerId);
+      else q = q.not("companies.assigned_to", "is", null);
+      if (data.afdelingNr != null) q = q.eq("companies.afdeling_nr", data.afdelingNr);
+      return q;
+    });
+
     const expiringCompetitor: SignalRow[] = (compAssRows as any[])
       .map((r) => {
         const c = compNameById.get(r.company_id);

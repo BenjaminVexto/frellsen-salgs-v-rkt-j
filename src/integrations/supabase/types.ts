@@ -3427,6 +3427,53 @@ export type Database = {
           cvr: string
         }[]
       }
+      portfolio_aggregat: {
+        Args: { _afdeling_nr?: number; _saelger?: string }
+        Returns: {
+          city: string
+          cons_perioder: string[]
+          consumable_rev12m: number
+          contribution12m: number
+          customer_type: string
+          employees: number
+          has_active_equipment: boolean
+          id: string
+          is_public: boolean
+          last_cons_now: string
+          last_cons_prior: string
+          last_consumable_sales_date: string
+          last_sales_date: string
+          last_sales_now: string
+          last_sales_prior: string
+          monthly: number[]
+          name: string
+          revenue_ytd: number
+          revenue_ytd_prior: number
+          revenue12m: number
+          revenue12m_prior: number
+          vare_grupper: string[]
+          ytd_prior_last_month_rev: number
+        }[]
+      }
+      portfolio_aggregat_json: {
+        Args: { _afdeling_nr?: number; _saelger?: string }
+        Returns: Json
+      }
+      portfolio_totaler: {
+        Args: { _afdeling_nr?: number; _saelger?: string }
+        Returns: {
+          contribution12m: number
+          latest_period: string
+          revenue_ytd: number
+          revenue_ytd_prior: number
+          revenue12m: number
+          revenue12m_prior_year: number
+          weight_kg_ytd: number
+          weight_kg_ytd_prior: number
+          ytd_prior_last_month_rev: number
+          ytd_prior_last_month_weight_kg: number
+        }[]
+      }
       prune_invoice_lines_month: {
         Args: {
           _afdelinger: number[]
