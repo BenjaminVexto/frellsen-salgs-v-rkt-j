@@ -1,35 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-export type MonthlyRow = {
-  visma_delivery_no: string;
-  afdeling_nr: number;
-  period: string; // YYYY-MM-01
-  product_group_1: string;
-  revenue: number;
-  quantity: number;
-  contribution: number;
-  weight_kg: number;
-  order_count: number;
-  last_invoice_date: string | null;
-};
-
-export type TopProductRow = {
-  visma_delivery_no: string;
-  afdeling_nr: number;
-  varenr: string;
-  description: string;
-  revenue: number;
-  quantity: number;
-  contribution: number;
-  product_group_1: string;
-};
-
-export type TopProductMonthlyRow = TopProductRow & {
-  period: string; // YYYY-MM-01
-  weight_kg: number;
-};
-
 async function assertAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase
     .from("user_roles")
@@ -44,6 +15,8 @@ async function assertAdmin(supabase: any, userId: string) {
  * Slå mange (afdeling, delivery_no)-par op én gang fra klienten. Nøglen i det
  * returnerede map er `${afdeling_nr}|${visma_delivery_no}` — afdeling SKAL med,
  * ellers kobles en Høyberg-faktura til en Frellsen-lokation.
+ * Bruges kun til at vise hvor mange leveringsnumre der er kendt; koblingen
+ * mellem salgsrækker og lokation sker i databasen ved aggregeringen.
  */
 export const resolveDeliveryNos = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -90,19 +63,16 @@ export const resolveDeliveryNos = createServerFn({ method: "POST" })
   );
 
 /**
- * Browseren har allerede parset filen, opslået locations og uploadet
- * chunk-filer ({jobId}/monthly-N.json + top-N.json) til invoice-uploads.
- * Denne fn registrerer jobbet direkte i "monthly"-fasen — workeren downloader
- * én chunk pr. tick og laver kun de idempotente DB-upserts.
+ * Browseren har parset filen og uploadet rålinje-chunks ({jobId}/lines-N.json)
+ * til invoice-uploads. Denne fn registrerer jobbet i "lines"-fasen — workeren
+ * skriver linjerne, rydder de gamle, genberegner aggregaterne i databasen og
+ * kobler salgsrækker til lokationer.
  */
 export const enqueueInvoiceImport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     (input: {
       jobId: string;
-      totalMonthly: number;
-      totalTop: number;
-      totalTopMonthly: number;
       locationsMatched: number;
       unmatched: string[];
       rowsByAfdeling?: Record<string, number>;
@@ -123,15 +93,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
     const totalLines = data.totalLines ?? 0;
     // Rålinjer skrives FØRST. Først når alle linjer står i databasen ryddes de
     // gamle (fase "prune") — fejler uploaden undervejs, står de gamle urørt.
-    const aggregatePhase =
-      data.totalMonthly > 0
-        ? "monthly"
-        : data.totalTop > 0
-          ? "top"
-          : data.totalTopMonthly > 0
-            ? "top_monthly"
-            : "done";
-    const firstPhase = totalLines > 0 ? "lines" : aggregatePhase;
+    const firstPhase = totalLines > 0 ? "lines" : "done";
 
     const { error } = await supabaseAdmin.from("invoice_import_jobs").insert({
       id: data.jobId,
@@ -140,9 +102,9 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       phase: firstPhase,
       file_path: null,
       aggregated_path: data.jobId, // chunk-prefix i invoice-uploads bucket
-      total_monthly: data.totalMonthly,
-      total_top: data.totalTop,
-      total_top_monthly: data.totalTopMonthly,
+      total_monthly: 0,
+      total_top: 0,
+      total_top_monthly: 0,
       saved_monthly: 0,
       saved_top: 0,
       saved_top_monthly: 0,
@@ -150,6 +112,8 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       saved_lines: 0,
       lines_deleted: 0,
       prune_month_idx: 0,
+      aggregate_month_idx: 0,
+      months_rebuilt: 0,
       lines_batch_id: data.linesBatchId ?? null,
       lines_date_from: data.dateFrom ?? null,
       lines_date_to: data.dateTo ?? null,
@@ -162,4 +126,3 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { jobId: data.jobId };
   });
-

@@ -11,7 +11,7 @@ import { ArrowLeft, FileUp, Loader2, CheckCircle2, Receipt } from "lucide-react"
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { enqueueInvoiceImport, resolveDeliveryNos } from "@/lib/invoice-import.functions";
-import { parseAndAggregate } from "@/lib/invoice-parse";
+import { parseInvoiceJournal } from "@/lib/invoice-parse";
 import { ImportKolonneTjekliste } from "@/components/import-kolonne-tjekliste";
 import { IMPORT_KONTRAKTER } from "@/lib/import-kontrakter";
 
@@ -23,13 +23,10 @@ type JobRow = {
   id: string;
   status: string;
   phase: string;
-  total_monthly: number;
-  total_top: number;
-  saved_monthly: number;
-  saved_top: number;
   total_lines: number | null;
   saved_lines: number | null;
   lines_deleted: number | null;
+  months_rebuilt: number | null;
   lines_date_from: string | null;
   lines_date_to: string | null;
   locations_matched: number;
@@ -41,21 +38,16 @@ type JobRow = {
 const PHASE_LABEL: Record<string, string> = {
   lines: "Skriver fakturalinjer…",
   prune: "Rydder gamle fakturalinjer…",
-  monthly: "Gemmer månedsdata…",
-  top: "Gemmer top-varer…",
-  top_monthly: "Gemmer varelinjer pr. måned…",
+  aggregate: "Genberegner salgsdata…",
+  relink: "Kobler salgsrækker til kunder…",
   done: "Færdig",
 };
 
-// Skal matche CHUNK_SIZE / TOP_MONTHLY_CHUNK_SIZE i process-invoice-import.ts
-const CHUNK_SIZE = 20_000;
-// Varelinjer pr. måned er den tungeste upsert — mindre chunks holder os under
-// Postgres' statement timeout.
-const TOP_MONTHLY_CHUNK_SIZE = 4_000;
 // Rå fakturalinjer: 5.000 pr. chunk (SKAL matche workeren).
 const LINES_CHUNK_SIZE = 5_000;
 
 const BUCKET = "invoice-uploads";
+
 
 
 function chunked<T>(arr: T[], size: number): T[][] {
@@ -93,7 +85,7 @@ function FakturaImportSide() {
       const { data, error } = await supabase
         .from("invoice_import_jobs")
         .select(
-          "id,status,phase,total_monthly,total_top,saved_monthly,saved_top,total_lines,saved_lines,lines_deleted,lines_date_from,lines_date_to,locations_matched,unmatched_delivery_nos,last_error,attempts",
+          "id,status,phase,total_lines,saved_lines,lines_deleted,months_rebuilt,lines_date_from,lines_date_to,locations_matched,unmatched_delivery_nos,last_error,attempts",
         )
         .eq("id", jobId!)
         .maybeSingle();
@@ -133,23 +125,21 @@ function FakturaImportSide() {
       if (!afdelinger.length) throw new Error("Ingen aktive afdelinger fundet");
       if (!afdelingAliases.length) throw new Error("Ingen rækker i afdeling_alias — kan ikke mappe kildeafdelinger");
 
-      // 1) Parse + aggregér i browseren (firma/afdeling-filter + delt dato-helper)
+      // 1) Parse filen til RÅ linjer (firma-filter + afdelings-alias)
       setStage("Parser fakturajournal…");
       setStageProgress(null);
-      const { monthly, topProducts, topProductsMonthly, rawLines, stats } = await parseAndAggregate(
-        file,
-        { afdelinger, afdelingAliases },
-      );
+      const { rawLines, stats } = await parseInvoiceJournal(file, { afdelinger, afdelingAliases });
 
       setRowsByAfdeling(stats.rowsByAfdeling);
       toast.message(
-        `Parset: ${stats.linesRead.toLocaleString("da-DK")} linjer · ${monthly.length.toLocaleString("da-DK")} månedsrækker · ${topProducts.length.toLocaleString("da-DK")} top-vare-rækker · ${topProductsMonthly.length.toLocaleString("da-DK")} måneds-top-varer`,
+        `Parset: ${stats.linesRead.toLocaleString("da-DK")} fakturalinjer · ${stats.uniqueDeliveryNos.toLocaleString("da-DK")} leveringsnumre`,
       );
 
-      // 2) Slå alle (afdeling, delivery_no)-par op én gang server-side
-      setStage("Slår leverandørnumre op…");
+      // 2) Slå leveringsnumre op — kun til visning af hvor mange der er kendt.
+      //    Selve koblingen til lokation sker i databasens genberegning.
+      setStage("Slår leveringsnumre op…");
       const pairMap = new Map<string, { afdeling_nr: number; visma_delivery_no: string }>();
-      for (const r of [...monthly, ...topProducts, ...topProductsMonthly]) {
+      for (const r of rawLines) {
         pairMap.set(`${r.afdeling_nr}|${r.visma_delivery_no}`, {
           afdeling_nr: r.afdeling_nr,
           visma_delivery_no: r.visma_delivery_no,
@@ -160,41 +150,18 @@ function FakturaImportSide() {
       const matched = Object.keys(map).length;
       const unmatched = Array.from(pairMap.keys()).filter((k) => !map[k]);
 
-      // 3) Berig in-place med location_id / company_id (afdelingsnøglet)
-      setStage("Beriger rækker med lokation/firma…");
-      const enrichedMonthly = monthly.map((r) => {
-        const hit = map[`${r.afdeling_nr}|${r.visma_delivery_no}`];
-        return { ...r, location_id: hit?.location_id ?? null, company_id: hit?.company_id ?? null };
-      });
-      const enrichedTop = topProducts.map((r) => ({
-        ...r,
-        location_id: map[`${r.afdeling_nr}|${r.visma_delivery_no}`]?.location_id ?? null,
-      }));
-      const enrichedTopMonthly = topProductsMonthly.map((r) => ({
-        ...r,
-        location_id: map[`${r.afdeling_nr}|${r.visma_delivery_no}`]?.location_id ?? null,
-      }));
-
-      // 4) Chunk + upload til private storage
+      // 3) Chunk + upload rålinjer til private storage
       const newJobId = crypto.randomUUID();
       const linesBatchId = crypto.randomUUID();
-      const monthlyChunks = chunked(enrichedMonthly, CHUNK_SIZE);
-      const topChunks = chunked(enrichedTop, CHUNK_SIZE);
-      const topMonthlyChunks = chunked(enrichedTopMonthly, TOP_MONTHLY_CHUNK_SIZE);
       const lineChunks = chunked(rawLines, LINES_CHUNK_SIZE);
-      const totalUploads =
-        monthlyChunks.length + topChunks.length + topMonthlyChunks.length + lineChunks.length;
+      const totalUploads = lineChunks.length;
       let uploadIdx = 0;
 
-      setStage("Uploader data-chunks til server…");
+      setStage("Uploader fakturalinjer til server…");
       setStageProgress({ done: 0, total: totalUploads });
 
-      async function uploadChunk(
-        kind: "monthly" | "top" | "top_monthly" | "lines",
-        idx: number,
-        rows: unknown[],
-      ) {
-        const path = `${newJobId}/${kind}-${idx}.json`;
+      async function uploadChunk(idx: number, rows: unknown[]) {
+        const path = `${newJobId}/lines-${idx}.json`;
         const body = new Blob([JSON.stringify(rows)], { type: "application/json" });
         const { error } = await supabase.storage
           .from(BUCKET)
@@ -204,20 +171,14 @@ function FakturaImportSide() {
         setStageProgress({ done: uploadIdx, total: totalUploads });
       }
 
-      for (let i = 0; i < lineChunks.length; i++) await uploadChunk("lines", i, lineChunks[i]);
-      for (let i = 0; i < monthlyChunks.length; i++) await uploadChunk("monthly", i, monthlyChunks[i]);
-      for (let i = 0; i < topChunks.length; i++) await uploadChunk("top", i, topChunks[i]);
-      for (let i = 0; i < topMonthlyChunks.length; i++) await uploadChunk("top_monthly", i, topMonthlyChunks[i]);
+      for (let i = 0; i < lineChunks.length; i++) await uploadChunk(i, lineChunks[i]);
 
-      // 5) Enqueue jobbet — workeren tager over herfra
+      // 4) Enqueue jobbet — workeren skriver linjer, rydder, genberegner og kobler
       setStage("Tilmelder job til server-worker…");
       setStageProgress(null);
       await enqueueFn({
         data: {
           jobId: newJobId,
-          totalMonthly: enrichedMonthly.length,
-          totalTop: enrichedTop.length,
-          totalTopMonthly: enrichedTopMonthly.length,
           locationsMatched: matched,
           unmatched,
           rowsByAfdeling: stats.rowsByAfdeling,
@@ -231,7 +192,10 @@ function FakturaImportSide() {
 
       setJobId(newJobId);
       setStage("");
-      toast.success("Klar — workeren upserter nu i baggrunden. Du kan lukke fanen.");
+      toast.success(
+        "Klar — serveren skriver linjerne og genberegner salgsdata i baggrunden. Du kan lukke fanen.",
+      );
+
     } catch (e: any) {
       toast.error(e?.message ?? "Ukendt fejl");
       setStage("");
@@ -249,15 +213,10 @@ function FakturaImportSide() {
   }
 
   const running = job && (job.status === "queued" || job.status === "running");
-  const pctMonthly =
-    job && job.total_monthly > 0
-      ? Math.min(100, Math.round((job.saved_monthly / job.total_monthly) * 100))
-      : 0;
-  const pctTop =
-    job && job.total_top > 0 ? Math.min(100, Math.round((job.saved_top / job.total_top) * 100)) : 0;
   const stagePct = stageProgress && stageProgress.total > 0
     ? Math.round((stageProgress.done / stageProgress.total) * 100)
     : null;
+
 
   return (
     <div className="px-4 md:px-8 py-8 max-w-4xl mx-auto pb-24 md:pb-8 space-y-6">
@@ -269,8 +228,11 @@ function FakturaImportSide() {
           <Receipt className="h-6 w-6" /> Faktura Journal
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Browseren parser fakturajournalen og uploader færdige data-chunks. Workeren upserter i baggrunden — du kan lukke fanen, så snart upload er færdig.
+          Browseren uploader fakturajournalens linjer. Serveren skriver dem, rydder de gamle og
+          genberegner salgsdata for de berørte måneder — du kan lukke fanen, så snart upload er
+          færdig. Filen behøver ikke følge månedsskift.
         </p>
+
       </div>
 
       <Card className="p-6 space-y-4">
@@ -349,28 +311,13 @@ function FakturaImportSide() {
                 />
               </div>
             )}
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span>Månedsrækker</span>
-                <span className="text-muted-foreground">
-                  {job.saved_monthly.toLocaleString("da-DK")} / {job.total_monthly.toLocaleString("da-DK")}
-                </span>
-              </div>
-              <Progress value={pctMonthly} />
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span>Top-varer</span>
-                <span className="text-muted-foreground">
-                  {job.saved_top.toLocaleString("da-DK")} / {job.total_top.toLocaleString("da-DK")}
-                </span>
-              </div>
-              <Progress value={pctTop} />
-            </div>
             <p className="text-xs text-muted-foreground">
               {job.locations_matched.toLocaleString("da-DK")} lev.nr. matchet til lokationer
               {Array.isArray(job.unmatched_delivery_nos) && job.unmatched_delivery_nos.length > 0 && (
                 <> · {job.unmatched_delivery_nos.length} uden match</>
+              )}
+              {(job.months_rebuilt ?? 0) > 0 && (
+                <> · {(job.months_rebuilt ?? 0).toLocaleString("da-DK")} måneder genberegnet</>
               )}
             </p>
 
@@ -387,17 +334,19 @@ function FakturaImportSide() {
             {job.status === "completed" && (
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                  <CheckCircle2 className="h-4 w-4" /> Færdig — alle rækker upsertet
+                  <CheckCircle2 className="h-4 w-4" /> Færdig — salgsdata genberegnet
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {(job.saved_lines ?? 0).toLocaleString("da-DK")} fakturalinjer skrevet ·{" "}
-                  {(job.lines_deleted ?? 0).toLocaleString("da-DK")} gamle linjer slettet
+                  {(job.saved_lines ?? 0).toLocaleString("da-DK")} linjer skrevet ·{" "}
+                  {(job.lines_deleted ?? 0).toLocaleString("da-DK")} linjer slettet ·{" "}
+                  {(job.months_rebuilt ?? 0).toLocaleString("da-DK")} måneder genberegnet
                   {job.lines_date_from && job.lines_date_to && (
                     <> · periode {job.lines_date_from} – {job.lines_date_to}</>
                   )}
                 </p>
               </div>
             )}
+
             {job.last_error && (
               <p className="text-xs text-destructive">Fejl: {job.last_error}</p>
             )}
