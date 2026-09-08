@@ -561,7 +561,7 @@ export function AnalyseFane({
                     </>
                   )}
                 </tr>
-                {sorted.slice(0, visAntal).map((r) => {
+                {sorted.map((r) => {
                   const before = sammenMap.get(r.noegle)?.omsaetning ?? 0;
                   return (
                     <tr key={r.noegle} className="border-t border-border hover:bg-accent/30">
