@@ -440,12 +440,18 @@ export function AnalyseFane({
           <Button
             size="sm"
             variant="outline"
-            onClick={exportCsv}
-            disabled={!rows.length}
+            onClick={() => void exportCsv()}
+            disabled={!rows.length || csvHenter}
             className="ml-auto h-9"
           >
-            <Download className="h-4 w-4 mr-1" /> CSV
+            {csvHenter ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-1" />
+            )}
+            CSV
           </Button>
+
         </div>
 
         {aktiveFiltre.length > 0 && (
