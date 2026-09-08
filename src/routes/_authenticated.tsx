@@ -34,6 +34,7 @@ import {
   Copy,
   Leaf,
   MapPin,
+  Gauge,
 } from "lucide-react";
 import {
   Sheet,
