@@ -161,32 +161,40 @@ export function AnalyseFane({
     kgGruppe,
   };
 
+  const SIDE = 200;
+  const [visAntal, setVisAntal] = useState(SIDE);
+  useEffect(() => {
+    setVisAntal(SIDE);
+  }, [fra, til, opdel, saelgerIds, prisgrupper, varegrupper, regioner]);
+
   const q = useQuery({
-    queryKey: ["analyse-pivot", fra, til, argsBase],
-    queryFn: () => pivotFn({ data: { ...argsBase, fra: firstDay(fra), til: lastDay(til) } }),
+    queryKey: ["analyse-pivot", fra, til, argsBase, visAntal],
+    queryFn: () =>
+      pivotFn({ data: { ...argsBase, fra: firstDay(fra), til: lastDay(til), limit: visAntal } }),
   });
 
   const qSammen = useQuery({
-    queryKey: ["analyse-pivot-sammen", sammenPeriode, argsBase],
+    queryKey: ["analyse-pivot-sammen", sammenPeriode, argsBase, visAntal],
     enabled: !!sammenPeriode && daekket(sammenPeriode),
     queryFn: () =>
       pivotFn({
-        data: { ...argsBase, fra: firstDay(sammenPeriode!.fra), til: lastDay(sammenPeriode!.til) },
+        data: {
+          ...argsBase,
+          fra: firstDay(sammenPeriode!.fra),
+          til: lastDay(sammenPeriode!.til),
+          limit: visAntal,
+        },
       }),
   });
 
   const sammenMap = useMemo(() => {
     const m = new Map<string, AnalysePivotRow>();
-    (qSammen.data ?? []).forEach((r) => m.set(r.noegle, r));
+    (qSammen.data?.rows ?? []).forEach((r) => m.set(r.noegle, r));
     return m;
   }, [qSammen.data]);
 
-  const rows = q.data ?? [];
-
-  const [visAntal, setVisAntal] = useState(25);
-  useEffect(() => {
-    setVisAntal(25);
-  }, [fra, til, opdel, sortKey, sortDir, saelgerIds, prisgrupper, varegrupper, regioner]);
+  const rows = q.data?.rows ?? [];
+  const totalGrupper = q.data?.totalGrupper ?? 0;
 
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -216,25 +224,8 @@ export function AnalyseFane({
     });
   }, [rows, sortKey, sortDir]);
 
-  const total = useMemo(() => {
-    let omsaetning = 0, kg = 0, stk = 0, db = 0;
-    let harDb = false;
-    const kunder = new Set<string>();
-    for (const r of rows) {
-      omsaetning += r.omsaetning;
-      kg += r.kg;
-      stk += r.stk;
-      if (r.db != null) { db += r.db; harDb = true; }
-      if (opdel === "kunde") kunder.add(r.noegle);
-    }
-    return {
-      omsaetning,
-      kg,
-      stk,
-      db: harDb ? db : null,
-      antal_kunder: opdel === "kunde" ? kunder.size : Math.max(...rows.map((r) => r.antal_kunder), 0),
-    };
-  }, [rows, opdel]);
+  const total = q.data?.totaler ?? { omsaetning: 0, kg: 0, stk: 0, db: null, antal_kunder: 0 };
+
 
   const toggleSort = (k: SortKey) => {
     if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
