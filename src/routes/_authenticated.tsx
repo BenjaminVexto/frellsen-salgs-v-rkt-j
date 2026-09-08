@@ -34,6 +34,7 @@ import {
   Copy,
   Leaf,
   MapPin,
+  Gauge,
 } from "lucide-react";
 import {
   Sheet,
@@ -139,6 +140,10 @@ function AuthenticatedShell() {
     ...(isSupport
       ? []
       : [{ to: "/min-portefoelje", label: "Min salgsstatistik", shortLabel: "Statistik", icon: TrendingUp }]),
+    // Målepunkter er kun defineret for afdeling 11.
+    ...(auth.afdelinger.includes(11) && (afd.afdelingFilter === 11 || afd.afdelingFilter === null)
+      ? [{ to: "/maalepunkter", label: "Målepunkter", shortLabel: "Mål", icon: Gauge }]
+      : []),
     { to: "/aftaler", label: "Aftaler", shortLabel: "Aftaler", icon: FileText },
     { to: "/tilbud", label: "Tilbud", shortLabel: "Tilbud", icon: FileSignature },
     ...(isSupport
