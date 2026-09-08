@@ -568,6 +568,7 @@ function DetaljePanel({
   });
 
   const rows = q.data ?? [];
+  const [udfoldede, setUdfoldede] = useState<Record<string, boolean>>({});
   const navn = (r: any) => (
     <Link
       to="/virksomheder/$id"
@@ -577,6 +578,28 @@ function DetaljePanel({
       {r.navn}
     </Link>
   );
+
+  /** Nye kunder kommer som én række pr. konto, grupperet pr. kunde (samme adresse). */
+  const nyeGrupper = useMemo(() => {
+    if (drill?.slags !== "nye") return [];
+    const map = new Map<string, { key: string; navn: string; by: string | null; oprettet: string; antal: number; konti: any[] }>();
+    rows.forEach((r: any) => {
+      const k = String(r.gruppe_key ?? r.company_id);
+      if (!map.has(k)) {
+        map.set(k, {
+          key: k,
+          navn: r.gruppe_navn ?? r.navn,
+          by: r.gruppe_by ?? r.by,
+          oprettet: r.gruppe_oprettet ?? r.oprettet,
+          antal: Number(r.antal_konti ?? 1),
+          konti: [],
+        });
+      }
+      map.get(k)!.konti.push(r);
+    });
+    return Array.from(map.values());
+  }, [rows, drill?.slags]);
+
 
   return (
     <Dialog open={!!drill} onOpenChange={(o) => !o && onClose()}>
