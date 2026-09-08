@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
@@ -658,8 +658,8 @@ function DetaljePanel({
                       .pop();
                     const foerste = g.konti[0];
                     return (
-                      <>
-                        <tr key={g.key} className="border-b last:border-0">
+                      <Fragment key={g.key}>
+                        <tr className="border-b last:border-0">
                           <td className="py-1.5 pr-3">
                             {navn({ company_id: foerste.company_id, navn: g.navn })}
                             {g.antal > 1 && (
@@ -695,7 +695,7 @@ function DetaljePanel({
                               </td>
                             </tr>
                           ))}
-                      </>
+                      </Fragment>
                     );
                   })
                 : rows.map((r: any, i: number) => (
