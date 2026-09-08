@@ -80,8 +80,20 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") sessionStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const impersonating = isAdmin && !!state.viewAsUserId;
+
+  // Rettighederne for den viste sælger hentes eksplicit — auth.uid() kan ikke
+  // skiftes, så visningen må styres af den effektive brugers rettigheder.
+  const permsFn = useServerFn(getEffektiveRettigheder);
+  const permsQ = useQuery({
+    queryKey: ["effektive-rettigheder", state.viewAsUserId],
+    enabled: impersonating && !!state.viewAsUserId,
+    queryFn: () => permsFn({ data: { userId: state.viewAsUserId! } }),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const value = useMemo<ViewAsContextValue>(() => {
-    const impersonating = isAdmin && !!state.viewAsUserId;
+    const perms = impersonating ? (permsQ.data ?? null) : null;
     return {
       viewAsUserId: impersonating ? state.viewAsUserId : null,
       viewAsName: impersonating ? state.viewAsName : null,
@@ -89,10 +101,16 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
       isImpersonating: impersonating,
       effectiveUserId: impersonating ? state.viewAsUserId : realUserId,
       realUserId,
+      effectiveRole: impersonating ? (perms?.role ?? null) : auth.role,
+      // Under "Se som sælger" gælder sælgerens rettigheder — indtil de er hentet
+      // antages ingen adgang, så administratorens tal aldrig blinker igennem.
+      effectiveMaaSeDb: impersonating ? perms?.maaSeDb === true : auth.maaSeDb,
+      effectiveMaaSeAnalyse: impersonating ? perms?.maaSeAnalyse === true : auth.maaSeAnalyse,
+      effectivePermsLoading: impersonating && permsQ.isLoading,
       setViewAs,
       clearViewAs,
     };
-  }, [isAdmin, realUserId, state, setViewAs, clearViewAs]);
+  }, [isAdmin, realUserId, state, setViewAs, clearViewAs, impersonating, permsQ.data, permsQ.isLoading, auth.role, auth.maaSeDb, auth.maaSeAnalyse]);
 
   return <ViewAsContext.Provider value={value}>{children}</ViewAsContext.Provider>;
 }
