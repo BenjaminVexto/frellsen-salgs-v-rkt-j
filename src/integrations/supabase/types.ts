@@ -3330,6 +3330,10 @@ export type Database = {
           omsaetning: number
         }[]
       }
+      maalepunkt_kundekategori: {
+        Args: { _binding: string; _segment3: string }
+        Returns: string
+      }
       maalepunkt_maskiner:
         | {
             Args: { _fra: string; _saelger: string; _til: string }
@@ -3379,6 +3383,7 @@ export type Database = {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
           antal: number
+          db: number
           kategori: string
           maaned: string
         }[]
