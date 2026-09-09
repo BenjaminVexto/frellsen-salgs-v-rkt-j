@@ -15,9 +15,19 @@ export type BonusOrdning = {
   maskin_salg: boolean;
   maskin_leje: boolean;
   maskin_brugt: boolean;
+  /** Bund/top pr. måned — null = ingen grænse. */
+  db_bund: number | null;
+  db_top: number | null;
+  maskin_bund: number | null;
+  maskin_top: number | null;
+  total_bund: number | null;
+  total_top: number | null;
+  /** Fast beløb pr. måned der erstatter al anden bonus. */
+  flatrate: number | null;
   created_at?: string;
   created_by?: string | null;
 };
+
 
 const MDR_LANG = [
   "januar",
