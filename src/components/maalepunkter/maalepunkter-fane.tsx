@@ -87,6 +87,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const til = tilRaw > sidsteHele ? sidsteHele : tilRaw;
   const [visBrugte, setVisBrugte] = useState(false);
   const [kundetype, setKundetype] = useState<Kundetype>("alle");
+  const [nyeMaal, setNyeMaal] = useState<"antal" | "db">("antal");
   const [drill, setDrill] = useState<Drill | null>(null);
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
@@ -121,7 +122,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("maalepunkt_nye_kunder", args);
       if (error) throw new Error(error.message);
-      return (data ?? []) as { maaned: string; kategori: string; antal: number }[];
+      return (data ?? []) as { maaned: string; kategori: string; antal: number; db: number }[];
     },
   });
 
@@ -137,15 +138,10 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       const key = mNøgle(r.maaned);
       m.set(key, (m.get(key) ?? 0) + Number(r.vaerdi || 0));
     });
-    const rows: { label: string; per: Map<string, number>; kategori: string }[] = [
+    return [
       { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
       { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
-    const andet = map.get("andet");
-    if (andet && Array.from(andet.values()).some((v) => Math.abs(v) > 0.005)) {
-      rows.push({ label: "Andet", per: andet, kategori: "andet" });
-    }
-    return rows;
   }, [dbQ.data]);
 
   // --- Tabel 2: maskiner ---
@@ -174,7 +170,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     return rows;
   }, [maskinerQ.data, visBrugte]);
 
-  // --- Tabel 3: nye kunder ---
+  // --- Tabel 3: nye kunder (antal eller DB) ---
   const nyeTabel = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
     (nyeQ.data ?? []).forEach((r) => {
@@ -182,18 +178,15 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       if (!map.has(k)) map.set(k, new Map());
       const m = map.get(k)!;
       const key = mNøgle(r.maaned);
-      m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
+      const v = nyeMaal === "db" ? Number(r.db || 0) : Number(r.antal || 0);
+      m.set(key, (m.get(key) ?? 0) + v);
     });
-    const rows: { label: string; per: Map<string, number>; kategori: string }[] = [
+    return [
       { label: "Private", per: map.get("privat") ?? new Map(), kategori: "privat" },
       { label: "Offentlige", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
-    const andet = map.get("andet");
-    if (andet && Array.from(andet.values()).some((v) => v > 0)) {
-      rows.push({ label: "Andet", per: andet, kategori: "andet" });
-    }
-    return rows;
-  }, [nyeQ.data]);
+  }, [nyeQ.data, nyeMaal]);
+
 
   const rowTotal = (per: Map<string, number>) =>
     maaneder.reduce((s, m) => s + (per.get(m) ?? 0), 0);
