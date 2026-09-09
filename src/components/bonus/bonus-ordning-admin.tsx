@@ -132,7 +132,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       toast.error("Provisionssatsen skal være et tal");
       return;
     }
-    form.db_provision_pct = pct;
+    const satser: Satser = { ...form, db_provision_pct: pct };
     const fra = `${maaned}-01`;
     const til = tilMaanedVal ? sidsteDagIMaaned(tilMaanedVal) : null;
     if (til && til < fra) {
@@ -144,7 +144,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       if (redigerId) {
         const { error } = await (supabase as any)
           .from("bonus_ordning")
-          .update({ ...form, gyldig_fra: fra, gyldig_til: til })
+          .update({ ...satser, gyldig_fra: fra, gyldig_til: til })
           .eq("id", redigerId);
         if (error) throw new Error(error.message);
         toast.success("Bonusordning opdateret");
@@ -159,7 +159,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
           if (error) throw new Error(error.message);
         }
         const { error } = await (supabase as any).from("bonus_ordning").insert({
-          ...form,
+          ...satser,
           gyldig_fra: fra,
           gyldig_til: til,
           user_id: userId,
