@@ -3427,6 +3427,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      kundetype: { Args: { _segment_3: string }; Returns: string }
       location_sales_summary: {
         Args: { _location_ids: string[] }
         Returns: {
