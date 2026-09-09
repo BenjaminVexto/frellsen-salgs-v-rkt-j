@@ -88,6 +88,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   const startRedigering = (o: BonusOrdning) => {
     setOpretter(false);
     setRedigerId(o.id);
+    const n = (v: unknown) => (v == null ? null : Number(v));
     setForm({
       db_provision_pct: Number(o.db_provision_pct),
       db_privat: o.db_privat,
@@ -100,7 +101,15 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       maskin_salg: o.maskin_salg,
       maskin_leje: o.maskin_leje,
       maskin_brugt: o.maskin_brugt,
+      db_bund: n(o.db_bund),
+      db_top: n(o.db_top),
+      maskin_bund: n(o.maskin_bund),
+      maskin_top: n(o.maskin_top),
+      total_bund: n(o.total_bund),
+      total_top: n(o.total_top),
+      flatrate: n(o.flatrate),
     });
+
     setMaaned(tilMaaned(o.gyldig_fra));
     setTilMaanedVal(o.gyldig_til ? tilMaaned(o.gyldig_til) : "");
   };
