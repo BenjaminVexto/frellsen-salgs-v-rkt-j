@@ -604,12 +604,13 @@ function PortfolioPage() {
 
       </div>
 
-      {visAnalyse || visMaalepunkter ? (
+      {visAnalyse || visMaalepunkter || visBonus ? (
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList className="mb-4">
             <TabsTrigger value="portefoelje">Portefølje</TabsTrigger>
             {visAnalyse && <TabsTrigger value="analyse">Analyse</TabsTrigger>}
             {visMaalepunkter && <TabsTrigger value="maalepunkter">Målepunkter</TabsTrigger>}
+            {visBonus && <TabsTrigger value="bonus">Bonus</TabsTrigger>}
           </TabsList>
           <TabsContent value="portefoelje">{portefoeljeIndhold}</TabsContent>
           {visAnalyse && (
@@ -626,8 +627,14 @@ function PortfolioPage() {
               <MaalepunkterFane saelgerId={maalepunkterSaelgerId} />
             </TabsContent>
           )}
+          {visBonus && (
+            <TabsContent value="bonus">
+              <BonusFane saelgerId={maalepunkterSaelgerId} />
+            </TabsContent>
+          )}
         </Tabs>
       ) : (
+
         portefoeljeIndhold
       )}
 
