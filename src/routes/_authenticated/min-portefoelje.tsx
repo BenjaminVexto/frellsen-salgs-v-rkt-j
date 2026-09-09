@@ -224,6 +224,9 @@ function PortfolioPage() {
             <section className="mb-6">
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Porteføljens puls
+                <span className="ml-2 normal-case tracking-normal font-normal">
+                  {helMaanederTekst(data.totals.ytdLatestPeriod)}
+                </span>
               </h2>
               <div className={`grid gap-3 ${visDb ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 <RevenueCard
@@ -249,10 +252,13 @@ function PortfolioPage() {
                 </Card>
                 {visDb && (
                   <Card className="p-4">
-                    <div className="text-xs text-muted-foreground mb-1">DB · 12 mdr. (admin)</div>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      DB · {helMaanederTekst(data.totals.ytdLatestPeriod) || "12 hele mdr."} (admin)
+                    </div>
                     <div className="text-2xl font-semibold tabular-nums">
                       {fmtKr(data.totals.contribution12m ?? 0)}
                     </div>
+
                     <div className="text-xs text-muted-foreground mt-1">
                       DG:{" "}
                       {data.totals.revenue12m > 0
