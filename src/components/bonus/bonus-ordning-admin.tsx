@@ -29,6 +29,7 @@ const tomSatser = (): Satser => ({
   total_bund: null,
   total_top: null,
   flatrate: null,
+  db_fradrag: null,
 });
 
 
@@ -57,6 +58,8 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   const [form, setForm] = useState<Satser>(tomSatser());
   const [maaned, setMaaned] = useState(`${new Date().getFullYear()}-01`);
   const [tilMaanedVal, setTilMaanedVal] = useState("");
+  /** Procenten skrives frit, så både komma og punktum kan bruges undervejs. */
+  const [pctTekst, setPctTekst] = useState("0");
 
   const hent = async () => {
     setLoading(true);
