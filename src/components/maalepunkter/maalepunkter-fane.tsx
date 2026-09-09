@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
@@ -87,6 +87,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const til = tilRaw > sidsteHele ? sidsteHele : tilRaw;
   const [visBrugte, setVisBrugte] = useState(false);
   const [kundetype, setKundetype] = useState<Kundetype>("alle");
+  const [nyeMaal, setNyeMaal] = useState<"antal" | "db">("antal");
   const [drill, setDrill] = useState<Drill | null>(null);
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
@@ -121,7 +122,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("maalepunkt_nye_kunder", args);
       if (error) throw new Error(error.message);
-      return (data ?? []) as { maaned: string; kategori: string; antal: number }[];
+      return (data ?? []) as { maaned: string; kategori: string; antal: number; db: number }[];
     },
   });
 
@@ -137,15 +138,10 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       const key = mNøgle(r.maaned);
       m.set(key, (m.get(key) ?? 0) + Number(r.vaerdi || 0));
     });
-    const rows: { label: string; per: Map<string, number>; kategori: string }[] = [
+    return [
       { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
       { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
-    const andet = map.get("andet");
-    if (andet && Array.from(andet.values()).some((v) => Math.abs(v) > 0.005)) {
-      rows.push({ label: "Andet", per: andet, kategori: "andet" });
-    }
-    return rows;
   }, [dbQ.data]);
 
   // --- Tabel 2: maskiner ---
@@ -174,7 +170,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     return rows;
   }, [maskinerQ.data, visBrugte]);
 
-  // --- Tabel 3: nye kunder ---
+  // --- Tabel 3: nye kunder (antal eller DB) ---
   const nyeTabel = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
     (nyeQ.data ?? []).forEach((r) => {
@@ -182,18 +178,15 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       if (!map.has(k)) map.set(k, new Map());
       const m = map.get(k)!;
       const key = mNøgle(r.maaned);
-      m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
+      const v = nyeMaal === "db" ? Number(r.db || 0) : Number(r.antal || 0);
+      m.set(key, (m.get(key) ?? 0) + v);
     });
-    const rows: { label: string; per: Map<string, number>; kategori: string }[] = [
+    return [
       { label: "Private", per: map.get("privat") ?? new Map(), kategori: "privat" },
       { label: "Offentlige", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
-    const andet = map.get("andet");
-    if (andet && Array.from(andet.values()).some((v) => v > 0)) {
-      rows.push({ label: "Andet", per: andet, kategori: "andet" });
-    }
-    return rows;
-  }, [nyeQ.data]);
+  }, [nyeQ.data, nyeMaal]);
+
 
   const rowTotal = (per: Map<string, number>) =>
     maaneder.reduce((s, m) => s + (per.get(m) ?? 0), 0);
@@ -230,7 +223,13 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     };
     block("Dækningsbidrag pr. måned (kr.)", dbTabel, 2);
     block("Solgte maskiner pr. måned (stk.)", maskinTabel, 0);
-    block("Nye kunder pr. måned (antal, måned for første ordre)", nyeTabel, 0);
+    block(
+      nyeMaal === "db"
+        ? "Nye kunder pr. måned (DB i perioden, måned for første ordre)"
+        : "Nye kunder pr. måned (antal, måned for første ordre)",
+      nyeTabel,
+      nyeMaal === "db" ? 2 : 0,
+    );
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -479,11 +478,27 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
         }
       />
       <Tabel
-        titel="Nye kunder pr. måned (tælles i måneden for første ordre)"
+        titel={
+          nyeMaal === "db"
+            ? "Nye kunder pr. måned — DB i perioden (tælles i måneden for første ordre)"
+            : "Nye kunder pr. måned (tælles i måneden for første ordre)"
+        }
         rows={nyeTabel}
-        dec={0}
+        dec={nyeMaal === "db" ? 0 : 0}
         loading={nyeQ.isLoading}
         error={nyeQ.error ? (nyeQ.error as Error).message : null}
+        hoved={
+          <ToggleGroup
+            type="single"
+            size="sm"
+            variant="outline"
+            value={nyeMaal}
+            onValueChange={(v) => v && setNyeMaal(v as "antal" | "db")}
+          >
+            <ToggleGroupItem value="antal">Antal</ToggleGroupItem>
+            <ToggleGroupItem value="db">DB</ToggleGroupItem>
+          </ToggleGroup>
+        }
         onRow={(i) =>
           setDrill({
             slags: "nye",
@@ -569,6 +584,24 @@ function DetaljePanel({
 
   const rows = q.data ?? [];
   const [udfoldede, setUdfoldede] = useState<Record<string, boolean>>({});
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  // Ny visning starter altid på standardsorteringen fra databasen.
+  useEffect(() => {
+    setSortKey(null);
+    setSortDir("asc");
+    setUdfoldede({});
+  }, [drill]);
+
+  const klikSorter = (key: string) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
   const navn = (r: any) => (
     <Link
       to="/virksomheder/$id"
@@ -582,7 +615,18 @@ function DetaljePanel({
   /** Nye kunder kommer som én række pr. konto, grupperet pr. kunde (samme adresse). */
   const nyeGrupper = useMemo(() => {
     if (drill?.slags !== "nye") return [];
-    const map = new Map<string, { key: string; navn: string; by: string | null; oprettet: string; foersteOrdre: string | null; antal: number; konti: any[] }>();
+    const map = new Map<
+      string,
+      {
+        key: string;
+        navn: string;
+        by: string | null;
+        oprettet: string;
+        foersteOrdre: string | null;
+        antal: number;
+        konti: any[];
+      }
+    >();
     rows.forEach((r: any) => {
       const k = String(r.gruppe_key ?? r.company_id);
       if (!map.has(k)) {
@@ -598,9 +642,133 @@ function DetaljePanel({
       }
       map.get(k)!.konti.push(r);
     });
-    return Array.from(map.values());
+    return Array.from(map.values()).map((g) => ({
+      ...g,
+      omsaetning: g.konti.reduce((s, k) => s + (Number(k.omsaetning) || 0), 0),
+      sidsteKoeb:
+        g.konti
+          .map((k) => k.sidste_koeb)
+          .filter(Boolean)
+          .sort()
+          .pop() ?? null,
+      kundeprisgruppe_2: g.konti[0]?.kundeprisgruppe_2 ?? null,
+      company_id: g.konti[0]?.company_id,
+    }));
   }, [rows, drill?.slags]);
 
+  /** Kolonner pr. paneltype — bruges både til sorterbare overskrifter og celler. */
+  type Kol = {
+    key: string;
+    label: string;
+    num?: boolean;
+    val: (r: any) => any;
+    cell: (r: any) => React.ReactNode;
+  };
+
+  const kolonner: Kol[] = useMemo(() => {
+    if (drill?.slags === "db")
+      return [
+        { key: "navn", label: "Virksomhed", val: (r) => r.navn ?? "", cell: (r) => navn(r) },
+        { key: "by", label: "By", val: (r) => r.by ?? "", cell: (r) => r.by ?? "—" },
+        {
+          key: "db",
+          label: "DB",
+          num: true,
+          val: (r) => Number(r.db) || 0,
+          cell: (r) => fmtTal(Number(r.db) || 0),
+        },
+        {
+          key: "omsaetning",
+          label: "Omsætning",
+          num: true,
+          val: (r) => Number(r.omsaetning) || 0,
+          cell: (r) => fmtTal(Number(r.omsaetning) || 0),
+        },
+      ];
+    if (drill?.slags === "maskiner")
+      return [
+        { key: "navn", label: "Virksomhed", val: (r) => r.navn ?? "", cell: (r) => navn(r) },
+        { key: "by", label: "By", val: (r) => r.by ?? "", cell: (r) => r.by ?? "—" },
+        { key: "model", label: "Model", val: (r) => r.model ?? "", cell: (r) => r.model ?? "—" },
+        {
+          key: "antal",
+          label: "Antal",
+          num: true,
+          val: (r) => Number(r.antal) || 0,
+          cell: (r) => fmtTal(Number(r.antal) || 0),
+        },
+        {
+          key: "faktura_dato",
+          label: "Fakturadato",
+          val: (r) => r.faktura_dato ?? "",
+          cell: (r) => fmtDato(r.faktura_dato),
+        },
+        {
+          key: "beloeb",
+          label: "Beløb",
+          num: true,
+          val: (r) => Number(r.beloeb) || 0,
+          cell: (r) => fmtTal(Number(r.beloeb) || 0),
+        },
+        {
+          key: "brugt",
+          label: "Stand",
+          val: (r) => (r.brugt ? 1 : 0),
+          cell: (r) => (r.brugt ? "Brugt" : "Ny"),
+        },
+      ];
+    return [
+      { key: "navn", label: "Virksomhed", val: (r) => r.navn ?? "", cell: (r) => navn(r) },
+      { key: "by", label: "By", val: (r) => r.by ?? "", cell: (r) => r.by ?? "—" },
+      {
+        key: "oprettet",
+        label: "Oprettet i Visma",
+        val: (r) => r.oprettet ?? "",
+        cell: (r) => fmtDato(r.oprettet),
+      },
+      {
+        key: "foersteOrdre",
+        label: "Første ordre",
+        val: (r) => r.foersteOrdre ?? "",
+        cell: (r) => (r.foersteOrdre ? fmtDato(r.foersteOrdre) : "—"),
+      },
+      {
+        key: "kundeprisgruppe_2",
+        label: "Kundeprisgruppe 2",
+        val: (r) => r.kundeprisgruppe_2 ?? "",
+        cell: (r) => r.kundeprisgruppe_2 ?? "—",
+      },
+      {
+        key: "omsaetning",
+        label: "Omsætning siden",
+        num: true,
+        val: (r) => Number(r.omsaetning) || 0,
+        cell: (r) => fmtTal(Number(r.omsaetning) || 0),
+      },
+      {
+        key: "sidsteKoeb",
+        label: "Sidste køb",
+        val: (r) => r.sidsteKoeb ?? "",
+        cell: (r) => (r.sidsteKoeb ? fmtDato(r.sidsteKoeb) : "Har aldrig købt"),
+      },
+    ];
+  }, [drill?.slags]);
+
+  const sorter = <T,>(liste: T[]): T[] => {
+    if (!sortKey) return liste;
+    const kol = kolonner.find((k) => k.key === sortKey);
+    if (!kol) return liste;
+    const f = sortDir === "asc" ? 1 : -1;
+    return [...liste].sort((a, b) => {
+      const av = kol.val(a);
+      const bv = kol.val(b);
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * f;
+      return String(av).localeCompare(String(bv), "da-DK") * f;
+    });
+  };
+
+  const grupperSorteret = useMemo(() => sorter(nyeGrupper), [nyeGrupper, sortKey, sortDir, kolonner]);
+  const rowsSorteret = useMemo(() => sorter(rows), [rows, sortKey, sortDir, kolonner]);
 
   return (
     <Dialog open={!!drill} onOpenChange={(o) => !o && onClose()}>
@@ -620,50 +788,32 @@ function DetaljePanel({
           <table className="w-full text-sm tabular-nums">
             <thead>
               <tr className="border-b text-left">
-                <th className="py-2 pr-3 font-medium">Virksomhed</th>
-                <th className="py-2 pr-3 font-medium">By</th>
-                {drill?.slags === "db" && (
-                  <>
-                    <th className="py-2 pr-3 font-medium text-right">DB</th>
-                    <th className="py-2 font-medium text-right">Omsætning</th>
-                  </>
-                )}
-                {drill?.slags === "maskiner" && (
-                  <>
-                    <th className="py-2 pr-3 font-medium">Model</th>
-                    <th className="py-2 pr-3 font-medium text-right">Antal</th>
-                    <th className="py-2 pr-3 font-medium">Fakturadato</th>
-                    <th className="py-2 pr-3 font-medium text-right">Beløb</th>
-                    <th className="py-2 font-medium">Stand</th>
-                  </>
-                )}
-                {drill?.slags === "nye" && (
-                  <>
-                    <th className="py-2 pr-3 font-medium">Oprettet i Visma</th>
-                    <th className="py-2 pr-3 font-medium">Første ordre</th>
-                    <th className="py-2 pr-3 font-medium">Kundeprisgruppe 2</th>
-                    <th className="py-2 pr-3 font-medium text-right">Omsætning siden</th>
-                    <th className="py-2 font-medium">Sidste køb</th>
-                  </>
-                )}
+                {kolonner.map((k) => (
+                  <th
+                    key={k.key}
+                    className={`py-2 pr-3 font-medium ${k.num ? "text-right" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      className="hover:underline"
+                      onClick={() => klikSorter(k.key)}
+                    >
+                      {k.label}
+                      {sortKey === k.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                    </button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {drill?.slags === "nye"
-                ? nyeGrupper.map((g) => {
+                ? grupperSorteret.map((g: any) => {
                     const aaben = !!udfoldede[g.key];
-                    const oms = g.konti.reduce((s, k) => s + (Number(k.omsaetning) || 0), 0);
-                    const sidste = g.konti
-                      .map((k) => k.sidste_koeb)
-                      .filter(Boolean)
-                      .sort()
-                      .pop();
-                    const foerste = g.konti[0];
                     return (
                       <Fragment key={g.key}>
                         <tr className="border-b last:border-0">
                           <td className="py-1.5 pr-3">
-                            {navn({ company_id: foerste.company_id, navn: g.navn })}
+                            {navn({ company_id: g.company_id, navn: g.navn })}
                             {g.antal > 1 && (
                               <button
                                 type="button"
@@ -676,14 +826,14 @@ function DetaljePanel({
                               </button>
                             )}
                           </td>
-                          <td className="py-1.5 pr-3">{g.by ?? "—"}</td>
-                          <td className="py-1.5 pr-3">{fmtDato(g.oprettet)}</td>
-                          <td className="py-1.5 pr-3">
-                            {g.foersteOrdre ? fmtDato(g.foersteOrdre) : "—"}
-                          </td>
-                          <td className="py-1.5 pr-3">{foerste.kundeprisgruppe_2 ?? "—"}</td>
-                          <td className="py-1.5 pr-3 text-right">{fmtTal(oms)}</td>
-                          <td className="py-1.5">{sidste ? fmtDato(sidste) : "Har aldrig købt"}</td>
+                          {kolonner.slice(1).map((k) => (
+                            <td
+                              key={k.key}
+                              className={`py-1.5 pr-3 ${k.num ? "text-right" : ""}`}
+                            >
+                              {k.cell(g)}
+                            </td>
+                          ))}
                         </tr>
                         {aaben &&
                           g.konti.map((k: any) => (
@@ -698,7 +848,7 @@ function DetaljePanel({
                               <td className="py-1 pr-3 text-right text-xs">
                                 {fmtTal(Number(k.omsaetning) || 0)}
                               </td>
-                              <td className="py-1 text-xs">
+                              <td className="py-1 pr-3 text-xs">
                                 {k.sidste_koeb ? fmtDato(k.sidste_koeb) : "Har aldrig købt"}
                               </td>
                             </tr>
@@ -706,32 +856,20 @@ function DetaljePanel({
                       </Fragment>
                     );
                   })
-                : rows.map((r: any, i: number) => (
+                : rowsSorteret.map((r: any, i: number) => (
                     <tr key={`${r.company_id}-${i}`} className="border-b last:border-0">
-                      <td className="py-1.5 pr-3">{navn(r)}</td>
-                      <td className="py-1.5 pr-3">{r.by ?? "—"}</td>
-                      {drill?.slags === "db" && (
-                        <>
-                          <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.db) || 0)}</td>
-                          <td className="py-1.5 text-right">{fmtTal(Number(r.omsaetning) || 0)}</td>
-                        </>
-                      )}
-                      {drill?.slags === "maskiner" && (
-                        <>
-                          <td className="py-1.5 pr-3">{r.model ?? "—"}</td>
-                          <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.antal) || 0)}</td>
-                          <td className="py-1.5 pr-3">{fmtDato(r.faktura_dato)}</td>
-                          <td className="py-1.5 pr-3 text-right">{fmtTal(Number(r.beloeb) || 0)}</td>
-                          <td className="py-1.5">{r.brugt ? "Brugt" : "Ny"}</td>
-                        </>
-                      )}
+                      {kolonner.map((k) => (
+                        <td key={k.key} className={`py-1.5 pr-3 ${k.num ? "text-right" : ""}`}>
+                          {k.cell(r)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
             </tbody>
-
           </table>
         )}
       </DialogContent>
     </Dialog>
   );
 }
+
