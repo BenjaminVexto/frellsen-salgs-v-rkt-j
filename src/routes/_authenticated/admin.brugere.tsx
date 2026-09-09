@@ -668,7 +668,19 @@ function BrugerStyringSide() {
             <DialogTitle>Redigér bruger</DialogTitle>
           </DialogHeader>
           {editRow && (
+            <Tabs defaultValue="bruger">
+              <TabsList className="mb-3">
+                <TabsTrigger value="bruger">Bruger</TabsTrigger>
+                {auth.role === "admin" && <TabsTrigger value="bonus">Bonus</TabsTrigger>}
+              </TabsList>
+              {auth.role === "admin" && (
+                <TabsContent value="bonus">
+                  <BonusOrdningAdmin userId={editRow.id} />
+                </TabsContent>
+              )}
+              <TabsContent value="bruger">
             <div className="space-y-3">
+
               <div>
                 <Label>Fuldt navn</Label>
                 <Input
