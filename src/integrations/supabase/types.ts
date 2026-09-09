@@ -3546,6 +3546,10 @@ export type Database = {
           sidste_koeb: string
         }[]
       }
+      maskin_er_tilvalg: { Args: { _txt: string }; Returns: boolean }
+      maskin_maerke: { Args: { _txt: string }; Returns: string }
+      maskin_modelfamilie: { Args: { _txt: string }; Returns: string }
+      maskin_tilvalg_moenstre: { Args: never; Returns: string[] }
       monthly_revenue_totals: {
         Args: {
           _afdeling_nr?: number
