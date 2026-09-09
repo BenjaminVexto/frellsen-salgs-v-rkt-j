@@ -22,7 +22,15 @@ const tomSatser = (): Satser => ({
   maskin_salg: true,
   maskin_leje: true,
   maskin_brugt: true,
+  db_bund: null,
+  db_top: null,
+  maskin_bund: null,
+  maskin_top: null,
+  total_bund: null,
+  total_top: null,
+  flatrate: null,
 });
+
 
 /** Måneden før en given 1.-i-måneden-dato. */
 const sidsteDagFoer = (foersteIMaaned: string) => {
@@ -80,6 +88,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   const startRedigering = (o: BonusOrdning) => {
     setOpretter(false);
     setRedigerId(o.id);
+    const n = (v: unknown) => (v == null ? null : Number(v));
     setForm({
       db_provision_pct: Number(o.db_provision_pct),
       db_privat: o.db_privat,
@@ -92,7 +101,15 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       maskin_salg: o.maskin_salg,
       maskin_leje: o.maskin_leje,
       maskin_brugt: o.maskin_brugt,
+      db_bund: n(o.db_bund),
+      db_top: n(o.db_top),
+      maskin_bund: n(o.maskin_bund),
+      maskin_top: n(o.maskin_top),
+      total_bund: n(o.total_bund),
+      total_top: n(o.total_top),
+      flatrate: n(o.flatrate),
     });
+
     setMaaned(tilMaaned(o.gyldig_fra));
     setTilMaanedVal(o.gyldig_til ? tilMaaned(o.gyldig_til) : "");
   };
@@ -160,6 +177,33 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   };
 
   const num = (v: string) => (v === "" ? 0 : Number(v.replace(",", ".")));
+  const numEllerTom = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
+  const visTal = (v: number | null) => (v == null ? "" : String(v));
+
+  const bundTop = (
+    bundKey: "db_bund" | "maskin_bund" | "total_bund",
+    topKey: "db_top" | "maskin_top" | "total_top",
+  ) => (
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <Label className="text-xs">Bund (kr. pr. måned)</Label>
+        <Input
+          placeholder="ingen"
+          value={visTal(form[bundKey])}
+          onChange={(e) => setForm({ ...form, [bundKey]: numEllerTom(e.target.value) })}
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Top (kr. pr. måned)</Label>
+        <Input
+          placeholder="ingen"
+          value={visTal(form[topKey])}
+          onChange={(e) => setForm({ ...form, [topKey]: numEllerTom(e.target.value) })}
+        />
+      </div>
+    </div>
+  );
+
 
   const felter = (
     <div className="rounded-md border p-3 space-y-4">
@@ -185,6 +229,24 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       )}
 
       <div className="space-y-2">
+        <Label>Fast bonus pr. måned</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            className="w-28"
+            placeholder="ingen"
+            value={visTal(form.flatrate)}
+            onChange={(e) => setForm({ ...form, flatrate: numEllerTom(e.target.value) })}
+          />
+          <span className="text-sm text-muted-foreground">kr. pr. måned</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Udfyldt = sælgeren får præcis dette beløb hver måned, og DB- og maskinbonus tæller ikke
+          med. Lad feltet være tomt for en almindelig ordning.
+        </p>
+      </div>
+
+
+      <div className="space-y-2">
         <Label>DB-provision</Label>
         <div className="flex items-center gap-2">
           <Input
@@ -208,7 +270,9 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
           />
           Offentlige kunder
         </label>
+        {bundTop("db_bund", "db_top")}
       </div>
+
 
       <div className="space-y-2">
         <Label>Maskinbonus (kr. pr. maskine)</Label>
@@ -246,7 +310,15 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
             {label}
           </label>
         ))}
+        {bundTop("maskin_bund", "maskin_top")}
       </div>
+
+      <div className="space-y-2">
+        <Label>Bonus i alt</Label>
+        {bundTop("total_bund", "total_top")}
+      </div>
+
+
 
       <div className="flex gap-2">
         <Button size="sm" onClick={gem} disabled={gemmer}>
