@@ -42,7 +42,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Plus, Pencil, KeyRound, Mail, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BonusOrdningAdmin } from "@/components/bonus/bonus-ordning-admin";
 import { CvrApiStatusKort } from "@/components/cvr-api-status-kort";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/brugere")({
@@ -668,7 +671,19 @@ function BrugerStyringSide() {
             <DialogTitle>Redigér bruger</DialogTitle>
           </DialogHeader>
           {editRow && (
+            <Tabs defaultValue="bruger">
+              <TabsList className="mb-3">
+                <TabsTrigger value="bruger">Bruger</TabsTrigger>
+                {auth.role === "admin" && <TabsTrigger value="bonus">Bonus</TabsTrigger>}
+              </TabsList>
+              {auth.role === "admin" && (
+                <TabsContent value="bonus">
+                  <BonusOrdningAdmin userId={editRow.id} />
+                </TabsContent>
+              )}
+              <TabsContent value="bruger">
             <div className="space-y-3">
+
               <div>
                 <Label>Fuldt navn</Label>
                 <Input
@@ -789,7 +804,10 @@ function BrugerStyringSide() {
                 </Button>
               </div>
             </div>
+              </TabsContent>
+            </Tabs>
           )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditRow(null)}>Annullér</Button>
             <Button onClick={onSaveEdit} disabled={saving}>

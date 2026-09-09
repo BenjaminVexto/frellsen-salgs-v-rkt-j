@@ -372,6 +372,81 @@ export type Database = {
           },
         ]
       }
+      bonus_ordning: {
+        Row: {
+          bonus_animo: number
+          bonus_rex: number
+          bonus_wittenborg: number
+          created_at: string
+          created_by: string | null
+          db_offentlig: boolean
+          db_privat: boolean
+          db_provision_pct: number
+          gyldig_fra: string
+          gyldig_til: string | null
+          id: string
+          maskin_brugt: boolean
+          maskin_leje: boolean
+          maskin_offentlig: boolean
+          maskin_privat: boolean
+          maskin_salg: boolean
+          user_id: string
+        }
+        Insert: {
+          bonus_animo?: number
+          bonus_rex?: number
+          bonus_wittenborg?: number
+          created_at?: string
+          created_by?: string | null
+          db_offentlig?: boolean
+          db_privat?: boolean
+          db_provision_pct?: number
+          gyldig_fra: string
+          gyldig_til?: string | null
+          id?: string
+          maskin_brugt?: boolean
+          maskin_leje?: boolean
+          maskin_offentlig?: boolean
+          maskin_privat?: boolean
+          maskin_salg?: boolean
+          user_id: string
+        }
+        Update: {
+          bonus_animo?: number
+          bonus_rex?: number
+          bonus_wittenborg?: number
+          created_at?: string
+          created_by?: string | null
+          db_offentlig?: boolean
+          db_privat?: boolean
+          db_provision_pct?: number
+          gyldig_fra?: string
+          gyldig_til?: string | null
+          id?: string
+          maskin_brugt?: boolean
+          maskin_leje?: boolean
+          maskin_offentlig?: boolean
+          maskin_privat?: boolean
+          maskin_salg?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_ordning_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonus_ordning_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       churn_dismissals: {
         Row: {
           company_id: string
@@ -3164,6 +3239,64 @@ export type Database = {
           total_kunder: number
           total_omsaetning: number
           total_stk: number
+        }[]
+      }
+      bonus_db_detaljer: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          by: string
+          company_id: string
+          db: number
+          kategori: string
+          navn: string
+          omsaetning: number
+        }[]
+      }
+      bonus_maskin_detaljer: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          antal: number
+          beloeb: number
+          brugt: boolean
+          by: string
+          company_id: string
+          faktura_dato: string
+          kilde: string
+          maerke: string
+          model: string
+          navn: string
+        }[]
+      }
+      bonus_maskin_grundlag: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          antal: number
+          beloeb: number
+          brugt: boolean
+          by: string
+          company_id: string
+          faktura_dato: string
+          kategori: string
+          kilde: string
+          maaned: string
+          maerke: string
+          model: string
+          navn: string
+        }[]
+      }
+      bonus_pr_maaned: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          antal_animo: number
+          antal_rex: number
+          antal_wittenborg: number
+          db_bonus: number
+          db_grundlag: number
+          db_provision_pct: number
+          maaned: string
+          maskinbonus: number
+          ordning_id: string
+          samlet_bonus: number
         }[]
       }
       can_access_company: {
