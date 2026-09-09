@@ -224,6 +224,9 @@ function PortfolioPage() {
             <section className="mb-6">
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Porteføljens puls
+                <span className="ml-2 normal-case tracking-normal font-normal">
+                  {helMaanederTekst(data.totals.ytdLatestPeriod)}
+                </span>
               </h2>
               <div className={`grid gap-3 ${visDb ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 <RevenueCard
@@ -249,10 +252,13 @@ function PortfolioPage() {
                 </Card>
                 {visDb && (
                   <Card className="p-4">
-                    <div className="text-xs text-muted-foreground mb-1">DB · 12 mdr. (admin)</div>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      DB · {helMaanederTekst(data.totals.ytdLatestPeriod) || "12 hele mdr."} (admin)
+                    </div>
                     <div className="text-2xl font-semibold tabular-nums">
                       {fmtKr(data.totals.contribution12m ?? 0)}
                     </div>
+
                     <div className="text-xs text-muted-foreground mt-1">
                       DG:{" "}
                       {data.totals.revenue12m > 0
@@ -343,9 +349,10 @@ function PortfolioPage() {
                         active={sortKey === "revenue12m"}
                         dir={sortDir}
                         align="right"
-                        title="Samlet omsætning de seneste 12 måneder (rullende, alle produktgrupper)."
+                        title="Samlet omsætning de seneste 12 hele måneder (den igangværende måned indgår ikke)."
                       >
-                        12 mdr.
+                        12 hele mdr.
+
                       </Th>
                       <Th onClick={() => toggleSort("status")} active={sortKey === "status"} dir={sortDir}>
                         Status
@@ -992,6 +999,20 @@ function StatusBadge({ type }: { type: string | null }) {
   if (!m) return <span className="text-xs text-muted-foreground">—</span>;
   return <span className={`text-xs font-medium px-2 py-0.5 rounded ${m.cls}`}>{m.label}</span>;
 }
+
+// "12 hele mdr. · sep 2025 – aug 2026" ud fra seneste hele måned.
+function helMaanederTekst(sidsteHeleMaaned?: string | null): string {
+  if (!sidsteHeleMaaned) return "";
+  const y = parseInt(sidsteHeleMaaned.slice(0, 4), 10);
+  const m = parseInt(sidsteHeleMaaned.slice(5, 7), 10);
+  if (!y || !m) return "";
+  const slut = new Date(Date.UTC(y, m - 1, 1));
+  const start = new Date(Date.UTC(y, m - 12, 1));
+  const fmt = (d: Date) =>
+    `${d.toLocaleDateString("da-DK", { month: "short", timeZone: "UTC" }).replace(".", "")} ${d.getUTCFullYear()}`;
+  return `12 hele mdr. · ${fmt(start)} – ${fmt(slut)}`;
+}
+
 
 function RevenueCard({
   label,
