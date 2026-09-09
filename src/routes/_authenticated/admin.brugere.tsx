@@ -42,7 +42,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Plus, Pencil, KeyRound, Mail, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BonusOrdningAdmin } from "@/components/bonus/bonus-ordning-admin";
 import { CvrApiStatusKort } from "@/components/cvr-api-status-kort";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/brugere")({
