@@ -343,9 +343,10 @@ function PortfolioPage() {
                         active={sortKey === "revenue12m"}
                         dir={sortDir}
                         align="right"
-                        title="Samlet omsætning de seneste 12 måneder (rullende, alle produktgrupper)."
+                        title="Samlet omsætning de seneste 12 hele måneder (den igangværende måned indgår ikke)."
                       >
-                        12 mdr.
+                        12 hele mdr.
+
                       </Th>
                       <Th onClick={() => toggleSort("status")} active={sortKey === "status"} dir={sortDir}>
                         Status
