@@ -22,7 +22,15 @@ const tomSatser = (): Satser => ({
   maskin_salg: true,
   maskin_leje: true,
   maskin_brugt: true,
+  db_bund: null,
+  db_top: null,
+  maskin_bund: null,
+  maskin_top: null,
+  total_bund: null,
+  total_top: null,
+  flatrate: null,
 });
+
 
 /** Måneden før en given 1.-i-måneden-dato. */
 const sidsteDagFoer = (foersteIMaaned: string) => {
