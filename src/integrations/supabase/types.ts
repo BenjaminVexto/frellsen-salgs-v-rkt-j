@@ -379,17 +379,24 @@ export type Database = {
           bonus_wittenborg: number
           created_at: string
           created_by: string | null
+          db_bund: number | null
           db_offentlig: boolean
           db_privat: boolean
           db_provision_pct: number
+          db_top: number | null
+          flatrate: number | null
           gyldig_fra: string
           gyldig_til: string | null
           id: string
           maskin_brugt: boolean
+          maskin_bund: number | null
           maskin_leje: boolean
           maskin_offentlig: boolean
           maskin_privat: boolean
           maskin_salg: boolean
+          maskin_top: number | null
+          total_bund: number | null
+          total_top: number | null
           user_id: string
         }
         Insert: {
@@ -398,17 +405,24 @@ export type Database = {
           bonus_wittenborg?: number
           created_at?: string
           created_by?: string | null
+          db_bund?: number | null
           db_offentlig?: boolean
           db_privat?: boolean
           db_provision_pct?: number
+          db_top?: number | null
+          flatrate?: number | null
           gyldig_fra: string
           gyldig_til?: string | null
           id?: string
           maskin_brugt?: boolean
+          maskin_bund?: number | null
           maskin_leje?: boolean
           maskin_offentlig?: boolean
           maskin_privat?: boolean
           maskin_salg?: boolean
+          maskin_top?: number | null
+          total_bund?: number | null
+          total_top?: number | null
           user_id: string
         }
         Update: {
@@ -417,17 +431,24 @@ export type Database = {
           bonus_wittenborg?: number
           created_at?: string
           created_by?: string | null
+          db_bund?: number | null
           db_offentlig?: boolean
           db_privat?: boolean
           db_provision_pct?: number
+          db_top?: number | null
+          flatrate?: number | null
           gyldig_fra?: string
           gyldig_til?: string | null
           id?: string
           maskin_brugt?: boolean
+          maskin_bund?: number | null
           maskin_leje?: boolean
           maskin_offentlig?: boolean
           maskin_privat?: boolean
           maskin_salg?: boolean
+          maskin_top?: number | null
+          total_bund?: number | null
+          total_top?: number | null
           user_id?: string
         }
         Relationships: [
