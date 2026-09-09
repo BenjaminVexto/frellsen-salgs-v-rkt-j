@@ -380,6 +380,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           db_bund: number | null
+          db_fradrag: number | null
           db_offentlig: boolean
           db_privat: boolean
           db_provision_pct: number
@@ -406,6 +407,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           db_bund?: number | null
+          db_fradrag?: number | null
           db_offentlig?: boolean
           db_privat?: boolean
           db_provision_pct?: number
@@ -432,6 +434,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           db_bund?: number | null
+          db_fradrag?: number | null
           db_offentlig?: boolean
           db_privat?: boolean
           db_provision_pct?: number

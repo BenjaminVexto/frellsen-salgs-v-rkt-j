@@ -24,6 +24,8 @@ export type BonusOrdning = {
   total_top: number | null;
   /** Fast beløb pr. måned der erstatter al anden bonus. */
   flatrate: number | null;
+  /** Fast fradrag i DB-bonussen pr. måned. */
+  db_fradrag: number | null;
   created_at?: string;
   created_by?: string | null;
 };
@@ -72,9 +74,13 @@ export function beskrivOrdning(o: BonusOrdning): string {
   const dbKunder: string[] = [];
   if (o.db_privat) dbKunder.push("private");
   if (o.db_offentlig) dbKunder.push("offentlige");
+  const fradrag =
+    o.db_fradrag != null && Number(o.db_fradrag) > 0
+      ? `, minus ${tal(Number(o.db_fradrag))} kr. i fradrag pr. måned`
+      : "";
   const dbDel =
     Number(o.db_provision_pct) > 0 && dbKunder.length > 0
-      ? `${tal(o.db_provision_pct, 1)} % af DB på ${dbKunder.join(" og ")} kunder${graense(o.db_bund, o.db_top)}`
+      ? `${tal(o.db_provision_pct, 1)} % af DB på ${dbKunder.join(" og ")} kunder${fradrag}${graense(o.db_bund, o.db_top)}`
       : "ingen DB-provision";
 
   const satser: string[] = [];

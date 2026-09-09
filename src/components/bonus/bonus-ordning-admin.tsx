@@ -29,6 +29,7 @@ const tomSatser = (): Satser => ({
   total_bund: null,
   total_top: null,
   flatrate: null,
+  db_fradrag: null,
 });
 
 
@@ -57,6 +58,8 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   const [form, setForm] = useState<Satser>(tomSatser());
   const [maaned, setMaaned] = useState(`${new Date().getFullYear()}-01`);
   const [tilMaanedVal, setTilMaanedVal] = useState("");
+  /** Procenten skrives frit, så både komma og punktum kan bruges undervejs. */
+  const [pctTekst, setPctTekst] = useState("0");
 
   const hent = async () => {
     setLoading(true);
@@ -80,6 +83,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   const startNy = () => {
     setRedigerId(null);
     setForm(tomSatser());
+    setPctTekst("0");
     setMaaned(`${new Date().getFullYear()}-01`);
     setTilMaanedVal("");
     setOpretter(true);
@@ -108,7 +112,10 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       total_bund: n(o.total_bund),
       total_top: n(o.total_top),
       flatrate: n(o.flatrate),
+      db_fradrag: n(o.db_fradrag),
     });
+    setPctTekst(String(Number(o.db_provision_pct)).replace(".", ","));
+
 
     setMaaned(tilMaaned(o.gyldig_fra));
     setTilMaanedVal(o.gyldig_til ? tilMaaned(o.gyldig_til) : "");
@@ -120,6 +127,12 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   };
 
   const gem = async () => {
+    const pct = num(pctTekst);
+    if (!Number.isFinite(pct)) {
+      toast.error("Provisionssatsen skal være et tal");
+      return;
+    }
+    const satser: Satser = { ...form, db_provision_pct: pct };
     const fra = `${maaned}-01`;
     const til = tilMaanedVal ? sidsteDagIMaaned(tilMaanedVal) : null;
     if (til && til < fra) {
@@ -131,7 +144,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       if (redigerId) {
         const { error } = await (supabase as any)
           .from("bonus_ordning")
-          .update({ ...form, gyldig_fra: fra, gyldig_til: til })
+          .update({ ...satser, gyldig_fra: fra, gyldig_til: til })
           .eq("id", redigerId);
         if (error) throw new Error(error.message);
         toast.success("Bonusordning opdateret");
@@ -146,7 +159,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
           if (error) throw new Error(error.message);
         }
         const { error } = await (supabase as any).from("bonus_ordning").insert({
-          ...form,
+          ...satser,
           gyldig_fra: fra,
           gyldig_til: til,
           user_id: userId,
@@ -251,11 +264,24 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
         <div className="flex items-center gap-2">
           <Input
             className="w-24"
-            value={String(form.db_provision_pct)}
-            onChange={(e) => setForm({ ...form, db_provision_pct: num(e.target.value) })}
+            inputMode="decimal"
+            value={pctTekst}
+            onChange={(e) => setPctTekst(e.target.value.replace(/[^\d.,]/g, ""))}
           />
           <span className="text-sm text-muted-foreground">% af dækningsbidrag</span>
         </div>
+        <div className="flex items-center gap-2">
+          <Input
+            className="w-28"
+            placeholder="ingen"
+            value={visTal(form.db_fradrag)}
+            onChange={(e) => setForm({ ...form, db_fradrag: numEllerTom(e.target.value) })}
+          />
+          <span className="text-sm text-muted-foreground">kr. fradrag pr. måned</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Fradraget trækkes fra DB-bonussen hver måned, før bund og top.
+        </p>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={form.db_privat}
