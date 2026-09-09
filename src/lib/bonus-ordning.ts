@@ -58,12 +58,23 @@ export function beskrivOrdning(o: BonusOrdning): string {
     ? `Gældende ${langDato(o.gyldig_fra)}–${langDato(o.gyldig_til)}`
     : `Gældende fra ${langDato(o.gyldig_fra)}`;
 
+  if (o.flatrate != null) {
+    return `${periode}: fast bonus ${tal(Number(o.flatrate))} kr. pr. måned (ingen DB- eller maskinbonus)`;
+  }
+
+  const graense = (bund: number | null, top: number | null) => {
+    const dele: string[] = [];
+    if (bund != null) dele.push(`mindst ${tal(Number(bund))} kr.`);
+    if (top != null) dele.push(`højst ${tal(Number(top))} kr.`);
+    return dele.length ? ` (${dele.join(", ")} pr. måned)` : "";
+  };
+
   const dbKunder: string[] = [];
   if (o.db_privat) dbKunder.push("private");
   if (o.db_offentlig) dbKunder.push("offentlige");
   const dbDel =
     Number(o.db_provision_pct) > 0 && dbKunder.length > 0
-      ? `${tal(o.db_provision_pct, 1)} % af DB på ${dbKunder.join(" og ")} kunder`
+      ? `${tal(o.db_provision_pct, 1)} % af DB på ${dbKunder.join(" og ")} kunder${graense(o.db_bund, o.db_top)}`
       : "ingen DB-provision";
 
   const satser: string[] = [];
@@ -85,8 +96,12 @@ export function beskrivOrdning(o: BonusOrdning): string {
   if (o.maskin_leje) typer.push("leje/udlån");
   const vilkaar =
     satser.length > 0
-      ? ` (${maskinKunder.join(" og ")} kunder, ${typer.join(" og ")}${o.maskin_brugt ? ", brugte tæller med" : ", kun nye"})`
+      ? ` (${maskinKunder.join(" og ")} kunder, ${typer.join(" og ")}${o.maskin_brugt ? ", brugte tæller med" : ", kun nye"})${graense(o.maskin_bund, o.maskin_top)}`
       : "";
 
-  return `${periode}: ${dbDel}${satser.length ? " · " + satser.join(" · ") + vilkaar : ""}`;
+  const total = graense(o.total_bund, o.total_top);
+  const totalDel = total ? ` · bonus i alt${total}` : "";
+
+  return `${periode}: ${dbDel}${satser.length ? " · " + satser.join(" · ") + vilkaar : ""}${totalDel}`;
+
 }
