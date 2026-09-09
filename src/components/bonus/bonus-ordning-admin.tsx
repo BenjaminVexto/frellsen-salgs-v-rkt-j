@@ -308,7 +308,15 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
             {label}
           </label>
         ))}
+        {bundTop("maskin_bund", "maskin_top")}
       </div>
+
+      <div className="space-y-2">
+        <Label>Bonus i alt</Label>
+        {bundTop("total_bund", "total_top")}
+      </div>
+
+
 
       <div className="flex gap-2">
         <Button size="sm" onClick={gem} disabled={gemmer}>
