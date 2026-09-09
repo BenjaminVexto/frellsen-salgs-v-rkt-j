@@ -177,6 +177,33 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   };
 
   const num = (v: string) => (v === "" ? 0 : Number(v.replace(",", ".")));
+  const numEllerTom = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
+  const visTal = (v: number | null) => (v == null ? "" : String(v));
+
+  const bundTop = (
+    bundKey: "db_bund" | "maskin_bund" | "total_bund",
+    topKey: "db_top" | "maskin_top" | "total_top",
+  ) => (
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <Label className="text-xs">Bund (kr. pr. måned)</Label>
+        <Input
+          placeholder="ingen"
+          value={visTal(form[bundKey])}
+          onChange={(e) => setForm({ ...form, [bundKey]: numEllerTom(e.target.value) })}
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Top (kr. pr. måned)</Label>
+        <Input
+          placeholder="ingen"
+          value={visTal(form[topKey])}
+          onChange={(e) => setForm({ ...form, [topKey]: numEllerTom(e.target.value) })}
+        />
+      </div>
+    </div>
+  );
+
 
   const felter = (
     <div className="rounded-md border p-3 space-y-4">
