@@ -229,6 +229,24 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       )}
 
       <div className="space-y-2">
+        <Label>Fast bonus pr. måned</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            className="w-28"
+            placeholder="ingen"
+            value={visTal(form.flatrate)}
+            onChange={(e) => setForm({ ...form, flatrate: numEllerTom(e.target.value) })}
+          />
+          <span className="text-sm text-muted-foreground">kr. pr. måned</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Udfyldt = sælgeren får præcis dette beløb hver måned, og DB- og maskinbonus tæller ikke
+          med. Lad feltet være tomt for en almindelig ordning.
+        </p>
+      </div>
+
+
+      <div className="space-y-2">
         <Label>DB-provision</Label>
         <div className="flex items-center gap-2">
           <Input
