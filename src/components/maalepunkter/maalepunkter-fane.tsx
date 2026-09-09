@@ -478,11 +478,27 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
         }
       />
       <Tabel
-        titel="Nye kunder pr. måned (tælles i måneden for første ordre)"
+        titel={
+          nyeMaal === "db"
+            ? "Nye kunder pr. måned — DB i perioden (tælles i måneden for første ordre)"
+            : "Nye kunder pr. måned (tælles i måneden for første ordre)"
+        }
         rows={nyeTabel}
-        dec={0}
+        dec={nyeMaal === "db" ? 0 : 0}
         loading={nyeQ.isLoading}
         error={nyeQ.error ? (nyeQ.error as Error).message : null}
+        hoved={
+          <ToggleGroup
+            type="single"
+            size="sm"
+            variant="outline"
+            value={nyeMaal}
+            onValueChange={(v) => v && setNyeMaal(v as "antal" | "db")}
+          >
+            <ToggleGroupItem value="antal">Antal</ToggleGroupItem>
+            <ToggleGroupItem value="db">DB</ToggleGroupItem>
+          </ToggleGroup>
+        }
         onRow={(i) =>
           setDrill({
             slags: "nye",
