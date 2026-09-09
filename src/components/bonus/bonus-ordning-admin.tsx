@@ -83,6 +83,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   const startNy = () => {
     setRedigerId(null);
     setForm(tomSatser());
+    setPctTekst("0");
     setMaaned(`${new Date().getFullYear()}-01`);
     setTilMaanedVal("");
     setOpretter(true);
@@ -111,7 +112,10 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       total_bund: n(o.total_bund),
       total_top: n(o.total_top),
       flatrate: n(o.flatrate),
+      db_fradrag: n(o.db_fradrag),
     });
+    setPctTekst(String(Number(o.db_provision_pct)).replace(".", ","));
+
 
     setMaaned(tilMaaned(o.gyldig_fra));
     setTilMaanedVal(o.gyldig_til ? tilMaaned(o.gyldig_til) : "");
