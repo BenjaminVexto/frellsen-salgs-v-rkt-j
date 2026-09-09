@@ -24,6 +24,8 @@ export type BonusOrdning = {
   total_top: number | null;
   /** Fast beløb pr. måned der erstatter al anden bonus. */
   flatrate: number | null;
+  /** Fast fradrag i DB-bonussen pr. måned. */
+  db_fradrag: number | null;
   created_at?: string;
   created_by?: string | null;
 };
