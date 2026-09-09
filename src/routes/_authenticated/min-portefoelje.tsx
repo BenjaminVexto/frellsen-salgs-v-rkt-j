@@ -1000,6 +1000,20 @@ function StatusBadge({ type }: { type: string | null }) {
   return <span className={`text-xs font-medium px-2 py-0.5 rounded ${m.cls}`}>{m.label}</span>;
 }
 
+// "12 hele mdr. · sep 2025 – aug 2026" ud fra seneste hele måned.
+function helMaanederTekst(sidsteHeleMaaned?: string | null): string {
+  if (!sidsteHeleMaaned) return "";
+  const y = parseInt(sidsteHeleMaaned.slice(0, 4), 10);
+  const m = parseInt(sidsteHeleMaaned.slice(5, 7), 10);
+  if (!y || !m) return "";
+  const slut = new Date(Date.UTC(y, m - 1, 1));
+  const start = new Date(Date.UTC(y, m - 12, 1));
+  const fmt = (d: Date) =>
+    `${d.toLocaleDateString("da-DK", { month: "short", timeZone: "UTC" }).replace(".", "")} ${d.getUTCFullYear()}`;
+  return `12 hele mdr. · ${fmt(start)} – ${fmt(slut)}`;
+}
+
+
 function RevenueCard({
   label,
   current,
