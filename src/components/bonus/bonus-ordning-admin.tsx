@@ -270,7 +270,9 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
           />
           Offentlige kunder
         </label>
+        {bundTop("db_bund", "db_top")}
       </div>
+
 
       <div className="space-y-2">
         <Label>Maskinbonus (kr. pr. maskine)</Label>
