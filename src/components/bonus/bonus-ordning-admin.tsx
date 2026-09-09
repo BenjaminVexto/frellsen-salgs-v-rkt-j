@@ -127,6 +127,12 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
   };
 
   const gem = async () => {
+    const pct = num(pctTekst);
+    if (!Number.isFinite(pct)) {
+      toast.error("Provisionssatsen skal være et tal");
+      return;
+    }
+    form.db_provision_pct = pct;
     const fra = `${maaned}-01`;
     const til = tilMaanedVal ? sidsteDagIMaaned(tilMaanedVal) : null;
     if (til && til < fra) {
@@ -258,11 +264,24 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
         <div className="flex items-center gap-2">
           <Input
             className="w-24"
-            value={String(form.db_provision_pct)}
-            onChange={(e) => setForm({ ...form, db_provision_pct: num(e.target.value) })}
+            inputMode="decimal"
+            value={pctTekst}
+            onChange={(e) => setPctTekst(e.target.value.replace(/[^\d.,]/g, ""))}
           />
           <span className="text-sm text-muted-foreground">% af dækningsbidrag</span>
         </div>
+        <div className="flex items-center gap-2">
+          <Input
+            className="w-28"
+            placeholder="ingen"
+            value={visTal(form.db_fradrag)}
+            onChange={(e) => setForm({ ...form, db_fradrag: numEllerTom(e.target.value) })}
+          />
+          <span className="text-sm text-muted-foreground">kr. fradrag pr. måned</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Fradraget trækkes fra DB-bonussen hver måned, før bund og top.
+        </p>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={form.db_privat}
