@@ -801,7 +801,10 @@ function BrugerStyringSide() {
                 </Button>
               </div>
             </div>
+              </TabsContent>
+            </Tabs>
           )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditRow(null)}>Annullér</Button>
             <Button onClick={onSaveEdit} disabled={saving}>
