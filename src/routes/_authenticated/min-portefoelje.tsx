@@ -93,9 +93,11 @@ function PortfolioPage() {
     effectiveMaaSeAnalyse &&
     analyseAfdeling != null &&
     auth.afdelinger.includes(analyseAfdeling);
-  // Målepunkter findes kun for afdeling 11.
+  // Målepunkter og bonus findes kun for afdeling 11.
   const visMaalepunkter =
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
+  const visBonus = visMaalepunkter;
+
 
 
   const q = useQuery({
