@@ -3464,6 +3464,14 @@ export type Database = {
       maa_se_analyse: { Args: { _user_id: string }; Returns: boolean }
       maa_se_db: { Args: { _user_id: string }; Returns: boolean }
       maalepunkt_adgang: { Args: { _saelger: string }; Returns: boolean }
+      maalepunkt_aktive_kunder: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          antal: number
+          kategori: string
+          maaned: string
+        }[]
+      }
       maalepunkt_db: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
@@ -3569,6 +3577,14 @@ export type Database = {
           omsaetning: number
           oprettet: string
           sidste_koeb: string
+        }[]
+      }
+      maalepunkt_omsaetning: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          kategori: string
+          maaned: string
+          vaerdi: number
         }[]
       }
       maskin_er_tilvalg: { Args: { _txt: string }; Returns: boolean }
