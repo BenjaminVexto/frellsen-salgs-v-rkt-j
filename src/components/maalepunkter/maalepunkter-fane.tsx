@@ -12,7 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Calendar, Download, Loader2 } from "lucide-react";
 import {
   CartesianGrid,
-  Legend,
+  ReferenceLine,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -47,7 +47,29 @@ function raekkeFarve(label: string, i: number): string {
   return FARVER_MAERKE[i % FARVER_MAERKE.length];
 }
 
-type Visning = "tabel" | "graf";
+type Visning = "tabel" | "graf" | "udvikling";
+
+/**
+ * Y-akse der skalerer til dataområdet med ca. 10 % luft.
+ * Nul tvinges kun med, hvis en serie er nul eller negativ.
+ */
+function yDomaene(vaerdier: number[]): [number, number] {
+  const tal = vaerdier.filter((v) => Number.isFinite(v));
+  if (!tal.length) return [0, 1];
+  let min = Math.min(...tal);
+  let max = Math.max(...tal);
+  if (min === max) {
+    const pad = Math.abs(min) * 0.1 || 1;
+    min -= pad;
+    max += pad;
+  } else {
+    const luft = (max - min) * 0.1;
+    min -= luft;
+    max += luft;
+  }
+  if (Math.min(...tal) <= 0) min = Math.min(0, min);
+  return [min, max];
+}
 
 
 
@@ -147,6 +169,18 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
         /* ignoreres */
       }
       return next;
+    });
+  };
+
+  // Skjulte serier pr. graf (klik på signaturen) — fx totalen der presser delserierne ned.
+  const [skjulte, setSkjulte] = useState<Record<string, string[]>>({});
+  const skiftSerie = (visKey: string, serie: string) => {
+    setSkjulte((p) => {
+      const cur = p[visKey] ?? [];
+      return {
+        ...p,
+        [visKey]: cur.includes(serie) ? cur.filter((s) => s !== serie) : [...cur, serie],
+      };
     });
   };
 
@@ -404,12 +438,45 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
     const visning = visninger[visKey] ?? "tabel";
+    const skjultListe = skjulte[visKey] ?? [];
+    const serier = [
+      ...rows.map((r, i) => ({ navn: r.label, farve: raekkeFarve(r.label, i), per: r.per })),
+      { navn: "Total", farve: FARVE_TOTAL, per: tot },
+    ];
+    const synlige = serier.filter((s) => !skjultListe.includes(s.navn));
+    const indeks = visning === "udvikling";
     const grafData = maaneder.map((m) => {
-      const punkt: Record<string, any> = { maaned: maanedNavn(m), Total: tot.get(m) ?? 0 };
-      rows.forEach((r) => {
-        punkt[r.label] = r.per.get(m) ?? 0;
+      const punkt: Record<string, any> = { maaned: maanedNavn(m) };
+      synlige.forEach((s) => {
+        const v = s.per.get(m) ?? 0;
+        if (!indeks) {
+          punkt[s.navn] = v;
+          return;
+        }
+        const basis = s.per.get(maaneder[0]) ?? 0;
+        punkt[s.navn] = basis ? (v / basis) * 100 : null;
       });
       return punkt;
+    });
+    const alleTal = grafData.flatMap((p) =>
+      synlige.map((s) => p[s.navn]).filter((v) => typeof v === "number"),
+    ) as number[];
+    const domaene = indeks ? yDomaene([...alleTal, 100]) : yDomaene(alleTal);
+
+    // Ændring fra første til sidste måned i perioden, én pr. serie.
+    const aendringer = synlige.map((s) => {
+      const foerste = s.per.get(maaneder[0]) ?? 0;
+      const sidste = s.per.get(maaneder[maaneder.length - 1]) ?? 0;
+      const diff = sidste - foerste;
+      const pct = foerste ? (diff / Math.abs(foerste)) * 100 : null;
+      const fortegn = diff > 0 ? "+" : diff < 0 ? "−" : "";
+      return {
+        navn: s.navn,
+        farve: s.farve,
+        tekst: `${s.navn}: ${fmtTal(foerste, dec)} → ${fmtTal(sidste, dec)} (${fortegn}${fmtTal(Math.abs(diff), dec)}${
+          pct == null ? "" : ` · ${fortegn}${fmtTal(Math.abs(pct), 1)} %`
+        })`,
+      };
     });
     return (
       <Card className="p-4 space-y-3 border-2 shadow-sm">
@@ -431,6 +498,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
             >
               <ToggleGroupItem value="tabel">Tabel</ToggleGroupItem>
               <ToggleGroupItem value="graf">Graf</ToggleGroupItem>
+              <ToggleGroupItem value="udvikling">Udvikling</ToggleGroupItem>
             </ToggleGroup>
           </div>
         </div>
@@ -440,35 +508,76 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Henter…
           </div>
-        ) : visning === "graf" ? (
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={grafData} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="maaned" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => fmtTal(Number(v), 0)} />
-                <Tooltip formatter={(v) => fmtTal(Number(v), dec)} />
-                <Legend />
-                {rows.map((r, i) => (
-                  <Line
-                    key={r.label}
-                    type="monotone"
-                    dataKey={r.label}
-                    stroke={raekkeFarve(r.label, i)}
-                    strokeWidth={2}
-                    dot={false}
+        ) : visning !== "tabel" ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
+              {aendringer.map((a) => (
+                <span key={a.navn} style={{ color: a.farve }}>
+                  {a.tekst}
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {serier.map((s) => {
+                const skjult = skjultListe.includes(s.navn);
+                return (
+                  <button
+                    key={s.navn}
+                    type="button"
+                    onClick={() => skiftSerie(visKey, s.navn)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${
+                      skjult ? "opacity-40" : ""
+                    }`}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: s.farve }}
+                      aria-hidden
+                    />
+                    {s.navn}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={grafData} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="maaned" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    domain={domaene}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => fmtTal(Number(v), indeks ? 0 : 0)}
                   />
-                ))}
-                <Line
-                  type="monotone"
-                  dataKey="Total"
-                  stroke={FARVE_TOTAL}
-                  strokeWidth={2}
-                  strokeDasharray="5 4"
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+                  <Tooltip
+                    formatter={(v) =>
+                      indeks ? `${fmtTal(Number(v), 1)} (indeks)` : fmtTal(Number(v), dec)
+                    }
+                  />
+                  {indeks && (
+                    <ReferenceLine
+                      y={100}
+                      stroke="hsl(var(--foreground))"
+                      strokeWidth={1.5}
+                      label={{ value: "100", position: "right", fontSize: 11 }}
+                    />
+                  )}
+                  {synlige.map((s) => (
+                    <Line
+                      key={s.navn}
+                      type="linear"
+                      dataKey={s.navn}
+                      stroke={s.farve}
+                      strokeWidth={2}
+                      strokeDasharray={s.navn === "Total" ? "5 4" : undefined}
+                      dot={{ r: 2.5 }}
+                      activeDot={{ r: 4 }}
+                      connectNulls={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
