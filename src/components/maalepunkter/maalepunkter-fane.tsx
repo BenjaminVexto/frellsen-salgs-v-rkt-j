@@ -47,6 +47,9 @@ function raekkeFarve(label: string, i: number): string {
   return FARVER_MAERKE[i % FARVER_MAERKE.length];
 }
 
+type Visning = "tabel" | "graf";
+
+
 
 // --- måneds-hjælpere ("YYYY-MM") ---
 const mKey = (y: number, m0: number) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
