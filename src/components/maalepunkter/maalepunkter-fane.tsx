@@ -172,6 +172,18 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     });
   };
 
+  // Skjulte serier pr. graf (klik på signaturen) — fx totalen der presser delserierne ned.
+  const [skjulte, setSkjulte] = useState<Record<string, string[]>>({});
+  const skiftSerie = (visKey: string, serie: string) => {
+    setSkjulte((p) => {
+      const cur = p[visKey] ?? [];
+      return {
+        ...p,
+        [visKey]: cur.includes(serie) ? cur.filter((s) => s !== serie) : [...cur, serie],
+      };
+    });
+  };
+
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
   const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
