@@ -183,7 +183,40 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
 
   const mNøgle = (d: string) => String(d).slice(0, 7);
 
-  // --- Tabel 1: dækningsbidrag ---
+  // --- Tabel 1: omsætning ---
+  const omsTabel = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    (omsQ.data ?? []).forEach((r) => {
+      const k = r.kategori;
+      if (!map.has(k)) map.set(k, new Map());
+      const m = map.get(k)!;
+      const key = mNøgle(r.maaned);
+      m.set(key, (m.get(key) ?? 0) + Number(r.vaerdi || 0));
+    });
+    return [
+      { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+    ];
+  }, [omsQ.data]);
+
+  // --- Tabel 3: antal aktive kunder ---
+  const kunderTabel = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    (kunderQ.data ?? []).forEach((r) => {
+      const k = r.kategori;
+      if (!map.has(k)) map.set(k, new Map());
+      const m = map.get(k)!;
+      const key = mNøgle(r.maaned);
+      m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
+    });
+    return [
+      { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+    ];
+  }, [kunderQ.data]);
+
+  // --- Tabel 2: dækningsbidrag ---
+
   const dbTabel = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
     (dbQ.data ?? []).forEach((r) => {
