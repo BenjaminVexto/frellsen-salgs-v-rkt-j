@@ -621,7 +621,14 @@ function PortfolioPage() {
       </div>
 
       {visAnalyse || visMaalepunkter || visBonus ? (
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            setTabValgt(true);
+            setTab(v as typeof tab);
+          }}
+        >
+
           <TabsList className="mb-4">
             {visMaalepunkter && <TabsTrigger value="maalepunkter">Målepunkter</TabsTrigger>}
             <TabsTrigger value="portefoelje">Portefølje</TabsTrigger>
