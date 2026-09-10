@@ -498,6 +498,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
             >
               <ToggleGroupItem value="tabel">Tabel</ToggleGroupItem>
               <ToggleGroupItem value="graf">Graf</ToggleGroupItem>
+              <ToggleGroupItem value="udvikling">Udvikling</ToggleGroupItem>
             </ToggleGroup>
           </div>
         </div>
@@ -507,35 +508,76 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Henter…
           </div>
-        ) : visning === "graf" ? (
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={grafData} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="maaned" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => fmtTal(Number(v), 0)} />
-                <Tooltip formatter={(v) => fmtTal(Number(v), dec)} />
-                <Legend />
-                {rows.map((r, i) => (
-                  <Line
-                    key={r.label}
-                    type="monotone"
-                    dataKey={r.label}
-                    stroke={raekkeFarve(r.label, i)}
-                    strokeWidth={2}
-                    dot={false}
+        ) : visning !== "tabel" ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
+              {aendringer.map((a) => (
+                <span key={a.navn} style={{ color: a.farve }}>
+                  {a.tekst}
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {serier.map((s) => {
+                const skjult = skjultListe.includes(s.navn);
+                return (
+                  <button
+                    key={s.navn}
+                    type="button"
+                    onClick={() => skiftSerie(visKey, s.navn)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${
+                      skjult ? "opacity-40" : ""
+                    }`}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: s.farve }}
+                      aria-hidden
+                    />
+                    {s.navn}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={grafData} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="maaned" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    domain={domaene}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => fmtTal(Number(v), indeks ? 0 : 0)}
                   />
-                ))}
-                <Line
-                  type="monotone"
-                  dataKey="Total"
-                  stroke={FARVE_TOTAL}
-                  strokeWidth={2}
-                  strokeDasharray="5 4"
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+                  <Tooltip
+                    formatter={(v) =>
+                      indeks ? `${fmtTal(Number(v), 1)} (indeks)` : fmtTal(Number(v), dec)
+                    }
+                  />
+                  {indeks && (
+                    <ReferenceLine
+                      y={100}
+                      stroke="hsl(var(--foreground))"
+                      strokeWidth={1.5}
+                      label={{ value: "100", position: "right", fontSize: 11 }}
+                    />
+                  )}
+                  {synlige.map((s) => (
+                    <Line
+                      key={s.navn}
+                      type="linear"
+                      dataKey={s.navn}
+                      stroke={s.farve}
+                      strokeWidth={2}
+                      strokeDasharray={s.navn === "Total" ? "5 4" : undefined}
+                      dot={{ r: 2.5 }}
+                      activeDot={{ r: 4 }}
+                      connectNulls={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
