@@ -124,6 +124,30 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const [nyeMaal, setNyeMaal] = useState<"antal" | "db">("antal");
   const [drill, setDrill] = useState<Drill | null>(null);
 
+  // Tabel/graf huskes pr. tabel pr. bruger.
+  const visningNoegle = `maalepunkt-visning:${auth.user?.id ?? "anon"}`;
+  const [visninger, setVisninger] = useState<Record<string, Visning>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(visningNoegle);
+      setVisninger(raw ? (JSON.parse(raw) as Record<string, Visning>) : {});
+    } catch {
+      setVisninger({});
+    }
+  }, [visningNoegle]);
+  const saetVisning = (key: string, v: Visning) => {
+    setVisninger((p) => {
+      const next = { ...p, [key]: v };
+      try {
+        localStorage.setItem(visningNoegle, JSON.stringify(next));
+      } catch {
+        /* ignoreres */
+      }
+      return next;
+    });
+  };
+
+
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
   const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
 
