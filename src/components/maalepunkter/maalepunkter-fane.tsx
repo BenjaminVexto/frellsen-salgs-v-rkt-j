@@ -535,9 +535,10 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   return (
     <div className="space-y-4 max-w-full">
       <p className="text-sm text-muted-foreground">
-        Dækningsbidrag, solgte maskiner og nye kunder pr. hel måned — afdeling 11. Klik på et tal
-        eller en kategori for at se hvilke virksomheder det består af.
+        Omsætning, dækningsbidrag, kunder, nye kunder og solgte maskiner pr. hel måned — afdeling
+        11. Klik på et tal eller en kategori for at se hvilke virksomheder det består af.
       </p>
+
 
       <div className="flex flex-wrap items-center gap-2">
         <Popover>
