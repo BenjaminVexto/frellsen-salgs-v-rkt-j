@@ -438,12 +438,45 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
     const visning = visninger[visKey] ?? "tabel";
+    const skjultListe = skjulte[visKey] ?? [];
+    const serier = [
+      ...rows.map((r, i) => ({ navn: r.label, farve: raekkeFarve(r.label, i), per: r.per })),
+      { navn: "Total", farve: FARVE_TOTAL, per: tot },
+    ];
+    const synlige = serier.filter((s) => !skjultListe.includes(s.navn));
+    const indeks = visning === "udvikling";
     const grafData = maaneder.map((m) => {
-      const punkt: Record<string, any> = { maaned: maanedNavn(m), Total: tot.get(m) ?? 0 };
-      rows.forEach((r) => {
-        punkt[r.label] = r.per.get(m) ?? 0;
+      const punkt: Record<string, any> = { maaned: maanedNavn(m) };
+      synlige.forEach((s) => {
+        const v = s.per.get(m) ?? 0;
+        if (!indeks) {
+          punkt[s.navn] = v;
+          return;
+        }
+        const basis = s.per.get(maaneder[0]) ?? 0;
+        punkt[s.navn] = basis ? (v / basis) * 100 : null;
       });
       return punkt;
+    });
+    const alleTal = grafData.flatMap((p) =>
+      synlige.map((s) => p[s.navn]).filter((v) => typeof v === "number"),
+    ) as number[];
+    const domaene = indeks ? yDomaene([...alleTal, 100]) : yDomaene(alleTal);
+
+    // Ændring fra første til sidste måned i perioden, én pr. serie.
+    const aendringer = synlige.map((s) => {
+      const foerste = s.per.get(maaneder[0]) ?? 0;
+      const sidste = s.per.get(maaneder[maaneder.length - 1]) ?? 0;
+      const diff = sidste - foerste;
+      const pct = foerste ? (diff / Math.abs(foerste)) * 100 : null;
+      const fortegn = diff > 0 ? "+" : diff < 0 ? "−" : "";
+      return {
+        navn: s.navn,
+        farve: s.farve,
+        tekst: `${s.navn}: ${fmtTal(foerste, dec)} → ${fmtTal(sidste, dec)} (${fortegn}${fmtTal(Math.abs(diff), dec)}${
+          pct == null ? "" : ` · ${fortegn}${fmtTal(Math.abs(pct), 1)} %`
+        })`,
+      };
     });
     return (
       <Card className="p-4 space-y-3 border-2 shadow-sm">
