@@ -84,6 +84,10 @@ function PortfolioPage() {
   const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus">(
     "portefoelje",
   );
+  // Målepunkter er indgangsfanen, når den er tilgængelig — men kun indtil
+  // brugeren selv vælger en anden fane.
+  const [tabValgt, setTabValgt] = useState(false);
+
 
 
   // Analysefanen dækker hele den valgte afdeling — den vises kun for brugere
