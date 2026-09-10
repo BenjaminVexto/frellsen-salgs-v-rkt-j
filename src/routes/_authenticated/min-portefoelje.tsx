@@ -101,6 +101,11 @@ function PortfolioPage() {
   const visMaalepunkter =
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
   const visBonus = visMaalepunkter;
+  useEffect(() => {
+    if (!tabValgt && visMaalepunkter) setTab("maalepunkter");
+  }, [tabValgt, visMaalepunkter]);
+
+
 
 
 
