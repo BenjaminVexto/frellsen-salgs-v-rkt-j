@@ -592,7 +592,19 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       </div>
 
       <Tabel
+        nummer={1}
+        titel="Omsætning pr. måned (kr.)"
+        visKey="omsaetning"
+        rows={omsTabel}
+        dec={0}
+        loading={omsQ.isLoading}
+        error={omsQ.error ? (omsQ.error as Error).message : null}
+      />
+
+      <Tabel
+        nummer={2}
         titel="Dækningsbidrag pr. måned (kr.)"
+        visKey="db"
         rows={dbTabel}
         dec={0}
         loading={dbQ.isLoading}
@@ -614,6 +626,18 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
           })
         }
       />
+
+      <Tabel
+        nummer={3}
+        titel="Antal kunder pr. måned (aktive kunder)"
+        visKey="kunder"
+        rows={kunderTabel}
+        dec={0}
+        loading={kunderQ.isLoading}
+        error={kunderQ.error ? (kunderQ.error as Error).message : null}
+        fodnote="Aktiv = kunden har udstyr stående (leje, udlån, serviceaftale eller kundeejet) eller har købt varer, maskiner eller service inden for de seneste 12 måneder til og med måneden. Udstyrsdelen bygger på den nuværende registrering, da der ikke findes historik for, hvornår udstyr er sat op eller taget hjem."
+      />
+
       <Tabel
         titel="Solgte maskiner pr. måned (stk.)"
         rows={maskinTabel}
