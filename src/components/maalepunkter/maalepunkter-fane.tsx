@@ -349,7 +349,9 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   }
 
   const Tabel = ({
+    nummer,
     titel,
+    visKey,
     rows,
     dec,
     loading,
@@ -357,8 +359,12 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     onRow,
     onCell,
     hoved,
+    fodnote,
   }: {
+    nummer: number;
     titel: string;
+    /** Nøgle til at huske TABEL/GRAF pr. tabel pr. bruger. */
+    visKey: string;
     rows: { label: string; per: Map<string, number> }[];
     dec: number;
     loading: boolean;
@@ -366,20 +372,76 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     onRow?: (i: number) => void;
     onCell?: (i: number, maaned: string) => void;
     hoved?: React.ReactNode;
+    fodnote?: React.ReactNode;
   }) => {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
+    const visning = visninger[visKey] ?? "tabel";
+    const grafData = maaneder.map((m) => {
+      const punkt: Record<string, any> = { maaned: maanedNavn(m), Total: tot.get(m) ?? 0 };
+      rows.forEach((r) => {
+        punkt[r.label] = r.per.get(m) ?? 0;
+      });
+      return punkt;
+    });
     return (
-      <Card className="p-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">{titel}</h2>
-          {hoved}
+      <Card className="p-4 space-y-3 border-2 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide">
+            <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+              {nummer}
+            </span>
+            {titel}
+          </h2>
+          <div className="flex flex-wrap items-center gap-4">
+            {hoved}
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={visning}
+              onValueChange={(v) => v && saetVisning(visKey, v as Visning)}
+            >
+              <ToggleGroupItem value="tabel">Tabel</ToggleGroupItem>
+              <ToggleGroupItem value="graf">Graf</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Henter…
+          </div>
+        ) : visning === "graf" ? (
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={grafData} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="maaned" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => fmtTal(Number(v), 0)} />
+                <Tooltip formatter={(v) => fmtTal(Number(v), dec)} />
+                <Legend />
+                {rows.map((r, i) => (
+                  <Line
+                    key={r.label}
+                    type="monotone"
+                    dataKey={r.label}
+                    stroke={raekkeFarve(r.label, i)}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ))}
+                <Line
+                  type="monotone"
+                  dataKey="Total"
+                  stroke={FARVE_TOTAL}
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -437,9 +499,11 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
             </table>
           </div>
         )}
+        {fodnote && <p className="text-xs text-muted-foreground">{fodnote}</p>}
       </Card>
     );
   };
+
 
   return (
     <div className="space-y-4 max-w-full">
