@@ -12,7 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Calendar, Download, Loader2 } from "lucide-react";
 import {
   CartesianGrid,
-  Legend,
+  ReferenceLine,
   Line,
   LineChart,
   ResponsiveContainer,
