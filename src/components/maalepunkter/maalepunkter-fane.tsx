@@ -10,9 +10,43 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Calendar, Download, Loader2 } from "lucide-react";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
+
+/** Samme farver for private/offentlige/total i alle fem grafer. */
+const FARVE_PRIVAT = "hsl(217 91% 50%)";
+const FARVE_OFFENTLIG = "hsl(28 90% 52%)";
+const FARVE_TOTAL = "hsl(var(--muted-foreground))";
+const FARVER_MAERKE = [
+  "hsl(217 91% 50%)",
+  "hsl(28 90% 52%)",
+  "hsl(142 65% 40%)",
+  "hsl(280 60% 55%)",
+  "hsl(0 70% 55%)",
+  "hsl(190 70% 42%)",
+  "hsl(45 85% 45%)",
+  "hsl(330 65% 55%)",
+];
+
+/** Farve pr. rækkelabel — private og offentlige altid ens på tværs af grafer. */
+function raekkeFarve(label: string, i: number): string {
+  const l = label.toLowerCase();
+  if (l.startsWith("privat")) return FARVE_PRIVAT;
+  if (l.startsWith("offentlig")) return FARVE_OFFENTLIG;
+  return FARVER_MAERKE[i % FARVER_MAERKE.length];
+}
+
 
 // --- måneds-hjælpere ("YYYY-MM") ---
 const mKey = (y: number, m0: number) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
