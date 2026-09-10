@@ -127,6 +127,26 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
   const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
 
+  const omsQ = useQuery({
+    queryKey: ["maalepunkt-omsaetning", saelgerId, fra, til],
+    enabled: !!saelgerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_omsaetning", args);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
+    },
+  });
+
+  const kunderQ = useQuery({
+    queryKey: ["maalepunkt-aktive-kunder", saelgerId, fra, til],
+    enabled: !!saelgerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_aktive_kunder", args);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { maaned: string; kategori: string; antal: number }[];
+    },
+  });
+
   const dbQ = useQuery({
     queryKey: ["maalepunkt-db", saelgerId, fra, til],
     enabled: !!saelgerId,
@@ -136,6 +156,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
     },
   });
+
 
   const maskinerQ = useQuery({
     queryKey: ["maalepunkt-maskiner", saelgerId, fra, til, kundetype],
