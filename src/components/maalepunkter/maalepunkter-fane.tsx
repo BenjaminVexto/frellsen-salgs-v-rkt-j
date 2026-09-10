@@ -639,7 +639,51 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       />
 
       <Tabel
+        nummer={4}
+        titel={
+          nyeMaal === "db"
+            ? "Nye kunder pr. måned — DB i perioden (kr., tælles i måneden for første ordre)"
+            : "Nye kunder pr. måned (antal, tælles i måneden for første ordre)"
+        }
+        visKey="nye"
+        rows={nyeTabel}
+        dec={0}
+        loading={nyeQ.isLoading}
+        error={nyeQ.error ? (nyeQ.error as Error).message : null}
+        hoved={
+          <ToggleGroup
+            type="single"
+            size="sm"
+            variant="outline"
+            value={nyeMaal}
+            onValueChange={(v) => v && setNyeMaal(v as "antal" | "db")}
+          >
+            <ToggleGroupItem value="antal">Antal</ToggleGroupItem>
+            <ToggleGroupItem value="db">DB</ToggleGroupItem>
+          </ToggleGroup>
+        }
+        onRow={(i) =>
+          setDrill({
+            slags: "nye",
+            kategori: nyeTabel[i].kategori,
+            label: `${nyeTabel[i].label} — ${maanedNavn(fra)}–${maanedNavn(til)}`,
+            maaned: null,
+          })
+        }
+        onCell={(i, m) =>
+          setDrill({
+            slags: "nye",
+            kategori: nyeTabel[i].kategori,
+            label: `${nyeTabel[i].label} — ${maanedNavn(m)}`,
+            maaned: m,
+          })
+        }
+      />
+
+      <Tabel
+        nummer={5}
         titel="Solgte maskiner pr. måned (stk.)"
+        visKey="maskiner"
         rows={maskinTabel}
         dec={0}
         loading={maskinerQ.isLoading}
@@ -684,45 +728,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
           })
         }
       />
-      <Tabel
-        titel={
-          nyeMaal === "db"
-            ? "Nye kunder pr. måned — DB i perioden (tælles i måneden for første ordre)"
-            : "Nye kunder pr. måned (tælles i måneden for første ordre)"
-        }
-        rows={nyeTabel}
-        dec={nyeMaal === "db" ? 0 : 0}
-        loading={nyeQ.isLoading}
-        error={nyeQ.error ? (nyeQ.error as Error).message : null}
-        hoved={
-          <ToggleGroup
-            type="single"
-            size="sm"
-            variant="outline"
-            value={nyeMaal}
-            onValueChange={(v) => v && setNyeMaal(v as "antal" | "db")}
-          >
-            <ToggleGroupItem value="antal">Antal</ToggleGroupItem>
-            <ToggleGroupItem value="db">DB</ToggleGroupItem>
-          </ToggleGroup>
-        }
-        onRow={(i) =>
-          setDrill({
-            slags: "nye",
-            kategori: nyeTabel[i].kategori,
-            label: `${nyeTabel[i].label} — ${maanedNavn(fra)}–${maanedNavn(til)}`,
-            maaned: null,
-          })
-        }
-        onCell={(i, m) =>
-          setDrill({
-            slags: "nye",
-            kategori: nyeTabel[i].kategori,
-            label: `${nyeTabel[i].label} — ${maanedNavn(m)}`,
-            maaned: m,
-          })
-        }
-      />
+
 
       <DetaljePanel
         drill={drill}
