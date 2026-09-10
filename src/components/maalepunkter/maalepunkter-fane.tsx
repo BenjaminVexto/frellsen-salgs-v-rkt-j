@@ -10,9 +10,46 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Calendar, Download, Loader2 } from "lucide-react";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
+
+/** Samme farver for private/offentlige/total i alle fem grafer. */
+const FARVE_PRIVAT = "hsl(217 91% 50%)";
+const FARVE_OFFENTLIG = "hsl(28 90% 52%)";
+const FARVE_TOTAL = "hsl(var(--muted-foreground))";
+const FARVER_MAERKE = [
+  "hsl(217 91% 50%)",
+  "hsl(28 90% 52%)",
+  "hsl(142 65% 40%)",
+  "hsl(280 60% 55%)",
+  "hsl(0 70% 55%)",
+  "hsl(190 70% 42%)",
+  "hsl(45 85% 45%)",
+  "hsl(330 65% 55%)",
+];
+
+/** Farve pr. rækkelabel — private og offentlige altid ens på tværs af grafer. */
+function raekkeFarve(label: string, i: number): string {
+  const l = label.toLowerCase();
+  if (l.startsWith("privat")) return FARVE_PRIVAT;
+  if (l.startsWith("offentlig")) return FARVE_OFFENTLIG;
+  return FARVER_MAERKE[i % FARVER_MAERKE.length];
+}
+
+type Visning = "tabel" | "graf";
+
+
 
 // --- måneds-hjælpere ("YYYY-MM") ---
 const mKey = (y: number, m0: number) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
@@ -90,8 +127,52 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const [nyeMaal, setNyeMaal] = useState<"antal" | "db">("antal");
   const [drill, setDrill] = useState<Drill | null>(null);
 
+  // Tabel/graf huskes pr. tabel pr. bruger.
+  const visningNoegle = `maalepunkt-visning:${auth.user?.id ?? "anon"}`;
+  const [visninger, setVisninger] = useState<Record<string, Visning>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(visningNoegle);
+      setVisninger(raw ? (JSON.parse(raw) as Record<string, Visning>) : {});
+    } catch {
+      setVisninger({});
+    }
+  }, [visningNoegle]);
+  const saetVisning = (key: string, v: Visning) => {
+    setVisninger((p) => {
+      const next = { ...p, [key]: v };
+      try {
+        localStorage.setItem(visningNoegle, JSON.stringify(next));
+      } catch {
+        /* ignoreres */
+      }
+      return next;
+    });
+  };
+
+
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
   const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
+
+  const omsQ = useQuery({
+    queryKey: ["maalepunkt-omsaetning", saelgerId, fra, til],
+    enabled: !!saelgerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_omsaetning", args);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
+    },
+  });
+
+  const kunderQ = useQuery({
+    queryKey: ["maalepunkt-aktive-kunder", saelgerId, fra, til],
+    enabled: !!saelgerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_aktive_kunder", args);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { maaned: string; kategori: string; antal: number }[];
+    },
+  });
 
   const dbQ = useQuery({
     queryKey: ["maalepunkt-db", saelgerId, fra, til],
@@ -102,6 +183,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
     },
   });
+
 
   const maskinerQ = useQuery({
     queryKey: ["maalepunkt-maskiner", saelgerId, fra, til, kundetype],
@@ -128,7 +210,40 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
 
   const mNøgle = (d: string) => String(d).slice(0, 7);
 
-  // --- Tabel 1: dækningsbidrag ---
+  // --- Tabel 1: omsætning ---
+  const omsTabel = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    (omsQ.data ?? []).forEach((r) => {
+      const k = r.kategori;
+      if (!map.has(k)) map.set(k, new Map());
+      const m = map.get(k)!;
+      const key = mNøgle(r.maaned);
+      m.set(key, (m.get(key) ?? 0) + Number(r.vaerdi || 0));
+    });
+    return [
+      { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+    ];
+  }, [omsQ.data]);
+
+  // --- Tabel 3: antal aktive kunder ---
+  const kunderTabel = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    (kunderQ.data ?? []).forEach((r) => {
+      const k = r.kategori;
+      if (!map.has(k)) map.set(k, new Map());
+      const m = map.get(k)!;
+      const key = mNøgle(r.maaned);
+      m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
+    });
+    return [
+      { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+    ];
+  }, [kunderQ.data]);
+
+  // --- Tabel 2: dækningsbidrag ---
+
   const dbTabel = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
     (dbQ.data ?? []).forEach((r) => {
@@ -221,15 +336,18 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       );
       lines.push("");
     };
-    block("Dækningsbidrag pr. måned (kr.)", dbTabel, 2);
-    block("Solgte maskiner pr. måned (stk.)", maskinTabel, 0);
+    block("1 · Omsætning pr. måned (kr.)", omsTabel, 2);
+    block("2 · Dækningsbidrag pr. måned (kr.)", dbTabel, 2);
+    block("3 · Antal kunder pr. måned (aktive kunder)", kunderTabel, 0);
     block(
       nyeMaal === "db"
-        ? "Nye kunder pr. måned (DB i perioden, måned for første ordre)"
-        : "Nye kunder pr. måned (antal, måned for første ordre)",
+        ? "4 · Nye kunder pr. måned (DB i perioden, måned for første ordre)"
+        : "4 · Nye kunder pr. måned (antal, måned for første ordre)",
       nyeTabel,
       nyeMaal === "db" ? 2 : 0,
     );
+    block("5 · Solgte maskiner pr. måned (stk.)", maskinTabel, 0);
+
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -258,7 +376,9 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   }
 
   const Tabel = ({
+    nummer,
     titel,
+    visKey,
     rows,
     dec,
     loading,
@@ -266,8 +386,12 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     onRow,
     onCell,
     hoved,
+    fodnote,
   }: {
+    nummer: number;
     titel: string;
+    /** Nøgle til at huske TABEL/GRAF pr. tabel pr. bruger. */
+    visKey: string;
     rows: { label: string; per: Map<string, number> }[];
     dec: number;
     loading: boolean;
@@ -275,20 +399,76 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     onRow?: (i: number) => void;
     onCell?: (i: number, maaned: string) => void;
     hoved?: React.ReactNode;
+    fodnote?: React.ReactNode;
   }) => {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
+    const visning = visninger[visKey] ?? "tabel";
+    const grafData = maaneder.map((m) => {
+      const punkt: Record<string, any> = { maaned: maanedNavn(m), Total: tot.get(m) ?? 0 };
+      rows.forEach((r) => {
+        punkt[r.label] = r.per.get(m) ?? 0;
+      });
+      return punkt;
+    });
     return (
-      <Card className="p-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">{titel}</h2>
-          {hoved}
+      <Card className="p-4 space-y-3 border-2 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide">
+            <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+              {nummer}
+            </span>
+            {titel}
+          </h2>
+          <div className="flex flex-wrap items-center gap-4">
+            {hoved}
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={visning}
+              onValueChange={(v) => v && saetVisning(visKey, v as Visning)}
+            >
+              <ToggleGroupItem value="tabel">Tabel</ToggleGroupItem>
+              <ToggleGroupItem value="graf">Graf</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Henter…
+          </div>
+        ) : visning === "graf" ? (
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={grafData} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="maaned" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => fmtTal(Number(v), 0)} />
+                <Tooltip formatter={(v) => fmtTal(Number(v), dec)} />
+                <Legend />
+                {rows.map((r, i) => (
+                  <Line
+                    key={r.label}
+                    type="monotone"
+                    dataKey={r.label}
+                    stroke={raekkeFarve(r.label, i)}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ))}
+                <Line
+                  type="monotone"
+                  dataKey="Total"
+                  stroke={FARVE_TOTAL}
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -346,16 +526,19 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
             </table>
           </div>
         )}
+        {fodnote && <p className="text-xs text-muted-foreground">{fodnote}</p>}
       </Card>
     );
   };
 
+
   return (
     <div className="space-y-4 max-w-full">
       <p className="text-sm text-muted-foreground">
-        Dækningsbidrag, solgte maskiner og nye kunder pr. hel måned — afdeling 11. Klik på et tal
-        eller en kategori for at se hvilke virksomheder det består af.
+        Omsætning, dækningsbidrag, kunder, nye kunder og solgte maskiner pr. hel måned — afdeling
+        11. Klik på et tal eller en kategori for at se hvilke virksomheder det består af.
       </p>
+
 
       <div className="flex flex-wrap items-center gap-2">
         <Popover>
@@ -409,7 +592,19 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       </div>
 
       <Tabel
+        nummer={1}
+        titel="Omsætning pr. måned (kr.)"
+        visKey="omsaetning"
+        rows={omsTabel}
+        dec={0}
+        loading={omsQ.isLoading}
+        error={omsQ.error ? (omsQ.error as Error).message : null}
+      />
+
+      <Tabel
+        nummer={2}
         titel="Dækningsbidrag pr. måned (kr.)"
+        visKey="db"
         rows={dbTabel}
         dec={0}
         loading={dbQ.isLoading}
@@ -431,8 +626,64 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
           })
         }
       />
+
       <Tabel
+        nummer={3}
+        titel="Antal kunder pr. måned (aktive kunder)"
+        visKey="kunder"
+        rows={kunderTabel}
+        dec={0}
+        loading={kunderQ.isLoading}
+        error={kunderQ.error ? (kunderQ.error as Error).message : null}
+        fodnote="Aktiv = kunden har udstyr stående (leje, udlån, serviceaftale eller kundeejet) eller har købt varer, maskiner eller service inden for de seneste 12 måneder til og med måneden. Udstyrsdelen bygger på den nuværende registrering, da der ikke findes historik for, hvornår udstyr er sat op eller taget hjem."
+      />
+
+      <Tabel
+        nummer={4}
+        titel={
+          nyeMaal === "db"
+            ? "Nye kunder pr. måned — DB i perioden (kr., tælles i måneden for første ordre)"
+            : "Nye kunder pr. måned (antal, tælles i måneden for første ordre)"
+        }
+        visKey="nye"
+        rows={nyeTabel}
+        dec={0}
+        loading={nyeQ.isLoading}
+        error={nyeQ.error ? (nyeQ.error as Error).message : null}
+        hoved={
+          <ToggleGroup
+            type="single"
+            size="sm"
+            variant="outline"
+            value={nyeMaal}
+            onValueChange={(v) => v && setNyeMaal(v as "antal" | "db")}
+          >
+            <ToggleGroupItem value="antal">Antal</ToggleGroupItem>
+            <ToggleGroupItem value="db">DB</ToggleGroupItem>
+          </ToggleGroup>
+        }
+        onRow={(i) =>
+          setDrill({
+            slags: "nye",
+            kategori: nyeTabel[i].kategori,
+            label: `${nyeTabel[i].label} — ${maanedNavn(fra)}–${maanedNavn(til)}`,
+            maaned: null,
+          })
+        }
+        onCell={(i, m) =>
+          setDrill({
+            slags: "nye",
+            kategori: nyeTabel[i].kategori,
+            label: `${nyeTabel[i].label} — ${maanedNavn(m)}`,
+            maaned: m,
+          })
+        }
+      />
+
+      <Tabel
+        nummer={5}
         titel="Solgte maskiner pr. måned (stk.)"
+        visKey="maskiner"
         rows={maskinTabel}
         dec={0}
         loading={maskinerQ.isLoading}
@@ -477,45 +728,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
           })
         }
       />
-      <Tabel
-        titel={
-          nyeMaal === "db"
-            ? "Nye kunder pr. måned — DB i perioden (tælles i måneden for første ordre)"
-            : "Nye kunder pr. måned (tælles i måneden for første ordre)"
-        }
-        rows={nyeTabel}
-        dec={nyeMaal === "db" ? 0 : 0}
-        loading={nyeQ.isLoading}
-        error={nyeQ.error ? (nyeQ.error as Error).message : null}
-        hoved={
-          <ToggleGroup
-            type="single"
-            size="sm"
-            variant="outline"
-            value={nyeMaal}
-            onValueChange={(v) => v && setNyeMaal(v as "antal" | "db")}
-          >
-            <ToggleGroupItem value="antal">Antal</ToggleGroupItem>
-            <ToggleGroupItem value="db">DB</ToggleGroupItem>
-          </ToggleGroup>
-        }
-        onRow={(i) =>
-          setDrill({
-            slags: "nye",
-            kategori: nyeTabel[i].kategori,
-            label: `${nyeTabel[i].label} — ${maanedNavn(fra)}–${maanedNavn(til)}`,
-            maaned: null,
-          })
-        }
-        onCell={(i, m) =>
-          setDrill({
-            slags: "nye",
-            kategori: nyeTabel[i].kategori,
-            label: `${nyeTabel[i].label} — ${maanedNavn(m)}`,
-            maaned: m,
-          })
-        }
-      />
+
 
       <DetaljePanel
         drill={drill}

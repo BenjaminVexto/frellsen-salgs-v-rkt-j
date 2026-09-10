@@ -84,6 +84,10 @@ function PortfolioPage() {
   const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus">(
     "portefoelje",
   );
+  // Målepunkter er indgangsfanen, når den er tilgængelig — men kun indtil
+  // brugeren selv vælger en anden fane.
+  const [tabValgt, setTabValgt] = useState(false);
+
 
 
   // Analysefanen dækker hele den valgte afdeling — den vises kun for brugere
@@ -97,6 +101,11 @@ function PortfolioPage() {
   const visMaalepunkter =
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
   const visBonus = visMaalepunkter;
+  useEffect(() => {
+    if (!tabValgt && visMaalepunkter) setTab("maalepunkter");
+  }, [tabValgt, visMaalepunkter]);
+
+
 
 
 
@@ -612,13 +621,21 @@ function PortfolioPage() {
       </div>
 
       {visAnalyse || visMaalepunkter || visBonus ? (
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            setTabValgt(true);
+            setTab(v as typeof tab);
+          }}
+        >
+
           <TabsList className="mb-4">
+            {visMaalepunkter && <TabsTrigger value="maalepunkter">Målepunkter</TabsTrigger>}
             <TabsTrigger value="portefoelje">Portefølje</TabsTrigger>
             {visAnalyse && <TabsTrigger value="analyse">Analyse</TabsTrigger>}
-            {visMaalepunkter && <TabsTrigger value="maalepunkter">Målepunkter</TabsTrigger>}
             {visBonus && <TabsTrigger value="bonus">Bonus</TabsTrigger>}
           </TabsList>
+
           <TabsContent value="portefoelje">{portefoeljeIndhold}</TabsContent>
           {visAnalyse && (
             <TabsContent value="analyse">
