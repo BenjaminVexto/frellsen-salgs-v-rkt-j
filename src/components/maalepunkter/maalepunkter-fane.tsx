@@ -309,15 +309,18 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       );
       lines.push("");
     };
-    block("Dækningsbidrag pr. måned (kr.)", dbTabel, 2);
-    block("Solgte maskiner pr. måned (stk.)", maskinTabel, 0);
+    block("1 · Omsætning pr. måned (kr.)", omsTabel, 2);
+    block("2 · Dækningsbidrag pr. måned (kr.)", dbTabel, 2);
+    block("3 · Antal kunder pr. måned (aktive kunder)", kunderTabel, 0);
     block(
       nyeMaal === "db"
-        ? "Nye kunder pr. måned (DB i perioden, måned for første ordre)"
-        : "Nye kunder pr. måned (antal, måned for første ordre)",
+        ? "4 · Nye kunder pr. måned (DB i perioden, måned for første ordre)"
+        : "4 · Nye kunder pr. måned (antal, måned for første ordre)",
       nyeTabel,
       nyeMaal === "db" ? 2 : 0,
     );
+    block("5 · Solgte maskiner pr. måned (stk.)", maskinTabel, 0);
+
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
