@@ -614,11 +614,12 @@ function PortfolioPage() {
       {visAnalyse || visMaalepunkter || visBonus ? (
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList className="mb-4">
+            {visMaalepunkter && <TabsTrigger value="maalepunkter">Målepunkter</TabsTrigger>}
             <TabsTrigger value="portefoelje">Portefølje</TabsTrigger>
             {visAnalyse && <TabsTrigger value="analyse">Analyse</TabsTrigger>}
-            {visMaalepunkter && <TabsTrigger value="maalepunkter">Målepunkter</TabsTrigger>}
             {visBonus && <TabsTrigger value="bonus">Bonus</TabsTrigger>}
           </TabsList>
+
           <TabsContent value="portefoelje">{portefoeljeIndhold}</TabsContent>
           {visAnalyse && (
             <TabsContent value="analyse">
