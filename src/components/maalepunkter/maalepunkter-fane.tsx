@@ -47,7 +47,29 @@ function raekkeFarve(label: string, i: number): string {
   return FARVER_MAERKE[i % FARVER_MAERKE.length];
 }
 
-type Visning = "tabel" | "graf";
+type Visning = "tabel" | "graf" | "udvikling";
+
+/**
+ * Y-akse der skalerer til dataområdet med ca. 10 % luft.
+ * Nul tvinges kun med, hvis en serie er nul eller negativ.
+ */
+function yDomaene(vaerdier: number[]): [number, number] {
+  const tal = vaerdier.filter((v) => Number.isFinite(v));
+  if (!tal.length) return [0, 1];
+  let min = Math.min(...tal);
+  let max = Math.max(...tal);
+  if (min === max) {
+    const pad = Math.abs(min) * 0.1 || 1;
+    min -= pad;
+    max += pad;
+  } else {
+    const luft = (max - min) * 0.1;
+    min -= luft;
+    max += luft;
+  }
+  if (Math.min(...tal) <= 0) min = Math.min(0, min);
+  return [min, max];
+}
 
 
 
