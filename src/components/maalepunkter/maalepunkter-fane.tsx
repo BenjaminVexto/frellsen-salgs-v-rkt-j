@@ -148,6 +148,10 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const [kundetype, setKundetype] = useState<Kundetype>("alle");
   const [nyeMaal, setNyeMaal] = useState<"antal" | "db">("antal");
   const [drill, setDrill] = useState<Drill | null>(null);
+  /** Leje & service (varegruppe 16/17/18/24) er som standard IKKE med i omsætning og DB. */
+  const [omsAlle, setOmsAlle] = useState(false);
+  const [dbAlle, setDbAlle] = useState(false);
+
 
   // Tabel/graf huskes pr. tabel pr. bruger.
   const visningNoegle = `maalepunkt-visning:${auth.user?.id ?? "anon"}`;
@@ -189,15 +193,40 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
   const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
+  /** Samme periode året før — bruges til sammenligningen over grafen. */
+  const fraLY = addM(fra, -12);
+  const tilLY = addM(til, -12);
+  const argsLY = { _saelger: saelgerId, _fra: firstDay(fraLY), _til: firstDay(tilLY) };
+
+  type Beloeb = { maaned: string; kategori: string; vaerdi: number }[];
+  const hentBeloeb = async (fn: string, a: Record<string, unknown>, kunForbrug: boolean) => {
+    const { data, error } = await (supabase as any).rpc(fn, { ...a, _kun_forbrug: kunForbrug });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Beloeb;
+  };
+
+  /** Ældste måned med data — sidste års periode vises kun, hvis den er fuldt dækket. */
+  const daekningQ = useQuery({
+    queryKey: ["maalepunkt-datadaekning"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_datadaekning");
+      if (error) throw new Error(error.message);
+      const r = (data ?? [])[0] as { foerste_periode: string | null } | undefined;
+      return r?.foerste_periode ? String(r.foerste_periode).slice(0, 7) : null;
+    },
+  });
+  const lyDaekket = !!daekningQ.data && daekningQ.data <= fraLY;
 
   const omsQ = useQuery({
-    queryKey: ["maalepunkt-omsaetning", saelgerId, fra, til],
+    queryKey: ["maalepunkt-omsaetning", saelgerId, fra, til, omsAlle],
     enabled: !!saelgerId,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("maalepunkt_omsaetning", args);
-      if (error) throw new Error(error.message);
-      return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
-    },
+    queryFn: () => hentBeloeb("maalepunkt_omsaetning", args, !omsAlle),
+  });
+
+  const omsLyQ = useQuery({
+    queryKey: ["maalepunkt-omsaetning-ly", saelgerId, fraLY, tilLY, omsAlle],
+    enabled: !!saelgerId && lyDaekket,
+    queryFn: () => hentBeloeb("maalepunkt_omsaetning", argsLY, !omsAlle),
   });
 
   const kunderQ = useQuery({
@@ -211,14 +240,17 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   });
 
   const dbQ = useQuery({
-    queryKey: ["maalepunkt-db", saelgerId, fra, til],
+    queryKey: ["maalepunkt-db", saelgerId, fra, til, dbAlle],
     enabled: !!saelgerId,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("maalepunkt_db", args);
-      if (error) throw new Error(error.message);
-      return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
-    },
+    queryFn: () => hentBeloeb("maalepunkt_db", args, !dbAlle),
   });
+
+  const dbLyQ = useQuery({
+    queryKey: ["maalepunkt-db-ly", saelgerId, fraLY, tilLY, dbAlle],
+    enabled: !!saelgerId && lyDaekket,
+    queryFn: () => hentBeloeb("maalepunkt_db", argsLY, !dbAlle),
+  });
+
 
 
   const maskinerQ = useQuery({
@@ -294,6 +326,26 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [dbQ.data]);
+
+  /** Totaler for samme periode sidste år pr. serielabel (+ "Total"). */
+  const lyTotaler = (raekker: Beloeb | undefined) => {
+    if (!raekker) return null;
+    let privat = 0;
+    let offentlig = 0;
+    raekker.forEach((r) => {
+      const v = Number(r.vaerdi || 0);
+      if (r.kategori === "privat") privat += v;
+      else if (r.kategori === "offentlig") offentlig += v;
+    });
+    return new Map<string, number>([
+      ["Private kunder", privat],
+      ["Offentlige kunder", offentlig],
+      ["Total", privat + offentlig],
+    ]);
+  };
+  const omsLy = useMemo(() => (lyDaekket ? lyTotaler(omsLyQ.data) : null), [omsLyQ.data, lyDaekket]);
+  const dbLy = useMemo(() => (lyDaekket ? lyTotaler(dbLyQ.data) : null), [dbLyQ.data, lyDaekket]);
+
 
   // --- Tabel 2: maskiner ---
   const MAERKER = ["Wittenborg", "Animo", "Rex-Royal", "Andet"];
@@ -414,6 +466,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const Tabel = ({
     nummer,
     titel,
+    undertitel,
     visKey,
     rows,
     dec,
@@ -423,9 +476,12 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     onCell,
     hoved,
     fodnote,
+    periodeTotal,
   }: {
     nummer: number;
     titel: string;
+    /** Kort label under titlen, fx "Forbrugsvarer". */
+    undertitel?: string;
     /** Nøgle til at huske TABEL/GRAF pr. tabel pr. bruger. */
     visKey: string;
     rows: { label: string; per: Map<string, number> }[];
@@ -436,6 +492,11 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     onCell?: (i: number, maaned: string) => void;
     hoved?: React.ReactNode;
     fodnote?: React.ReactNode;
+    /**
+     * Når sat, vises periodens total pr. serie over grafen i stedet for
+     * første→sidste måned. `ly` = samme periode sidste år, null hvis ikke dækket.
+     */
+    periodeTotal?: { ly: Map<string, number> | null };
   }) => {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
@@ -465,8 +526,31 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     ) as number[];
     const domaene = indeks ? yDomaene([...alleTal, 100]) : yDomaene(alleTal);
 
-    // Ændring fra første til sidste måned i perioden, én pr. serie.
     const aendringer = synlige.map((s) => {
+      if (periodeTotal) {
+        // Periodens total pr. serie + ændring vs. samme periode sidste år.
+        const total = maaneder.reduce((sum, m) => sum + (s.per.get(m) ?? 0), 0);
+        const ly = periodeTotal.ly ? (periodeTotal.ly.get(s.navn) ?? 0) : null;
+        if (ly == null) {
+          return {
+            navn: s.navn,
+            farve: s.farve,
+            tekst: `${s.navn}: ${fmtTal(total, dec)} i perioden`,
+          };
+        }
+        const diff = total - ly;
+        const pct = ly ? (diff / Math.abs(ly)) * 100 : null;
+        const fortegn = diff > 0 ? "+" : diff < 0 ? "−" : "";
+        return {
+          navn: s.navn,
+          farve: s.farve,
+          tekst: `${s.navn}: ${fmtTal(total, dec)} i perioden (${fortegn}${fmtTal(
+            Math.abs(diff),
+            dec,
+          )}${pct == null ? "" : ` · ${fortegn}${fmtTal(Math.abs(pct), 1)} %`} vs. samme periode sidste år)`,
+        };
+      }
+      // Ændring fra første til sidste måned i perioden, én pr. serie.
       const foerste = s.per.get(maaneder[0]) ?? 0;
       const sidste = s.per.get(maaneder[maaneder.length - 1]) ?? 0;
       const diff = sidste - foerste;
@@ -480,15 +564,22 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
         })`,
       };
     });
+
     return (
       <Card className="p-4 space-y-3 border-2 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">
-            <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-              {nummer}
-            </span>
-            {titel}
-          </h2>
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide">
+              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                {nummer}
+              </span>
+              {titel}
+            </h2>
+            {undertitel && (
+              <p className="mt-1 ml-8 text-xs text-muted-foreground">{undertitel}</p>
+            )}
+          </div>
+
           <div className="flex flex-wrap items-center gap-4">
             {hoved}
             <ToggleGroup
@@ -729,21 +820,42 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       <Tabel
         nummer={1}
         titel="Omsætning pr. måned (kr.)"
+        undertitel={omsAlle ? "Alle varegrupper" : "Forbrugsvarer"}
         visKey="omsaetning"
         rows={omsTabel}
         dec={0}
         loading={omsQ.isLoading}
         error={omsQ.error ? (omsQ.error as Error).message : null}
+        periodeTotal={{ ly: omsLy }}
+        hoved={
+          <div className="flex items-center gap-2">
+            <Switch id="oms-alle" checked={omsAlle} onCheckedChange={setOmsAlle} />
+            <Label htmlFor="oms-alle" className="text-sm font-normal">
+              Medtag leje &amp; service
+            </Label>
+          </div>
+        }
       />
 
       <Tabel
         nummer={2}
         titel="Dækningsbidrag pr. måned (kr.)"
+        undertitel={dbAlle ? "Alle varegrupper" : "Forbrugsvarer"}
         visKey="db"
         rows={dbTabel}
         dec={0}
         loading={dbQ.isLoading}
         error={dbQ.error ? (dbQ.error as Error).message : null}
+        periodeTotal={{ ly: dbLy }}
+        hoved={
+          <div className="flex items-center gap-2">
+            <Switch id="db-alle" checked={dbAlle} onCheckedChange={setDbAlle} />
+            <Label htmlFor="db-alle" className="text-sm font-normal">
+              Medtag leje &amp; service
+            </Label>
+          </div>
+        }
+
         onRow={(i) =>
           setDrill({
             slags: "db",

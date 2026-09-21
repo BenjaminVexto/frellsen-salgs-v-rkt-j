@@ -3472,14 +3472,35 @@ export type Database = {
           maaned: string
         }[]
       }
-      maalepunkt_db: {
-        Args: { _fra: string; _saelger: string; _til: string }
+      maalepunkt_datadaekning: {
+        Args: never
         Returns: {
-          kategori: string
-          maaned: string
-          vaerdi: number
+          foerste_periode: string
+          sidste_periode: string
         }[]
       }
+      maalepunkt_db:
+        | {
+            Args: { _fra: string; _saelger: string; _til: string }
+            Returns: {
+              kategori: string
+              maaned: string
+              vaerdi: number
+            }[]
+          }
+        | {
+            Args: {
+              _fra: string
+              _kun_forbrug: boolean
+              _saelger: string
+              _til: string
+            }
+            Returns: {
+              kategori: string
+              maaned: string
+              vaerdi: number
+            }[]
+          }
       maalepunkt_db_detaljer: {
         Args: {
           _fra: string
@@ -3496,6 +3517,7 @@ export type Database = {
           omsaetning: number
         }[]
       }
+      maalepunkt_forbrug_grupper: { Args: never; Returns: string[] }
       maalepunkt_kundekategori: {
         Args: { _binding: string; _segment3: string }
         Returns: string
@@ -3579,14 +3601,28 @@ export type Database = {
           sidste_koeb: string
         }[]
       }
-      maalepunkt_omsaetning: {
-        Args: { _fra: string; _saelger: string; _til: string }
-        Returns: {
-          kategori: string
-          maaned: string
-          vaerdi: number
-        }[]
-      }
+      maalepunkt_omsaetning:
+        | {
+            Args: { _fra: string; _saelger: string; _til: string }
+            Returns: {
+              kategori: string
+              maaned: string
+              vaerdi: number
+            }[]
+          }
+        | {
+            Args: {
+              _fra: string
+              _kun_forbrug: boolean
+              _saelger: string
+              _til: string
+            }
+            Returns: {
+              kategori: string
+              maaned: string
+              vaerdi: number
+            }[]
+          }
       maskin_er_tilvalg: { Args: { _txt: string }; Returns: boolean }
       maskin_maerke: { Args: { _txt: string }; Returns: string }
       maskin_modelfamilie: { Args: { _txt: string }; Returns: string }
