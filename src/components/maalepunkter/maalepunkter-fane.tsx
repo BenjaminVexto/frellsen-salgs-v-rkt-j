@@ -991,7 +991,7 @@ export function MaalepunkterFane({
 
       <DetaljePanel
         drill={drill}
-        saelgerId={saelgerId}
+        saelgerId={rpcSaelger}
         fra={fra}
         til={til}
         kundetype={kundetype}
