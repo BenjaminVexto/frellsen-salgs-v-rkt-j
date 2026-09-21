@@ -121,7 +121,14 @@ type Drill =
  * kun admin og brugere med maa_se_analyse kan vælge en anden sælger,
  * og aldrig under "Se som sælger".
  */
-export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
+export function MaalepunkterFane({
+  saelgerId,
+  alleSaelgere = false,
+}: {
+  saelgerId: string;
+  /** "Alle sælgere" (kun admin): én samlet sum over alle kunder i brugerens afdelinger. */
+  alleSaelgere?: boolean;
+}) {
   const auth = useAuth();
   const afd = useAfdeling();
 
