@@ -148,6 +148,10 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const [kundetype, setKundetype] = useState<Kundetype>("alle");
   const [nyeMaal, setNyeMaal] = useState<"antal" | "db">("antal");
   const [drill, setDrill] = useState<Drill | null>(null);
+  /** Leje & service (varegruppe 16/17/18/24) er som standard IKKE med i omsætning og DB. */
+  const [omsAlle, setOmsAlle] = useState(false);
+  const [dbAlle, setDbAlle] = useState(false);
+
 
   // Tabel/graf huskes pr. tabel pr. bruger.
   const visningNoegle = `maalepunkt-visning:${auth.user?.id ?? "anon"}`;
