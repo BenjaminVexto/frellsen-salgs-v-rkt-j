@@ -651,7 +651,7 @@ function PortfolioPage() {
               <MaalepunkterFane
                 saelgerId={maalepunkterSaelgerId}
                 alleSaelgere={
-                  isAdmin && maaVaelgeSaelger && sellerId === "all" && !isImpersonating
+                  auth.role === "admin" && maaVaelgeSaelger && sellerId === "all"
                 }
               />
             </TabsContent>
