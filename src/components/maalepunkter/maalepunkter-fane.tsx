@@ -1011,7 +1011,7 @@ function DetaljePanel({
   onClose,
 }: {
   drill: Drill | null;
-  saelgerId: string;
+  saelgerId: string | null;
   fra: string;
   til: string;
   kundetype: Kundetype;
