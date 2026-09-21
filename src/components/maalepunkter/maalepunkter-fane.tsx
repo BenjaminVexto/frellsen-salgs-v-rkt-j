@@ -327,6 +327,26 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     ];
   }, [dbQ.data]);
 
+  /** Totaler for samme periode sidste år pr. serielabel (+ "Total"). */
+  const lyTotaler = (raekker: Beloeb | undefined) => {
+    if (!raekker) return null;
+    let privat = 0;
+    let offentlig = 0;
+    raekker.forEach((r) => {
+      const v = Number(r.vaerdi || 0);
+      if (r.kategori === "privat") privat += v;
+      else if (r.kategori === "offentlig") offentlig += v;
+    });
+    return new Map<string, number>([
+      ["Private kunder", privat],
+      ["Offentlige kunder", offentlig],
+      ["Total", privat + offentlig],
+    ]);
+  };
+  const omsLy = useMemo(() => (lyDaekket ? lyTotaler(omsLyQ.data) : null), [omsLyQ.data, lyDaekket]);
+  const dbLy = useMemo(() => (lyDaekket ? lyTotaler(dbLyQ.data) : null), [dbLyQ.data, lyDaekket]);
+
+
   // --- Tabel 2: maskiner ---
   const MAERKER = ["Wittenborg", "Animo", "Rex-Royal", "Andet"];
   const maskinTabel = useMemo(() => {
