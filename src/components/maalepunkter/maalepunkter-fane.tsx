@@ -199,11 +199,16 @@ export function MaalepunkterFane({
 
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
-  const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
+  /** NULL = alle kunder i brugerens afdelinger, også kunder uden tildelt sælger. */
+  const rpcSaelger = alleSaelgere ? null : saelgerId;
+  /** Nøgle til react-query, så "alle" ikke blandes med en tom sælger. */
+  const qNoegle = alleSaelgere ? "alle" : saelgerId;
+  const harValg = alleSaelgere || !!saelgerId;
+  const args = { _saelger: rpcSaelger, _fra: firstDay(fra), _til: firstDay(til) };
   /** Samme periode året før — bruges til sammenligningen over grafen. */
   const fraLY = addM(fra, -12);
   const tilLY = addM(til, -12);
-  const argsLY = { _saelger: saelgerId, _fra: firstDay(fraLY), _til: firstDay(tilLY) };
+  const argsLY = { _saelger: rpcSaelger, _fra: firstDay(fraLY), _til: firstDay(tilLY) };
 
   type Beloeb = { maaned: string; kategori: string; vaerdi: number }[];
   const hentBeloeb = async (fn: string, a: Record<string, unknown>, kunForbrug: boolean) => {
