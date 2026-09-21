@@ -504,12 +504,24 @@ function LokationRow({
       })
     : "Intet køb registreret";
 
+  const metaLabel = showLastPurchase
+    ? (lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel)
+    : showMachineCount
+      ? (machineCount
+          ? `${machineCount} maskine${machineCount === 1 ? "" : "r"}`
+          : "Ingen maskiner")
+      : null;
+  const metaTone = showLastPurchase
+    ? (lastPurchase ? "text-muted-foreground" : "text-destructive")
+    : (machineCount ? "text-muted-foreground" : "text-destructive");
+
   return (
     <li id={`location-${location.id}`} className="scroll-mt-20">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between gap-2 py-2.5 text-left hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors"
+        className="w-full grid items-center gap-2 py-2.5 text-left hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors"
+        style={{ gridTemplateColumns: "minmax(0, 1fr) 10rem 1.5rem" }}
       >
         <span className="flex items-center gap-2 min-w-0">
           <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -520,29 +532,16 @@ function LokationRow({
             </Badge>
           )}
         </span>
-        {showLastPurchase && (
-          <span
-            className={`text-xs flex-shrink-0 tabular-nums ${lastPurchase ? "text-muted-foreground" : "text-destructive"}`}
-          >
-            {lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel}
-          </span>
-        )}
-        {showMachineCount && (
-          <span
-            className={`text-xs flex-shrink-0 tabular-nums ${machineCount ? "text-muted-foreground" : "text-destructive"}`}
-          >
-            {machineCount
-              ? `${machineCount} maskine${machineCount === 1 ? "" : "r"}`
-              : "Ingen maskiner"}
-          </span>
-        )}
-
+        <span
+          className={`text-xs text-right tabular-nums whitespace-nowrap overflow-hidden text-ellipsis ${metaTone}`}
+        >
+          {metaLabel ?? ""}
+        </span>
         {open ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0 justify-self-end" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 justify-self-end" />
         )}
-
       </button>
       {open && (
         <div className="pl-6 pb-3 pt-1 space-y-1 text-sm">
