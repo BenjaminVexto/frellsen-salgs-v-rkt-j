@@ -1018,7 +1018,7 @@ function DetaljePanel({
   onClose: () => void;
 }) {
   const q = useQuery({
-    queryKey: ["maalepunkt-detaljer", qNoegle, fra, til, kundetype, drill],
+    queryKey: ["maalepunkt-detaljer", saelgerId, fra, til, kundetype, drill],
     enabled: !!drill,
     queryFn: async () => {
       const d = drill!;
