@@ -467,7 +467,7 @@ export function MaalepunkterFane({
     );
   }
 
-  if (!saelgerId) {
+  if (!harValg) {
     return (
       <Card className="p-6 text-sm text-muted-foreground">
         Vælg en sælger i vælgeren øverst for at se målepunkter.
