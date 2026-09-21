@@ -820,21 +820,42 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       <Tabel
         nummer={1}
         titel="Omsætning pr. måned (kr.)"
+        undertitel={omsAlle ? "Alle varegrupper" : "Forbrugsvarer"}
         visKey="omsaetning"
         rows={omsTabel}
         dec={0}
         loading={omsQ.isLoading}
         error={omsQ.error ? (omsQ.error as Error).message : null}
+        periodeTotal={{ ly: omsLy }}
+        hoved={
+          <div className="flex items-center gap-2">
+            <Switch id="oms-alle" checked={omsAlle} onCheckedChange={setOmsAlle} />
+            <Label htmlFor="oms-alle" className="text-sm font-normal">
+              Medtag leje &amp; service
+            </Label>
+          </div>
+        }
       />
 
       <Tabel
         nummer={2}
         titel="Dækningsbidrag pr. måned (kr.)"
+        undertitel={dbAlle ? "Alle varegrupper" : "Forbrugsvarer"}
         visKey="db"
         rows={dbTabel}
         dec={0}
         loading={dbQ.isLoading}
         error={dbQ.error ? (dbQ.error as Error).message : null}
+        periodeTotal={{ ly: dbLy }}
+        hoved={
+          <div className="flex items-center gap-2">
+            <Switch id="db-alle" checked={dbAlle} onCheckedChange={setDbAlle} />
+            <Label htmlFor="db-alle" className="text-sm font-normal">
+              Medtag leje &amp; service
+            </Label>
+          </div>
+        }
+
         onRow={(i) =>
           setDrill({
             slags: "db",
