@@ -3464,6 +3464,7 @@ export type Database = {
       maa_se_analyse: { Args: { _user_id: string }; Returns: boolean }
       maa_se_db: { Args: { _user_id: string }; Returns: boolean }
       maalepunkt_adgang: { Args: { _saelger: string }; Returns: boolean }
+      maalepunkt_afdelinger: { Args: { _saelger: string }; Returns: number[] }
       maalepunkt_aktive_kunder: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {

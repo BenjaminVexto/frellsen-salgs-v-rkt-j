@@ -8,6 +8,13 @@
       "when": 1789989828281,
       "tag": "0000_maalepunkt_forbrugsvarer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789990497254,
+      "tag": "0001_maalepunkt_alle_saelgere",
+      "breakpoints": true
     }
   ]
 }
