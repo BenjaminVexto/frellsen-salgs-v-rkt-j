@@ -568,12 +568,18 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     return (
       <Card className="p-4 space-y-3 border-2 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">
-            <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-              {nummer}
-            </span>
-            {titel}
-          </h2>
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide">
+              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                {nummer}
+              </span>
+              {titel}
+            </h2>
+            {undertitel && (
+              <p className="mt-1 ml-8 text-xs text-muted-foreground">{undertitel}</p>
+            )}
+          </div>
+
           <div className="flex flex-wrap items-center gap-4">
             {hoved}
             <ToggleGroup
