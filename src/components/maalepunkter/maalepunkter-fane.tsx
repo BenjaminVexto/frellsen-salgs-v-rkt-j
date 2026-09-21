@@ -183,6 +183,8 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       };
     });
   };
+  const nulstilSerier = (visKey: string) =>
+    setSkjulte((p) => ({ ...p, [visKey]: [] }));
 
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
@@ -520,24 +522,48 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {serier.map((s) => {
                 const skjult = skjultListe.includes(s.navn);
+                // Den sidste synlige serie kan ikke slås fra — ellers står grafen tom.
+                const sidsteSynlige = !skjult && synlige.length === 1;
                 return (
                   <button
                     key={s.navn}
                     type="button"
+                    disabled={sidsteSynlige}
+                    title={
+                      sidsteSynlige
+                        ? "Mindst én serie skal være vist"
+                        : skjult
+                          ? "Klik for at vise serien"
+                          : "Klik for at skjule serien"
+                    }
                     onClick={() => skiftSerie(visKey, s.navn)}
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${
-                      skjult ? "opacity-40" : ""
-                    }`}
+                      skjult
+                        ? "border-dashed text-muted-foreground line-through"
+                        : "bg-muted/50"
+                    } ${sidsteSynlige ? "cursor-not-allowed" : ""}`}
                   >
                     <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: s.farve }}
+                      className="h-2 w-2 rounded-full border"
+                      style={{
+                        background: skjult ? "transparent" : s.farve,
+                        borderColor: s.farve,
+                      }}
                       aria-hidden
                     />
                     {s.navn}
                   </button>
                 );
               })}
+              {skjultListe.length > 0 && (
+                <button
+                  type="button"
+                  className="rounded-full border px-2 py-0.5 text-muted-foreground"
+                  onClick={() => nulstilSerier(visKey)}
+                >
+                  Vis alle
+                </button>
+              )}
             </div>
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
