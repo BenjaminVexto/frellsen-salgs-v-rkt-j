@@ -466,6 +466,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const Tabel = ({
     nummer,
     titel,
+    undertitel,
     visKey,
     rows,
     dec,
@@ -475,9 +476,12 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     onCell,
     hoved,
     fodnote,
+    periodeTotal,
   }: {
     nummer: number;
     titel: string;
+    /** Kort label under titlen, fx "Forbrugsvarer". */
+    undertitel?: string;
     /** Nøgle til at huske TABEL/GRAF pr. tabel pr. bruger. */
     visKey: string;
     rows: { label: string; per: Map<string, number> }[];
@@ -488,6 +492,11 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     onCell?: (i: number, maaned: string) => void;
     hoved?: React.ReactNode;
     fodnote?: React.ReactNode;
+    /**
+     * Når sat, vises periodens total pr. serie over grafen i stedet for
+     * første→sidste måned. `ly` = samme periode sidste år, null hvis ikke dækket.
+     */
+    periodeTotal?: { ly: Map<string, number> | null };
   }) => {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
@@ -517,8 +526,31 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     ) as number[];
     const domaene = indeks ? yDomaene([...alleTal, 100]) : yDomaene(alleTal);
 
-    // Ændring fra første til sidste måned i perioden, én pr. serie.
     const aendringer = synlige.map((s) => {
+      if (periodeTotal) {
+        // Periodens total pr. serie + ændring vs. samme periode sidste år.
+        const total = maaneder.reduce((sum, m) => sum + (s.per.get(m) ?? 0), 0);
+        const ly = periodeTotal.ly ? (periodeTotal.ly.get(s.navn) ?? 0) : null;
+        if (ly == null) {
+          return {
+            navn: s.navn,
+            farve: s.farve,
+            tekst: `${s.navn}: ${fmtTal(total, dec)} i perioden`,
+          };
+        }
+        const diff = total - ly;
+        const pct = ly ? (diff / Math.abs(ly)) * 100 : null;
+        const fortegn = diff > 0 ? "+" : diff < 0 ? "−" : "";
+        return {
+          navn: s.navn,
+          farve: s.farve,
+          tekst: `${s.navn}: ${fmtTal(total, dec)} i perioden (${fortegn}${fmtTal(
+            Math.abs(diff),
+            dec,
+          )}${pct == null ? "" : ` · ${fortegn}${fmtTal(Math.abs(pct), 1)} %`} vs. samme periode sidste år)`,
+        };
+      }
+      // Ændring fra første til sidste måned i perioden, én pr. serie.
       const foerste = s.per.get(maaneder[0]) ?? 0;
       const sidste = s.per.get(maaneder[maaneder.length - 1]) ?? 0;
       const diff = sidste - foerste;
@@ -532,6 +564,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
         })`,
       };
     });
+
     return (
       <Card className="p-4 space-y-3 border-2 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
