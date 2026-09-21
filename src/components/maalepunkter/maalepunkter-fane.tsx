@@ -27,7 +27,7 @@ import { useAfdeling } from "@/contexts/afdeling-context";
 /** Samme farver for private/offentlige/total i alle fem grafer. */
 const FARVE_PRIVAT = "hsl(217 91% 50%)";
 const FARVE_OFFENTLIG = "hsl(28 90% 52%)";
-const FARVE_TOTAL = "hsl(var(--muted-foreground))";
+const FARVE_TOTAL = "hsl(240 6% 35%)";
 const FARVER_MAERKE = [
   "hsl(217 91% 50%)",
   "hsl(28 90% 52%)",
