@@ -193,15 +193,40 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
   const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
+  /** Samme periode året før — bruges til sammenligningen over grafen. */
+  const fraLY = addM(fra, -12);
+  const tilLY = addM(til, -12);
+  const argsLY = { _saelger: saelgerId, _fra: firstDay(fraLY), _til: firstDay(tilLY) };
+
+  type Beloeb = { maaned: string; kategori: string; vaerdi: number }[];
+  const hentBeloeb = async (fn: string, a: Record<string, unknown>, kunForbrug: boolean) => {
+    const { data, error } = await (supabase as any).rpc(fn, { ...a, _kun_forbrug: kunForbrug });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Beloeb;
+  };
+
+  /** Ældste måned med data — sidste års periode vises kun, hvis den er fuldt dækket. */
+  const daekningQ = useQuery({
+    queryKey: ["maalepunkt-datadaekning"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_datadaekning");
+      if (error) throw new Error(error.message);
+      const r = (data ?? [])[0] as { foerste_periode: string | null } | undefined;
+      return r?.foerste_periode ? String(r.foerste_periode).slice(0, 7) : null;
+    },
+  });
+  const lyDaekket = !!daekningQ.data && daekningQ.data <= fraLY;
 
   const omsQ = useQuery({
-    queryKey: ["maalepunkt-omsaetning", saelgerId, fra, til],
+    queryKey: ["maalepunkt-omsaetning", saelgerId, fra, til, omsAlle],
     enabled: !!saelgerId,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("maalepunkt_omsaetning", args);
-      if (error) throw new Error(error.message);
-      return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
-    },
+    queryFn: () => hentBeloeb("maalepunkt_omsaetning", args, !omsAlle),
+  });
+
+  const omsLyQ = useQuery({
+    queryKey: ["maalepunkt-omsaetning-ly", saelgerId, fraLY, tilLY, omsAlle],
+    enabled: !!saelgerId && lyDaekket,
+    queryFn: () => hentBeloeb("maalepunkt_omsaetning", argsLY, !omsAlle),
   });
 
   const kunderQ = useQuery({
@@ -215,14 +240,17 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   });
 
   const dbQ = useQuery({
-    queryKey: ["maalepunkt-db", saelgerId, fra, til],
+    queryKey: ["maalepunkt-db", saelgerId, fra, til, dbAlle],
     enabled: !!saelgerId,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("maalepunkt_db", args);
-      if (error) throw new Error(error.message);
-      return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
-    },
+    queryFn: () => hentBeloeb("maalepunkt_db", args, !dbAlle),
   });
+
+  const dbLyQ = useQuery({
+    queryKey: ["maalepunkt-db-ly", saelgerId, fraLY, tilLY, dbAlle],
+    enabled: !!saelgerId && lyDaekket,
+    queryFn: () => hentBeloeb("maalepunkt_db", argsLY, !dbAlle),
+  });
+
 
 
   const maskinerQ = useQuery({
