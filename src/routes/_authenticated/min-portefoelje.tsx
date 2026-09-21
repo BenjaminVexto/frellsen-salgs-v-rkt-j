@@ -648,7 +648,12 @@ function PortfolioPage() {
           )}
           {visMaalepunkter && (
             <TabsContent value="maalepunkter">
-              <MaalepunkterFane saelgerId={maalepunkterSaelgerId} />
+              <MaalepunkterFane
+                saelgerId={maalepunkterSaelgerId}
+                alleSaelgere={
+                  auth.role === "admin" && maaVaelgeSaelger && sellerId === "all"
+                }
+              />
             </TabsContent>
           )}
           {visBonus && (

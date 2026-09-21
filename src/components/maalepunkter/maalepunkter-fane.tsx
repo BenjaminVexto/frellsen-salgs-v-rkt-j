@@ -121,7 +121,14 @@ type Drill =
  * kun admin og brugere med maa_se_analyse kan vælge en anden sælger,
  * og aldrig under "Se som sælger".
  */
-export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
+export function MaalepunkterFane({
+  saelgerId,
+  alleSaelgere = false,
+}: {
+  saelgerId: string;
+  /** "Alle sælgere" (kun admin): én samlet sum over alle kunder i brugerens afdelinger. */
+  alleSaelgere?: boolean;
+}) {
   const auth = useAuth();
   const afd = useAfdeling();
 
@@ -192,11 +199,16 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
 
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
-  const args = { _saelger: saelgerId, _fra: firstDay(fra), _til: firstDay(til) };
+  /** NULL = alle kunder i brugerens afdelinger, også kunder uden tildelt sælger. */
+  const rpcSaelger = alleSaelgere ? null : saelgerId;
+  /** Nøgle til react-query, så "alle" ikke blandes med en tom sælger. */
+  const qNoegle = alleSaelgere ? "alle" : saelgerId;
+  const harValg = alleSaelgere || !!saelgerId;
+  const args = { _saelger: rpcSaelger, _fra: firstDay(fra), _til: firstDay(til) };
   /** Samme periode året før — bruges til sammenligningen over grafen. */
   const fraLY = addM(fra, -12);
   const tilLY = addM(til, -12);
-  const argsLY = { _saelger: saelgerId, _fra: firstDay(fraLY), _til: firstDay(tilLY) };
+  const argsLY = { _saelger: rpcSaelger, _fra: firstDay(fraLY), _til: firstDay(tilLY) };
 
   type Beloeb = { maaned: string; kategori: string; vaerdi: number }[];
   const hentBeloeb = async (fn: string, a: Record<string, unknown>, kunForbrug: boolean) => {
@@ -218,20 +230,20 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   const lyDaekket = !!daekningQ.data && daekningQ.data <= fraLY;
 
   const omsQ = useQuery({
-    queryKey: ["maalepunkt-omsaetning", saelgerId, fra, til, omsAlle],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-omsaetning", qNoegle, fra, til, omsAlle],
+    enabled: harValg,
     queryFn: () => hentBeloeb("maalepunkt_omsaetning", args, !omsAlle),
   });
 
   const omsLyQ = useQuery({
-    queryKey: ["maalepunkt-omsaetning-ly", saelgerId, fraLY, tilLY, omsAlle],
-    enabled: !!saelgerId && lyDaekket,
+    queryKey: ["maalepunkt-omsaetning-ly", qNoegle, fraLY, tilLY, omsAlle],
+    enabled: harValg && lyDaekket,
     queryFn: () => hentBeloeb("maalepunkt_omsaetning", argsLY, !omsAlle),
   });
 
   const kunderQ = useQuery({
-    queryKey: ["maalepunkt-aktive-kunder", saelgerId, fra, til],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-aktive-kunder", qNoegle, fra, til],
+    enabled: harValg,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("maalepunkt_aktive_kunder", args);
       if (error) throw new Error(error.message);
@@ -240,22 +252,22 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   });
 
   const dbQ = useQuery({
-    queryKey: ["maalepunkt-db", saelgerId, fra, til, dbAlle],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-db", qNoegle, fra, til, dbAlle],
+    enabled: harValg,
     queryFn: () => hentBeloeb("maalepunkt_db", args, !dbAlle),
   });
 
   const dbLyQ = useQuery({
-    queryKey: ["maalepunkt-db-ly", saelgerId, fraLY, tilLY, dbAlle],
-    enabled: !!saelgerId && lyDaekket,
+    queryKey: ["maalepunkt-db-ly", qNoegle, fraLY, tilLY, dbAlle],
+    enabled: harValg && lyDaekket,
     queryFn: () => hentBeloeb("maalepunkt_db", argsLY, !dbAlle),
   });
 
 
 
   const maskinerQ = useQuery({
-    queryKey: ["maalepunkt-maskiner", saelgerId, fra, til, kundetype],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-maskiner", qNoegle, fra, til, kundetype],
+    enabled: harValg,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("maalepunkt_maskiner", {
         ...args,
@@ -267,8 +279,8 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
   });
 
   const nyeQ = useQuery({
-    queryKey: ["maalepunkt-nye", saelgerId, fra, til],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-nye", qNoegle, fra, til],
+    enabled: harValg,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("maalepunkt_nye_kunder", args);
       if (error) throw new Error(error.message);
@@ -455,7 +467,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
     );
   }
 
-  if (!saelgerId) {
+  if (!harValg) {
     return (
       <Card className="p-6 text-sm text-muted-foreground">
         Vælg en sælger i vælgeren øverst for at se målepunkter.
@@ -979,7 +991,7 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
 
       <DetaljePanel
         drill={drill}
-        saelgerId={saelgerId}
+        saelgerId={rpcSaelger}
         fra={fra}
         til={til}
         kundetype={kundetype}
@@ -999,7 +1011,7 @@ function DetaljePanel({
   onClose,
 }: {
   drill: Drill | null;
-  saelgerId: string;
+  saelgerId: string | null;
   fra: string;
   til: string;
   kundetype: Kundetype;
