@@ -230,20 +230,20 @@ export function MaalepunkterFane({
   const lyDaekket = !!daekningQ.data && daekningQ.data <= fraLY;
 
   const omsQ = useQuery({
-    queryKey: ["maalepunkt-omsaetning", saelgerId, fra, til, omsAlle],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-omsaetning", qNoegle, fra, til, omsAlle],
+    enabled: harValg,
     queryFn: () => hentBeloeb("maalepunkt_omsaetning", args, !omsAlle),
   });
 
   const omsLyQ = useQuery({
-    queryKey: ["maalepunkt-omsaetning-ly", saelgerId, fraLY, tilLY, omsAlle],
-    enabled: !!saelgerId && lyDaekket,
+    queryKey: ["maalepunkt-omsaetning-ly", qNoegle, fraLY, tilLY, omsAlle],
+    enabled: harValg && lyDaekket,
     queryFn: () => hentBeloeb("maalepunkt_omsaetning", argsLY, !omsAlle),
   });
 
   const kunderQ = useQuery({
-    queryKey: ["maalepunkt-aktive-kunder", saelgerId, fra, til],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-aktive-kunder", qNoegle, fra, til],
+    enabled: harValg,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("maalepunkt_aktive_kunder", args);
       if (error) throw new Error(error.message);
@@ -252,22 +252,22 @@ export function MaalepunkterFane({
   });
 
   const dbQ = useQuery({
-    queryKey: ["maalepunkt-db", saelgerId, fra, til, dbAlle],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-db", qNoegle, fra, til, dbAlle],
+    enabled: harValg,
     queryFn: () => hentBeloeb("maalepunkt_db", args, !dbAlle),
   });
 
   const dbLyQ = useQuery({
-    queryKey: ["maalepunkt-db-ly", saelgerId, fraLY, tilLY, dbAlle],
-    enabled: !!saelgerId && lyDaekket,
+    queryKey: ["maalepunkt-db-ly", qNoegle, fraLY, tilLY, dbAlle],
+    enabled: harValg && lyDaekket,
     queryFn: () => hentBeloeb("maalepunkt_db", argsLY, !dbAlle),
   });
 
 
 
   const maskinerQ = useQuery({
-    queryKey: ["maalepunkt-maskiner", saelgerId, fra, til, kundetype],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-maskiner", qNoegle, fra, til, kundetype],
+    enabled: harValg,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("maalepunkt_maskiner", {
         ...args,
@@ -279,8 +279,8 @@ export function MaalepunkterFane({
   });
 
   const nyeQ = useQuery({
-    queryKey: ["maalepunkt-nye", saelgerId, fra, til],
-    enabled: !!saelgerId,
+    queryKey: ["maalepunkt-nye", qNoegle, fra, til],
+    enabled: harValg,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("maalepunkt_nye_kunder", args);
       if (error) throw new Error(error.message);
@@ -1018,7 +1018,7 @@ function DetaljePanel({
   onClose: () => void;
 }) {
   const q = useQuery({
-    queryKey: ["maalepunkt-detaljer", saelgerId, fra, til, kundetype, drill],
+    queryKey: ["maalepunkt-detaljer", qNoegle, fra, til, kundetype, drill],
     enabled: !!drill,
     queryFn: async () => {
       const d = drill!;
