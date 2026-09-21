@@ -183,6 +183,8 @@ export function MaalepunkterFane({ saelgerId }: { saelgerId: string }) {
       };
     });
   };
+  const nulstilSerier = (visKey: string) =>
+    setSkjulte((p) => ({ ...p, [visKey]: [] }));
 
 
   const maaneder = useMemo(() => maanedListe(fra, til), [fra, til]);
