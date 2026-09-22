@@ -9,46 +9,31 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
+import { fmtKg, fmtKr, type SalesMonthlyRow } from "@/lib/sales-utils";
 import {
-  fmtKg,
-  fmtKr,
-  gruppeKodeOf,
-  gruppeValgmuligheder,
-  isConsumableGroup,
-  KAFFE_KODE,
-  kodeLabel,
-  type SalesMonthlyRow,
-} from "@/lib/sales-utils";
-import { getMonthlyConsumableProducts } from "@/lib/sales.functions";
+  HOVEDKATEGORIER,
+  hovedkategori,
+  hovedkategoriAf,
+  type HovedkategoriKey,
+} from "@/lib/underkategori";
+import {
+  getMonthlyConsumableProducts,
+  getUnderkategoriSeries,
+} from "@/lib/sales.functions";
 
 const ALLE = "ALLE";
-/** Maskiner, vandfiltre og maskindele registreres uden vægt. */
-const MASKIN_TEKNIK_KODER = new Set(["16", "17", "18"]);
 type Enhed = "kg" | "kr";
 
-function serie(rows: SalesMonthlyRow[], months: number, kode: string, enhed: Enhed) {
-  const out: { period: string; label: string; value: number }[] = [];
+function maanedsAkse(months: number) {
+  const out: { period: string; label: string }[] = [];
   const now = new Date();
   // Kun hele måneder — den igangværende måned indgår ikke.
   for (let i = months; i >= 1; i--) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    const period = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
     out.push({
-      period,
+      period: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`,
       label: d.toLocaleDateString("da-DK", { month: "short" }),
-      value: 0,
     });
-  }
-  const idx = new Map(out.map((o, i) => [o.period, i]));
-  for (const r of rows) {
-    const match =
-      kode === ALLE
-        ? isConsumableGroup(r.product_group_1)
-        : gruppeKodeOf(r.product_group_1) === kode;
-    if (!match) continue;
-    const i = idx.get(r.period);
-    if (i != null)
-      out[i].value += (enhed === "kg" ? Number(r.weight_kg) : Number(r.revenue)) || 0;
   }
   return out;
 }
@@ -60,48 +45,116 @@ function formatPeriodLabel(period: string): string {
 
 export function ConsumableKgChart({
   rows,
-  months = 18,
+  months = 12,
   locationIds,
-  gruppeNavne,
 }: {
   rows: SalesMonthlyRow[];
   months?: number;
   locationIds?: string[];
   gruppeNavne?: Record<string, string>;
 }) {
-  const valg = useMemo(() => gruppeValgmuligheder(rows), [rows]);
-  // Kaffe som standard; ellers kundens største gruppe.
-  const defaultKode = valg.includes(KAFFE_KODE) ? KAFFE_KODE : (valg[0] ?? KAFFE_KODE);
-  const [kode, setKode] = useState<string | null>(null);
-  const aktivKode = kode ?? defaultKode;
+  const akse = useMemo(() => maanedsAkse(months), [months]);
+  const fra = akse[0]?.period ?? "";
+  const til = akse[akse.length - 1]?.period ?? "";
+  const iPerioden = useMemo(
+    () => rows.filter((r) => r.period >= fra && r.period <= til),
+    [rows, fra, til],
+  );
+
+  // Hovedkategorier hvor kunden har data i perioden.
+  const tilgaengelige = useMemo(() => {
+    const sum = new Map<HovedkategoriKey, number>();
+    for (const r of iPerioden) {
+      const k = hovedkategoriAf(r.product_group_1);
+      const v = (Number(r.weight_kg) || 0) * 1000 + Math.abs(Number(r.revenue) || 0);
+      if (v <= 0) continue;
+      sum.set(k, (sum.get(k) ?? 0) + v);
+    }
+    return HOVEDKATEGORIER.filter((h) => (sum.get(h.key) ?? 0) > 0);
+  }, [iPerioden]);
+
+  const defaultKey: HovedkategoriKey =
+    tilgaengelige.find((h) => h.key === "kaffe")?.key ?? tilgaengelige[0]?.key ?? "kaffe";
+  const [valgtHoved, setValgtHoved] = useState<HovedkategoriKey | null>(null);
+  const aktivHoved =
+    valgtHoved && tilgaengelige.some((h) => h.key === valgtHoved) ? valgtHoved : defaultKey;
+  const kat = hovedkategori(aktivHoved);
+  const [under, setUnder] = useState<string>(ALLE);
   const [enhed, setEnhed] = useState<Enhed>("kg");
 
-  
+  const harLokationer = !!locationIds && locationIds.length > 0;
+  const fetchUnder = useServerFn(getUnderkategoriSeries);
+  const underQ = useQuery({
+    queryKey: ["underkategori-serier", locationIds?.slice().sort().join(","), fra, til],
+    queryFn: () => fetchUnder({ data: { locationIds: locationIds ?? [], fra, til } }),
+    enabled: harLokationer && !!fra,
+  });
+  const underRows = useMemo(() => underQ.data ?? [], [underQ.data]);
 
-  // Maskiner/teknik registreres uden vægt.
-  const erMaskinTeknik = MASKIN_TEKNIK_KODER.has(aktivKode);
-  const kgSerie = useMemo(() => serie(rows, months, aktivKode, "kg"), [rows, months, aktivKode]);
-  const harKgIPerioden = kgSerie.some((d) => d.value > 0);
-  const kgDeaktiveret = erMaskinTeknik;
+  // Underkategorier kunden har data i, for den valgte hovedkategori.
+  const underValg = useMemo(() => {
+    if (aktivHoved === "oevrigt") return [];
+    const m = new Map<string, { label: string; sort: number; v: number }>();
+    for (const r of underRows) {
+      if (r.hovedkategori !== aktivHoved) continue;
+      const v = (Number(r.kg) || 0) * 1000 + Math.abs(Number(r.kr) || 0);
+      const cur = m.get(r.label) ?? { label: r.label, sort: r.sort, v: 0 };
+      cur.v += v;
+      m.set(r.label, cur);
+    }
+    return Array.from(m.values())
+      .filter((x) => x.v > 0)
+      .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label, "da-DK"));
+  }, [underRows, aktivHoved]);
+
+  const aktivUnder = under !== ALLE && underValg.some((u) => u.label === under) ? under : ALLE;
+
+  const kgDeaktiveret = !kat.kgMuligt;
   const effektivEnhed: Enhed = kgDeaktiveret ? "kr" : enhed;
   const fmtVal = (n: number) => (effektivEnhed === "kg" ? fmtKg(n, 1) : fmtKr(n));
 
+  const serie = (e: Enhed) => {
+    const idx = new Map(akse.map((a, i) => [a.period, i]));
+    const out = akse.map((a) => ({ ...a, value: 0 }));
+    if (aktivUnder === ALLE) {
+      for (const r of iPerioden) {
+        if (hovedkategoriAf(r.product_group_1) !== aktivHoved) continue;
+        const i = idx.get(r.period);
+        if (i != null)
+          out[i].value += (e === "kg" ? Number(r.weight_kg) : Number(r.revenue)) || 0;
+      }
+    } else {
+      for (const r of underRows) {
+        if (r.hovedkategori !== aktivHoved || r.label !== aktivUnder) continue;
+        const i = idx.get(r.period);
+        if (i != null) out[i].value += (e === "kg" ? Number(r.kg) : Number(r.kr)) || 0;
+      }
+    }
+    return out;
+  };
+
+  const kgSerie = useMemo(
+    () => serie("kg"),
+    [akse, iPerioden, underRows, aktivHoved, aktivUnder],
+  );
+  const harKgIPerioden = kgSerie.some((d) => d.value > 0);
   const data = useMemo(
-    () => serie(rows, months, aktivKode, effektivEnhed),
-    [rows, months, aktivKode, effektivEnhed],
+    () => (effektivEnhed === "kg" ? kgSerie : serie("kr")),
+    [effektivEnhed, kgSerie, akse, iPerioden, underRows, aktivHoved, aktivUnder],
   );
   const tomKg = effektivEnhed === "kg" && !harKgIPerioden;
   const visData = tomKg ? [] : data;
   const max = Math.max(1, ...visData.map((d) => d.value));
   const [openPeriod, setOpenPeriod] = useState<string | null>(null);
-  const clickable = !!locationIds && locationIds.length > 0 && !tomKg;
+  const clickable = harLokationer && !tomKg;
 
   const fetchFn = useServerFn(getMonthlyConsumableProducts);
   const varerQ = useQuery({
     queryKey: [
       "monthly-consumable-products",
       openPeriod,
-      aktivKode,
+      aktivHoved,
+      aktivUnder,
       effektivEnhed,
       locationIds?.slice().sort().join(","),
     ],
@@ -110,7 +163,8 @@ export function ConsumableKgChart({
         data: {
           locationIds: locationIds ?? [],
           period: openPeriod!,
-          gruppeKode: aktivKode === ALLE ? null : aktivKode,
+          gruppeKoder: kat.koder,
+          underkategori: aktivUnder === ALLE ? null : aktivUnder,
           enhed: effektivEnhed,
         },
       }),
@@ -126,23 +180,14 @@ export function ConsumableKgChart({
   const afviger = grafSum > 0 && Math.abs(grafSum - linjeSum) > Math.max(1, grafSum * 0.005);
   const daekningsTekst = `Varelinjerne dækker ${fmtVal(linjeSum)} af ${fmtVal(grafSum)} for måneden — resten mangler varelinje-historik.`;
 
-  const gruppeNavnAktiv = aktivKode === ALLE ? "I alt" : kodeLabel(aktivKode, gruppeNavne);
-  const titel =
-    aktivKode === ALLE
-      ? "I alt pr. måned"
-      : aktivKode === KAFFE_KODE
-        ? effektivEnhed === "kg"
-          ? "Kg kaffe pr. måned"
-          : "Kr. kaffe pr. måned"
-        : `${effektivEnhed === "kg" ? "Kg" : "Kr."} ${gruppeNavnAktiv.toLowerCase()} pr. måned`;
+  const visningsNavn = aktivUnder === ALLE ? kat.label : aktivUnder;
+  const titel = `${effektivEnhed === "kg" ? "Kg" : "Kr."} ${visningsNavn.toLowerCase()} pr. måned`;
 
-  const vaelgGruppe = (k: string) => {
-    setKode(k);
-    // Kilo på tværs af grupper kan ikke sammenlignes.
-    if (k === ALLE) setEnhed("kr");
-    if (MASKIN_TEKNIK_KODER.has(k)) setEnhed("kr");
+  const vaelgHoved = (key: HovedkategoriKey) => {
+    setValgtHoved(key);
+    setUnder(ALLE);
+    if (!hovedkategori(key).kgMuligt) setEnhed("kr");
   };
-
 
   return (
     <>
@@ -157,18 +202,18 @@ export function ConsumableKgChart({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap gap-1">
-              {[ALLE, ...valg].map((k) => (
+              {tilgaengelige.map((h) => (
                 <button
-                  key={k}
+                  key={h.key}
                   type="button"
-                  onClick={() => vaelgGruppe(k)}
+                  onClick={() => vaelgHoved(h.key)}
                   className={`text-xs rounded-full border px-2.5 py-1 transition-colors ${
-                    k === aktivKode
+                    h.key === aktivHoved
                       ? "bg-primary text-primary-foreground border-primary"
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  {k === ALLE ? "I alt" : kodeLabel(k, gruppeNavne)}
+                  {h.label}
                 </button>
               ))}
             </div>
@@ -197,6 +242,26 @@ export function ConsumableKgChart({
             </div>
           </div>
         </div>
+        {underValg.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {[{ label: ALLE, visning: "Alle" }, ...underValg.map((u) => ({ label: u.label, visning: u.label }))].map(
+              (u) => (
+                <button
+                  key={u.label}
+                  type="button"
+                  onClick={() => setUnder(u.label)}
+                  className={`text-[11px] rounded-full border px-2 py-0.5 transition-colors ${
+                    u.label === aktivUnder
+                      ? "bg-muted text-foreground border-foreground/30"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {u.visning}
+                </button>
+              ),
+            )}
+          </div>
+        )}
         {kgDeaktiveret && (
           <p className="text-[11px] text-muted-foreground mt-2">Maskiner og teknik vejes ikke.</p>
         )}
@@ -230,21 +295,17 @@ export function ConsumableKgChart({
               </div>
             ))}
           </div>
-
         )}
         <p className="text-[11px] text-muted-foreground mt-2">
           Den igangværende måned indgår ikke.
         </p>
-
       </Card>
-
-
 
       <Dialog open={!!openPeriod} onOpenChange={(o) => !o && setOpenPeriod(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {gruppeNavnAktiv} · {openPeriod ? formatPeriodLabel(openPeriod) : ""}
+              {visningsNavn} · {openPeriod ? formatPeriodLabel(openPeriod) : ""}
             </DialogTitle>
           </DialogHeader>
           {varerQ.isLoading ? (
@@ -257,9 +318,7 @@ export function ConsumableKgChart({
             <p className="text-sm text-muted-foreground py-4">
               {grafSum > 0
                 ? daekningsTekst
-                : aktivKode === ALLE
-                  ? `Ingen forbrugsvarer købt i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`
-                  : `Ingen køb i denne gruppe i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`}
+                : `Ingen køb i ${visningsNavn.toLowerCase()} i ${openPeriod ? formatPeriodLabel(openPeriod) : "denne måned"}.`}
             </p>
           ) : (
             <>
@@ -297,7 +356,6 @@ export function ConsumableKgChart({
               )}
             </>
           )}
-
         </DialogContent>
       </Dialog>
     </>
