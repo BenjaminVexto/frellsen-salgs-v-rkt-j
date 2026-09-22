@@ -2259,6 +2259,36 @@ export type Database = {
         }
         Relationships: []
       }
+      produkt_underkategori: {
+        Row: {
+          created_at: string
+          hovedkategori: string
+          id: string
+          label: string
+          product_group_1: string
+          produktprisgruppe_2: string | null
+          sort: number
+        }
+        Insert: {
+          created_at?: string
+          hovedkategori: string
+          id?: string
+          label: string
+          product_group_1: string
+          produktprisgruppe_2?: string | null
+          sort?: number
+        }
+        Update: {
+          created_at?: string
+          hovedkategori?: string
+          id?: string
+          label?: string
+          product_group_1?: string
+          produktprisgruppe_2?: string | null
+          sort?: number
+        }
+        Relationships: []
+      }
       produktgruppe_navn: {
         Row: {
           afdeling_nr: number

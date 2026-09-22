@@ -29,6 +29,13 @@
       "when": 1789991095121,
       "tag": "0003_maalepunkt_omsaetning_db_hurtigere",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790075936923,
+      "tag": "0004_produkt_underkategori",
+      "breakpoints": true
     }
   ]
 }
