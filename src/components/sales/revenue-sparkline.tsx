@@ -55,12 +55,12 @@ export function RevenueSparkline({
             </div>
           </div>
         </div>
-        <div className="flex gap-1.5 h-32">
+        <div className="flex gap-1.5 h-32 w-full overflow-hidden">
           {series.map((s, i) => {
             const h = max > 0 ? (s.revenue / max) * 100 : 0;
             const canClick = clickable && s.revenue > 0;
             return (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full">
+              <div key={i} className="flex-1 min-w-0 flex flex-col items-center gap-1 h-full">
                 <div className="flex-1 w-full flex items-end min-h-0">
                   <button
                     type="button"
@@ -77,11 +77,14 @@ export function RevenueSparkline({
                     aria-label={`${s.label}: ${fmtKr(s.revenue)}`}
                   />
                 </div>
-                <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                <span className="w-full text-center text-[10px] text-muted-foreground truncate">
+                  {s.label}
+                </span>
               </div>
             );
           })}
         </div>
+
       </Card>
 
 
