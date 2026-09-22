@@ -205,9 +205,12 @@ export function ConsumableKgChart({
             Ingen kg registreret i denne gruppe — skift til kr
           </div>
         ) : (
-          <div className="flex gap-1.5 h-36 mt-3">
+          <div className="flex gap-1.5 h-36 mt-3 w-full overflow-hidden">
             {visData.map((d) => (
-              <div key={d.period} className="flex-1 flex flex-col items-center gap-1 h-full">
+              <div
+                key={d.period}
+                className="flex-1 min-w-0 flex flex-col items-center gap-1 h-full"
+              >
                 <div className="flex-1 w-full flex items-end min-h-0">
                   <button
                     type="button"
@@ -221,10 +224,13 @@ export function ConsumableKgChart({
                     aria-label={`${d.label}: ${fmtVal(d.value)}`}
                   />
                 </div>
-                <span className="text-[10px] text-muted-foreground">{d.label}</span>
+                <span className="w-full text-center text-[10px] text-muted-foreground truncate">
+                  {d.label}
+                </span>
               </div>
             ))}
           </div>
+
         )}
         <p className="text-[11px] text-muted-foreground mt-2">
           Den igangværende måned indgår ikke.
