@@ -50,6 +50,13 @@
       "when": 1790078075018,
       "tag": "0006_can_view_company_afdeling_read",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790078539805,
+      "tag": "0007_portfolio_aggregat_security_definer",
+      "breakpoints": true
     }
   ]
 }
