@@ -43,6 +43,13 @@
       "when": 1790076644939,
       "tag": "0005_sales_monthly_products_afdelings_adgang",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790078075018,
+      "tag": "0006_can_view_company_afdeling_read",
+      "breakpoints": true
     }
   ]
 }

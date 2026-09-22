@@ -3357,6 +3357,10 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      can_view_company: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
       classify_te_types: { Args: never; Returns: number }
       company_group_monthly: {
         Args: { _company_id: string }
