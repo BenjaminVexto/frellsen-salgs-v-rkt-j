@@ -36,6 +36,13 @@
       "when": 1790075936923,
       "tag": "0004_produkt_underkategori",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790076644939,
+      "tag": "0005_sales_monthly_products_afdelings_adgang",
+      "breakpoints": true
     }
   ]
 }
