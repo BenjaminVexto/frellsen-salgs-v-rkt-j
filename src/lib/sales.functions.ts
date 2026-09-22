@@ -517,6 +517,109 @@ export type MonthlyConsumableProduct = {
   weightKg: number;
 };
 
+/**
+ * Varenr -> underkategori, ud fra products joinet med produkt_underkategori.
+ * Rækker uden produktprisgruppe_2 i mappingen dækker hele varegruppen.
+ */
+async function hentUnderkategoriMap(supabase: any) {
+  const [mapRes, prodRows] = await Promise.all([
+    supabase
+      .from("produkt_underkategori")
+      .select("hovedkategori, product_group_1, produktprisgruppe_2, label, sort"),
+    (async () => {
+      const out: any[] = [];
+      for (let side = 0; side < 20; side++) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("varenr, produktprisgruppe_1, produktprisgruppe_2")
+          .range(side * 1000, side * 1000 + 999);
+        if (error) throw error;
+        const chunk = (data as any[]) ?? [];
+        out.push(...chunk);
+        if (chunk.length < 1000) break;
+      }
+      return out;
+    })(),
+  ]);
+  if (mapRes.error) throw mapRes.error;
+  const wildcard = new Map<string, any>();
+  const exact = new Map<string, any>();
+  for (const m of ((mapRes.data as any[]) ?? [])) {
+    const g1 = gruppeKode(m.product_group_1);
+    if (!g1) continue;
+    const g2 = gruppeKode(m.produktprisgruppe_2);
+    const v = {
+      hovedkategori: String(m.hovedkategori),
+      label: String(m.label),
+      sort: Number(m.sort) || 1,
+    };
+    if (g2) exact.set(`${g1}|${g2}`, v);
+    else wildcard.set(g1, v);
+  }
+  const perVarenr = new Map<string, { hovedkategori: string; label: string; sort: number }>();
+  for (const p of prodRows) {
+    const g1 = gruppeKode(p.produktprisgruppe_1);
+    if (!g1) continue;
+    const g2 = gruppeKode(p.produktprisgruppe_2);
+    const hit = (g2 ? exact.get(`${g1}|${g2}`) : undefined) ?? wildcard.get(g1);
+    if (hit) perVarenr.set(String(p.varenr), hit);
+  }
+  return perVarenr;
+}
+
+export type UnderkategoriPunktDTO = {
+  period: string;
+  hovedkategori: string;
+  label: string;
+  sort: number;
+  kg: number;
+  kr: number;
+};
+
+/** Én serie pr. underkategori pr. måned for kundens lokationer. */
+export const getUnderkategoriSeries = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { locationIds: string[]; fra: string; til: string }) => {
+    if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
+    if (!input?.fra || !input?.til) throw new Error("periode krævet");
+    return input;
+  })
+  .handler(async ({ data, context }): Promise<UnderkategoriPunktDTO[]> => {
+    if (!data.locationIds.length) return [];
+    const [salgRes, mapping] = await Promise.all([
+      context.supabase
+        .from("sales_monthly_products")
+        .select("varenr, period, revenue, weight_kg")
+        .in("location_id", data.locationIds)
+        .gte("period", data.fra)
+        .lt("period", data.til)
+        .limit(20000),
+      hentUnderkategoriMap(context.supabase),
+    ]);
+    if (salgRes.error) throw salgRes.error;
+    const acc = new Map<string, UnderkategoriPunktDTO>();
+    for (const r of ((salgRes.data as any[]) ?? [])) {
+      const hit = mapping.get(String(r.varenr));
+      if (!hit) continue; // uden match tæller varen kun med i "Alle"
+      const period = String(r.period).slice(0, 10);
+      const key = `${period}|${hit.hovedkategori}|${hit.label}`;
+      const cur =
+        acc.get(key) ??
+        {
+          period,
+          hovedkategori: hit.hovedkategori,
+          label: hit.label,
+          sort: hit.sort,
+          kg: 0,
+          kr: 0,
+        };
+      cur.kg += Number(r.weight_kg) || 0;
+      cur.kr += Number(r.revenue) || 0;
+      acc.set(key, cur);
+    }
+    return Array.from(acc.values());
+  });
+
 /** Varelinjer for én måned. Filtreres og sorteres efter den valgte enhed. */
 export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -525,6 +628,8 @@ export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
       locationIds: string[];
       period: string;
       gruppeKode?: string | null;
+      gruppeKoder?: string[] | null;
+      underkategori?: string | null;
       enhed?: "kg" | "kr";
     }) => {
       if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
@@ -541,12 +646,23 @@ export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
       .eq("period", data.period);
     if (error) throw error;
     const filterKode = data.gruppeKode ?? null;
+    const filterKoder = data.gruppeKoder?.length ? new Set(data.gruppeKoder) : null;
+    // "Øvrigt" = alt uden for de navngivne hovedkategorier.
+    const ekskluderKoder =
+      data.gruppeKoder && data.gruppeKoder.length === 0 ? new Set(["2", "4", "16", "17", "18"]) : null;
+    const underkategori = data.underkategori ?? null;
+    const mapping = underkategori ? await hentUnderkategoriMap(context.supabase) : null;
     const enhed = data.enhed === "kg" ? "kg" : "kr";
     const acc = new Map<string, MonthlyConsumableProduct>();
     for (const r of (rows ?? []) as any[]) {
       const kode = gruppeKode(r.product_group_1);
       if (!kode) continue;
-      if (filterKode ? kode !== filterKode : !FORBRUG_KODER.has(kode)) continue;
+      if (filterKoder) {
+        if (!filterKoder.has(kode)) continue;
+      } else if (ekskluderKoder) {
+        if (ekskluderKoder.has(kode)) continue;
+      } else if (filterKode ? kode !== filterKode : !FORBRUG_KODER.has(kode)) continue;
+      if (underkategori && mapping?.get(String(r.varenr))?.label !== underkategori) continue;
       const cur =
         acc.get(r.varenr) ??
         { varenr: r.varenr, description: r.description ?? null, revenue: 0, quantity: 0, weightKg: 0 };
