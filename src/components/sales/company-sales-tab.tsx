@@ -56,7 +56,7 @@ export function CompanySalesTab({
       <SalesFactsStrip rows={rows} isAdmin={isAdmin} />
       <ConsumableKgChart
         rows={rows}
-        months={18}
+        months={12}
         locationIds={locationIds}
         gruppeNavne={q.data?.gruppeNavne}
       />
