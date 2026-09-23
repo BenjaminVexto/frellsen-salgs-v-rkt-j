@@ -94,7 +94,8 @@ function PortfolioPage() {
   // Målepunkter og bonus findes kun for afdeling 11.
   const visMaalepunkter =
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
-  const visBonus = visMaalepunkter;
+  // Salgssupport har ikke bonusordning — skjul bonusfanen for dem.
+  const visBonus = visMaalepunkter && auth.role !== "salgssupport";
   useEffect(() => {
     if (!tabValgt && visMaalepunkter) setTab("maalepunkter");
   }, [tabValgt, visMaalepunkter]);
