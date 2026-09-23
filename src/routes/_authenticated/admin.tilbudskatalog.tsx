@@ -6,10 +6,13 @@ import {
   listProducts,
   listProductGroupNames,
   updateProductSalesFields,
+  setBonusklasseForProducts,
   KATEGORI_VALUES,
   TE_TYPE_VALUES,
+  BONUSKLASSE_VALUES,
   type ProductRow,
 } from "@/lib/products.functions";
+
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { Input } from "@/components/ui/input";
@@ -38,6 +41,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -47,7 +51,13 @@ export const Route = createFileRoute("/_authenticated/admin/tilbudskatalog")({
   component: TilbudskatalogPage,
 });
 
-type Filter = "alle" | "tilbudsegnede" | "udgaaede" | "te_uden_type";
+type Filter =
+  | "alle"
+  | "tilbudsegnede"
+  | "udgaaede"
+  | "te_uden_type"
+  | "maskiner_uden_bonus";
+
 
 function SortHead({
   sortKey,
