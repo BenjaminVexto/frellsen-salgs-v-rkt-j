@@ -687,11 +687,13 @@ function EditSheet({
       varenr: row.varenr,
       is_tilbudsegnet: erUdgaaet ? false : isTilbud,
       kategori: kategori as any,
+      ...(bonusklasse ? { bonusklasse: bonusklasse as any } : {}),
       salgsbeskrivelse: salgsbeskrivelse.trim() === "" ? null : salgsbeskrivelse,
       sort_order: sortNum,
     });
     onClose();
   };
+
 
   const handleResetKategori = () => {
     onSave({ varenr: row.varenr, kategori_reset: true });
