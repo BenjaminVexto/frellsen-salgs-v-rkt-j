@@ -1042,6 +1042,8 @@ export const importMachines = createServerFn({ method: "POST" })
         machineSerialConflicts,
         wittenborgTypeCounts,
         wittenborgUdenSnUnitsInserted,
+        haendelserInserted,
+
         wittenborgUdenSnUnmatched,
         importedAt,
 
