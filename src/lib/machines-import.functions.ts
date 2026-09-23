@@ -537,6 +537,8 @@ export const importMachines = createServerFn({ method: "POST" })
             udstyr_type,
             has_service_contract: isServiceAgreement((r as any).aftale_type),
           });
+          addHaendelse(r, loc.company_id);
+
         }
         console.log(
           `[machines-import] STEP 6b Wittenborg-pass: rows=${data.enrichmentRows.length} withLev=${withLev} resolved=${wittenborgUnits.length} unmatched=${wittenborgUnmatched} locs=${wittenborgLocIds.size} types=${JSON.stringify(wittenborgTypeCounts)}`,
@@ -582,6 +584,8 @@ export const importMachines = createServerFn({ method: "POST" })
             udstyr_type,
             has_service_contract: isServiceAgreement((r as any).aftale_type),
           });
+          addHaendelse(r, loc.company_id);
+
         }
         console.log(
           `[machines-import] STEP 6b Wittenborg UDEN SN-pass: rows=${data.enrichmentRowsUdenSn.length} withLev=${withLev} resolved=${wittenborgUdenSnUnits.length} unmatched=${wittenborgUdenSnUnmatched} locs=${wittenborgUdenSnLocIds.size} types=${JSON.stringify(wittenborgUdenSnTypeCounts)}`,
