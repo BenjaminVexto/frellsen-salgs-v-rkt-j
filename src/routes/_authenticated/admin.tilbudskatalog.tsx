@@ -412,6 +412,43 @@ function TilbudskatalogPage() {
         </div>
       </div>
 
+      {valgte.size > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/40 p-3 text-sm">
+          <span className="font-medium">{valgte.size} varer valgt</span>
+          <Select value={bulkKlasse} onValueChange={setBulkKlasse}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {BONUSKLASSE_VALUES.map((b) => (
+                <SelectItem key={b} value={b}>
+                  {BONUSKLASSE_LABEL[b]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            disabled={bulkMutation.isPending}
+            onClick={() =>
+              bulkMutation.mutate({
+                varenumre: Array.from(valgte),
+                bonusklasse: bulkKlasse,
+              })
+            }
+          >
+            {bulkMutation.isPending && (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            )}
+            Sæt bonusklasse
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setValgte(new Set())}>
+            Ryd markering
+          </Button>
+        </div>
+      )}
+
+
       {query.isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
