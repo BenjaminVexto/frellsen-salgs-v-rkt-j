@@ -659,6 +659,7 @@ function EditSheet({
   saving: boolean;
 }) {
   const [kategori, setKategori] = useState<string>("");
+  const [bonusklasse, setBonusklasse] = useState<string>("");
   const [salgsbeskrivelse, setSalgsbeskrivelse] = useState("");
   const [sortOrder, setSortOrder] = useState<string>("");
   const [isTilbud, setIsTilbud] = useState(false);
@@ -666,10 +667,12 @@ function EditSheet({
   useEffect(() => {
     if (!row) return;
     setKategori(row.kategori ?? "ovrigt");
+    setBonusklasse(row.bonusklasse ?? "");
     setSalgsbeskrivelse(row.salgsbeskrivelse ?? "");
     setSortOrder(row.sort_order != null ? String(row.sort_order) : "");
     setIsTilbud(row.is_tilbudsegnet);
   }, [row?.varenr]);
+
 
   if (!row) return null;
   const erUdgaaet = row.record_status === "udgaaet";
