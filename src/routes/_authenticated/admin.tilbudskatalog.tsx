@@ -770,6 +770,28 @@ function EditSheet({
           </div>
 
           <div className="space-y-2">
+            <label className="text-sm font-medium">Bonusklasse</label>
+            <Select value={bonusklasse} onValueChange={setBonusklasse}>
+              <SelectTrigger>
+                <SelectValue placeholder="Ikke sat" />
+              </SelectTrigger>
+              <SelectContent>
+                {BONUSKLASSE_VALUES.map((b) => (
+                  <SelectItem key={b} value={b}>
+                    {BONUSKLASSE_LABEL[b]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {row.bonusklasse_manuel
+                ? "Manuelt sat — bevares ved gen-import."
+                : "Forslag ud fra beskrivelsen. Vælger du en anden, vinder dit valg over fremtidige imports."}
+            </p>
+          </div>
+
+
+          <div className="space-y-2">
             <label className="text-sm font-medium">Salgsbeskrivelse</label>
             <Textarea
               value={salgsbeskrivelse}
