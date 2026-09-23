@@ -128,6 +128,8 @@ const UpdateSchema = z
     sort_order: z.number().int().nullable().optional(),
     billede_url: z.string().max(2000).nullable().optional(),
     te_type: z.enum(TE_TYPE_VALUES).optional(),
+    bonusklasse: z.enum(BONUSKLASSE_VALUES).optional(),
+
   })
   .strict();
 
@@ -174,6 +176,11 @@ export const updateProductSalesFields = createServerFn({ method: "POST" })
       patch.te_type = data.te_type;
       patch.te_type_manuel = true;
     }
+    if (data.bonusklasse !== undefined) {
+      patch.bonusklasse = data.bonusklasse;
+      patch.bonusklasse_manuel = true;
+    }
+
 
     if (Object.keys(patch).length === 0) return { ok: true };
 
