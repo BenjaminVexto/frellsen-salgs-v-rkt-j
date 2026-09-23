@@ -110,7 +110,9 @@ type SortKey =
   | "listepris"
   | "kan_lejes"
   | "record_status"
+  | "bonusklasse"
   | "is_tilbudsegnet";
+
 
 function formatKr(n: number | null) {
   if (n == null) return "—";
@@ -138,6 +140,13 @@ const TE_TYPE_LABEL: Record<string, string> = {
   matcha: "Matcha",
   chai: "Chai",
   ukendt: "Ukendt",
+};
+
+const BONUSKLASSE_LABEL: Record<string, string> = {
+  wittenborg: "Wittenborg",
+  animo: "Animo",
+  rex: "Rex-Royal",
+  ingen: "Ingen bonus",
 };
 
 
