@@ -41,6 +41,7 @@ export async function fetchExpiringMachines(
     .from("machine_enrichment")
     .select("serienr, binding_ophor, handlingsdato")
     .eq("record_status", "aktiv")
+    .eq("kilde", "sn")
     .or(
       `and(binding_ophor.gte.${todayS},binding_ophor.lte.${in90S}),and(handlingsdato.gte.${todayS},handlingsdato.lte.${in90S})`,
     );

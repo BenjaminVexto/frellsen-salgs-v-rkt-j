@@ -799,7 +799,7 @@ export const importMachines = createServerFn({ method: "POST" })
             sub_location: w.sub_location,
             agreement_type: null,
             is_free_loan: false,
-            has_service_contract: false,
+            has_service_contract: w.has_service_contract,
             varenr: null,
             udstyr_type: w.udstyr_type,
             import_batch_id: witBatchId,
@@ -852,7 +852,7 @@ export const importMachines = createServerFn({ method: "POST" })
             sub_location: w.sub_location,
             agreement_type: null,
             is_free_loan: false,
-            has_service_contract: false,
+            has_service_contract: w.has_service_contract,
             varenr: null,
             udstyr_type: w.udstyr_type,
             import_batch_id: witBatchId,
@@ -876,32 +876,38 @@ export const importMachines = createServerFn({ method: "POST" })
 
 
       const enrMap = new Map<string, any>();
-      for (const r of data.enrichmentRows) {
-        const serienr = t(r.serienr);
-        if (!serienr) continue;
-        const extras: Record<string, any> = { ...(r.data && typeof r.data === "object" ? r.data : {}) };
-        for (const [k, v] of Object.entries(r as Record<string, any>)) {
-          if (ENRICHMENT_COLUMN_FIELDS.has(k) || k === "data") continue;
-          if (v == null || v === "") continue;
-          extras[k] = v;
-        }
-        enrMap.set(serienr, {
-          serienr,
-          taelleraflaesning: normDate(r.taelleraflaesning),
-          binding_ophor: normDate(r.binding_ophor),
-          beregnet_slutdato: normDate(r.beregnet_slutdato),
-          handlingsdato: normDate(r.handlingsdato),
-          handlingsdato_raw: r.handlingsdato_raw || null,
-          kobt_dato: normDate((r as any).kobt_dato),
-          lease_leje_dato: normDate((r as any).lease_leje_dato),
-          aftale_type: t((r as any).aftale_type) || null,
-          data: Object.keys(extras).length > 0 ? extras : null,
-          record_status: "aktiv",
-          last_seen_import: importedAt,
+      const addEnrichment = (rows: typeof data.enrichmentRows, kilde: "sn" | "uden_sn") => {
+        for (const r of rows) {
+          const serienr = t(r.serienr);
+          if (!serienr) continue;
+          const extras: Record<string, any> = { ...(r.data && typeof r.data === "object" ? r.data : {}) };
+          for (const [k, v] of Object.entries(r as Record<string, any>)) {
+            if (ENRICHMENT_COLUMN_FIELDS.has(k) || k === "data") continue;
+            if (v == null || v === "") continue;
+            extras[k] = v;
+          }
+          enrMap.set(serienr, {
+            serienr,
+            taelleraflaesning: normDate(r.taelleraflaesning),
+            binding_ophor: normDate(r.binding_ophor),
+            beregnet_slutdato: normDate(r.beregnet_slutdato),
+            handlingsdato: normDate(r.handlingsdato),
+            handlingsdato_raw: r.handlingsdato_raw || null,
+            kobt_dato: normDate((r as any).kobt_dato),
+            lease_leje_dato: normDate((r as any).lease_leje_dato),
+            aftale_type: t((r as any).aftale_type) || null,
+            kilde,
+            data: Object.keys(extras).length > 0 ? extras : null,
+            record_status: "aktiv",
+            last_seen_import: importedAt,
 
-          udgaaet_dato: null,
-        });
-      }
+            udgaaet_dato: null,
+          });
+        }
+      };
+      // UDEN SN først, så SN-rækken vinder ved samme serienr.
+      addEnrichment(data.enrichmentRowsUdenSn, "uden_sn");
+      addEnrichment(data.enrichmentRows, "sn");
       const enrRows = Array.from(enrMap.values());
       console.log(`[machines-import] STEP 7: enrRows=${enrRows.length}`);
 
@@ -934,7 +940,7 @@ export const importMachines = createServerFn({ method: "POST" })
       console.log(`[machines-import] STEP 11: enr count EFTER=${enrCountAfter ?? 0}`);
 
       let enrichmentMarkedUdgaaet = 0;
-      if (data.enrichmentRows.length > 0) {
+      if (data.enrichmentRows.length > 0 || data.enrichmentRowsUdenSn.length > 0) {
         const { data: upd, error } = await supabaseAdmin
           .from("machine_enrichment" as any)
           .update({ record_status: "udgaaet", udgaaet_dato: importedAt })
