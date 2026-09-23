@@ -422,11 +422,43 @@ function BonusPanel({
     },
   ];
 
+  const KLASSE_LABEL: Record<string, string> = {
+    wittenborg: "Wittenborg",
+    animo: "Animo",
+    rex: "Rex-Royal",
+    ingen: "Ingen bonus",
+    uklassificeret: "Uklassificeret",
+  };
+
   const maskKol: Kol[] = [
     { key: "navn", label: "Virksomhed", val: (r) => r.navn ?? "", cell: (r) => navn(r) },
     { key: "by", label: "By", val: (r) => r.by ?? "", cell: (r) => r.by ?? "—" },
+    {
+      key: "serienr",
+      label: "Serienr.",
+      val: (r) => r.serienr ?? "",
+      cell: (r) => <span className="font-mono text-xs">{r.serienr ?? "—"}</span>,
+    },
     { key: "maerke", label: "Mærke", val: (r) => r.maerke ?? "", cell: (r) => r.maerke ?? "—" },
     { key: "model", label: "Model", val: (r) => r.model ?? "", cell: (r) => r.model ?? "—" },
+    {
+      key: "bonusklasse",
+      label: "Bonusklasse",
+      val: (r) => r.bonusklasse ?? "",
+      cell: (r) => KLASSE_LABEL[r.bonusklasse ?? ""] ?? "—",
+    },
+    {
+      key: "udeladt",
+      label: "Tæller med",
+      val: (r) => (r.udeladt ? 1 : 0),
+      cell: (r) =>
+        r.udeladt ? (
+          <span className="text-muted-foreground">Nej — {r.aarsag ?? "udeladt"}</span>
+        ) : (
+          "Ja"
+        ),
+    },
+
     {
       key: "kilde",
       label: "Type",
