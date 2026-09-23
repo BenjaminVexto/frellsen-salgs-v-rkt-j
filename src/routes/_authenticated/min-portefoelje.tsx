@@ -106,6 +106,10 @@ function PortfolioPage() {
 
   const q = useQuery({
     queryKey: ["portfolio", sellerId, viewAsUserId, afdelingFilter],
+    // Portefølje-RPC'en er den tungeste beregning på siden. Vent med den,
+    // til Portefølje faktisk er valgt, så Målepunkter ikke starter begge
+    // databaselæsninger parallelt ved første visning.
+    enabled: tab === "portefoelje" && (tabValgt || !visMaalepunkter),
     queryFn: () =>
       fn({
         data: { sellerId: sellerId === "all" ? null : sellerId, afdelingNr: afdelingFilter },
