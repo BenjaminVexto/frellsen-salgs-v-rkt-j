@@ -164,7 +164,9 @@ function TilbudskatalogPage() {
   const list = useServerFn(listProducts);
   const listGroups = useServerFn(listProductGroupNames);
   const update = useServerFn(updateProductSalesFields);
+  const setBonus = useServerFn(setBonusklasseForProducts);
   const qc = useQueryClient();
+
 
   const query = useQuery({
     queryKey: ["admin", "products"],
@@ -185,12 +187,36 @@ function TilbudskatalogPage() {
     onError: (e: any) => toast.error(e?.message ?? "Kunne ikke gemme"),
   });
 
+  const bulkMutation = useMutation({
+    mutationFn: (input: { varenumre: string[]; bonusklasse: string }) =>
+      setBonus({ data: input as any }),
+    onSuccess: (res: any) => {
+      setValgte(new Set());
+      toast.success(`Bonusklasse sat på ${res?.opdateret ?? 0} varer`);
+      qc.invalidateQueries({ queryKey: ["admin", "products"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Kunne ikke sætte bonusklasse"),
+  });
+
   const [filter, setFilter] = useState<Filter>("alle");
   const [gruppeFilter, setGruppeFilter] = useState<string>("alle");
   const [search, setSearch] = useState("");
   const [openVarenr, setOpenVarenr] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("varenr");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [valgte, setValgte] = useState<Set<string>>(new Set());
+  const [bulkKlasse, setBulkKlasse] = useState<string>("wittenborg");
+
+  function toggleValgt(varenr: string) {
+    setValgte((s) => {
+      const n = new Set(s);
+      if (n.has(varenr)) n.delete(varenr);
+      else n.add(varenr);
+      return n;
+    });
+  }
+
+
 
 
   function toggleSort(k: SortKey) {
