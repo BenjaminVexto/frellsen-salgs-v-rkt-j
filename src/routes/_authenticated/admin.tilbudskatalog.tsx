@@ -498,9 +498,17 @@ function TilbudskatalogPage() {
                     }`}
                     onClick={() => setOpenVarenr(r.varenr)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={valgte.has(r.varenr)}
+                        onCheckedChange={() => toggleValgt(r.varenr)}
+                        aria-label={`Markér ${r.varenr}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
                       {r.varenr}
                     </TableCell>
+
                     <TableCell>
                       <div className="line-clamp-1">{r.beskrivelse ?? "—"}</div>
                       {r.salgsbeskrivelse && (
