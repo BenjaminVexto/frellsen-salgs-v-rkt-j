@@ -2133,6 +2133,60 @@ export type Database = {
           },
         ]
       }
+      maskin_haendelser: {
+        Row: {
+          aftale_type: string | null
+          company_id: string | null
+          id: number
+          import_tid: string
+          kobt_dato: string | null
+          lease_leje_dato: string | null
+          lev_kundenr: string | null
+          maskin_type: string | null
+          serienr: string
+          taellerstand: number | null
+        }
+        Insert: {
+          aftale_type?: string | null
+          company_id?: string | null
+          id?: number
+          import_tid?: string
+          kobt_dato?: string | null
+          lease_leje_dato?: string | null
+          lev_kundenr?: string | null
+          maskin_type?: string | null
+          serienr: string
+          taellerstand?: number | null
+        }
+        Update: {
+          aftale_type?: string | null
+          company_id?: string | null
+          id?: number
+          import_tid?: string
+          kobt_dato?: string | null
+          lease_leje_dato?: string | null
+          lev_kundenr?: string | null
+          maskin_type?: string | null
+          serienr?: string
+          taellerstand?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maskin_haendelser_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maskin_haendelser_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           activity_id: string | null

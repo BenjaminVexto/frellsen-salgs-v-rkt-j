@@ -78,6 +78,13 @@
       "when": 1790170610141,
       "tag": "0010_bonus_ordning_overtagelse_mdr",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790170631818,
+      "tag": "0011_maskin_haendelser",
+      "breakpoints": true
     }
   ]
 }
