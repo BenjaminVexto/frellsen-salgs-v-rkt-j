@@ -396,6 +396,7 @@ export type Database = {
           maskin_privat: boolean
           maskin_salg: boolean
           maskin_top: number | null
+          overtagelse_mdr: number
           total_bund: number | null
           total_top: number | null
           user_id: string
@@ -423,6 +424,7 @@ export type Database = {
           maskin_privat?: boolean
           maskin_salg?: boolean
           maskin_top?: number | null
+          overtagelse_mdr?: number
           total_bund?: number | null
           total_top?: number | null
           user_id: string
@@ -450,6 +452,7 @@ export type Database = {
           maskin_privat?: boolean
           maskin_salg?: boolean
           maskin_top?: number | null
+          overtagelse_mdr?: number
           total_bund?: number | null
           total_top?: number | null
           user_id?: string
@@ -2194,6 +2197,8 @@ export type Database = {
         Row: {
           beskrivelse: string | null
           billede_url: string | null
+          bonusklasse: string | null
+          bonusklasse_manuel: boolean
           created_at: string
           is_favorit: boolean
           is_tilbudsegnet: boolean
@@ -2217,6 +2222,8 @@ export type Database = {
         Insert: {
           beskrivelse?: string | null
           billede_url?: string | null
+          bonusklasse?: string | null
+          bonusklasse_manuel?: boolean
           created_at?: string
           is_favorit?: boolean
           is_tilbudsegnet?: boolean
@@ -2240,6 +2247,8 @@ export type Database = {
         Update: {
           beskrivelse?: string | null
           billede_url?: string | null
+          bonusklasse?: string | null
+          bonusklasse_manuel?: boolean
           created_at?: string
           is_favorit?: boolean
           is_tilbudsegnet?: boolean

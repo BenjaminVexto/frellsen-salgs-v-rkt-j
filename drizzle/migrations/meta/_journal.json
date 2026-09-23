@@ -64,6 +64,20 @@
       "when": 1790169284882,
       "tag": "0008_machine_enrichment_kilde",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790170605624,
+      "tag": "0009_products_bonusklasse",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790170610141,
+      "tag": "0010_bonus_ordning_overtagelse_mdr",
+      "breakpoints": true
     }
   ]
 }
