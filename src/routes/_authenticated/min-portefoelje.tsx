@@ -75,8 +75,10 @@ function PortfolioPage() {
   const [showDB, setShowDB] = useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
-  const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus">(
-    "portefoelje",
+  const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus">(() =>
+    auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null)
+      ? "maalepunkter"
+      : "portefoelje",
   );
   // Målepunkter er indgangsfanen, når den er tilgængelig — men kun indtil
   // brugeren selv vælger en anden fane.
@@ -106,6 +108,10 @@ function PortfolioPage() {
 
   const q = useQuery({
     queryKey: ["portfolio", sellerId, viewAsUserId, afdelingFilter],
+    // Portefølje-RPC'en er den tungeste beregning på siden. Vent med den,
+    // til Portefølje faktisk er valgt, så Målepunkter ikke starter begge
+    // databaselæsninger parallelt ved første visning.
+    enabled: tab === "portefoelje" && (tabValgt || !visMaalepunkter),
     queryFn: () =>
       fn({
         data: { sellerId: sellerId === "all" ? null : sellerId, afdelingNr: afdelingFilter },
