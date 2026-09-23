@@ -242,6 +242,12 @@ function TilbudskatalogPage() {
         if (r.kategori !== "te") return false;
         if (r.te_type && r.te_type !== "ukendt") return false;
       }
+      if (filter === "maskiner_uden_bonus") {
+        // maskinvarer (VG1 16) uden bonusklasse — udgåede vises også
+        if ((r.produktprisgruppe_1 ?? "") !== "16") return false;
+        if (r.bonusklasse) return false;
+      }
+
       if (filter === "alle" && r.record_status === "udgaaet") {
         // alle = aktive; brug "udgåede" for at se de gamle
         return false;
