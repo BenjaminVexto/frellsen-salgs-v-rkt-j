@@ -462,11 +462,25 @@ function TilbudskatalogPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={
+                      sorted.length > 0 && sorted.every((r) => valgte.has(r.varenr))
+                    }
+                    onCheckedChange={(v) =>
+                      setValgte(v ? new Set(sorted.map((r) => r.varenr)) : new Set())
+                    }
+                    aria-label="Markér alle viste varer"
+                  />
+                </TableHead>
                 <SortHead sortKey="varenr" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[110px]">Varenr</SortHead>
+
                 <SortHead sortKey="beskrivelse" active={sortKey} dir={sortDir} onSort={toggleSort}>Beskrivelse</SortHead>
                 <SortHead sortKey="kategori" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[170px]">Kategori</SortHead>
                 <SortHead sortKey="gruppe" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[190px]">Visma-varegruppe</SortHead>
+                <SortHead sortKey="bonusklasse" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[140px]">Bonus</SortHead>
                 <SortHead sortKey="te_type" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[150px]">Tetype</SortHead>
+
                 <SortHead sortKey="listepris" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[110px]" align="right">Listepris</SortHead>
                 <SortHead sortKey="kan_lejes" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[80px]">Leje</SortHead>
                 <SortHead sortKey="record_status" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[110px]">Status</SortHead>
