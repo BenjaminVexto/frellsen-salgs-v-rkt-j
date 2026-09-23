@@ -396,6 +396,7 @@ export type Database = {
           maskin_privat: boolean
           maskin_salg: boolean
           maskin_top: number | null
+          overtagelse_mdr: number
           total_bund: number | null
           total_top: number | null
           user_id: string
@@ -423,6 +424,7 @@ export type Database = {
           maskin_privat?: boolean
           maskin_salg?: boolean
           maskin_top?: number | null
+          overtagelse_mdr?: number
           total_bund?: number | null
           total_top?: number | null
           user_id: string
@@ -450,6 +452,7 @@ export type Database = {
           maskin_privat?: boolean
           maskin_salg?: boolean
           maskin_top?: number | null
+          overtagelse_mdr?: number
           total_bund?: number | null
           total_top?: number | null
           user_id?: string
@@ -2130,6 +2133,60 @@ export type Database = {
           },
         ]
       }
+      maskin_haendelser: {
+        Row: {
+          aftale_type: string | null
+          company_id: string | null
+          id: number
+          import_tid: string
+          kobt_dato: string | null
+          lease_leje_dato: string | null
+          lev_kundenr: string | null
+          maskin_type: string | null
+          serienr: string
+          taellerstand: number | null
+        }
+        Insert: {
+          aftale_type?: string | null
+          company_id?: string | null
+          id?: number
+          import_tid?: string
+          kobt_dato?: string | null
+          lease_leje_dato?: string | null
+          lev_kundenr?: string | null
+          maskin_type?: string | null
+          serienr: string
+          taellerstand?: number | null
+        }
+        Update: {
+          aftale_type?: string | null
+          company_id?: string | null
+          id?: number
+          import_tid?: string
+          kobt_dato?: string | null
+          lease_leje_dato?: string | null
+          lev_kundenr?: string | null
+          maskin_type?: string | null
+          serienr?: string
+          taellerstand?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maskin_haendelser_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maskin_haendelser_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           activity_id: string | null
@@ -2194,6 +2251,8 @@ export type Database = {
         Row: {
           beskrivelse: string | null
           billede_url: string | null
+          bonusklasse: string | null
+          bonusklasse_manuel: boolean
           created_at: string
           is_favorit: boolean
           is_tilbudsegnet: boolean
@@ -2217,6 +2276,8 @@ export type Database = {
         Insert: {
           beskrivelse?: string | null
           billede_url?: string | null
+          bonusklasse?: string | null
+          bonusklasse_manuel?: boolean
           created_at?: string
           is_favorit?: boolean
           is_tilbudsegnet?: boolean
@@ -2240,6 +2301,8 @@ export type Database = {
         Update: {
           beskrivelse?: string | null
           billede_url?: string | null
+          bonusklasse?: string | null
+          bonusklasse_manuel?: boolean
           created_at?: string
           is_favorit?: boolean
           is_tilbudsegnet?: boolean
@@ -3312,8 +3375,10 @@ export type Database = {
       bonus_maskin_detaljer: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
+          aarsag: string
           antal: number
           beloeb: number
+          bonusklasse: string
           brugt: boolean
           by: string
           company_id: string
@@ -3322,9 +3387,32 @@ export type Database = {
           maerke: string
           model: string
           navn: string
+          serienr: string
+          udeladt: boolean
         }[]
       }
       bonus_maskin_grundlag: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          aarsag: string
+          antal: number
+          beloeb: number
+          bonusklasse: string
+          brugt: boolean
+          by: string
+          company_id: string
+          faktura_dato: string
+          kategori: string
+          kilde: string
+          maaned: string
+          maerke: string
+          model: string
+          navn: string
+          serienr: string
+          udeladt: boolean
+        }[]
+      }
+      bonus_maskin_grundlag_faktura: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
           antal: number

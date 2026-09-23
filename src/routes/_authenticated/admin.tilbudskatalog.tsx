@@ -6,10 +6,13 @@ import {
   listProducts,
   listProductGroupNames,
   updateProductSalesFields,
+  setBonusklasseForProducts,
   KATEGORI_VALUES,
   TE_TYPE_VALUES,
+  BONUSKLASSE_VALUES,
   type ProductRow,
 } from "@/lib/products.functions";
+
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { Input } from "@/components/ui/input";
@@ -38,6 +41,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -47,7 +51,13 @@ export const Route = createFileRoute("/_authenticated/admin/tilbudskatalog")({
   component: TilbudskatalogPage,
 });
 
-type Filter = "alle" | "tilbudsegnede" | "udgaaede" | "te_uden_type";
+type Filter =
+  | "alle"
+  | "tilbudsegnede"
+  | "udgaaede"
+  | "te_uden_type"
+  | "maskiner_uden_bonus";
+
 
 function SortHead({
   sortKey,
@@ -100,7 +110,9 @@ type SortKey =
   | "listepris"
   | "kan_lejes"
   | "record_status"
+  | "bonusklasse"
   | "is_tilbudsegnet";
+
 
 function formatKr(n: number | null) {
   if (n == null) return "—";
@@ -130,6 +142,13 @@ const TE_TYPE_LABEL: Record<string, string> = {
   ukendt: "Ukendt",
 };
 
+const BONUSKLASSE_LABEL: Record<string, string> = {
+  wittenborg: "Wittenborg",
+  animo: "Animo",
+  rex: "Rex-Royal",
+  ingen: "Ingen bonus",
+};
+
 
 function TilbudskatalogPage() {
   const auth = useAuth();
@@ -145,7 +164,9 @@ function TilbudskatalogPage() {
   const list = useServerFn(listProducts);
   const listGroups = useServerFn(listProductGroupNames);
   const update = useServerFn(updateProductSalesFields);
+  const setBonus = useServerFn(setBonusklasseForProducts);
   const qc = useQueryClient();
+
 
   const query = useQuery({
     queryKey: ["admin", "products"],
@@ -166,12 +187,36 @@ function TilbudskatalogPage() {
     onError: (e: any) => toast.error(e?.message ?? "Kunne ikke gemme"),
   });
 
+  const bulkMutation = useMutation({
+    mutationFn: (input: { varenumre: string[]; bonusklasse: string }) =>
+      setBonus({ data: input as any }),
+    onSuccess: (res: any) => {
+      setValgte(new Set());
+      toast.success(`Bonusklasse sat på ${res?.opdateret ?? 0} varer`);
+      qc.invalidateQueries({ queryKey: ["admin", "products"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Kunne ikke sætte bonusklasse"),
+  });
+
   const [filter, setFilter] = useState<Filter>("alle");
   const [gruppeFilter, setGruppeFilter] = useState<string>("alle");
   const [search, setSearch] = useState("");
   const [openVarenr, setOpenVarenr] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("varenr");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [valgte, setValgte] = useState<Set<string>>(new Set());
+  const [bulkKlasse, setBulkKlasse] = useState<string>("wittenborg");
+
+  function toggleValgt(varenr: string) {
+    setValgte((s) => {
+      const n = new Set(s);
+      if (n.has(varenr)) n.delete(varenr);
+      else n.add(varenr);
+      return n;
+    });
+  }
+
+
 
 
   function toggleSort(k: SortKey) {
@@ -197,6 +242,12 @@ function TilbudskatalogPage() {
         if (r.kategori !== "te") return false;
         if (r.te_type && r.te_type !== "ukendt") return false;
       }
+      if (filter === "maskiner_uden_bonus") {
+        // maskinvarer (VG1 16) uden bonusklasse — udgåede vises også
+        if ((r.produktprisgruppe_1 ?? "") !== "16") return false;
+        if (r.bonusklasse) return false;
+      }
+
       if (filter === "alle" && r.record_status === "udgaaet") {
         // alle = aktive; brug "udgåede" for at se de gamle
         return false;
@@ -242,7 +293,10 @@ function TilbudskatalogPage() {
           return r.listepris ?? -1;
         case "kan_lejes":
           return r.kan_lejes ? 1 : 0;
+        case "bonusklasse":
+          return (BONUSKLASSE_LABEL[r.bonusklasse ?? ""] ?? "").toLowerCase();
         case "record_status":
+
           return r.record_status.toLowerCase();
         case "is_tilbudsegnet":
           return r.is_tilbudsegnet ? 1 : 0;
@@ -322,6 +376,8 @@ function TilbudskatalogPage() {
             ["tilbudsegnede", "Kun tilbudsegnede"],
             ["udgaaede", "Udgåede"],
             ["te_uden_type", "Kun te uden type"],
+            ["maskiner_uden_bonus", "Maskiner uden bonusklasse"],
+
           ] as const).map(([k, label]) => (
             <button
               key={k}
@@ -356,6 +412,43 @@ function TilbudskatalogPage() {
         </div>
       </div>
 
+      {valgte.size > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/40 p-3 text-sm">
+          <span className="font-medium">{valgte.size} varer valgt</span>
+          <Select value={bulkKlasse} onValueChange={setBulkKlasse}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {BONUSKLASSE_VALUES.map((b) => (
+                <SelectItem key={b} value={b}>
+                  {BONUSKLASSE_LABEL[b]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            disabled={bulkMutation.isPending}
+            onClick={() =>
+              bulkMutation.mutate({
+                varenumre: Array.from(valgte),
+                bonusklasse: bulkKlasse,
+              })
+            }
+          >
+            {bulkMutation.isPending && (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            )}
+            Sæt bonusklasse
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setValgte(new Set())}>
+            Ryd markering
+          </Button>
+        </div>
+      )}
+
+
       {query.isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -369,11 +462,25 @@ function TilbudskatalogPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={
+                      sorted.length > 0 && sorted.every((r) => valgte.has(r.varenr))
+                    }
+                    onCheckedChange={(v) =>
+                      setValgte(v ? new Set(sorted.map((r) => r.varenr)) : new Set())
+                    }
+                    aria-label="Markér alle viste varer"
+                  />
+                </TableHead>
                 <SortHead sortKey="varenr" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[110px]">Varenr</SortHead>
+
                 <SortHead sortKey="beskrivelse" active={sortKey} dir={sortDir} onSort={toggleSort}>Beskrivelse</SortHead>
                 <SortHead sortKey="kategori" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[170px]">Kategori</SortHead>
                 <SortHead sortKey="gruppe" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[190px]">Visma-varegruppe</SortHead>
+                <SortHead sortKey="bonusklasse" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[140px]">Bonus</SortHead>
                 <SortHead sortKey="te_type" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[150px]">Tetype</SortHead>
+
                 <SortHead sortKey="listepris" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[110px]" align="right">Listepris</SortHead>
                 <SortHead sortKey="kan_lejes" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[80px]">Leje</SortHead>
                 <SortHead sortKey="record_status" active={sortKey} dir={sortDir} onSort={toggleSort} className="w-[110px]">Status</SortHead>
@@ -391,9 +498,17 @@ function TilbudskatalogPage() {
                     }`}
                     onClick={() => setOpenVarenr(r.varenr)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={valgte.has(r.varenr)}
+                        onCheckedChange={() => toggleValgt(r.varenr)}
+                        aria-label={`Markér ${r.varenr}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
                       {r.varenr}
                     </TableCell>
+
                     <TableCell>
                       <div className="line-clamp-1">{r.beskrivelse ?? "—"}</div>
                       {r.salgsbeskrivelse && (
@@ -423,6 +538,25 @@ function TilbudskatalogPage() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {r.bonusklasse ? (
+                        <div className="flex items-center gap-1">
+                          <Badge
+                            variant={r.bonusklasse === "ingen" ? "outline" : "secondary"}
+                          >
+                            {BONUSKLASSE_LABEL[r.bonusklasse]}
+                          </Badge>
+                          {r.bonusklasse_manuel && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              manuel
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {r.kategori === "te" ? (
                         <div className="flex items-center gap-1">
@@ -493,7 +627,7 @@ function TilbudskatalogPage() {
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={11} className="text-center text-muted-foreground py-10">
                     Ingen varer matcher filteret
                   </TableCell>
                 </TableRow>
@@ -525,6 +659,7 @@ function EditSheet({
   saving: boolean;
 }) {
   const [kategori, setKategori] = useState<string>("");
+  const [bonusklasse, setBonusklasse] = useState<string>("");
   const [salgsbeskrivelse, setSalgsbeskrivelse] = useState("");
   const [sortOrder, setSortOrder] = useState<string>("");
   const [isTilbud, setIsTilbud] = useState(false);
@@ -532,10 +667,12 @@ function EditSheet({
   useEffect(() => {
     if (!row) return;
     setKategori(row.kategori ?? "ovrigt");
+    setBonusklasse(row.bonusklasse ?? "");
     setSalgsbeskrivelse(row.salgsbeskrivelse ?? "");
     setSortOrder(row.sort_order != null ? String(row.sort_order) : "");
     setIsTilbud(row.is_tilbudsegnet);
   }, [row?.varenr]);
+
 
   if (!row) return null;
   const erUdgaaet = row.record_status === "udgaaet";
@@ -550,11 +687,13 @@ function EditSheet({
       varenr: row.varenr,
       is_tilbudsegnet: erUdgaaet ? false : isTilbud,
       kategori: kategori as any,
+      ...(bonusklasse ? { bonusklasse: bonusklasse as any } : {}),
       salgsbeskrivelse: salgsbeskrivelse.trim() === "" ? null : salgsbeskrivelse,
       sort_order: sortNum,
     });
     onClose();
   };
+
 
   const handleResetKategori = () => {
     onSave({ varenr: row.varenr, kategori_reset: true });
@@ -629,6 +768,28 @@ function EditSheet({
                 : "Auto-afledt fra Visma-grupper. Vælger du en anden, vinder dit valg over fremtidige imports."}
             </p>
           </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Bonusklasse</label>
+            <Select value={bonusklasse} onValueChange={setBonusklasse}>
+              <SelectTrigger>
+                <SelectValue placeholder="Ikke sat" />
+              </SelectTrigger>
+              <SelectContent>
+                {BONUSKLASSE_VALUES.map((b) => (
+                  <SelectItem key={b} value={b}>
+                    {BONUSKLASSE_LABEL[b]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {row.bonusklasse_manuel
+                ? "Manuelt sat — bevares ved gen-import."
+                : "Forslag ud fra beskrivelsen. Vælger du en anden, vinder dit valg over fremtidige imports."}
+            </p>
+          </div>
+
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Salgsbeskrivelse</label>

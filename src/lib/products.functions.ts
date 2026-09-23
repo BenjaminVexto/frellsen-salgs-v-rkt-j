@@ -21,8 +21,11 @@ export type ProductRow = {
   sort_order: number | null;
   te_type: string | null;
   te_type_manuel: boolean;
+  bonusklasse: string | null;
+  bonusklasse_manuel: boolean;
   updated_at: string;
 };
+
 
 export const KATEGORI_VALUES = [
   "kaffe",
@@ -46,6 +49,10 @@ export const TE_TYPE_VALUES = [
   "chai",
   "ukendt",
 ] as const;
+
+/** Bonusklasse på maskinvarer — styrer maskinbonussens sats. */
+export const BONUSKLASSE_VALUES = ["wittenborg", "animo", "rex", "ingen"] as const;
+
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
@@ -121,6 +128,8 @@ const UpdateSchema = z
     sort_order: z.number().int().nullable().optional(),
     billede_url: z.string().max(2000).nullable().optional(),
     te_type: z.enum(TE_TYPE_VALUES).optional(),
+    bonusklasse: z.enum(BONUSKLASSE_VALUES).optional(),
+
   })
   .strict();
 
@@ -167,6 +176,11 @@ export const updateProductSalesFields = createServerFn({ method: "POST" })
       patch.te_type = data.te_type;
       patch.te_type_manuel = true;
     }
+    if (data.bonusklasse !== undefined) {
+      patch.bonusklasse = data.bonusklasse;
+      patch.bonusklasse_manuel = true;
+    }
+
 
     if (Object.keys(patch).length === 0) return { ok: true };
 
@@ -176,4 +190,32 @@ export const updateProductSalesFields = createServerFn({ method: "POST" })
       .eq("varenr", data.varenr);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/** Sæt bonusklasse på flere varer ad gangen (markerer dem som manuelt sat). */
+export const setBonusklasseForProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        varenumre: z.array(z.string().min(1)).min(1).max(5000),
+        bonusklasse: z.enum(BONUSKLASSE_VALUES),
+      })
+      .strict()
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const CHUNK = 500;
+    let opdateret = 0;
+    for (let i = 0; i < data.varenumre.length; i += CHUNK) {
+      const slice = data.varenumre.slice(i, i + CHUNK);
+      const { error } = await context.supabase
+        .from("products" as any)
+        .update({ bonusklasse: data.bonusklasse, bonusklasse_manuel: true })
+        .in("varenr", slice);
+      if (error) throw new Error(error.message);
+      opdateret += slice.length;
+    }
+    return { ok: true, opdateret };
   });

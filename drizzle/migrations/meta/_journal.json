@@ -64,6 +64,34 @@
       "when": 1790169284882,
       "tag": "0008_machine_enrichment_kilde",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790170605624,
+      "tag": "0009_products_bonusklasse",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790170610141,
+      "tag": "0010_bonus_ordning_overtagelse_mdr",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790170631818,
+      "tag": "0011_maskin_haendelser",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790170802620,
+      "tag": "0012_bonus_maskin_grundlag_serienr",
+      "breakpoints": true
     }
   ]
 }

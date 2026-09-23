@@ -473,6 +473,34 @@ export const importMachines = createServerFn({ method: "POST" })
       // eller reelt tilbehør der arver serienr (fold ind som filter).
       const witTypeByLocSerial = new Map<string, string>();
       const wittenborgUnits: WittenborgUnit[] = [];
+      // Maskinhændelser: én række pr. ny kombination af
+      // (serienr, lev_kundenr, kobt_dato, lease_leje_dato). Aldrig opdateret/slettet.
+      const haendelseMap = new Map<string, any>();
+      const addHaendelse = (r: any, companyId: string | null) => {
+        const serienr = t(r.serienr);
+        if (!serienr) return;
+        const lev = normalizeVismaNo(r.lev_kundenr) || null;
+        const kobt = normDate(r.kobt_dato);
+        const leje = normDate(r.lease_leje_dato);
+        if (!kobt && !leje) return;
+        const raaStand = (r as any).taellerstand ?? (r.data as any)?.taellerstand ?? null;
+        const stand =
+          raaStand == null || raaStand === ""
+            ? null
+            : Number(String(raaStand).replace(/[^\d.-]/g, ""));
+        haendelseMap.set(`${serienr}||${lev ?? ""}||${kobt ?? ""}||${leje ?? ""}`, {
+          serienr,
+          lev_kundenr: lev,
+          company_id: companyId,
+          kobt_dato: kobt,
+          lease_leje_dato: leje,
+          aftale_type: t(r.aftale_type) || null,
+          maskin_type: cleanG2(t(r.maskin_type)) || null,
+          taellerstand: stand != null && Number.isFinite(stand) ? stand : null,
+          import_tid: importedAt,
+        });
+      };
+
       const wittenborgLocIds = new Set<string>();
       const wittenborgTypeCounts: Record<UdstyrType, number> = {
         leje_ub: 0, leje_binding: 0, kunde_ejet: 0, ukendt: 0,
@@ -509,6 +537,8 @@ export const importMachines = createServerFn({ method: "POST" })
             udstyr_type,
             has_service_contract: isServiceAgreement((r as any).aftale_type),
           });
+          addHaendelse(r, loc.company_id);
+
         }
         console.log(
           `[machines-import] STEP 6b Wittenborg-pass: rows=${data.enrichmentRows.length} withLev=${withLev} resolved=${wittenborgUnits.length} unmatched=${wittenborgUnmatched} locs=${wittenborgLocIds.size} types=${JSON.stringify(wittenborgTypeCounts)}`,
@@ -554,6 +584,8 @@ export const importMachines = createServerFn({ method: "POST" })
             udstyr_type,
             has_service_contract: isServiceAgreement((r as any).aftale_type),
           });
+          addHaendelse(r, loc.company_id);
+
         }
         console.log(
           `[machines-import] STEP 6b Wittenborg UDEN SN-pass: rows=${data.enrichmentRowsUdenSn.length} withLev=${withLev} resolved=${wittenborgUdenSnUnits.length} unmatched=${wittenborgUdenSnUnmatched} locs=${wittenborgUdenSnLocIds.size} types=${JSON.stringify(wittenborgUdenSnTypeCounts)}`,
@@ -939,6 +971,45 @@ export const importMachines = createServerFn({ method: "POST" })
         .select("serienr", { count: "exact", head: true });
       console.log(`[machines-import] STEP 11: enr count EFTER=${enrCountAfter ?? 0}`);
 
+      // ---- STEP 11b: maskinhændelser (kun tilføj, aldrig opdater/slet) ----
+      let haendelserInserted = 0;
+      const haendelseKandidater = Array.from(haendelseMap.values());
+      if (haendelseKandidater.length > 0) {
+        const serienumre = Array.from(new Set(haendelseKandidater.map((h) => h.serienr)));
+        const eksisterende = new Set<string>();
+        for (let i = 0; i < serienumre.length; i += 500) {
+          const { data: ex, error } = await supabaseAdmin
+            .from("maskin_haendelser" as any)
+            .select("serienr, lev_kundenr, kobt_dato, lease_leje_dato")
+            .in("serienr", serienumre.slice(i, i + 500));
+          if (error) throw new Error("maskin_haendelser opslag: " + error.message);
+          (ex ?? []).forEach((h: any) =>
+            eksisterende.add(
+              `${h.serienr}||${h.lev_kundenr ?? ""}||${h.kobt_dato ?? ""}||${h.lease_leje_dato ?? ""}`,
+            ),
+          );
+        }
+        const nye = haendelseKandidater.filter(
+          (h) =>
+            !eksisterende.has(
+              `${h.serienr}||${h.lev_kundenr ?? ""}||${h.kobt_dato ?? ""}||${h.lease_leje_dato ?? ""}`,
+            ),
+        );
+        for (let i = 0; i < nye.length; i += CHUNK) {
+          const slice = nye.slice(i, i + CHUNK);
+          const { error } = await supabaseAdmin
+            .from("maskin_haendelser" as any)
+            .insert(slice);
+          if (error) throw new Error(`maskin_haendelser insert chunk ${i}: ${error.message}`);
+          haendelserInserted += slice.length;
+        }
+        console.log(
+          `[machines-import] STEP 11b DONE: haendelserInserted=${haendelserInserted} (kandidater=${haendelseKandidater.length})`,
+        );
+      }
+
+
+
       let enrichmentMarkedUdgaaet = 0;
       if (data.enrichmentRows.length > 0 || data.enrichmentRowsUdenSn.length > 0) {
         const { data: upd, error } = await supabaseAdmin
@@ -971,6 +1042,8 @@ export const importMachines = createServerFn({ method: "POST" })
         machineSerialConflicts,
         wittenborgTypeCounts,
         wittenborgUdenSnUnitsInserted,
+        haendelserInserted,
+
         wittenborgUdenSnUnmatched,
         importedAt,
 
