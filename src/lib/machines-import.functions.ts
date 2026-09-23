@@ -971,6 +971,45 @@ export const importMachines = createServerFn({ method: "POST" })
         .select("serienr", { count: "exact", head: true });
       console.log(`[machines-import] STEP 11: enr count EFTER=${enrCountAfter ?? 0}`);
 
+      // ---- STEP 11b: maskinhændelser (kun tilføj, aldrig opdater/slet) ----
+      let haendelserInserted = 0;
+      const haendelseKandidater = Array.from(haendelseMap.values());
+      if (haendelseKandidater.length > 0) {
+        const serienumre = Array.from(new Set(haendelseKandidater.map((h) => h.serienr)));
+        const eksisterende = new Set<string>();
+        for (let i = 0; i < serienumre.length; i += 500) {
+          const { data: ex, error } = await supabaseAdmin
+            .from("maskin_haendelser" as any)
+            .select("serienr, lev_kundenr, kobt_dato, lease_leje_dato")
+            .in("serienr", serienumre.slice(i, i + 500));
+          if (error) throw new Error("maskin_haendelser opslag: " + error.message);
+          (ex ?? []).forEach((h: any) =>
+            eksisterende.add(
+              `${h.serienr}||${h.lev_kundenr ?? ""}||${h.kobt_dato ?? ""}||${h.lease_leje_dato ?? ""}`,
+            ),
+          );
+        }
+        const nye = haendelseKandidater.filter(
+          (h) =>
+            !eksisterende.has(
+              `${h.serienr}||${h.lev_kundenr ?? ""}||${h.kobt_dato ?? ""}||${h.lease_leje_dato ?? ""}`,
+            ),
+        );
+        for (let i = 0; i < nye.length; i += CHUNK) {
+          const slice = nye.slice(i, i + CHUNK);
+          const { error } = await supabaseAdmin
+            .from("maskin_haendelser" as any)
+            .insert(slice);
+          if (error) throw new Error(`maskin_haendelser insert chunk ${i}: ${error.message}`);
+          haendelserInserted += slice.length;
+        }
+        console.log(
+          `[machines-import] STEP 11b DONE: haendelserInserted=${haendelserInserted} (kandidater=${haendelseKandidater.length})`,
+        );
+      }
+
+
+
       let enrichmentMarkedUdgaaet = 0;
       if (data.enrichmentRows.length > 0 || data.enrichmentRowsUdenSn.length > 0) {
         const { data: upd, error } = await supabaseAdmin
