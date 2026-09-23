@@ -1986,6 +1986,7 @@ export type Database = {
           data: Json | null
           handlingsdato: string | null
           handlingsdato_raw: string | null
+          kilde: string
           kobt_dato: string | null
           last_seen_import: string | null
           lease_leje_dato: string | null
@@ -2004,6 +2005,7 @@ export type Database = {
           data?: Json | null
           handlingsdato?: string | null
           handlingsdato_raw?: string | null
+          kilde?: string
           kobt_dato?: string | null
           last_seen_import?: string | null
           lease_leje_dato?: string | null
@@ -2022,6 +2024,7 @@ export type Database = {
           data?: Json | null
           handlingsdato?: string | null
           handlingsdato_raw?: string | null
+          kilde?: string
           kobt_dato?: string | null
           last_seen_import?: string | null
           lease_leje_dato?: string | null
