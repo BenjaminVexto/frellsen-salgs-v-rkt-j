@@ -293,7 +293,10 @@ function TilbudskatalogPage() {
           return r.listepris ?? -1;
         case "kan_lejes":
           return r.kan_lejes ? 1 : 0;
+        case "bonusklasse":
+          return (BONUSKLASSE_LABEL[r.bonusklasse ?? ""] ?? "").toLowerCase();
         case "record_status":
+
           return r.record_status.toLowerCase();
         case "is_tilbudsegnet":
           return r.is_tilbudsegnet ? 1 : 0;
@@ -373,6 +376,8 @@ function TilbudskatalogPage() {
             ["tilbudsegnede", "Kun tilbudsegnede"],
             ["udgaaede", "Udgåede"],
             ["te_uden_type", "Kun te uden type"],
+            ["maskiner_uden_bonus", "Maskiner uden bonusklasse"],
+
           ] as const).map(([k, label]) => (
             <button
               key={k}
