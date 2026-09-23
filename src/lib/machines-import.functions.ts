@@ -156,6 +156,11 @@ function classifyWittenborg(r: {
   return binding ? "leje_binding" : "leje_ub";
 }
 
+// Wittenborg-aftaletype "1 [Serviceaftale]" → serviceaftale på enheden.
+function isServiceAgreement(aftaleType: string | null | undefined): boolean {
+  return (aftaleType ?? "").trim().toLowerCase().startsWith("1 [serviceaftale]");
+}
+
 // Maskinliste-enhed (rental): altid Frellsen-ejet.
 // udlanstype "3 [Leje / Leasing]" → leje_binding; alt andet (4/5/6/7/8) → leje_ub.
 function classifyRental(udlanstype: string | null | undefined): UdstyrType {
@@ -460,6 +465,7 @@ export const importMachines = createServerFn({ method: "POST" })
         sub_location: string | null;
         navn: string | null;
         udstyr_type: UdstyrType;
+        has_service_contract: boolean;
       };
       const wittenborgByLoc = new Map<string, Set<string>>();
       // Wittenborgs egen maskintype pr. (loc, serienr) — bruges til at afgøre
@@ -501,6 +507,7 @@ export const importMachines = createServerFn({ method: "POST" })
             sub_location: t(r.adresselinje2) || null,
             navn: t(r.navn) || null,
             udstyr_type,
+            has_service_contract: isServiceAgreement((r as any).aftale_type),
           });
         }
         console.log(
@@ -545,6 +552,7 @@ export const importMachines = createServerFn({ method: "POST" })
             sub_location: t(r.adresselinje2) || null,
             navn: t(r.navn) || null,
             udstyr_type,
+            has_service_contract: isServiceAgreement((r as any).aftale_type),
           });
         }
         console.log(
