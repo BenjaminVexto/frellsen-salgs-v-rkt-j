@@ -21,8 +21,11 @@ export type ProductRow = {
   sort_order: number | null;
   te_type: string | null;
   te_type_manuel: boolean;
+  bonusklasse: string | null;
+  bonusklasse_manuel: boolean;
   updated_at: string;
 };
+
 
 export const KATEGORI_VALUES = [
   "kaffe",
@@ -46,6 +49,10 @@ export const TE_TYPE_VALUES = [
   "chai",
   "ukendt",
 ] as const;
+
+/** Bonusklasse på maskinvarer — styrer maskinbonussens sats. */
+export const BONUSKLASSE_VALUES = ["wittenborg", "animo", "rex", "ingen"] as const;
+
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
