@@ -136,9 +136,7 @@ function AuthenticatedShell() {
   const navItems = [
     { to: "/dashboard", label: "Mit overblik", shortLabel: "Overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", shortLabel: "Firmaer", icon: Building2 },
-    ...(isSupport
-      ? []
-      : [{ to: "/min-portefoelje", label: "Min salgsstatistik", shortLabel: "Statistik", icon: TrendingUp }]),
+    { to: "/min-portefoelje", label: "Min salgsstatistik", shortLabel: "Statistik", icon: TrendingUp },
     { to: "/aftaler", label: "Aftaler", shortLabel: "Aftaler", icon: FileText },
     { to: "/tilbud", label: "Tilbud", shortLabel: "Tilbud", icon: FileSignature },
     ...(isSupport

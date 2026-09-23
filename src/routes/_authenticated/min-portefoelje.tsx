@@ -57,12 +57,6 @@ type SortKey =
 function PortfolioPage() {
   const auth = useAuth();
   const navigate = useNavigate();
-  // Salgssupport har ingen egen portefølje → omdirigér til Mit overblik (team-bredt).
-  useEffect(() => {
-    if (auth.role === "salgssupport") {
-      navigate({ to: "/dashboard", replace: true });
-    }
-  }, [auth.role, navigate]);
   const fn = useServerFn(getMyPortfolio);
   const { viewAsUserId, isImpersonating, effectiveMaaSeDb, effectiveMaaSeAnalyse } = useViewAs();
   const { afdelingFilter, stampAfdelingNr, navnFor } = useAfdeling();
@@ -100,7 +94,8 @@ function PortfolioPage() {
   // Målepunkter og bonus findes kun for afdeling 11.
   const visMaalepunkter =
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
-  const visBonus = visMaalepunkter;
+  // Salgssupport har ikke bonusordning — skjul bonusfanen for dem.
+  const visBonus = visMaalepunkter && auth.role !== "salgssupport";
   useEffect(() => {
     if (!tabValgt && visMaalepunkter) setTab("maalepunkter");
   }, [tabValgt, visMaalepunkter]);
