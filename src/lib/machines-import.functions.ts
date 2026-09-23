@@ -473,6 +473,34 @@ export const importMachines = createServerFn({ method: "POST" })
       // eller reelt tilbehør der arver serienr (fold ind som filter).
       const witTypeByLocSerial = new Map<string, string>();
       const wittenborgUnits: WittenborgUnit[] = [];
+      // Maskinhændelser: én række pr. ny kombination af
+      // (serienr, lev_kundenr, kobt_dato, lease_leje_dato). Aldrig opdateret/slettet.
+      const haendelseMap = new Map<string, any>();
+      const addHaendelse = (r: any, companyId: string | null) => {
+        const serienr = t(r.serienr);
+        if (!serienr) return;
+        const lev = normalizeVismaNo(r.lev_kundenr) || null;
+        const kobt = normDate(r.kobt_dato);
+        const leje = normDate(r.lease_leje_dato);
+        if (!kobt && !leje) return;
+        const raaStand = (r as any).taellerstand ?? (r.data as any)?.taellerstand ?? null;
+        const stand =
+          raaStand == null || raaStand === ""
+            ? null
+            : Number(String(raaStand).replace(/[^\d.-]/g, ""));
+        haendelseMap.set(`${serienr}||${lev ?? ""}||${kobt ?? ""}||${leje ?? ""}`, {
+          serienr,
+          lev_kundenr: lev,
+          company_id: companyId,
+          kobt_dato: kobt,
+          lease_leje_dato: leje,
+          aftale_type: t(r.aftale_type) || null,
+          maskin_type: cleanG2(t(r.maskin_type)) || null,
+          taellerstand: stand != null && Number.isFinite(stand) ? stand : null,
+          import_tid: importedAt,
+        });
+      };
+
       const wittenborgLocIds = new Set<string>();
       const wittenborgTypeCounts: Record<UdstyrType, number> = {
         leje_ub: 0, leje_binding: 0, kunde_ejet: 0, ukendt: 0,
