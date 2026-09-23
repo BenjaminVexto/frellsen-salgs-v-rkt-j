@@ -191,3 +191,31 @@ export const updateProductSalesFields = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/** Sæt bonusklasse på flere varer ad gangen (markerer dem som manuelt sat). */
+export const setBonusklasseForProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        varenumre: z.array(z.string().min(1)).min(1).max(5000),
+        bonusklasse: z.enum(BONUSKLASSE_VALUES),
+      })
+      .strict()
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const CHUNK = 500;
+    let opdateret = 0;
+    for (let i = 0; i < data.varenumre.length; i += CHUNK) {
+      const slice = data.varenumre.slice(i, i + CHUNK);
+      const { error } = await context.supabase
+        .from("products" as any)
+        .update({ bonusklasse: data.bonusklasse, bonusklasse_manuel: true })
+        .in("varenr", slice);
+      if (error) throw new Error(error.message);
+      opdateret += slice.length;
+    }
+    return { ok: true, opdateret };
+  });
