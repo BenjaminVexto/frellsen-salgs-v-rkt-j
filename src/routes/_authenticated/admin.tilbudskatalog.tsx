@@ -538,6 +538,25 @@ function TilbudskatalogPage() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {r.bonusklasse ? (
+                        <div className="flex items-center gap-1">
+                          <Badge
+                            variant={r.bonusklasse === "ingen" ? "outline" : "secondary"}
+                          >
+                            {BONUSKLASSE_LABEL[r.bonusklasse]}
+                          </Badge>
+                          {r.bonusklasse_manuel && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              manuel
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {r.kategori === "te" ? (
                         <div className="flex items-center gap-1">
