@@ -3375,8 +3375,10 @@ export type Database = {
       bonus_maskin_detaljer: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
+          aarsag: string
           antal: number
           beloeb: number
+          bonusklasse: string
           brugt: boolean
           by: string
           company_id: string
@@ -3385,9 +3387,32 @@ export type Database = {
           maerke: string
           model: string
           navn: string
+          serienr: string
+          udeladt: boolean
         }[]
       }
       bonus_maskin_grundlag: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          aarsag: string
+          antal: number
+          beloeb: number
+          bonusklasse: string
+          brugt: boolean
+          by: string
+          company_id: string
+          faktura_dato: string
+          kategori: string
+          kilde: string
+          maaned: string
+          maerke: string
+          model: string
+          navn: string
+          serienr: string
+          udeladt: boolean
+        }[]
+      }
+      bonus_maskin_grundlag_faktura: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
           antal: number
