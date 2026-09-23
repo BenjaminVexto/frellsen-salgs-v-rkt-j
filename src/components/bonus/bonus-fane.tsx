@@ -579,7 +579,7 @@ function BonusPanel({
               }}
             />
             <Tabel
-              titel="Maskiner talt med"
+              titel="Maskiner i måneden (udeladte vises med årsag)"
               rows={q.data?.maskiner ?? []}
               kolonner={maskKol}
               sk={maskSortKey}
