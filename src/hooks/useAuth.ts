@@ -19,6 +19,8 @@ export interface AuthState {
   maaSeDb: boolean;
   /** Må se analysefanen (admin eller profiles.maa_se_analyse). */
   maaSeAnalyse: boolean;
+  /** Adgang til Afdelingspotentiale (admin eller profiles.maa_se_afdelingspotentiale). */
+  maaSeAfdelingspotentiale: boolean;
 }
 
 const EMPTY: AuthState = {
@@ -32,6 +34,7 @@ const EMPTY: AuthState = {
   primaryAfdeling: null,
   maaSeDb: false,
   maaSeAnalyse: false,
+  maaSeAfdelingspotentiale: false,
 };
 
 
@@ -54,7 +57,7 @@ export function useAuth(): AuthState {
           .returns<{ role: AppRole }[]>(),
         supabase
           .from("profiles")
-          .select("full_name, region, primary_afdeling_nr, maa_se_db, maa_se_analyse")
+          .select("full_name, region, primary_afdeling_nr, maa_se_db, maa_se_analyse, maa_se_afdelingspotentiale")
           .eq("id", session.user.id)
           .maybeSingle(),
         supabase.rpc("my_afdelinger"),
@@ -80,6 +83,7 @@ export function useAuth(): AuthState {
           primaryRaw != null && afdelinger.includes(primaryRaw) ? primaryRaw : (afdelinger[0] ?? null),
         maaSeDb: role === "admin" || (profile as any)?.maa_se_db === true,
         maaSeAnalyse: role === "admin" || (profile as any)?.maa_se_analyse === true,
+        maaSeAfdelingspotentiale: role === "admin" || (profile as any)?.maa_se_afdelingspotentiale === true,
       });
     };
 
