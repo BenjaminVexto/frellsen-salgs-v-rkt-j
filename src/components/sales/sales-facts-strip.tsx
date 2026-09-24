@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Calendar, Coffee, TrendingUp, Wallet } from "lucide-react";
+import { Calendar, Coffee, Cpu, TrendingUp, Wallet } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
 import {
@@ -22,9 +22,11 @@ import {
 export function SalesFactsStrip({
   rows,
   isAdmin,
+  antalMaskiner,
 }: {
   rows: SalesMonthlyRow[];
   isAdmin: boolean;
+  antalMaskiner?: number | null;
 }) {
   const nuMdr = currentMonthStart();
   const last12 = filterByPeriod(rows, monthsAgo(12), nuMdr);
@@ -47,7 +49,7 @@ export function SalesFactsStrip({
       : null;
 
   return (
-    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"}`}>
+    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3 lg:grid-cols-5" : "md:grid-cols-2 lg:grid-cols-4"}`}>
       <Fact
         icon={<TrendingUp className="h-4 w-4" />}
         label="Omsætning 12 mdr."
@@ -70,6 +72,12 @@ export function SalesFactsStrip({
           admin
         />
       )}
+      <Fact
+        icon={<Cpu className="h-4 w-4" />}
+        label="Maskiner i alt"
+        value={antalMaskiner == null ? "…" : `${antalMaskiner} stk.`}
+        note="Opstillet på alle lokationer"
+      />
       <Fact
         icon={<Calendar className="h-4 w-4" />}
         label="Sidste forbrugskøb"

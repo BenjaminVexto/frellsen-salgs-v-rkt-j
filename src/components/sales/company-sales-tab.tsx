@@ -5,6 +5,7 @@ import { SuppliedViaBanner } from "./supplied-via-banner";
 import { KundeStatusLinje } from "./kunde-status-linje";
 import { SalesFactsStrip } from "./sales-facts-strip";
 import { ConsumableKgChart } from "./consumable-kg-chart";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Loader2, BarChart3 } from "lucide-react";
 
@@ -23,6 +24,22 @@ export function CompanySalesTab({
   const q = useQuery({
     queryKey: ["sales-company", companyId],
     queryFn: () => fetchFn({ data: { companyId } }),
+  });
+
+  const maskQ = useQuery({
+    queryKey: ["company-maskiner-antal", companyId],
+    queryFn: async () => {
+      const { data: locs } = await supabase.from("locations").select("id").eq("company_id", companyId);
+      const ids = (locs ?? []).map((l) => l.id);
+      if (!ids.length) return 0;
+      const { count, error } = await supabase
+        .from("location_equipment_units")
+        .select("id", { count: "exact", head: true })
+        .in("location_id", ids)
+        .eq("is_filter", false);
+      if (error) throw error;
+      return count ?? 0;
+    },
   });
 
   if (q.isLoading) {
@@ -53,7 +70,7 @@ export function CompanySalesTab({
     <div className="space-y-4">
       <SuppliedViaBanner companyId={companyId} />
       {!skjulSignaler && <KundeStatusLinje rows={rows} />}
-      <SalesFactsStrip rows={rows} isAdmin={isAdmin} />
+      <SalesFactsStrip rows={rows} isAdmin={isAdmin} antalMaskiner={maskQ.data ?? null} />
       <ConsumableKgChart
         rows={rows}
         months={12}
