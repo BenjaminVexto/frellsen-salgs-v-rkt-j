@@ -228,7 +228,6 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           .from("profiles")
           .select("id, full_name")
           .in("id", ids)
-          .eq("is_active", true)
           .order("full_name");
         sellerOptions = (profs ?? []).map((p: any) => ({
           id: p.id,
