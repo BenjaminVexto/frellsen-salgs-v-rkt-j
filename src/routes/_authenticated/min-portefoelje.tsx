@@ -167,7 +167,7 @@ function PortfolioPage() {
 
 
   const sortedCompanies = useMemo(() => {
-    if (!data) return [] as PortfolioCompanyRow[];
+    if (!data) return [] as (PortfolioCompanyRow & { rang: number })[];
     const searchLc = search.trim().toLowerCase();
     const filtered = data.companies.filter((c) => {
       if (searchLc && !c.name.toLowerCase().includes(searchLc)) return false;
@@ -224,7 +224,7 @@ function PortfolioPage() {
     try {
       const { rows } = await hentKontakter({ data: { companyIds: sortedCompanies.map((c) => c.id) } });
       const km = new Map(rows.map((r) => [r.company_id, r]));
-      const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", paavejvaek: "På vej væk" };
+      const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", paavejvaek: "På vej væk", andet: "Andet" };
       const sektorLabel: Record<string, string> = { privat: "Privat", offentlig: "Offentlig", intern: "Intern" };
       const data = sortedCompanies.map((c) => {
         const k = km.get(c.id);
