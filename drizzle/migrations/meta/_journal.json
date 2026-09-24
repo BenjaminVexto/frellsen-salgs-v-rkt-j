@@ -134,6 +134,13 @@
       "when": 1790253103025,
       "tag": "0018_mersalg_ansatte_null",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790272832297,
+      "tag": "0019_afdelingspotentiale",
+      "breakpoints": true
     }
   ]
 }
