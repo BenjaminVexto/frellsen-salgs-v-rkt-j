@@ -164,6 +164,7 @@ function PipelinePage() {
 
   const byCol = useMemo(() => {
     const map: Record<Status, Opportunity[]> = {
+      emne: [],
       ny: [],
       behovsafdækning: [],
       møde_demo: [],
