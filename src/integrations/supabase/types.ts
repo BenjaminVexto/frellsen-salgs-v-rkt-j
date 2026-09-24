@@ -2298,6 +2298,38 @@ export type Database = {
         }
         Relationships: []
       }
+      penhed_ikke_relevant: {
+        Row: {
+          aarsag: string
+          created_at: string
+          created_by: string | null
+          fritekst: string | null
+          p_nummer: string
+        }
+        Insert: {
+          aarsag: string
+          created_at?: string
+          created_by?: string | null
+          fritekst?: string | null
+          p_nummer: string
+        }
+        Update: {
+          aarsag?: string
+          created_at?: string
+          created_by?: string | null
+          fritekst?: string | null
+          p_nummer?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "penhed_ikke_relevant_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       postnummer_region: {
         Row: {
           created_at: string
@@ -2495,6 +2527,7 @@ export type Database = {
           full_name: string
           id: string
           is_active: boolean
+          maa_se_afdelingspotentiale: boolean
           maa_se_analyse: boolean
           maa_se_db: boolean
           primary_afdeling_nr: number | null
@@ -2506,6 +2539,7 @@ export type Database = {
           full_name?: string
           id: string
           is_active?: boolean
+          maa_se_afdelingspotentiale?: boolean
           maa_se_analyse?: boolean
           maa_se_db?: boolean
           primary_afdeling_nr?: number | null
@@ -2517,6 +2551,7 @@ export type Database = {
           full_name?: string
           id?: string
           is_active?: boolean
+          maa_se_afdelingspotentiale?: boolean
           maa_se_analyse?: boolean
           maa_se_db?: boolean
           primary_afdeling_nr?: number | null
@@ -2928,46 +2963,58 @@ export type Database = {
       }
       sales_opportunities: {
         Row: {
+          ansatte_estimat: number | null
           assigned_to: string | null
           company_id: string
           created_at: string
+          created_by: string | null
           estimated_value: number | null
           expected_close_date: string | null
           id: string
+          kilde: string | null
           name: string
           next_action: string | null
           next_followup_date: string | null
           opportunity_type: string | null
+          p_nummer: string | null
           probability: number | null
           status: Database["public"]["Enums"]["opportunity_status"]
           updated_at: string
         }
         Insert: {
+          ansatte_estimat?: number | null
           assigned_to?: string | null
           company_id: string
           created_at?: string
+          created_by?: string | null
           estimated_value?: number | null
           expected_close_date?: string | null
           id?: string
+          kilde?: string | null
           name: string
           next_action?: string | null
           next_followup_date?: string | null
           opportunity_type?: string | null
+          p_nummer?: string | null
           probability?: number | null
           status?: Database["public"]["Enums"]["opportunity_status"]
           updated_at?: string
         }
         Update: {
+          ansatte_estimat?: number | null
           assigned_to?: string | null
           company_id?: string
           created_at?: string
+          created_by?: string | null
           estimated_value?: number | null
           expected_close_date?: string | null
           id?: string
+          kilde?: string | null
           name?: string
           next_action?: string | null
           next_followup_date?: string | null
           opportunity_type?: string | null
+          p_nummer?: string | null
           probability?: number | null
           status?: Database["public"]["Enums"]["opportunity_status"]
           updated_at?: string
@@ -2986,6 +3033,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "salgsintelligens_mersalg"
             referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "sales_opportunities_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3644,6 +3698,7 @@ export type Database = {
         Args: { _afdeling_nr: number; _group: string }
         Returns: string
       }
+      har_afdelingspotentiale: { Args: { _uid: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -4036,6 +4091,10 @@ export type Database = {
         Args: { _apikey: string; _url: string }
         Returns: boolean
       }
+      tildel_penhed: {
+        Args: { _company_id: string; _p_nummer: string; _saelger: string }
+        Returns: string
+      }
     }
     Enums: {
       activity_type:
@@ -4084,6 +4143,7 @@ export type Database = {
         | "stat"
         | "andet_offentligt"
       opportunity_status:
+        | "emne"
         | "ny"
         | "behovsafdækning"
         | "møde_demo"
@@ -4280,6 +4340,7 @@ export const Constants = {
         "andet_offentligt",
       ],
       opportunity_status: [
+        "emne",
         "ny",
         "behovsafdækning",
         "møde_demo",

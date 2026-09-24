@@ -346,6 +346,7 @@ function DashboardPage() {
           loading={expiringMachinesQuery.isLoading}
           initialVisible={2}
         />
+        {userId && <MineEmnerCard userId={userId} />}
       </div>
 
 
@@ -842,4 +843,50 @@ function statusLabel(status: string) {
     sat_på_pause: "På pause",
   };
   return map[status] ?? status;
+}
+
+
+function MineEmnerCard({ userId }: { userId: string }) {
+  const q = useQuery({
+    queryKey: ["dashboard-mine-emner", userId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("sales_opportunities")
+        .select("id, name, status, ansatte_estimat, company:companies(id, name)")
+        .eq("assigned_to", userId)
+        .eq("status", "emne")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  if (!q.data?.length) return null;
+  return (
+    <Card className="p-4 md:p-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold">Nye emner til dig ({q.data.length})</h2>
+        <Link to="/salgsmuligheder" className="text-xs text-muted-foreground hover:underline">
+          Se i Salgsmuligheder
+        </Link>
+      </div>
+      <ul className="divide-y text-sm">
+        {q.data.map((o) => (
+          <li key={o.id} className="py-1.5">
+            {o.company?.id ? (
+              <Link to="/virksomheder/$id" params={{ id: o.company.id }} className="font-medium hover:underline">
+                {o.company.name}
+              </Link>
+            ) : (
+              <span className="font-medium">{o.company?.name}</span>
+            )}
+            <div className="text-xs text-muted-foreground">
+              {o.name}
+              {o.ansatte_estimat != null ? ` · ~${o.ansatte_estimat} ansatte` : ""}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
 }

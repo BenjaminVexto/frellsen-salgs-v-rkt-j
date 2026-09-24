@@ -30,14 +30,21 @@ import {
 import { cvrSearchTwins } from "@/lib/cvr-lookup.functions";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/salgsintelligens")({
+export const Route = createFileRoute("/_authenticated/afdelingspotentiale")({
   component: SalgsintelligensPage,
 });
 
 type Tab = "mersalg" | "tvillinger";
 
 function SalgsintelligensPage() {
+  const auth = useAuth();
   const [tab, setTab] = useState<Tab>("mersalg");
+  if (auth.loading) return null;
+  if (!auth.maaSeAfdelingspotentiale) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">Du har ikke adgang til Afdelingspotentiale.</div>
+    );
+  }
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "mersalg", label: "Flere afdelinger" },
@@ -52,7 +59,7 @@ function SalgsintelligensPage() {
             <span className="absolute inset-0 rounded-full bg-warning/30 blur-md animate-pulse" aria-hidden="true" />
             <Lightbulb className="relative h-6 w-6 text-warning drop-shadow-[0_0_6px_var(--warning)]" />
           </span>
-          Salgsintelligens
+          Afdelingspotentiale
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Find skjulte salgsmuligheder i din portefølje.
@@ -170,6 +177,28 @@ function HorisontalMersalg() {
   const [details, setDetails] = useState<Record<string, PenhedRow[]>>({});
   const [detailLoading, setDetailLoading] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [ansvarlig, setAnsvarlig] = useState<string>("__all");
+  const [visIkkeRelevante, setVisIkkeRelevante] = useState(false);
+  const [aabneOpp, setAabneOpp] = useState<Map<string, Set<string>>>(new Map());
+  const [aabneAntal, setAabneAntal] = useState<Map<string, number>>(new Map());
+
+  async function hentAabne() {
+    const { data } = await (supabase as any)
+      .from("sales_opportunities")
+      .select("company_id, assigned_to, p_nummer")
+      .not("p_nummer", "is", null)
+      .not("status", "in", "(vundet,tabt)")
+      .limit(10000);
+    const s = new Map<string, Set<string>>();
+    const n = new Map<string, number>();
+    for (const o of (data ?? []) as any[]) {
+      n.set(o.company_id, (n.get(o.company_id) ?? 0) + 1);
+      if (!s.has(o.company_id)) s.set(o.company_id, new Set());
+      if (o.assigned_to) s.get(o.company_id)!.add(o.assigned_to);
+    }
+    setAabneOpp(s);
+    setAabneAntal(n);
+  }
 
   async function analyse() {
     setLoading(true);
@@ -190,6 +219,7 @@ function HorisontalMersalg() {
 
       const mapped = ((data ?? []) as any[]) as MersalgRow[];
       setRows(mapped);
+      await hentAabne();
       setDidAnalyze(true);
       if (mapped.length === 0) {
         toast.warning(
@@ -226,13 +256,15 @@ function HorisontalMersalg() {
         if (r.ansatte_ikke_daekket == null) {
           if (!visUdenTal) return false;
         } else if (r.ansatte_ikke_daekket < minPot) return false;
+        if (ansvarlig === "__none" && (aabneAntal.get(r.company_id) ?? 0) > 0) return false;
+        if (ansvarlig !== "__all" && ansvarlig !== "__none" && !aabneOpp.get(r.company_id)?.has(ansvarlig)) return false;
         if (seller !== "__all") {
           if (seller === "__none" && r.assigned_to) return false;
           if (seller !== "__none" && r.assigned_to !== seller) return false;
         }
         return true;
       }),
-    [rows, seller, minPot, visUdenTal],
+    [rows, seller, minPot, visUdenTal, ansvarlig, aabneOpp, aabneAntal],
   );
 
   async function exportCsv() {
@@ -295,6 +327,19 @@ function HorisontalMersalg() {
               </SelectContent>
             </Select>
           </div>
+          <div className="min-w-[200px]">
+            <Label className="text-xs mb-1.5 block">Ansvarlig</Label>
+            <Select value={ansvarlig} onValueChange={setAnsvarlig}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">Alle</SelectItem>
+                <SelectItem value="__none">Uden ansvarlig</SelectItem>
+                {profiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="w-[160px]">
             <Label className="text-xs mb-1.5 block">Min. potentiale</Label>
             <Select value={String(minPot)} onValueChange={(v) => setMinPot(Number(v))}>
@@ -311,6 +356,10 @@ function HorisontalMersalg() {
           <label className="flex items-center gap-2 text-sm pb-2 cursor-pointer">
             <Checkbox checked={visUdenTal} onCheckedChange={(v) => setVisUdenTal(v === true)} />
             Vis også uden ansattetal
+          </label>
+          <label className="flex items-center gap-2 text-sm pb-2">
+            <Checkbox checked={visIkkeRelevante} onCheckedChange={(v) => setVisIkkeRelevante(v === true)} />
+            Vis ikke relevante
           </label>
           <Button onClick={analyse} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <TrendingUp className="h-4 w-4 mr-1.5" />}
@@ -413,6 +462,9 @@ function HorisontalMersalg() {
                                 <AnsatteCelle sum={r.ansatte_ikke_daekket} udenTal={r.uden_tal_ikke_daekket} />
                               </div>
                               <div className="text-xs text-muted-foreground">{r.potential} afd.</div>
+                              {(aabneAntal.get(r.company_id) ?? 0) > 0 && (
+                                <div className="text-xs text-muted-foreground">{aabneAntal.get(r.company_id)} i gang</div>
+                              )}
                             </td>
                             <td className="px-4 py-2.5 text-muted-foreground">
                               {r.assigned_to ? profileMap.get(r.assigned_to) ?? "Ukendt" : (
@@ -430,6 +482,8 @@ function HorisontalMersalg() {
                                   companyId={r.company_id}
                                   companyName={r.name}
                                   assignedTo={r.assigned_to}
+                                  visIkkeRelevante={visIkkeRelevante}
+                                  onChanged={hentAabne}
                                 />
                               </td>
                             </tr>

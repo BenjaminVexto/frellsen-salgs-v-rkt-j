@@ -42,6 +42,7 @@ export const Route = createFileRoute("/_authenticated/salgsmuligheder")({
 });
 
 type Status =
+  | "emne"
   | "ny"
   | "behovsafdækning"
   | "møde_demo"
@@ -52,6 +53,7 @@ type Status =
   | "sat_på_pause";
 
 const COLUMNS: { key: Status; label: string }[] = [
+  { key: "emne", label: "Emne" },
   { key: "ny", label: "Ny" },
   { key: "behovsafdækning", label: "Behovsafdækning" },
   { key: "møde_demo", label: "Møde/Demo" },
@@ -62,6 +64,7 @@ const COLUMNS: { key: Status; label: string }[] = [
 ];
 
 const STATUS_LABEL: Record<Status, string> = {
+  emne: "Emne",
   ny: "Ny",
   behovsafdækning: "Behovsafdækning",
   møde_demo: "Møde/Demo",
@@ -161,6 +164,7 @@ function PipelinePage() {
 
   const byCol = useMemo(() => {
     const map: Record<Status, Opportunity[]> = {
+      emne: [],
       ny: [],
       behovsafdækning: [],
       møde_demo: [],

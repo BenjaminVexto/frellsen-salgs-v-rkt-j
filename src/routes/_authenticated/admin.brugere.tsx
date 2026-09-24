@@ -62,6 +62,7 @@ type Row = {
   salesperson_no: string | null;
   maa_se_db?: boolean;
   maa_se_analyse?: boolean;
+  maa_se_afdelingspotentiale?: boolean;
   is_active: boolean;
   created_at: string;
 };
@@ -183,6 +184,7 @@ function BrugerStyringSide() {
     salesperson_no: "",
     maa_se_db: false,
     maa_se_analyse: false,
+    maa_se_afdelingspotentiale: false,
   });
   const [saving, setSaving] = useState(false);
 
@@ -333,6 +335,7 @@ function BrugerStyringSide() {
       salesperson_no: r.salesperson_no ?? "",
       maa_se_db: r.maa_se_db === true,
       maa_se_analyse: r.maa_se_analyse === true,
+      maa_se_afdelingspotentiale: r.maa_se_afdelingspotentiale === true,
     });
     setEditAfd(accessByUser[r.id] ?? []);
     setEditPrimary(primaryByUser[r.id] ?? null);
@@ -380,6 +383,7 @@ function BrugerStyringSide() {
               : null,
           maa_se_db: editForm.maa_se_db,
           maa_se_analyse: editForm.maa_se_analyse,
+          maa_se_afdelingspotentiale: editForm.maa_se_afdelingspotentiale,
         },
       });
       toast.success("Bruger opdateret");
@@ -740,8 +744,15 @@ function BrugerStyringSide() {
                     />
                     Må se analysefanen
                   </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={editForm.maa_se_afdelingspotentiale}
+                      onCheckedChange={(v) => setEditForm({ ...editForm, maa_se_afdelingspotentiale: v === true })}
+                    />
+                    Afdelingspotentiale
+                  </label>
                   <p className="text-xs text-muted-foreground">
-                    Administratorer har begge rettigheder uanset afkrydsning.
+                    Administratorer har alle rettigheder uanset afkrydsning.
                   </p>
                 </div>
               )}
