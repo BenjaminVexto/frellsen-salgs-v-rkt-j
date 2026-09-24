@@ -36,6 +36,8 @@ export type PortfolioCompanyRow = {
   employees: number | null;
   is_public: boolean;
   sektor: "privat" | "offentlig" | "intern";
+  assigned_to: string | null;
+  saelger_navn: string | null;
   // Købsrytme (forbrugsvarer — prisgrupper 2/4/6/10), måneds-opløsning.
   rhythmMonths: number | null; // median antal måneder mellem aktive consumable-måneder; null hvis <3 aktive
   monthsSinceConsumable: number | null; // måneder siden seneste consumable-køb
@@ -183,7 +185,16 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     // Seller options for admin
     let sellerOptions: { id: string; name: string }[] = [];
-    if (isAdmin) {
+    let maaSeAnalyse = false;
+    if (!isAdmin) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("maa_se_analyse")
+        .eq("id", userId)
+        .maybeSingle();
+      maaSeAnalyse = (prof as any)?.maa_se_analyse === true;
+    }
+    if (isAdmin || maaSeAnalyse) {
       const { data: roles } = await supabase
         .from("user_roles")
         .select("user_id")
@@ -333,6 +344,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       employees: r.employees ?? null,
       is_public: !!r.is_public,
       sektor: (r.sektor ?? "privat") as "privat" | "offentlig" | "intern",
+      assigned_to: (r.assigned_to ?? null) as string | null,
+      saelger_navn: (r.saelger_navn ?? null) as string | null,
     }));
 
     for (const r of aggRows) {
@@ -484,6 +497,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         employees: c.employees ?? null,
         is_public: !!c.is_public,
         sektor: c.sektor,
+        assigned_to: c.assigned_to,
+        saelger_navn: c.saelger_navn,
         rhythmMonths,
         monthsSinceConsumable,
         rhythmClass,
