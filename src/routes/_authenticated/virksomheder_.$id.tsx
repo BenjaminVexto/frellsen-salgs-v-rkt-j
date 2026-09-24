@@ -83,6 +83,7 @@ import { AfdelingBadge } from "@/components/afdeling-badge";
 import { BindingStatusBadge } from "@/components/binding-status-badge";
 import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
+import { PenhedDaekning } from "@/components/penhed-daekning";
 import { CompanySalesTab } from "@/components/sales/company-sales-tab";
 import { CompanyUdviklingTab } from "@/components/sales/company-udvikling-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
@@ -980,6 +981,13 @@ function VirksomhedsKort() {
                   setActivityOpen(true);
                 }}
               />
+              {company.cvr && (company as any).afdeling_nr != null && (
+                <div className="rounded-md border p-4">
+                  <h3 className="font-medium text-sm mb-3">CVR P-enheder</h3>
+                  <PenhedDaekning cvr={company.cvr} afdelingNr={(company as any).afdeling_nr} />
+                </div>
+              )}
+
 
             </TabsContent>
 

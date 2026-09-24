@@ -1,3 +1,4 @@
+import { PenhedDaekning, hentPenhedDaekning } from "@/components/penhed-daekning";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -124,7 +125,14 @@ type MersalgRow = {
   penheder_total: number;
   assigned_to: string | null;
   antal_kundenumre: number;
+  afdeling_nr: number;
+  ansatte_ikke_daekket: number;
+  ansatte_total: number;
+  max_ansatte_ikke_daekket: number;
 };
+
+/** Flammen vises når en ikke-dækket, aktiv P-enhed har mindst så mange ansatte. */
+const FLAMME_MIN_ANSATTE_PR_ENHED = 25;
 
 type PenhedRow = {
   p_number: string;
@@ -153,8 +161,9 @@ function HorisontalMersalg() {
       const { data, error } = await supabase
         .from("salgsintelligens_mersalg")
         .select(
-          "company_id, cvr, name, city, potential, daekket, penheder_total, assigned_to, antal_kundenumre",
+          "company_id, cvr, name, city, potential, daekket, penheder_total, assigned_to, antal_kundenumre, afdeling_nr, ansatte_ikke_daekket, ansatte_total, max_ansatte_ikke_daekket",
         )
+        .order("ansatte_ikke_daekket", { ascending: false })
         .order("potential", { ascending: false })
         .limit(2000);
 
@@ -191,22 +200,8 @@ function HorisontalMersalg() {
     return ((data ?? []) as any[]) as PenhedRow[];
   }
 
-  async function toggleRow(cvr: string) {
-    if (expanded === cvr) {
-      setExpanded(null);
-      return;
-    }
-    setExpanded(cvr);
-    if (details[cvr]) return;
-    setDetailLoading(cvr);
-    try {
-      const list = await fetchMissing(cvr);
-      setDetails((d) => ({ ...d, [cvr]: list }));
-    } catch (e: any) {
-      toast.error("Kunne ikke hente adresser: " + (e?.message ?? String(e)));
-    } finally {
-      setDetailLoading(null);
-    }
+  function toggleRow(key: string) {
+    setExpanded((cur) => (cur === key ? null : key));
   }
 
   const filtered = useMemo(
@@ -227,8 +222,7 @@ function HorisontalMersalg() {
     try {
       const out: (string | number | null)[][] = [];
       for (const r of filtered) {
-        const list = details[r.cvr] ?? (await fetchMissing(r.cvr));
-        if (!details[r.cvr]) setDetails((d) => ({ ...d, [r.cvr]: list }));
+        const list = await hentPenhedDaekning(r.cvr, r.afdeling_nr);
         const saelger = r.assigned_to ? profileMap.get(r.assigned_to) ?? "" : "";
         for (const p of list) {
           out.push([
@@ -239,12 +233,16 @@ function HorisontalMersalg() {
             p.address ?? "",
             p.zip ?? "",
             p.city ?? "",
+            p.ansatte_interval ?? "",
+            p.ansatte_estimat ?? "",
+            p.daekket ? "ja" : "nej",
+            p.link_delivery_no ?? "",
           ]);
         }
       }
       downloadCsv(
         "horisontal-mersalg",
-        ["Virksomhed", "CVR", "Sælger", "P-nummer", "Adresse", "Postnr", "By"],
+        ["Virksomhed", "CVR", "Sælger", "P-nummer", "Adresse", "Postnr", "By", "Ansatte interval", "Ansatte estimat", "Dækket", "Visma-kundenr"],
         out,
       );
     } catch (e: any) {
@@ -333,19 +331,20 @@ function HorisontalMersalg() {
                       <th className="text-left px-4 py-2.5">By</th>
                       <th className="text-right px-4 py-2.5">Dækket</th>
                       <th className="text-right px-4 py-2.5">P-enheder</th>
+                      <th className="text-right px-4 py-2.5">Ansatte i alt</th>
                       <th className="text-right px-4 py-2.5">Potentiale</th>
                       <th className="text-left px-4 py-2.5">Sælger</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((r) => {
-                      const isOpen = expanded === r.cvr;
-                      const list = details[r.cvr];
+                      const rowKey = `${r.afdeling_nr}:${r.cvr}`;
+                      const isOpen = expanded === rowKey;
                       return (
                         <Fragment key={r.cvr + r.company_id}>
                           <tr
                             className="border-t hover:bg-muted/30 cursor-pointer"
-                            onClick={() => toggleRow(r.cvr)}
+                            onClick={() => toggleRow(rowKey)}
                           >
                             <td className="pl-3 text-muted-foreground">
                               {isOpen ? (
@@ -374,8 +373,15 @@ function HorisontalMersalg() {
                             <td className="px-4 py-2.5 text-muted-foreground">{r.city ?? "—"}</td>
                             <td className="px-4 py-2.5 text-right">{r.daekket}</td>
                             <td className="px-4 py-2.5 text-right">{r.penheder_total}</td>
-                            <td className="px-4 py-2.5 text-right font-medium">
-                              +{r.potential} {r.potential >= 3 ? "🔥" : ""}
+                            <td className="px-4 py-2.5 text-right tabular-nums">
+                              {r.ansatte_total ? r.ansatte_total.toLocaleString("da-DK") : "–"}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <div className="font-medium tabular-nums">
+                                {r.max_ansatte_ikke_daekket >= FLAMME_MIN_ANSATTE_PR_ENHED ? "🔥 " : ""}
+                                ~{(r.ansatte_ikke_daekket ?? 0).toLocaleString("da-DK")} ansatte
+                              </div>
+                              <div className="text-xs text-muted-foreground">{r.potential} afd.</div>
                             </td>
                             <td className="px-4 py-2.5 text-muted-foreground">
                               {r.assigned_to ? profileMap.get(r.assigned_to) ?? "Ukendt" : (
@@ -386,34 +392,8 @@ function HorisontalMersalg() {
                           {isOpen && (
                             <tr className="border-t bg-muted/20">
                               <td />
-                              <td colSpan={6} className="px-4 py-3">
-                                {detailLoading === r.cvr ? (
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    Henter adresser…
-                                  </div>
-                                ) : !list || list.length === 0 ? (
-                                  <p className="text-xs text-muted-foreground">
-                                    Ingen manglende adresser fundet.
-                                  </p>
-                                ) : (
-                                  <ul className="space-y-1.5">
-                                    {list.map((p) => (
-                                      <li key={p.p_number} className="text-xs">
-                                        <span className="font-medium">
-                                          {p.address ?? "Ukendt adresse"}
-                                        </span>
-                                        <span className="text-muted-foreground">
-                                          {" · "}
-                                          {p.zip ?? ""} {p.city ?? ""}
-                                          {p.penhed_navn ? ` · ${p.penhed_navn}` : ""}
-                                          {" · P-nr "}
-                                          {p.p_number}
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
+                              <td colSpan={7} className="px-4 py-3">
+                                <PenhedDaekning cvr={r.cvr} afdelingNr={r.afdeling_nr} />
                               </td>
                             </tr>
                           )}

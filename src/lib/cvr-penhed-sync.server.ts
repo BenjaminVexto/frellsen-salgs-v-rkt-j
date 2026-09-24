@@ -43,7 +43,50 @@ type PenhedRow = {
   status: string | null;
   is_active: boolean;
   synced_at: string;
+  ansatte_interval: string | null;
+  ansatte_praecis: number | null;
+  ansatte_estimat: number | null;
+  beskaeftigelse_periode: string | null;
 };
+
+/** "ANTAL_10_19" -> {label "10-19", lo 10, hi 19}; åbne intervaller -> "1000+" */
+export function parseIntervalKode(kode: string | null | undefined) {
+  if (!kode) return null;
+  const m = String(kode).match(/(\d+)\D+(\d+)/);
+  if (!m) {
+    const one = String(kode).match(/(\d+)/);
+    if (!one) return null;
+    const lo = parseInt(one[1], 10);
+    return { label: `${lo}+`, lo, hi: null as number | null };
+  }
+  const lo = parseInt(m[1], 10);
+  const hi = parseInt(m[2], 10);
+  if (hi >= 99999) return { label: `${lo}+`, lo, hi: null as number | null };
+  return { label: lo === hi ? String(lo) : `${lo}-${hi}`, lo, hi };
+}
+
+function pickBeskaeftigelse(p: any) {
+  const cands: { key: string; periode: string; e: any }[] = [];
+  for (const e of p?.maanedsbeskaeftigelse ?? [])
+    cands.push({ key: `${e.aar}-${String(e.maaned).padStart(2, "0")}`, periode: `${e.aar}-${String(e.maaned).padStart(2, "0")}`, e });
+  for (const e of p?.kvartalsbeskaeftigelse ?? [])
+    cands.push({ key: `${e.aar}-${String((e.kvartal ?? 1) * 3).padStart(2, "0")}`, periode: `${e.aar}-K${e.kvartal}`, e });
+  for (const e of p?.aarsbeskaeftigelse ?? [])
+    cands.push({ key: `${e.aar}-12`, periode: String(e.aar), e });
+  if (!cands.length) return { ansatte_interval: null, ansatte_praecis: null, ansatte_estimat: null, beskaeftigelse_periode: null };
+  cands.sort((a, b) => b.key.localeCompare(a.key));
+  const { e, periode } = cands[0];
+  const praecis = e?.antalAnsatte != null ? Math.round(Number(e.antalAnsatte)) : null;
+  const iv = parseIntervalKode(e?.intervalKodeAntalAnsatte);
+  let estimat: number | null = praecis;
+  if (estimat == null && iv) estimat = iv.hi == null ? iv.lo : Math.round((iv.lo + iv.hi) / 2);
+  return {
+    ansatte_interval: iv?.label ?? null,
+    ansatte_praecis: praecis,
+    ansatte_estimat: estimat,
+    beskaeftigelse_periode: periode,
+  };
+}
 
 function mapPenhed(p: any, syncedAt: string): PenhedRow | null {
   const pNumber = p?.pNummer != null ? String(p.pNummer) : "";
@@ -80,6 +123,7 @@ function mapPenhed(p: any, syncedAt: string): PenhedRow | null {
     status: p?.produktionsEnhedMetadata?.sammensatStatus ?? null,
     is_active: true,
     synced_at: syncedAt,
+    ...pickBeskaeftigelse(p),
   };
 }
 
@@ -116,6 +160,9 @@ export async function syncPenhederByCvrs(
           "VrproduktionsEnhed.navne",
           "VrproduktionsEnhed.beliggenhedsadresse",
           "VrproduktionsEnhed.hovedbranche",
+          "VrproduktionsEnhed.aarsbeskaeftigelse",
+          "VrproduktionsEnhed.kvartalsbeskaeftigelse",
+          "VrproduktionsEnhed.maanedsbeskaeftigelse",
         ],
         query: {
           bool: {
@@ -191,5 +238,7 @@ export async function syncPenhederByCvrs(
     if (deErr) return { synced, error: `Deaktivering fejl: ${deErr.message}` };
   }
 
+  // Auto-kobling (kun entydige match; manuelle/afviste røres aldrig)
+  await supabaseAdmin.rpc("auto_link_penheder" as any, { _cvrs: clean } as any);
   return { synced };
 }
