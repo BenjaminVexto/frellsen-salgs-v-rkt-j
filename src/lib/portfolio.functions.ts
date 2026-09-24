@@ -194,7 +194,13 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         .maybeSingle();
       maaSeAnalyse = (prof as any)?.maa_se_analyse === true;
     }
-    if (isAdmin || maaSeAnalyse) {
+    let erSalgssupport = false;
+    if (!isAdmin) {
+      const { data: ss } = await supabase
+        .from("user_roles").select("role").eq("user_id", userId).eq("role", "salgssupport").maybeSingle();
+      erSalgssupport = !!ss;
+    }
+    if (isAdmin || maaSeAnalyse || erSalgssupport) {
       const { data: roles } = await supabase
         .from("user_roles")
         .select("user_id")
@@ -213,9 +219,12 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       }
     }
 
+    // Salgssupport må følge en valgt sælger (kun sælgere fra listen).
     const appliedSellerId: string | null = isAdmin
       ? (data.sellerId ?? null) // null = alle sælgere
-      : userId;
+      : erSalgssupport
+        ? (data.sellerId && sellerOptions.some((o) => o.id === data.sellerId) ? data.sellerId : null)
+        : userId;
 
     // Month windows
     const now = new Date();
@@ -270,7 +279,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     if (!aggRows.length) {
       return {
         isAdmin,
-        appliedSellerId: isAdmin ? appliedSellerId : null,
+        appliedSellerId: isAdmin || erSalgssupport ? appliedSellerId : null,
         sellerOptions,
         totals: {
           revenue12m: 0,
@@ -793,7 +802,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     return {
       isAdmin,
-      appliedSellerId: isAdmin ? appliedSellerId : null,
+      appliedSellerId: isAdmin || erSalgssupport ? appliedSellerId : null,
       sellerOptions,
       totals: (() => {
         // Pro-rata: hvis refPeriod = indeværende måned, reducér sidste års samme måned
