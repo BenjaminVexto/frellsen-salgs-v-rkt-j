@@ -521,10 +521,45 @@ function OpportunityDrawer({
               </div>
             </div>
 
-            <SheetFooter>
-              <Button variant="outline" onClick={onClose}>
-                Luk
-              </Button>
+            <SheetFooter className="gap-2 sm:justify-between">
+              {isAdmin ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={deleting}>
+                      {deleting ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
+                      Slet
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Slet salgsmulighed?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        "{opp.name}" bliver slettet permanent. Registrerede
+                        aktiviteter og tilbud bevares, men mister tilknytningen.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annullér</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={remove}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Slet salgsmulighed
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={onClose}>
+                  Luk
+                </Button>
               {canEdit && (
                 <Button onClick={save} disabled={saving}>
                   {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
