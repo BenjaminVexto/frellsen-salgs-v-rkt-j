@@ -410,10 +410,10 @@ export function PenhedDaekning({
             <span className="ml-1.5 text-[10px] text-muted-foreground">{distrikt}</span>
           )}
         </td>
-        <td className="py-1 pr-3">
-          <span>{p.address ?? "Ukendt adresse"}</span>
+        <td className="py-1 pr-3 min-w-0">
+          <div className="truncate" title={p.address ?? undefined}>{p.address ?? "Ukendt adresse"}</div>
           {visNavn && (
-            <span className="ml-2 text-[11px] text-muted-foreground">{p.name}</span>
+            <div className="truncate text-[11px] text-muted-foreground" title={p.name ?? undefined}>{p.name}</div>
           )}
           {aabneInfo.has(p.p_number) ? (
             <span className="ml-2 text-[11px] text-muted-foreground">
@@ -549,12 +549,12 @@ export function PenhedDaekning({
     <>
     <table className="w-full text-sm table-fixed">
       <colgroup>
-        <col className="w-48" />
+        <col className="w-40" />
         <col />
-        <col className="w-28" />
-        <col className="w-20" />
-        <col className="w-28" />
-        <col className="w-44" />
+        <col className="w-24" />
+        <col className="w-16" />
+        <col className="w-24" />
+        <col className="w-32" />
       </colgroup>
       <thead className="text-[11px] text-muted-foreground">
         <tr>
