@@ -424,7 +424,13 @@ function HorisontalMersalg() {
                             <tr className="border-t bg-muted/20">
                               <td />
                               <td colSpan={7} className="px-4 py-3">
-                                <PenhedDaekning cvr={r.cvr} afdelingNr={r.afdeling_nr} />
+                                <PenhedDaekning
+                                  cvr={r.cvr}
+                                  afdelingNr={r.afdeling_nr}
+                                  companyId={r.company_id}
+                                  companyName={r.name}
+                                  assignedTo={r.assigned_to}
+                                />
                               </td>
                             </tr>
                           )}
