@@ -560,12 +560,13 @@ function OpportunityDrawer({
                 <Button variant="outline" onClick={onClose}>
                   Luk
                 </Button>
-              {canEdit && (
-                <Button onClick={save} disabled={saving}>
-                  {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Gem ændringer
-                </Button>
-              )}
+                {canEdit && (
+                  <Button onClick={save} disabled={saving}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Gem ændringer
+                  </Button>
+                )}
+              </div>
             </SheetFooter>
           </>
         )}
