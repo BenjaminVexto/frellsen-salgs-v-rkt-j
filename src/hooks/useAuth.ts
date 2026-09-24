@@ -49,7 +49,7 @@ export function useAuth(): AuthState {
         if (active) setState({ ...EMPTY, loading: false });
         return;
       }
-      const [{ data: roleRows }, { data: profile }, { data: afdRows }] = await Promise.all([
+      const [{ data: roleRows }, { data: profile }, { data: afdRows }, { data: apRet }] = await Promise.all([
         supabase
           .from("user_roles")
           .select("role")
@@ -57,10 +57,11 @@ export function useAuth(): AuthState {
           .returns<{ role: AppRole }[]>(),
         supabase
           .from("profiles")
-          .select("full_name, region, primary_afdeling_nr, maa_se_db, maa_se_analyse, maa_se_afdelingspotentiale")
+          .select("full_name, region, primary_afdeling_nr, maa_se_db, maa_se_analyse")
           .eq("id", session.user.id)
           .maybeSingle(),
         supabase.rpc("my_afdelinger"),
+        (supabase as any).rpc("har_afdelingspotentiale", { _uid: session.user.id }),
       ]);
       if (!active) return;
       const roles = new Set((roleRows ?? []).map((r) => r.role));
@@ -83,7 +84,7 @@ export function useAuth(): AuthState {
           primaryRaw != null && afdelinger.includes(primaryRaw) ? primaryRaw : (afdelinger[0] ?? null),
         maaSeDb: role === "admin" || (profile as any)?.maa_se_db === true,
         maaSeAnalyse: role === "admin" || (profile as any)?.maa_se_analyse === true,
-        maaSeAfdelingspotentiale: role === "admin" || (profile as any)?.maa_se_afdelingspotentiale === true,
+        maaSeAfdelingspotentiale: role === "admin" || apRet === true,
       });
     };
 
