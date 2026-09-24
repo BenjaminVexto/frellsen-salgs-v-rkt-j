@@ -1726,6 +1726,21 @@ export type Database = {
         }
         Relationships: []
       }
+      kundeprisgruppe_sektor: {
+        Row: {
+          kode: string
+          sektor: string
+        }
+        Insert: {
+          kode: string
+          sektor: string
+        }
+        Update: {
+          kode?: string
+          sektor?: string
+        }
+        Relationships: []
+      }
       location_equipment_units: {
         Row: {
           afdeling_nr: number
@@ -3576,6 +3591,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      kunde_sektor: {
+        Args: {
+          _binding_status: string
+          _institution_type: Database["public"]["Enums"]["institution_type"]
+          _is_public: boolean
+          _main_branch_code: string
+          _name: string
+          _segment1: string
+        }
+        Returns: string
+      }
       kundetype: { Args: { _segment_3: string }; Returns: string }
       location_sales_summary: {
         Args: { _location_ids: string[] }
@@ -3796,6 +3822,7 @@ export type Database = {
           revenue_ytd_prior: number
           revenue12m: number
           revenue12m_prior: number
+          sektor: string
           vare_grupper: string[]
           ytd_prior_last_month_rev: number
         }[]
