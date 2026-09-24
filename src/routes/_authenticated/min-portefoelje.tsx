@@ -88,6 +88,12 @@ function PortfolioPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "aktiv" | "sovende" | "paavejvaek">("all");
   const [sektorFilter, setSektorFilter] = useState<"all" | "privat" | "offentlig">("all");
   const [topN, setTopN] = useState<0 | 50 | 100 | 200>(0);
+  useEffect(() => {
+    if (topN) {
+      setSortKey("revenue12m");
+      setSortDir("desc");
+    }
+  }, [topN]);
   const [saelgerFilter, setSaelgerFilter] = useState<string[]>([]);
   useEffect(() => {
     setSaelgerFilter([]);
@@ -260,7 +266,7 @@ function PortfolioPage() {
       const km = new Map(rows.map((r) => [r.company_id, r]));
       const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", paavejvaek: "På vej væk", andet: "Andet" };
       const sektorLabel: Record<string, string> = { privat: "Privat", offentlig: "Offentlig", intern: "Intern" };
-      const data = sortedCompanies.map((c) => {
+      const data = [...sortedCompanies].sort((a, b) => a.rang - b.rang).map((c) => {
         const k = km.get(c.id);
         return {
           Rang: c.rang,
@@ -283,10 +289,20 @@ function PortfolioPage() {
           "E-mail": k?.email ?? "",
           Kontaktkilde: k?.kontaktkilde ?? "",
           "Mangler kontaktperson": k?.kontaktperson ? "" : "Ja",
+          "Visma kontaktfelt": k?.visma_kontaktfelt ?? "",
         };
       });
       const XLSX = await import("xlsx");
       const ws = XLSX.utils.json_to_sheet(data);
+      // Kundenr og CVR som tekst-celler.
+      const hdr = Object.keys(data[0]);
+      for (const col of ["Kundenr", "CVR"]) {
+        const ci = hdr.indexOf(col);
+        for (let ri = 1; ri <= data.length; ri++) {
+          const cell = ws[XLSX.utils.encode_cell({ r: ri, c: ci })];
+          if (cell) { cell.t = "s"; cell.v = String(cell.v ?? ""); cell.z = "@"; }
+        }
+      }
       ws["!cols"] = Object.keys(data[0]).map((h) => ({ wch: Math.max(10, h.length + 2) }));
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Portefølje");

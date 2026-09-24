@@ -16,10 +16,30 @@ export type PortfolioKontaktRow = {
   telefon: string | null;
   email: string | null;
   kontaktkilde: "Kontakt i CRM" | "Visma kunde" | "Visma leveringsadresse" | null;
+  visma_kontaktfelt: string | null;
 };
 
 const CHUNK = 500;
 const blank = (v: any) => (v == null || String(v).trim() === "" ? null : String(v).trim());
+
+const FUNKTIONSORD = new Set([
+  "reception", "receptionen", "indkøb", "økonomi", "økonomiafdelingen", "bogholderi", "bogholderiet",
+  "køkkenchef", "køkkenchefen", "kantine", "kantinen", "køkken", "køkkenet", "lager", "lageret",
+]);
+
+/** Er værdien et rigtigt personnavn (ikke telefonnr., kode, pladsholder eller funktion)? */
+export function erGyldigPerson(v: any): boolean {
+  const b = blank(v);
+  if (!b) return false;
+  const t = b.replace(/^att[.:]?\s*/i, "").trim();
+  if (!t) return false;
+  if (/\d{4,}/.test(t)) return false;
+  if (!/\s/.test(t) && /^[\p{Lu}\d]+$/u.test(t)) return false;
+  const lc = t.toLowerCase();
+  if (lc === "fulde navn") return false;
+  if (FUNKTIONSORD.has(lc)) return false;
+  return true;
+}
 
 export const getPortfolioKontakter = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -56,7 +76,7 @@ export const getPortfolioKontakter = createServerFn({ method: "POST" })
     const lByC = group(locs);
 
     const rows: PortfolioKontaktRow[] = comps.map((c) => {
-      const ks = (kByC.get(c.id) ?? []).filter((k) => blank(k.name));
+      const ks = (kByC.get(c.id) ?? []).filter((k) => erGyldigPerson(k.name));
       const ls = (lByC.get(c.id) ?? []).slice().sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
       const primLoc = ls.find((l) => l.is_primary) ?? null;
       let person: string | null = null, titel: string | null = null, tlf: string | null = null, mail: string | null = null;
@@ -66,10 +86,10 @@ export const getPortfolioKontakter = createServerFn({ method: "POST" })
       const k = kPrim ?? kNy;
       if (k) {
         person = blank(k.name); titel = blank(k.title); tlf = blank(k.phone); mail = blank(k.email); kilde = "Kontakt i CRM";
-      } else if (blank(c.contact_person)) {
+      } else if (erGyldigPerson(c.contact_person)) {
         person = blank(c.contact_person); tlf = blank(c.phone); mail = blank(c.email); kilde = "Visma kunde";
       } else {
-        const l = (primLoc && blank(primLoc.contact_person) ? primLoc : null) ?? ls.find((x) => blank(x.contact_person));
+        const l = (primLoc && erGyldigPerson(primLoc.contact_person) ? primLoc : null) ?? ls.find((x) => erGyldigPerson(x.contact_person));
         if (l) { person = blank(l.contact_person); tlf = blank(l.phone); mail = blank(l.email); kilde = "Visma leveringsadresse"; }
       }
       tlf = tlf ?? blank(c.phone) ?? blank(primLoc?.phone);
@@ -84,6 +104,7 @@ export const getPortfolioKontakter = createServerFn({ method: "POST" })
         afdeling: afdNavn.get(c.afdeling_nr) ?? (c.afdeling_nr != null ? String(c.afdeling_nr) : null),
         kundeprisgruppe1: c.customer_segment_1 ?? null,
         kontaktperson: person, titel, telefon: tlf, email: mail, kontaktkilde: kilde,
+        visma_kontaktfelt: c.contact_person ?? null,
       };
     });
     return { rows };
