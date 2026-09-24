@@ -3801,6 +3801,7 @@ export type Database = {
       portfolio_aggregat: {
         Args: { _afdeling_nr?: number; _saelger?: string }
         Returns: {
+          assigned_to: string
           city: string
           cons_perioder: string[]
           consumable_rev12m: number
@@ -3822,6 +3823,7 @@ export type Database = {
           revenue_ytd_prior: number
           revenue12m: number
           revenue12m_prior: number
+          saelger_navn: string
           sektor: string
           vare_grupper: string[]
           ytd_prior_last_month_rev: number

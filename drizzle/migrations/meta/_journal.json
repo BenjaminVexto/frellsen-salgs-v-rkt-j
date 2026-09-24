@@ -99,6 +99,13 @@
       "when": 1790243863387,
       "tag": "0013_kunde_sektor_portfolio",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790246073870,
+      "tag": "0014_portfolio_aggregat_saelger",
+      "breakpoints": true
     }
   ]
 }
