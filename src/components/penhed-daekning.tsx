@@ -185,7 +185,6 @@ export function PenhedDaekning({
 
   const daekket = rows.filter((r) => r.daekket);
   const ikke = rows.filter((r) => !r.daekket);
-  const locByNo = new Map(locs.map((l) => [l.visma_delivery_no, l]));
 
   const linkBtn = "text-xs text-muted-foreground hover:text-foreground hover:underline";
 
@@ -203,7 +202,6 @@ export function PenhedDaekning({
       {visKundenr && (
         <td className="py-1.5 pr-3 text-muted-foreground tabular-nums">
           {p.link_delivery_no ?? "–"}
-          {p.link_delivery_no && !locByNo.has(p.link_delivery_no) && ""}
         </td>
       )}
       <td className="py-1.5 text-right whitespace-nowrap">
