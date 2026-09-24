@@ -1,3 +1,4 @@
+import { Checkbox } from "@/components/ui/checkbox";
 import { PenhedDaekning, hentPenhedDaekning } from "@/components/penhed-daekning";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -126,10 +127,24 @@ type MersalgRow = {
   assigned_to: string | null;
   antal_kundenumre: number;
   afdeling_nr: number;
-  ansatte_ikke_daekket: number;
-  ansatte_total: number;
-  max_ansatte_ikke_daekket: number;
+  ansatte_ikke_daekket: number | null;
+  ansatte_total: number | null;
+  max_ansatte_ikke_daekket: number | null;
+  uden_tal_ikke_daekket: number;
+  uden_tal_total: number;
 };
+
+function AnsatteCelle({ sum, udenTal }: { sum: number | null; udenTal: number }) {
+  if (sum == null) return <>–</>;
+  return (
+    <>
+      ~{sum.toLocaleString("da-DK")} ansatte
+      {udenTal > 0 && (
+        <div className="text-xs text-muted-foreground font-normal">({udenTal} uden tal)</div>
+      )}
+    </>
+  );
+}
 
 /** Flammen vises når en ikke-dækket, aktiv P-enhed har mindst så mange ansatte. */
 const FLAMME_MIN_ANSATTE_PR_ENHED = 25;
@@ -148,7 +163,8 @@ function HorisontalMersalg() {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<MersalgRow[]>([]);
   const [seller, setSeller] = useState<string>("__all");
-  const [minPot, setMinPot] = useState<number>(1);
+  const [minPot, setMinPot] = useState<number>(0);
+  const [visUdenTal, setVisUdenTal] = useState(true);
   const [didAnalyze, setDidAnalyze] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, PenhedRow[]>>({});
@@ -161,9 +177,9 @@ function HorisontalMersalg() {
       const { data, error } = await supabase
         .from("salgsintelligens_mersalg")
         .select(
-          "company_id, cvr, name, city, potential, daekket, penheder_total, assigned_to, antal_kundenumre, afdeling_nr, ansatte_ikke_daekket, ansatte_total, max_ansatte_ikke_daekket",
+          "company_id, cvr, name, city, potential, daekket, penheder_total, assigned_to, antal_kundenumre, afdeling_nr, ansatte_ikke_daekket, ansatte_total, max_ansatte_ikke_daekket, uden_tal_ikke_daekket, uden_tal_total",
         )
-        .order("ansatte_ikke_daekket", { ascending: false })
+        .order("ansatte_ikke_daekket", { ascending: false, nullsFirst: false })
         .order("potential", { ascending: false })
         .limit(2000);
 
@@ -207,14 +223,16 @@ function HorisontalMersalg() {
   const filtered = useMemo(
     () =>
       rows.filter((r) => {
-        if (r.potential < minPot) return false;
+        if (r.ansatte_ikke_daekket == null) {
+          if (!visUdenTal) return false;
+        } else if (r.ansatte_ikke_daekket < minPot) return false;
         if (seller !== "__all") {
           if (seller === "__none" && r.assigned_to) return false;
           if (seller !== "__none" && r.assigned_to !== seller) return false;
         }
         return true;
       }),
-    [rows, seller, minPot],
+    [rows, seller, minPot, visUdenTal],
   );
 
   async function exportCsv() {
@@ -282,12 +300,18 @@ function HorisontalMersalg() {
             <Select value={String(minPot)} onValueChange={(v) => setMinPot(Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {[1, 3, 5, 10].map((n) => (
-                  <SelectItem key={n} value={String(n)}>{n}+</SelectItem>
+                {[0, 10, 25, 50, 100, 200].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n === 0 ? "Alle" : `${n}+ ansatte`}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+          <label className="flex items-center gap-2 text-sm pb-2 cursor-pointer">
+            <Checkbox checked={visUdenTal} onCheckedChange={(v) => setVisUdenTal(v === true)} />
+            Vis også uden ansattetal
+          </label>
           <Button onClick={analyse} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <TrendingUp className="h-4 w-4 mr-1.5" />}
             Analysér
@@ -374,12 +398,19 @@ function HorisontalMersalg() {
                             <td className="px-4 py-2.5 text-right">{r.daekket}</td>
                             <td className="px-4 py-2.5 text-right">{r.penheder_total}</td>
                             <td className="px-4 py-2.5 text-right tabular-nums">
-                              {r.ansatte_total ? r.ansatte_total.toLocaleString("da-DK") : "–"}
+                              {r.ansatte_total == null ? "–" : (
+                                <>
+                                  {r.ansatte_total.toLocaleString("da-DK")}
+                                  {r.uden_tal_total > 0 && (
+                                    <div className="text-xs text-muted-foreground">({r.uden_tal_total} uden tal)</div>
+                                  )}
+                                </>
+                              )}
                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <div className="font-medium tabular-nums">
-                                {r.max_ansatte_ikke_daekket >= FLAMME_MIN_ANSATTE_PR_ENHED ? "🔥 " : ""}
-                                ~{(r.ansatte_ikke_daekket ?? 0).toLocaleString("da-DK")} ansatte
+                                {(r.max_ansatte_ikke_daekket ?? 0) >= FLAMME_MIN_ANSATTE_PR_ENHED ? "🔥 " : ""}
+                                <AnsatteCelle sum={r.ansatte_ikke_daekket} udenTal={r.uden_tal_ikke_daekket} />
                               </div>
                               <div className="text-xs text-muted-foreground">{r.potential} afd.</div>
                             </td>
