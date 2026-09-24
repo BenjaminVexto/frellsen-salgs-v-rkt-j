@@ -297,7 +297,7 @@ function PortfolioPage() {
         const navn = saelgerFilter[0] === INGEN_SAELGER ? "ingen-saelger" : (saelgerOptions.find((o) => o.id === saelgerFilter[0])?.name ?? "");
         if (navn) saelgerDel = "-" + slugify(navn);
       } else if (sellerId !== "all") {
-        const navn = (data?.sellerOptions ?? []).find((o) => o.id === sellerId)?.name ?? sortedCompanies[0]?.saelger_navn ?? "";
+        const navn = (q.data?.sellerOptions ?? []).find((o) => o.id === sellerId)?.name ?? sortedCompanies[0]?.saelger_navn ?? "";
         if (navn) saelgerDel = "-" + slugify(navn);
       }
       XLSX.writeFile(wb, `frellsen-portefoelje-${sektorFilter === "all" ? "alle" : sektorFilter}-${topN ? `top${topN}` : "alle"}${saelgerDel}-${dato}.xlsx`);
