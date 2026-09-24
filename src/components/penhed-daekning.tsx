@@ -8,6 +8,52 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
+
+export const STADIE_LABEL: Record<string, string> = {
+  emne: "Emne",
+  ny: "Ny",
+  behovsafdækning: "Behovsafdækning",
+  møde_demo: "Møde booket",
+  tilbud_under_udarbejdelse: "Tilbud under udarbejdelse",
+  tilbud_sendt: "Tilbud sendt",
+  opfølgning: "Opfølgning",
+  sat_på_pause: "Sat på pause",
+  vundet: "Vundet",
+  tabt: "Tabt",
+};
+
+export const IKKE_RELEVANT_AARSAGER: { key: string; label: string }[] = [
+  { key: "kantine_anden_kunde", label: "Kantine/drift hos anden kunde" },
+  { key: "centralt_indkoeb", label: "Centralt indkøb via hovedkontor" },
+  { key: "frivillig_ingen_ansatte", label: "Frivillig/ingen ansatte" },
+  { key: "andet", label: "Andet" },
+];
+
+/** "Claus Wolsing" → "CWO": fornavnets forbogstav + efternavnets to første. */
+export function initialer(navn: string | null | undefined) {
+  const d = (navn ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!d.length) return "?";
+  if (d.length === 1) return d[0].slice(0, 3).toUpperCase();
+  return (d[0][0] + d[d.length - 1].slice(0, 2)).toUpperCase();
+}
 
 export type PenhedDaekningRow = {
   p_number: string;
@@ -75,7 +121,7 @@ export async function hentPenhedDaekning(cvr: string, afdelingNr: number) {
   return rows;
 }
 
-/** Samme grænse som flammen i Salgsintelligens. */
+/** Samme grænse som flammen i Afdelingspotentiale. */
 export const STOR_AFDELING_MIN_ANSATTE = 25;
 
 type Region = { postnr_fra: number; postnr_til: number; region: string };
@@ -97,6 +143,7 @@ export function PenhedDaekning({
   companyName,
   assignedTo,
   onChanged,
+  visIkkeRelevante = false,
 }: {
   cvr: string;
   afdelingNr: number;
@@ -104,7 +151,18 @@ export function PenhedDaekning({
   companyName?: string | null;
   assignedTo?: string | null;
   onChanged?: () => void;
+  visIkkeRelevante?: boolean;
 }) {
+  const auth = useAuth();
+  const kanStyre = auth.maaSeAfdelingspotentiale;
+  const [aabneInfo, setAabneInfo] = useState<Map<string, { saelger: string | null; status: string }>>(new Map());
+  const [ikkeRel, setIkkeRel] = useState<Map<string, { aarsag: string; fritekst: string | null }>>(new Map());
+  const [saelgere, setSaelgere] = useState<{ id: string; full_name: string }[]>([]);
+  const [tildelFor, setTildelFor] = useState<PenhedDaekningRow | null>(null);
+  const [tildelTil, setTildelTil] = useState<string>("");
+  const [irFor, setIrFor] = useState<PenhedDaekningRow | null>(null);
+  const [irAarsag, setIrAarsag] = useState<string>("");
+  const [irTekst, setIrTekst] = useState("");
   const [rows, setRows] = useState<PenhedDaekningRow[] | null>(null);
   const [locs, setLocs] = useState<Loc[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -118,6 +176,12 @@ export function PenhedDaekning({
       .from("postnummer_region")
       .select("postnr_fra, postnr_til, region")
       .then(({ data }: any) => setRegioner(data ?? []));
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("is_active", true)
+      .order("full_name")
+      .then(({ data }) => setSaelgere((data ?? []) as any));
   }, []);
 
   const load = useCallback(async () => {
@@ -143,24 +207,42 @@ export function PenhedDaekning({
       ]);
       setRows(r);
       setLocs(l);
-      if (companyId) {
-        const { data: opp } = await supabase
-          .from("sales_opportunities")
-          .select("name, status")
-          .eq("company_id", companyId)
-          .not("status", "in", "(vundet,tabt)");
-        const s = new Set<string>();
-        for (const o of opp ?? []) {
-          const m = /P-nr (\d+)/.exec(o.name ?? "");
-          if (m) s.add(m[1]);
+      const pnrs = r.map((x) => x.p_number);
+      if (pnrs.length) {
+        const [{ data: opp }, { data: ir }] = await Promise.all([
+          (supabase as any)
+            .from("sales_opportunities")
+            .select("p_nummer, name, status, assigned_to")
+            .in("p_nummer", pnrs)
+            .not("status", "in", "(vundet,tabt)"),
+          (supabase as any)
+            .from("penhed_ikke_relevant")
+            .select("p_nummer, aarsag, fritekst")
+            .in("p_nummer", pnrs),
+        ]);
+        const ids = Array.from(new Set(((opp ?? []) as any[]).map((o) => o.assigned_to).filter(Boolean)));
+        const navne = new Map<string, string>();
+        if (ids.length) {
+          const { data: pr } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+          for (const x of pr ?? []) navne.set(x.id, x.full_name);
         }
-        setAabne(s);
+        const m = new Map<string, { saelger: string | null; status: string }>();
+        for (const o of (opp ?? []) as any[]) {
+          m.set(o.p_nummer, {
+            saelger: o.assigned_to ? navne.get(o.assigned_to) ?? null : null,
+            status: o.status,
+          });
+        }
+        setAabneInfo(m);
+        const im = new Map<string, { aarsag: string; fritekst: string | null }>();
+        for (const x of (ir ?? []) as any[]) im.set(x.p_nummer, x);
+        setIkkeRel(im);
       }
     } catch (e: any) {
       toast.error("Kunne ikke hente P-enheder: " + (e?.message ?? String(e)));
       setRows([]);
     }
-  }, [cvr, afdelingNr, companyId]);
+  }, [cvr, afdelingNr]);
 
   useEffect(() => {
     load();
@@ -227,10 +309,66 @@ export function PenhedDaekning({
       assigned_to: assignedTo ?? null,
       name: `${[p.address, p.zip, p.city].filter(Boolean).join(", ")} (P-nr ${p.p_number})`,
       next_action: `P-enhed ${p.p_number} · ${ans} ansatte`,
-    });
+      p_nummer: p.p_number,
+      kilde: "Afdelingspotentiale",
+      created_by: auth.user?.id ?? null,
+      ansatte_estimat: p.ansatte_estimat,
+    } as any);
     setBusy(null);
     if (error) return toast.error("Kunne ikke oprette: " + error.message);
     toast.success("Salgsmulighed oprettet");
+    await load();
+    onChanged?.();
+  }
+
+  async function tildel() {
+    if (!tildelFor || !companyId || !tildelTil) return;
+    const p = tildelFor;
+    setBusy(p.p_number);
+    const { error } = await (supabase as any).rpc("tildel_penhed", {
+      _company_id: companyId,
+      _p_nummer: p.p_number,
+      _saelger: tildelTil,
+    });
+    setBusy(null);
+    if (error) return toast.error("Kunne ikke tildele: " + error.message);
+    setTildelFor(null);
+    toast.success("Emne oprettet i Salgsmuligheder");
+    await load();
+    onChanged?.();
+  }
+
+  async function markerIkkeRelevant() {
+    if (!irFor || !irAarsag) return;
+    if (irAarsag === "andet" && !irTekst.trim()) return toast.error("Skriv en årsag");
+    const p = irFor;
+    setBusy(p.p_number);
+    const { error } = await (supabase as any).from("penhed_ikke_relevant").upsert(
+      {
+        p_nummer: p.p_number,
+        aarsag: irAarsag,
+        fritekst: irAarsag === "andet" ? irTekst.trim() : null,
+        created_by: auth.user?.id,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: "p_nummer" },
+    );
+    setBusy(null);
+    if (error) return toast.error("Kunne ikke markere: " + error.message);
+    setIrFor(null);
+    toast.success("Markeret som ikke relevant");
+    await load();
+  }
+
+  async function fortrydIkkeRelevant(p: PenhedDaekningRow) {
+    setBusy(p.p_number);
+    const { error } = await (supabase as any)
+      .from("penhed_ikke_relevant")
+      .delete()
+      .eq("p_nummer", p.p_number);
+    setBusy(null);
+    if (error) return toast.error("Kunne ikke fortryde: " + error.message);
+    toast.success("Markering fortrudt");
     await load();
   }
 
@@ -246,7 +384,10 @@ export function PenhedDaekning({
   }
 
   const daekket = rows.filter((r) => r.daekket);
-  const ikke = rows.filter((r) => !r.daekket);
+  const ikke = rows.filter(
+    (r) => !r.daekket && (visIkkeRelevante || !ikkeRel.has(r.p_number)),
+  );
+  const skjulteIkkeRel = rows.filter((r) => !r.daekket && ikkeRel.has(r.p_number)).length;
   const store = ikke.filter((r) => (r.ansatte_estimat ?? -1) >= STOR_AFDELING_MIN_ANSATTE);
   const mindre = ikke
     .filter((r) => (r.ansatte_estimat ?? -1) < STOR_AFDELING_MIN_ANSATTE)
@@ -274,10 +415,25 @@ export function PenhedDaekning({
           {visNavn && (
             <span className="ml-2 text-[11px] text-muted-foreground">{p.name}</span>
           )}
-          {aabne.has(p.p_number) && (
-            <Badge variant="outline" className="ml-2 h-4 px-1.5 text-[10px] font-normal">
-              Salgsmulighed
-            </Badge>
+          {aabneInfo.has(p.p_number) ? (
+            <span className="ml-2 text-[11px] text-muted-foreground">
+              {initialer(aabneInfo.get(p.p_number)!.saelger)} ·{" "}
+              {STADIE_LABEL[aabneInfo.get(p.p_number)!.status] ?? aabneInfo.get(p.p_number)!.status}
+            </span>
+          ) : (
+            aabne.has(p.p_number) && (
+              <Badge variant="outline" className="ml-2 h-4 px-1.5 text-[10px] font-normal">
+                Salgsmulighed
+              </Badge>
+            )
+          )}
+          {ikkeRel.has(p.p_number) && (
+            <span className="ml-2 text-[11px] text-muted-foreground">
+              Ikke relevant ·{" "}
+              {ikkeRel.get(p.p_number)!.aarsag === "andet"
+                ? ikkeRel.get(p.p_number)!.fritekst
+                : IKKE_RELEVANT_AARSAGER.find((a) => a.key === ikkeRel.get(p.p_number)!.aarsag)?.label}
+            </span>
           )}
         </td>
         <td className="py-1 pr-3 text-muted-foreground tabular-nums">{p.p_number}</td>
@@ -290,13 +446,25 @@ export function PenhedDaekning({
             <Loader2 className="h-3.5 w-3.5 animate-spin inline" />
           ) : (
             <span className="inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 max-md:opacity-100">
-              {companyId && (
-                <button
-                  className="text-xs text-muted-foreground hover:text-foreground hover:underline"
-                  onClick={() => opretMulighed(p)}
-                >
-                  Opret salgsmulighed
-                </button>
+              {companyId && !dk && !aabneInfo.has(p.p_number) && !ikkeRel.has(p.p_number) && (
+                kanStyre ? (
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                    onClick={() => {
+                      setTildelTil(assignedTo ?? "");
+                      setTildelFor(p);
+                    }}
+                  >
+                    Tildel sælger
+                  </button>
+                ) : (
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                    onClick={() => opretMulighed(p)}
+                  >
+                    Opret salgsmulighed
+                  </button>
+                )
               )}
               <Popover>
                 <PopoverTrigger asChild>
@@ -314,6 +482,26 @@ export function PenhedDaekning({
                     </button>
                   ) : (
                     <>
+                      {kanStyre && !ikkeRel.has(p.p_number) && (
+                        <button
+                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
+                          onClick={() => {
+                            setIrAarsag("");
+                            setIrTekst("");
+                            setIrFor(p);
+                          }}
+                        >
+                          Markér ikke relevant
+                        </button>
+                      )}
+                      {kanStyre && ikkeRel.has(p.p_number) && (
+                        <button
+                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
+                          onClick={() => fortrydIkkeRelevant(p)}
+                        >
+                          Fortryd ikke relevant
+                        </button>
+                      )}
                       {p.kilde === "afvist" && (
                         <button
                           className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
@@ -358,6 +546,7 @@ export function PenhedDaekning({
     "flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground py-1";
 
   return (
+    <>
     <table className="w-full text-sm table-fixed">
       <colgroup>
         <col className="w-48" />
@@ -390,6 +579,9 @@ export function PenhedDaekning({
         <tr>
           <td colSpan={6} className="pt-2 text-xs font-medium text-muted-foreground py-1">
             Ikke dækket ({ikke.length})
+            {!visIkkeRelevante && skjulteIkkeRel > 0 && (
+              <span className="ml-2 font-normal">· {skjulteIkkeRel} ikke relevante skjult</span>
+            )}
           </td>
         </tr>
         {store.map((p) => <Row key={p.p_number} p={p} dk={false} />)}
@@ -406,5 +598,72 @@ export function PenhedDaekning({
         {visMindre && mindre.map((p) => <Row key={p.p_number} p={p} dk={false} />)}
       </tbody>
     </table>
+    <Dialog open={!!tildelFor} onOpenChange={(o) => !o && setTildelFor(null)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Tildel sælger</DialogTitle>
+        </DialogHeader>
+        {tildelFor && (
+          <p className="text-sm text-muted-foreground">
+            {[tildelFor.address, tildelFor.zip, tildelFor.city].filter(Boolean).join(", ")} · P-nr{" "}
+            {tildelFor.p_number} · {formatAnsatte(tildelFor)} ansatte
+          </p>
+        )}
+        <div className="space-y-1.5">
+          <Label>Sælger</Label>
+          <Select value={tildelTil} onValueChange={setTildelTil}>
+            <SelectTrigger><SelectValue placeholder="Vælg sælger" /></SelectTrigger>
+            <SelectContent>
+              {saelgere.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Opretter et emne i Salgsmuligheder. Status styres derefter dér.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setTildelFor(null)}>Annullér</Button>
+          <Button onClick={tildel} disabled={!tildelTil || busy != null}>Tildel</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    <Dialog open={!!irFor} onOpenChange={(o) => !o && setIrFor(null)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Markér ikke relevant</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label>Årsag</Label>
+          <Select value={irAarsag} onValueChange={setIrAarsag}>
+            <SelectTrigger><SelectValue placeholder="Vælg årsag" /></SelectTrigger>
+            <SelectContent>
+              {IKKE_RELEVANT_AARSAGER.map((a) => (
+                <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {irAarsag === "andet" && (
+            <Textarea
+              value={irTekst}
+              onChange={(e) => setIrTekst(e.target.value)}
+              placeholder="Skriv årsagen"
+              rows={2}
+            />
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIrFor(null)}>Annullér</Button>
+          <Button
+            onClick={markerIkkeRelevant}
+            disabled={!irAarsag || (irAarsag === "andet" && !irTekst.trim()) || busy != null}
+          >
+            Markér
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
