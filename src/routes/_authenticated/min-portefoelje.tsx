@@ -39,6 +39,16 @@ import { getPortfolioKontakter } from "@/lib/portfolio-kontakter.functions";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+
+const INGEN_SAELGER = "__ingen__";
+const slugify = (v: string) =>
+  v
+    .toLowerCase()
+    .replace(/æ/g, "ae").replace(/ø/g, "oe").replace(/å/g, "aa")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
 
 const SignalMapContext = createContext<Map<string, ForbrugSignalKort>>(new Map());
@@ -78,6 +88,10 @@ function PortfolioPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "aktiv" | "sovende" | "paavejvaek">("all");
   const [sektorFilter, setSektorFilter] = useState<"all" | "privat" | "offentlig">("all");
   const [topN, setTopN] = useState<0 | 50 | 100 | 200>(0);
+  const [saelgerFilter, setSaelgerFilter] = useState<string[]>([]);
+  useEffect(() => {
+    setSaelgerFilter([]);
+  }, [sellerId, afdelingFilter]);
   const [downloading, setDownloading] = useState(false);
   const hentKontakter = useServerFn(getPortfolioKontakter);
   const [showDB, setShowDB] = useState(false);
@@ -140,6 +154,22 @@ function PortfolioPage() {
       ? (sellerId === "all" ? "" : sellerId)
       : (auth.user?.id ?? "");
 
+  // Sælgerfilter + kolonne kun når siden viser flere sælgeres kunder.
+  const visSaelgerFilter = maaVaelgeSaelger && sellerId === "all";
+  const saelgerOptions = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; antal: number }>();
+    let ingen = 0;
+    for (const c of data?.companies ?? []) {
+      if (!c.assigned_to) { ingen++; continue; }
+      const e = m.get(c.assigned_to);
+      if (e) e.antal++;
+      else m.set(c.assigned_to, { id: c.assigned_to, name: c.saelger_navn || "(Ukendt)", antal: 1 });
+    }
+    const arr = [...m.values()].sort((a, b) => a.name.localeCompare(b.name, "da"));
+    if (ingen) arr.push({ id: INGEN_SAELGER, name: "(ingen sælger)", antal: ingen });
+    return arr;
+  }, [data]);
+
   // Forbrugssignalet hentes separat fra forbrug_signal_virksomhed, så tabel og
   // rangeringer viser præcis samme signal som "Faldende forbrug"-kortet.
   const signalFn = useServerFn(getForbrugSignalMap);
@@ -180,6 +210,7 @@ function PortfolioPage() {
         if (s !== statusFilter) return false;
       }
       if (sektorFilter !== "all" && c.sektor !== sektorFilter) return false;
+      if (visSaelgerFilter && saelgerFilter.length && !saelgerFilter.includes(c.assigned_to ?? INGEN_SAELGER)) return false;
       return true;
     });
     const byRev = [...filtered].sort((a, b) => b.revenue12m - a.revenue12m);
@@ -192,7 +223,10 @@ function PortfolioPage() {
     arr.sort((a, b) => {
       let av: any;
       let bv: any;
-      if (key === "name") {
+      if (key === "saelger") {
+        av = (a.saelger_navn ?? "").toLowerCase();
+        bv = (b.saelger_navn ?? "").toLowerCase();
+      } else if (key === "name") {
         av = a.name.toLowerCase();
         bv = b.name.toLowerCase();
       } else if (key === "status") {
@@ -216,7 +250,7 @@ function PortfolioPage() {
       return 0;
     });
     return arr.map((c) => ({ ...c, rang: rank.get(c.id)! }));
-  }, [data, sortKey, sortDir, search, kaffeFilter, statusFilter, sektorFilter, topN]);
+  }, [data, sortKey, sortDir, search, kaffeFilter, statusFilter, sektorFilter, topN, saelgerFilter, visSaelgerFilter]);
 
   const downloadExcel = async () => {
     if (!sortedCompanies.length) return;
@@ -231,6 +265,7 @@ function PortfolioPage() {
         return {
           Rang: c.rang,
           Kunde: c.name,
+          Sælger: c.saelger_navn ?? "",
           Kundenr: k?.visma_id ?? "",
           CVR: k?.cvr ?? "",
           Adresse: k?.address ?? "",
@@ -256,7 +291,16 @@ function PortfolioPage() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Portefølje");
       const dato = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `frellsen-portefoelje-${sektorFilter === "all" ? "alle" : sektorFilter}-${topN ? `top${topN}` : "alle"}-${dato}.xlsx`);
+      let saelgerDel = "";
+      if (visSaelgerFilter && saelgerFilter.length > 1) saelgerDel = "-flere-saelgere";
+      else if (visSaelgerFilter && saelgerFilter.length === 1) {
+        const navn = saelgerFilter[0] === INGEN_SAELGER ? "ingen-saelger" : (saelgerOptions.find((o) => o.id === saelgerFilter[0])?.name ?? "");
+        if (navn) saelgerDel = "-" + slugify(navn);
+      } else if (sellerId !== "all") {
+        const navn = (data?.sellerOptions ?? []).find((o) => o.id === sellerId)?.name ?? sortedCompanies[0]?.saelger_navn ?? "";
+        if (navn) saelgerDel = "-" + slugify(navn);
+      }
+      XLSX.writeFile(wb, `frellsen-portefoelje-${sektorFilter === "all" ? "alle" : sektorFilter}-${topN ? `top${topN}` : "alle"}${saelgerDel}-${dato}.xlsx`);
     } catch (e: any) {
       toast.error("Download fejlede: " + (e?.message ?? "ukendt fejl"));
     } finally {
@@ -267,7 +311,7 @@ function PortfolioPage() {
   // Reset pagination when filters/sort change
   useEffect(() => {
     setVisibleCount(5);
-  }, [search, kaffeFilter, statusFilter, sektorFilter, topN, sortKey, sortDir, sellerId]);
+  }, [search, kaffeFilter, statusFilter, sektorFilter, topN, sortKey, sortDir, sellerId, saelgerFilter]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -375,6 +419,46 @@ function PortfolioPage() {
                     <SelectItem value="paavejvaek">På vej væk</SelectItem>
                   </SelectContent>
                 </Select>
+                {visSaelgerFilter && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-9 min-w-[150px] justify-between font-normal">
+                        <span className="truncate max-w-[180px]">
+                          {saelgerFilter.length === 0
+                            ? "Sælger: alle"
+                            : saelgerFilter.length === 1
+                              ? (saelgerOptions.find((o) => o.id === saelgerFilter[0])?.name ?? "1 valgt")
+                              : `Sælger: ${saelgerFilter.length} valgt`}
+                        </span>
+                        <ChevronDown className="h-4 w-4 ml-2 opacity-60" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-2" align="start">
+                      <div className="max-h-72 overflow-y-auto space-y-1">
+                        {saelgerOptions.map((o) => {
+                          const checked = saelgerFilter.includes(o.id);
+                          return (
+                            <label key={o.id} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent cursor-pointer">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) =>
+                                  setSaelgerFilter((prev) => (v ? [...prev, o.id] : prev.filter((x) => x !== o.id)))
+                                }
+                              />
+                              <span className="flex-1 truncate">{o.name}</span>
+                              <span className="text-xs text-muted-foreground tabular-nums">{o.antal}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="border-t border-border mt-2 pt-2 flex justify-end">
+                        <Button size="sm" variant="ghost" onClick={() => setSaelgerFilter([])} disabled={!saelgerFilter.length}>
+                          Nulstil
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
                 <Select value={sektorFilter} onValueChange={(v) => setSektorFilter(v as any)}>
                   <SelectTrigger className="h-9 w-[150px]">
                     <SelectValue placeholder="Sektor" />
@@ -422,6 +506,11 @@ function PortfolioPage() {
                       <Th onClick={() => toggleSort("name")} active={sortKey === "name"} dir={sortDir}>
                         Kunde
                       </Th>
+                      {visSaelgerFilter && (
+                        <Th onClick={() => toggleSort("saelger")} active={sortKey === "saelger"} dir={sortDir}>
+                          Sælger
+                        </Th>
+                      )}
                       <Th onClick={() => toggleSort("consumable")} active={sortKey === "consumable"} dir={sortDir}>
                         Kaffe
                       </Th>
@@ -472,6 +561,9 @@ function PortfolioPage() {
                               <div className="text-xs text-muted-foreground">{c.city}</div>
                             )}
                           </td>
+                          {visSaelgerFilter && (
+                            <td className="px-3 py-2 text-sm">{c.saelger_navn ?? <span className="text-muted-foreground">—</span>}</td>
+                          )}
                           <td className="px-3 py-2">
                             <KaffeIndicator
                               companyId={c.id}
