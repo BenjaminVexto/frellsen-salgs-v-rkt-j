@@ -19,11 +19,11 @@ import { Route as TTokenRouteImport } from './routes/t.$token'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
 import { Route as AuthenticatedTeSortimentRouteImport } from './routes/_authenticated/te-sortiment'
 import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
-import { Route as AuthenticatedSalgsintelligensRouteImport } from './routes/_authenticated/salgsintelligens'
 import { Route as AuthenticatedMinPortefoeljeRouteImport } from './routes/_authenticated/min-portefoelje'
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
 import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAfdelingspotentialeRouteImport } from './routes/_authenticated/afdelingspotentiale'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedTilbudIndexRouteImport } from './routes/_authenticated/tilbud.index'
@@ -112,12 +112,6 @@ const AuthenticatedSalgsmulighederRoute =
     path: '/salgsmuligheder',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedSalgsintelligensRoute =
-  AuthenticatedSalgsintelligensRouteImport.update({
-    id: '/salgsintelligens',
-    path: '/salgsintelligens',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedMinPortefoeljeRoute =
   AuthenticatedMinPortefoeljeRouteImport.update({
     id: '/min-portefoelje',
@@ -141,6 +135,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAfdelingspotentialeRoute =
+  AuthenticatedAfdelingspotentialeRouteImport.update({
+    id: '/afdelingspotentiale',
+    path: '/afdelingspotentiale',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
   Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -355,11 +355,11 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/afdelingspotentiale': typeof AuthenticatedAfdelingspotentialeRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/min-portefoelje': typeof AuthenticatedMinPortefoeljeRoute
-  '/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/te-sortiment': typeof AuthenticatedTeSortimentRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
@@ -406,11 +406,11 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/afdelingspotentiale': typeof AuthenticatedAfdelingspotentialeRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/min-portefoelje': typeof AuthenticatedMinPortefoeljeRoute
-  '/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/te-sortiment': typeof AuthenticatedTeSortimentRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
@@ -458,11 +458,11 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_authenticated/afdelingspotentiale': typeof AuthenticatedAfdelingspotentialeRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
   '/_authenticated/min-portefoelje': typeof AuthenticatedMinPortefoeljeRoute
-  '/_authenticated/salgsintelligens': typeof AuthenticatedSalgsintelligensRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/te-sortiment': typeof AuthenticatedTeSortimentRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
@@ -511,11 +511,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/afdelingspotentiale'
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
     | '/min-portefoelje'
-    | '/salgsintelligens'
     | '/salgsmuligheder'
     | '/te-sortiment'
     | '/virksomheder'
@@ -562,11 +562,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/afdelingspotentiale'
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
     | '/min-portefoelje'
-    | '/salgsintelligens'
     | '/salgsmuligheder'
     | '/te-sortiment'
     | '/virksomheder'
@@ -613,11 +613,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/_authenticated/afdelingspotentiale'
     | '/_authenticated/dashboard'
     | '/_authenticated/konkurrenter'
     | '/_authenticated/kontaktlister'
     | '/_authenticated/min-portefoelje'
-    | '/_authenticated/salgsintelligens'
     | '/_authenticated/salgsmuligheder'
     | '/_authenticated/te-sortiment'
     | '/_authenticated/virksomheder'
@@ -747,13 +747,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSalgsmulighederRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/salgsintelligens': {
-      id: '/_authenticated/salgsintelligens'
-      path: '/salgsintelligens'
-      fullPath: '/salgsintelligens'
-      preLoaderRoute: typeof AuthenticatedSalgsintelligensRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/min-portefoelje': {
       id: '/_authenticated/min-portefoelje'
       path: '/min-portefoelje'
@@ -780,6 +773,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/afdelingspotentiale': {
+      id: '/_authenticated/afdelingspotentiale'
+      path: '/afdelingspotentiale'
+      fullPath: '/afdelingspotentiale'
+      preLoaderRoute: typeof AuthenticatedAfdelingspotentialeRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/.well-known/oauth-protected-resource': {
@@ -1062,11 +1062,11 @@ const AuthenticatedAdminImportRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAfdelingspotentialeRoute: typeof AuthenticatedAfdelingspotentialeRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedKonkurrenterRoute: typeof AuthenticatedKonkurrenterRoute
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
   AuthenticatedMinPortefoeljeRoute: typeof AuthenticatedMinPortefoeljeRoute
-  AuthenticatedSalgsintelligensRoute: typeof AuthenticatedSalgsintelligensRoute
   AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
   AuthenticatedTeSortimentRoute: typeof AuthenticatedTeSortimentRoute
   AuthenticatedVirksomhederRoute: typeof AuthenticatedVirksomhederRoute
@@ -1092,11 +1092,11 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAfdelingspotentialeRoute: AuthenticatedAfdelingspotentialeRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedKonkurrenterRoute: AuthenticatedKonkurrenterRoute,
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
   AuthenticatedMinPortefoeljeRoute: AuthenticatedMinPortefoeljeRoute,
-  AuthenticatedSalgsintelligensRoute: AuthenticatedSalgsintelligensRoute,
   AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
   AuthenticatedTeSortimentRoute: AuthenticatedTeSortimentRoute,
   AuthenticatedVirksomhederRoute: AuthenticatedVirksomhederRoute,

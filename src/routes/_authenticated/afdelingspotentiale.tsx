@@ -30,14 +30,21 @@ import {
 import { cvrSearchTwins } from "@/lib/cvr-lookup.functions";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/salgsintelligens")({
+export const Route = createFileRoute("/_authenticated/afdelingspotentiale")({
   component: SalgsintelligensPage,
 });
 
 type Tab = "mersalg" | "tvillinger";
 
 function SalgsintelligensPage() {
+  const auth = useAuth();
   const [tab, setTab] = useState<Tab>("mersalg");
+  if (auth.loading) return null;
+  if (!auth.maaSeAfdelingspotentiale) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">Du har ikke adgang til Afdelingspotentiale.</div>
+    );
+  }
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "mersalg", label: "Flere afdelinger" },
@@ -52,7 +59,7 @@ function SalgsintelligensPage() {
             <span className="absolute inset-0 rounded-full bg-warning/30 blur-md animate-pulse" aria-hidden="true" />
             <Lightbulb className="relative h-6 w-6 text-warning drop-shadow-[0_0_6px_var(--warning)]" />
           </span>
-          Salgsintelligens
+          Afdelingspotentiale
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Find skjulte salgsmuligheder i din portefølje.
