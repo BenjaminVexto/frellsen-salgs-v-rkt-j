@@ -35,6 +35,7 @@ export type PortfolioCompanyRow = {
   contribution12m: number | null;
   employees: number | null;
   is_public: boolean;
+  sektor: "privat" | "offentlig" | "intern";
   // Købsrytme (forbrugsvarer — prisgrupper 2/4/6/10), måneds-opløsning.
   rhythmMonths: number | null; // median antal måneder mellem aktive consumable-måneder; null hvis <3 aktive
   monthsSinceConsumable: number | null; // måneder siden seneste consumable-køb
@@ -331,6 +332,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       last_sales_date: r.last_sales_date ?? null,
       employees: r.employees ?? null,
       is_public: !!r.is_public,
+      sektor: (r.sektor ?? "privat") as "privat" | "offentlig" | "intern",
     }));
 
     for (const r of aggRows) {
@@ -481,6 +483,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         contribution12m: isAdmin ? (agg?.contribution12m ?? 0) : null,
         employees: c.employees ?? null,
         is_public: !!c.is_public,
+        sektor: c.sektor,
         rhythmMonths,
         monthsSinceConsumable,
         rhythmClass,
@@ -602,7 +605,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
 
     // Potentiale: active + private (ikke offentlig) + employees>0
-    const potentialPool = activeCompanies.filter((c) => !c.is_public);
+    const potentialPool = activeCompanies.filter((c) => c.sektor === "privat");
     const missingEmployees = potentialPool.filter((c) => !c.employees || c.employees <= 0).length;
     const withEmployees = potentialPool.filter((c) => c.employees && c.employees > 0);
     const potential = [...withEmployees]

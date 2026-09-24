@@ -92,6 +92,13 @@
       "when": 1790170802620,
       "tag": "0012_bonus_maskin_grundlag_serienr",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790243863387,
+      "tag": "0013_kunde_sektor_portfolio",
+      "breakpoints": true
     }
   ]
 }

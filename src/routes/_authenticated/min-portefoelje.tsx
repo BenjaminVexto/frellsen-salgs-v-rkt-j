@@ -35,6 +35,10 @@ import { fmtKr } from "@/lib/sales-utils";
 import { AnalyseFane } from "@/components/analyse/analyse-fane";
 import { MaalepunkterFane } from "@/components/maalepunkter/maalepunkter-fane";
 import { BonusFane } from "@/components/bonus/bonus-fane";
+import { getPortfolioKontakter } from "@/lib/portfolio-kontakter.functions";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
 
 
 const SignalMapContext = createContext<Map<string, ForbrugSignalKort>>(new Map());
@@ -72,6 +76,10 @@ function PortfolioPage() {
   const [search, setSearch] = useState("");
   const [kaffeFilter, setKaffeFilter] = useState<"all" | "green" | "yellow" | "red" | "via">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "aktiv" | "sovende" | "paavejvaek">("all");
+  const [sektorFilter, setSektorFilter] = useState<"all" | "privat" | "offentlig">("all");
+  const [topN, setTopN] = useState<0 | 50 | 100 | 200>(0);
+  const [downloading, setDownloading] = useState(false);
+  const hentKontakter = useServerFn(getPortfolioKontakter);
   const [showDB, setShowDB] = useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
@@ -159,7 +167,7 @@ function PortfolioPage() {
 
 
   const sortedCompanies = useMemo(() => {
-    if (!data) return [] as PortfolioCompanyRow[];
+    if (!data) return [] as (PortfolioCompanyRow & { rang: number })[];
     const searchLc = search.trim().toLowerCase();
     const filtered = data.companies.filter((c) => {
       if (searchLc && !c.name.toLowerCase().includes(searchLc)) return false;
@@ -171,9 +179,13 @@ function PortfolioPage() {
         const s = classifyStatus(c);
         if (s !== statusFilter) return false;
       }
+      if (sektorFilter !== "all" && c.sektor !== sektorFilter) return false;
       return true;
     });
-    const arr = [...filtered];
+    const byRev = [...filtered].sort((a, b) => b.revenue12m - a.revenue12m);
+    const rank = new Map<string, number>();
+    byRev.forEach((c, i) => rank.set(c.id, i + 1));
+    const arr = topN ? byRev.slice(0, topN) : byRev;
     const key = sortKey;
     const dir = sortDir === "asc" ? 1 : -1;
     const lastPeriod = data.monthLabels[data.monthLabels.length - 1]?.period;
@@ -203,13 +215,59 @@ function PortfolioPage() {
       if (av > bv) return 1 * dir;
       return 0;
     });
-    return arr;
-  }, [data, sortKey, sortDir, search, kaffeFilter, statusFilter]);
+    return arr.map((c) => ({ ...c, rang: rank.get(c.id)! }));
+  }, [data, sortKey, sortDir, search, kaffeFilter, statusFilter, sektorFilter, topN]);
+
+  const downloadExcel = async () => {
+    if (!sortedCompanies.length) return;
+    setDownloading(true);
+    try {
+      const { rows } = await hentKontakter({ data: { companyIds: sortedCompanies.map((c) => c.id) } });
+      const km = new Map(rows.map((r) => [r.company_id, r]));
+      const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", paavejvaek: "På vej væk", andet: "Andet" };
+      const sektorLabel: Record<string, string> = { privat: "Privat", offentlig: "Offentlig", intern: "Intern" };
+      const data = sortedCompanies.map((c) => {
+        const k = km.get(c.id);
+        return {
+          Rang: c.rang,
+          Kunde: c.name,
+          Kundenr: k?.visma_id ?? "",
+          CVR: k?.cvr ?? "",
+          Adresse: k?.address ?? "",
+          Postnr: k?.zip ?? "",
+          By: k?.city ?? c.city ?? "",
+          Afdeling: k?.afdeling ?? "",
+          "Kundeprisgruppe 1": k?.kundeprisgruppe1 ?? "",
+          Sektor: sektorLabel[c.sektor] ?? c.sektor,
+          Status: statusLabel[classifyStatus(c) as string] ?? String(classifyStatus(c) ?? ""),
+          "Omsætning 12 hele mdr.": Math.round(c.revenue12m * 100) / 100,
+          "Omsætning seneste md.": Math.round((c.monthly[c.monthly.length - 1]?.revenue ?? 0) * 100) / 100,
+          Kontaktperson: k?.kontaktperson ?? "",
+          Titel: k?.titel ?? "",
+          Telefon: k?.telefon ?? "",
+          "E-mail": k?.email ?? "",
+          Kontaktkilde: k?.kontaktkilde ?? "",
+          "Mangler kontaktperson": k?.kontaktperson ? "" : "Ja",
+        };
+      });
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(data);
+      ws["!cols"] = Object.keys(data[0]).map((h) => ({ wch: Math.max(10, h.length + 2) }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Portefølje");
+      const dato = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `frellsen-portefoelje-${sektorFilter === "all" ? "alle" : sektorFilter}-${topN ? `top${topN}` : "alle"}-${dato}.xlsx`);
+    } catch (e: any) {
+      toast.error("Download fejlede: " + (e?.message ?? "ukendt fejl"));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   // Reset pagination when filters/sort change
   useEffect(() => {
     setVisibleCount(5);
-  }, [search, kaffeFilter, statusFilter, sortKey, sortDir, sellerId]);
+  }, [search, kaffeFilter, statusFilter, sektorFilter, topN, sortKey, sortDir, sellerId]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -317,6 +375,27 @@ function PortfolioPage() {
                     <SelectItem value="paavejvaek">På vej væk</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={sektorFilter} onValueChange={(v) => setSektorFilter(v as any)}>
+                  <SelectTrigger className="h-9 w-[150px]">
+                    <SelectValue placeholder="Sektor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Sektor: alle</SelectItem>
+                    <SelectItem value="privat">Privat</SelectItem>
+                    <SelectItem value="offentlig">Offentlig</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={String(topN)} onValueChange={(v) => setTopN(Number(v) as any)}>
+                  <SelectTrigger className="h-9 w-[130px]">
+                    <SelectValue placeholder="Vis" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Vis: alle</SelectItem>
+                    <SelectItem value="50">Top 50</SelectItem>
+                    <SelectItem value="100">Top 100</SelectItem>
+                    <SelectItem value="200">Top 200</SelectItem>
+                  </SelectContent>
+                </Select>
                 <div className="ml-auto flex items-center gap-4">
                   {visDb && (
                     <div className="flex items-center gap-2">
@@ -329,12 +408,17 @@ function PortfolioPage() {
                   <span className="text-xs text-muted-foreground tabular-nums">
                     {sortedCompanies.length.toLocaleString("da-DK")} kunder
                   </span>
+                  <Button size="sm" variant="outline" onClick={downloadExcel} disabled={downloading || !sortedCompanies.length}>
+                    {downloading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+                    Download (Excel)
+                  </Button>
                 </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
+                      {topN > 0 && <th className="px-3 py-2 text-right w-10">#</th>}
                       <Th onClick={() => toggleSort("name")} active={sortKey === "name"} dir={sortDir}>
                         Kunde
                       </Th>
@@ -375,6 +459,7 @@ function PortfolioPage() {
                       const lastMonth = c.monthly[c.monthly.length - 1]?.revenue ?? 0;
                       return (
                         <tr key={c.id} className="border-t border-border hover:bg-accent/30">
+                          {topN > 0 && <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{c.rang}</td>}
                           <td className="px-3 py-2">
                             <Link
                               to="/virksomheder/$id"
