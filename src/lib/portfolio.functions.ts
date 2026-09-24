@@ -222,8 +222,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     // Salgssupport må følge en valgt sælger (kun sælgere fra listen).
     const appliedSellerId: string | null = isAdmin
       ? (data.sellerId ?? null) // null = alle sælgere
-      : erSalgssupport && data.sellerId && sellerOptions.some((o) => o.id === data.sellerId)
-        ? data.sellerId
+      : erSalgssupport
+        ? (data.sellerId && sellerOptions.some((o) => o.id === data.sellerId) ? data.sellerId : null)
         : userId;
 
     // Month windows
