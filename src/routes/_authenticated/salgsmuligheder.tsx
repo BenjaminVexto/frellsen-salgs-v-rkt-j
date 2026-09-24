@@ -348,6 +348,23 @@ function OpportunityDrawer({
 }) {
   const [form, setForm] = useState<Partial<Opportunity>>({});
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const remove = async () => {
+    if (!opp) return;
+    setDeleting(true);
+    const { error } = await supabase
+      .from("sales_opportunities")
+      .delete()
+      .eq("id", opp.id);
+    setDeleting(false);
+    if (error) {
+      toast.error("Kunne ikke slette salgsmuligheden");
+    } else {
+      toast.success("Salgsmulighed slettet");
+      onSaved();
+    }
+  };
 
   useEffect(() => {
     if (opp) setForm(opp);
