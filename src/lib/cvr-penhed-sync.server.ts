@@ -67,7 +67,7 @@ export function parseIntervalKode(kode: string | null | undefined) {
 
 function pickBeskaeftigelse(p: any) {
   const cands: { key: string; periode: string; e: any }[] = [];
-  for (const e of p?.maanedsbeskaeftigelse ?? [])
+  for (const e of [...(p?.maanedsbeskaeftigelse ?? []), ...(p?.erstMaanedsbeskaeftigelse ?? [])])
     cands.push({ key: `${e.aar}-${String(e.maaned).padStart(2, "0")}`, periode: `${e.aar}-${String(e.maaned).padStart(2, "0")}`, e });
   for (const e of p?.kvartalsbeskaeftigelse ?? [])
     cands.push({ key: `${e.aar}-${String((e.kvartal ?? 1) * 3).padStart(2, "0")}`, periode: `${e.aar}-K${e.kvartal}`, e });
@@ -163,6 +163,7 @@ export async function syncPenhederByCvrs(
           "VrproduktionsEnhed.aarsbeskaeftigelse",
           "VrproduktionsEnhed.kvartalsbeskaeftigelse",
           "VrproduktionsEnhed.maanedsbeskaeftigelse",
+          "VrproduktionsEnhed.erstMaanedsbeskaeftigelse",
         ],
         query: {
           bool: {
