@@ -201,16 +201,34 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       erSalgssupport = !!ss;
     }
     if (isAdmin || maaSeAnalyse || erSalgssupport) {
-      const { data: roles } = await supabase
+      // Rolle-/profil-rækker for andre brugere er ikke læsbare for ikke-admins
+      // via RLS, så listen hentes server-side — begrænset til sælgere i
+      // brugerens egne afdelinger (my_afdelinger()).
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: mine } = await supabase.rpc("my_afdelinger");
+      const mineAfd = Array.isArray(mine) ? (mine as number[]) : [];
+      const { data: roles } = await supabaseAdmin
         .from("user_roles")
         .select("user_id")
         .eq("role", "saelger");
-      const ids = (roles ?? []).map((r: any) => r.user_id);
+      let ids = (roles ?? []).map((r: any) => r.user_id as string);
+      if (!isAdmin && ids.length) {
+        const [{ data: acc }, { data: prim }] = await Promise.all([
+          supabaseAdmin.from("user_afdeling_access").select("user_id").in("user_id", ids).in("afdeling_nr", mineAfd.length ? mineAfd : [-1]),
+          supabaseAdmin.from("profiles").select("id").in("id", ids).in("primary_afdeling_nr", mineAfd.length ? mineAfd : [-1]),
+        ]);
+        const ok = new Set<string>([
+          ...(acc ?? []).map((r: any) => r.user_id),
+          ...(prim ?? []).map((r: any) => r.id),
+        ]);
+        ids = ids.filter((id) => ok.has(id));
+      }
       if (ids.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await supabaseAdmin
           .from("profiles")
           .select("id, full_name")
           .in("id", ids)
+          .eq("is_active", true)
           .order("full_name");
         sellerOptions = (profs ?? []).map((p: any) => ({
           id: p.id,
