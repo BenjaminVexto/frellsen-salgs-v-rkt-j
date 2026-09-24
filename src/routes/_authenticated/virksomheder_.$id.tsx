@@ -984,7 +984,13 @@ function VirksomhedsKort() {
               {company.cvr && (company as any).afdeling_nr != null && (
                 <div className="rounded-md border p-4">
                   <h3 className="font-medium text-sm mb-3">CVR P-enheder</h3>
-                  <PenhedDaekning cvr={company.cvr} afdelingNr={(company as any).afdeling_nr} />
+                  <PenhedDaekning
+                    cvr={company.cvr}
+                    afdelingNr={(company as any).afdeling_nr}
+                    companyId={company.id}
+                    companyName={company.name}
+                    assignedTo={(company as any).assigned_to ?? null}
+                  />
                 </div>
               )}
 
