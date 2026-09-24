@@ -1360,6 +1360,10 @@ export type Database = {
       cvr_penheder: {
         Row: {
           address: string | null
+          ansatte_estimat: number | null
+          ansatte_interval: string | null
+          ansatte_praecis: number | null
+          beskaeftigelse_periode: string | null
           branch_code: string | null
           city: string | null
           cvr: string
@@ -1372,6 +1376,10 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          ansatte_estimat?: number | null
+          ansatte_interval?: string | null
+          ansatte_praecis?: number | null
+          beskaeftigelse_periode?: string | null
           branch_code?: string | null
           city?: string | null
           cvr: string
@@ -1384,6 +1392,10 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          ansatte_estimat?: number | null
+          ansatte_interval?: string | null
+          ansatte_praecis?: number | null
+          beskaeftigelse_periode?: string | null
           branch_code?: string | null
           city?: string | null
           cvr?: string
@@ -1803,6 +1815,54 @@ export type Database = {
           },
           {
             foreignKeyName: "location_equipment_units_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_pnr_link: {
+        Row: {
+          afdeling_nr: number
+          id: string
+          kilde: string
+          location_id: string | null
+          oprettet_af: string | null
+          oprettet_dato: string
+          p_nummer: string
+          visma_delivery_no: string | null
+        }
+        Insert: {
+          afdeling_nr: number
+          id?: string
+          kilde: string
+          location_id?: string | null
+          oprettet_af?: string | null
+          oprettet_dato?: string
+          p_nummer: string
+          visma_delivery_no?: string | null
+        }
+        Update: {
+          afdeling_nr?: number
+          id?: string
+          kilde?: string
+          location_id?: string | null
+          oprettet_af?: string | null
+          oprettet_dato?: string
+          p_nummer?: string
+          visma_delivery_no?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_pnr_link_afdeling_nr_fkey"
+            columns: ["afdeling_nr"]
+            isOneToOne: false
+            referencedRelation: "afdeling"
+            referencedColumns: ["afdeling_nr"]
+          },
+          {
+            foreignKeyName: "location_pnr_link_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
@@ -3285,12 +3345,15 @@ export type Database = {
       salgsintelligens_mersalg: {
         Row: {
           afdeling_nr: number | null
+          ansatte_ikke_daekket: number | null
+          ansatte_total: number | null
           antal_kundenumre: number | null
           assigned_to: string | null
           city: string | null
           company_id: string | null
           cvr: string | null
           daekket: number | null
+          max_ansatte_ikke_daekket: number | null
           name: string | null
           penheder_total: number | null
           potential: number | null
@@ -3309,8 +3372,14 @@ export type Database = {
         Row: {
           address: string | null
           afdeling_nr: number | null
+          ansatte_estimat: number | null
+          ansatte_interval: string | null
+          ansatte_praecis: number | null
           city: string | null
           cvr: string | null
+          link_kilde: string | null
+          link_location_id: string | null
+          link_visma_delivery_no: string | null
           match_status: string | null
           p_number: string | null
           penhed_navn: string | null
@@ -3376,6 +3445,7 @@ export type Database = {
           total_stk: number
         }[]
       }
+      auto_link_penheder: { Args: { _cvrs?: string[] }; Returns: number }
       bonus_db_detaljer: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
@@ -3798,6 +3868,10 @@ export type Database = {
           cvr: string
         }[]
       }
+      pnr_link_location: {
+        Args: { _afd: number; _dno: string; _loc: string }
+        Returns: string
+      }
       portfolio_aggregat: {
         Args: { _afdeling_nr?: number; _saelger?: string }
         Returns: {
@@ -3858,6 +3932,7 @@ export type Database = {
         }
         Returns: number
       }
+      queue_penhed_sync_ugentlig: { Args: never; Returns: number }
       rebuild_products: { Args: never; Returns: number }
       rebuild_sales_aggregates: {
         Args: {
