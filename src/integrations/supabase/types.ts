@@ -3357,6 +3357,8 @@ export type Database = {
           name: string | null
           penheder_total: number | null
           potential: number | null
+          uden_tal_ikke_daekket: number | null
+          uden_tal_total: number | null
         }
         Relationships: [
           {
