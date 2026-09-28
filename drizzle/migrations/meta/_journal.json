@@ -218,6 +218,13 @@
       "when": 1790626959098,
       "tag": "0030_import_log_afviste_seneste_data",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790627090504,
+      "tag": "0031_faktura_uden_kunde",
+      "breakpoints": true
     }
   ]
 }

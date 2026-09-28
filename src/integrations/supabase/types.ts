@@ -3722,6 +3722,24 @@ export type Database = {
         }[]
       }
       dublet_navn_norm: { Args: { _name: string }; Returns: string }
+      faktura_uden_kunde: {
+        Args: never
+        Returns: {
+          antal: number
+          beloeb: number
+          seneste_beloeb: number
+        }[]
+      }
+      faktura_uden_kunde_linjer: {
+        Args: never
+        Returns: {
+          afdeling_nr: number
+          beloeb: number
+          faktura_dato: string
+          kunde_navn: string
+          visma_delivery_no: string
+        }[]
+      }
       get_public_quote: { Args: { _token: string }; Returns: Json }
       get_quote_floor_discount: {
         Args: { p_company_id: string; p_varenr: string }
