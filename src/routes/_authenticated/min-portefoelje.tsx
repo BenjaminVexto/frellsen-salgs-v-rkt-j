@@ -267,7 +267,7 @@ function PortfolioPage() {
       const { rows } = await hentKontakter({ data: { companyIds: sortedCompanies.map((c) => c.id) } });
       const km = new Map(rows.map((r) => [r.company_id, r]));
       const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", paavejvaek: "På vej væk", andet: "Andet" };
-      const sektorLabel: Record<string, string> = { privat: "Privat", offentlig: "Offentlig", intern: "Intern" };
+      const sektorLabel: Record<string, string> = { privat: "Øvrige kunder", offentlig: "Offentlige udbud", intern: "Intern" };
       const data = [...sortedCompanies].sort((a, b) => a.rang - b.rang).map((c) => {
         const k = km.get(c.id);
         return {
@@ -383,7 +383,7 @@ function PortfolioPage() {
                 {visDb && (
                   <Card className="p-4">
                     <div className="text-xs text-muted-foreground mb-1">
-                      DB i alt inkl. maskiner og service · seneste 12 hele mdr. (admin)
+                      DB i alt inkl. maskiner og service · År-til-Dato (admin)
                     </div>
                     <div className="text-2xl font-semibold tabular-nums">
                       {fmtKr(data.totals.contribution12m ?? 0)}
@@ -391,9 +391,9 @@ function PortfolioPage() {
 
                     <div className="text-xs text-muted-foreground mt-1">
                       DG:{" "}
-                      {data.totals.revenue12m > 0
+                      {data.totals.revenueYtd > 0
                         ? `${Math.round(
-                            ((data.totals.contribution12m ?? 0) / data.totals.revenue12m) * 100,
+                            ((data.totals.contribution12m ?? 0) / data.totals.revenueYtd) * 100,
                           )} %`
                         : "—"}
                     </div>
@@ -478,13 +478,13 @@ function PortfolioPage() {
                   </Popover>
                 )}
                 <Select value={sektorFilter} onValueChange={(v) => setSektorFilter(v as any)}>
-                  <SelectTrigger className="h-9 w-[150px]">
+                  <SelectTrigger className="h-9 w-[180px]">
                     <SelectValue placeholder="Sektor" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Sektor: alle</SelectItem>
-                    <SelectItem value="privat">Privat</SelectItem>
-                    <SelectItem value="offentlig">Offentlig</SelectItem>
+                    <SelectItem value="privat">Øvrige kunder</SelectItem>
+                    <SelectItem value="offentlig">Offentlige udbud</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={String(topN)} onValueChange={(v) => setTopN(Number(v) as any)}>
@@ -715,8 +715,8 @@ function PortfolioPage() {
                   <Card className="p-4">
                     <div className="text-sm text-muted-foreground">
                       Potentiale-ratio = omsætning 12 mdr. ÷ antal medarbejdere.
-                      Aktive privatkunder med kendt medarbejdertal. Offentlige kunder
-                      (kundeprisgruppe 40/45) er udeladt.
+                      Aktive øvrige kunder med kendt medarbejdertal. Offentlige udbud
+                      (kundesegment 3 = 40) er udeladt.
                       {data.rankings.potentialMissingEmployees > 0 && (
                         <>
                           {" "}
