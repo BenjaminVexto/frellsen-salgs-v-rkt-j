@@ -80,7 +80,7 @@ import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { SourceBadges } from "@/components/source-badges";
 import { AfdelingBadge } from "@/components/afdeling-badge";
-import { BindingStatusBadge } from "@/components/binding-status-badge";
+import { SegmentBadge } from "@/components/binding-status-badge";
 import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
 import { PenhedDaekning } from "@/components/penhed-daekning";
@@ -567,7 +567,7 @@ function VirksomhedsKort() {
           <SourceBadges sources={(company as any).sources} />
           <div className="flex flex-wrap gap-1.5 mt-2">
             <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
-            <BindingStatusBadge status={(company as any).binding_status} />
+            <SegmentBadge segment3={(company as any).customer_segment_3} />
             <CustomerCategoryBadge category={(company as any).customer_category} />
           </div>
           {company.cvr ? (
