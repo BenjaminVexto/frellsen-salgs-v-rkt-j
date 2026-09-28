@@ -476,16 +476,17 @@ export function MaalepunkterFane({
       titel: string,
       rows: { label: string; per: Map<string, number> }[],
       dec: number,
+      totaler?: { rows: number[]; total: number },
     ) => {
       lines.push(titel);
       lines.push(head.join(";"));
       let tot = new Map<string, number>();
-      rows.forEach((r) => {
+      rows.forEach((r, i) => {
         lines.push(
           [
             r.label,
             ...maaneder.map((m) => (r.per.get(m) ?? 0).toFixed(dec).replace(".", ",")),
-            rowTotal(r.per).toFixed(dec).replace(".", ","),
+            (totaler ? totaler.rows[i] ?? 0 : rowTotal(r.per)).toFixed(dec).replace(".", ","),
           ].join(";"),
         );
         maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0)));
@@ -494,14 +495,24 @@ export function MaalepunkterFane({
         [
           "Total",
           ...maaneder.map((m) => (tot.get(m) ?? 0).toFixed(dec).replace(".", ",")),
-          rowTotal(tot).toFixed(dec).replace(".", ","),
+          (totaler ? totaler.total : rowTotal(tot)).toFixed(dec).replace(".", ","),
         ].join(";"),
       );
       lines.push("");
     };
     block("1 · Omsætning pr. måned (kr.)", omsTabel, 2);
     block("2 · Dækningsbidrag pr. måned (kr.)", dbTabel, 2);
-    block("3 · Antal kunder pr. måned (aktive kunder)", kunderTabel, 0);
+    block(
+      "3 · Antal kunder pr. måned (aktive kunder; Total = unikke kunder i perioden)",
+      kunderTabel,
+      0,
+      kunderUnikkeQ.data
+        ? {
+            rows: [kunderUnikkeQ.data.get("privat") ?? 0, kunderUnikkeQ.data.get("offentlig") ?? 0],
+            total: (kunderUnikkeQ.data.get("privat") ?? 0) + (kunderUnikkeQ.data.get("offentlig") ?? 0),
+          }
+        : undefined,
+    );
     block(
       nyeMaal === "db"
         ? "4 · Nye kunder pr. måned (DB i perioden, måned for første ordre)"
@@ -862,9 +873,11 @@ export function MaalepunkterFane({
   return (
     <div className="space-y-4 max-w-full">
       <p className="text-sm text-muted-foreground">
-        Omsætning, dækningsbidrag, kunder, nye kunder og solgte maskiner pr. hel måned — afdeling{" "}
-        {valgtAfd} {afd.navnFor(valgtAfd) !== String(valgtAfd) ? afd.navnFor(valgtAfd) : ""}. Total i
-        kundetabellen er unikke aktive kunder i perioden. Klik på et tal eller en kategori for at se hvilke virksomheder det består af.
+        Omsætning, dækningsbidrag, kunder, nye kunder og solgte maskiner pr. hel måned —{" "}
+        {afd.afdelingFilter == null
+          ? `Målepunkter vises for afdeling 11 ${afd.navnFor(11)}.`
+          : `afdeling ${valgtAfd} ${afd.navnFor(valgtAfd)}.`}{" "}
+        Total i kundetabellen er unikke aktive kunder i perioden. Klik på et tal eller en kategori for at se hvilke virksomheder det består af.
       </p>
 
 
