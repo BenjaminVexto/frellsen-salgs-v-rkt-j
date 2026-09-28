@@ -156,7 +156,7 @@ function PortfolioPage() {
   // Sælgervælgeren må kun bruges af admin og brugere med maa_se_analyse —
   // og aldrig under "Se som sælger", hvor kun den viste sælgers egne tal må vises.
   const maaVaelgeSaelger =
-    (isAdmin || auth.maaSeAnalyse || auth.role === "salgssupport") && !isImpersonating;
+    (isAdmin || auth.role === "salgssupport") && !isImpersonating;
   const maalepunkterSaelgerId = isImpersonating
     ? (viewAsUserId ?? "")
     : maaVaelgeSaelger
