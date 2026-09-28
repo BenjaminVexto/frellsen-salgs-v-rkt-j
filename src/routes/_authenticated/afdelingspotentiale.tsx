@@ -267,7 +267,7 @@ function HorisontalMersalg() {
         }
         return true;
       }),
-    [rows, seller, minPot, visUdenTal, ansvarlig, aabneOpp, aabneAntal],
+    [rows, seller, minPot, visUdenTal, ansvarlig, aabneOpp, aabneAntal, afdelingFilter],
   );
 
   async function exportCsv() {
