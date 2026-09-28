@@ -211,6 +211,13 @@
       "when": 1790626690677,
       "tag": "0029_import_log_overvaagning",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790626959098,
+      "tag": "0030_import_log_afviste_seneste_data",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,8 @@ export type ImportStatusRow = {
   ok_at: string | null;
   ok_navn: string | null;
   ok_fil: string | null;
+  ok_afviste: number | null;
+  seneste_data: string | null;
   fejl_at: string | null;
   fejl_tekst: string | null;
 };
@@ -73,7 +75,8 @@ export function ImportStatusLinjer({
     </Link>
   );
   if (!row) return null;
-  const gammel = row.ok_at && Date.now() - new Date(row.ok_at).getTime() > MAX_ALDER_DAGE[type] * DAG;
+  const basis = row.ok_at ?? row.seneste_data;
+  const gammel = basis && Date.now() - new Date(basis).getTime() > MAX_ALDER_DAGE[type] * DAG;
   const fejlNyere = row.fejl_at && (!row.ok_at || new Date(row.fejl_at) > new Date(row.ok_at));
   return (
     <div className="text-xs space-y-0.5">
@@ -82,10 +85,13 @@ export function ImportStatusLinjer({
             <>
               ✓ Seneste import: {fmtDato(row.ok_at)} kl. {fmtTid(row.ok_at)}
               {row.ok_navn ? ` · ${row.ok_navn}` : ""}
+              {row.ok_afviste ? ` · ${row.ok_afviste.toLocaleString("da-DK")} rækker afvist` : ""}
             </>,
             gammel ? "text-warning font-medium" : "text-muted-foreground",
           )
-        : link("Ikke importeret endnu", "text-muted-foreground")}
+        : row.seneste_data
+          ? link(<>Seneste data: {fmtDato(row.seneste_data)}</>, gammel ? "text-warning font-medium" : "text-muted-foreground")
+          : link("Ikke importeret endnu", "text-muted-foreground")}
       {type === "faktura" && refDato &&
         link(<>Fakturaer til og med {fmtRefDato(refDato)}</>, "text-muted-foreground")}
       {fejlNyere &&

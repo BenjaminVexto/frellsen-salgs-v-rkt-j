@@ -15,6 +15,8 @@ export async function logImport(
   status: "ok" | "fejl",
   filename: string | null | undefined,
   fejl?: string | null,
+  afviste = 0,
+  afvisteDetaljer?: unknown[] | null,
 ) {
   try {
     await (supabase as any).rpc("log_import", {
@@ -22,6 +24,8 @@ export async function logImport(
       _status: status,
       _filename: filename ?? null,
       _fejl: fejl ?? null,
+      _afviste: afviste,
+      _afviste_detaljer: afvisteDetaljer && afvisteDetaljer.length ? afvisteDetaljer : null,
     });
   } catch (e) {
     console.error("[import-log]", e);
