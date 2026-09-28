@@ -1096,7 +1096,7 @@ function Pill({
   prior,
   hint,
 }: {
-  color: "success" | "warning" | "destructive";
+  color: "success" | "warning" | "destructive" | "muted";
   label: string;
   n: number;
   prior?: number;
@@ -1107,6 +1107,8 @@ function Pill({
       ? "bg-success/15 text-success"
       : color === "warning"
       ? "bg-warning/20 text-warning-foreground"
+      : color === "muted"
+      ? "bg-muted text-foreground"
       : "bg-destructive/15 text-destructive";
   const delta = typeof prior === "number" ? n - prior : null;
   const deltaUp = delta !== null && delta > 0;
