@@ -1459,7 +1459,7 @@ function ScatterPlot({ points }: { points: ScatterPoint[] }) {
   if (!points.length) {
     return (
       <Card className="p-6 text-center text-sm text-muted-foreground">
-        Ingen datapunkter at vise — kræver aktive privatkunder med medarbejdertal.
+        Ingen datapunkter at vise — kræver aktive øvrige kunder med medarbejdertal.
       </Card>
     );
   }
