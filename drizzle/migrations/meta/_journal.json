@@ -260,6 +260,13 @@
       "when": 1790628445616,
       "tag": "0036_en_regel_interne_kunder",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790628544470,
+      "tag": "0037_afdelingspotentiale_segmentregler",
+      "breakpoints": true
     }
   ]
 }
