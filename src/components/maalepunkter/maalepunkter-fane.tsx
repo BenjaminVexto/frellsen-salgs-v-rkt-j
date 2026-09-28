@@ -538,44 +538,44 @@ export function MaalepunkterFane({
     ) as number[];
     const domaene = indeks ? yDomaene([...alleTal, 100]) : yDomaene(alleTal);
 
+    const erKr = visKey === "omsaetning" || visKey === "db";
+    const n = maaneder.length;
+    const totalSnit = n ? maaneder.reduce((a, m) => a + (tot.get(m) ?? 0), 0) / n : 0;
+    const visTrend = n >= 4 && !(visKey === "nye" && totalSnit < 5);
+
     const aendringer = synlige.map((s) => {
-      if (periodeTotal) {
-        // Periodens total pr. serie + ændring vs. samme periode sidste år.
-        const total = maaneder.reduce((sum, m) => sum + (s.per.get(m) ?? 0), 0);
-        const ly = periodeTotal.ly ? (periodeTotal.ly.get(s.navn) ?? 0) : null;
-        if (ly == null) {
-          return {
-            navn: s.navn,
-            farve: s.farve,
-            tekst: `${s.navn}: ${fmtTal(total, dec)} i perioden`,
-          };
-        }
-        const diff = total - ly;
-        const pct = ly ? (diff / Math.abs(ly)) * 100 : null;
-        const fortegn = diff > 0 ? "+" : diff < 0 ? "−" : "";
-        return {
-          navn: s.navn,
-          farve: s.farve,
-          tekst: `${s.navn}: ${fmtTal(total, dec)} i perioden (${fortegn}${fmtTal(
-            Math.abs(diff),
-            dec,
-          )}${pct == null ? "" : ` · ${fortegn}${fmtTal(Math.abs(pct), 1)} %`} vs. samme periode sidste år)`,
-        };
-      }
-      // Ændring fra første til sidste måned i perioden, én pr. serie.
-      const foerste = s.per.get(maaneder[0]) ?? 0;
-      const sidste = s.per.get(maaneder[maaneder.length - 1]) ?? 0;
-      const diff = sidste - foerste;
-      const pct = foerste ? (diff / Math.abs(foerste)) * 100 : null;
-      const fortegn = diff > 0 ? "+" : diff < 0 ? "−" : "";
-      return {
-        navn: s.navn,
-        farve: s.farve,
-        tekst: `${s.navn}: ${fmtTal(foerste, dec)} → ${fmtTal(sidste, dec)} (${fortegn}${fmtTal(Math.abs(diff), dec)}${
-          pct == null ? "" : ` · ${fortegn}${fmtTal(Math.abs(pct), 1)} %`
-        })`,
-      };
+      const ys = maaneder.map((m) => s.per.get(m) ?? 0);
+      const snit = n ? ys.reduce((a, b) => a + b, 0) / n : 0;
+      const beloeb = erKr ? fmtKrKort(snit) : fmtTal(snit, snit < 10 ? 1 : 0);
+      const start = erKr
+        ? `Du sælger i snit for ${beloeb} om måneden ${s.navn === "Total" ? "i alt" : `til ${s.navn.toLowerCase()}`}.`
+        : `I snit ${beloeb} om måneden ${s.navn === "Total" ? "i alt" : `for ${s.navn.toLowerCase()}`}.`;
+      if (!visTrend) return { navn: s.navn, farve: s.farve, tekst: start, tendens: null };
+      const { haeldning } = regression(ys);
+      const rel = snit ? (haeldning * (n - 1)) / Math.abs(snit) : 0;
+      const tendens =
+        Math.abs(rel) < 0.05
+          ? { ord: "stabil →", farve: "hsl(var(--muted-foreground))" }
+          : rel > 0
+            ? rel <= 0.15
+              ? { ord: "svagt stigende ↗", farve: "hsl(var(--foreground))" }
+              : { ord: "stigende ↗", farve: "hsl(142 60% 35%)" }
+            : rel >= -0.15
+              ? { ord: "svagt faldende ↘", farve: "hsl(var(--foreground))" }
+              : { ord: "faldende ↘", farve: "hsl(28 90% 45%)" };
+      return { navn: s.navn, farve: s.farve, tekst: start, tendens };
     });
+
+    // Trendlinjer beregnet på de plottede værdier (ingen ændring af dataserierne).
+    if (visTrend) {
+      synlige.forEach((s) => {
+        const ys = grafData.map((p) => (typeof p[s.navn] === "number" ? p[s.navn] : 0));
+        const { haeldning, skaering } = regression(ys);
+        grafData.forEach((p, i) => (p[`__trend_${s.navn}`] = skaering + haeldning * i));
+      });
+    }
+    const ticks = paeneTicks(domaene[0], domaene[1]);
+    void periodeTotal;
 
     return (
       <Card className="p-4 space-y-3 border-2 shadow-sm">
