@@ -176,6 +176,13 @@
       "when": 1790625083952,
       "tag": "0024_kundestatus_central",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790625141517,
+      "tag": "0025_kundestatus_visma_koebsdato",
+      "breakpoints": true
     }
   ]
 }
