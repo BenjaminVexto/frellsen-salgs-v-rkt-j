@@ -1,3 +1,4 @@
+import { logImport } from "@/lib/import-log";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
@@ -1699,6 +1700,9 @@ function ImportSide() {
         : `Færdig: ${companyIds.length.toLocaleString("da-DK")} virksomheder${relinkSuffix}${statusSuffix}`,
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
+    if (!wasAborted) {
+      void logImport("aktoer", failed > 0 ? "fejl" : "ok", file?.name, failed > 0 ? `${failed.toLocaleString("da-DK")} rækker fejlede` : null);
+    }
     if (wasAborted) toast.warning(`Import stoppet — ${companyIds.length.toLocaleString("da-DK")} virksomheder importeret før afbrydelse`);
     else if (failed > 0) toast.error(`Import afsluttet med fejl (${failed.toLocaleString("da-DK")})`);
     else if (recomputeRows !== null)

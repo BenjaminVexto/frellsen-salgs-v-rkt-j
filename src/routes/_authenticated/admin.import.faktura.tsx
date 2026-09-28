@@ -1,3 +1,4 @@
+import { logImport } from "@/lib/import-log";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -187,6 +188,7 @@ function FakturaImportSide() {
           dateFrom: stats.dateFrom,
           dateTo: stats.dateTo,
           afdelinger: Object.keys(stats.rowsByAfdeling).map((k) => Number(k)),
+          filename: file?.name ?? null,
         },
       });
 
@@ -198,6 +200,7 @@ function FakturaImportSide() {
 
     } catch (e: any) {
       toast.error(e?.message ?? "Ukendt fejl");
+      void logImport("faktura", "fejl", file?.name, e?.message ?? "Ukendt fejl");
       setStage("");
     } finally {
       setWorking(false);

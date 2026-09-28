@@ -4,6 +4,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { ArrowRight, Cog, Database, FileSpreadsheet, FileText, Loader2, Receipt, Search, Tag } from "lucide-react";
 import { toast } from "sonner";
+import { ImportStatusLinjer, useImportStatus, useSenesteFakturadato, type ImportStatusRow } from "@/components/import-status";
+import type { ImportType } from "@/lib/import-log";
+
+const TYPE_FOR: Partial<Record<Valg["to"], ImportType>> = {
+  "/admin/import/visma": "aktoer",
+  "/admin/import/faktura": "faktura",
+  "/admin/import/maskiner": "maskiner",
+  "/admin/import/prismatrix": "prismatrix",
+};
 
 export const Route = createFileRoute("/_authenticated/admin/import/")({
   component: ImportValgSide,
@@ -95,6 +104,8 @@ const OEVRIGE_VALG: Valg[] = [
 function ImportValgSide() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const status = useImportStatus(auth.role === "admin");
+  const ref = useSenesteFakturadato();
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -125,7 +136,16 @@ function ImportValgSide() {
             {[...VISMA_VALG]
               .sort((a, b) => (a.raekkefoelge ?? 0) - (b.raekkefoelge ?? 0))
               .map((v) => (
-                <ValgKort key={v.to} valg={v} />
+                <div key={v.to} className="space-y-1.5">
+                  <ValgKort valg={v} />
+                  <div className="px-2">
+                    <ImportStatusLinjer
+                      type={TYPE_FOR[v.to]!}
+                      row={status.data?.find((r: ImportStatusRow) => r.import_type === TYPE_FOR[v.to])}
+                      refDato={ref.data}
+                    />
+                  </div>
+                </div>
               ))}
           </div>
         </section>

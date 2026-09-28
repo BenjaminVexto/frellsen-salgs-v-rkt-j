@@ -1546,6 +1546,39 @@ export type Database = {
         }
         Relationships: []
       }
+      import_log: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          fejl: string | null
+          filename: string | null
+          id: string
+          import_type: string
+          kilde_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          fejl?: string | null
+          filename?: string | null
+          id?: string
+          import_type: string
+          kilde_id?: string | null
+          status: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          fejl?: string | null
+          filename?: string | null
+          id?: string
+          import_type?: string
+          kilde_id?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       invoice_import_jobs: {
         Row: {
           aggregate_month_idx: number
@@ -3463,6 +3496,7 @@ export type Database = {
       }
     }
     Functions: {
+      _import_type_label: { Args: { _t: string }; Returns: string }
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
@@ -3706,6 +3740,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_status: {
+        Args: never
+        Returns: {
+          fejl_at: string
+          fejl_tekst: string
+          import_type: string
+          ok_at: string
+          ok_fil: string
+          ok_navn: string
+        }[]
+      }
       import_visma_product_master: { Args: { _data: Json }; Returns: Json }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_consumable_group: { Args: { _group: string }; Returns: boolean }
@@ -3757,6 +3802,15 @@ export type Database = {
           location_id: string
           revenue_12m: number
         }[]
+      }
+      log_import: {
+        Args: {
+          _fejl: string
+          _filename: string
+          _status: string
+          _type: string
+        }
+        Returns: undefined
       }
       maa_se_analyse: { Args: { _user_id: string }; Returns: boolean }
       maa_se_db: { Args: { _user_id: string }; Returns: boolean }

@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { format, isToday, parseISO, addDays } from "date-fns";
 import { da } from "date-fns/locale";
+import { FakturaImportAdvarsel } from "@/components/import-status";
 import { PersonalGreeting } from "@/components/sales/personal-greeting";
 import { MyMonthZone } from "@/components/sales/my-month-zone";
 import { ChurningCustomersCard } from "@/components/sales/churning-customers-card";
@@ -292,6 +293,7 @@ function DashboardPage() {
 
   return (
     <div className="px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
+      {auth.role === "admin" && !isImpersonating && <FakturaImportAdvarsel />}
       <PersonalGreeting firstName={auth.fullName ? auth.fullName.split(" ")[0] : null} followupsToday={todays.length} />
 
       {/* 1. DIN MÅNED — personlig for sælgere, team-bredt for admin/support */}

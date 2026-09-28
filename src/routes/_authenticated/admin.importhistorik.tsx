@@ -36,8 +36,15 @@ import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { IMPORT_TYPE_LABEL, type ImportType } from "@/lib/import-log";
+
+const IMPORT_TYPER = ["aktoer", "faktura", "maskiner", "prismatrix"] as const;
 
 export const Route = createFileRoute("/_authenticated/admin/importhistorik")({
+  validateSearch: (s: Record<string, unknown>): { type?: ImportType } =>
+    IMPORT_TYPER.includes(s.type as any) ? { type: s.type as ImportType } : {},
   component: ImporthistorikSide,
 });
 
@@ -78,6 +85,7 @@ function ImporthistorikSide() {
   const auth = useAuth();
   const navigate = useNavigate();
   const fetchBatches = useServerFn(listImportBatches);
+  const search = Route.useSearch();
   const [batches, setBatches] = useState<Batch[] | null>(null);
   const [selected, setSelected] = useState<Batch | null>(null);
 
@@ -137,6 +145,7 @@ function ImporthistorikSide() {
       <p className="text-sm text-muted-foreground mb-4">
         Oversigt over alle imports — virksomheder, maskindata og aftaler. Klik på en import for at se og slette.
       </p>
+      {search.type && <ImportLogListe type={search.type} />}
       <div className="mb-6 flex items-center gap-3 flex-wrap">
         <CvrEnrichmentQueueBadge />
         <RescanRelationSuggestionsButton />
@@ -634,5 +643,73 @@ function RescanRelationSuggestionsButton() {
       {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
       Scan bemærkninger for relations-forslag
     </Button>
+  );
+}
+
+function ImportLogListe({ type }: { type: ImportType }) {
+  const { data } = useQuery({
+    queryKey: ["import_log", type],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("import_log")
+        .select("id,status,filename,fejl,created_at,profiles:created_by(full_name)")
+        .eq("import_type", type)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) {
+        const r = await (supabase as any)
+          .from("import_log")
+          .select("id,status,filename,fejl,created_at")
+          .eq("import_type", type)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        return r.data ?? [];
+      }
+      return data ?? [];
+    },
+  });
+  return (
+    <Card className="mb-6 overflow-x-auto">
+      <div className="px-4 pt-4 flex items-center justify-between">
+        <h2 className="font-semibold">{IMPORT_TYPE_LABEL[type]} — seneste importer</h2>
+        <Link to="/admin/importhistorik" search={{}} className="text-xs text-muted-foreground hover:underline">
+          Fjern filter
+        </Link>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Tidspunkt</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Fil</TableHead>
+            <TableHead>Bruger</TableHead>
+            <TableHead>Fejl</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {(data ?? []).length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} className="text-sm text-muted-foreground">Ikke importeret endnu</TableCell>
+            </TableRow>
+          ) : (
+            (data ?? []).map((r: any) => (
+              <TableRow key={r.id}>
+                <TableCell className="whitespace-nowrap">
+                  {format(new Date(r.created_at), "d. MMM yyyy HH:mm", { locale: da })}
+                </TableCell>
+                <TableCell className={r.status === "fejl" ? "text-destructive" : ""}>
+                  {r.status === "ok" ? "✓ Gennemført" : "✕ Fejlede"}
+                </TableCell>
+                <TableCell>{r.filename ?? "–"}</TableCell>
+                <TableCell>{r.profiles?.full_name ?? "–"}</TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-xs truncate" title={r.fejl ?? ""}>
+                  {r.fejl ?? ""}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </Card>
   );
 }

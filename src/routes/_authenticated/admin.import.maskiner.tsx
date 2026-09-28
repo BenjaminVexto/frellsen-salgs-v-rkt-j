@@ -1,3 +1,4 @@
+import { logImport } from "@/lib/import-log";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
@@ -427,6 +428,7 @@ function MaskinerImportSide() {
       });
       setResult(res);
       toast.success("Maskin-import gennemført");
+      void logImport("maskiner", "ok", maskinFilnavne());
       // Genberegn has_active_equipment / customer_type så nye maskiner slår
       // igennem på status uden at vente på næste faktura-import.
       // Ikke-blokerende: en fejl må ikke skygge for selve importen.
@@ -443,9 +445,14 @@ function MaskinerImportSide() {
 
     } catch (e: any) {
       toast.error("Fejl: " + (e?.message ?? "ukendt fejl"));
+      void logImport("maskiner", "fejl", maskinFilnavne(), e?.message ?? "ukendt fejl");
     } finally {
       setBusy(false);
     }
+  }
+
+  function maskinFilnavne() {
+    return [machineState.file?.name, enrichState.file?.name, enrichUdenSnState.file?.name].filter(Boolean).join(", ") || null;
   }
 
   if (auth.loading || auth.role !== "admin") {

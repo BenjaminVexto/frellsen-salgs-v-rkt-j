@@ -1,3 +1,4 @@
+import { logImport } from "@/lib/import-log";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
@@ -317,11 +318,13 @@ function PrismatrixImportSide() {
         },
       });
       setResult(res);
+      void logImport("prismatrix", "ok", state.file?.name);
       toast.success(
         `Prismatrix-import gennemført: ${res.upserted} rækker (tabel: ${res.countBefore} → ${res.countAfter})`,
       );
     } catch (e: any) {
       toast.error("Fejl: " + (e?.message ?? "ukendt fejl"));
+      void logImport("prismatrix", "fejl", state.file?.name, e?.message ?? "ukendt fejl");
     } finally {
       setBusy(false);
     }
