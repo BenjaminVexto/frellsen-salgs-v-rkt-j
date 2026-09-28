@@ -53,7 +53,7 @@ export const CUSTOMER_STATUS_DEFS: Record<
     label: "Tidligere kunde",
     emoji: "📦",
     short: "intet køb i 12+ mdr.",
-    long: "Intet køb og ingen fakturering i over 12 måneder.",
+    long: "Intet køb og ingen fakturering inden for de seneste 12 måneder.",
   },
   nyt_emne: {
     label: "Nyt emne",
