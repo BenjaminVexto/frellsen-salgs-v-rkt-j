@@ -42,7 +42,7 @@ const FARVER_MAERKE = [
 /** Farve pr. rækkelabel — private og offentlige altid ens på tværs af grafer. */
 function raekkeFarve(label: string, i: number): string {
   const l = label.toLowerCase();
-  if (l.startsWith("privat")) return FARVE_PRIVAT;
+  if (l.startsWith("privat") || l.startsWith("øvrige")) return FARVE_PRIVAT;
   if (l.startsWith("offentlig")) return FARVE_OFFENTLIG;
   return FARVER_MAERKE[i % FARVER_MAERKE.length];
 }
