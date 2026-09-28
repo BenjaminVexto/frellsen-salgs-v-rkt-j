@@ -238,21 +238,11 @@ export function useCompanyFilter({
     })();
   }, [rows]);
 
-  // Sellers
+  // Sellers — via SECURITY DEFINER-funktion, så sælgere også kan se hinanden
   useEffect(() => {
     (async () => {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "saelger");
-      const ids = (roles ?? []).map((r) => r.user_id);
-      if (!ids.length) return;
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", ids)
-        .eq("is_active", true);
-      setSellers(profs ?? []);
+      const { data } = await (supabase as any).rpc("aktive_saelgere");
+      setSellers((data ?? []) as Seller[]);
     })();
   }, []);
 

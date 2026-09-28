@@ -3507,6 +3507,13 @@ export type Database = {
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
       addr_vej: { Args: { _addr: string }; Returns: string }
+      aktive_saelgere: {
+        Args: never
+        Returns: {
+          full_name: string
+          id: string
+        }[]
+      }
       analyse_filtre: {
         Args: { _afdeling_nr: number; _fra: string; _til: string }
         Returns: Json
