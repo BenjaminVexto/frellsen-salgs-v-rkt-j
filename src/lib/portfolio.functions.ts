@@ -567,10 +567,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       });
       return { aktive, sovende, servicekunder, paaVejVaek };
     };
-    void today;
     const statusNow = tael((c) => c.customer_type, (cid) => lastConsNow.get(cid), today);
     const statusPrior = tael(
-      (c) => statusFor(lastConsPrior.get(c.id), lastSalesPrior.get(c.id), c.has_active_equipment, refPrior),
+      (c) => statusFor(lastConsPrior.get(c.id), lastSalesPrior.get(c.id), c.has_active_equipment, evalPrior),
       (cid) => lastConsPrior.get(cid),
       evalPrior,
     );
