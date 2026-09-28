@@ -70,6 +70,7 @@ const CUSTOMER_TYPE_LABEL: Record<string, string> = {
   nyt_emne: "Nyt emne",
   aktiv_kunde: "Aktiv kunde",
   sovende_kunde: "Sovende kunde",
+  servicekunde: "Servicekunde",
   tidligere_kunde: "Tidligere kunde",
 };
 

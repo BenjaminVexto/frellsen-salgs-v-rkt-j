@@ -213,6 +213,7 @@ export function CompanyFilterPanel({
               options={[
                 { v: "aktiv_kunde", l: "Aktiv kunde" },
                 { v: "sovende_kunde", l: "Sovende kunde" },
+                { v: "servicekunde", l: "Servicekunde" },
                 { v: "tidligere_kunde", l: "Tidligere kunde" },
                 { v: "nyt_emne", l: "Nyt emne" },
               ]}

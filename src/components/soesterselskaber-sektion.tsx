@@ -124,6 +124,7 @@ export function SoesterselskaberSektion({
     const rank: Record<string, number> = {
       aktiv_kunde: 0,
       sovende_kunde: 1,
+      servicekunde: 1,
       tidligere_kunde: 2,
       nyt_emne: 3,
       ikke_tildelt: 4,

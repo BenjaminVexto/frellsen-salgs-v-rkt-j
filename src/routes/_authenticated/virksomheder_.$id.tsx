@@ -114,12 +114,14 @@ const customerTypeLabel: Record<string, string> = {
   nyt_emne: "Nyt emne",
   aktiv_kunde: "Aktiv kunde",
   sovende_kunde: "Sovende kunde",
+  servicekunde: "Servicekunde",
   tidligere_kunde: "Tidligere kunde",
 };
 const customerTypeVariant: Record<string, "default" | "secondary" | "outline"> = {
   nyt_emne: "outline",
   aktiv_kunde: "default",
   sovende_kunde: "secondary",
+  servicekunde: "secondary",
   tidligere_kunde: "secondary",
 };
 
