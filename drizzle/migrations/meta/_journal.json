@@ -246,6 +246,13 @@
       "when": 1790627975954,
       "tag": "0034_relink_sales_kundenummer_fallback",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790628123241,
+      "tag": "0035_saelgertal_adgang",
+      "breakpoints": true
     }
   ]
 }

@@ -3503,6 +3503,23 @@ export type Database = {
     }
     Functions: {
       _import_type_label: { Args: { _t: string }; Returns: string }
+      _maalepunkt_db_detaljer_raw: {
+        Args: {
+          _afdeling_nr?: number
+          _fra: string
+          _kategori: string
+          _maaned?: string
+          _saelger: string
+          _til: string
+        }
+        Returns: {
+          by: string
+          company_id: string
+          db: number
+          navn: string
+          omsaetning: number
+        }[]
+      }
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
@@ -3915,7 +3932,7 @@ export type Database = {
         Args: {
           _afdeling_nr?: number
           _fra: string
-          _kategori: string
+          _kategori?: string
           _maaned?: string
           _saelger: string
           _til: string
