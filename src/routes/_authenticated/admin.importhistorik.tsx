@@ -43,8 +43,10 @@ import { IMPORT_TYPE_LABEL, type ImportType } from "@/lib/import-log";
 const IMPORT_TYPER = ["aktoer", "faktura", "maskiner", "prismatrix"] as const;
 
 export const Route = createFileRoute("/_authenticated/admin/importhistorik")({
-  validateSearch: (s: Record<string, unknown>): { type?: ImportType } =>
-    IMPORT_TYPER.includes(s.type as any) ? { type: s.type as ImportType } : {},
+  validateSearch: (s: Record<string, unknown>): { type?: ImportType; vis?: "uden_kunde" } => ({
+    ...(IMPORT_TYPER.includes(s.type as any) ? { type: s.type as ImportType } : {}),
+    ...(s.vis === "uden_kunde" ? { vis: "uden_kunde" as const } : {}),
+  }),
   component: ImporthistorikSide,
 });
 
@@ -145,6 +147,7 @@ function ImporthistorikSide() {
       <p className="text-sm text-muted-foreground mb-4">
         Oversigt over alle imports — virksomheder, maskindata og aftaler. Klik på en import for at se og slette.
       </p>
+      {search.vis === "uden_kunde" && <UdenKundeListe />}
       {search.type && <ImportLogListe type={search.type} />}
       <div className="mb-6 flex items-center gap-3 flex-wrap">
         <CvrEnrichmentQueueBadge />
@@ -734,5 +737,56 @@ function AfvisteRaekker({ antal, detaljer }: { antal: number; detaljer: { kunden
         </ul>
       )}
     </details>
+  );
+}
+
+function UdenKundeListe() {
+  const { data } = useQuery({
+    queryKey: ["faktura_uden_kunde_linjer"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("faktura_uden_kunde_linjer");
+      if (error) throw error;
+      return (data ?? []) as { visma_delivery_no: string | null; afdeling_nr: number | null; kunde_navn: string | null; faktura_dato: string; beloeb: number }[];
+    },
+  });
+  const total = (data ?? []).reduce((a, r) => a + Number(r.beloeb ?? 0), 0);
+  return (
+    <Card className="mb-6 overflow-x-auto">
+      <div className="px-4 pt-4">
+        <h2 className="font-semibold">Fakturalinjer uden kunde</h2>
+        <p className="text-xs text-muted-foreground">
+          Leveringsnumre i fakturaerne, som ikke findes på nogen virksomhed i afdelingen.
+          {data && ` ${data.length.toLocaleString("da-DK")} linjer · ${Math.round(total).toLocaleString("da-DK")} kr.`}
+        </p>
+      </div>
+      {!data ? (
+        <div className="p-4 text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Indlæser…</div>
+      ) : (
+        <div className="max-h-[480px] overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Leveringsnr.</TableHead>
+                <TableHead>Afd.</TableHead>
+                <TableHead>Kundenavn (faktura)</TableHead>
+                <TableHead>Fakturadato</TableHead>
+                <TableHead className="text-right">Beløb</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((r, i) => (
+                <TableRow key={i}>
+                  <TableCell>{r.visma_delivery_no ?? "–"}</TableCell>
+                  <TableCell>{r.afdeling_nr ?? "–"}</TableCell>
+                  <TableCell>{r.kunde_navn ?? "–"}</TableCell>
+                  <TableCell className="whitespace-nowrap">{format(new Date(r.faktura_dato), "d. MMM yyyy", { locale: da })}</TableCell>
+                  <TableCell className="text-right tabular-nums">{Math.round(Number(r.beloeb ?? 0)).toLocaleString("da-DK")} kr.</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </Card>
   );
 }

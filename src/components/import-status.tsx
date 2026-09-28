@@ -92,8 +92,7 @@ export function ImportStatusLinjer({
         : row.seneste_data
           ? link(<>Seneste data: {fmtDato(row.seneste_data)}</>, gammel ? "text-warning font-medium" : "text-muted-foreground")
           : link("Ikke importeret endnu", "text-muted-foreground")}
-      {type === "faktura" && refDato &&
-        link(<>Fakturaer til og med {fmtRefDato(refDato)}</>, "text-muted-foreground")}
+      {type === "faktura" && refDato && <FakturaTilOgMed refDato={refDato} />}
       {fejlNyere &&
         link(
           <>
@@ -103,6 +102,31 @@ export function ImportStatusLinjer({
           "text-destructive",
         )}
     </div>
+  );
+}
+
+function FakturaTilOgMed({ refDato }: { refDato: string }) {
+  const { data } = useQuery({
+    queryKey: ["faktura_uden_kunde"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("faktura_uden_kunde");
+      if (error) throw error;
+      return (data?.[0] ?? null) as { antal: number; beloeb: number; seneste_beloeb: number } | null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const antal = Number(data?.antal ?? 0);
+  const orange = Number(data?.seneste_beloeb ?? 0) > 100000;
+  const kr = (n: number) => Math.round(n).toLocaleString("da-DK");
+  return (
+    <Link
+      to="/admin/importhistorik"
+      search={{ type: "faktura", vis: antal > 0 ? "uden_kunde" : undefined }}
+      className={`block hover:underline ${orange ? "text-warning font-medium" : "text-muted-foreground"}`}
+    >
+      Fakturaer til og med {fmtRefDato(refDato)}
+      {antal > 0 && ` · ${antal.toLocaleString("da-DK")} linjer uden kunde (${kr(Number(data!.beloeb))} kr.)`}
+    </Link>
   );
 }
 
