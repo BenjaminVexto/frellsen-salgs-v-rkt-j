@@ -233,9 +233,9 @@ export function MaalepunkterFane({
 
   // Skjulte serier pr. graf (klik på signaturen) — fx totalen der presser delserierne ned.
   const [skjulte, setSkjulte] = useState<Record<string, string[]>>({});
-  const skiftSerie = (visKey: string, serie: string) => {
+  const skiftSerie = (visKey: string, serie: string, standard: string[]) => {
     setSkjulte((p) => {
-      const cur = p[visKey] ?? [];
+      const cur = p[visKey] ?? standard;
       return {
         ...p,
         [visKey]: cur.includes(serie) ? cur.filter((s) => s !== serie) : [...cur, serie],
@@ -723,7 +723,7 @@ export function MaalepunkterFane({
                           ? "Klik for at vise serien"
                           : "Klik for at skjule serien"
                     }
-                    onClick={() => skiftSerie(visKey, s.navn)}
+                    onClick={() => skiftSerie(visKey, s.navn, rows.map((r) => r.label))}
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${
                       skjult
                         ? "border-dashed text-muted-foreground line-through"
