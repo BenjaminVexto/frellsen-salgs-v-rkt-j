@@ -364,8 +364,8 @@ export function MaalepunkterFane({
       m.set(key, (m.get(key) ?? 0) + Number(r.vaerdi || 0));
     });
     return [
-      { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
-      { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+      { label: "Øvrige kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [omsQ.data]);
 
@@ -380,8 +380,8 @@ export function MaalepunkterFane({
       m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
     });
     return [
-      { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
-      { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+      { label: "Øvrige kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [kunderQ.data]);
 
@@ -397,8 +397,8 @@ export function MaalepunkterFane({
       m.set(key, (m.get(key) ?? 0) + Number(r.vaerdi || 0));
     });
     return [
-      { label: "Private kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
-      { label: "Offentlige kunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+      { label: "Øvrige kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [dbQ.data]);
 
@@ -413,8 +413,8 @@ export function MaalepunkterFane({
       else if (r.kategori === "offentlig") offentlig += v;
     });
     return new Map<string, number>([
-      ["Private kunder", privat],
-      ["Offentlige kunder", offentlig],
+      ["Øvrige kunder", privat],
+      ["Offentlige udbud", offentlig],
       ["Total", privat + offentlig],
     ]);
   };
@@ -460,8 +460,8 @@ export function MaalepunkterFane({
       m.set(key, (m.get(key) ?? 0) + v);
     });
     return [
-      { label: "Private", per: map.get("privat") ?? new Map(), kategori: "privat" },
-      { label: "Offentlige", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+      { label: "Øvrige kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [nyeQ.data, nyeMaal]);
 
@@ -1073,8 +1073,8 @@ export function MaalepunkterFane({
               value={kundetype}
               onValueChange={(v) => v && setKundetype(v as Kundetype)}
             >
-              <ToggleGroupItem value="offentlig">Offentlige</ToggleGroupItem>
-              <ToggleGroupItem value="privat">Private</ToggleGroupItem>
+              <ToggleGroupItem value="offentlig">Offentlige udbud</ToggleGroupItem>
+              <ToggleGroupItem value="privat">Øvrige kunder</ToggleGroupItem>
               <ToggleGroupItem value="alle">Alle</ToggleGroupItem>
             </ToggleGroup>
           </div>

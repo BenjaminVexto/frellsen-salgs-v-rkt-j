@@ -287,14 +287,14 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
             checked={form.db_privat}
             onCheckedChange={(v) => setForm({ ...form, db_privat: v === true })}
           />
-          Private kunder
+          Øvrige kunder
         </label>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={form.db_offentlig}
             onCheckedChange={(v) => setForm({ ...form, db_offentlig: v === true })}
           />
-          Offentlige kunder
+          Offentlige udbud
         </label>
         {bundTop("db_bund", "db_top")}
       </div>
@@ -321,8 +321,8 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
         </div>
         {(
           [
-            ["maskin_privat", "Private kunder"],
-            ["maskin_offentlig", "Offentlige kunder"],
+            ["maskin_privat", "Øvrige kunder"],
+            ["maskin_offentlig", "Offentlige udbud"],
             ["maskin_salg", "Salg tæller med"],
             ["maskin_leje", "Leje/udlån tæller med"],
             ["maskin_brugt", "Brugte maskiner tæller med"],

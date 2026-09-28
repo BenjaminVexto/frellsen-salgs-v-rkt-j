@@ -410,7 +410,7 @@ function BonusPanel({
       key: "kategori",
       label: "Kundetype",
       val: (r) => r.kategori ?? "",
-      cell: (r) => (r.kategori === "offentlig" ? "Offentlig" : "Privat"),
+      cell: (r) => (r.kategori === "offentlig" ? "Offentlige udbud" : "Øvrige kunder"),
     },
     { key: "db", label: "DB", num: true, val: (r) => Number(r.db) || 0, cell: (r) => fmtTal(Number(r.db) || 0) },
     {
