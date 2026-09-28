@@ -652,14 +652,14 @@ function ImportLogListe({ type }: { type: ImportType }) {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("import_log")
-        .select("id,status,filename,fejl,created_at,profiles:created_by(full_name)")
+        .select("id,status,filename,fejl,created_at,afviste,afviste_detaljer,profiles:created_by(full_name)")
         .eq("import_type", type)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) {
         const r = await (supabase as any)
           .from("import_log")
-          .select("id,status,filename,fejl,created_at")
+          .select("id,status,filename,fejl,created_at,afviste,afviste_detaljer")
           .eq("import_type", type)
           .order("created_at", { ascending: false })
           .limit(50);
@@ -698,7 +698,10 @@ function ImportLogListe({ type }: { type: ImportType }) {
                   {format(new Date(r.created_at), "d. MMM yyyy HH:mm", { locale: da })}
                 </TableCell>
                 <TableCell className={r.status === "fejl" ? "text-destructive" : ""}>
-                  {r.status === "ok" ? "✓ Gennemført" : "✕ Fejlede"}
+                  {r.status === "fejl" ? "✕ Fejlede" : "✓ Gennemført"}
+                  {r.status === "ok" && r.afviste > 0 && (
+                    <AfvisteRaekker antal={r.afviste} detaljer={r.afviste_detaljer ?? []} />
+                  )}
                 </TableCell>
                 <TableCell>{r.filename ?? "–"}</TableCell>
                 <TableCell>{r.profiles?.full_name ?? "–"}</TableCell>
@@ -711,5 +714,25 @@ function ImportLogListe({ type }: { type: ImportType }) {
         </TableBody>
       </Table>
     </Card>
+  );
+}
+
+function AfvisteRaekker({ antal, detaljer }: { antal: number; detaljer: { kundenr: string | null; navn: string | null; aarsag: string }[] }) {
+  return (
+    <details className="mt-1 text-xs text-muted-foreground">
+      <summary className="cursor-pointer">{antal.toLocaleString("da-DK")} rækker afvist</summary>
+      {detaljer.length === 0 ? (
+        <p className="mt-1">Ingen detaljer gemt for denne import.</p>
+      ) : (
+        <ul className="mt-1 space-y-0.5 max-h-64 overflow-y-auto">
+          {detaljer.map((d, i) => (
+            <li key={i}>
+              {d.kundenr ?? "–"} · {d.navn ?? "ukendt"} — {d.aarsag}
+            </li>
+          ))}
+          {antal > detaljer.length && <li>+ {(antal - detaljer.length).toLocaleString("da-DK")} rækker uden detaljer</li>}
+        </ul>
+      )}
+    </details>
   );
 }
