@@ -71,6 +71,54 @@ function yDomaene(vaerdier: number[]): [number, number] {
   return [min, max];
 }
 
+/** Mindste kvadraters linje over indeks 0..n-1. */
+function regression(ys: number[]): { haeldning: number; skaering: number } {
+  const n = ys.length;
+  if (n < 2) return { haeldning: 0, skaering: ys[0] ?? 0 };
+  const mx = (n - 1) / 2;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0;
+  let den = 0;
+  ys.forEach((y, i) => {
+    num += (i - mx) * (y - my);
+    den += (i - mx) ** 2;
+  });
+  const haeldning = den ? num / den : 0;
+  return { haeldning, skaering: my - haeldning * mx };
+}
+
+/** Runde tick-værdier (1/2/2,5/5 × 10^k) der dækker [min, max]. */
+function paeneTicks(min: number, max: number): number[] {
+  const span = max - min || 1;
+  const raa = span / 5;
+  const p = Math.pow(10, Math.floor(Math.log10(raa)));
+  const step = [1, 2, 2.5, 5, 10].map((f) => f * p).find((s) => s >= raa) ?? 10 * p;
+  const start = Math.floor(min / step) * step;
+  const out: number[] = [];
+  for (let v = start; v < max + step - 1e-9 && out.length < 12; v += step) {
+    out.push(Number(v.toFixed(6)));
+  }
+  return out;
+}
+
+const fmtN = (n: number, dec: number) =>
+  n.toLocaleString("da-DK", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+
+/** "500k", "1 mio.", "1,5 mio." */
+function fmtKort(v: number): string {
+  const a = Math.abs(v);
+  if (a >= 1e6) return `${fmtN(v / 1e6, Number.isInteger(v / 1e6) ? 0 : 1)} mio.`;
+  if (a >= 1000) return `${fmtN(v / 1000, Number.isInteger(v / 1000) ? 0 : 1)}k`;
+  return fmtN(v, Number.isInteger(v) ? 0 : 1);
+}
+
+/** Beløb pr. måned: mio. med 1 decimal, ellers hele tusinder. */
+function fmtKrKort(v: number): string {
+  if (Math.abs(v) >= 1e6) return `${fmtN(v / 1e6, 1)} mio. kr.`;
+  if (Math.abs(v) >= 1000) return `${fmtN(Math.round(v / 1000) * 1000, 0)} kr.`;
+  return `${fmtN(v, 0)} kr.`;
+}
+
 
 
 // --- måneds-hjælpere ("YYYY-MM") ---
@@ -513,7 +561,8 @@ export function MaalepunkterFane({
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
     const visning = visninger[visKey] ?? "tabel";
-    const skjultListe = skjulte[visKey] ?? [];
+    // Standard: kun Total vist; delserier slås til i signaturen.
+    const skjultListe = skjulte[visKey] ?? rows.map((r) => r.label);
     const serier = [
       ...rows.map((r, i) => ({ navn: r.label, farve: raekkeFarve(r.label, i), per: r.per })),
       { navn: "Total", farve: FARVE_TOTAL, per: tot },
@@ -615,10 +664,16 @@ export function MaalepunkterFane({
           </div>
         ) : visning !== "tabel" ? (
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
+            <div className="flex flex-col gap-0.5 text-xs font-medium">
               {aendringer.map((a) => (
                 <span key={a.navn} style={{ color: a.farve }}>
                   {a.tekst}
+                  {a.tendens && (
+                    <>
+                      {" "}Tendensen er{" "}
+                      <span style={{ color: a.tendens.farve }}>{a.tendens.ord}</span>
+                    </>
+                  )}
                 </span>
               ))}
             </div>
@@ -674,9 +729,10 @@ export function MaalepunkterFane({
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="maaned" tick={{ fontSize: 11 }} />
                   <YAxis
-                    domain={domaene}
+                    domain={[ticks[0], ticks[ticks.length - 1]]}
+                    ticks={ticks}
                     tick={{ fontSize: 11 }}
-                    tickFormatter={(v) => fmtTal(Number(v), indeks ? 0 : 0)}
+                    tickFormatter={(v) => fmtKort(Number(v))}
                   />
                   <Tooltip
                     formatter={(v) =>
@@ -691,6 +747,22 @@ export function MaalepunkterFane({
                       label={{ value: "100", position: "right", fontSize: 11 }}
                     />
                   )}
+                  {visTrend &&
+                    synlige.map((s) => (
+                      <Line
+                        key={`trend-${s.navn}`}
+                        type="linear"
+                        dataKey={`__trend_${s.navn}`}
+                        stroke={s.farve}
+                        strokeOpacity={0.4}
+                        strokeWidth={1}
+                        dot={false}
+                        activeDot={false}
+                        tooltipType="none"
+                        legendType="none"
+                        isAnimationActive={false}
+                      />
+                    ))}
                   {synlige.map((s) => (
                     <Line
                       key={s.navn}
@@ -698,7 +770,6 @@ export function MaalepunkterFane({
                       dataKey={s.navn}
                       stroke={s.farve}
                       strokeWidth={2}
-                      strokeDasharray={s.navn === "Total" ? "5 4" : undefined}
                       dot={{ r: 2.5 }}
                       activeDot={{ r: 4 }}
                       connectNulls={false}
