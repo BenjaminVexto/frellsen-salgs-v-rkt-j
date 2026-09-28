@@ -108,6 +108,7 @@ export type PortfolioPayload = {
   statusCounts: {
     aktive: number;
     sovende: number;
+    servicekunder: number;
     paaVejVaek: number;
     total: number;
   };
@@ -116,6 +117,7 @@ export type PortfolioPayload = {
   statusCountsPrior: {
     aktive: number;
     sovende: number;
+    servicekunder: number;
     paaVejVaek: number;
   };
   monthLabels: { period: string; label: string }[]; // last 5
@@ -310,8 +312,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           contribution12m: isAdmin ? 0 : null,
         },
 
-        statusCounts: { aktive: 0, sovende: 0, paaVejVaek: 0, total: 0 },
-        statusCountsPrior: { aktive: 0, sovende: 0, paaVejVaek: 0 },
+        statusCounts: { aktive: 0, sovende: 0, servicekunder: 0, paaVejVaek: 0, total: 0 },
+        statusCountsPrior: { aktive: 0, sovende: 0, servicekunder: 0, paaVejVaek: 0 },
         monthLabels,
         companies: [],
         rankings: emptyRankings,
@@ -534,59 +536,46 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     });
 
     // --- Status counts (nu) + deterministisk prior-snapshot (30 dage siden) ---
-    type StatusBuckets = { aktive: number; sovende: number; paaVejVaek: number };
-    const countStatuses = (
-      getLastSales: (cid: string) => string | undefined,
-      getLastCons: (cid: string) => string | undefined,
-      cutoff12: Date,
-      cutoff24: Date,
-      evalDate: Date,
-    ): StatusBuckets => {
-      let aktive = 0;
-      let sovende = 0;
-      let paaVejVaek = 0;
-      for (let i = 0; i < companies.length; i++) {
-        const c = companies[i];
-        const meta = (compsMeta as any[])[i];
-        const lastSalesPeriod = getLastSales(c.id);
-        const lastSalesEffective = lastSalesPeriod
-          ? periodToDate(lastSalesPeriod)
-          : parseDate(meta.last_sales_date ?? null);
-        const effective: Date | null = lastSalesEffective;
-        const type = deriveCustomerType(effective, c.has_active_equipment, cutoff12, cutoff24);
+    type StatusBuckets = { aktive: number; sovende: number; servicekunder: number; paaVejVaek: number };
+    // Samme regel som public.kundestatus() i databasen (bruges kun til prior-snapshot).
+    const statusFor = (lastCons: string | undefined, lastAny: string | undefined, hasEq: boolean, refMonth: Date) => {
+      const mdrSiden = (p: string) => {
+        const d = periodToDate(p);
+        return (refMonth.getUTCFullYear() - d.getUTCFullYear()) * 12 + (refMonth.getUTCMonth() - d.getUTCMonth());
+      };
+      if (lastCons && mdrSiden(lastCons) <= 2) return "aktiv_kunde";
+      if (lastCons && mdrSiden(lastCons) <= 11) return "sovende_kunde";
+      if (hasEq && lastAny && mdrSiden(lastAny) <= 11) return "servicekunde";
+      return "tidligere_kunde";
+    };
+    const tael = (getType: (c: PortfolioCompanyRow, i: number) => string | null, getLastCons: (cid: string) => string | undefined, evalDate: Date): StatusBuckets => {
+      let aktive = 0, sovende = 0, servicekunder = 0, paaVejVaek = 0;
+      companies.forEach((c, i) => {
+        const type = getType(c, i);
         if (type === "aktiv_kunde") aktive++;
         else if (type === "sovende_kunde") sovende++;
-
+        else if (type === "servicekunde") servicekunder++;
+        // "På vej væk" er et separat trendsignal, ikke en status.
         if (type === "aktiv_kunde" && c.has_active_equipment && !c.supplied_via_id) {
           const lastConsPeriod = getLastCons(c.id);
-          const lastConsDate = lastConsPeriod
-            ? periodToDate(lastConsPeriod)
-            : parseDate(c.last_consumable_sales_date);
-          const daysSince = lastConsDate
-            ? Math.floor((evalDate.getTime() - lastConsDate.getTime()) / 86400000)
-            : Infinity;
+          const lastConsDate = lastConsPeriod ? periodToDate(lastConsPeriod) : parseDate(c.last_consumable_sales_date);
+          const daysSince = lastConsDate ? Math.floor((evalDate.getTime() - lastConsDate.getTime()) / 86400000) : Infinity;
           if (daysSince > 60) paaVejVaek++;
         }
-      }
-      return { aktive, sovende, paaVejVaek };
+      });
+      return { aktive, sovende, servicekunder, paaVejVaek };
     };
-
-    const statusNow = countStatuses(
-      (cid) => lastSalesNow.get(cid),
-      (cid) => lastConsNow.get(cid),
-      cutoff12Now,
-      cutoff24Now,
-      today,
-    );
-    const statusPrior = countStatuses(
-      (cid) => lastSalesPrior.get(cid),
+    const refPrior = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 2, 1));
+    const statusNow = tael((c) => c.customer_type, (cid) => lastConsNow.get(cid), today);
+    const statusPrior = tael(
+      (c) => statusFor(lastConsPrior.get(c.id), lastSalesPrior.get(c.id), c.has_active_equipment, refPrior),
       (cid) => lastConsPrior.get(cid),
-      cutoff12Prior,
-      cutoff24Prior,
       evalPrior,
     );
+    void cutoff12Now; void cutoff12Prior; void cutoff24Prior;
     const aktive = statusNow.aktive;
     const sovende = statusNow.sovende;
+    const servicekunder = statusNow.servicekunder;
     const paaVejVaek = statusNow.paaVejVaek;
 
     // --- Rankings ---
