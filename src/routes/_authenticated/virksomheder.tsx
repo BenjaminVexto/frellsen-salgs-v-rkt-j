@@ -254,7 +254,6 @@ function VirksomhederListe() {
           onQChange={setQ}
           filtersOpen={filtersOpen}
           setFiltersOpen={setFiltersOpen}
-          isFilterActive={isFilterActive}
           isFilterActive={false}
           onReset={() => setFilters(baseFilters)}
           showFilterButton={false}
