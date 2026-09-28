@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const auth = useAuth();
+  const { afdelingFilter } = useAfdeling();
   const { effectiveUserId, isImpersonating, viewAsName } = useViewAs();
   const userId = effectiveUserId ?? auth.user?.id;
 
@@ -64,16 +66,17 @@ function DashboardPage() {
 
   const followupsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-followups", userId, isAdmin],
+    queryKey: ["dashboard-followups", userId, isAdmin, afdelingFilter],
     queryFn: async () => {
       let q = supabase
         .from("contact_list_assignments")
         .select(
-          "id, status, priority, next_followup_date, next_action_note, assigned_to, company:companies(id, name, city)"
+          "id, status, priority, next_followup_date, next_action_note, assigned_to, company:companies!inner(id, name, city, afdeling_nr)"
         )
         .not("next_followup_date", "is", null)
         .order("next_followup_date", { ascending: true });
       if (!isAdmin) q = q.eq("assigned_to", userId!);
+      if (afdelingFilter != null) q = q.eq("company.afdeling_nr", afdelingFilter);
       const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
@@ -82,16 +85,17 @@ function DashboardPage() {
 
   const hotOppsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-hot-opps", userId, isAdmin],
+    queryKey: ["dashboard-hot-opps", userId, isAdmin, afdelingFilter],
     queryFn: async () => {
       let q = supabase
         .from("sales_opportunities")
         .select(
-          "id, name, status, estimated_value, next_followup_date, company:companies(id, name)"
+          "id, name, status, estimated_value, next_followup_date, company:companies!inner(id, name, afdeling_nr)"
         )
         .in("status", ["tilbud_sendt", "møde_demo"])
         .order("next_followup_date", { ascending: true, nullsFirst: false });
       if (!isAdmin) q = q.eq("assigned_to", userId!);
+      if (afdelingFilter != null) q = q.eq("company.afdeling_nr", afdelingFilter);
       const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
@@ -100,13 +104,14 @@ function DashboardPage() {
 
   const listsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-lists", userId, isAdmin],
+    queryKey: ["dashboard-lists", userId, isAdmin, afdelingFilter],
     queryFn: async () => {
       // hent unikke kontaktlister via assignments (team-bredt for admin/support)
       let q = supabase
         .from("contact_list_assignments")
-        .select("contact_list_id, status, contact_list:contact_lists(id, name, is_active)");
+        .select("contact_list_id, status, contact_list:contact_lists(id, name, is_active), company:companies!inner(afdeling_nr)");
       if (!isAdmin) q = q.eq("assigned_to", userId!);
+      if (afdelingFilter != null) q = q.eq("company.afdeling_nr", afdelingFilter);
       const { data: assignments, error } = await q;
       if (error) throw error;
 
@@ -136,7 +141,7 @@ function DashboardPage() {
 
   const expiringDocsQuery = useQuery({
     enabled: !!userId,
-    queryKey: ["dashboard-expiring-agreements", userId, isAdmin],
+    queryKey: ["dashboard-expiring-agreements", userId, isAdmin, afdelingFilter],
     queryFn: async () => {
       const in90 = new Date();
       in90.setDate(in90.getDate() + 90);
@@ -212,22 +217,26 @@ function DashboardPage() {
           String(a.contract_expires_at).localeCompare(String(b.contract_expires_at)),
         );
       } else {
-        const docsQ = supabase
+        let docsQ = supabase
           .from("company_documents")
-          .select("id, filename, document_type, expires_at, company_id, companies(id, name, city)")
+          .select("id, filename, document_type, expires_at, company_id, companies!inner(id, name, city, afdeling_nr)")
           .not("expires_at", "is", null)
           .gte("expires_at", today)
           .lte("expires_at", to)
           .order("expires_at", { ascending: true });
-        const compQ = supabase
+        let compQ = supabase
           .from("competitor_assignments")
           .select(
-            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies(id, name, city)",
+            "id, contract_expires_at, company_id, competitor_id, competitors(name), companies!inner(id, name, city, afdeling_nr)",
           )
           .not("contract_expires_at", "is", null)
           .gte("contract_expires_at", today)
           .lte("contract_expires_at", to)
           .order("contract_expires_at", { ascending: true });
+        if (afdelingFilter != null) {
+          docsQ = docsQ.eq("companies.afdeling_nr", afdelingFilter);
+          compQ = compQ.eq("companies.afdeling_nr", afdelingFilter);
+        }
         const [docsRes, compRes] = await Promise.all([docsQ, compQ]);
         if (docsRes.error) throw docsRes.error;
         if (compRes.error) throw compRes.error;

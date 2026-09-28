@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -108,18 +109,21 @@ const daysUntil = (date: string | null) => {
 
 function PipelinePage() {
   const { user, role, loading: authLoading } = useAuth();
+  const { afdelingFilter } = useAfdeling();
   const [items, setItems] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Opportunity | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    let q = supabase
       .from("sales_opportunities")
       .select(
-        "id,name,company_id,opportunity_type,estimated_value,expected_close_date,status,probability,next_action,next_followup_date,assigned_to,companies(name)",
+        "id,name,company_id,opportunity_type,estimated_value,expected_close_date,status,probability,next_action,next_followup_date,assigned_to,companies!inner(name,afdeling_nr)",
       )
       .order("updated_at", { ascending: false });
+    if (afdelingFilter != null) q = q.eq("companies.afdeling_nr", afdelingFilter);
+    const { data, error } = await q;
     if (error) {
       toast.error("Kunne ikke hente salgsmuligheder");
       setLoading(false);
@@ -146,7 +150,7 @@ function PipelinePage() {
 
   useEffect(() => {
     if (!authLoading && user) load();
-  }, [authLoading, user]);
+  }, [authLoading, user, afdelingFilter]);
 
   const stats = useMemo(() => {
     const open = items.filter(
