@@ -1252,7 +1252,7 @@ function DetaljePanel({
     cell: (r: any) => React.ReactNode;
   };
 
-  const kolonner: Kol[] = useMemo(() => {
+  const alleKolonner: Kol[] = useMemo(() => {
     if (drill?.slags === "db")
       return [
         { key: "navn", label: "Virksomhed", val: (r) => r.navn ?? "", cell: (r) => navn(r) },
@@ -1340,6 +1340,11 @@ function DetaljePanel({
       },
     ];
   }, [drill?.slags]);
+  // DB leveres kun til admin fra serveren — skjul kolonnen, når den er tom.
+  const kolonner = useMemo(
+    () => (rows.length > 0 && rows.every((r: any) => r.db == null) ? alleKolonner.filter((k) => k.key !== "db") : alleKolonner),
+    [alleKolonner, rows],
+  );
 
   const sorter = <T,>(liste: T[]): T[] => {
     if (!sortKey) return liste;
