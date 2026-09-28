@@ -203,7 +203,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         .from("user_roles").select("role").eq("user_id", userId).eq("role", "salgssupport").maybeSingle();
       erSalgssupport = !!ss;
     }
-    if (isAdmin || maaSeAnalyse || erSalgssupport) {
+    if (isAdmin || erSalgssupport) {
       // Rolle-/profil-rækker for andre brugere er ikke læsbare for ikke-admins
       // via RLS, så listen hentes server-side — begrænset til sælgere i
       // brugerens egne afdelinger (my_afdelinger()).
