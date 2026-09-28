@@ -232,6 +232,13 @@
       "when": 1790627567694,
       "tag": "0032_salg_uden_kunde",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790627786759,
+      "tag": "0033_aktive_saelgere",
+      "breakpoints": true
     }
   ]
 }

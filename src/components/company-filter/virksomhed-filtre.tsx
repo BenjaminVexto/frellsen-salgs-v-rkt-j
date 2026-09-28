@@ -169,12 +169,12 @@ export function FilterLinje({
   );
 }
 
-export function Hurtigvalg({ setFilters, base }: { setFilters: SetF; base: FilterState }) {
-  const valg: { l: string; f: Partial<FilterState> }[] = [
-    { l: "Mine sovende", f: { saelger: "mine", customerTypes: ["sovende_kunde"] } },
-    { l: "Mine servicekunder", f: { saelger: "mine", customerTypes: ["servicekunde"] } },
-    { l: "Mine nye emner", f: { saelger: "mine", customerTypes: ["nyt_emne"] } },
-    { l: "Uden sælger", f: { saelger: "ikke_tildelt" } },
+export function Hurtigvalg({ setFilters }: { setFilters: SetF; base?: FilterState }) {
+  const valg: { l: string; set: (f: FilterState) => FilterState }[] = [
+    { l: "Sovende", set: (f) => ({ ...f, customerTypes: ["sovende_kunde"] }) },
+    { l: "Servicekunder", set: (f) => ({ ...f, customerTypes: ["servicekunde"] }) },
+    { l: "Nye emner", set: (f) => ({ ...f, customerTypes: ["nyt_emne"] }) },
+    { l: "Uden sælger", set: (f) => ({ ...f, saelger: "ikke_tildelt", customerTypes: [] }) },
   ];
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -183,7 +183,7 @@ export function Hurtigvalg({ setFilters, base }: { setFilters: SetF; base: Filte
         <button
           key={v.l}
           type="button"
-          onClick={() => setFilters({ ...base, ...v.f })}
+          onClick={() => setFilters((f) => v.set(f))}
           className="rounded-full border px-2.5 py-1 hover:bg-muted"
         >
           {v.l}
