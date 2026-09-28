@@ -148,6 +148,13 @@
       "when": 1790623460415,
       "tag": "0020_maalepunkt_valgt_afdeling",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790623842166,
+      "tag": "0021_authenticated_statement_timeout_20s",
+      "breakpoints": true
     }
   ]
 }
