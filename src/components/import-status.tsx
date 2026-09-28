@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import type { ImportType } from "@/lib/import-log";
+import { useAfdeling } from "@/contexts/afdeling-context";
 
 export type ImportStatusRow = {
   import_type: ImportType;
@@ -106,27 +107,36 @@ export function ImportStatusLinjer({
 }
 
 function FakturaTilOgMed({ refDato }: { refDato: string }) {
+  const { afdelingFilter } = useAfdeling();
   const { data } = useQuery({
-    queryKey: ["faktura_uden_kunde"],
+    queryKey: ["salg_uden_kunde", afdelingFilter],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("faktura_uden_kunde");
+      const { data, error } = await (supabase as any).rpc("salg_uden_kunde", { _afd: afdelingFilter ?? null });
       if (error) throw error;
-      return (data?.[0] ?? null) as { antal: number; beloeb: number; seneste_beloeb: number } | null;
+      return (data?.[0] ?? null) as { ikke_kunde_antal: number; ikke_kunde_beloeb: number; kunde_antal: number; kunde_beloeb: number } | null;
     },
     staleTime: 5 * 60 * 1000,
   });
-  const antal = Number(data?.antal ?? 0);
-  const orange = Number(data?.seneste_beloeb ?? 0) > 100000;
-  const kr = (n: number) => Math.round(n).toLocaleString("da-DK");
+  const kr = (n: number) => Math.round(Number(n)).toLocaleString("da-DK");
+  const ikke = Number(data?.ikke_kunde_antal ?? 0);
+  const kunde = Number(data?.kunde_antal ?? 0);
+  const til = (hvad: "ikke" | "kunde") => ({ type: "faktura" as const, vis: "uden_kunde" as const, hvad });
   return (
-    <Link
-      to="/admin/importhistorik"
-      search={{ type: "faktura", vis: antal > 0 ? "uden_kunde" : undefined }}
-      className={`block hover:underline ${orange ? "text-warning font-medium" : "text-muted-foreground"}`}
-    >
-      Fakturaer til og med {fmtRefDato(refDato)}
-      {antal > 0 && ` · ${antal.toLocaleString("da-DK")} linjer uden kunde (${kr(Number(data!.beloeb))} kr.)`}
-    </Link>
+    <>
+      <Link to="/admin/importhistorik" search={{ type: "faktura" }} className="block hover:underline text-muted-foreground">
+        Fakturaer til og med {fmtRefDato(refDato)}
+      </Link>
+      {ikke > 0 && (
+        <Link to="/admin/importhistorik" search={til("ikke")} className="block hover:underline text-muted-foreground">
+          {ikke.toLocaleString("da-DK")} leveringsnr. findes ikke som kunde ({kr(data!.ikke_kunde_beloeb)} kr.)
+        </Link>
+      )}
+      {kunde > 0 && (
+        <Link to="/admin/importhistorik" search={til("kunde")} className="block hover:underline text-warning font-medium">
+          {kunde.toLocaleString("da-DK")} leveringsnr. findes som kunde, men salget er ikke koblet ({kr(data!.kunde_beloeb)} kr.)
+        </Link>
+      )}
+    </>
   );
 }
 

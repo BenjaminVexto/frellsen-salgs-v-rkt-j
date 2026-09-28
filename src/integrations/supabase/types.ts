@@ -4189,6 +4189,29 @@ export type Database = {
           saeson_indeks: number
         }[]
       }
+      salg_uden_kunde: {
+        Args: { _afd?: number }
+        Returns: {
+          ikke_kunde_antal: number
+          ikke_kunde_beloeb: number
+          kunde_antal: number
+          kunde_beloeb: number
+        }[]
+      }
+      salg_uden_kunde_liste: {
+        Args: { _afd?: number }
+        Returns: {
+          afdeling_nr: number
+          beloeb: number
+          findes_som_kunde: boolean
+          foerste: string
+          kunde_afdeling: number
+          kunde_navn: string
+          kunde_navn_crm: string
+          seneste: string
+          visma_delivery_no: string
+        }[]
+      }
       sektorfordeling: {
         Args: { _afdeling_nr?: number; _fra: string; _til: string }
         Returns: {
