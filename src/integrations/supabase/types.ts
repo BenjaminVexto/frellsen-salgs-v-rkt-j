@@ -4184,6 +4184,7 @@ export type Database = {
         | "nyt_emne"
         | "aktiv_kunde"
         | "sovende_kunde"
+        | "servicekunde"
         | "tidligere_kunde"
       institution_type:
         | "børnehave"
@@ -4379,6 +4380,7 @@ export const Constants = {
         "nyt_emne",
         "aktiv_kunde",
         "sovende_kunde",
+        "servicekunde",
         "tidligere_kunde",
       ],
       institution_type: [

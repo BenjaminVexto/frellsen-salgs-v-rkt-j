@@ -162,6 +162,13 @@
       "when": 1790624497501,
       "tag": "0022_kundekategori_udbud_oevrige",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790625031238,
+      "tag": "0023_customer_type_servicekunde",
+      "breakpoints": true
     }
   ]
 }
