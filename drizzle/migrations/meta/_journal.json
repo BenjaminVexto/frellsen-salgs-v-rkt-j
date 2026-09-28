@@ -253,6 +253,13 @@
       "when": 1790628123241,
       "tag": "0035_saelgertal_adgang",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790628445616,
+      "tag": "0036_en_regel_interne_kunder",
+      "breakpoints": true
     }
   ]
 }
