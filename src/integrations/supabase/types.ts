@@ -3729,6 +3729,15 @@ export type Database = {
         }
         Returns: string
       }
+      kundestatus: {
+        Args: {
+          _has_eq: boolean
+          _last_any: string
+          _last_cons: string
+          _ref?: string
+        }
+        Returns: Database["public"]["Enums"]["customer_type"]
+      }
       kundetype: { Args: { _segment_3: string }; Returns: string }
       location_sales_summary: {
         Args: { _location_ids: string[] }

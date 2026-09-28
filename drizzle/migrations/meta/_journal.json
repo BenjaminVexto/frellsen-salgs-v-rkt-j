@@ -169,6 +169,13 @@
       "when": 1790625031238,
       "tag": "0023_customer_type_servicekunde",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790625083952,
+      "tag": "0024_kundestatus_central",
+      "breakpoints": true
     }
   ]
 }
