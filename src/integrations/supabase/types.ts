@@ -3742,13 +3742,35 @@ export type Database = {
       maa_se_analyse: { Args: { _user_id: string }; Returns: boolean }
       maa_se_db: { Args: { _user_id: string }; Returns: boolean }
       maalepunkt_adgang: { Args: { _saelger: string }; Returns: boolean }
-      maalepunkt_afdelinger: { Args: { _saelger: string }; Returns: number[] }
+      maalepunkt_afdelinger:
+        | { Args: { _saelger: string }; Returns: number[] }
+        | {
+            Args: { _afdeling_nr: number; _saelger: string }
+            Returns: number[]
+          }
       maalepunkt_aktive_kunder: {
-        Args: { _fra: string; _saelger: string; _til: string }
+        Args: {
+          _afdeling_nr?: number
+          _fra: string
+          _saelger: string
+          _til: string
+        }
         Returns: {
           antal: number
           kategori: string
           maaned: string
+        }[]
+      }
+      maalepunkt_aktive_kunder_unikke: {
+        Args: {
+          _afdeling_nr?: number
+          _fra: string
+          _saelger: string
+          _til: string
+        }
+        Returns: {
+          antal: number
+          kategori: string
         }[]
       }
       maalepunkt_datadaekning: {
@@ -3769,6 +3791,7 @@ export type Database = {
           }
         | {
             Args: {
+              _afdeling_nr?: number
               _fra: string
               _kun_forbrug: boolean
               _saelger: string
@@ -3782,6 +3805,7 @@ export type Database = {
           }
       maalepunkt_db_detaljer: {
         Args: {
+          _afdeling_nr?: number
           _fra: string
           _kategori: string
           _maaned?: string
@@ -3813,6 +3837,7 @@ export type Database = {
           }
         | {
             Args: {
+              _afdeling_nr?: number
               _fra: string
               _kundetype?: string
               _saelger: string
@@ -3827,6 +3852,7 @@ export type Database = {
           }
       maalepunkt_maskiner_detaljer: {
         Args: {
+          _afdeling_nr?: number
           _brugt?: boolean
           _fra: string
           _kundetype?: string
@@ -3847,7 +3873,12 @@ export type Database = {
         }[]
       }
       maalepunkt_nye_kunder: {
-        Args: { _fra: string; _saelger: string; _til: string }
+        Args: {
+          _afdeling_nr?: number
+          _fra: string
+          _saelger: string
+          _til: string
+        }
         Returns: {
           antal: number
           db: number
@@ -3857,6 +3888,7 @@ export type Database = {
       }
       maalepunkt_nye_kunder_detaljer: {
         Args: {
+          _afdeling_nr?: number
           _fra: string
           _kategori: string
           _maaned?: string
@@ -3891,6 +3923,7 @@ export type Database = {
           }
         | {
             Args: {
+              _afdeling_nr?: number
               _fra: string
               _kun_forbrug: boolean
               _saelger: string
