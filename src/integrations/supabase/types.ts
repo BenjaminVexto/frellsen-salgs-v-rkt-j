@@ -3813,17 +3813,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      kunde_sektor: {
-        Args: {
-          _binding_status: string
-          _institution_type: Database["public"]["Enums"]["institution_type"]
-          _is_public: boolean
-          _main_branch_code: string
-          _name: string
-          _segment1: string
-        }
-        Returns: string
-      }
       kundestatus: {
         Args: {
           _has_eq: boolean
