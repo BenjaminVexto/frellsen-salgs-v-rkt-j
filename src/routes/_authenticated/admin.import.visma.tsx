@@ -1134,6 +1134,27 @@ function ImportSide() {
       await yieldUI();
     }
 
+    // 1b) CRM-emner uden Visma-kundenummer, nøglet på afdeling|CVR.
+    //     Findes præcis ét emne med samme CVR og afdeling, overtager den første
+    //     (laveste kundenr.) nye debitor emnet i stedet for at oprette en ny virksomhed.
+    //     Flere emner → opret som i dag; parret vises i dubletlisten.
+    const emnerByCvr = new Map<string, any[]>();
+    {
+      const { data: emner } = await supabase
+        .from("companies")
+        .select("*")
+        .is("visma_id", null)
+        .not("cvr", "is", null);
+      (emner ?? []).forEach((r: any) => {
+        const c = String(r.cvr ?? "").replace(/\D/g, "");
+        if (!c) return;
+        const k = `${r.afdeling_nr ?? ""}|${c}`;
+        emnerByCvr.set(k, [...(emnerByCvr.get(k) ?? []), r]);
+      });
+    }
+    const emneBrugt = new Set<string>();
+    let emnerKoblet = 0;
+
     // 2) Hjælper: merge eksisterende + incoming så vi ikke overskriver felter
     //    med tomme værdier.
     const buildMerged = (existing: any, incoming: Record<string, any>) => {
@@ -1227,6 +1248,29 @@ function ImportSide() {
           });
           return;
         }
+        // Ny debitor: overtag et entydigt CRM-emne med samme CVR + afdeling
+        const cvrNorm = String(p.cvr ?? "").replace(/\D/g, "");
+        if (cvrNorm) {
+          const ek = `${p.afdelingNr ?? ""}|${cvrNorm}`;
+          const kandidater = emnerByCvr.get(ek) ?? [];
+          if (kandidater.length === 1 && !emneBrugt.has(ek)) {
+            emneBrugt.add(ek);
+            emnerKoblet++;
+            const emne = kandidater[0];
+            const merged = buildMerged(emne, incoming);
+            merged.visma_id = incoming.visma_id;
+            jobs.push({
+              kind: "update_id",
+              id: emne.id,
+              payload: merged,
+              sellerId: g.sellerId,
+              key: g.key,
+              isNewCompany: true,
+              isEnrich: false,
+            });
+            return;
+          }
+        }
         // Ny virksomhed med nøgle
         jobs.push({
           kind: "insert_new",
@@ -1273,7 +1317,12 @@ function ImportSide() {
       });
     };
 
-    for (const g of groupsByKey.values()) classifyGroup(g);
+    // Laveste kundenr. først, så "første debitor" med et CVR er den der overtager emnet.
+    const sorteredeGrupper = Array.from(groupsByKey.values()).sort((a, b) =>
+      String(a.mainRow.data.visma_id ?? "").localeCompare(String(b.mainRow.data.visma_id ?? ""), "da", { numeric: true }),
+    );
+    for (const g of sorteredeGrupper) classifyGroup(g);
+    if (emnerKoblet > 0) toast.info(`${emnerKoblet} CRM-emne(r) koblet til ny Visma-debitor på CVR.`);
     for (const g of ungrouped) classifyGroup(g);
 
     const inserts = jobs.filter((j) => j.kind === "insert_new") as Extract<Job, { kind: "insert_new" }>[];
