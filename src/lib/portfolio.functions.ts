@@ -565,9 +565,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           if (daysSince > 60) paaVejVaek++;
         }
       });
-    void 0;
+      return { aktive, sovende, servicekunder, paaVejVaek };
     };
-    const refPrior = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 2, 1));
+    void today;
     const statusNow = tael((c) => c.customer_type, (cid) => lastConsNow.get(cid), today);
     const statusPrior = tael(
       (c) => statusFor(lastConsPrior.get(c.id), lastSalesPrior.get(c.id), c.has_active_equipment, refPrior),
