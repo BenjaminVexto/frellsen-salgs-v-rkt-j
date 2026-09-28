@@ -638,7 +638,84 @@ export function AnalyseFane({
         Opgjort efter bogføringsafdeling. Kunder der er flyttet mellem afdelinger, har deres
         historik i den afdeling, hvor fakturaen blev bogført.
       </p>
+
+      <Sektorfordeling fra={firstDay(fra)} til={lastDay(til)} afdelingNr={afdelingNr} maaSeDb={maaSeDb} />
     </div>
+  );
+}
+
+const SEGMENT_NAVN: Record<string, string> = {
+  "40": "40 · Offentlige udbudskunder",
+  "45": "45 · Offentlige aftalekunder",
+  "35": "35 · Indkøbsforeninger",
+  "30": "30 · Koncern og kædeaftaler",
+  "50": "50 · Grossister og videresalg",
+  "25": "25 · Firmakunder",
+  "20": "20 · HoReCa",
+  "15": "15 · Kantinefirmaer",
+  "10": "10 · Personaleforeninger m.m.",
+  "5": "5 · Interne",
+  uden: "Uden kundesegment 3",
+};
+const SEGMENT_ORDEN = ["40", "45", "35", "30", "25", "20", "15", "10", "uden"];
+
+function Sektorfordeling({ fra, til, afdelingNr, maaSeDb }: { fra: string; til: string; afdelingNr: number | null; maaSeDb: boolean }) {
+  const q = useQuery({
+    queryKey: ["sektorfordeling", fra, til, afdelingNr],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("sektorfordeling", { _fra: fra, _til: til, _afdeling_nr: afdelingNr });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { segment: string; antal_kunder: number; omsaetning: number; db: number | null }[];
+    },
+  });
+  const rows = useMemo(() => {
+    const m = new Map((q.data ?? []).map((r) => [r.segment, r]));
+    const faste = SEGMENT_ORDEN.map((s) => m.get(s) ?? { segment: s, antal_kunder: 0, omsaetning: 0, db: 0 });
+    const andre = (q.data ?? []).filter((r) => !SEGMENT_ORDEN.includes(r.segment) && r.segment !== "5");
+    return [...faste, ...andre];
+  }, [q.data]);
+  const tot = rows.reduce((a, r) => ({ o: a.o + Number(r.omsaetning), d: a.d + Number(r.db ?? 0), k: a.k + Number(r.antal_kunder) }), { o: 0, d: 0, k: 0 });
+  return (
+    <Card className="p-4">
+      <h3 className="text-sm font-semibold">Sektorfordeling pr. kundesegment 3</h3>
+      <p className="text-xs text-muted-foreground mb-3">Alle varegrupper i den valgte periode og afdeling. Interne kunder (5) er udeladt.</p>
+      {q.isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="text-xs text-muted-foreground">
+            <tr className="border-b border-border">
+              <th className="text-left py-1">Kundesegment 3</th>
+              <th className="text-right">Kunder</th>
+              <th className="text-right">Omsætning</th>
+              <th className="text-right">Andel</th>
+              {maaSeDb && <th className="text-right">DB</th>}
+              {maaSeDb && <th className="text-right">DG</th>}
+            </tr>
+          </thead>
+          <tbody className="tabular-nums">
+            {rows.map((r) => (
+              <tr key={r.segment} className="border-b border-border/50">
+                <td className="py-1">{SEGMENT_NAVN[r.segment] ?? r.segment}</td>
+                <td className="text-right">{Number(r.antal_kunder).toLocaleString("da-DK")}</td>
+                <td className="text-right">{fmtKr(Number(r.omsaetning))}</td>
+                <td className="text-right">{tot.o ? `${((Number(r.omsaetning) / tot.o) * 100).toFixed(1).replace(".", ",")} %` : "—"}</td>
+                {maaSeDb && <td className="text-right">{fmtKr(Number(r.db ?? 0))}</td>}
+                {maaSeDb && <td className="text-right">{Number(r.omsaetning) ? `${Math.round((Number(r.db ?? 0) / Number(r.omsaetning)) * 100)} %` : "—"}</td>}
+              </tr>
+            ))}
+            <tr className="font-semibold">
+              <td className="py-1">Total</td>
+              <td className="text-right">{tot.k.toLocaleString("da-DK")}</td>
+              <td className="text-right">{fmtKr(tot.o)}</td>
+              <td className="text-right">100 %</td>
+              {maaSeDb && <td className="text-right">{fmtKr(tot.d)}</td>}
+              {maaSeDb && <td className="text-right">{tot.o ? `${Math.round((tot.d / tot.o) * 100)} %` : "—"}</td>}
+            </tr>
+          </tbody>
+        </table>
+      )}
+    </Card>
   );
 }
 

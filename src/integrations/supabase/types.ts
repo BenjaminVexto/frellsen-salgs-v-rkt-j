@@ -3997,6 +3997,15 @@ export type Database = {
         Args: { _afdeling_nr?: number; _saelger?: string }
         Returns: Json
       }
+      portfolio_db_ytd: {
+        Args: { _afdeling_nr?: number; _saelger?: string }
+        Returns: {
+          contribution_ytd: number
+          fra: string
+          revenue_ytd: number
+          til: string
+        }[]
+      }
       portfolio_totaler: {
         Args: { _afdeling_nr?: number; _saelger?: string }
         Returns: {
@@ -4077,6 +4086,15 @@ export type Database = {
           maaneder_i_grundlag: number
           product_group_1: string
           saeson_indeks: number
+        }[]
+      }
+      sektorfordeling: {
+        Args: { _afdeling_nr?: number; _fra: string; _til: string }
+        Returns: {
+          antal_kunder: number
+          db: number
+          omsaetning: number
+          segment: string
         }[]
       }
       send_quote: {

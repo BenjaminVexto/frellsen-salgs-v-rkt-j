@@ -155,6 +155,13 @@
       "when": 1790623842166,
       "tag": "0021_authenticated_statement_timeout_20s",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790624497501,
+      "tag": "0022_kundekategori_udbud_oevrige",
+      "breakpoints": true
     }
   ]
 }
