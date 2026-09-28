@@ -3,6 +3,7 @@ import { PenhedDaekning, hentPenhedDaekning } from "@/components/penhed-daekning
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
@@ -167,6 +168,7 @@ type PenhedRow = {
 
 function HorisontalMersalg() {
   const { profiles, map: profileMap } = useProfiles();
+  const { afdelingFilter } = useAfdeling();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<MersalgRow[]>([]);
   const [seller, setSeller] = useState<string>("__all");
@@ -253,6 +255,7 @@ function HorisontalMersalg() {
   const filtered = useMemo(
     () =>
       rows.filter((r) => {
+        if (afdelingFilter != null && r.afdeling_nr !== afdelingFilter) return false;
         if (r.ansatte_ikke_daekket == null) {
           if (!visUdenTal) return false;
         } else if (r.ansatte_ikke_daekket < minPot) return false;
@@ -264,7 +267,7 @@ function HorisontalMersalg() {
         }
         return true;
       }),
-    [rows, seller, minPot, visUdenTal, ansvarlig, aabneOpp, aabneAntal],
+    [rows, seller, minPot, visUdenTal, ansvarlig, aabneOpp, aabneAntal, afdelingFilter],
   );
 
   async function exportCsv() {

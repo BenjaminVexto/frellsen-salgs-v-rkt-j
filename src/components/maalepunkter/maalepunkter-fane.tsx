@@ -250,13 +250,15 @@ export function MaalepunkterFane({
   /** NULL = alle kunder i brugerens afdelinger, også kunder uden tildelt sælger. */
   const rpcSaelger = alleSaelgere ? null : saelgerId;
   /** Nøgle til react-query, så "alle" ikke blandes med en tom sælger. */
-  const qNoegle = alleSaelgere ? "alle" : saelgerId;
+  /** Den valgte afdeling i sidemenuen ("Alle" → afdeling 11, hvor målepunkter findes). */
+  const valgtAfd = afd.afdelingFilter ?? 11;
+  const qNoegle = `${alleSaelgere ? "alle" : saelgerId}|${valgtAfd}`;
   const harValg = alleSaelgere || !!saelgerId;
-  const args = { _saelger: rpcSaelger, _fra: firstDay(fra), _til: firstDay(til) };
+  const args = { _saelger: rpcSaelger, _fra: firstDay(fra), _til: firstDay(til), _afdeling_nr: valgtAfd };
   /** Samme periode året før — bruges til sammenligningen over grafen. */
   const fraLY = addM(fra, -12);
   const tilLY = addM(til, -12);
-  const argsLY = { _saelger: rpcSaelger, _fra: firstDay(fraLY), _til: firstDay(tilLY) };
+  const argsLY = { _saelger: rpcSaelger, _fra: firstDay(fraLY), _til: firstDay(tilLY), _afdeling_nr: valgtAfd };
 
   type Beloeb = { maaned: string; kategori: string; vaerdi: number }[];
   const hentBeloeb = async (fn: string, a: Record<string, unknown>, kunForbrug: boolean) => {
@@ -296,6 +298,19 @@ export function MaalepunkterFane({
       const { data, error } = await (supabase as any).rpc("maalepunkt_aktive_kunder", args);
       if (error) throw new Error(error.message);
       return (data ?? []) as { maaned: string; kategori: string; antal: number }[];
+    },
+  });
+
+  /** Unikke aktive kunder i hele perioden — Total-kolonnen i kundetabellen. */
+  const kunderUnikkeQ = useQuery({
+    queryKey: ["maalepunkt-aktive-kunder-unikke", qNoegle, fra, til],
+    enabled: harValg,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_aktive_kunder_unikke", args);
+      if (error) throw new Error(error.message);
+      const m = new Map<string, number>();
+      ((data ?? []) as { kategori: string; antal: number }[]).forEach((r) => m.set(r.kategori, Number(r.antal || 0)));
+      return m;
     },
   });
 
@@ -537,6 +552,7 @@ export function MaalepunkterFane({
     hoved,
     fodnote,
     periodeTotal,
+    totaler,
   }: {
     nummer: number;
     titel: string;
@@ -557,6 +573,8 @@ export function MaalepunkterFane({
      * første→sidste måned. `ly` = samme periode sidste år, null hvis ikke dækket.
      */
     periodeTotal?: { ly: Map<string, number> | null };
+    /** Overstyrer Total-kolonnen (fx unikke kunder i stedet for sum af måneder). */
+    totaler?: { rows: (number | undefined)[]; total: number | undefined };
   }) => {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
@@ -818,7 +836,7 @@ export function MaalepunkterFane({
                       </td>
                     ))}
                     <td className="text-right py-1.5 pl-3 font-semibold">
-                      {fmtTal(rowTotal(r.per), dec)}
+                      {fmtTal(totaler ? (totaler.rows[i] ?? 0) : rowTotal(r.per), dec)}
                     </td>
                   </tr>
                 ))}
@@ -829,7 +847,7 @@ export function MaalepunkterFane({
                       {fmtTal(tot.get(m) ?? 0, dec)}
                     </td>
                   ))}
-                  <td className="text-right py-1.5 pl-3">{fmtTal(rowTotal(tot), dec)}</td>
+                  <td className="text-right py-1.5 pl-3">{fmtTal(totaler ? (totaler.total ?? 0) : rowTotal(tot), dec)}</td>
                 </tr>
               </tbody>
             </table>
@@ -844,8 +862,9 @@ export function MaalepunkterFane({
   return (
     <div className="space-y-4 max-w-full">
       <p className="text-sm text-muted-foreground">
-        Omsætning, dækningsbidrag, kunder, nye kunder og solgte maskiner pr. hel måned — afdeling
-        11. Klik på et tal eller en kategori for at se hvilke virksomheder det består af.
+        Omsætning, dækningsbidrag, kunder, nye kunder og solgte maskiner pr. hel måned — afdeling{" "}
+        {valgtAfd} {afd.navnFor(valgtAfd) !== String(valgtAfd) ? afd.navnFor(valgtAfd) : ""}. Total i
+        kundetabellen er unikke aktive kunder i perioden. Klik på et tal eller en kategori for at se hvilke virksomheder det består af.
       </p>
 
 
@@ -962,6 +981,14 @@ export function MaalepunkterFane({
         titel="Antal kunder pr. måned (aktive kunder)"
         visKey="kunder"
         rows={kunderTabel}
+        totaler={
+          kunderUnikkeQ.data
+            ? {
+                rows: [kunderUnikkeQ.data.get("privat") ?? 0, kunderUnikkeQ.data.get("offentlig") ?? 0],
+                total: (kunderUnikkeQ.data.get("privat") ?? 0) + (kunderUnikkeQ.data.get("offentlig") ?? 0),
+              }
+            : undefined
+        }
         dec={0}
         loading={kunderQ.isLoading}
         error={kunderQ.error ? (kunderQ.error as Error).message : null}
@@ -1063,6 +1090,7 @@ export function MaalepunkterFane({
       <DetaljePanel
         drill={drill}
         saelgerId={rpcSaelger}
+        afdelingNr={valgtAfd}
         fra={fra}
         til={til}
         kundetype={kundetype}
@@ -1076,6 +1104,7 @@ export function MaalepunkterFane({
 function DetaljePanel({
   drill,
   saelgerId,
+  afdelingNr,
   fra,
   til,
   kundetype,
@@ -1083,18 +1112,20 @@ function DetaljePanel({
 }: {
   drill: Drill | null;
   saelgerId: string | null;
+  afdelingNr: number;
   fra: string;
   til: string;
   kundetype: Kundetype;
   onClose: () => void;
 }) {
   const q = useQuery({
-    queryKey: ["maalepunkt-detaljer", saelgerId, fra, til, kundetype, drill],
+    queryKey: ["maalepunkt-detaljer", saelgerId, afdelingNr, fra, til, kundetype, drill],
     enabled: !!drill,
     queryFn: async () => {
       const d = drill!;
       const base = {
         _saelger: saelgerId,
+        _afdeling_nr: afdelingNr,
         _fra: d.maaned ? firstDay(d.maaned) : firstDay(fra),
         _til: d.maaned ? firstDay(d.maaned) : firstDay(til),
       };
