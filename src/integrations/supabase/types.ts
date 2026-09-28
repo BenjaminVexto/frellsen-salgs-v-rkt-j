@@ -1548,6 +1548,8 @@ export type Database = {
       }
       import_log: {
         Row: {
+          afviste: number
+          afviste_detaljer: Json | null
           created_at: string
           created_by: string | null
           fejl: string | null
@@ -1558,6 +1560,8 @@ export type Database = {
           status: string
         }
         Insert: {
+          afviste?: number
+          afviste_detaljer?: Json | null
           created_at?: string
           created_by?: string | null
           fejl?: string | null
@@ -1568,6 +1572,8 @@ export type Database = {
           status: string
         }
         Update: {
+          afviste?: number
+          afviste_detaljer?: Json | null
           created_at?: string
           created_by?: string | null
           fejl?: string | null
@@ -3746,9 +3752,11 @@ export type Database = {
           fejl_at: string
           fejl_tekst: string
           import_type: string
+          ok_afviste: number
           ok_at: string
           ok_fil: string
           ok_navn: string
+          seneste_data: string
         }[]
       }
       import_visma_product_master: { Args: { _data: Json }; Returns: Json }
@@ -3805,6 +3813,8 @@ export type Database = {
       }
       log_import: {
         Args: {
+          _afviste?: number
+          _afviste_detaljer?: Json
           _fejl: string
           _filename: string
           _status: string
