@@ -60,6 +60,10 @@ export type FilterState = {
   employeeRanges: string[];
   binding: "all" | "udbud" | "offentlig_aftale" | "andre";
   visAfloeste: boolean;
+  /** "alle" | "mine" | "ikke_tildelt" | <bruger-id> */
+  saelger: string;
+  /** Matcher by, kommune og postnummer */
+  omraade: string;
 };
 
 export const DEFAULT_FILTERS: FilterState = {
@@ -77,6 +81,8 @@ export const DEFAULT_FILTERS: FilterState = {
   employeeRanges: [],
   binding: "all",
   visAfloeste: false,
+  saelger: "alle",
+  omraade: "",
 };
 
 export function normalizeFilterConfig(input: any): FilterState {
@@ -105,6 +111,8 @@ export function isFilterActive(f: FilterState): boolean {
     f.lastPurchase.length > 0 ||
     f.employeeRanges.length > 0 ||
     f.binding !== "all" ||
-    f.visAfloeste
+    f.visAfloeste ||
+    f.saelger !== "alle" ||
+    f.omraade.trim() !== ""
   );
 }
