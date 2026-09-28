@@ -85,7 +85,7 @@ function PortfolioPage() {
   // Filters
   const [search, setSearch] = useState("");
   const [kaffeFilter, setKaffeFilter] = useState<"all" | "green" | "yellow" | "red" | "via">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "aktiv" | "sovende" | "paavejvaek">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "aktiv" | "sovende" | "service" | "paavejvaek">("all");
   const [sektorFilter, setSektorFilter] = useState<"all" | "privat" | "offentlig">("all");
   const [topN, setTopN] = useState<0 | 50 | 100 | 200>(0);
   useEffect(() => {
@@ -266,7 +266,7 @@ function PortfolioPage() {
     try {
       const { rows } = await hentKontakter({ data: { companyIds: sortedCompanies.map((c) => c.id) } });
       const km = new Map(rows.map((r) => [r.company_id, r]));
-      const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", paavejvaek: "På vej væk", andet: "Andet" };
+      const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", service: "Servicekunde", paavejvaek: "Aktiv (på vej væk)", andet: "Tidligere" };
       const sektorLabel: Record<string, string> = { privat: "Øvrige kunder", offentlig: "Offentlige udbud", intern: "Intern" };
       const data = [...sortedCompanies].sort((a, b) => a.rang - b.rang).map((c) => {
         const k = km.get(c.id);
@@ -375,9 +375,10 @@ function PortfolioPage() {
                     <span className="text-sm text-muted-foreground font-normal">kunder</span>
                   </div>
                   <div className="space-y-1 text-sm">
-                    <Pill color="success" label="aktive" n={data.statusCounts.aktive} prior={data.statusCountsPrior.aktive} hint="Købt inden for 12 mdr." />
-                    <Pill color="warning" label="sovende" n={data.statusCounts.sovende} prior={data.statusCountsPrior.sovende} hint="12–24 mdr. siden seneste køb." />
-                    <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} prior={data.statusCountsPrior.paaVejVaek} hint="Aktiv kunde med udstyr, men forbruget falder." />
+                    <Pill color="success" label="aktive" n={data.statusCounts.aktive} prior={data.statusCountsPrior.aktive} hint="Har købt kaffe eller andre forbrugsvarer inden for de seneste 3 måneder." />
+                    <Pill color="warning" label="sovende" n={data.statusCounts.sovende} prior={data.statusCountsPrior.sovende} hint="Har ikke købt forbrugsvarer i 3 måneder, men har købt inden for det seneste år. Tag kontakt." />
+                    <Pill color="muted" label="servicekunder" n={data.statusCounts.servicekunder} prior={data.statusCountsPrior.servicekunder} hint="Har vores maskine og betaler for service, men køber ikke kaffe hos os. Mulighed for mersalg." />
+                    <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} prior={data.statusCountsPrior.paaVejVaek} hint="Trendsignal, ikke en status: aktiv kunde med udstyr, men intet køb af forbrugsvarer i over 60 dage." />
                   </div>
                 </Card>
                 {visDb && (
@@ -434,6 +435,7 @@ function PortfolioPage() {
                     <SelectItem value="all">Status: alle</SelectItem>
                     <SelectItem value="aktiv">Aktiv</SelectItem>
                     <SelectItem value="sovende">Sovende</SelectItem>
+                    <SelectItem value="service">Servicekunde</SelectItem>
                     <SelectItem value="paavejvaek">På vej væk</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1210,6 +1212,7 @@ function StatusBadge({ type }: { type: string | null }) {
   const map: Record<string, { label: string; cls: string }> = {
     aktiv_kunde: { label: "aktiv", cls: "bg-success/15 text-success" },
     sovende_kunde: { label: "sovende", cls: "bg-warning/20 text-warning-foreground" },
+    servicekunde: { label: "servicekunde", cls: "bg-muted text-foreground" },
     tidligere_kunde: { label: "tidligere", cls: "bg-destructive/15 text-destructive" },
     nyt_emne: { label: "nyt emne", cls: "bg-muted text-muted-foreground" },
   };
@@ -1569,7 +1572,7 @@ function classifyKaffe(c: PortfolioCompanyRow): "green" | "yellow" | "red" | "vi
   return "red";
 }
 
-function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "paavejvaek" | "andet" {
+function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "service" | "paavejvaek" | "andet" {
   if (c.customer_type === "aktiv_kunde") {
     if (c.has_active_equipment && !c.supplied_via_id) {
       const last = c.last_consumable_sales_date;
@@ -1581,6 +1584,7 @@ function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "paavejva
     return "aktiv";
   }
   if (c.customer_type === "sovende_kunde") return "sovende";
+  if (c.customer_type === "servicekunde") return "service";
   return "andet";
 }
 
