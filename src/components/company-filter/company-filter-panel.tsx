@@ -357,19 +357,6 @@ export function CompanyFilterPanel({
               </div>
             </div>
             <FilterGroup
-              label="Seneste varekøb"
-              options={[
-                { v: "never", l: "Aldrig købt" },
-                { v: "0-3", l: "Inden for 3 måneder" },
-                { v: "3-6", l: "3–6 måneder siden" },
-                { v: "6-12", l: "6–12 måneder siden" },
-                { v: "12-18", l: "12–18 måneder siden" },
-                { v: "18+", l: "Over 18 måneder siden" },
-              ]}
-              values={filters.lastPurchase}
-              onChange={(v) => setFilters((f) => ({ ...f, lastPurchase: v }))}
-            />
-            <FilterGroup
               label="Antal ansatte"
               options={[
                 { v: "lt10", l: "Under 10" },

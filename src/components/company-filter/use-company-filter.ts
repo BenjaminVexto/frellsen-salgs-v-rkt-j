@@ -22,6 +22,7 @@ function matchesMachines(eq: EquipmentSummary | undefined, modes: string[]) {
     if (m === "free_loan") return !!eq?.hasFreeLoan;
     if (m === "service") return !!eq?.hasService;
     if (m === "none") return !eq || !eq.hasAny;
+    if (m === "any") return !!eq?.hasAny;
     return false;
   });
 }
@@ -68,18 +69,22 @@ export type UseCompanyFilterOptions = {
   isAdmin: boolean;
   restrictToIds?: string[] | null;
   initialFilters?: FilterState;
+  userId?: string | null;
+  initialQ?: string;
 };
 
 export function useCompanyFilter({
   isAdmin,
   restrictToIds,
   initialFilters,
+  userId,
+  initialQ,
 }: UseCompanyFilterOptions) {
   // Kosmetisk afdelingsfilter fra afdelingsvælgeren i topbaren.
   const { afdelingFilter } = useAfdeling();
   const [rows, setRows] = useState<CompanyRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQ ?? "");
   const [filters, setFilters] = useState<FilterState>(
     initialFilters ?? DEFAULT_FILTERS,
   );
@@ -235,7 +240,6 @@ export function useCompanyFilter({
 
   // Sellers
   useEffect(() => {
-    if (!isAdmin) return;
     (async () => {
       const { data: roles } = await supabase
         .from("user_roles")
@@ -250,7 +254,7 @@ export function useCompanyFilter({
         .eq("is_active", true);
       setSellers(profs ?? []);
     })();
-  }, [isAdmin]);
+  }, []);
 
   // Municipalities
   useEffect(() => {
@@ -310,6 +314,23 @@ export function useCompanyFilter({
         )
           return false;
       }
+      if (filters.saelger !== "alle") {
+        const assigns = new Set<string>(assignmentMap.get(r.id) ?? []);
+        const own = (r as any).assigned_to as string | null;
+        if (own) assigns.add(own);
+        if (filters.saelger === "ikke_tildelt") {
+          if (assigns.size > 0) return false;
+        } else if (filters.saelger === "mine") {
+          if (!userId || !assigns.has(userId)) return false;
+        } else if (!assigns.has(filters.saelger)) return false;
+      }
+      if (filters.omraade.trim()) {
+        const o = filters.omraade.trim().toLowerCase();
+        const m = (v: string | null | undefined) => (v ?? "").toLowerCase().includes(o);
+        const locs = locationMap.get(r.id) ?? [];
+        if (!(m(r.city) || m(r.municipality) || m(r.zip) || locs.some((l) => m(l.city) || m(l.zip))))
+          return false;
+      }
       const eq = equipmentMap.get(r.id);
       if (!matchesMachines(eq, filters.machines)) return false;
       if (filters.machineTypeQuery.trim()) {
@@ -343,7 +364,7 @@ export function useCompanyFilter({
       }
       return true;
     });
-  }, [rows, q, filters, assignmentMap, locationMap, equipmentMap]);
+  }, [rows, q, filters, assignmentMap, locationMap, equipmentMap, userId]);
 
   const isActive = useMemo(() => computeIsFilterActive(filters), [filters]);
 

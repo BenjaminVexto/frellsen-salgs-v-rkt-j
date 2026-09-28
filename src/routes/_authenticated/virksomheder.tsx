@@ -38,6 +38,12 @@ import {
   normalizeFilterConfig,
   useCompanyFilter,
 } from "@/components/company-filter";
+import {
+  FilterLinje,
+  Hurtigvalg,
+  FlereFiltre,
+  FilterChips,
+} from "@/components/company-filter";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/virksomheder")({
@@ -93,7 +99,35 @@ function VirksomhederListe() {
     sellers,
     municipalities,
     isFilterActive,
-  } = useCompanyFilter({ isAdmin, restrictToIds: recentIds });
+  } = useCompanyFilter({ isAdmin, restrictToIds: recentIds, userId: auth.user?.id ?? null });
+
+  // Standard sælgervalg: "Mine kunder" for sælgere, "Alle" for admin/salgssupport.
+  const defaultSaelger = isAdmin ? "alle" : "mine";
+  const baseFilters = useMemo(() => ({ ...DEFAULT_FILTERS, saelger: defaultSaelger }), [defaultSaelger]);
+  const storeKey = auth.user?.id ? `virksomheder-filtre:${auth.user.id}` : null;
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    if (restored || auth.loading || !storeKey) return;
+    try {
+      const raw = sessionStorage.getItem(storeKey);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        setFilters(normalizeFilterConfig(saved.filters));
+        if (typeof saved.q === "string") setQ(saved.q);
+      } else {
+        setFilters(baseFilters);
+      }
+    } catch {
+      setFilters(baseFilters);
+    }
+    setRestored(true);
+  }, [restored, auth.loading, storeKey, baseFilters, setFilters, setQ]);
+  useEffect(() => {
+    if (!restored || !storeKey) return;
+    try {
+      sessionStorage.setItem(storeKey, JSON.stringify({ filters, q }));
+    } catch {}
+  }, [restored, storeKey, filters, q]);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -108,17 +142,8 @@ function VirksomhederListe() {
   // På mobil: vis kun "mine" virksomheder ved start, så sælgerne ikke møder 16k+ rækker.
   // Aktiveres KUN når søgefeltet er tomt og ingen filtre er sat — så søgning rammer hele basen.
   // Salgssupport har ingen egen portefølje → filteret giver ikke mening og deaktiveres.
-  const mobileMineActive =
-    isMobile &&
-    !isSupport &&
-    !q.trim() &&
-    !isFilterActive &&
-    !recentIds &&
-    !!userId;
-  const displayed = useMemo(() => {
-    if (!mobileMineActive) return filtered;
-    return filtered.filter((r) => (r as any).assigned_to === userId);
-  }, [filtered, mobileMineActive, userId]);
+  const mobileMineActive = false;
+  const displayed = filtered;
 
   const loadTemplates = async () => {
     const { data } = await (supabase as any)
@@ -221,11 +246,6 @@ function VirksomhederListe() {
         </Card>
       )}
 
-      {mobileMineActive && (
-        <Card className="md:hidden p-3 mb-3 text-xs bg-primary/5 border-primary/30">
-          Viser <strong>dine</strong> virksomheder. Søg for at finde alle i basen.
-        </Card>
-      )}
 
 
       <div className="sticky top-12 md:static z-10 -mx-3 md:mx-0 px-3 md:px-0 py-2 md:py-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:bg-transparent md:backdrop-blur-none border-b md:border-0 mb-3">
@@ -234,24 +254,38 @@ function VirksomhederListe() {
           onQChange={setQ}
           filtersOpen={filtersOpen}
           setFiltersOpen={setFiltersOpen}
-          isFilterActive={isFilterActive}
-          onReset={() => setFilters(DEFAULT_FILTERS)}
-          onSaveTemplate={() => setSaveTemplateOpen(true)}
-          showFilterButton={true}
+          isFilterActive={false}
+          onReset={() => setFilters(baseFilters)}
+          showFilterButton={false}
         />
+        <div className="mt-2 space-y-2">
+          <FilterLinje filters={filters} setFilters={setFilters} sellers={sellers} defaultSaelger={defaultSaelger} />
+          <Hurtigvalg setFilters={setFilters} base={baseFilters} />
+          {templates.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-muted-foreground mr-1">Skabeloner:</span>
+              {templates.map((t) => (
+                <span key={t.id} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1">
+                  <button type="button" className="hover:underline" onClick={() => applyTemplate(t.id)}>{t.name}</button>
+                  <button type="button" className="text-muted-foreground hover:text-destructive" onClick={() => deleteTemplate(t.id)} aria-label="Slet skabelon">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <FlereFiltre filters={filters} setFilters={setFilters} isAdmin={isAdmin} />
+        </div>
       </div>
 
-      <CompanyFilterPanel
-        open={filtersOpen}
-        filters={filters}
-        setFilters={setFilters}
-        sellers={sellers}
-        municipalities={municipalities}
-        isAdmin={isAdmin}
-        templates={templates}
-        onApplyTemplate={applyTemplate}
-        onDeleteTemplate={deleteTemplate}
-      />
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <FilterChips filters={filters} setFilters={setFilters} sellers={sellers} defaultSaelger={defaultSaelger} onReset={() => setFilters(baseFilters)} />
+        {isFilterActive && (
+          <Button size="sm" variant="outline" className="h-7 text-xs hidden sm:inline-flex" onClick={() => setSaveTemplateOpen(true)}>
+            Gem som skabelon
+          </Button>
+        )}
+      </div>
 
       <div className="text-sm text-muted-foreground mb-2">
         <strong className="text-foreground">{displayed.length}</strong>{" "}
