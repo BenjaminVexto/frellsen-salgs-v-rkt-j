@@ -81,6 +81,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       dateFrom?: string | null;
       dateTo?: string | null;
       afdelinger?: number[];
+      filename?: string | null;
     }) => {
       if (!input?.jobId) throw new Error("jobId mangler");
       return input;
@@ -120,7 +121,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       lines_afdelinger: data.afdelinger ?? [],
       locations_matched: data.locationsMatched,
       unmatched_delivery_nos: data.unmatched.slice(0, 500),
-      payload: { rows_by_afdeling: data.rowsByAfdeling ?? {} },
+      payload: { rows_by_afdeling: data.rowsByAfdeling ?? {}, filename: data.filename ?? null },
       attempts: 0,
     } as any);
     if (error) throw new Error(error.message);
