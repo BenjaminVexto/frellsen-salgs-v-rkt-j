@@ -3875,6 +3875,23 @@ export type Database = {
           maaned: string
         }[]
       }
+      maalepunkt_aktive_kunder_detaljer: {
+        Args: {
+          _afdeling_nr?: number
+          _fra: string
+          _kategori: string
+          _maaned?: string
+          _saelger: string
+          _til: string
+        }
+        Returns: {
+          by: string
+          company_id: string
+          db: number
+          navn: string
+          omsaetning: number
+        }[]
+      }
       maalepunkt_aktive_kunder_unikke: {
         Args: {
           _afdeling_nr?: number
@@ -4024,6 +4041,24 @@ export type Database = {
           omsaetning: number
           oprettet: string
           sidste_koeb: string
+        }[]
+      }
+      maalepunkt_oms_detaljer: {
+        Args: {
+          _afdeling_nr?: number
+          _fra: string
+          _kategori: string
+          _kun_forbrug?: boolean
+          _maaned?: string
+          _saelger: string
+          _til: string
+        }
+        Returns: {
+          by: string
+          company_id: string
+          db: number
+          navn: string
+          omsaetning: number
         }[]
       }
       maalepunkt_omsaetning:
