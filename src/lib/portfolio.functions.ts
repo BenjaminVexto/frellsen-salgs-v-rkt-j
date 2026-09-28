@@ -114,6 +114,7 @@ export type PortfolioPayload = {
   };
   // Deterministisk re-evaluering for 30 dage siden (samme 12/24-mdr-vinduer,
   // eval-dato skubbet 30 dage tilbage). Bruges til "↑/↓ X siden sidst".
+  senesteFakturadato?: string | null;
   statusCountsPrior: {
     aktive: number;
     sovende: number;
@@ -285,10 +286,12 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     };
     // Ét kald hver: aggregatet leveres som JSON, så 1.000-rækkegrænsen ikke
     // tvinger funktionen til at køre om for hver side.
-    const [aggSvar, totSvar] = await Promise.all([
+    const [aggSvar, totSvar, refSvar] = await Promise.all([
       (supabase as any).rpc("portfolio_aggregat_json", rpcArgs),
       (supabase as any).rpc("portfolio_totaler", rpcArgs),
+      (supabase as any).rpc("seneste_fakturadato"),
     ]);
+    const senesteFakturadato: string | null = (refSvar?.data as string | null) ?? null;
     if (aggSvar.error) throw aggSvar.error;
     if (totSvar.error) throw totSvar.error;
     const aggRows: any[] = (aggSvar.data ?? []) as any[];
@@ -433,7 +436,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     const todayMs = Date.now();
     const today = new Date();
-    const evalPrior = new Date(today);
+    // Referencedato for status og "↑/↓ siden sidst" = seneste fakturadato i data.
+    const refDato = senesteFakturadato ? new Date(senesteFakturadato + "T00:00:00Z") : today;
+    const evalPrior = new Date(refDato);
     evalPrior.setUTCDate(evalPrior.getUTCDate() - 30);
     const cutoff12Now = new Date(today); cutoff12Now.setUTCMonth(cutoff12Now.getUTCMonth() - 12);
     const cutoff24Now = new Date(today); cutoff24Now.setUTCMonth(cutoff24Now.getUTCMonth() - 24);
@@ -567,7 +572,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       });
       return { aktive, sovende, servicekunder, paaVejVaek };
     };
-    const statusNow = tael((c) => c.customer_type, (cid) => lastConsNow.get(cid), today);
+    const statusNow = tael((c) => c.customer_type, (cid) => lastConsNow.get(cid), refDato);
     const statusPrior = tael(
       (c) => statusFor(lastConsPrior.get(c.id), lastSalesPrior.get(c.id), c.has_active_equipment, evalPrior),
       (cid) => lastConsPrior.get(cid),
@@ -844,6 +849,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         total: companies.length,
       },
       statusCountsPrior: statusPrior,
+      senesteFakturadato,
       monthLabels,
       companies,
       rankings: {

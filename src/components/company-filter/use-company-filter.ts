@@ -336,10 +336,10 @@ export function useCompanyFilter({
       if (!matchesEmployees(r.employees, filters.employeeRanges))
         return false;
       if (filters.binding !== "all") {
-        const b = r.binding_status;
-        if (filters.binding === "unknown" && b) return false;
-        if (filters.binding !== "unknown" && b !== filters.binding)
-          return false;
+        const kode = String(r.customer_segment_3 ?? "").match(/^\s*(\d+)\s*\[/)?.[1] ?? null;
+        if (filters.binding === "udbud" && kode !== "40") return false;
+        if (filters.binding === "offentlig_aftale" && kode !== "45") return false;
+        if (filters.binding === "andre" && (kode === "40" || kode === "45")) return false;
       }
       return true;
     });

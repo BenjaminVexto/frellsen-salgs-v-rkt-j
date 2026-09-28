@@ -1,3 +1,4 @@
+import { DataOpdateret } from "@/components/data-opdateret";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getSalesForCompany } from "@/lib/sales.functions";
@@ -68,6 +69,7 @@ export function CompanySalesTab({
 
   return (
     <div className="space-y-4">
+      <DataOpdateret />
       <SuppliedViaBanner companyId={companyId} />
       {!skjulSignaler && <KundeStatusLinje rows={rows} />}
       <SalesFactsStrip rows={rows} isAdmin={isAdmin} antalMaskiner={maskQ.data ?? null} />

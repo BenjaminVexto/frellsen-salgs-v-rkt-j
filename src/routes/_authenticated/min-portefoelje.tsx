@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { DataOpdateret } from "@/components/data-opdateret";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -796,6 +797,7 @@ function PortfolioPage() {
           <p className="text-sm text-muted-foreground">
             Puls og månedlig udvikling på din portefølje.
           </p>
+          <DataOpdateret className="mt-0.5" />
         </div>
         {maaVaelgeSaelger && (
           <div className="flex items-center gap-2">
