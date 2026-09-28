@@ -197,6 +197,13 @@
       "when": 1790625928130,
       "tag": "0027_portfolio_siden_sidst_forbrugsvarer",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790626207162,
+      "tag": "0028_kundestatus_referencedato",
+      "breakpoints": true
     }
   ]
 }

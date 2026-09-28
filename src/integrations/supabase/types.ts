@@ -4125,6 +4125,7 @@ export type Database = {
           status: string
         }[]
       }
+      seneste_fakturadato: { Args: never; Returns: string }
       set_primary_location: {
         Args: {
           p_afdeling_nr: number
