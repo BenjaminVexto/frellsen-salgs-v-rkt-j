@@ -37,13 +37,15 @@ import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { useAfdeling } from "@/contexts/afdeling-context";
 import { supabase } from "@/integrations/supabase/client";
 import { IMPORT_TYPE_LABEL, type ImportType } from "@/lib/import-log";
 
 const IMPORT_TYPER = ["aktoer", "faktura", "maskiner", "prismatrix"] as const;
 
 export const Route = createFileRoute("/_authenticated/admin/importhistorik")({
-  validateSearch: (s: Record<string, unknown>): { type?: ImportType; vis?: "uden_kunde" } => ({
+  validateSearch: (s: Record<string, unknown>): { type?: ImportType; vis?: "uden_kunde"; hvad?: "ikke" | "kunde" } => ({
+    ...(s.hvad === "ikke" || s.hvad === "kunde" ? { hvad: s.hvad as "ikke" | "kunde" } : {}),
     ...(IMPORT_TYPER.includes(s.type as any) ? { type: s.type as ImportType } : {}),
     ...(s.vis === "uden_kunde" ? { vis: "uden_kunde" as const } : {}),
   }),
@@ -147,7 +149,7 @@ function ImporthistorikSide() {
       <p className="text-sm text-muted-foreground mb-4">
         Oversigt over alle imports — virksomheder, maskindata og aftaler. Klik på en import for at se og slette.
       </p>
-      {search.vis === "uden_kunde" && <UdenKundeListe />}
+      {search.vis === "uden_kunde" && <UdenKundeListe hvad={search.hvad} />}
       {search.type && <ImportLogListe type={search.type} />}
       <div className="mb-6 flex items-center gap-3 flex-wrap">
         <CvrEnrichmentQueueBadge />
@@ -740,52 +742,60 @@ function AfvisteRaekker({ antal, detaljer }: { antal: number; detaljer: { kunden
   );
 }
 
-function UdenKundeListe() {
+function UdenKundeListe({ hvad }: { hvad?: "ikke" | "kunde" }) {
+  const { afdelingFilter } = useAfdeling();
   const { data } = useQuery({
-    queryKey: ["faktura_uden_kunde_linjer"],
+    queryKey: ["salg_uden_kunde_liste", afdelingFilter],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("faktura_uden_kunde_linjer");
+      const { data, error } = await (supabase as any).rpc("salg_uden_kunde_liste", { _afd: afdelingFilter ?? null });
       if (error) throw error;
-      return (data ?? []) as { visma_delivery_no: string | null; afdeling_nr: number | null; kunde_navn: string | null; faktura_dato: string; beloeb: number }[];
+      return (data ?? []) as {
+        visma_delivery_no: string; afdeling_nr: number; kunde_navn: string | null; foerste: string; seneste: string;
+        beloeb: number; findes_som_kunde: boolean; kunde_navn_crm: string | null; kunde_afdeling: number | null;
+      }[];
     },
   });
-  const total = (data ?? []).reduce((a, r) => a + Number(r.beloeb ?? 0), 0);
+  const rows = (data ?? []).filter((r) => !hvad || (hvad === "kunde") === r.findes_som_kunde);
+  const total = rows.reduce((a, r) => a + Number(r.beloeb ?? 0), 0);
+  const md = (d: string) => format(new Date(d), "MMM yyyy", { locale: da });
   return (
     <Card className="mb-6 overflow-x-auto">
       <div className="px-4 pt-4">
-        <h2 className="font-semibold">Fakturalinjer uden kunde</h2>
+        <h2 className="font-semibold">
+          {hvad === "kunde" ? "Salg ikke koblet til en eksisterende kunde" : hvad === "ikke" ? "Leveringsnr. der ikke findes som kunde" : "Salg uden kunde"}
+        </h2>
         <p className="text-xs text-muted-foreground">
-          Leveringsnumre i fakturaerne, som ikke findes på nogen virksomhed i afdelingen.
-          {data && ` ${data.length.toLocaleString("da-DK")} linjer · ${Math.round(total).toLocaleString("da-DK")} kr.`}
+          Salg uden kobling til en virksomhed, alle perioder{afdelingFilter != null ? `, afd. ${afdelingFilter}` : ""}. Positivt beløb (kreditnotaer udligner ikke).
+          {data && ` ${rows.length.toLocaleString("da-DK")} leveringsnr. · ${Math.round(total).toLocaleString("da-DK")} kr.`}
         </p>
       </div>
       {!data ? (
         <div className="p-4 text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Indlæser…</div>
       ) : (
-        <div className="max-h-[480px] overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Leveringsnr.</TableHead>
-                <TableHead>Afd.</TableHead>
-                <TableHead>Kundenavn (faktura)</TableHead>
-                <TableHead>Fakturadato</TableHead>
-                <TableHead className="text-right">Beløb</TableHead>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Leveringsnr.</TableHead>
+              <TableHead>Afd.</TableHead>
+              <TableHead>Kundenavn (faktura)</TableHead>
+              <TableHead>Kunde i CRM</TableHead>
+              <TableHead>Periode</TableHead>
+              <TableHead className="text-right">Beløb</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.visma_delivery_no + "|" + r.afdeling_nr}>
+                <TableCell>{r.visma_delivery_no ?? "–"}</TableCell>
+                <TableCell>{r.afdeling_nr ?? "–"}</TableCell>
+                <TableCell>{r.kunde_navn ?? "–"}</TableCell>
+                <TableCell>{r.findes_som_kunde ? `${r.kunde_navn_crm ?? ""} (afd. ${r.kunde_afdeling ?? "–"})` : "–"}</TableCell>
+                <TableCell className="whitespace-nowrap">{md(r.foerste)} – {md(r.seneste)}</TableCell>
+                <TableCell className="text-right tabular-nums">{Math.round(Number(r.beloeb)).toLocaleString("da-DK")} kr.</TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((r, i) => (
-                <TableRow key={i}>
-                  <TableCell>{r.visma_delivery_no ?? "–"}</TableCell>
-                  <TableCell>{r.afdeling_nr ?? "–"}</TableCell>
-                  <TableCell>{r.kunde_navn ?? "–"}</TableCell>
-                  <TableCell className="whitespace-nowrap">{format(new Date(r.faktura_dato), "d. MMM yyyy", { locale: da })}</TableCell>
-                  <TableCell className="text-right tabular-nums">{Math.round(Number(r.beloeb ?? 0)).toLocaleString("da-DK")} kr.</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </Card>
   );
