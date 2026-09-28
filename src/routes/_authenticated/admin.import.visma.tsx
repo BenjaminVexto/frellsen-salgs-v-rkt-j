@@ -1051,6 +1051,10 @@ function ImportSide() {
     const yieldUI = () => new Promise((r) => setTimeout(r, 0));
 
     let created = 0, updated = 0, skipped = 0, failed = 0, enriched = 0, noCvrCount = 0;
+    const afviste: { kundenr: string | null; navn: string | null; aarsag: string }[] = [];
+    const afvis = (p: any, aarsag: string) => {
+      if (afviste.length < 2000) afviste.push({ kundenr: p?.visma_id != null ? String(p.visma_id) : null, navn: p?.name ?? null, aarsag });
+    };
     const toImport = prepared.filter((p) => {
       if (p.skipReason) return false; // uden firmatilknytning / ødelagt kilderække
       if (isWrongFirma(p)) return false; // ALDRIG firma ≠ 10
@@ -1372,6 +1376,7 @@ function ImportSide() {
           const id = idByVisma.get(`${afd}|${vid}`);
           if (!id) {
             failed++;
+            afvis(j.payload, "Ikke gemt af serveren");
             return;
           }
           companyIds.push(id);
@@ -1387,6 +1392,7 @@ function ImportSide() {
         console.error("Bulk upsert (visma_id) server-fn fejl", e);
         toast.error(`Batch fejlede (${slice.length} rækker): ${e?.message ?? e}`);
         failed += slice.length;
+        slice.forEach((j: any) => afvis(j?.payload, String(e?.message ?? e).slice(0, 200)));
       }
       tick("insert", slice.length);
       await yieldUI();
@@ -1413,6 +1419,7 @@ function ImportSide() {
         console.error("Bulk insert server-fn fejl", e);
         toast.error(`Batch fejlede (${slice.length} rækker): ${e?.message ?? e}`);
         failed += slice.length;
+        slice.forEach((j: any) => afvis(j?.payload, String(e?.message ?? e).slice(0, 200)));
       }
       tick("insert", slice.length);
       await yieldUI();
@@ -1440,11 +1447,13 @@ function ImportSide() {
             if (j.isEnrich) enriched++;
           } else {
             failed++;
+            afvis(j.payload, (res.results.find((x: any) => x.id === j.id) as any)?.error ?? "Opdatering afvist");
           }
         });
       } catch (e: any) {
         console.error("Bulk update server-fn fejl", e);
         failed += slice.length;
+        slice.forEach((j: any) => afvis(j?.payload, String(e?.message ?? e).slice(0, 200)));
       }
       tick("update", slice.length);
       await yieldUI();
@@ -1701,7 +1710,11 @@ function ImportSide() {
       { companyIds, sellerByCompany, rowAssignments, result: resultPayload },
     );
     if (!wasAborted) {
-      void logImport("aktoer", failed > 0 ? "fejl" : "ok", file?.name, failed > 0 ? `${failed.toLocaleString("da-DK")} rækker fejlede` : null);
+      if (companyIds.length === 0 && failed > 0) {
+        void logImport("aktoer", "fejl", file?.name, `Intet indlæst — ${failed.toLocaleString("da-DK")} rækker fejlede`);
+      } else {
+        void logImport("aktoer", "ok", file?.name, null, failed, afviste);
+      }
     }
     if (wasAborted) toast.warning(`Import stoppet — ${companyIds.length.toLocaleString("da-DK")} virksomheder importeret før afbrydelse`);
     else if (failed > 0) toast.error(`Import afsluttet med fejl (${failed.toLocaleString("da-DK")})`);
