@@ -360,7 +360,7 @@ function PortfolioPage() {
               </h2>
               <div className={`grid gap-3 ${visDb ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 <RevenueCard
-                  label="Porteføljeomsætning · År-til-Dato"
+                  label="Omsætning i alt inkl. maskiner og service · År-til-Dato"
                   current={data.totals.revenueYtd}
                   prior={data.totals.revenueYtdPriorSamePeriod}
                   latestPeriod={data.totals.ytdLatestPeriod}
@@ -383,7 +383,7 @@ function PortfolioPage() {
                 {visDb && (
                   <Card className="p-4">
                     <div className="text-xs text-muted-foreground mb-1">
-                      DB · {helMaanederTekst(data.totals.ytdLatestPeriod) || "12 hele mdr."} (admin)
+                      DB i alt inkl. maskiner og service · seneste 12 hele mdr. (admin)
                     </div>
                     <div className="text-2xl font-semibold tabular-nums">
                       {fmtKr(data.totals.contribution12m ?? 0)}

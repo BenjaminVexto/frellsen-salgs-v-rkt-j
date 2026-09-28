@@ -90,15 +90,17 @@ function DashboardPage() {
       let q = supabase
         .from("sales_opportunities")
         .select(
-          "id, name, status, estimated_value, next_followup_date, company:companies!inner(id, name, afdeling_nr)"
+          "id, name, status, estimated_value, next_followup_date, company:companies(id, name, afdeling_nr)"
         )
         .in("status", ["tilbud_sendt", "møde_demo"])
         .order("next_followup_date", { ascending: true, nullsFirst: false });
       if (!isAdmin) q = q.eq("assigned_to", userId!);
-      if (afdelingFilter != null) q = q.eq("company.afdeling_nr", afdelingFilter);
       const { data, error } = await q;
       if (error) throw error;
-      return data ?? [];
+      // Uden virksomhed: vises efter ejer/sælger (filtret ovenfor), ikke afdeling.
+      return (data ?? []).filter(
+        (o: any) => afdelingFilter == null || !o.company || o.company.afdeling_nr === afdelingFilter,
+      );
     },
   });
 
