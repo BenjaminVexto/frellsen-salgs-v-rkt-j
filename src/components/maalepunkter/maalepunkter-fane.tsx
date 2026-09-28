@@ -1254,7 +1254,7 @@ function DetaljePanel({
 
   const kolonner: Kol[] = useMemo(() => {
     if (drill?.slags === "db")
-      return [
+      return ([
         { key: "navn", label: "Virksomhed", val: (r) => r.navn ?? "", cell: (r) => navn(r) },
         { key: "by", label: "By", val: (r) => r.by ?? "", cell: (r) => r.by ?? "—" },
         {
