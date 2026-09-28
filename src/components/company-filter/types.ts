@@ -58,7 +58,7 @@ export type FilterState = {
   zipTo: string;
   lastPurchase: string[];
   employeeRanges: string[];
-  binding: "all" | "offentlig_aftale" | "frit_salg" | "intern_privat" | "unknown";
+  binding: "all" | "udbud" | "offentlig_aftale" | "andre";
   visAfloeste: boolean;
 };
 

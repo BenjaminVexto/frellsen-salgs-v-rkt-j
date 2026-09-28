@@ -385,7 +385,7 @@ export function CompanyFilterPanel({
             />
             <div>
               <Label className="text-xs uppercase text-muted-foreground">
-                Kundetype
+                Segment
               </Label>
               <Select
                 value={filters.binding}
@@ -401,12 +401,9 @@ export function CompanyFilterPanel({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Alle</SelectItem>
-                  <SelectItem value="frit_salg">Frit salg</SelectItem>
-                  <SelectItem value="offentlig_aftale">
-                    Offentlig aftale
-                  </SelectItem>
-                  <SelectItem value="intern_privat">Intern / privat</SelectItem>
-                  <SelectItem value="unknown">Ukendt</SelectItem>
+                  <SelectItem value="udbud">Udbud (40)</SelectItem>
+                  <SelectItem value="offentlig_aftale">Offentlig aftale (45)</SelectItem>
+                  <SelectItem value="andre">Andre</SelectItem>
                 </SelectContent>
               </Select>
             </div>
