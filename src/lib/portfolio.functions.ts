@@ -572,7 +572,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       (cid) => lastConsPrior.get(cid),
       evalPrior,
     );
-    void cutoff12Now; void cutoff12Prior; void cutoff24Prior;
+    void cutoff12Now; void cutoff12Prior; void cutoff24Prior; void cutoff24Now; void deriveCustomerType;
     const aktive = statusNow.aktive;
     const sovende = statusNow.sovende;
     const servicekunder = statusNow.servicekunder;
@@ -838,6 +838,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       statusCounts: {
         aktive,
         sovende,
+        servicekunder,
         paaVejVaek,
         total: companies.length,
       },
