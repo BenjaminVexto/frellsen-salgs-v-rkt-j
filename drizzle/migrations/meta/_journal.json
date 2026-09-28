@@ -225,6 +225,13 @@
       "when": 1790627090504,
       "tag": "0031_faktura_uden_kunde",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790627567694,
+      "tag": "0032_salg_uden_kunde",
+      "breakpoints": true
     }
   ]
 }
