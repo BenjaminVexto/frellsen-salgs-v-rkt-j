@@ -537,15 +537,17 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     // --- Status counts (nu) + deterministisk prior-snapshot (30 dage siden) ---
     type StatusBuckets = { aktive: number; sovende: number; servicekunder: number; paaVejVaek: number };
-    // Samme regel som public.kundestatus() i databasen (bruges kun til prior-snapshot).
-    const statusFor = (lastCons: string | undefined, lastAny: string | undefined, hasEq: boolean, refMonth: Date) => {
-      const mdrSiden = (p: string) => {
+    // Samme regel som public.kundestatus_dage() i databasen (bruges kun til prior-snapshot).
+    // Prior-data er pr. måned, så seneste køb regnes som sidste dag i måneden.
+    const statusFor = (lastCons: string | undefined, lastAny: string | undefined, hasEq: boolean, evalDate: Date) => {
+      const dageSiden = (p: string) => {
         const d = periodToDate(p);
-        return (refMonth.getUTCFullYear() - d.getUTCFullYear()) * 12 + (refMonth.getUTCMonth() - d.getUTCMonth());
+        const slut = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0);
+        return Math.floor((evalDate.getTime() - slut) / 86400000);
       };
-      if (lastCons && mdrSiden(lastCons) <= 2) return "aktiv_kunde";
-      if (lastCons && mdrSiden(lastCons) <= 11) return "sovende_kunde";
-      if (hasEq && lastAny && mdrSiden(lastAny) <= 11) return "servicekunde";
+      if (lastCons && dageSiden(lastCons) <= 90) return "aktiv_kunde";
+      if (lastCons && dageSiden(lastCons) <= 365) return "sovende_kunde";
+      if (hasEq && lastAny && dageSiden(lastAny) <= 365) return "servicekunde";
       return "tidligere_kunde";
     };
     const tael = (getType: (c: PortfolioCompanyRow, i: number) => string | null, getLastCons: (cid: string) => string | undefined, evalDate: Date): StatusBuckets => {
