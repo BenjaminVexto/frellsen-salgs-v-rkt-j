@@ -155,6 +155,8 @@ type Kundetype = "alle" | "offentlig" | "privat";
 /** Hvad panelet skal vise. Månedsnøgle null = hele perioden. */
 type Drill =
   | { slags: "db"; kategori: string; label: string; maaned: string | null }
+  | { slags: "oms"; kategori: string; label: string; maaned: string | null; kunForbrug: boolean }
+  | { slags: "kunder"; kategori: string; label: string; maaned: string | null }
   | {
       slags: "maskiner";
       maerke: string;
@@ -942,6 +944,24 @@ export function MaalepunkterFane({
         loading={omsQ.isLoading}
         error={omsQ.error ? (omsQ.error as Error).message : null}
         periodeTotal={{ ly: omsLy }}
+        onRow={(i) =>
+          setDrill({
+            slags: "oms",
+            kategori: omsTabel[i].kategori,
+            label: `${omsTabel[i].label} — ${maanedNavn(fra)}–${maanedNavn(til)}`,
+            maaned: null,
+            kunForbrug: !omsAlle,
+          })
+        }
+        onCell={(i, m) =>
+          setDrill({
+            slags: "oms",
+            kategori: omsTabel[i].kategori,
+            label: `${omsTabel[i].label} — ${maanedNavn(m)}`,
+            maaned: m,
+            kunForbrug: !omsAlle,
+          })
+        }
         hoved={
           <div className="flex items-center gap-2">
             <Switch id="oms-alle" checked={omsAlle} onCheckedChange={setOmsAlle} />
@@ -1005,7 +1025,23 @@ export function MaalepunkterFane({
         dec={0}
         loading={kunderQ.isLoading}
         error={kunderQ.error ? (kunderQ.error as Error).message : null}
-        fodnote="Aktiv = kunden har udstyr stående (leje, udlån, serviceaftale eller kundeejet) eller har købt varer, maskiner eller service inden for de seneste 12 måneder til og med måneden. Udstyrsdelen bygger på den nuværende registrering, da der ikke findes historik for, hvornår udstyr er sat op eller taget hjem."
+        fodnote="Aktiv = kunden har købt forbrugsvarer i måneden eller de to foregående måneder. Total er antal forskellige aktive kunder i perioden."
+        onRow={(i) =>
+          setDrill({
+            slags: "kunder",
+            kategori: kunderTabel[i].kategori,
+            label: `${kunderTabel[i].label} — aktive ${maanedNavn(fra)}–${maanedNavn(til)}`,
+            maaned: null,
+          })
+        }
+        onCell={(i, m) =>
+          setDrill({
+            slags: "kunder",
+            kategori: kunderTabel[i].kategori,
+            label: `${kunderTabel[i].label} — aktive ${maanedNavn(m)}`,
+            maaned: m,
+          })
+        }
       />
 
       <Tabel
@@ -1142,6 +1178,26 @@ function DetaljePanel({
         _fra: d.maaned ? firstDay(d.maaned) : firstDay(fra),
         _til: d.maaned ? firstDay(d.maaned) : firstDay(til),
       };
+      if (d.slags === "oms") {
+        const { data, error } = await (supabase as any).rpc("maalepunkt_oms_detaljer", {
+          ...base,
+          _kategori: d.kategori,
+          _maaned: d.maaned ? firstDay(d.maaned) : null,
+          _fra: firstDay(fra),
+          _til: firstDay(til),
+          _kun_forbrug: d.kunForbrug,
+        });
+        if (error) throw new Error(error.message);
+        return (data ?? []) as any[];
+      }
+      if (d.slags === "kunder") {
+        const { data, error } = await (supabase as any).rpc("maalepunkt_aktive_kunder_detaljer", {
+          ...base,
+          _kategori: d.kategori,
+        });
+        if (error) throw new Error(error.message);
+        return (data ?? []) as any[];
+      }
       if (d.slags === "db") {
         const { data, error } = await (supabase as any).rpc("maalepunkt_db_detaljer", {
           ...base,
@@ -1253,7 +1309,7 @@ function DetaljePanel({
   };
 
   const alleKolonner: Kol[] = useMemo(() => {
-    if (drill?.slags === "db")
+    if (drill?.slags === "db" || drill?.slags === "oms" || drill?.slags === "kunder")
       return [
         { key: "navn", label: "Virksomhed", val: (r) => r.navn ?? "", cell: (r) => navn(r) },
         { key: "by", label: "By", val: (r) => r.by ?? "", cell: (r) => r.by ?? "—" },
