@@ -204,6 +204,13 @@
       "when": 1790626207162,
       "tag": "0028_kundestatus_referencedato",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790626690677,
+      "tag": "0029_import_log_overvaagning",
+      "breakpoints": true
     }
   ]
 }
