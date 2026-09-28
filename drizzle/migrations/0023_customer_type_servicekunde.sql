@@ -1,0 +1,1 @@
+ALTER TYPE public.customer_type ADD VALUE IF NOT EXISTS 'servicekunde' AFTER 'sovende_kunde';

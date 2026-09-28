@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
-import { BindingStatusBadge } from "@/components/binding-status-badge";
+import { SegmentBadge } from "@/components/binding-status-badge";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -378,10 +378,7 @@ function VirksomhederListe() {
                           Ikke tildelt
                         </Badge>
                       )}
-                      <BindingStatusBadge
-                        status={r.binding_status}
-                        size="sm"
-                      />
+                      <SegmentBadge segment3={r.customer_segment_3} size="sm" />
                       <CustomerStatusBadge type={r.customer_type} />
                     </div>
                   </Link>

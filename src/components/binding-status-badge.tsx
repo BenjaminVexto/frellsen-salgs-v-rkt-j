@@ -1,45 +1,49 @@
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle } from "lucide-react";
+import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BINDING_LABEL, type BindingStatus } from "@/lib/customer-segment-mapping";
+import { parseSegment3 } from "@/lib/customer-segment-mapping";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-export function BindingStatusBadge({
-  status,
+/**
+ * Segment-badge udledt af kundesegment 3 (samme kode-parser som kategorireglen):
+ * 40 → "Udbud" (lås), 45 → "Offentlig aftale", alle andre → ingen badge.
+ */
+export function SegmentBadge({
+  segment3,
   size = "default",
   className,
 }: {
-  status: string | null | undefined;
+  segment3: string | null | undefined;
   size?: "default" | "sm";
   className?: string;
 }) {
-  if (!status) return null;
-  const s = status as BindingStatus;
-  const label = BINDING_LABEL[s];
-  if (!label) return null;
-
-  const toneClass =
-    s === "offentlig_aftale"
-      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40"
-      : s === "frit_salg"
-        ? "bg-success/10 text-success border-success/30"
-        : "bg-muted text-muted-foreground border-border";
-
-
-
+  const { code } = parseSegment3(segment3);
+  if (code !== "40" && code !== "45") return null;
+  const cls = cn(
+    "gap-1 font-medium bg-muted text-muted-foreground border-border",
+    size === "sm" && "text-[10px] py-0 px-1.5",
+    className,
+  );
+  if (code === "45") {
+    return (
+      <Badge variant="outline" className={cls}>
+        Offentlig aftale
+      </Badge>
+    );
+  }
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        toneClass,
-        "gap-1 font-medium",
-        size === "sm" && "text-[10px] py-0 px-1.5",
-        className,
-      )}
-    >
-      {s === "offentlig_aftale" && (
-        <AlertTriangle className={cn(size === "sm" ? "h-2.5 w-2.5" : "h-3 w-3")} />
-      )}
-      {label}
-    </Badge>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={cn(cls, "bg-secondary text-secondary-foreground cursor-help")}>
+            <Lock className={size === "sm" ? "h-2.5 w-2.5" : "h-3 w-3"} />
+            Udbud
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          Priser og sortiment følger udbudskontrakt
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

@@ -18,10 +18,15 @@ import { Button } from "@/components/ui/button";
 export type CustomerStatusKey =
   | "aktiv_kunde"
   | "sovende_kunde"
+  | "servicekunde"
   | "tidligere_kunde"
   | "nyt_emne"
   | "ikke_tildelt";
 
+/**
+ * Tekster til den centrale kundestatus. Selve reglen ligger i databasen
+ * (public.kundestatus) og beregnes ved import/genberegning.
+ */
 export const CUSTOMER_STATUS_DEFS: Record<
   CustomerStatusKey,
   { label: string; emoji: string; short: string; long: string }
@@ -29,20 +34,26 @@ export const CUSTOMER_STATUS_DEFS: Record<
   aktiv_kunde: {
     label: "Aktiv kunde",
     emoji: "✅",
-    short: "udstyr hos kunden eller køb inden for 12 mdr.",
-    long: "Har en maskine stående (leje, udlån, serviceaftale eller kundeejet) eller har købt noget — varer, maskiner, service — inden for de seneste 12 måneder.",
+    short: "forbrugsvarer inden for 3 mdr.",
+    long: "Har købt kaffe eller andre forbrugsvarer inden for de seneste 3 måneder.",
   },
   sovende_kunde: {
     label: "Sovende kunde",
     emoji: "💤",
-    short: "købt for 12–24 mdr. siden, intet udstyr",
-    long: "Har ingen maskine hos sig og har ikke købt inden for 12 måneder, men har handlet inden for de seneste 24 måneder. Kender os — men er ude af aktiv dialog.",
+    short: "forbrugsvarer for 4–12 mdr. siden",
+    long: "Har ikke købt forbrugsvarer i 3 måneder, men har købt inden for det seneste år. Tag kontakt.",
+  },
+  servicekunde: {
+    label: "Servicekunde",
+    emoji: "🔧",
+    short: "maskine og service, ingen forbrugsvarer",
+    long: "Har vores maskine og betaler for service, men køber ikke kaffe hos os. Mulighed for mersalg.",
   },
   tidligere_kunde: {
     label: "Tidligere kunde",
     emoji: "📦",
-    short: "ikke købt i 24+ mdr. og intet udstyr",
-    long: "Intet udstyr hos kunden og ingen køb inden for 24 måneder. Relationen er sandsynligvis kold og skal genopbygges.",
+    short: "intet køb i 12+ mdr.",
+    long: "Intet køb og ingen fakturering i over 12 måneder.",
   },
   nyt_emne: {
     label: "Nyt emne",
@@ -139,6 +150,7 @@ export function CustomerStatusLegend({ className }: { className?: string }) {
   const items: CustomerStatusKey[] = [
     "aktiv_kunde",
     "sovende_kunde",
+    "servicekunde",
     "tidligere_kunde",
     "nyt_emne",
   ];

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Users2, Search, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
-import { BindingStatusBadge } from "@/components/binding-status-badge";
+import { SegmentBadge } from "@/components/binding-status-badge";
 import { getCompanySalesSummary } from "@/lib/sales.functions";
 import { fmtKr } from "@/lib/sales-utils";
 
@@ -25,6 +25,7 @@ type Sister = {
   customer_type: string;
   is_public: boolean | null;
   binding_status: string | null;
+  customer_segment_3?: string | null;
 };
 
 const INITIAL_LIMIT = 8;
@@ -60,7 +61,7 @@ export function SoesterselskaberSektion({
       const { data, error } = await supabase
         .from("companies")
         .select(
-          "id,name,address,zip,city,visma_id,visma_delivery_id,visma_enhed,customer_type,is_public,binding_status",
+          "id,name,address,zip,city,visma_id,visma_delivery_id,visma_enhed,customer_type,is_public,binding_status,customer_segment_3",
         )
         .eq("cvr", cvrClean)
         .order("customer_type", { ascending: true })
@@ -124,6 +125,7 @@ export function SoesterselskaberSektion({
     const rank: Record<string, number> = {
       aktiv_kunde: 0,
       sovende_kunde: 1,
+      servicekunde: 1,
       tidligere_kunde: 2,
       nyt_emne: 3,
       ikke_tildelt: 4,
@@ -286,7 +288,7 @@ export function SoesterselskaberSektion({
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <BindingStatusBadge status={r.binding_status} size="sm" />
+                    <SegmentBadge segment3={r.customer_segment_3} size="sm" />
                     <CustomerStatusBadge type={r.customer_type} />
                   </div>
                 </div>
