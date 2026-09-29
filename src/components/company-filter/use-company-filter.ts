@@ -304,7 +304,8 @@ export function useCompanyFilter({
         )
           return false;
       }
-      if (filters.saelger !== "alle") {
+      // Ved fritekstsøgning søges i hele basen — sælgervalget ignoreres.
+      if (filters.saelger !== "alle" && !q.trim()) {
         const assigns = new Set<string>(assignmentMap.get(r.id) ?? []);
         const own = (r as any).assigned_to as string | null;
         if (own) assigns.add(own);
