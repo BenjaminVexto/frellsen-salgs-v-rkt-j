@@ -302,6 +302,13 @@
       "when": 1791200944412,
       "tag": "0042_service_role_statement_timeout",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791203547317,
+      "tag": "0043_sales_kunde_maaned_forudberegning",
+      "breakpoints": true
     }
   ]
 }

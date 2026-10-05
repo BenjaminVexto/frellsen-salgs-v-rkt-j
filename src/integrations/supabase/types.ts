@@ -2761,6 +2761,63 @@ export type Database = {
           },
         ]
       }
+      sales_kunde_maaned: {
+        Row: {
+          afdeling_nr: number
+          company_id: string
+          contrib: number
+          contrib_fg: number
+          has_fg: boolean
+          kg: number
+          kg_c4: number
+          koder: string[]
+          period: string
+          pos_any: boolean
+          pos_c4: boolean
+          pos_fg: boolean
+          rev: number
+          rev_c4: number
+          rev_ex16: number
+          rev_fg: number
+        }
+        Insert: {
+          afdeling_nr: number
+          company_id: string
+          contrib?: number
+          contrib_fg?: number
+          has_fg?: boolean
+          kg?: number
+          kg_c4?: number
+          koder?: string[]
+          period: string
+          pos_any?: boolean
+          pos_c4?: boolean
+          pos_fg?: boolean
+          rev?: number
+          rev_c4?: number
+          rev_ex16?: number
+          rev_fg?: number
+        }
+        Update: {
+          afdeling_nr?: number
+          company_id?: string
+          contrib?: number
+          contrib_fg?: number
+          has_fg?: boolean
+          kg?: number
+          kg_c4?: number
+          koder?: string[]
+          period?: string
+          pos_any?: boolean
+          pos_c4?: boolean
+          pos_fg?: boolean
+          rev?: number
+          rev_c4?: number
+          rev_ex16?: number
+          rev_fg?: number
+        }
+        Relationships: []
+      }
       sales_monthly: {
         Row: {
           afdeling_nr: number
@@ -3524,6 +3581,7 @@ export type Database = {
         }[]
       }
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
+      _skm_refresh_keys: { Args: never; Returns: undefined }
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
       addr_vej: { Args: { _addr: string }; Returns: string }
