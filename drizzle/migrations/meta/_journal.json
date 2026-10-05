@@ -309,6 +309,13 @@
       "when": 1791203547317,
       "tag": "0043_sales_kunde_maaned_forudberegning",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791203737645,
+      "tag": "0044_sales_kunde_maaned_saelger_kategori",
+      "breakpoints": true
     }
   ]
 }

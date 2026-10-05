@@ -2764,10 +2764,13 @@ export type Database = {
       sales_kunde_maaned: {
         Row: {
           afdeling_nr: number
+          c_afd: number | null
           company_id: string
           contrib: number
           contrib_fg: number
+          gyldig: boolean
           has_fg: boolean
+          kat: string | null
           kg: number
           kg_c4: number
           koder: string[]
@@ -2779,13 +2782,17 @@ export type Database = {
           rev_c4: number
           rev_ex16: number
           rev_fg: number
+          saelger: string | null
         }
         Insert: {
           afdeling_nr: number
+          c_afd?: number | null
           company_id: string
           contrib?: number
           contrib_fg?: number
+          gyldig?: boolean
           has_fg?: boolean
+          kat?: string | null
           kg?: number
           kg_c4?: number
           koder?: string[]
@@ -2797,13 +2804,17 @@ export type Database = {
           rev_c4?: number
           rev_ex16?: number
           rev_fg?: number
+          saelger?: string | null
         }
         Update: {
           afdeling_nr?: number
+          c_afd?: number | null
           company_id?: string
           contrib?: number
           contrib_fg?: number
+          gyldig?: boolean
           has_fg?: boolean
+          kat?: string | null
           kg?: number
           kg_c4?: number
           koder?: string[]
@@ -2815,6 +2826,7 @@ export type Database = {
           rev_c4?: number
           rev_ex16?: number
           rev_fg?: number
+          saelger?: string | null
         }
         Relationships: []
       }
