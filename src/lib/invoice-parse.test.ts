@@ -60,3 +60,16 @@ describe("ingen fejlrækker tilladt", () => {
     expect(r.rawLines.length).toBe(999);
   });
 });
+
+describe("ikke-fakturerede linjer", () => {
+  const gode = Array(10).fill(linje("20260901"));
+  it("fakturadato 0 og tom springes over og tælles", async () => {
+    const r = await parseInvoiceJournal(fil([...gode, linje("0"), linje("")]));
+    expect(r.rawLines.length).toBe(10);
+    expect(r.stats.ikkeFaktureret).toBe(2);
+    expect(r.stats.ikkeFaktureretEksempler[0]).toEqual({ ordre_nr: "1", varenr: "V1", beloeb: "90" });
+  });
+  it("anden ugyldig dato afviser stadig filen", async () => {
+    await expect(parseInvoiceJournal(fil([...gode, linje("32-13-2026")]))).rejects.toThrow(/Filen afvist/);
+  });
+});

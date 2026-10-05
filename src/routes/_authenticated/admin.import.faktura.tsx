@@ -447,6 +447,23 @@ function FilOpsummering({ stats }: { stats: ParseStats }) {
         {stats.subtotalRows.toLocaleString("da-DK")} subtotalrækker sorteret fra
         {stats.hovedmaaned && <> · hovedperiode omkring {maanedNavn(stats.hovedmaaned)}</>}
       </p>
+      {stats.ikkeFaktureret > 0 && (
+        <div className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">
+            {stats.ikkeFaktureret.toLocaleString("da-DK")} ikke-fakturerede linjer sprunget over
+          </span>{" "}
+          (fakturadato "0" eller tom)
+          {stats.ikkeFaktureret > stats.ikkeFaktureretEksempler.length && <> — viser de første {stats.ikkeFaktureretEksempler.length}</>}
+          <table className="mt-1 tabular-nums">
+            <thead><tr className="text-left"><th className="pr-4">Ordrenr.</th><th className="pr-4">Varenr.</th><th className="text-right">Beløb</th></tr></thead>
+            <tbody>
+              {stats.ikkeFaktureretEksempler.map((e, i) => (
+                <tr key={i}><td className="pr-4">{e.ordre_nr}</td><td className="pr-4">{e.varenr}</td><td className="text-right">{e.beloeb}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {stats.fejlRaekker > 0 && (
         <div className="text-xs text-amber-700 dark:text-amber-400">
           {stats.fejlRaekker} rækker med ugyldig dato/beløb/DB springes over (under grænsen):
