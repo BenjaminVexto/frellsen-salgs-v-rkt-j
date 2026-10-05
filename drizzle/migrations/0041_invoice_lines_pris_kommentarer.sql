@@ -1,0 +1,2 @@
+COMMENT ON COLUMN public.invoice_lines.kostpris IS 'Fakturajournal kolonne 12 = Visma "Pris (kr)": listepris før rabat (pr. kg på kaffe). IKKE kostpris. Må ikke bruges til DB/DG — de kommer fra kolonne 15–16.';
+COMMENT ON COLUMN public.invoice_lines.enhedspris IS 'Fakturajournal kolonne 13 = Visma "Pris efter rabat (kr)".';

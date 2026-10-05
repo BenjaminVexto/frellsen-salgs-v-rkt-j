@@ -288,6 +288,13 @@
       "when": 1791190493661,
       "tag": "0040_faktura_import_berorte_maaneder",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791197731718,
+      "tag": "0041_invoice_lines_pris_kommentarer",
+      "breakpoints": true
     }
   ]
 }

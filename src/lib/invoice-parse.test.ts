@@ -41,3 +41,22 @@ describe("berørte måneder", () => {
     expect(topAfdelinger([{ afdeling_nr: 11, maaned: "2024-12-01" }], new Date("2026-10-05"))).toEqual([]);
   });
 });
+
+import { parseInvoiceJournal } from "./invoice-parse";
+const linje = (dato: string, lev = "123") =>
+  ["10", "11", "1", dato, lev, "V1", "Kaffe", "1", "2", "2", "1", "100", "90", "90", "30", "33", "AB"].map((v) => `"${v}"`).join(" ");
+const fil = (rows: string[]) => new File([rows.join("\n")], "f.csv", { type: "text/csv" });
+
+describe("ingen fejlrækker tilladt", () => {
+  const godeRaekker = Array(999).fill(linje("20260901"));
+  it("én ugyldig dato blandt 1000 afviser filen", async () => {
+    await expect(parseInvoiceJournal(fil([...godeRaekker, linje("xx")]))).rejects.toThrow(/Filen afvist/);
+  });
+  it("én manglende Lev. kunde afviser filen", async () => {
+    await expect(parseInvoiceJournal(fil([...godeRaekker, linje("20260901", "")]))).rejects.toThrow(/Filen afvist/);
+  });
+  it("fejlfri fil accepteres", async () => {
+    const r = await parseInvoiceJournal(fil(godeRaekker));
+    expect(r.rawLines.length).toBe(999);
+  });
+});
