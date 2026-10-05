@@ -142,10 +142,14 @@ function PortfolioPage() {
     // til Portefølje faktisk er valgt, så Målepunkter ikke starter begge
     // databaselæsninger parallelt ved første visning.
     enabled: tab === "portefoelje" && (tabValgt || !visMaalepunkter),
-    queryFn: () =>
-      fn({
-        data: { sellerId: sellerId === "all" ? null : sellerId, afdelingNr: afdelingFilter },
-      }),
+    // Svaret sendes som én JSON-streng — ellers rammer den store kundeliste
+    // serverfunktionernes grænse for antal serialiseringsposter.
+    queryFn: async () =>
+      JSON.parse(
+        await fn({
+          data: { sellerId: sellerId === "all" ? null : sellerId, afdelingNr: afdelingFilter },
+        }),
+      ) as PortfolioPayload,
   });
 
   const data = q.data;
