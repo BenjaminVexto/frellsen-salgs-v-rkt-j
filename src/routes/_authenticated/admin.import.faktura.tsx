@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, FileUp, Loader2, CheckCircle2, Receipt } from "lucide-react";
+import { ArrowLeft, FileUp, Loader2, CheckCircle2, Receipt, AlertTriangle, Search } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { enqueueInvoiceImport, resolveDeliveryNos } from "@/lib/invoice-import.functions";
-import { parseInvoiceJournal } from "@/lib/invoice-parse";
+import { parseInvoiceJournal, AFVIGENDE_MAANEDER, type InvoiceLineRaw, type ParseStats } from "@/lib/invoice-parse";
 import { ImportKolonneTjekliste } from "@/components/import-kolonne-tjekliste";
 import { IMPORT_KONTRAKTER } from "@/lib/import-kontrakter";
 
@@ -71,6 +72,9 @@ function FakturaImportSide() {
   const [rowsByAfdeling, setRowsByAfdeling] = useState<Record<string, number> | null>(null);
   const [job, setJob] = useState<JobRow | null>(null);
   const pollRef = useRef<number | null>(null);
+  const [parsed, setParsed] = useState<{ rawLines: InvoiceLineRaw[]; stats: ParseStats } | null>(null);
+  const [analyseFejl, setAnalyseFejl] = useState<string | null>(null);
+  const [bekraeftAfvigende, setBekraeftAfvigende] = useState(false);
 
   useEffect(() => {
     if (!auth.loading && auth.role !== "admin") {
@@ -106,14 +110,13 @@ function FakturaImportSide() {
     };
   }, [jobId]);
 
-  async function handleSubmit() {
+  async function handleAnalyse() {
     if (!file) return;
     setWorking(true);
-    setJob(null);
-    setJobId(null);
+    setParsed(null);
+    setAnalyseFejl(null);
+    setBekraeftAfvigende(false);
     try {
-      // 0) Hent gyldige afdelinger + alias-map — bruges til firma-filter,
-      //    kildeafdeling→kanonisk afdeling og validering
       setStage("Henter afdelinger…");
       const [{ data: afdRows, error: afdErr }, { data: aliasRows, error: aliasErr }] = await Promise.all([
         supabase.from("afdeling").select("afdeling_nr, firma_nr").eq("aktiv", true),
@@ -125,12 +128,26 @@ function FakturaImportSide() {
       const afdelingAliases = (aliasRows ?? []) as Array<{ kilde_afdeling_nr: number; afdeling_nr: number }>;
       if (!afdelinger.length) throw new Error("Ingen aktive afdelinger fundet");
       if (!afdelingAliases.length) throw new Error("Ingen rækker i afdeling_alias — kan ikke mappe kildeafdelinger");
+      setStage("Læser fakturajournal…");
+      const res = await parseInvoiceJournal(file, { afdelinger, afdelingAliases });
+      if (!res.rawLines.length) throw new Error("Filen indeholder ingen fakturalinjer.");
+      setParsed(res);
+    } catch (e: any) {
+      setAnalyseFejl(e?.message ?? "Ukendt fejl");
+      void logImport("faktura", "fejl", file?.name, e?.message ?? "Ukendt fejl");
+    } finally {
+      setStage("");
+      setWorking(false);
+    }
+  }
 
-      // 1) Parse filen til RÅ linjer (firma-filter + afdelings-alias)
-      setStage("Parser fakturajournal…");
-      setStageProgress(null);
-      const { rawLines, stats } = await parseInvoiceJournal(file, { afdelinger, afdelingAliases });
-
+  async function handleSubmit() {
+    if (!file || !parsed) return;
+    setWorking(true);
+    setJob(null);
+    setJobId(null);
+    try {
+      const { rawLines, stats } = parsed;
       setRowsByAfdeling(stats.rowsByAfdeling);
       toast.message(
         `Parset: ${stats.linesRead.toLocaleString("da-DK")} fakturalinjer · ${stats.uniqueDeliveryNos.toLocaleString("da-DK")} leveringsnumre`,
@@ -189,10 +206,14 @@ function FakturaImportSide() {
           dateTo: stats.dateTo,
           afdelinger: Object.keys(stats.rowsByAfdeling).map((k) => Number(k)),
           filename: file?.name ?? null,
+          berorteMaaneder: stats.maaneder.map(({ afdeling_nr, maaned, fra, til, linjer }) => ({
+            afdeling_nr, maaned, fra, til, linjer,
+          })),
         },
       });
 
       setJobId(newJobId);
+      setParsed(null);
       setStage("");
       toast.success(
         "Klar — serveren skriver linjerne og genberegner salgsdata i baggrunden. Du kan lukke fanen.",
@@ -216,6 +237,7 @@ function FakturaImportSide() {
   }
 
   const running = job && (job.status === "queued" || job.status === "running");
+  const afvigende = parsed?.stats.maaneder.filter((m) => m.afvigende) ?? [];
   const stagePct = stageProgress && stageProgress.total > 0
     ? Math.round((stageProgress.done / stageProgress.total) * 100)
     : null;
@@ -231,9 +253,11 @@ function FakturaImportSide() {
           <Receipt className="h-6 w-6" /> Faktura Journal
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Browseren uploader fakturajournalens linjer. Serveren skriver dem, rydder de gamle og
-          genberegner salgsdata for de berørte måneder — du kan lukke fanen, så snart upload er
-          færdig. Filen behøver ikke følge månedsskift.
+          Vælg filen og tryk "Analysér fil" — du ser antal linjer pr. måned pr. afdeling, før noget
+          ændres. Importen rydder og genberegner kun de måneder pr. afdeling, som filen indeholder, og
+          inden for hver måned kun fra filens første til sidste dato. Andre måneder røres aldrig.
+          Filen skal have 17 kolonner uden overskrifter; det gamle format med 20 kolonner accepteres
+          midlertidigt (Kundenavn og Kundeprisgruppe 1/2 ignoreres — de hentes fra Aktør). Kør Aktør først.
         </p>
 
       </div>
@@ -245,7 +269,11 @@ function FakturaImportSide() {
             id="file"
             type="file"
             accept=".xlsx,.xls,.csv"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              setFile(e.target.files?.[0] ?? null);
+              setParsed(null);
+              setAnalyseFejl(null);
+            }}
             disabled={working || !!running}
           />
           {file && (
@@ -256,14 +284,53 @@ function FakturaImportSide() {
         </div>
 
         <div className="flex gap-2">
-          <Button onClick={handleSubmit} disabled={!file || working || !!running}>
-            {working ? (
+          <Button variant="outline" onClick={handleAnalyse} disabled={!file || working || !!running}>
+            <Search className="h-4 w-4 mr-2" /> Analysér fil
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!parsed || working || !!running || (afvigende.length > 0 && !bekraeftAfvigende)}
+          >
+            {working && parsed ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Arbejder…</>
             ) : (
-              <><FileUp className="h-4 w-4 mr-2" /> Upload og start import</>
+              <><FileUp className="h-4 w-4 mr-2" /> Start import</>
             )}
           </Button>
         </div>
+
+        {analyseFejl && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive whitespace-pre-wrap">
+            {analyseFejl}
+          </div>
+        )}
+
+        {parsed && <FilOpsummering stats={parsed.stats} />}
+
+        {parsed && afvigende.length > 0 && (
+          <div className="rounded-lg border border-destructive/60 bg-destructive/5 p-4 space-y-2 text-sm">
+            <div className="flex items-center gap-2 font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              {afvigende.reduce((s, m) => s + m.linjer, 0).toLocaleString("da-DK")} linjer ligger mere end{" "}
+              {AFVIGENDE_MAANEDER} måneder fra filens hovedperiode
+            </div>
+            <ul className="text-xs list-disc pl-5">
+              {afvigende.map((m) => (
+                <li key={`${m.afdeling_nr}|${m.maaned}`}>
+                  Afd. {m.afdeling_nr} · {maanedNavn(m.maaned)}: {m.linjer} linjer ({m.fra} – {m.til})
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              Importen rydder og genberegner også disse måneder (kun datoerne fra {"første"} til sidste linje i hver måned).
+              Ret filen i Visma, hvis linjerne er en fejl.
+            </p>
+            <label className="flex items-center gap-2 text-xs">
+              <Checkbox checked={bekraeftAfvigende} onCheckedChange={(v) => setBekraeftAfvigende(v === true)} />
+              Jeg har set advarslen og vil importere alligevel
+            </label>
+          </div>
+        )}
 
         {working && stage && (
           <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
@@ -358,6 +425,63 @@ function FakturaImportSide() {
       </Card>
 
       <ImportKolonneTjekliste kontrakt={IMPORT_KONTRAKTER.faktura} />
+    </div>
+  );
+}
+
+const MAANEDER = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+function maanedNavn(iso: string) {
+  return `${MAANEDER[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+}
+
+function FilOpsummering({ stats }: { stats: ParseStats }) {
+  const afdelinger = Array.from(new Set(stats.maaneder.map((m) => m.afdeling_nr))).sort((a, b) => a - b);
+  const maaneder = Array.from(new Set(stats.maaneder.map((m) => m.maaned))).sort();
+  const get = (afd: number, md: string) => stats.maaneder.find((m) => m.afdeling_nr === afd && m.maaned === md);
+  return (
+    <div className="rounded-lg border bg-muted/30 p-4 space-y-3 text-sm">
+      <div className="font-medium">Filen indeholder</div>
+      <p className="text-xs text-muted-foreground">
+        Format: {stats.format} kolonner{stats.format === "20" && " (gammelt format — kolonne 6–8 ignoreres)"} ·{" "}
+        {stats.linesRead.toLocaleString("da-DK")} fakturalinjer · {stats.uniqueDeliveryNos.toLocaleString("da-DK")} leveringsnumre ·{" "}
+        {stats.subtotalRows.toLocaleString("da-DK")} subtotalrækker sorteret fra
+        {stats.hovedmaaned && <> · hovedperiode omkring {maanedNavn(stats.hovedmaaned)}</>}
+      </p>
+      {stats.fejlRaekker > 0 && (
+        <div className="text-xs text-amber-700 dark:text-amber-400">
+          {stats.fejlRaekker} rækker med ugyldig dato/beløb/DB springes over (under grænsen):
+          <ul className="list-disc pl-5">{stats.fejlEksempler.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </div>
+      )}
+      <div className="overflow-x-auto">
+        <table className="text-xs w-full">
+          <thead>
+            <tr className="text-muted-foreground text-left">
+              <th className="py-1 pr-3">Måned</th>
+              {afdelinger.map((a) => <th key={a} className="py-1 pr-3 text-right">Afd. {a}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {maaneder.map((md) => {
+              const afv = stats.maaneder.some((m) => m.maaned === md && m.afvigende);
+              return (
+                <tr key={md} className={afv ? "text-destructive font-medium" : ""}>
+                  <td className="py-1 pr-3">{maanedNavn(md)}{afv && " ⚠"}</td>
+                  {afdelinger.map((a) => {
+                    const m = get(a, md);
+                    return (
+                      <td key={a} className="py-1 pr-3 text-right tabular-nums" title={m ? `${m.fra} – ${m.til}` : undefined}>
+                        {m ? m.linjer.toLocaleString("da-DK") : "–"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">Kun månederne ovenfor ryddes og genberegnes.</p>
     </div>
   );
 }

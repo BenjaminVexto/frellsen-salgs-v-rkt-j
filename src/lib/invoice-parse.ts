@@ -1,5 +1,5 @@
 // Client-side parser for Visma invoice journal.
-// Input: raw xlsx/csv file (ISO-8859-1 for CSV, no header, 18 positional cols).
+// Input: raw xlsx/csv file (ISO-8859-1 for CSV, no header, 17 positional cols (20 = old format)).
 // Output: rå detaljelinjer til public.invoice_lines. Aggregaterne beregnes i
 // databasen (rebuild_sales_aggregates) — ikke længere i browseren.
 
@@ -8,28 +8,113 @@ import Papa from "papaparse";
 import { readFileSmart } from "./file-encoding";
 
 
-const COL = {
-  FIRMA: 0,
-  AFDELING: 1,
-  ORDER_NO: 2,
-  DATE: 3,
-  DELIVERY: 4,
-  KUNDENAVN: 5,
-  KPG1: 6,
-  KPG2: 7,
-  VARENR: 8,
-  DESC: 9,
-  QTY: 10,
-  GROUP1: 11,
-  GROUP2: 12,
-  NETTOVAEGT: 13,
-  KOSTPRIS: 14,
-  ENHEDSPRIS: 15,
-  REVENUE: 16,
-  DB: 17,
-  DG: 18,
-  INITIALER: 19,
-} as const;
+/** Kolonneplacering (0-baseret) pr. format. Kundenavn/KPG1/KPG2 findes kun i det gamle. */
+type ColMap = {
+  FIRMA: number; AFDELING: number; ORDER_NO: number; DATE: number; DELIVERY: number;
+  VARENR: number; DESC: number; QTY: number; GROUP1: number; GROUP2: number;
+  NETTOVAEGT: number; KOSTPRIS: number; ENHEDSPRIS: number; REVENUE: number;
+  DB: number; DG: number; INITIALER: number;
+};
+
+/** Nyt format (17 kolonner): Kundenavn, Kundeprisgruppe 1 og 2 er fjernet. */
+const COL_17: ColMap = {
+  FIRMA: 0, AFDELING: 1, ORDER_NO: 2, DATE: 3, DELIVERY: 4,
+  VARENR: 5, DESC: 6, QTY: 7, GROUP1: 8, GROUP2: 9, NETTOVAEGT: 10,
+  KOSTPRIS: 11, ENHEDSPRIS: 12, REVENUE: 13, DB: 14, DG: 15, INITIALER: 16,
+};
+
+/** Gammelt format (20 kolonner): kolonne 6–8 (Kundenavn, KPG1, KPG2) ignoreres. */
+const COL_20: ColMap = {
+  FIRMA: 0, AFDELING: 1, ORDER_NO: 2, DATE: 3, DELIVERY: 4,
+  VARENR: 8, DESC: 9, QTY: 10, GROUP1: 11, GROUP2: 12, NETTOVAEGT: 13,
+  KOSTPRIS: 14, ENHEDSPRIS: 15, REVENUE: 16, DB: 17, DG: 18, INITIALER: 19,
+};
+
+export type FileFormat = "17" | "20";
+
+/** Max andel af detaljerækker med ugyldig dato/beløb/DB før filen afvises. */
+export const MAX_FEJL_ANDEL = 0.005;
+/** Linjer længere end dette antal måneder fra hovedperioden markeres som afvigende. */
+export const AFVIGENDE_MAANEDER = 13;
+
+/**
+ * Bestem filformat ud fra antal kolonner. Der gættes aldrig: kun 17 eller 20
+ * accepteres, og blandede rækkelængder afvises.
+ */
+export function detectFileFormat(rows: unknown[][]): FileFormat {
+  const counts = new Map<number, number>();
+  for (const r of rows) {
+    if (!Array.isArray(r)) continue;
+    // Subtotalrækker (Firma tom/"0") tæller ikke med — de sorteres fra senere.
+    const firma = String(r[0] ?? "").trim();
+    if (!firma || firma === "0") continue;
+    counts.set(r.length, (counts.get(r.length) ?? 0) + 1);
+  }
+  if (!counts.size) throw new Error("Filen er tom — ingen rækker fundet.");
+  const lengths = Array.from(counts.keys()).sort((a, b) => a - b);
+  if (lengths.length === 1 && (lengths[0] === 17 || lengths[0] === 20)) {
+    return String(lengths[0]) as FileFormat;
+  }
+  const beskriv = lengths.map((l) => `${l} kolonner (${counts.get(l)} rækker)`).join(", ");
+  throw new Error(
+    `Ukendt filformat: fandt ${beskriv}. Faktura Journal skal have præcis 17 kolonner (nyt format) eller 20 kolonner (gammelt format, midlertidigt).`,
+  );
+}
+
+function isStrictNumber(raw: unknown): boolean {
+  if (typeof raw === "number") return Number.isFinite(raw);
+  const s = String(raw ?? "").trim().replace(/\s+/g, "");
+  if (!s) return false;
+  return /^-?[\d.,]+-?$/.test(s) && /\d/.test(s);
+}
+
+export type MaanedOpsummering = {
+  afdeling_nr: number;
+  maaned: string; // YYYY-MM-01
+  fra: string; // første fakturadato i måneden i filen
+  til: string; // sidste fakturadato i måneden i filen
+  linjer: number;
+  afvigende: boolean;
+};
+
+function monthIndex(iso: string): number {
+  return Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7)) - 1;
+}
+
+/**
+ * Opsummér filens linjer pr. (afdeling, kalendermåned) med første/sidste dato
+ * i netop den måned. Hovedperioden er medianmåneden (vægtet med linjer); en
+ * måned mere end AFVIGENDE_MAANEDER fra den markeres som afvigende.
+ */
+export function summarizeMonths(
+  lines: Array<{ afdeling_nr: number; faktura_dato: string }>,
+): { maaneder: MaanedOpsummering[]; hovedmaaned: string | null } {
+  const map = new Map<string, MaanedOpsummering>();
+  const idx: number[] = [];
+  for (const l of lines) {
+    const maaned = l.faktura_dato.slice(0, 7) + "-01";
+    const key = `${l.afdeling_nr}|${maaned}`;
+    const cur = map.get(key);
+    if (!cur) {
+      map.set(key, { afdeling_nr: l.afdeling_nr, maaned, fra: l.faktura_dato, til: l.faktura_dato, linjer: 1, afvigende: false });
+    } else {
+      cur.linjer++;
+      if (l.faktura_dato < cur.fra) cur.fra = l.faktura_dato;
+      if (l.faktura_dato > cur.til) cur.til = l.faktura_dato;
+    }
+    idx.push(monthIndex(l.faktura_dato));
+  }
+  if (!idx.length) return { maaneder: [], hovedmaaned: null };
+  idx.sort((a, b) => a - b);
+  const median = idx[Math.floor(idx.length / 2)];
+  const maaneder = Array.from(map.values()).sort(
+    (a, b) => a.afdeling_nr - b.afdeling_nr || a.maaned.localeCompare(b.maaned),
+  );
+  for (const m of maaneder) m.afvigende = Math.abs(monthIndex(m.maaned) - median) > AFVIGENDE_MAANEDER;
+  const y = Math.floor(median / 12);
+  const hovedmaaned = `${y}-${String((median % 12) + 1).padStart(2, "0")}-01`;
+  return { maaneder, hovedmaaned };
+}
 
 
 // Kun firma 10 (Frellsen Kaffe) må importeres. Alt andet (20/30/40/50/70 …) springes over.
@@ -191,7 +276,7 @@ function monthStart(d: Date): string {
 /**
  * Én rå detaljelinje fra fakturajournalen, gemt 1:1 i public.invoice_lines.
  * Ingen forretningsregler er anvendt: interne posteringer (beløb 0, DB ≠ 0)
- * er med, og alle 20 kolonner bevares — også dem vi ikke bruger i dag.
+ * er med. kunde_navn/kundeprisgruppe_1/2 er altid NULL — de hentes fra Aktør.
  */
 export type InvoiceLineRaw = {
   firma_nr: string | null;
@@ -233,6 +318,16 @@ export type ParseStats = {
   totalRevenue: number;
   /** Antal detaljelinjer pr. afdeling (nøgle = afdeling_nr som streng). */
   rowsByAfdeling: Record<string, number>;
+  /** Filformat genkendt på antal kolonner. */
+  format: FileFormat;
+  /** Subtotalrækker uden varenr. (sorteret fra). */
+  subtotalRows: number;
+  /** Rækker med ugyldig dato / beløb / DB (sprunget over, under tærsklen). */
+  fejlRaekker: number;
+  fejlEksempler: string[];
+  /** Linjer pr. (afdeling, måned) — det er KUN disse måneder importen rører. */
+  maaneder: MaanedOpsummering[];
+  hovedmaaned: string | null;
 };
 
 /** Afdelingsopslag brugt til firma-filter og afdelingsvalidering. */
@@ -333,6 +428,12 @@ export async function parseInvoiceJournal(
     dateTo: null,
     totalRevenue: 0,
     rowsByAfdeling: {},
+    format: "17",
+    subtotalRows: 0,
+    fejlRaekker: 0,
+    fejlEksempler: [],
+    maaneder: [],
+    hovedmaaned: null,
   };
   const firmaSampleSet = new Set<string>();
   const deliverySet = new Set<string>();
@@ -349,11 +450,14 @@ export async function parseInvoiceJournal(
   );
   const unknownAfdelinger = new Set<string>();
 
+  const format = detectFileFormat(rows);
+  const COL = format === "17" ? COL_17 : COL_20;
+  stats.format = format;
+  const width = Number(format);
+  let detaljeRaekker = 0;
+
   for (const row of rows) {
-    if (!Array.isArray(row) || row.length < 20) {
-      stats.invalidLines++;
-      continue;
-    }
+    if (!Array.isArray(row)) continue;
     const firma = String(row[COL.FIRMA] ?? "").trim();
     // Firma-filteret frasorterer også per-kunde subtotalrækkerne, som har
     // Firma="0"/Afdeling="0". Derfor kører afdelingsvalideringen EFTER dette.
@@ -361,6 +465,15 @@ export async function parseInvoiceJournal(
     if (!firmaOk) {
       stats.skippedFirma++;
       if (firmaSampleSet.size < 10) firmaSampleSet.add(firma);
+      continue;
+    }
+    if (row.length !== width) {
+      stats.invalidLines++;
+      continue;
+    }
+    // Subtotalrækker uden varenr. sorteres fra (uændret regel).
+    if (!String(row[COL.VARENR] ?? "").trim()) {
+      stats.subtotalRows++;
       continue;
     }
     const afdRaw = String(row[COL.AFDELING] ?? "").trim();
@@ -374,11 +487,22 @@ export async function parseInvoiceJournal(
       }
     }
     const afdeling = mapped ?? 11;
+    detaljeRaekker++;
 
     const date = parseDanishDate(row[COL.DATE]);
     const delivery = String(row[COL.DELIVERY] ?? "").trim();
-    if (!date || !delivery) {
-      stats.invalidLines++;
+    const fejl: string[] = [];
+    if (!date) fejl.push(`fakturadato "${String(row[COL.DATE] ?? "")}" er ikke en dato`);
+    if (!isStrictNumber(row[COL.REVENUE])) fejl.push(`Beløb "${String(row[COL.REVENUE] ?? "")}" er ikke et tal`);
+    if (!isStrictNumber(row[COL.DB])) fejl.push(`DB "${String(row[COL.DB] ?? "")}" er ikke et tal`);
+    if (!delivery) fejl.push("Lev. kunde mangler");
+    if (fejl.length || !date) {
+      stats.fejlRaekker++;
+      if (stats.fejlEksempler.length < 10) {
+        stats.fejlEksempler.push(
+          `Ordre ${String(row[COL.ORDER_NO] ?? "–")}, varenr. ${String(row[COL.VARENR] ?? "–")}: ${fejl.join("; ")}`,
+        );
+      }
       continue;
     }
     stats.linesRead++;
@@ -395,7 +519,6 @@ export async function parseInvoiceJournal(
 
     const dateIso = parseDanishDateIso(row[COL.DATE]) ?? date.toISOString().slice(0, 10);
 
-    // Rådata: gem linjen som den står i filen — ingen regler anvendt her.
     const strOrNull = (v: unknown): string | null => {
       const s = String(v ?? "").trim();
       return s ? s : null;
@@ -411,9 +534,10 @@ export async function parseInvoiceJournal(
       ordre_nr: strOrNull(row[COL.ORDER_NO]),
       faktura_dato: dateIso,
       visma_delivery_no: delivery,
-      kunde_navn: strOrNull(row[COL.KUNDENAVN]),
-      kundeprisgruppe_1: strOrNull(row[COL.KPG1]),
-      kundeprisgruppe_2: strOrNull(row[COL.KPG2]),
+      // Kundeattributter kommer fra Aktør (locations → companies) — gemmes ikke.
+      kunde_navn: null,
+      kundeprisgruppe_1: null,
+      kundeprisgruppe_2: null,
       varenr: strOrNull(row[COL.VARENR]),
       varetekst: strOrNull(row[COL.DESC]),
       antal: numOrNull(row[COL.QTY]),
@@ -427,6 +551,12 @@ export async function parseInvoiceJournal(
       dg: numOrNull(row[COL.DG]),
       initialer: strOrNull(row[COL.INITIALER]),
     });
+  }
+
+  if (detaljeRaekker > 0 && stats.fejlRaekker / detaljeRaekker > MAX_FEJL_ANDEL) {
+    throw new Error(
+      `Filen afvist: ${stats.fejlRaekker.toLocaleString("da-DK")} af ${detaljeRaekker.toLocaleString("da-DK")} rækker har ugyldig fakturadato, Beløb eller DB (grænse ${(MAX_FEJL_ANDEL * 100).toLocaleString("da-DK")} %). Eksempler: ${stats.fejlEksempler.join(" | ")}`,
+    );
   }
 
   if (unknownAfdelinger.size) {
@@ -445,6 +575,9 @@ export async function parseInvoiceJournal(
   stats.dateFrom = minDate ? (minDate as Date).toISOString().slice(0, 10) : null;
   stats.dateTo = maxDate ? (maxDate as Date).toISOString().slice(0, 10) : null;
   stats.skippedFirmaSamples = Array.from(firmaSampleSet).sort();
+  const sum = summarizeMonths(rawLines);
+  stats.maaneder = sum.maaneder;
+  stats.hovedmaaned = sum.hovedmaaned;
 
   return { rawLines, stats };
 }

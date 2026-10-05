@@ -102,3 +102,20 @@ export function monthsInRange(from: string, to: string): string[] {
   }
   return out;
 }
+
+/**
+ * Afdelinger hvor filen har mindst én måned inden for top-varelistens rullende
+ * 12-måneders vindue (samme vindue som rebuild_top_products). Andre afdelinger
+ * røres ikke.
+ */
+export function topAfdelinger(
+  berorte: Array<{ afdeling_nr: number; maaned: string }>,
+  today: Date,
+): number[] {
+  const y = today.getUTCFullYear();
+  const m = today.getUTCMonth() - 11;
+  const start = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+  return Array.from(
+    new Set(berorte.filter((b) => b.maaned >= start).map((b) => b.afdeling_nr)),
+  ).sort((a, b) => a - b);
+}
