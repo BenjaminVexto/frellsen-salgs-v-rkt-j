@@ -281,6 +281,13 @@
       "when": 1790630665780,
       "tag": "0039_import_status_nyeste_kilde",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791190493661,
+      "tag": "0040_faktura_import_berorte_maaneder",
+      "breakpoints": true
     }
   ]
 }

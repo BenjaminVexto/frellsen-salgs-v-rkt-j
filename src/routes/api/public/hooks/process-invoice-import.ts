@@ -7,9 +7,9 @@
  *
  * Faser pr. tick (én job ad gangen):
  *   lines     → indsæt rålinjer i invoice_lines
- *   prune     → slet gamle rålinjer i filens datointerval, måned for måned
+ *   prune     → slet gamle rålinjer pr. (afdeling, måned) som filen indeholder
  *   aggregate → genberegn sales_monthly / sales_monthly_products /
- *               sales_top_products i databasen, én måned pr. iteration
+ *               sales_top_products for de samme (afdeling, måned)
  *   relink    → kobl salgsrækker til lokation/virksomhed
  *   done
  */
@@ -18,7 +18,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   insertInvoiceLinesChunk,
   countInvoiceLines,
-  monthsInRange,
+  topAfdelinger,
 } from "@/lib/invoice-import.server";
 
 const MAX_ATTEMPTS = 5;
@@ -59,7 +59,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
         const { data: candidates, error: selErr } = await supabaseAdmin
           .from("invoice_import_jobs")
           .select(
-            "id, phase, attempts, aggregated_path, total_lines, saved_lines, lines_deleted, prune_month_idx, aggregate_month_idx, months_rebuilt, lines_batch_id, lines_date_from, lines_date_to, lines_afdelinger",
+            "id, phase, attempts, aggregated_path, total_lines, saved_lines, lines_deleted, prune_month_idx, aggregate_month_idx, months_rebuilt, lines_batch_id, lines_date_from, lines_date_to, lines_afdelinger, berorte_maaneder",
           )
           .in("status", ["queued", "running"])
           .neq("phase", "done")
@@ -137,31 +137,31 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             return Response.json({ processed, chunks, jobId, phase: "lines", savedNow: already });
           }
 
-          // ---- Fase 2: ryd gamle rålinjer, måned for måned ----
+          // (afdeling, måned) som filen faktisk indeholder. Kun disse ryddes og
+          // genberegnes — måneder uden linjer i filen røres aldrig.
+          type Berort = { afdeling_nr: number; maaned: string; fra: string; til: string; linjer: number };
+          const berorte = (Array.isArray(job.berorte_maaneder) ? job.berorte_maaneder : []) as Berort[];
+
+          // ---- Fase 2: ryd gamle rålinjer pr. (afdeling, måned) i filen ----
           if (phase === "prune") {
             const batchId = job.lines_batch_id as string | null;
-            const from = job.lines_date_from as string | null;
-            const to = job.lines_date_to as string | null;
-            const afdelinger = (job.lines_afdelinger as number[]) ?? [];
-            if (!batchId || !from || !to || !afdelinger.length) {
-              await supabaseAdmin
-                .from("invoice_import_jobs")
-                .update({ phase: "aggregate", status: "queued", attempts: 0 })
-                .eq("id", jobId);
-              return Response.json({ processed: 0, jobId, phase: "prune", next: "aggregate" });
+            if (!batchId) throw new Error("lines_batch_id mangler på jobbet");
+            if (!berorte.length) {
+              // Ældre job uden månedsliste: ryd INTET (det gamle interval-flow
+              // kunne slette måneder filen ikke indeholdt).
+              throw new Error("Jobbet mangler listen over berørte måneder — start importen igen.");
             }
-            const months = monthsInRange(from, to);
             let idx = (job.prune_month_idx as number) ?? 0;
             let deleted = (job.lines_deleted as number) ?? 0;
-            // Flere måneder pr. tick, indtil intervallet er ryddet eller
-            // tidsbudgettet er brugt. prune_month_idx gemmes efter hver måned.
-            while (idx < months.length && hasBudget()) {
+            while (idx < berorte.length && hasBudget()) {
+              const m = berorte[idx];
+              // Kun datoer fra filens første til sidste dato i netop denne måned.
               const { data: n, error: pErr } = await supabaseAdmin.rpc("prune_invoice_lines_month", {
                 _batch_id: batchId,
-                _afdelinger: afdelinger,
-                _month_start: months[idx],
-                _from: from,
-                _to: to,
+                _afdelinger: [m.afdeling_nr],
+                _month_start: m.maaned,
+                _from: m.fra,
+                _to: m.til,
               });
               if (pErr) throw new Error("prune_invoice_lines_month: " + pErr.message);
               deleted += (n as number) ?? 0;
@@ -171,7 +171,7 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
                 .update({ prune_month_idx: idx, lines_deleted: deleted })
                 .eq("id", jobId);
             }
-            const np = idx >= months.length ? "aggregate" : "prune";
+            const np = idx >= berorte.length ? "aggregate" : "prune";
             await supabaseAdmin
               .from("invoice_import_jobs")
               .update({
@@ -186,30 +186,18 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
             return Response.json({ processed: deleted, jobId, phase: "prune", next: np });
           }
 
-          // ---- Fase 3: genberegn aggregater fra rålinjerne, én måned pr. iteration ----
+          // ---- Fase 3: genberegn aggregater KUN for (afdeling, måned) i filen ----
           if (phase === "aggregate") {
-            const from = job.lines_date_from as string | null;
-            const to = job.lines_date_to as string | null;
-            const afdelinger = (job.lines_afdelinger as number[]) ?? [];
-            if (!from || !to) {
-              await supabaseAdmin
-                .from("invoice_import_jobs")
-                .update({ phase: "relink", status: "queued", attempts: 0 })
-                .eq("id", jobId);
-              return Response.json({ jobId, phase: "aggregate", next: "relink" });
-            }
-            const months = monthsInRange(from, to);
+            if (!berorte.length) throw new Error("Jobbet mangler listen over berørte måneder.");
             let idx = (job.aggregate_month_idx as number) ?? 0;
             let rebuilt = (job.months_rebuilt as number) ?? 0;
-            while (idx < months.length && hasBudget()) {
-              const month = months[idx];
-              const isLast = idx === months.length - 1;
+            while (idx < berorte.length && hasBudget()) {
+              const m = berorte[idx];
               const { error: aggErr } = await supabaseAdmin.rpc("rebuild_sales_aggregates", {
-                _from: month,
-                _to: month,
-                _kun_afdelinger: afdelinger.length ? afdelinger : undefined,
-                // Top-varelisten er rullende 12 mdr. — beregnes én gang til sidst.
-                _med_top: isLast,
+                _from: m.maaned,
+                _to: m.maaned,
+                _kun_afdelinger: [m.afdeling_nr],
+                _med_top: false,
               });
               if (aggErr) throw new Error("rebuild_sales_aggregates: " + aggErr.message);
               idx++;
@@ -219,7 +207,19 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
                 .update({ aggregate_month_idx: idx, months_rebuilt: rebuilt })
                 .eq("id", jobId);
             }
-            const np = idx >= months.length ? "relink" : "aggregate";
+            const faerdig = idx >= berorte.length;
+            if (faerdig) {
+              // Top-varer er en rullende 12-mdr.-liste uden månedsdimension.
+              // Genberegnes kun for afdelinger, hvor filen har måneder i vinduet.
+              const afdTop = topAfdelinger(berorte, new Date());
+              if (afdTop.length) {
+                const { error: topErr } = await supabaseAdmin.rpc("rebuild_top_products", {
+                  _kun_afdelinger: afdTop,
+                });
+                if (topErr) throw new Error("rebuild_top_products: " + topErr.message);
+              }
+            }
+            const np = faerdig ? "relink" : "aggregate";
             await supabaseAdmin
               .from("invoice_import_jobs")
               .update({

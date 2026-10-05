@@ -82,8 +82,18 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       dateTo?: string | null;
       afdelinger?: number[];
       filename?: string | null;
+      /** (afdeling, måned) som filen indeholder — KUN disse ryddes og genberegnes. */
+      berorteMaaneder: Array<{ afdeling_nr: number; maaned: string; fra: string; til: string; linjer: number }>;
     }) => {
       if (!input?.jobId) throw new Error("jobId mangler");
+      if (!Array.isArray(input.berorteMaaneder)) throw new Error("berorteMaaneder mangler");
+      const iso = /^\d{4}-\d{2}-\d{2}$/;
+      for (const m of input.berorteMaaneder) {
+        if (!Number.isFinite(m?.afdeling_nr) || !iso.test(m?.maaned) || !iso.test(m?.fra) || !iso.test(m?.til))
+          throw new Error("Ugyldig måned i berorteMaaneder");
+        if (m.fra.slice(0, 7) !== m.maaned.slice(0, 7) || m.til.slice(0, 7) !== m.maaned.slice(0, 7) || m.fra > m.til)
+          throw new Error(`fra/til skal ligge i ${m.maaned}`);
+      }
       return input;
     },
   )
@@ -119,6 +129,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       lines_date_from: data.dateFrom ?? null,
       lines_date_to: data.dateTo ?? null,
       lines_afdelinger: data.afdelinger ?? [],
+      berorte_maaneder: data.berorteMaaneder,
       locations_matched: data.locationsMatched,
       unmatched_delivery_nos: data.unmatched.slice(0, 500),
       payload: { rows_by_afdeling: data.rowsByAfdeling ?? {}, filename: data.filename ?? null },

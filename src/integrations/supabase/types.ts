@@ -1590,6 +1590,7 @@ export type Database = {
           aggregate_month_idx: number
           aggregated_path: string | null
           attempts: number
+          berorte_maaneder: Json
           created_at: string
           error_message: string | null
           file_path: string | null
@@ -1625,6 +1626,7 @@ export type Database = {
           aggregate_month_idx?: number
           aggregated_path?: string | null
           attempts?: number
+          berorte_maaneder?: Json
           created_at?: string
           error_message?: string | null
           file_path?: string | null
@@ -1660,6 +1662,7 @@ export type Database = {
           aggregate_month_idx?: number
           aggregated_path?: string | null
           attempts?: number
+          berorte_maaneder?: Json
           created_at?: string
           error_message?: string | null
           file_path?: string | null
