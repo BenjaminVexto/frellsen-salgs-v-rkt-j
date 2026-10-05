@@ -325,6 +325,9 @@ export type ParseStats = {
   /** Rækker med ugyldig dato / beløb / DB (sprunget over, under tærsklen). */
   fejlRaekker: number;
   fejlEksempler: string[];
+  /** Detaljerækker med fakturadato "0"/tom = ikke-fakturerede ordrelinjer (sprunget over). */
+  ikkeFaktureret: number;
+  ikkeFaktureretEksempler: Array<{ ordre_nr: string; varenr: string; beloeb: string }>;
   /** Linjer pr. (afdeling, måned) — det er KUN disse måneder importen rører. */
   maaneder: MaanedOpsummering[];
   hovedmaaned: string | null;
@@ -432,6 +435,8 @@ export async function parseInvoiceJournal(
     subtotalRows: 0,
     fejlRaekker: 0,
     fejlEksempler: [],
+    ikkeFaktureret: 0,
+    ikkeFaktureretEksempler: [],
     maaneder: [],
     hovedmaaned: null,
   };
@@ -489,6 +494,18 @@ export async function parseInvoiceJournal(
     const afdeling = mapped ?? 11;
     detaljeRaekker++;
 
+    const rawDate = String(row[COL.DATE] ?? "").trim();
+    if (!rawDate || rawDate === "0") {
+      stats.ikkeFaktureret++;
+      if (stats.ikkeFaktureretEksempler.length < 10) {
+        stats.ikkeFaktureretEksempler.push({
+          ordre_nr: String(row[COL.ORDER_NO] ?? "–"),
+          varenr: String(row[COL.VARENR] ?? "–"),
+          beloeb: String(row[COL.REVENUE] ?? "–"),
+        });
+      }
+      continue;
+    }
     const date = parseDanishDate(row[COL.DATE]);
     const delivery = String(row[COL.DELIVERY] ?? "").trim();
     const fejl: string[] = [];
