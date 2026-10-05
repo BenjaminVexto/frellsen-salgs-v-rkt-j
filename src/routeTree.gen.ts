@@ -9,74 +9,60 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as GlemtPasswordRouteImport } from './routes/glemt-password'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as McpRouteImport } from './routes/mcp'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
-import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
-import { Route as AuthenticatedAfdelingspotentialeRouteImport } from './routes/_authenticated/afdelingspotentiale'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
-import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
-import { Route as AuthenticatedMinPortefoeljeRouteImport } from './routes/_authenticated/min-portefoelje'
-import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
-import { Route as AuthenticatedTeSortimentRouteImport } from './routes/_authenticated/te-sortiment'
-import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
+import { Route as McpRouteImport } from './routes/mcp'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as GlemtPasswordRouteImport } from './routes/glemt-password'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as TTokenRouteImport } from './routes/t.$token'
-import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
-import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
-import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
-import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authenticated/admin.cvr-debug'
-import { Route as AuthenticatedAdminDubletterRouteImport } from './routes/_authenticated/admin.dubletter'
-import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
-import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_authenticated/admin.importhistorik'
-import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
-import { Route as AuthenticatedAdminPostnumreRouteImport } from './routes/_authenticated/admin.postnumre'
-import { Route as AuthenticatedAdminTilbudskatalogRouteImport } from './routes/_authenticated/admin.tilbudskatalog'
-import { Route as AuthenticatedAftalerIndexRouteImport } from './routes/_authenticated/aftaler.index'
-import { Route as AuthenticatedAftalerIdRouteImport } from './routes/_authenticated/aftaler.$id'
-import { Route as AuthenticatedKontaktlisterIdRouteImport } from './routes/_authenticated/kontaktlister_.$id'
-import { Route as AuthenticatedProfilPasswordRouteImport } from './routes/_authenticated/profil.password'
+import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
+import { Route as AuthenticatedTeSortimentRouteImport } from './routes/_authenticated/te-sortiment'
+import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
+import { Route as AuthenticatedMinPortefoeljeRouteImport } from './routes/_authenticated/min-portefoelje'
+import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
+import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAfdelingspotentialeRouteImport } from './routes/_authenticated/afdelingspotentiale'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedTilbudIndexRouteImport } from './routes/_authenticated/tilbud.index'
-import { Route as AuthenticatedTilbudIdRouteImport } from './routes/_authenticated/tilbud.$id'
-import { Route as AuthenticatedTilbudNyRouteImport } from './routes/_authenticated/tilbud.ny'
+import { Route as AuthenticatedAftalerIndexRouteImport } from './routes/_authenticated/aftaler.index'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
+import { Route as AuthenticatedTilbudNyRouteImport } from './routes/_authenticated/tilbud.ny'
+import { Route as AuthenticatedTilbudIdRouteImport } from './routes/_authenticated/tilbud.$id'
+import { Route as AuthenticatedProfilPasswordRouteImport } from './routes/_authenticated/profil.password'
+import { Route as AuthenticatedKontaktlisterIdRouteImport } from './routes/_authenticated/kontaktlister_.$id'
+import { Route as AuthenticatedAftalerIdRouteImport } from './routes/_authenticated/aftaler.$id'
+import { Route as AuthenticatedAdminTilbudskatalogRouteImport } from './routes/_authenticated/admin.tilbudskatalog'
+import { Route as AuthenticatedAdminPostnumreRouteImport } from './routes/_authenticated/admin.postnumre'
+import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
+import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_authenticated/admin.importhistorik'
+import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
+import { Route as AuthenticatedAdminDubletterRouteImport } from './routes/_authenticated/admin.dubletter'
+import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authenticated/admin.cvr-debug'
+import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
-import { Route as AuthenticatedAdminImportAftaleEmnerRouteImport } from './routes/_authenticated/admin.import.aftale-emner'
-import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
-import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authenticated/admin.import.cvr'
-import { Route as AuthenticatedAdminImportFakturaRouteImport } from './routes/_authenticated/admin.import.faktura'
-import { Route as AuthenticatedAdminImportMaskinerRouteImport } from './routes/_authenticated/admin.import.maskiner'
-import { Route as AuthenticatedAdminImportPrismatrixRouteImport } from './routes/_authenticated/admin.import.prismatrix'
-import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
-import { Route as AuthenticatedAdminMaskinerArkivRouteImport } from './routes/_authenticated/admin.maskiner.arkiv'
-import { Route as AuthenticatedAftalerKp1CodeRouteImport } from './routes/_authenticated/aftaler.kp1.$code'
-import { Route as AuthenticatedAftalerKp2CodeRouteImport } from './routes/_authenticated/aftaler.kp2.$code'
-import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
-import { Route as ApiPublicHooksProcessInvoiceImportRouteImport } from './routes/api/public/hooks/process-invoice-import'
-import { Route as ApiPublicHooksProcessPenhedSyncRouteImport } from './routes/api/public/hooks/process-penhed-sync'
 import { Route as ApiPublicQuotePdfTokenRouteImport } from './routes/api/public/quote-pdf.$token'
+import { Route as ApiPublicHooksProcessPenhedSyncRouteImport } from './routes/api/public/hooks/process-penhed-sync'
+import { Route as ApiPublicHooksProcessInvoiceImportRouteImport } from './routes/api/public/hooks/process-invoice-import'
+import { Route as ApiPublicHooksProcessCvrEnrichmentRouteImport } from './routes/api/public/hooks/process-cvr-enrichment'
+import { Route as AuthenticatedAftalerKp2CodeRouteImport } from './routes/_authenticated/aftaler.kp2.$code'
+import { Route as AuthenticatedAftalerKp1CodeRouteImport } from './routes/_authenticated/aftaler.kp1.$code'
+import { Route as AuthenticatedAdminMaskinerArkivRouteImport } from './routes/_authenticated/admin.maskiner.arkiv'
+import { Route as AuthenticatedAdminImportVismaRouteImport } from './routes/_authenticated/admin.import.visma'
+import { Route as AuthenticatedAdminImportPrismatrixRouteImport } from './routes/_authenticated/admin.import.prismatrix'
+import { Route as AuthenticatedAdminImportMaskinerRouteImport } from './routes/_authenticated/admin.import.maskiner'
+import { Route as AuthenticatedAdminImportFakturaRouteImport } from './routes/_authenticated/admin.import.faktura'
+import { Route as AuthenticatedAdminImportCvrRouteImport } from './routes/_authenticated/admin.import.cvr'
+import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
+import { Route as AuthenticatedAdminImportAftaleEmnerRouteImport } from './routes/_authenticated/admin.import.aftale-emner'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GlemtPasswordRoute = GlemtPasswordRouteImport.update({
-  id: '/glemt-password',
-  path: '/glemt-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -84,56 +70,34 @@ const McpRoute = McpRouteImport.update({
   path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char91DotmcpChar93ListToolsRoute =
-  Char91DotmcpChar93ListToolsRouteImport.update({
-    id: '/.mcp/list-tools',
-    path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const Char91DotwellKnownChar93OauthProtectedResourceRoute =
-  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
-    id: '/.well-known/oauth-protected-resource',
-    path: '/.well-known/oauth-protected-resource',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const AuthenticatedAfdelingspotentialeRoute =
-  AuthenticatedAfdelingspotentialeRouteImport.update({
-    id: '/afdelingspotentiale',
-    path: '/afdelingspotentiale',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRoute,
+const GlemtPasswordRoute = GlemtPasswordRouteImport.update({
+  id: '/glemt-password',
+  path: '/glemt-password',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedKonkurrenterRoute =
-  AuthenticatedKonkurrenterRouteImport.update({
-    id: '/konkurrenter',
-    path: '/konkurrenter',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedKontaktlisterRoute =
-  AuthenticatedKontaktlisterRouteImport.update({
-    id: '/kontaktlister',
-    path: '/kontaktlister',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedMinPortefoeljeRoute =
-  AuthenticatedMinPortefoeljeRouteImport.update({
-    id: '/min-portefoelje',
-    path: '/min-portefoelje',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSalgsmulighederRoute =
-  AuthenticatedSalgsmulighederRouteImport.update({
-    id: '/salgsmuligheder',
-    path: '/salgsmuligheder',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TTokenRoute = TTokenRouteImport.update({
+  id: '/t/$token',
+  path: '/t/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedVirksomhederRoute =
+  AuthenticatedVirksomhederRouteImport.update({
+    id: '/virksomheder',
+    path: '/virksomheder',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedTeSortimentRoute =
@@ -142,74 +106,57 @@ const AuthenticatedTeSortimentRoute =
     path: '/te-sortiment',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedVirksomhederRoute =
-  AuthenticatedVirksomhederRouteImport.update({
-    id: '/virksomheder',
-    path: '/virksomheder',
+const AuthenticatedSalgsmulighederRoute =
+  AuthenticatedSalgsmulighederRouteImport.update({
+    id: '/salgsmuligheder',
+    path: '/salgsmuligheder',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const TTokenRoute = TTokenRouteImport.update({
-  id: '/t/$token',
-  path: '/t/$token',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedMinPortefoeljeRoute =
+  AuthenticatedMinPortefoeljeRouteImport.update({
+    id: '/min-portefoelje',
+    path: '/min-portefoelje',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedKontaktlisterRoute =
+  AuthenticatedKontaktlisterRouteImport.update({
+    id: '/kontaktlister',
+    path: '/kontaktlister',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedKonkurrenterRoute =
+  AuthenticatedKonkurrenterRouteImport.update({
+    id: '/konkurrenter',
+    path: '/konkurrenter',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
-  id: '/.lovable/oauth/consent',
-  path: '/.lovable/oauth/consent',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const Char91DotmcpChar93InvokeToolToolRoute =
-  Char91DotmcpChar93InvokeToolToolRouteImport.update({
-    id: '/.mcp/invoke-tool/$tool',
-    path: '/.mcp/invoke-tool/$tool',
+const AuthenticatedAfdelingspotentialeRoute =
+  AuthenticatedAfdelingspotentialeRouteImport.update({
+    id: '/afdelingspotentiale',
+    path: '/afdelingspotentiale',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AuthenticatedAdminBrugereRoute =
-  AuthenticatedAdminBrugereRouteImport.update({
-    id: '/admin/brugere',
-    path: '/admin/brugere',
-    getParentRoute: () => AuthenticatedRoute,
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
   } as any)
-const AuthenticatedAdminCvrDebugRoute =
-  AuthenticatedAdminCvrDebugRouteImport.update({
-    id: '/admin/cvr-debug',
-    path: '/admin/cvr-debug',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminDubletterRoute =
-  AuthenticatedAdminDubletterRouteImport.update({
-    id: '/admin/dubletter',
-    path: '/admin/dubletter',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminImportRoute =
-  AuthenticatedAdminImportRouteImport.update({
-    id: '/admin/import',
-    path: '/admin/import',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminImporthistorikRoute =
-  AuthenticatedAdminImporthistorikRouteImport.update({
-    id: '/admin/importhistorik',
-    path: '/admin/importhistorik',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminOverblikRoute =
-  AuthenticatedAdminOverblikRouteImport.update({
-    id: '/admin/overblik',
-    path: '/admin/overblik',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminPostnumreRoute =
-  AuthenticatedAdminPostnumreRouteImport.update({
-    id: '/admin/postnumre',
-    path: '/admin/postnumre',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminTilbudskatalogRoute =
-  AuthenticatedAdminTilbudskatalogRouteImport.update({
-    id: '/admin/tilbudskatalog',
-    path: '/admin/tilbudskatalog',
+const AuthenticatedTilbudIndexRoute =
+  AuthenticatedTilbudIndexRouteImport.update({
+    id: '/tilbud/',
+    path: '/tilbud/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAftalerIndexRoute =
@@ -218,115 +165,113 @@ const AuthenticatedAftalerIndexRoute =
     path: '/aftaler/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAftalerIdRoute = AuthenticatedAftalerIdRouteImport.update({
-  id: '/aftaler/$id',
-  path: '/aftaler/$id',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedKontaktlisterIdRoute =
-  AuthenticatedKontaktlisterIdRouteImport.update({
-    id: '/kontaktlister_/$id',
-    path: '/kontaktlister/$id',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedProfilPasswordRoute =
-  AuthenticatedProfilPasswordRouteImport.update({
-    id: '/profil/password',
-    path: '/profil/password',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedTilbudIndexRoute =
-  AuthenticatedTilbudIndexRouteImport.update({
-    id: '/tilbud/',
-    path: '/tilbud/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedTilbudIdRoute = AuthenticatedTilbudIdRouteImport.update({
-  id: '/tilbud/$id',
-  path: '/tilbud/$id',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedTilbudNyRoute = AuthenticatedTilbudNyRouteImport.update({
-  id: '/tilbud/ny',
-  path: '/tilbud/ny',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedVirksomhederIdRoute =
   AuthenticatedVirksomhederIdRouteImport.update({
     id: '/virksomheder_/$id',
     path: '/virksomheder/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedTilbudNyRoute = AuthenticatedTilbudNyRouteImport.update({
+  id: '/tilbud/ny',
+  path: '/tilbud/ny',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedTilbudIdRoute = AuthenticatedTilbudIdRouteImport.update({
+  id: '/tilbud/$id',
+  path: '/tilbud/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedProfilPasswordRoute =
+  AuthenticatedProfilPasswordRouteImport.update({
+    id: '/profil/password',
+    path: '/profil/password',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedKontaktlisterIdRoute =
+  AuthenticatedKontaktlisterIdRouteImport.update({
+    id: '/kontaktlister_/$id',
+    path: '/kontaktlister/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAftalerIdRoute = AuthenticatedAftalerIdRouteImport.update({
+  id: '/aftaler/$id',
+  path: '/aftaler/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminTilbudskatalogRoute =
+  AuthenticatedAdminTilbudskatalogRouteImport.update({
+    id: '/admin/tilbudskatalog',
+    path: '/admin/tilbudskatalog',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminPostnumreRoute =
+  AuthenticatedAdminPostnumreRouteImport.update({
+    id: '/admin/postnumre',
+    path: '/admin/postnumre',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminOverblikRoute =
+  AuthenticatedAdminOverblikRouteImport.update({
+    id: '/admin/overblik',
+    path: '/admin/overblik',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminImporthistorikRoute =
+  AuthenticatedAdminImporthistorikRouteImport.update({
+    id: '/admin/importhistorik',
+    path: '/admin/importhistorik',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminImportRoute =
+  AuthenticatedAdminImportRouteImport.update({
+    id: '/admin/import',
+    path: '/admin/import',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminDubletterRoute =
+  AuthenticatedAdminDubletterRouteImport.update({
+    id: '/admin/dubletter',
+    path: '/admin/dubletter',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminCvrDebugRoute =
+  AuthenticatedAdminCvrDebugRouteImport.update({
+    id: '/admin/cvr-debug',
+    path: '/admin/cvr-debug',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminBrugereRoute =
+  AuthenticatedAdminBrugereRouteImport.update({
+    id: '/admin/brugere',
+    path: '/admin/brugere',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const Char91DotmcpChar93InvokeToolToolRoute =
+  Char91DotmcpChar93InvokeToolToolRouteImport.update({
+    id: '/.mcp/invoke-tool/$tool',
+    path: '/.mcp/invoke-tool/$tool',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminImportIndexRoute =
   AuthenticatedAdminImportIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedAdminImportRoute,
   } as any)
-const AuthenticatedAdminImportAftaleEmnerRoute =
-  AuthenticatedAdminImportAftaleEmnerRouteImport.update({
-    id: '/aftale-emner',
-    path: '/aftale-emner',
-    getParentRoute: () => AuthenticatedAdminImportRoute,
-  } as any)
-const AuthenticatedAdminImportAndenRoute =
-  AuthenticatedAdminImportAndenRouteImport.update({
-    id: '/anden',
-    path: '/anden',
-    getParentRoute: () => AuthenticatedAdminImportRoute,
-  } as any)
-const AuthenticatedAdminImportCvrRoute =
-  AuthenticatedAdminImportCvrRouteImport.update({
-    id: '/cvr',
-    path: '/cvr',
-    getParentRoute: () => AuthenticatedAdminImportRoute,
-  } as any)
-const AuthenticatedAdminImportFakturaRoute =
-  AuthenticatedAdminImportFakturaRouteImport.update({
-    id: '/faktura',
-    path: '/faktura',
-    getParentRoute: () => AuthenticatedAdminImportRoute,
-  } as any)
-const AuthenticatedAdminImportMaskinerRoute =
-  AuthenticatedAdminImportMaskinerRouteImport.update({
-    id: '/maskiner',
-    path: '/maskiner',
-    getParentRoute: () => AuthenticatedAdminImportRoute,
-  } as any)
-const AuthenticatedAdminImportPrismatrixRoute =
-  AuthenticatedAdminImportPrismatrixRouteImport.update({
-    id: '/prismatrix',
-    path: '/prismatrix',
-    getParentRoute: () => AuthenticatedAdminImportRoute,
-  } as any)
-const AuthenticatedAdminImportVismaRoute =
-  AuthenticatedAdminImportVismaRouteImport.update({
-    id: '/visma',
-    path: '/visma',
-    getParentRoute: () => AuthenticatedAdminImportRoute,
-  } as any)
-const AuthenticatedAdminMaskinerArkivRoute =
-  AuthenticatedAdminMaskinerArkivRouteImport.update({
-    id: '/admin/maskiner/arkiv',
-    path: '/admin/maskiner/arkiv',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAftalerKp1CodeRoute =
-  AuthenticatedAftalerKp1CodeRouteImport.update({
-    id: '/aftaler/kp1/$code',
-    path: '/aftaler/kp1/$code',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAftalerKp2CodeRoute =
-  AuthenticatedAftalerKp2CodeRouteImport.update({
-    id: '/aftaler/kp2/$code',
-    path: '/aftaler/kp2/$code',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const ApiPublicHooksProcessCvrEnrichmentRoute =
-  ApiPublicHooksProcessCvrEnrichmentRouteImport.update({
-    id: '/api/public/hooks/process-cvr-enrichment',
-    path: '/api/public/hooks/process-cvr-enrichment',
+const ApiPublicQuotePdfTokenRoute = ApiPublicQuotePdfTokenRouteImport.update({
+  id: '/api/public/quote-pdf/$token',
+  path: '/api/public/quote-pdf/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksProcessPenhedSyncRoute =
+  ApiPublicHooksProcessPenhedSyncRouteImport.update({
+    id: '/api/public/hooks/process-penhed-sync',
+    path: '/api/public/hooks/process-penhed-sync',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHooksProcessInvoiceImportRoute =
@@ -335,17 +280,72 @@ const ApiPublicHooksProcessInvoiceImportRoute =
     path: '/api/public/hooks/process-invoice-import',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksProcessPenhedSyncRoute =
-  ApiPublicHooksProcessPenhedSyncRouteImport.update({
-    id: '/api/public/hooks/process-penhed-sync',
-    path: '/api/public/hooks/process-penhed-sync',
+const ApiPublicHooksProcessCvrEnrichmentRoute =
+  ApiPublicHooksProcessCvrEnrichmentRouteImport.update({
+    id: '/api/public/hooks/process-cvr-enrichment',
+    path: '/api/public/hooks/process-cvr-enrichment',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicQuotePdfTokenRoute = ApiPublicQuotePdfTokenRouteImport.update({
-  id: '/api/public/quote-pdf/$token',
-  path: '/api/public/quote-pdf/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedAftalerKp2CodeRoute =
+  AuthenticatedAftalerKp2CodeRouteImport.update({
+    id: '/aftaler/kp2/$code',
+    path: '/aftaler/kp2/$code',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAftalerKp1CodeRoute =
+  AuthenticatedAftalerKp1CodeRouteImport.update({
+    id: '/aftaler/kp1/$code',
+    path: '/aftaler/kp1/$code',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminMaskinerArkivRoute =
+  AuthenticatedAdminMaskinerArkivRouteImport.update({
+    id: '/admin/maskiner/arkiv',
+    path: '/admin/maskiner/arkiv',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminImportVismaRoute =
+  AuthenticatedAdminImportVismaRouteImport.update({
+    id: '/visma',
+    path: '/visma',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
+const AuthenticatedAdminImportPrismatrixRoute =
+  AuthenticatedAdminImportPrismatrixRouteImport.update({
+    id: '/prismatrix',
+    path: '/prismatrix',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
+const AuthenticatedAdminImportMaskinerRoute =
+  AuthenticatedAdminImportMaskinerRouteImport.update({
+    id: '/maskiner',
+    path: '/maskiner',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
+const AuthenticatedAdminImportFakturaRoute =
+  AuthenticatedAdminImportFakturaRouteImport.update({
+    id: '/faktura',
+    path: '/faktura',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
+const AuthenticatedAdminImportCvrRoute =
+  AuthenticatedAdminImportCvrRouteImport.update({
+    id: '/cvr',
+    path: '/cvr',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
+const AuthenticatedAdminImportAndenRoute =
+  AuthenticatedAdminImportAndenRouteImport.update({
+    id: '/anden',
+    path: '/anden',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
+const AuthenticatedAdminImportAftaleEmnerRoute =
+  AuthenticatedAdminImportAftaleEmnerRouteImport.update({
+    id: '/aftale-emner',
+    path: '/aftale-emner',
+    getParentRoute: () => AuthenticatedAdminImportRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -677,32 +677,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/glemt-password': {
-      id: '/glemt-password'
-      path: '/glemt-password'
-      fullPath: '/glemt-password'
-      preLoaderRoute: typeof GlemtPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -712,67 +691,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/.mcp/list-tools': {
-      id: '/.mcp/list-tools'
-      path: '/.mcp/list-tools'
-      fullPath: '/.mcp/list-tools'
-      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+    '/glemt-password': {
+      id: '/glemt-password'
+      path: '/glemt-password'
+      fullPath: '/glemt-password'
+      preLoaderRoute: typeof GlemtPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/.well-known/oauth-protected-resource': {
-      id: '/.well-known/oauth-protected-resource'
-      path: '/.well-known/oauth-protected-resource'
-      fullPath: '/.well-known/oauth-protected-resource'
-      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/afdelingspotentiale': {
-      id: '/_authenticated/afdelingspotentiale'
-      path: '/afdelingspotentiale'
-      fullPath: '/afdelingspotentiale'
-      preLoaderRoute: typeof AuthenticatedAfdelingspotentialeRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/t/$token': {
+      id: '/t/$token'
+      path: '/t/$token'
+      fullPath: '/t/$token'
+      preLoaderRoute: typeof TTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/konkurrenter': {
-      id: '/_authenticated/konkurrenter'
-      path: '/konkurrenter'
-      fullPath: '/konkurrenter'
-      preLoaderRoute: typeof AuthenticatedKonkurrenterRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/kontaktlister': {
-      id: '/_authenticated/kontaktlister'
-      path: '/kontaktlister'
-      fullPath: '/kontaktlister'
-      preLoaderRoute: typeof AuthenticatedKontaktlisterRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/min-portefoelje': {
-      id: '/_authenticated/min-portefoelje'
-      path: '/min-portefoelje'
-      fullPath: '/min-portefoelje'
-      preLoaderRoute: typeof AuthenticatedMinPortefoeljeRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/salgsmuligheder': {
-      id: '/_authenticated/salgsmuligheder'
-      path: '/salgsmuligheder'
-      fullPath: '/salgsmuligheder'
-      preLoaderRoute: typeof AuthenticatedSalgsmulighederRouteImport
+    '/_authenticated/virksomheder': {
+      id: '/_authenticated/virksomheder'
+      path: '/virksomheder'
+      fullPath: '/virksomheder'
+      preLoaderRoute: typeof AuthenticatedVirksomhederRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/te-sortiment': {
@@ -782,88 +740,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTeSortimentRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/virksomheder': {
-      id: '/_authenticated/virksomheder'
-      path: '/virksomheder'
-      fullPath: '/virksomheder'
-      preLoaderRoute: typeof AuthenticatedVirksomhederRouteImport
+    '/_authenticated/salgsmuligheder': {
+      id: '/_authenticated/salgsmuligheder'
+      path: '/salgsmuligheder'
+      fullPath: '/salgsmuligheder'
+      preLoaderRoute: typeof AuthenticatedSalgsmulighederRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/t/$token': {
-      id: '/t/$token'
-      path: '/t/$token'
-      fullPath: '/t/$token'
-      preLoaderRoute: typeof TTokenRouteImport
+    '/_authenticated/min-portefoelje': {
+      id: '/_authenticated/min-portefoelje'
+      path: '/min-portefoelje'
+      fullPath: '/min-portefoelje'
+      preLoaderRoute: typeof AuthenticatedMinPortefoeljeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/kontaktlister': {
+      id: '/_authenticated/kontaktlister'
+      path: '/kontaktlister'
+      fullPath: '/kontaktlister'
+      preLoaderRoute: typeof AuthenticatedKontaktlisterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/konkurrenter': {
+      id: '/_authenticated/konkurrenter'
+      path: '/konkurrenter'
+      fullPath: '/konkurrenter'
+      preLoaderRoute: typeof AuthenticatedKonkurrenterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/afdelingspotentiale': {
+      id: '/_authenticated/afdelingspotentiale'
+      path: '/afdelingspotentiale'
+      fullPath: '/afdelingspotentiale'
+      preLoaderRoute: typeof AuthenticatedAfdelingspotentialeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/.lovable/oauth/consent': {
-      id: '/.lovable/oauth/consent'
-      path: '/.lovable/oauth/consent'
-      fullPath: '/.lovable/oauth/consent'
-      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+    '/.mcp/list-tools': {
+      id: '/.mcp/list-tools'
+      path: '/.mcp/list-tools'
+      fullPath: '/.mcp/list-tools'
+      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/.mcp/invoke-tool/$tool': {
-      id: '/.mcp/invoke-tool/$tool'
-      path: '/.mcp/invoke-tool/$tool'
-      fullPath: '/.mcp/invoke-tool/$tool'
-      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/admin/brugere': {
-      id: '/_authenticated/admin/brugere'
-      path: '/admin/brugere'
-      fullPath: '/admin/brugere'
-      preLoaderRoute: typeof AuthenticatedAdminBrugereRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/cvr-debug': {
-      id: '/_authenticated/admin/cvr-debug'
-      path: '/admin/cvr-debug'
-      fullPath: '/admin/cvr-debug'
-      preLoaderRoute: typeof AuthenticatedAdminCvrDebugRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/dubletter': {
-      id: '/_authenticated/admin/dubletter'
-      path: '/admin/dubletter'
-      fullPath: '/admin/dubletter'
-      preLoaderRoute: typeof AuthenticatedAdminDubletterRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/import': {
-      id: '/_authenticated/admin/import'
-      path: '/admin/import'
-      fullPath: '/admin/import'
-      preLoaderRoute: typeof AuthenticatedAdminImportRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/importhistorik': {
-      id: '/_authenticated/admin/importhistorik'
-      path: '/admin/importhistorik'
-      fullPath: '/admin/importhistorik'
-      preLoaderRoute: typeof AuthenticatedAdminImporthistorikRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/overblik': {
-      id: '/_authenticated/admin/overblik'
-      path: '/admin/overblik'
-      fullPath: '/admin/overblik'
-      preLoaderRoute: typeof AuthenticatedAdminOverblikRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/postnumre': {
-      id: '/_authenticated/admin/postnumre'
-      path: '/admin/postnumre'
-      fullPath: '/admin/postnumre'
-      preLoaderRoute: typeof AuthenticatedAdminPostnumreRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/tilbudskatalog': {
-      id: '/_authenticated/admin/tilbudskatalog'
-      path: '/admin/tilbudskatalog'
-      fullPath: '/admin/tilbudskatalog'
-      preLoaderRoute: typeof AuthenticatedAdminTilbudskatalogRouteImport
+    '/_authenticated/tilbud/': {
+      id: '/_authenticated/tilbud/'
+      path: '/tilbud'
+      fullPath: '/tilbud/'
+      preLoaderRoute: typeof AuthenticatedTilbudIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/aftaler/': {
@@ -873,39 +810,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAftalerIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/aftaler/$id': {
-      id: '/_authenticated/aftaler/$id'
-      path: '/aftaler/$id'
-      fullPath: '/aftaler/$id'
-      preLoaderRoute: typeof AuthenticatedAftalerIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/kontaktlister_/$id': {
-      id: '/_authenticated/kontaktlister_/$id'
-      path: '/kontaktlister/$id'
-      fullPath: '/kontaktlister/$id'
-      preLoaderRoute: typeof AuthenticatedKontaktlisterIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/profil/password': {
-      id: '/_authenticated/profil/password'
-      path: '/profil/password'
-      fullPath: '/profil/password'
-      preLoaderRoute: typeof AuthenticatedProfilPasswordRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/tilbud/': {
-      id: '/_authenticated/tilbud/'
-      path: '/tilbud'
-      fullPath: '/tilbud/'
-      preLoaderRoute: typeof AuthenticatedTilbudIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/tilbud/$id': {
-      id: '/_authenticated/tilbud/$id'
-      path: '/tilbud/$id'
-      fullPath: '/tilbud/$id'
-      preLoaderRoute: typeof AuthenticatedTilbudIdRouteImport
+    '/_authenticated/virksomheder_/$id': {
+      id: '/_authenticated/virksomheder_/$id'
+      path: '/virksomheder/$id'
+      fullPath: '/virksomheder/$id'
+      preLoaderRoute: typeof AuthenticatedVirksomhederIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tilbud/ny': {
@@ -915,12 +824,103 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTilbudNyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/virksomheder_/$id': {
-      id: '/_authenticated/virksomheder_/$id'
-      path: '/virksomheder/$id'
-      fullPath: '/virksomheder/$id'
-      preLoaderRoute: typeof AuthenticatedVirksomhederIdRouteImport
+    '/_authenticated/tilbud/$id': {
+      id: '/_authenticated/tilbud/$id'
+      path: '/tilbud/$id'
+      fullPath: '/tilbud/$id'
+      preLoaderRoute: typeof AuthenticatedTilbudIdRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/profil/password': {
+      id: '/_authenticated/profil/password'
+      path: '/profil/password'
+      fullPath: '/profil/password'
+      preLoaderRoute: typeof AuthenticatedProfilPasswordRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/kontaktlister_/$id': {
+      id: '/_authenticated/kontaktlister_/$id'
+      path: '/kontaktlister/$id'
+      fullPath: '/kontaktlister/$id'
+      preLoaderRoute: typeof AuthenticatedKontaktlisterIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/aftaler/$id': {
+      id: '/_authenticated/aftaler/$id'
+      path: '/aftaler/$id'
+      fullPath: '/aftaler/$id'
+      preLoaderRoute: typeof AuthenticatedAftalerIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/tilbudskatalog': {
+      id: '/_authenticated/admin/tilbudskatalog'
+      path: '/admin/tilbudskatalog'
+      fullPath: '/admin/tilbudskatalog'
+      preLoaderRoute: typeof AuthenticatedAdminTilbudskatalogRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/postnumre': {
+      id: '/_authenticated/admin/postnumre'
+      path: '/admin/postnumre'
+      fullPath: '/admin/postnumre'
+      preLoaderRoute: typeof AuthenticatedAdminPostnumreRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/overblik': {
+      id: '/_authenticated/admin/overblik'
+      path: '/admin/overblik'
+      fullPath: '/admin/overblik'
+      preLoaderRoute: typeof AuthenticatedAdminOverblikRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/importhistorik': {
+      id: '/_authenticated/admin/importhistorik'
+      path: '/admin/importhistorik'
+      fullPath: '/admin/importhistorik'
+      preLoaderRoute: typeof AuthenticatedAdminImporthistorikRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/import': {
+      id: '/_authenticated/admin/import'
+      path: '/admin/import'
+      fullPath: '/admin/import'
+      preLoaderRoute: typeof AuthenticatedAdminImportRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/dubletter': {
+      id: '/_authenticated/admin/dubletter'
+      path: '/admin/dubletter'
+      fullPath: '/admin/dubletter'
+      preLoaderRoute: typeof AuthenticatedAdminDubletterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/cvr-debug': {
+      id: '/_authenticated/admin/cvr-debug'
+      path: '/admin/cvr-debug'
+      fullPath: '/admin/cvr-debug'
+      preLoaderRoute: typeof AuthenticatedAdminCvrDebugRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/brugere': {
+      id: '/_authenticated/admin/brugere'
+      path: '/admin/brugere'
+      fullPath: '/admin/brugere'
+      preLoaderRoute: typeof AuthenticatedAdminBrugereRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/import/': {
       id: '/_authenticated/admin/import/'
@@ -929,88 +929,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportIndexRouteImport
       parentRoute: typeof AuthenticatedAdminImportRoute
     }
-    '/_authenticated/admin/import/aftale-emner': {
-      id: '/_authenticated/admin/import/aftale-emner'
-      path: '/aftale-emner'
-      fullPath: '/admin/import/aftale-emner'
-      preLoaderRoute: typeof AuthenticatedAdminImportAftaleEmnerRouteImport
-      parentRoute: typeof AuthenticatedAdminImportRoute
-    }
-    '/_authenticated/admin/import/anden': {
-      id: '/_authenticated/admin/import/anden'
-      path: '/anden'
-      fullPath: '/admin/import/anden'
-      preLoaderRoute: typeof AuthenticatedAdminImportAndenRouteImport
-      parentRoute: typeof AuthenticatedAdminImportRoute
-    }
-    '/_authenticated/admin/import/cvr': {
-      id: '/_authenticated/admin/import/cvr'
-      path: '/cvr'
-      fullPath: '/admin/import/cvr'
-      preLoaderRoute: typeof AuthenticatedAdminImportCvrRouteImport
-      parentRoute: typeof AuthenticatedAdminImportRoute
-    }
-    '/_authenticated/admin/import/faktura': {
-      id: '/_authenticated/admin/import/faktura'
-      path: '/faktura'
-      fullPath: '/admin/import/faktura'
-      preLoaderRoute: typeof AuthenticatedAdminImportFakturaRouteImport
-      parentRoute: typeof AuthenticatedAdminImportRoute
-    }
-    '/_authenticated/admin/import/maskiner': {
-      id: '/_authenticated/admin/import/maskiner'
-      path: '/maskiner'
-      fullPath: '/admin/import/maskiner'
-      preLoaderRoute: typeof AuthenticatedAdminImportMaskinerRouteImport
-      parentRoute: typeof AuthenticatedAdminImportRoute
-    }
-    '/_authenticated/admin/import/prismatrix': {
-      id: '/_authenticated/admin/import/prismatrix'
-      path: '/prismatrix'
-      fullPath: '/admin/import/prismatrix'
-      preLoaderRoute: typeof AuthenticatedAdminImportPrismatrixRouteImport
-      parentRoute: typeof AuthenticatedAdminImportRoute
-    }
-    '/_authenticated/admin/import/visma': {
-      id: '/_authenticated/admin/import/visma'
-      path: '/visma'
-      fullPath: '/admin/import/visma'
-      preLoaderRoute: typeof AuthenticatedAdminImportVismaRouteImport
-      parentRoute: typeof AuthenticatedAdminImportRoute
-    }
-    '/_authenticated/admin/maskiner/arkiv': {
-      id: '/_authenticated/admin/maskiner/arkiv'
-      path: '/admin/maskiner/arkiv'
-      fullPath: '/admin/maskiner/arkiv'
-      preLoaderRoute: typeof AuthenticatedAdminMaskinerArkivRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/aftaler/kp1/$code': {
-      id: '/_authenticated/aftaler/kp1/$code'
-      path: '/aftaler/kp1/$code'
-      fullPath: '/aftaler/kp1/$code'
-      preLoaderRoute: typeof AuthenticatedAftalerKp1CodeRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/aftaler/kp2/$code': {
-      id: '/_authenticated/aftaler/kp2/$code'
-      path: '/aftaler/kp2/$code'
-      fullPath: '/aftaler/kp2/$code'
-      preLoaderRoute: typeof AuthenticatedAftalerKp2CodeRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/api/public/hooks/process-cvr-enrichment': {
-      id: '/api/public/hooks/process-cvr-enrichment'
-      path: '/api/public/hooks/process-cvr-enrichment'
-      fullPath: '/api/public/hooks/process-cvr-enrichment'
-      preLoaderRoute: typeof ApiPublicHooksProcessCvrEnrichmentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/process-invoice-import': {
-      id: '/api/public/hooks/process-invoice-import'
-      path: '/api/public/hooks/process-invoice-import'
-      fullPath: '/api/public/hooks/process-invoice-import'
-      preLoaderRoute: typeof ApiPublicHooksProcessInvoiceImportRouteImport
+    '/api/public/quote-pdf/$token': {
+      id: '/api/public/quote-pdf/$token'
+      path: '/api/public/quote-pdf/$token'
+      fullPath: '/api/public/quote-pdf/$token'
+      preLoaderRoute: typeof ApiPublicQuotePdfTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/process-penhed-sync': {
@@ -1020,12 +943,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksProcessPenhedSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/quote-pdf/$token': {
-      id: '/api/public/quote-pdf/$token'
-      path: '/api/public/quote-pdf/$token'
-      fullPath: '/api/public/quote-pdf/$token'
-      preLoaderRoute: typeof ApiPublicQuotePdfTokenRouteImport
+    '/api/public/hooks/process-invoice-import': {
+      id: '/api/public/hooks/process-invoice-import'
+      path: '/api/public/hooks/process-invoice-import'
+      fullPath: '/api/public/hooks/process-invoice-import'
+      preLoaderRoute: typeof ApiPublicHooksProcessInvoiceImportRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/process-cvr-enrichment': {
+      id: '/api/public/hooks/process-cvr-enrichment'
+      path: '/api/public/hooks/process-cvr-enrichment'
+      fullPath: '/api/public/hooks/process-cvr-enrichment'
+      preLoaderRoute: typeof ApiPublicHooksProcessCvrEnrichmentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/aftaler/kp2/$code': {
+      id: '/_authenticated/aftaler/kp2/$code'
+      path: '/aftaler/kp2/$code'
+      fullPath: '/aftaler/kp2/$code'
+      preLoaderRoute: typeof AuthenticatedAftalerKp2CodeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/aftaler/kp1/$code': {
+      id: '/_authenticated/aftaler/kp1/$code'
+      path: '/aftaler/kp1/$code'
+      fullPath: '/aftaler/kp1/$code'
+      preLoaderRoute: typeof AuthenticatedAftalerKp1CodeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/maskiner/arkiv': {
+      id: '/_authenticated/admin/maskiner/arkiv'
+      path: '/admin/maskiner/arkiv'
+      fullPath: '/admin/maskiner/arkiv'
+      preLoaderRoute: typeof AuthenticatedAdminMaskinerArkivRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/import/visma': {
+      id: '/_authenticated/admin/import/visma'
+      path: '/visma'
+      fullPath: '/admin/import/visma'
+      preLoaderRoute: typeof AuthenticatedAdminImportVismaRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
+    '/_authenticated/admin/import/prismatrix': {
+      id: '/_authenticated/admin/import/prismatrix'
+      path: '/prismatrix'
+      fullPath: '/admin/import/prismatrix'
+      preLoaderRoute: typeof AuthenticatedAdminImportPrismatrixRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
+    '/_authenticated/admin/import/maskiner': {
+      id: '/_authenticated/admin/import/maskiner'
+      path: '/maskiner'
+      fullPath: '/admin/import/maskiner'
+      preLoaderRoute: typeof AuthenticatedAdminImportMaskinerRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
+    '/_authenticated/admin/import/faktura': {
+      id: '/_authenticated/admin/import/faktura'
+      path: '/faktura'
+      fullPath: '/admin/import/faktura'
+      preLoaderRoute: typeof AuthenticatedAdminImportFakturaRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
+    '/_authenticated/admin/import/cvr': {
+      id: '/_authenticated/admin/import/cvr'
+      path: '/cvr'
+      fullPath: '/admin/import/cvr'
+      preLoaderRoute: typeof AuthenticatedAdminImportCvrRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
+    '/_authenticated/admin/import/anden': {
+      id: '/_authenticated/admin/import/anden'
+      path: '/anden'
+      fullPath: '/admin/import/anden'
+      preLoaderRoute: typeof AuthenticatedAdminImportAndenRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
+    }
+    '/_authenticated/admin/import/aftale-emner': {
+      id: '/_authenticated/admin/import/aftale-emner'
+      path: '/aftale-emner'
+      fullPath: '/admin/import/aftale-emner'
+      preLoaderRoute: typeof AuthenticatedAdminImportAftaleEmnerRouteImport
+      parentRoute: typeof AuthenticatedAdminImportRoute
     }
   }
 }
