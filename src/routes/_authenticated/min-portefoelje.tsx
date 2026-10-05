@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   getMyPortfolio,
+  type PortfolioPayload,
   type PortfolioCompanyRow,
   type RankingRow,
   type ScatterPoint,
