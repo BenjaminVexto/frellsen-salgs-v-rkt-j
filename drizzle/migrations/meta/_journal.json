@@ -302,6 +302,34 @@
       "when": 1791200944412,
       "tag": "0042_service_role_statement_timeout",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791203547317,
+      "tag": "0043_sales_kunde_maaned_forudberegning",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791203737645,
+      "tag": "0044_sales_kunde_maaned_saelger_kategori",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1791203853173,
+      "tag": "0045_company_mp_info_nye_kunder",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1791203937085,
+      "tag": "0046_bonus_pr_maaned_forudberegnet",
+      "breakpoints": true
     }
   ]
 }

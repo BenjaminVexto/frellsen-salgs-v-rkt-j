@@ -560,6 +560,7 @@ export function MaalepunkterFane({
     dec,
     loading,
     error,
+    onRetry,
     onRow,
     onCell,
     hoved,
@@ -577,6 +578,7 @@ export function MaalepunkterFane({
     dec: number;
     loading: boolean;
     error?: string | null;
+    onRetry?: () => void;
     onRow?: (i: number) => void;
     onCell?: (i: number, maaned: string) => void;
     hoved?: React.ReactNode;
@@ -688,11 +690,20 @@ export function MaalepunkterFane({
           </div>
         </div>
         {error ? (
-          <p className="text-sm text-destructive">{error}</p>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-destructive">Tallene kunne ikke hentes: {error}</span>
+            {onRetry && (
+              <Button size="sm" variant="outline" onClick={onRetry}>
+                Prøv igen
+              </Button>
+            )}
+          </div>
         ) : loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Henter…
           </div>
+        ) : rows.every((r) => r.per.size === 0) ? (
+          <p className="text-sm text-muted-foreground">Ingen data i den valgte periode.</p>
         ) : visning !== "tabel" ? (
           <div className="space-y-2">
             <div className="flex flex-col gap-0.5 text-xs font-medium">
@@ -941,8 +952,9 @@ export function MaalepunkterFane({
         visKey="omsaetning"
         rows={omsTabel}
         dec={0}
-        loading={omsQ.isLoading}
+        loading={omsQ.isPending}
         error={omsQ.error ? (omsQ.error as Error).message : null}
+        onRetry={() => omsQ.refetch()}
         periodeTotal={{ ly: omsLy }}
         onRow={(i) =>
           setDrill({
@@ -979,8 +991,9 @@ export function MaalepunkterFane({
         visKey="db"
         rows={dbTabel}
         dec={0}
-        loading={dbQ.isLoading}
+        loading={dbQ.isPending}
         error={dbQ.error ? (dbQ.error as Error).message : null}
+        onRetry={() => dbQ.refetch()}
         periodeTotal={{ ly: dbLy }}
         hoved={
           <div className="flex items-center gap-2">
@@ -1023,8 +1036,9 @@ export function MaalepunkterFane({
             : undefined
         }
         dec={0}
-        loading={kunderQ.isLoading}
+        loading={kunderQ.isPending}
         error={kunderQ.error ? (kunderQ.error as Error).message : null}
+        onRetry={() => kunderQ.refetch()}
         fodnote="Aktiv = kunden har købt forbrugsvarer i måneden eller de to foregående måneder. Total er antal forskellige aktive kunder i perioden."
         onRow={(i) =>
           setDrill({
@@ -1054,8 +1068,9 @@ export function MaalepunkterFane({
         visKey="nye"
         rows={nyeTabel}
         dec={0}
-        loading={nyeQ.isLoading}
+        loading={nyeQ.isPending}
         error={nyeQ.error ? (nyeQ.error as Error).message : null}
+        onRetry={() => nyeQ.refetch()}
         hoved={
           <ToggleGroup
             type="single"
@@ -1092,8 +1107,9 @@ export function MaalepunkterFane({
         visKey="maskiner"
         rows={maskinTabel}
         dec={0}
-        loading={maskinerQ.isLoading}
+        loading={maskinerQ.isPending}
         error={maskinerQ.error ? (maskinerQ.error as Error).message : null}
+        onRetry={() => maskinerQ.refetch()}
         hoved={
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">

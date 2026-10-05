@@ -853,6 +853,36 @@ export type Database = {
           },
         ]
       }
+      company_mp_info: {
+        Row: {
+          afdeling_nr: number | null
+          assigned_to: string | null
+          company_id: string
+          created_in_visma: string | null
+          gkey: string
+          gyldig: boolean
+          kat: string | null
+        }
+        Insert: {
+          afdeling_nr?: number | null
+          assigned_to?: string | null
+          company_id: string
+          created_in_visma?: string | null
+          gkey: string
+          gyldig?: boolean
+          kat?: string | null
+        }
+        Update: {
+          afdeling_nr?: number | null
+          assigned_to?: string | null
+          company_id?: string
+          created_in_visma?: string | null
+          gkey?: string
+          gyldig?: boolean
+          kat?: string | null
+        }
+        Relationships: []
+      }
       company_relation_suggestions: {
         Row: {
           created_at: string
@@ -2761,6 +2791,75 @@ export type Database = {
           },
         ]
       }
+      sales_kunde_maaned: {
+        Row: {
+          afdeling_nr: number
+          c_afd: number | null
+          company_id: string
+          contrib: number
+          contrib_fg: number
+          gyldig: boolean
+          has_fg: boolean
+          kat: string | null
+          kg: number
+          kg_c4: number
+          koder: string[]
+          period: string
+          pos_any: boolean
+          pos_c4: boolean
+          pos_fg: boolean
+          rev: number
+          rev_c4: number
+          rev_ex16: number
+          rev_fg: number
+          saelger: string | null
+        }
+        Insert: {
+          afdeling_nr: number
+          c_afd?: number | null
+          company_id: string
+          contrib?: number
+          contrib_fg?: number
+          gyldig?: boolean
+          has_fg?: boolean
+          kat?: string | null
+          kg?: number
+          kg_c4?: number
+          koder?: string[]
+          period: string
+          pos_any?: boolean
+          pos_c4?: boolean
+          pos_fg?: boolean
+          rev?: number
+          rev_c4?: number
+          rev_ex16?: number
+          rev_fg?: number
+          saelger?: string | null
+        }
+        Update: {
+          afdeling_nr?: number
+          c_afd?: number | null
+          company_id?: string
+          contrib?: number
+          contrib_fg?: number
+          gyldig?: boolean
+          has_fg?: boolean
+          kat?: string | null
+          kg?: number
+          kg_c4?: number
+          koder?: string[]
+          period?: string
+          pos_any?: boolean
+          pos_c4?: boolean
+          pos_fg?: boolean
+          rev?: number
+          rev_c4?: number
+          rev_ex16?: number
+          rev_fg?: number
+          saelger?: string | null
+        }
+        Relationships: []
+      }
       sales_monthly: {
         Row: {
           afdeling_nr: number
@@ -3524,6 +3623,7 @@ export type Database = {
         }[]
       }
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
+      _skm_refresh_keys: { Args: never; Returns: undefined }
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
       addr_vej: { Args: { _addr: string }; Returns: string }

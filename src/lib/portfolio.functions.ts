@@ -873,3 +873,40 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
   })()));
 
 
+
+/**
+ * Sælgervælgerens valgmuligheder — hentes uafhængigt af den valgte sælger,
+ * så vælgeren aldrig forsvinder, mens en sælgers tal hentes.
+ */
+export const getSellerOptions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const isAdmin = await isAdminUser(supabase, userId);
+    let erSalgssupport = false;
+    if (!isAdmin) {
+      const { data: ss } = await supabase
+        .from("user_roles").select("role").eq("user_id", userId).eq("role", "salgssupport").maybeSingle();
+      erSalgssupport = !!ss;
+    }
+    if (!isAdmin && !erSalgssupport) return { isAdmin, sellerOptions: [] as { id: string; name: string }[] };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: mine } = await supabase.rpc("my_afdelinger");
+    const mineAfd = Array.isArray(mine) ? (mine as number[]) : [];
+    const { data: roles } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "saelger");
+    let ids = (roles ?? []).map((r: any) => r.user_id as string);
+    if (!isAdmin && ids.length) {
+      const [{ data: acc }, { data: prim }] = await Promise.all([
+        supabaseAdmin.from("user_afdeling_access").select("user_id").in("user_id", ids).in("afdeling_nr", mineAfd.length ? mineAfd : [-1]),
+        supabaseAdmin.from("profiles").select("id").in("id", ids).in("primary_afdeling_nr", mineAfd.length ? mineAfd : [-1]),
+      ]);
+      const ok = new Set<string>([...(acc ?? []).map((r: any) => r.user_id), ...(prim ?? []).map((r: any) => r.id)]);
+      ids = ids.filter((id) => ok.has(id));
+    }
+    let sellerOptions: { id: string; name: string }[] = [];
+    if (ids.length) {
+      const { data: profs } = await supabaseAdmin.from("profiles").select("id, full_name").in("id", ids).order("full_name");
+      sellerOptions = (profs ?? []).map((p: any) => ({ id: p.id, name: p.full_name || "(Ukendt)" }));
+    }
+    return { isAdmin, sellerOptions };
+  });

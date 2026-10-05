@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import {
   getMyPortfolio,
   type PortfolioPayload,
+  getSellerOptions,
   type PortfolioCompanyRow,
   type RankingRow,
   type ScatterPoint,
@@ -154,7 +155,16 @@ function PortfolioPage() {
   });
 
   const data = q.data;
-  const isAdmin = data?.isAdmin ?? false;
+  // Sælgervælgeren hentes for sig, så den aldrig afhænger af, om porteføljen
+  // for den valgte sælger er hentet (ellers forsvandt den ved sælgerskift).
+  const sellerFn = useServerFn(getSellerOptions);
+  const sellerQ = useQuery({
+    queryKey: ["seller-options", auth.user?.id],
+    enabled: !!auth.user?.id,
+    staleTime: 10 * 60 * 1000,
+    queryFn: () => sellerFn(),
+  });
+  const isAdmin = sellerQ.data?.isAdmin ?? data?.isAdmin ?? auth.role === "admin";
   // DB vises kun når den EFFEKTIVE bruger må se dækningsbidrag — under
   // "Se som sælger" er det sælgerens rettighed, ikke administratorens.
   const visDb = isAdmin && effectiveMaaSeDb;
@@ -321,7 +331,7 @@ function PortfolioPage() {
         const navn = saelgerFilter[0] === INGEN_SAELGER ? "ingen-saelger" : (saelgerOptions.find((o) => o.id === saelgerFilter[0])?.name ?? "");
         if (navn) saelgerDel = "-" + slugify(navn);
       } else if (sellerId !== "all") {
-        const navn = (q.data?.sellerOptions ?? []).find((o) => o.id === sellerId)?.name ?? sortedCompanies[0]?.saelger_navn ?? "";
+        const navn = (sellerQ.data?.sellerOptions ?? q.data?.sellerOptions ?? []).find((o) => o.id === sellerId)?.name ?? sortedCompanies[0]?.saelger_navn ?? "";
         if (navn) saelgerDel = "-" + slugify(navn);
       }
       XLSX.writeFile(wb, `frellsen-portefoelje-${sektorFilter === "all" ? "alle" : sektorFilter}-${topN ? `top${topN}` : "alle"}${saelgerDel}-${dato}.xlsx`);
@@ -813,7 +823,7 @@ function PortfolioPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle sælgere</SelectItem>
-                {(data?.sellerOptions ?? []).map((s) => (
+                {(sellerQ.data?.sellerOptions ?? data?.sellerOptions ?? []).map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
                   </SelectItem>
