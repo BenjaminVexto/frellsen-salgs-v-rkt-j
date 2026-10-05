@@ -497,7 +497,7 @@ export async function parseInvoiceJournal(
     const rawDate = String(row[COL.DATE] ?? "").trim();
     if (!rawDate || rawDate === "0") {
       stats.ikkeFaktureret++;
-      if (stats.ikkeFaktureretEksempler.length < 10) {
+      if (stats.ikkeFaktureretEksempler.length < 50) {
         stats.ikkeFaktureretEksempler.push({
           ordre_nr: String(row[COL.ORDER_NO] ?? "–"),
           varenr: String(row[COL.VARENR] ?? "–"),
