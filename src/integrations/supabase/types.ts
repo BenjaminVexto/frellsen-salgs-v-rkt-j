@@ -853,6 +853,36 @@ export type Database = {
           },
         ]
       }
+      company_mp_info: {
+        Row: {
+          afdeling_nr: number | null
+          assigned_to: string | null
+          company_id: string
+          created_in_visma: string | null
+          gkey: string
+          gyldig: boolean
+          kat: string | null
+        }
+        Insert: {
+          afdeling_nr?: number | null
+          assigned_to?: string | null
+          company_id: string
+          created_in_visma?: string | null
+          gkey: string
+          gyldig?: boolean
+          kat?: string | null
+        }
+        Update: {
+          afdeling_nr?: number | null
+          assigned_to?: string | null
+          company_id?: string
+          created_in_visma?: string | null
+          gkey?: string
+          gyldig?: boolean
+          kat?: string | null
+        }
+        Relationships: []
+      }
       company_relation_suggestions: {
         Row: {
           created_at: string
