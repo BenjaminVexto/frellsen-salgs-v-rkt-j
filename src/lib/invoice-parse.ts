@@ -32,8 +32,8 @@ const COL_20: ColMap = {
 
 export type FileFormat = "17" | "20";
 
-/** Max andel af detaljerækker med ugyldig dato/beløb/DB før filen afvises. */
-export const MAX_FEJL_ANDEL = 0.005;
+/** Max andel af detaljerækker med ugyldig dato/beløb/DB/Lev. kunde — 0 = én fejl afviser filen. */
+export const MAX_FEJL_ANDEL = 0;
 /** Linjer længere end dette antal måneder fra hovedperioden markeres som afvigende. */
 export const AFVIGENDE_MAANEDER = 13;
 
@@ -555,7 +555,7 @@ export async function parseInvoiceJournal(
 
   if (detaljeRaekker > 0 && stats.fejlRaekker / detaljeRaekker > MAX_FEJL_ANDEL) {
     throw new Error(
-      `Filen afvist: ${stats.fejlRaekker.toLocaleString("da-DK")} af ${detaljeRaekker.toLocaleString("da-DK")} rækker har ugyldig fakturadato, Beløb eller DB (grænse ${(MAX_FEJL_ANDEL * 100).toLocaleString("da-DK")} %). Eksempler: ${stats.fejlEksempler.join(" | ")}`,
+      `Filen afvist: ${stats.fejlRaekker.toLocaleString("da-DK")} af ${detaljeRaekker.toLocaleString("da-DK")} rækker har ugyldig fakturadato, Beløb, DB eller mangler Lev. kunde (ingen fejl tilladt). Eksempler: ${stats.fejlEksempler.join(" | ")}`,
     );
   }
 
