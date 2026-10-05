@@ -941,7 +941,7 @@ export function MaalepunkterFane({
         visKey="omsaetning"
         rows={omsTabel}
         dec={0}
-        loading={omsQ.isLoading}
+        loading={omsQ.isPending}
         error={omsQ.error ? (omsQ.error as Error).message : null}
         periodeTotal={{ ly: omsLy }}
         onRow={(i) =>
@@ -979,7 +979,7 @@ export function MaalepunkterFane({
         visKey="db"
         rows={dbTabel}
         dec={0}
-        loading={dbQ.isLoading}
+        loading={dbQ.isPending}
         error={dbQ.error ? (dbQ.error as Error).message : null}
         periodeTotal={{ ly: dbLy }}
         hoved={
@@ -1023,7 +1023,7 @@ export function MaalepunkterFane({
             : undefined
         }
         dec={0}
-        loading={kunderQ.isLoading}
+        loading={kunderQ.isPending}
         error={kunderQ.error ? (kunderQ.error as Error).message : null}
         fodnote="Aktiv = kunden har købt forbrugsvarer i måneden eller de to foregående måneder. Total er antal forskellige aktive kunder i perioden."
         onRow={(i) =>
@@ -1054,7 +1054,7 @@ export function MaalepunkterFane({
         visKey="nye"
         rows={nyeTabel}
         dec={0}
-        loading={nyeQ.isLoading}
+        loading={nyeQ.isPending}
         error={nyeQ.error ? (nyeQ.error as Error).message : null}
         hoved={
           <ToggleGroup
@@ -1092,7 +1092,7 @@ export function MaalepunkterFane({
         visKey="maskiner"
         rows={maskinTabel}
         dec={0}
-        loading={maskinerQ.isLoading}
+        loading={maskinerQ.isPending}
         error={maskinerQ.error ? (maskinerQ.error as Error).message : null}
         hoved={
           <div className="flex flex-wrap items-center gap-4">
