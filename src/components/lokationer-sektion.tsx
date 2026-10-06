@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
+import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { BesoegtKnap } from "@/components/besoegt-knap";
@@ -142,6 +142,7 @@ export function LokationerSektion({
   useEffect(() => {
     load();
   }, [companyId, reloadKey]);
+  useEffect(() => setHentet(false), [companyId]);
 
   // Åbn + scroll til en bestemt lokation
   const openLocation = (locationId: string) => {
