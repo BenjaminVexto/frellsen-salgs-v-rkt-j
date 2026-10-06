@@ -4386,12 +4386,15 @@ export type Database = {
           has_active_equipment: boolean
           id: string
           is_public: boolean
+          kreditspaerret: boolean
           last_cons_now: string
           last_cons_prior: string
           last_consumable_sales_date: string
           last_sales_date: string
           last_sales_now: string
           last_sales_prior: string
+          lok_antal: number
+          lok_total: number
           monthly: number[]
           name: string
           revenue_ytd: number
