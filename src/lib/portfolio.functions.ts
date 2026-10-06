@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { harGyldigtSammenligningsvindue } from "./kunde-status";
+import { erFalder } from "./fald";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PAGE = 1000;
