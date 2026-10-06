@@ -26,6 +26,7 @@ import {
   type RankingRow,
   type ScatterPoint,
   type SignalRow,
+  type VindTilbageRow,
 } from "@/lib/portfolio.functions";
 import {
   getForbrugSignalMap,
