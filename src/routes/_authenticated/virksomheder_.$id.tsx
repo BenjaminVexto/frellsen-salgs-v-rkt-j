@@ -1015,9 +1015,6 @@ function VirksomhedsKort() {
 
             {/* FANE: Relationer */}
             <TabsContent value="relationer" className="space-y-4 mt-4">
-              <SoesterselskaberSektion companyId={company.id} cvr={company.cvr} />
-              <KoncernSektion cvr={company.cvr} />
-              <ForsyningsRelationerSektion companyId={company.id} />
               <KontaktpersonerSektion
                 companyId={company.id}
                 companyName={company.name}
@@ -1025,6 +1022,10 @@ function VirksomhedsKort() {
                 locations={locations}
                 onReload={load}
               />
+              <ForsyningsRelationerSektion companyId={company.id} />
+              <KoncernSektion cvr={company.cvr}>
+                <SoesterselskaberSektion companyId={company.id} cvr={company.cvr} />
+              </KoncernSektion>
             </TabsContent>
 
             {/* FANE: Aftaler */}
