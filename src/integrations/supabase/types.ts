@@ -1126,33 +1126,42 @@ export type Database = {
       }
       competitor_assignments: {
         Row: {
+          afsluttet_dato: string | null
           company_id: string
           competitor_id: string
           contract_expires_at: string | null
           created_at: string
           id: string
+          location_id: string | null
           notes: string | null
           registered_by: string
+          start_dato: string
           updated_at: string
         }
         Insert: {
+          afsluttet_dato?: string | null
           company_id: string
           competitor_id: string
           contract_expires_at?: string | null
           created_at?: string
           id?: string
+          location_id?: string | null
           notes?: string | null
           registered_by: string
+          start_dato?: string
           updated_at?: string
         }
         Update: {
+          afsluttet_dato?: string | null
           company_id?: string
           competitor_id?: string
           contract_expires_at?: string | null
           created_at?: string
           id?: string
+          location_id?: string | null
           notes?: string | null
           registered_by?: string
+          start_dato?: string
           updated_at?: string
         }
         Relationships: [
@@ -1175,6 +1184,13 @@ export type Database = {
             columns: ["competitor_id"]
             isOneToOne: false
             referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_assignments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {

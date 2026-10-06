@@ -428,6 +428,13 @@
       "when": 1791301907918,
       "tag": "0060_portefoelje_status_pr_lokation",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1791302037744,
+      "tag": "0061_konkurrentaftale_pr_lokation",
+      "breakpoints": true
     }
   ]
 }
