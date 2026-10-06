@@ -119,7 +119,7 @@ export function KundeSalgstal({
       ) : salgQ.error ? (
         <p className="text-sm text-destructive">Kunne ikke hente salgstal.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 2xl:grid-cols-3 gap-x-4 gap-y-3">
           <Tal label="Omsætning 12 mdr." vaerdi={fmtKr(tal.oms12)} />
           <Tal
             label="Forbrugsvarer mod 12 mdr. før"
@@ -159,7 +159,7 @@ function Tal({ label, vaerdi, under }: { label: string; vaerdi: React.ReactNode;
   return (
     <div className="min-w-0">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground leading-tight">{label}</div>
-      <div className="text-lg font-semibold tabular-nums mt-0.5">{vaerdi}</div>
+      <div className="text-base font-semibold tabular-nums mt-0.5 break-words">{vaerdi}</div>
       {under}
     </div>
   );
