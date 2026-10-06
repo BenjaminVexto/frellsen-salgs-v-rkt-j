@@ -17,3 +17,6 @@
   - [ ] Profil får sælgernr → også assigned_to for hovedkonto-virksomheder
   - [ ] Kontrol: Compass Group = Mads (ansvarlig), Esbjerg = Anders Mohr
   - [ ] Sig til før fakturaimport må bruges igen
+  - [ ] Mål skm_genberegn_alt; del pr. afdeling hvis nær 120 s
+  - [ ] Afd. 23 gemmes som 21 i Aktør-staging
+  - [ ] Vis lokationer pr. sælgernøgle; ISS 3156300 = Jes
