@@ -414,6 +414,13 @@
       "when": 1791301615190,
       "tag": "0058_kunde_rytme_lokationsstatus",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1791301816218,
+      "tag": "0059_soesterkonti_regel_og_rytme_i_statusberegning",
+      "breakpoints": true
     }
   ]
 }
