@@ -121,6 +121,19 @@ export async function hentPenhedDaekning(cvr: string, afdelingNr: number) {
   return rows;
 }
 
+/** Logger hvem der gjorde hvad med en P-enhed (kobling/afkobling/ikke relevant). */
+export async function logPenhed(
+  p_nummer: string,
+  handling: "kobl" | "fjern_kobling" | "ikke_relevant" | "fortryd_ikke_relevant",
+  location_id: string | null = null,
+  begrundelse: string | null = null,
+) {
+  const { error } = await (supabase as any)
+    .from("penhed_handling_log")
+    .insert({ p_nummer, handling, location_id, begrundelse });
+  if (error) console.warn("P-enhed log fejlede:", error.message);
+}
+
 /** Samme grænse som flammen i Afdelingspotentiale. */
 export const STOR_AFDELING_MIN_ANSATTE = 25;
 
@@ -145,6 +158,7 @@ export function PenhedDaekning({
   onChanged,
   visIkkeRelevante = false,
   kunIkkeKunde = false,
+  visIkkeHosListe = true,
 }: {
   cvr: string;
   afdelingNr: number;
@@ -155,6 +169,8 @@ export function PenhedDaekning({
   visIkkeRelevante?: boolean;
   /** Vis kun P-enheder, vi ikke er hos (sorteret efter ansatte) — bruges under Lokationer. */
   kunIkkeKunde?: boolean;
+  /** I kunIkkeKunde-mode: om listen over P-enheder vi ikke er hos er foldet ud. */
+  visIkkeHosListe?: boolean;
 }) {
   const auth = useAuth();
   const kanStyre = auth.maaSeAfdelingspotentiale;
@@ -173,6 +189,7 @@ export function PenhedDaekning({
   const [aabne, setAabne] = useState<Set<string>>(new Set());
   const [visDaekket, setVisDaekket] = useState(false);
   const [visMindre, setVisMindre] = useState(false);
+  const [visMarkerede, setVisMarkerede] = useState(false);
 
   useEffect(() => {
     (supabase as any)
@@ -268,6 +285,7 @@ export function PenhedDaekning({
     );
     setBusy(null);
     if (error) return toast.error("Kunne ikke koble: " + error.message);
+    await logPenhed(p.p_number, "kobl", loc.id);
     toast.success("P-enhed koblet");
     await load();
     onChanged?.();
@@ -277,11 +295,12 @@ export function PenhedDaekning({
     setBusy(p.p_number);
     const { error } = await (supabase as any)
       .from("location_pnr_link")
-      .update({ kilde: "afvist" })
+      .update({ kilde: "afvist", oprettet_af: auth.user?.id, oprettet_dato: new Date().toISOString() })
       .eq("p_nummer", p.p_number)
       .eq("afdeling_nr", afdelingNr);
     setBusy(null);
     if (error) return toast.error("Kunne ikke fjerne: " + error.message);
+    await logPenhed(p.p_number, "fjern_kobling");
     toast.success("Kobling fjernet");
     await load();
     onChanged?.();
@@ -342,15 +361,19 @@ export function PenhedDaekning({
   }
 
   async function markerIkkeRelevant() {
-    if (!irFor || !irAarsag) return;
-    if (irAarsag === "andet" && !irTekst.trim()) return toast.error("Skriv en årsag");
+    if (!irFor) return;
+    // Under Lokationer: kun en valgfri kort begrundelse. Ellers årsagsliste.
+    const tekst = irTekst.trim();
+    const aarsag = kunIkkeKunde ? (tekst ? "andet" : "uden_aarsag") : irAarsag;
+    if (!aarsag) return;
+    if (aarsag === "andet" && !tekst) return toast.error("Skriv en årsag");
     const p = irFor;
     setBusy(p.p_number);
     const { error } = await (supabase as any).from("penhed_ikke_relevant").upsert(
       {
         p_nummer: p.p_number,
-        aarsag: irAarsag,
-        fritekst: irAarsag === "andet" ? irTekst.trim() : null,
+        aarsag,
+        fritekst: aarsag === "andet" ? tekst : null,
         created_by: auth.user?.id,
         created_at: new Date().toISOString(),
       },
@@ -358,9 +381,11 @@ export function PenhedDaekning({
     );
     setBusy(null);
     if (error) return toast.error("Kunne ikke markere: " + error.message);
+    await logPenhed(p.p_number, "ikke_relevant", null, tekst || null);
     setIrFor(null);
     toast.success("Markeret som ikke relevant");
     await load();
+    onChanged?.();
   }
 
   async function fortrydIkkeRelevant(p: PenhedDaekningRow) {
@@ -371,10 +396,19 @@ export function PenhedDaekning({
       .eq("p_nummer", p.p_number);
     setBusy(null);
     if (error) return toast.error("Kunne ikke fortryde: " + error.message);
+    await logPenhed(p.p_number, "fortryd_ikke_relevant");
     toast.success("Markering fortrudt");
     await load();
+    onChanged?.();
   }
 
+  if (kunIkkeKunde && (!rows || !rows.length)) {
+    return !rows && visIkkeHosListe ? (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Henter P-enheder…
+      </div>
+    ) : null;
+  }
   if (!rows) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -586,6 +620,23 @@ export function PenhedDaekning({
         <DialogHeader>
           <DialogTitle>Markér ikke relevant</DialogTitle>
         </DialogHeader>
+        {kunIkkeKunde ? (
+          <div className="space-y-1.5">
+            {irFor && (
+              <p className="text-sm text-muted-foreground">
+                {[irFor.address, irFor.zip, irFor.city].filter(Boolean).join(", ")} · P-nr. {irFor.p_number}
+              </p>
+            )}
+            <Label>Kort begrundelse (valgfri)</Label>
+            <Textarea
+              value={irTekst}
+              onChange={(e) => setIrTekst(e.target.value)}
+              placeholder="Fx lager uden medarbejdere eller kaffebehov"
+              rows={2}
+              maxLength={200}
+            />
+          </div>
+        ) : (
         <div className="space-y-1.5">
           <Label>Årsag</Label>
           <Select value={irAarsag} onValueChange={setIrAarsag}>
@@ -605,11 +656,15 @@ export function PenhedDaekning({
             />
           )}
         </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => setIrFor(null)}>Annullér</Button>
           <Button
             onClick={markerIkkeRelevant}
-            disabled={!irAarsag || (irAarsag === "andet" && !irTekst.trim()) || busy != null}
+            disabled={
+              busy != null ||
+              (!kunIkkeKunde && (!irAarsag || (irAarsag === "andet" && !irTekst.trim())))
+            }
           >
             Markér
           </Button>
@@ -620,42 +675,100 @@ export function PenhedDaekning({
   );
 
   if (kunIkkeKunde) {
+    const markerede = rows.filter((r) => !r.daekket && ikkeRel.has(r.p_number));
+    const begrundelse = (pn: string) => {
+      const x = ikkeRel.get(pn);
+      if (!x || x.aarsag === "uden_aarsag") return null;
+      return x.aarsag === "andet" ? x.fritekst : IKKE_RELEVANT_AARSAGER.find((a) => a.key === x.aarsag)?.label ?? null;
+    };
+    const linje = (p: PenhedDaekningRow) => (
+      <>
+        <div className="font-medium">{p.address ?? "Ukendt adresse"}</div>
+        <div className="text-xs text-muted-foreground">
+          {[[p.zip, p.city].filter(Boolean).join(" "), `P-nr. ${p.p_number}`, `${formatAnsatte(p)} ansatte`]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
+      </>
+    );
     return (
       <>
+        {visIkkeHosListe && (
         <ul className="divide-y">
           {ikke.map((p) => (
             <li key={p.p_number} className="py-2 text-sm">
-              <div className="font-medium">{p.address ?? "Ukendt adresse"}</div>
-              <div className="text-xs text-muted-foreground">
-                {[[p.zip, p.city].filter(Boolean).join(" "), `P-nr. ${p.p_number}`, `${formatAnsatte(p)} ansatte`]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-              {aabneInfo.has(p.p_number) ? (
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Salgsmulighed: {aabneInfo.get(p.p_number)!.saelger ?? "uden sælger"} ·{" "}
-                  {STADIE_LABEL[aabneInfo.get(p.p_number)!.status] ?? aabneInfo.get(p.p_number)!.status}
-                </div>
-              ) : companyId ? (
-                busy === p.p_number ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mt-1" />
-                ) : (
+              {linje(p)}
+              {busy === p.p_number ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mt-1" />
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+                  {aabneInfo.has(p.p_number) ? (
+                    <span className="text-xs text-muted-foreground">
+                      Salgsmulighed: {aabneInfo.get(p.p_number)!.saelger ?? "uden sælger"} ·{" "}
+                      {STADIE_LABEL[aabneInfo.get(p.p_number)!.status] ?? aabneInfo.get(p.p_number)!.status}
+                    </span>
+                  ) : companyId ? (
+                    <button
+                      className="text-xs text-primary hover:underline"
+                      onClick={() => {
+                        if (kanStyre) {
+                          setTildelTil(assignedTo ?? "");
+                          setTildelFor(p);
+                        } else opretMulighed(p);
+                      }}
+                    >
+                      {kanStyre ? "Tildel sælger" : "Opret salgsmulighed"}
+                    </button>
+                  ) : null}
                   <button
-                    className="text-xs text-primary hover:underline mt-0.5"
+                    className="text-xs text-muted-foreground hover:text-foreground hover:underline"
                     onClick={() => {
-                      if (kanStyre) {
-                        setTildelTil(assignedTo ?? "");
-                        setTildelFor(p);
-                      } else opretMulighed(p);
+                      setIrTekst("");
+                      setIrFor(p);
                     }}
                   >
-                    {kanStyre ? "Tildel sælger" : "Opret salgsmulighed"}
+                    Markér ikke relevant
                   </button>
-                )
-              ) : null}
+                </div>
+              )}
             </li>
           ))}
         </ul>
+        )}
+        {markerede.length > 0 && (
+          <div className="mt-2">
+            <button
+              type="button"
+              aria-expanded={visMarkerede}
+              onClick={() => setVisMarkerede((v) => !v)}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              {markerede.length} markeret ikke relevant {visMarkerede ? "▾" : "▸"}
+            </button>
+            {visMarkerede && (
+              <ul className="divide-y mt-1">
+                {markerede.map((p) => (
+                  <li key={p.p_number} className="py-2 text-sm text-muted-foreground">
+                    {linje(p)}
+                    {begrundelse(p.p_number) && (
+                      <div className="text-xs mt-0.5">Begrundelse: {begrundelse(p.p_number)}</div>
+                    )}
+                    {busy === p.p_number ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mt-1" />
+                    ) : (
+                      <button
+                        className="text-xs text-primary hover:underline mt-0.5"
+                        onClick={() => fortrydIkkeRelevant(p)}
+                      >
+                        Fortryd
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         {dialoger}
       </>
     );

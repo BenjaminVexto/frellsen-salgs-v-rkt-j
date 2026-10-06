@@ -2687,6 +2687,44 @@ export type Database = {
         }
         Relationships: []
       }
+      penhed_handling_log: {
+        Row: {
+          begrundelse: string | null
+          handling: string
+          id: string
+          location_id: string | null
+          p_nummer: string
+          udfoert_af: string
+          udfoert_dato: string
+        }
+        Insert: {
+          begrundelse?: string | null
+          handling: string
+          id?: string
+          location_id?: string | null
+          p_nummer: string
+          udfoert_af?: string
+          udfoert_dato?: string
+        }
+        Update: {
+          begrundelse?: string | null
+          handling?: string
+          id?: string
+          location_id?: string | null
+          p_nummer?: string
+          udfoert_af?: string
+          udfoert_dato?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "penhed_handling_log_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       penhed_ikke_relevant: {
         Row: {
           aarsag: string
