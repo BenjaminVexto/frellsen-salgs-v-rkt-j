@@ -7,3 +7,4 @@
 - P-enheder kobles til lokationer via location_pnr_link (unik pr. P-nr + lokation, så én P-enhed kan dække flere konti på samme adresse); auto-matchning bruger addr_n_vej/addr_n_husnr + postnr og springer lokationer over, der matcher flere P-enheder — because usikre match ikke må kobles automatisk.
 
 - Aktiviteters dato vises og sorteres på activities.udfoert_at (brugervalgt, højst 14 dage tilbage, valideret af trigger); created_at er den uændrede registreringstid — so the two can be compared.
+- Maskiners "Placering i bygningen" ligger i maskine_placering pr. serienr. (ikke på location_equipment_units, som importen sletter/genindsætter); importen må kun skrive via import_maskine_placering, der ignorerer tomme værdier og aldrig overskriver CRM-indtastninger — because brugerindtastninger ikke må gå tabt ved import.
