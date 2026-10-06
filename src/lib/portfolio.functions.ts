@@ -122,6 +122,7 @@ export type VindTilbageRow = {
 };
 
 export type PortfolioPayload = {
+  faldGraenser?: { minPct: number; minKr: number };
   isAdmin: boolean;
   appliedSellerId: string | null;
   sellerOptions: { id: string; name: string }[];
