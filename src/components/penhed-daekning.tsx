@@ -548,6 +548,77 @@ export function PenhedDaekning({
   const toggleCls =
     "flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground py-1";
 
+  const dialoger = (
+    <>
+    <Dialog open={!!tildelFor} onOpenChange={(o) => !o && setTildelFor(null)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Tildel sælger</DialogTitle>
+        </DialogHeader>
+        {tildelFor && (
+          <p className="text-sm text-muted-foreground">
+            {[tildelFor.address, tildelFor.zip, tildelFor.city].filter(Boolean).join(", ")} · P-nr{" "}
+            {tildelFor.p_number} · {formatAnsatte(tildelFor)} ansatte
+          </p>
+        )}
+        <div className="space-y-1.5">
+          <Label>Sælger</Label>
+          <Select value={tildelTil} onValueChange={setTildelTil}>
+            <SelectTrigger><SelectValue placeholder="Vælg sælger" /></SelectTrigger>
+            <SelectContent>
+              {saelgere.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Opretter et emne i Salgsmuligheder. Status styres derefter dér.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setTildelFor(null)}>Annullér</Button>
+          <Button onClick={tildel} disabled={!tildelTil || busy != null}>Tildel</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    <Dialog open={!!irFor} onOpenChange={(o) => !o && setIrFor(null)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Markér ikke relevant</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label>Årsag</Label>
+          <Select value={irAarsag} onValueChange={setIrAarsag}>
+            <SelectTrigger><SelectValue placeholder="Vælg årsag" /></SelectTrigger>
+            <SelectContent>
+              {IKKE_RELEVANT_AARSAGER.map((a) => (
+                <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {irAarsag === "andet" && (
+            <Textarea
+              value={irTekst}
+              onChange={(e) => setIrTekst(e.target.value)}
+              placeholder="Skriv årsagen"
+              rows={2}
+            />
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIrFor(null)}>Annullér</Button>
+          <Button
+            onClick={markerIkkeRelevant}
+            disabled={!irAarsag || (irAarsag === "andet" && !irTekst.trim()) || busy != null}
+          >
+            Markér
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
+  );
+
   if (kunIkkeKunde) {
     return (
       <>
@@ -648,72 +719,7 @@ export function PenhedDaekning({
       </tbody>
     </table>
     </div>
-    <Dialog open={!!tildelFor} onOpenChange={(o) => !o && setTildelFor(null)}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Tildel sælger</DialogTitle>
-        </DialogHeader>
-        {tildelFor && (
-          <p className="text-sm text-muted-foreground">
-            {[tildelFor.address, tildelFor.zip, tildelFor.city].filter(Boolean).join(", ")} · P-nr{" "}
-            {tildelFor.p_number} · {formatAnsatte(tildelFor)} ansatte
-          </p>
-        )}
-        <div className="space-y-1.5">
-          <Label>Sælger</Label>
-          <Select value={tildelTil} onValueChange={setTildelTil}>
-            <SelectTrigger><SelectValue placeholder="Vælg sælger" /></SelectTrigger>
-            <SelectContent>
-              {saelgere.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Opretter et emne i Salgsmuligheder. Status styres derefter dér.
-          </p>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setTildelFor(null)}>Annullér</Button>
-          <Button onClick={tildel} disabled={!tildelTil || busy != null}>Tildel</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-    <Dialog open={!!irFor} onOpenChange={(o) => !o && setIrFor(null)}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Markér ikke relevant</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-1.5">
-          <Label>Årsag</Label>
-          <Select value={irAarsag} onValueChange={setIrAarsag}>
-            <SelectTrigger><SelectValue placeholder="Vælg årsag" /></SelectTrigger>
-            <SelectContent>
-              {IKKE_RELEVANT_AARSAGER.map((a) => (
-                <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {irAarsag === "andet" && (
-            <Textarea
-              value={irTekst}
-              onChange={(e) => setIrTekst(e.target.value)}
-              placeholder="Skriv årsagen"
-              rows={2}
-            />
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIrFor(null)}>Annullér</Button>
-          <Button
-            onClick={markerIkkeRelevant}
-            disabled={!irAarsag || (irAarsag === "andet" && !irTekst.trim()) || busy != null}
-          >
-            Markér
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    {dialoger}
     </>
   );
 }
