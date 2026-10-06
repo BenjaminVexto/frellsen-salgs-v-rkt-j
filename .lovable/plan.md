@@ -1,43 +1,46 @@
-# Sælger pr. lokation
+# Pakke 3 – kundestatus, statistik, konkurrenter og katalog
 
-## Hvad brugeren får
-- Hver leveringsadresse har sin egen sælger fra Aktør. Kundekortets ansvarlige sælger er sælgeren på hovedkontoen (Lev. kund = Fakt. kunde).
-- Alle sælgervisninger regnes ud fra lokationens sælger: Målepunkter, Portefølje, Analyse, Bonus, "Mine kunder", top/bund, salgsmuligheder og kundestatus pr. sælger.
-- Har en virksomhed lokationer hos flere sælgere, vises den som fx "Compass Group Danmark A/S (1 af 20 lokationer)". Tallene dækker kun sælgerens egne lokationer.
-- Kundekortet viser stadig hele virksomheden. Fanen Lokationer får en kolonne med sælger.
-- Kreditspærrede kunder importeres med sælger som alle andre. De vises som "Spærret" og tæller med i omsætning og historik. De kommer ikke med i Salgsmuligheder, "Sælg mere" eller lister over sovende kunder.
-- Sælgernumre uden bruger vises som "Ukendt sælger (nr.)" og falder aldrig tilbage til virksomhedens sælger.
-- Leveringsnumre, der ikke findes i Aktør, vises som "Ikke i Aktør" og får ingen sælger.
-- Fakturakunder uden hovedkontorække får den sælger, der har højest omsætning de seneste 12 måneder.
+Pakke 2 er færdig (adressesøgning, lokation via P-nr., lokationssøgning, koncern). Pakke 3 bygges i rækkefølgen nedenfor. Før hvert punkt, der ændrer status, gemmes et øjebliksbillede af antallene, så før/efter kan rapporteres. Ingen salgsdata ændres.
 
-## Data
-- Nye felter på lokationer: sælgernummer, sælgerens bruger (fundet via sælgernummeret på profilen), "spærret" og "i Aktør" (ja/nej).
-- Nyt felt på virksomheder: "spærret" (ja, når alle lokationer er spærret).
-- Engangsudfyldning ud fra Aktør 5/10-2026. Den ændrer kun tildeling og spærring. Ingen salgstal røres.
-- companies.assigned_to sættes ud fra hovedkontoreglen. Reglerne for ukendte numre og manglende hovedkonto følger kontrollisten.
-- De forudberegnede tabeller (sales_kunde_maaned, company_mp_info) skifter sælger fra virksomhed til lokation. Det sker gennem de eksisterende triggere, som udvides til også at reagere på ændringer på lokationer.
+## 1) Sovende med hensyn til egen købsrytme
+- Ny databaseberegning af rytme pr. lokation og pr. virksomhed: måneder med forbrugskøb (samme forbrugsgrupper som status bruger i dag), gennemsnitligt interval mellem dem, kun når der er mindst 3 købsmåneder.
+- Statusregel: aktiv hvis måneder siden sidste forbrugskøb ≤ max(3, 1,5 × interval); ellers gælder den nuværende sovende/tidligere/servicekunde-logik uændret.
+- `forventet_interval_mdr` fra forbrugssignalet bruges kun, hvis den viser sig at være beregnet på samme måde; ellers bruges den nye beregning (afgøres ved kontrol, rapporteres).
+- Kundekortet: "Køber typisk hver ~X. måned · næste køb forventet ca. [måned år]", og diskret "Forventet køb er overskredet", når kunden er over rytmen men endnu ikke sovende.
+- Genberegning for alle afdelinger; rapport: aktive/sovende før og efter pr. afdeling (forventet ca. 1.063 færre sovende i afd. 11).
 
-## Aktør-importen
-- Indstillingen "Udeluk kreditspærrede kunder" fjernes. Spærring læses fra kolonnen Kreditspærre.
-- Hver række opdaterer sælger og spærring på sin lokation.
-- Virksomhedens ansvarlige sælger sættes til hovedkontoens sælger. Reglen "første række med sælger" fjernes helt.
-- Efter importen genberegnes de berørte sælgere automatisk via triggerne.
+## 2) Lokationsniveau for alt der er "mit"
+- Status beregnes pr. lokation (nyt felt på lokationen); virksomhedens status = den bedste af lokationerne.
+- Gennemgang af resterende "min"-visninger, der stadig regner på virksomhed: faldende kunder/forbrugssignal, sovende-lister, kontaktlister, salgsmuligheder. Portefølje, målepunkter og bonus er allerede pr. lokation fra tidligere.
+- Visning i lister: "National Oilwell Varco – Kalundborg (2 af 4 lokationer)".
+- Kundekortet: fordeling pr. lokation med sælgernavn, omsætning seneste 12 mdr., udvikling og status, så faldet kan ses (kontrol: Brøndby hos Claus Wolsing).
+- Undtagelse: maskinbonus følger fortsat virksomhedens sælger, fordi maskiner ikke kan kobles til lokation.
 
-## Visninger
-- Funktionerne bag portefølje, målepunkter, bonus og analyse filtrerer på lokationens sælger i stedet for virksomhedens.
-- "Mine kunder"-filteret og sælgerfilteret i kundelisten matcher en virksomhed, hvis den har mindst én af sælgerens lokationer. Tælleren "x af y lokationer" vises.
-- Salgsmuligheder, "Sælg mere" og lister over sovende kunder udelader spærrede kunder.
-- Badget "Spærret" vises på kundekortet og i kundelisterne.
+## 3) Søsterkonti med samme CVR og adresse
+- Ny databasevisning over par: sovende konto/lokation + aktiv konto med samme CVR og samme normaliserede adresse (eller samme postnr., når adressen mangler), i samme afdeling.
+- Disse holdes ude af sovende-/"køber ikke"-lister og får markeringen "Køber på konto [nr.]".
+- Kundekortet viser søsterkontoen tydeligt på begge konti.
+- Admin-side "Søsterkonti" med parrene og en knap til den eksisterende dubletsammenlægning. Ingen automatisk sammenlægning. Rapport: antal par (forventet ca. 17 i afd. 11).
 
-## Kontrol
-- Før/efter-opgørelsen pr. sælger køres igen for de seneste 12 måneder:
-  - Totalen skal være uændret.
-  - "Ikke tildelt" må kun indeholde kunder uden sælger i Visma.
-  - "Ikke i Aktør" og "Ukendt sælger" vises som separate linjer.
-- Stikprøve i preview som Claus og som admin, inkl. Compass Group.
+## 4) Konkurrentaftale pr. lokation med historik
+- Nye felter på konkurrentaftalen: lokation, start og afsluttet. Nyt valg på samme lokation afslutter den gamle; der slettes intet.
+- De 6 eksisterende aftaler flyttes til virksomhedens primære lokation.
+- Kundekortet: aktuel konkurrent og udløb pr. lokation, og samlet historik. Dialogen får lokationsvalg (forvalgt, når der kun er én).
+
+## 5) "Send digitalt katalog"
+- Knap ved siden af "Besøgt" (kortets top og pr. lokation). Felter: e-mail, navn (valgfrit), "Send" og hjælpeteksten.
+- Admin-indstilling for katalogets link og forsidebillede (billedet hentes automatisk fra katalogsidens og:image, kan overskrives).
+- Ved afsendelse: kontakten oprettes/opdateres på lokationen, aktiviteten "Katalog sendt" med lokation og modtager oprettes, og en opfølgning om 7 dage hos sælgeren.
+- Mail med emne "Frellsen kaffekatalog", hilsen med sælgerens navn/telefon/mail, forsidebillede og knap. Mailen indeholder et lille afmeldingslink nederst (påkrævet af systemet).
+- **Status for mail:** Projektet kan ikke sende mails endnu. Der mangler et afsenderdomæne, som Frellsen ejer (fx frellsen.dk). Det sættes op i én dialog, hvorefter der skal tilføjes nogle DNS-poster hos domæneudbyderen. Indtil det er gjort, bygges alt andet, og knappen gemmer kontakt, aktivitet og opfølgning, men viser "Mail kan ikke sendes endnu".
+
+## Antagelser (ret mig, hvis de er forkerte)
+- Rytmen beregnes på de seneste 24 måneders forbrugskøb, så gamle mønstre ikke holder en kunde kunstigt aktiv.
+- "Samme adresse" i punkt 3 kræver også samme afdeling.
+- Kataloglinket gælder alle afdelinger (én fælles indstilling).
 
 ## Teknisk
-- Migrationer: nye kolonner, opdaterede triggere og RPC'er (portfolio_*, maalepunkt_*, bonus_*, analyse_pivot, aktive_saelgere).
-- Udfyldningen fra Aktør køres som dataopdatering, ikke som migration.
-- Filer: admin.import.visma.tsx, portfolio.functions.ts, sales.server.ts (getSellerCompanyIds), company-filter, lokationer-sektion.tsx, virksomheder_.$id.tsx og salgsmuligheder-visningerne.
-- Husk at publicere bagefter, så importen kører med den nye logik.
+- Rytme og lokationsstatus i en SQL-funktion, der kaldes fra `recompute_company_statuses_batch` og fakturaimportens statustrin. Ny kolonne `locations.customer_type` og en tabel/visning til rytme (`kunde_rytme`: niveau, id, interval, sidste forbrugskøb, næste forventede).
+- `competitor_assignments`: + `location_id`, `start_dato`, `afsluttet_dato`; delvis unik indeks på aktiv aftale pr. lokation; trigger afslutter den forrige aftale.
+- `app_settings` (nøgle/værdi, kun admin skriver) til katalog-link/-billede.
+- Mail via den indbyggede mailtjeneste (skabelon + kø), først aktiv når domænet er verificeret.
