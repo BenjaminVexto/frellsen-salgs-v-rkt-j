@@ -58,7 +58,18 @@ const MACHINE_ALIASES: Record<string, string> = {
   maskinstatus: "status",
 };
 
+// Grundregler for maskindata (Visma):
+// - Adresselinje 2 er altid vejadressen (Aktør, maskinregister og serviceregister) og må ALDRIG bruges som placering.
+// - Placering kommer kun fra serviceregistrets kolonne "Placering (Adr1)".
+// - "u/b" = "uden betaling": "5 [Leje u/b]" er ikke leje. "Aftale m/Alt u/b (83,17,18)" = service/respons, filtre og reservedele inkluderet.
+// - Serviceregistrets "Aftale Type (G4)" er facit for aftalen; "1 [Serviceaftale]" = kun serviceaftale, kundeejet maskine.
+// - "Reserved. efter regn." er datoen, hvor kunden begynder at betale for reservedele.
 const ENRICHMENT_ALIASES: Record<string, string> = {
+  placeringadr1: "placering",
+  placering: "placering",
+  reservedefterregn: "reservedele_efter",
+  reserveddeleefterregn: "reservedele_efter",
+  reservedeleefterregn: "reservedele_efter",
   // Identifikation
   serienr: "serienr",
   serienrwit: "serienr",
@@ -116,6 +127,7 @@ const FORCE_TEXT = new Set([
   "kundeprisgruppe1",
 ]);
 const DATE_FIELDS = new Set([
+  "reservedele_efter",
   "aendret_dato",
   "taelleraflaesning",
   "binding_ophor",
@@ -130,6 +142,7 @@ const NUMBER_FIELDS = new Set(["taellerstand"]);
 // Enrichment-specifikke dato-felter (aendret_dato er kun i maskinlisten
 // og har en anden format-oprindelse — se nedenfor).
 const ENRICHMENT_DATE_FIELDS = new Set([
+  "reservedele_efter",
   "leaset_dato",
   "kobt_dato",
   "lease_leje_dato",
@@ -321,6 +334,8 @@ const ENRICHMENT_EXPECTED = [
   "respons",
   "navn",
   "reservedele",
+  "reservedele_efter",
+  "placering",
   "aftale_type",
   "kobt_dato",
   "lease_leje_dato",
