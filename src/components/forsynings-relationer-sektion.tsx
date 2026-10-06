@@ -19,7 +19,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Link2, ExternalLink, Sparkles, Plus } from "lucide-react";
+import { Trash2, Link2, ExternalLink, Sparkles, Plus, Loader2 } from "lucide-react";
 import { AddRelationDialog } from "@/components/add-relation-dialog";
 
 const TYPE_LABEL: Record<RelationType, string> = {
@@ -97,7 +97,18 @@ export function ForsyningsRelationerSektion({ companyId }: { companyId: string }
         </div>
       )}
 
-      {confirmed.length === 0 && suggestions.length === 0 && (
+      {q.isLoading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" /> Henter relationer…
+        </div>
+      )}
+      {q.isError && (
+        <div className="flex items-center gap-2 text-sm text-destructive py-2">
+          Kunne ikke hente relationer.
+          <Button size="sm" variant="outline" onClick={() => q.refetch()}>Prøv igen</Button>
+        </div>
+      )}
+      {q.isSuccess && confirmed.length === 0 && suggestions.length === 0 && (
         <p className="text-sm text-muted-foreground py-2">
           Ingen forsynings-relationer registreret. Admin kan scanne bemærkningsfelter for at finde forslag.
         </p>
