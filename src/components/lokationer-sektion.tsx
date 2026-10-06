@@ -122,11 +122,19 @@ export function LokationerSektion({
   const load = async () => {
     const { data } = await (supabase as any)
       .from("locations")
-      .select("*, saelger:profiles!locations_saelger_user_id_fkey(full_name), koeber_paa:locations!locations_koeber_paa_location_id_fkey(visma_delivery_no)")
+      .select("*, saelger:profiles!locations_saelger_user_id_fkey(full_name)")
       .eq("company_id", companyId)
       .order("is_primary", { ascending: false })
       .order("city", { ascending: true });
-    setLocations(((data ?? []) as Location[]));
+    const rows = (data ?? []) as any[];
+    // Søsterkonto-mærke: slå kontonummeret op for "køber på"-lokationen.
+    const ids = rows.map((r) => r.koeber_paa_location_id).filter(Boolean);
+    if (ids.length) {
+      const { data: s } = await supabase.from("locations").select("id, visma_delivery_no").in("id", ids);
+      const m = new Map((s ?? []).map((x) => [x.id, x.visma_delivery_no]));
+      for (const r of rows) if (r.koeber_paa_location_id) r.koeber_paa = { visma_delivery_no: m.get(r.koeber_paa_location_id) ?? null };
+    }
+    setLocations(rows as Location[]);
   };
 
   useEffect(() => {
