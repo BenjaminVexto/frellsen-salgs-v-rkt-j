@@ -615,7 +615,7 @@ export function LokationerSektion({
                       <span className="min-w-0">
                         <span className="flex items-center gap-1.5 text-sm font-medium">
                           <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="truncate">{titel}</span>
+                          <span className="break-words">{titel}</span>
                           {g.primary && (
                             <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-normal">Primær</Badge>
                           )}
@@ -807,7 +807,7 @@ function LokationRow({
           <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           {kontoVisning ? (
             <span className="min-w-0">
-              <span className="block text-sm truncate">{headline}</span>
+              <span className="block text-sm break-words">{headline}</span>
               <span className={`block text-xs tabular-nums ${metaTone}`}>{metaLabel}</span>
             </span>
           ) : (
