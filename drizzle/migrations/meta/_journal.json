@@ -456,6 +456,13 @@
       "when": 1791302826783,
       "tag": "0064_maskiner_uden_lokation_firmaopslag",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1791304733859,
+      "tag": "0065_penhed_kobling_flere_lokationer",
+      "breakpoints": true
     }
   ]
 }
