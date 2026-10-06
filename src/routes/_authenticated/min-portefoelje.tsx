@@ -593,6 +593,14 @@ function PortfolioPage() {
                             >
                               {c.name}
                             </Link>
+                            {c.lok_total > 1 && c.lok_antal < c.lok_total && (
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                ({c.lok_antal} af {c.lok_total} lokationer)
+                              </span>
+                            )}
+                            {c.kreditspaerret && (
+                              <Badge variant="destructive" className="ml-2 text-[10px]">Spærret</Badge>
+                            )}
                             {c.city && (
                               <div className="text-xs text-muted-foreground">{c.city}</div>
                             )}
