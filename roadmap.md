@@ -1,4 +1,14 @@
 # Roadmap
 - [x] Salgsintelligens P-enheder: ansatte, dækning (location_pnr_link), UI, kundekort — plan med 5 rettelser
 - [x] Min salgsstatistik: stabil sælgervælger, indlæsning/fejl pr. tabel, forudberegnede tabeller, korrekt "Data opdateret til"
-- [ ] Sælger pr. lokation (locations.saelger_no, assigned_to = hovedkontoens sælger, alle sælgervisninger pr. lokation). Kontrolliste leveret (Aktør 5/10) — venter på brugerens godkendelse før visningerne ændres
+- [ ] Sælger pr. lokation (godkendt plan + tilføjelser):
+  - [ ] locations: saelger_no, saelger_user_id, kreditspaerret, i_aktoer; companies.kreditspaerret
+  - [ ] Engangsudfyldning fra Aktør 5/10 på (afdeling, Lev. kund) uden triggere + én samlet genberegning
+  - [ ] Forudberegnede tabeller pr. (virksomhed, sælger, måned); unik kunde pr. sælger
+  - [ ] Kundestatus pr. sælger ud fra egne lokationer
+  - [ ] "Nye kunder" = ny for Frellsen; "Nye lokationer" separat i Målepunkter
+  - [ ] Bonus: mulighed for at fastfryse perioder (intet fastfryses nu)
+  - [ ] Profil får sælgernummer → lokationer kobles automatisk
+  - [ ] Aktør-import: spærrede med, sælger pr. lokation, assigned_to = hovedkonto, fjern "første række"
+  - [ ] Visninger pr. lokationssælger; "x af y lokationer"; Spærret-badge; spærrede ud af salgsmuligheder/sælg mere/sovende
+  - [ ] Kontrol: før/efter pr. sælger, total uændret, "Ikke tildelt" kun uden Visma-sælger
