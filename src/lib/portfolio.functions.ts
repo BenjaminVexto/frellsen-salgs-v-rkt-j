@@ -318,12 +318,15 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     };
     // Ét kald hver: aggregatet leveres som JSON, så 1.000-rækkegrænsen ikke
     // tvinger funktionen til at køre om for hver side.
-    const [aggSvar, totSvar, refSvar] = await Promise.all([
+    const [aggSvar, totSvar, refSvar, faldSvar] = await Promise.all([
       (supabase as any).rpc("portfolio_aggregat_json", rpcArgs),
       (supabase as any).rpc("portfolio_totaler", rpcArgs),
       (supabase as any).rpc("seneste_fakturadato"),
+      (supabase as any).from("fald_indstilling").select("min_fald_pct, min_fald_kr").maybeSingle(),
     ]);
     const senesteFakturadato: string | null = (refSvar?.data as string | null) ?? null;
+    const faldMinPct = Number(faldSvar?.data?.min_fald_pct ?? 20);
+    const faldMinKr = Number(faldSvar?.data?.min_fald_kr ?? 5000);
     if (aggSvar.error) throw aggSvar.error;
     if (totSvar.error) throw totSvar.error;
     const aggRows: any[] = (aggSvar.data ?? []) as any[];
@@ -509,7 +512,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         harGyldigtSammenligningsvindue(startPrior) && f12p > 0
           ? ((f12 - f12p) / f12p) * 100
           : null;
-      const falder = growthPct !== null && f12 > 0 && f12 < f12p;
+      const falder = erFalder(growthPct, f12, f12p, faldMinPct, faldMinKr);
       const trendDown =
         growthPct !== null && growthPct < TREND_DOWN_PCT && revenue12m >= ATTENTION_MIN_REV_12M;
 

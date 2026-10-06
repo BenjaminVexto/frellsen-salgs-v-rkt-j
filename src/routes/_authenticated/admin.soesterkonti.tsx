@@ -77,6 +77,7 @@ function Side() {
         )}
       </Card>
       {q.data && <p className="text-xs text-muted-foreground">{q.data.length} par</p>}
+      <FaldIndstilling />
       <KatalogIndstilling />
     </div>
   );
@@ -86,6 +87,35 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+function FaldIndstilling() {
+  const [pct, setPct] = useState("20");
+  const [kr, setKr] = useState("5000");
+  useEffect(() => {
+    void (supabase as any).from("fald_indstilling").select("min_fald_pct, min_fald_kr").maybeSingle().then(({ data }: any) => {
+      if (data) { setPct(String(data.min_fald_pct)); setKr(String(data.min_fald_kr)); }
+    });
+  }, []);
+  const gem = async () => {
+    const p = Number(pct.replace(",", ".")), k = Number(kr.replace(/\./g, "").replace(",", "."));
+    if (!(p >= 0) || !(k >= 0)) return toast.error("Angiv gyldige tal");
+    const { error } = await (supabase as any).from("fald_indstilling")
+      .update({ min_fald_pct: p, min_fald_kr: k, opdateret_at: new Date().toISOString() }).eq("id", true);
+    if (error) return toast.error(error.message);
+    toast.success("Grænser for \"Falder\" gemt");
+  };
+  return (
+    <Card className="p-4 space-y-3" id="fald">
+      <h2 className="font-semibold">Grænser for "Falder"</h2>
+      <p className="text-sm text-muted-foreground">En kunde falder, når forbrugsvarer de seneste 12 hele måneder er faldet med begge grænser mod de 12 før.</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label>Mindst fald i %</Label><Input inputMode="decimal" value={pct} onChange={(e) => setPct(e.target.value)} /></div>
+        <div><Label>Mindst fald i kr.</Label><Input inputMode="decimal" value={kr} onChange={(e) => setKr(e.target.value)} /></div>
+      </div>
+      <Button onClick={gem}>Gem</Button>
+    </Card>
+  );
+}
 
 function KatalogIndstilling() {
   const [url, setUrl] = useState("");
