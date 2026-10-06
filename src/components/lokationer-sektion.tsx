@@ -63,6 +63,14 @@ export type Location = {
   equipment_updated_at?: string | null;
 };
 
+const KONTO_STATUS: Record<string, string> = {
+  aktiv_kunde: "Aktiv",
+  sovende_kunde: "Sovende",
+  tidligere_kunde: "Tidligere kunde",
+  servicekunde: "Servicekunde",
+  nyt_emne: "Emne",
+};
+
 type PenhedInfo = {
   p_number: string;
   address: string | null;
@@ -641,6 +649,7 @@ export function LokationerSektion({
                           showLastPurchase={sortMode === "lastPurchase"}
                           machineCount={machineCountQ.data?.[l.id] ?? 0}
                           showMachineCount={sortMode === "machines"}
+                          kontoVisning={{ revenue12m: summaryQ.data?.[l.id]?.revenue12m ?? null }}
                         />
                       ))}
                     </ul>
@@ -730,6 +739,7 @@ function LokationRow({
   showMachineCount,
   companyId,
   visBesoeg,
+  kontoVisning,
 }: {
   companyId?: string;
   visBesoeg?: boolean;
@@ -747,13 +757,21 @@ function LokationRow({
   showLastPurchase?: boolean;
   machineCount?: number;
   showMachineCount?: boolean;
+  /** Vist inde i en adressegruppe: overskriften er kontoen (Visma-nr., status, sælger, omsætning). */
+  kontoVisning?: { revenue12m: number | null } | null;
 }) {
 
   const address = firstFilled(location.address, fallbackAddress);
   const zip = firstFilled(location.zip, fallbackZip);
   const city = firstFilled(location.city, fallbackCity);
   const cityLine = [zip, city].filter(Boolean).join(" ");
-  const headline = [address, cityLine].filter(Boolean).join(", ") || "Lokation";
+  const kontoStatus = (location as any).kreditspaerret
+    ? "Spærret"
+    : KONTO_STATUS[(location as any).customer_type as string] ?? null;
+  const kontoSaelger = (location as any).saelger?.full_name ?? null;
+  const headline = kontoVisning
+    ? [`Kundenr. ${location.visma_delivery_no ?? "–"}`, kontoStatus, kontoSaelger].filter(Boolean).join(" · ")
+    : [address, cityLine].filter(Boolean).join(", ") || "Lokation";
   const lastPurchaseLabel = lastPurchase
     ? new Date(lastPurchase + "T00:00:00Z").toLocaleDateString("da-DK", {
         day: "numeric",
@@ -762,14 +780,18 @@ function LokationRow({
       })
     : "Intet køb registreret";
 
-  const metaLabel = showLastPurchase
+  const metaLabel = kontoVisning && !showLastPurchase && !showMachineCount
+    ? `${Math.round(kontoVisning.revenue12m ?? 0).toLocaleString("da-DK")} kr. / 12 mdr.`
+    : showLastPurchase
     ? (lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel)
     : showMachineCount
       ? (machineCount
           ? `${machineCount} maskine${machineCount === 1 ? "" : "r"}`
           : "Ingen maskiner")
       : null;
-  const metaTone = showLastPurchase
+  const metaTone = kontoVisning && !showLastPurchase && !showMachineCount
+    ? "text-muted-foreground"
+    : showLastPurchase
     ? (lastPurchase ? "text-muted-foreground" : "text-destructive")
     : (machineCount ? "text-muted-foreground" : "text-destructive");
 
@@ -779,7 +801,7 @@ function LokationRow({
         type="button"
         onClick={onToggle}
         className="w-full grid items-center gap-2 py-2.5 text-left hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors"
-        style={{ gridTemplateColumns: "minmax(0, 1fr) 10rem 1.5rem" }}
+        style={{ gridTemplateColumns: kontoVisning ? "minmax(0, 1fr) auto 1.5rem" : "minmax(0, 1fr) 10rem 1.5rem" }}
       >
         <span className="flex items-center gap-2 min-w-0">
           <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
