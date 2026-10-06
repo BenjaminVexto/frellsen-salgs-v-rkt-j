@@ -1,3 +1,4 @@
+import { useEffektivRolle } from "@/contexts/view-as-context";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -181,6 +182,10 @@ export function MaalepunkterFane({
   alleSaelgere?: boolean;
 }) {
   const auth = useAuth();
+  const effRolle = useEffektivRolle();
+  /** "Nye lokationer" er kun for admin (også skjult i "Se som"). */
+  const visNyeLok = effRolle === "admin";
+  const maskinNr = visNyeLok ? 6 : 5;
   const afd = useAfdeling();
 
   const now = new Date();
@@ -356,7 +361,7 @@ export function MaalepunkterFane({
 
   const nyeLokQ = useQuery({
     queryKey: ["maalepunkt-nye-lok", qNoegle, fra, til],
-    enabled: harValg,
+    enabled: harValg && visNyeLok,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("maalepunkt_nye_lokationer", args);
       if (error) throw new Error(error.message);
@@ -548,7 +553,8 @@ export function MaalepunkterFane({
       nyeTabel,
       nyeMaal === "db" ? 2 : 0,
     );
-    block("5 · Solgte maskiner pr. måned (stk.)", maskinTabel, 0);
+    if (visNyeLok) block("5 · Nye lokationer pr. måned (antal, første ordre på en ny lokation i en eksisterende kunde)", nyeLokTabel, 0);
+    block(`${maskinNr} · Solgte maskiner pr. måned (stk.)`, maskinTabel, 0);
 
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
@@ -1136,8 +1142,9 @@ export function MaalepunkterFane({
         }
       />
 
+      {visNyeLok && (
       <Tabel
-        nummer={4}
+        nummer={5}
         titel="Nye lokationer pr. måned (antal, første ordre på en ny lokation i en eksisterende kunde)"
         undertitel="Tæller ikke som ny kunde"
         visKey="nye-lok"
@@ -1147,9 +1154,10 @@ export function MaalepunkterFane({
         error={nyeLokQ.error ? (nyeLokQ.error as Error).message : null}
         onRetry={() => nyeLokQ.refetch()}
       />
+      )}
 
       <Tabel
-        nummer={5}
+        nummer={maskinNr}
         titel="Solgte maskiner pr. måned (stk.)"
         visKey="maskiner"
         rows={maskinTabel}
