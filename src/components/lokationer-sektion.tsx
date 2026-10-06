@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
+import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { BesoegtKnap } from "@/components/besoegt-knap";
@@ -109,6 +109,7 @@ export function LokationerSektion({
   initialOpenLocationId?: string | null;
 }) {
   const [locations, setLocations] = useState<Location[]>([]);
+  const [hentet, setHentet] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -135,11 +136,13 @@ export function LokationerSektion({
       for (const r of rows) if (r.koeber_paa_location_id) r.koeber_paa = { visma_delivery_no: m.get(r.koeber_paa_location_id) ?? null };
     }
     setLocations(rows as Location[]);
+    setHentet(true);
   };
 
   useEffect(() => {
     load();
   }, [companyId, reloadKey]);
+  useEffect(() => setHentet(false), [companyId]);
 
   // Åbn + scroll til en bestemt lokation
   const openLocation = (locationId: string) => {
@@ -312,7 +315,25 @@ export function LokationerSektion({
 
 
   // Always render the section (header) when admin; hide entirely if no data and no write
-  if (locations.length === 0 && !isAdmin) return null;
+  if (!hentet) {
+    return (
+      <Card className="p-5">
+        <h2 className="font-semibold flex items-center gap-2 mb-4">
+          <MapPin className="h-4 w-4" /> Lokationer
+        </h2>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" /> Henter lokationer…
+        </div>
+      </Card>
+    );
+  }
+  if (locations.length === 0 && !isAdmin) {
+    return (
+      <Card className="p-5">
+        <p className="text-sm text-muted-foreground">Ingen lokationer registreret.</p>
+      </Card>
+    );
+  }
 
   const visible = expanded ? sortedLocations : sortedLocations.slice(0, 3);
 
