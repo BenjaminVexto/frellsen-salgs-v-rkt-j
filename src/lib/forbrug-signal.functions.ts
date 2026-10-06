@@ -45,6 +45,7 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
       "company_id, afdeling_nr, assigned_to, klasse_primaer, aarsag_primaer, afvigelse_pct_primaer, base_kg_primaer, akt_kg_primaer, sidste_koeb_primaer, tabt_kg_pr_mdr, tabt_kr_pr_mdr, grupper_i_fald, handling_paakraevet, forventet_interval_mdr_primaer";
 
     let signalRows: any[] = [];
+    const lokLabel = new Map<string, { byer: string; egne: number; total: number }>();
     if (teamScope) {
       let q = context.supabase
         .from("forbrug_signal_virksomhed" as any)
@@ -204,8 +205,13 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
       .filter((r) => compMap.has(r.company_id))
       .map((r) => ({
         company_id: r.company_id as string,
-        navn: compMap.get(r.company_id)?.name ?? "",
-        by: compMap.get(r.company_id)?.city ?? null,
+        navn: (() => {
+          const n = compMap.get(r.company_id)?.name ?? "";
+          const ll = lokLabel.get(r.company_id);
+          if (!ll) return n;
+          return `${n}${ll.byer ? ` – ${ll.byer}` : ""} (${ll.egne} af ${ll.total} lokationer)`;
+        })(),
+        by: lokLabel.get(r.company_id)?.byer || compMap.get(r.company_id)?.city || null,
         klasse_primaer: r.klasse_primaer ?? null,
         aarsag_primaer: r.aarsag_primaer ?? null,
         afvigelse_pct_primaer: r.afvigelse_pct_primaer != null ? Number(r.afvigelse_pct_primaer) : null,
