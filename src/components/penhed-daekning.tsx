@@ -607,6 +607,23 @@ export function PenhedDaekning({
         <DialogHeader>
           <DialogTitle>Markér ikke relevant</DialogTitle>
         </DialogHeader>
+        {kunIkkeKunde ? (
+          <div className="space-y-1.5">
+            {irFor && (
+              <p className="text-sm text-muted-foreground">
+                {[irFor.address, irFor.zip, irFor.city].filter(Boolean).join(", ")} · P-nr. {irFor.p_number}
+              </p>
+            )}
+            <Label>Kort begrundelse (valgfri)</Label>
+            <Textarea
+              value={irTekst}
+              onChange={(e) => setIrTekst(e.target.value)}
+              placeholder="Fx lager uden medarbejdere eller kaffebehov"
+              rows={2}
+              maxLength={200}
+            />
+          </div>
+        ) : (
         <div className="space-y-1.5">
           <Label>Årsag</Label>
           <Select value={irAarsag} onValueChange={setIrAarsag}>
@@ -626,11 +643,15 @@ export function PenhedDaekning({
             />
           )}
         </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => setIrFor(null)}>Annullér</Button>
           <Button
             onClick={markerIkkeRelevant}
-            disabled={!irAarsag || (irAarsag === "andet" && !irTekst.trim()) || busy != null}
+            disabled={
+              busy != null ||
+              (!kunIkkeKunde && (!irAarsag || (irAarsag === "andet" && !irTekst.trim())))
+            }
           >
             Markér
           </Button>
@@ -641,42 +662,100 @@ export function PenhedDaekning({
   );
 
   if (kunIkkeKunde) {
+    const markerede = rows.filter((r) => !r.daekket && ikkeRel.has(r.p_number));
+    const begrundelse = (pn: string) => {
+      const x = ikkeRel.get(pn);
+      if (!x || x.aarsag === "uden_aarsag") return null;
+      return x.aarsag === "andet" ? x.fritekst : IKKE_RELEVANT_AARSAGER.find((a) => a.key === x.aarsag)?.label ?? null;
+    };
+    const linje = (p: PenhedDaekningRow) => (
+      <>
+        <div className="font-medium">{p.address ?? "Ukendt adresse"}</div>
+        <div className="text-xs text-muted-foreground">
+          {[[p.zip, p.city].filter(Boolean).join(" "), `P-nr. ${p.p_number}`, `${formatAnsatte(p)} ansatte`]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
+      </>
+    );
     return (
       <>
+        {visIkkeHosListe && (
         <ul className="divide-y">
           {ikke.map((p) => (
             <li key={p.p_number} className="py-2 text-sm">
-              <div className="font-medium">{p.address ?? "Ukendt adresse"}</div>
-              <div className="text-xs text-muted-foreground">
-                {[[p.zip, p.city].filter(Boolean).join(" "), `P-nr. ${p.p_number}`, `${formatAnsatte(p)} ansatte`]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-              {aabneInfo.has(p.p_number) ? (
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Salgsmulighed: {aabneInfo.get(p.p_number)!.saelger ?? "uden sælger"} ·{" "}
-                  {STADIE_LABEL[aabneInfo.get(p.p_number)!.status] ?? aabneInfo.get(p.p_number)!.status}
-                </div>
-              ) : companyId ? (
-                busy === p.p_number ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mt-1" />
-                ) : (
+              {linje(p)}
+              {busy === p.p_number ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mt-1" />
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+                  {aabneInfo.has(p.p_number) ? (
+                    <span className="text-xs text-muted-foreground">
+                      Salgsmulighed: {aabneInfo.get(p.p_number)!.saelger ?? "uden sælger"} ·{" "}
+                      {STADIE_LABEL[aabneInfo.get(p.p_number)!.status] ?? aabneInfo.get(p.p_number)!.status}
+                    </span>
+                  ) : companyId ? (
+                    <button
+                      className="text-xs text-primary hover:underline"
+                      onClick={() => {
+                        if (kanStyre) {
+                          setTildelTil(assignedTo ?? "");
+                          setTildelFor(p);
+                        } else opretMulighed(p);
+                      }}
+                    >
+                      {kanStyre ? "Tildel sælger" : "Opret salgsmulighed"}
+                    </button>
+                  ) : null}
                   <button
-                    className="text-xs text-primary hover:underline mt-0.5"
+                    className="text-xs text-muted-foreground hover:text-foreground hover:underline"
                     onClick={() => {
-                      if (kanStyre) {
-                        setTildelTil(assignedTo ?? "");
-                        setTildelFor(p);
-                      } else opretMulighed(p);
+                      setIrTekst("");
+                      setIrFor(p);
                     }}
                   >
-                    {kanStyre ? "Tildel sælger" : "Opret salgsmulighed"}
+                    Markér ikke relevant
                   </button>
-                )
-              ) : null}
+                </div>
+              )}
             </li>
           ))}
         </ul>
+        )}
+        {markerede.length > 0 && (
+          <div className="mt-2">
+            <button
+              type="button"
+              aria-expanded={visMarkerede}
+              onClick={() => setVisMarkerede((v) => !v)}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              {markerede.length} markeret ikke relevant {visMarkerede ? "▾" : "▸"}
+            </button>
+            {visMarkerede && (
+              <ul className="divide-y mt-1">
+                {markerede.map((p) => (
+                  <li key={p.p_number} className="py-2 text-sm text-muted-foreground">
+                    {linje(p)}
+                    {begrundelse(p.p_number) && (
+                      <div className="text-xs mt-0.5">Begrundelse: {begrundelse(p.p_number)}</div>
+                    )}
+                    {busy === p.p_number ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mt-1" />
+                    ) : (
+                      <button
+                        className="text-xs text-primary hover:underline mt-0.5"
+                        onClick={() => fortrydIkkeRelevant(p)}
+                      >
+                        Fortryd
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         {dialoger}
       </>
     );
