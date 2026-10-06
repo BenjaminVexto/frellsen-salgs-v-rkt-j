@@ -98,7 +98,10 @@ import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { KoncernSektion } from "@/components/koncern-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
-import { AiBriefingSektion, AiBriefingKnap, useCompanyBriefing } from "@/components/ai-briefing-sektion";
+import { AiBriefingSektion, useCompanyBriefing } from "@/components/ai-briefing-sektion";
+import { KundeSalgstal } from "@/components/sales/kunde-salgstal";
+import { SaelgereLinje, DineLokationer } from "@/components/saelgere-linje";
+import { adresseValg, lokAdresse, gyldigAktivitetsTid, tilLokalInput, MAKS_DAGE_TILBAGE } from "@/lib/adresse-grupper";
 import { SortimentKort } from "@/components/sortiment-kort";
 import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 
@@ -273,7 +276,7 @@ function VirksomhedsKort() {
     ] = await Promise.all([
       supabase.from("companies").select("*").eq("id", id).maybeSingle(),
       supabase.from("contacts").select("*").eq("company_id", id).order("is_primary", { ascending: false }),
-      supabase.from("activities").select("*").eq("company_id", id).order("created_at", { ascending: false }),
+      supabase.from("activities").select("*").eq("company_id", id).order("udfoert_at" as any, { ascending: false }),
       supabase.from("contact_list_assignments").select("*").eq("company_id", id),
       (supabase as any)
         .from("locations")
@@ -482,7 +485,7 @@ function VirksomhedsKort() {
           </div>
           <KundeRytmeLinje companyId={company.id} />
           <div className="grid grid-cols-2 gap-2">
-            <BesoegtKnap companyId={company.id} onSaved={() => void load(true)} />
+            <BesoegtKnap companyId={company.id} locations={locations as any} onSaved={() => void load(true)} />
             <KatalogKnap companyId={company.id} onSaved={() => void load(true)} />
           </div>
           <KundeStop companyId={company.id} onChanged={() => void load(true)} />
@@ -524,7 +527,6 @@ function VirksomhedsKort() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          {!afloestAf && <AiBriefingSektion state={briefingState} />}
           <div className="grid grid-cols-1 gap-1.5 text-sm border-t pt-3">
             {(() => {
               const c = contacts.find((c) => c.is_primary) ?? contacts[0];
@@ -604,6 +606,7 @@ function VirksomhedsKort() {
             </div>
           )}
 
+          <DineLokationer locations={locations as any} userId={user?.id ?? null} hovedkontoSaelger={(company as any).assigned_to ?? null} />
           {/* Tildelt sælger — fremhævet */}
           <div className="mb-4 rounded-md border bg-muted/40 px-3 py-2 flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -638,6 +641,7 @@ function VirksomhedsKort() {
                   )}
                 </div>
               )}
+              <SaelgereLinje locations={locations as any} hovedkontoSaelger={(company as any).assigned_to ?? null} hovedkontoNavn={assignedSellerName} />
             </div>
           </div>
 
@@ -847,7 +851,13 @@ function VirksomhedsKort() {
 
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
-              {!afloestAf && <AiBriefingSektion state={briefingState} />}
+              {!afloestAf && (
+                <KundeSalgstal
+                  companyId={company.id}
+                  alleLokIds={locations.map((l) => l.id)}
+                  egneLokIds={locations.filter((l: any) => user?.id && l.saelger_user_id === user.id).map((l) => l.id)}
+                />
+              )}
               <KonkurrentaftaleSektion companyId={company.id} />
 
               {!afloestAf && (
@@ -878,7 +888,7 @@ function VirksomhedsKort() {
                 ) : (
                   <div className="space-y-3">
                     {activities.slice(0, 3).map((a) => (
-                      <ActivityRow key={a.id} a={a} locations={locations} userNames={userNames} isAdmin={isAdmin} onDeleted={load} />
+                      <ActivityRow key={a.id} a={a} locations={locations} userNames={userNames} isAdmin={isAdmin} userId={user?.id ?? null} onDeleted={load} />
 
                     ))}
                   </div>
@@ -927,6 +937,7 @@ function VirksomhedsKort() {
                 )}
               </Card>
 
+              {!afloestAf && <AiBriefingSektion state={briefingState} />}
             </TabsContent>
 
 
@@ -946,7 +957,7 @@ function VirksomhedsKort() {
                 ) : (
                   <div className="space-y-4">
                     {activities.map((a) => (
-                      <ActivityRow key={a.id} a={a} locations={locations} userNames={userNames} isAdmin={isAdmin} onDeleted={load} />
+                      <ActivityRow key={a.id} a={a} locations={locations} userNames={userNames} isAdmin={isAdmin} userId={user?.id ?? null} onDeleted={load} />
                     ))}
                   </div>
                 )}
@@ -1045,10 +1056,7 @@ function VirksomhedsKort() {
 
           <h2 className="font-semibold mb-4">Handlinger</h2>
           <div className="space-y-2">
-            {!afloestAf && !briefingState.briefing && (
-              <AiBriefingKnap state={briefingState} />
-            )}
-            <BesoegtKnap companyId={company.id} onSaved={() => void load(true)} />
+            <BesoegtKnap companyId={company.id} locations={locations as any} onSaved={() => void load(true)} />
             <KatalogKnap companyId={company.id} onSaved={() => void load(true)} />
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
@@ -1162,7 +1170,25 @@ function VirksomhedsKort() {
   );
 }
 
-function ActivityRow({ a, locations, userNames, isAdmin, onDeleted }: { a: Activity; locations: Location[]; userNames: Record<string, string>; isAdmin?: boolean; onDeleted?: () => void }) {
+function ActivityRow({ a, locations, userNames, isAdmin, userId, onDeleted }: { a: Activity; locations: Location[]; userNames: Record<string, string>; isAdmin?: boolean; userId?: string | null; onDeleted?: () => void }) {
+  const udfoert = new Date(((a as any).udfoert_at ?? a.created_at) as string);
+  const registreret = new Date(a.created_at);
+  const flyttet = Math.abs(udfoert.getTime() - registreret.getTime()) > 5 * 60000;
+  const maaRette = isAdmin || (!!userId && (a as any).created_by === userId);
+  const [retOpen, setRetOpen] = useState(false);
+  const [nyTid, setNyTid] = useState("");
+  async function gemTid() {
+    const d = new Date(nyTid);
+    if (!gyldigAktivitetsTid(d)) {
+      toast.error(`Vælg en dato inden for de seneste ${MAKS_DAGE_TILBAGE} dage — ikke i fremtiden`);
+      return;
+    }
+    const { error } = await supabase.from("activities").update({ udfoert_at: d.toISOString() } as any).eq("id", a.id);
+    if (error) return toast.error("Kunne ikke ændre dato: " + error.message);
+    toast.success("Dato ændret");
+    setRetOpen(false);
+    onDeleted?.();
+  }
   const loc = (a as any).location_id
     ? locations.find((l) => l.id === (a as any).location_id)
     : null;
@@ -1210,7 +1236,7 @@ function ActivityRow({ a, locations, userNames, isAdmin, onDeleted }: { a: Activ
           {loc && (
             <Badge variant="secondary" className="text-xs gap-1">
               <MapPin className="h-3 w-3" />
-              {loc.city || loc.address || "Lokation"}
+              {lokAdresse(loc as any) || "Lokation"}
             </Badge>
           )}
         </div>
@@ -1221,7 +1247,31 @@ function ActivityRow({ a, locations, userNames, isAdmin, onDeleted }: { a: Activ
               {authorName}
             </span>
           )}
-          <span>{format(new Date(a.created_at), "d. MMM yyyy HH:mm", { locale: da })}</span>
+          <span title={flyttet ? `Registreret ${format(registreret, "d. MMM yyyy HH:mm", { locale: da })}` : undefined}>
+            {format(udfoert, "d. MMM yyyy HH:mm", { locale: da })}
+            {flyttet && <span className="ml-1">(reg. {format(registreret, "d. MMM HH:mm", { locale: da })})</span>}
+          </span>
+          {maaRette && (
+            <Popover open={retOpen} onOpenChange={(o) => { setRetOpen(o); if (o) setNyTid(tilLokalInput(udfoert)); }}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground" aria-label="Ændr dato">
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 space-y-2" align="end">
+                <Label className="text-xs">Dato og klokkeslæt</Label>
+                <Input
+                  type="datetime-local"
+                  value={nyTid}
+                  min={tilLokalInput(new Date(Date.now() - MAKS_DAGE_TILBAGE * 86400000))}
+                  max={tilLokalInput(new Date())}
+                  onChange={(e) => setNyTid(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground">Op til {MAKS_DAGE_TILBAGE} dage tilbage. Registreringstiden gemmes stadig.</p>
+                <Button size="sm" className="w-full" onClick={() => void gemTid()}>Gem dato</Button>
+              </PopoverContent>
+            </Popover>
+          )}
           {isAdmin && (
             <Button
               variant="ghost"
@@ -1353,6 +1403,8 @@ function RegistrerAktivitetDialog({
   const [updateStatus, setUpdateStatus] = useState<AssignmentStatus | "">("");
   const [assignmentId, setAssignmentId] = useState<string>(assignments[0]?.id ?? "");
   const [locationId, setLocationId] = useState<string>("__general");
+  const [tid, setTid] = useState<string>(() => tilLokalInput(new Date()));
+  const valg = useMemo(() => adresseValg(locations as any, userId), [locations, userId]);
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<MentionableUser[]>([]);
 
@@ -1364,7 +1416,11 @@ function RegistrerAktivitetDialog({
       setNextDate(undefined);
       setUpdateStatus("");
       setAssignmentId(assignments[0]?.id ?? "");
-      setLocationId(presetLocationId ?? "__general");
+      {
+        const g = presetLocationId ? adresseValg(locations as any, userId).find((v) => v.locIds.includes(presetLocationId)) : null;
+        setLocationId(g ? g.kontoId : "__general");
+      }
+      setTid(tilLokalInput(new Date()));
       fetchMentionableUsers(userId).then(setUsers);
     }
   }, [open, assignments, userId, presetLocationId]);
@@ -1381,6 +1437,11 @@ function RegistrerAktivitetDialog({
       toast.error("Status kræver både næste handling og opfølgningsdato");
       return;
     }
+    const valgtTid = new Date(tid);
+    if (!gyldigAktivitetsTid(valgtTid)) {
+      toast.error(`Vælg en dato inden for de seneste ${MAKS_DAGE_TILBAGE} dage — ikke i fremtiden`);
+      return;
+    }
     setSaving(true);
     const trimmedNote = note.trim();
     const { data: inserted, error } = await supabase
@@ -1394,6 +1455,7 @@ function RegistrerAktivitetDialog({
         next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
         contact_list_assignment_id: assignmentId || null,
         location_id: locationId === "__general" ? null : locationId,
+        udfoert_at: valgtTid.toISOString(),
       } as any)
       .select("id")
       .single();
@@ -1461,16 +1523,27 @@ function RegistrerAktivitetDialog({
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__general">Hele virksomheden (generelt)</SelectItem>
-                  {locations.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.city || l.address || "Lokation"}
-                      {l.is_primary ? " (primær)" : ""}
+                  {valg.map((v) => (
+                    <SelectItem key={v.key} value={v.kontoId}>
+                      {v.label}
+                      {v.egen ? " · din" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           )}
+          <div>
+            <Label className="mb-1.5 block">Dato og klokkeslæt</Label>
+            <Input
+              type="datetime-local"
+              value={tid}
+              min={tilLokalInput(new Date(Date.now() - MAKS_DAGE_TILBAGE * 86400000))}
+              max={tilLokalInput(new Date())}
+              onChange={(e) => setTid(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Op til {MAKS_DAGE_TILBAGE} dage tilbage.</p>
+          </div>
           <div>
             <Label className="mb-1.5 block">
               Note <span className="text-xs text-muted-foreground font-normal">— skriv @ for at tagge en kollega</span>
