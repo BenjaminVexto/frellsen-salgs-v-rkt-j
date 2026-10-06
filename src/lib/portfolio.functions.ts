@@ -686,6 +686,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     // 1) Maskine men ingen kaffe
     const machineNoCoffee: SignalRow[] = companies
+      .filter((c) => !c.kreditspaerret)
       .filter((c) =>
         c.customer_type === "aktiv_kunde" &&
         c.has_active_equipment &&
@@ -713,6 +714,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       "6": "Drikke & Automatvarer",
     };
     const whiteSpace: SignalRow[] = companies
+      .filter((c) => !c.kreditspaerret)
       .filter((c) => {
         const s = groupsByCompany.get(c.id);
         return s?.has("2");
