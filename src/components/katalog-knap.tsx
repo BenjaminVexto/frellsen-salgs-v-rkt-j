@@ -35,7 +35,7 @@ export function KatalogKnap({
   className?: string;
   onSaved?: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, role } = useAuth() as any;
   const { isImpersonating } = useViewAs();
   const { stampAfdelingNr } = useAfdeling();
   const [open, setOpen] = useState(false);
@@ -117,6 +117,8 @@ export function KatalogKnap({
     }
   };
 
+  // Parkeret: kun admin ser knappen, indtil mails kan sendes (kundens mail må ikke indsamles uden katalog).
+  if (role !== "admin") return null;
   const stor = size === "lg";
   return (
     <>
