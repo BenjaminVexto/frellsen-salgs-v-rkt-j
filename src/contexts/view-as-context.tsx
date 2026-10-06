@@ -46,7 +46,7 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
 
   // Hydrate from sessionStorage once auth is known.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || auth.loading) return;
     if (!isAdmin) {
       // Non-admins can never impersonate. Clear any stale value.
       setState({ viewAsUserId: null, viewAsName: null });
@@ -61,7 +61,7 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
-  }, [isAdmin]);
+  }, [isAdmin, auth.loading]);
 
   const setViewAs = useCallback(
     (id: string, name: string) => {
