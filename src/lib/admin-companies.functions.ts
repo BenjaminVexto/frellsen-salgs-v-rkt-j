@@ -1733,3 +1733,54 @@ export const deleteImportBatch = createServerFn({ method: "POST" })
     await cascadeDeleteCompanies(toDelete);
     return { ok: true, kind, deleted: toDelete.length, skipped_active: ids.length - toDelete.length };
   });
+
+/**
+ * Aktør-import: sælger pr. lokation. Rækkerne (afdeling, Lev. kund, Fakt. kunde,
+ * sælgernr., kreditspærre) gemmes i staging og anvendes samlet på serveren
+ * (aktoer_anvend_saelgere): sælger + spærring pr. lokation, ansvarlig sælger =
+ * hovedkontoens sælger (Lev. kund = Fakt. kunde). Én samlet genberegning.
+ */
+export const aktoerAnvendSaelgereFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        fuldtUdtraek: z.boolean(),
+        rows: z
+          .array(
+            z.object({
+              afdeling_nr: z.number().int(),
+              lev_kund: z.string().min(1),
+              fakt_kunde: z.string().nullable(),
+              saelger_no: z.string().nullable(),
+              kreditspaerret: z.boolean(),
+            }),
+          )
+          .max(100000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    const batch = crypto.randomUUID();
+    const seen = new Set<string>();
+    const rows = data.rows.filter((r) => {
+      const k = `${r.afdeling_nr}|${r.lev_kund}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    for (let i = 0; i < rows.length; i += 2000) {
+      const { error } = await supabaseAdmin
+        .from("aktoer_lokation_staging")
+        .insert(rows.slice(i, i + 2000).map((r) => ({ ...r, batch })));
+      if (error) throw new Error(error.message);
+    }
+    const { data: res, error } = await supabaseAdmin.rpc("aktoer_anvend_saelgere", {
+      _batch: batch,
+      _fuldt_udtraek: data.fuldtUdtraek,
+    });
+    await supabaseAdmin.from("aktoer_lokation_staging").delete().eq("batch", batch);
+    if (error) throw new Error(error.message);
+    return res as Record<string, number>;
+  });
