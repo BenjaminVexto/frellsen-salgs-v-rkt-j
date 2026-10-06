@@ -1943,6 +1943,116 @@ export type Database = {
         }
         Relationships: []
       }
+      katalog_indstilling: {
+        Row: {
+          forside_billede_url: string | null
+          id: boolean
+          katalog_url: string
+          opdateret_af: string | null
+          opdateret_at: string
+        }
+        Insert: {
+          forside_billede_url?: string | null
+          id?: boolean
+          katalog_url: string
+          opdateret_af?: string | null
+          opdateret_at?: string
+        }
+        Update: {
+          forside_billede_url?: string | null
+          id?: boolean
+          katalog_url?: string
+          opdateret_af?: string | null
+          opdateret_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "katalog_indstilling_opdateret_af_fkey"
+            columns: ["opdateret_af"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      katalog_udsendelser: {
+        Row: {
+          activity_id: string | null
+          company_id: string
+          created_at: string
+          id: string
+          katalog_url: string
+          location_id: string | null
+          modtager_email: string
+          modtager_navn: string | null
+          sendt_af: string
+          sendt_at: string | null
+          status: string
+        }
+        Insert: {
+          activity_id?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          katalog_url: string
+          location_id?: string | null
+          modtager_email: string
+          modtager_navn?: string | null
+          sendt_af: string
+          sendt_at?: string | null
+          status?: string
+        }
+        Update: {
+          activity_id?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          katalog_url?: string
+          location_id?: string | null
+          modtager_email?: string
+          modtager_navn?: string | null
+          sendt_af?: string
+          sendt_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "katalog_udsendelser_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katalog_udsendelser_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katalog_udsendelser_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "katalog_udsendelser_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katalog_udsendelser_sendt_af_fkey"
+            columns: ["sendt_af"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kundeprisgruppe_sektor: {
         Row: {
           kode: string
