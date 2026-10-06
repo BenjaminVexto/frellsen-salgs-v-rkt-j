@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { FRELLSEN_LOGO_BASE64 } from "@/lib/frellsen-logo-base64";
-import { aftaleLabel, sorterMaskiner, udloeberSnart, type MaskinRaekke } from "@/lib/maskinliste";
+import { aeldreAflaesning, maskinNavn, samletAftale, sorterMaskiner, udloeberSnart, type MaskinRaekke } from "@/lib/maskinliste";
+import { adresseNoegle, lokAdresse } from "@/lib/adresse-grupper";
+const LOGO_SRC = `data:image/png;base64,${FRELLSEN_LOGO_BASE64}`;
 
 const esc = (v: unknown) =>
   String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -40,15 +42,21 @@ async function hentRaekker(companyId: string) {
   }
   const serials = Array.from(new Set(units.map((u) => (u.serial_no ?? "").trim()).filter(Boolean)));
   const enr = new Map<string, any>();
+  const mask = new Map<string, any>();
   for (let i = 0; i < serials.length; i += 200) {
-    const { data } = await (supabase as any)
-      .from("machine_enrichment")
-      .select("serienr, taelleraflaesning, binding_ophor, beregnet_slutdato, aftale_type, data")
-      .eq("record_status", "aktiv")
-      .in("serienr", serials.slice(i, i + 200));
+    const del = serials.slice(i, i + 200);
+    const [{ data }, { data: m }] = await Promise.all([
+      (supabase as any)
+        .from("machine_enrichment")
+        .select("serienr, taelleraflaesning, binding_ophor, beregnet_slutdato, aftale_type, data")
+        .eq("record_status", "aktiv")
+        .in("serienr", del),
+      (supabase as any).from("machines").select("serienr, udlanstype").eq("record_status", "aktiv").in("serienr", del),
+    ]);
     for (const e of data ?? []) enr.set(String(e.serienr), e);
+    for (const x of m ?? []) if (x.udlanstype) mask.set(String(x.serienr), x);
   }
-  return { locs: locs ?? [], units, enr };
+  return { locs: locs ?? [], units, enr, mask };
 }
 
 export function UdskrivMaskinlisteKnap({
@@ -65,70 +73,112 @@ export function UdskrivMaskinlisteKnap({
     w.document.write("<p style='font-family:sans-serif'>Henter maskinliste…</p>");
     setBusy(true);
     try {
-      const { locs, units, enr } = await hentRaekker(company.id);
+      const { locs, units, enr, mask } = await hentRaekker(company.id);
       const idag = new Date();
       const pr = new Map<string, MaskinRaekke[]>();
       for (const u of units) {
-        const e = enr.get((u.serial_no ?? "").trim());
+        const sn = (u.serial_no ?? "").trim();
+        const e = enr.get(sn);
         const r: MaskinRaekke = {
-          maskintype: u.machine_type ?? "—",
+          maskintype: maskinNavn(u.machine_type),
           serienr: u.serial_no ?? "",
           placering: u.sub_location ?? "",
-          aftale: aftaleLabel(u.agreement_type ?? e?.aftale_type, !!u.is_free_loan),
+          aftale: samletAftale(mask.get(sn)?.udlanstype ?? u.agreement_type, e?.aftale_type, !!u.is_free_loan),
           udloeber: e?.binding_ophor ?? e?.beregnet_slutdato ?? null,
           kopper: taeller(e?.data),
           aflaest: e?.taelleraflaesning ?? null,
-          service: !!u.has_service_contract,
+          service: false,
         };
         const arr = pr.get(u.location_id) ?? [];
         arr.push(r);
         pr.set(u.location_id, arr);
       }
-      const sorteredeLok = [...locs]
-        .filter((l) => pr.has(l.id))
-        .sort((a, b) => (a.is_primary === b.is_primary ? (a.address ?? "").localeCompare(b.address ?? "", "da") : a.is_primary ? -1 : 1));
-      const sektioner = sorteredeLok
-        .map((l) => {
-          const rows = sorterMaskiner(pr.get(l.id)!)
+      // Gruppér pr. adresse som på fanen Lokationer
+      type Grp = { adr: string; primaer: boolean; konti: string[]; rows: MaskinRaekke[] };
+      const grupper = new Map<string, Grp>();
+      for (const l of locs) {
+        const rows = pr.get(l.id);
+        if (!rows) continue;
+        const adr = lokAdresse(l) ?? "Lokation";
+        const key = (adresseNoegle(l.address) ?? adr) + "|" + (l.zip ?? "");
+        const g = grupper.get(key) ?? { adr, primaer: false, konti: [], rows: [] };
+        g.primaer ||= !!l.is_primary;
+        if (l.visma_delivery_no && !g.konti.includes(l.visma_delivery_no)) g.konti.push(l.visma_delivery_no);
+        g.rows.push(...rows);
+        grupper.set(key, g);
+      }
+      const gl = [...grupper.values()].sort((a, b) =>
+        a.primaer === b.primaer ? a.adr.localeCompare(b.adr, "da") : a.primaer ? -1 : 1,
+      );
+      const alle = gl.flatMap((g) => g.rows);
+      const visPlacering = alle.some((r) => r.placering.trim());
+      const visUdloeber = alle.some((r) => r.udloeber);
+      const visKopper = alle.some((r) => r.kopper != null || r.aflaest);
+      const visAftale = alle.some((r) => r.aftale !== "—");
+      const nogenSnart = alle.some((r) => udloeberSnart(r.udloeber, idag));
+      const kol: { navn: string; bredde: string; cls?: string }[] = [
+        { navn: "Maskine", bredde: "34%" },
+        { navn: "Serienr.", bredde: "14%" },
+        ...(visPlacering ? [{ navn: "Placering", bredde: "14%" }] : []),
+        ...(visAftale ? [{ navn: "Aftale", bredde: "18%" }] : []),
+        ...(visUdloeber ? [{ navn: "Udløber", bredde: "12%" }] : []),
+        ...(visKopper ? [{ navn: "Antal kopper", bredde: "14%", cls: "num" }] : []),
+      ];
+      const nKol = kol.length;
+      const sektioner = gl
+        .map((g) => {
+          const rows = sorterMaskiner(g.rows)
             .map((r) => {
               const snart = udloeberSnart(r.udloeber, idag);
-              return `<tr class="${snart ? "snart" : ""}">
-<td>${esc(r.maskintype)}</td><td>${esc(r.serienr || "—")}</td><td>${esc(r.placering || "—")}</td>
-<td>${esc(r.aftale)}</td><td>${fmtDato(r.udloeber)}${snart ? " <b>⚠ udløber snart</b>" : ""}</td>
-<td class="num">${r.kopper != null ? r.kopper.toLocaleString("da-DK") : "—"}${r.aflaest ? `<br><small>${fmtDato(r.aflaest)}</small>` : ""}</td>
-<td>${r.service ? "Ja" : "Nej"}</td></tr>`;
+              const celler = [
+                `<td>${esc(r.maskintype)}</td>`,
+                `<td>${esc(r.serienr || "—")}</td>`,
+                visPlacering ? `<td>${esc(r.placering || "—")}</td>` : "",
+                visAftale ? `<td>${esc(r.aftale)}</td>` : "",
+                visUdloeber ? `<td>${fmtDato(r.udloeber)}${snart ? " <b>· udløber snart</b>" : ""}</td>` : "",
+                visKopper
+                  ? `<td class="num">${r.kopper != null ? r.kopper.toLocaleString("da-DK") : "—"}${r.aflaest ? `<br><small>${fmtDato(r.aflaest)}${aeldreAflaesning(r.aflaest, idag) ? " (ældre aflæsning)" : ""}</small>` : ""}</td>`
+                  : "",
+              ].join("");
+              return `<tr class="${snart ? "snart" : ""}">${celler}</tr>`;
             })
             .join("");
-          const adr = [l.address, [l.zip, l.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-          return `<section><h2>${esc(adr || "Lokation")}${l.visma_delivery_no ? ` <small>· Lev.nr. ${esc(l.visma_delivery_no)}</small>` : ""}</h2>
-<table><thead><tr><th>Maskine</th><th>Serienr.</th><th>Placering</th><th>Aftale</th><th>Udløber</th><th class="num">Antal kopper</th><th>Service</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+          return `<tbody class="grp"><tr class="adr"><th colspan="${nKol}">${esc(g.adr)}${
+            g.konti.length ? `<div class="konti">Kundenr. ${esc(g.konti.join(", "))} · ${g.rows.length} maskiner</div>` : ""
+          }</th></tr>${rows}</tbody>`;
         })
         .join("");
+      const tabel = sektioner
+        ? `<table><colgroup>${kol.map((k) => `<col style="width:${k.bredde}">`).join("")}</colgroup><thead><tr>${kol
+            .map((k) => `<th class="${k.cls ?? ""}">${k.navn}</th>`)
+            .join("")}</tr></thead>${sektioner}</table>`
+        : "<p>Ingen maskiner registreret på virksomheden.</p>";
       const html = `<!doctype html><html lang="da"><head><meta charset="utf-8"><title>Maskinliste – ${esc(company.name)}</title>
 <style>
 @page { size: A4; margin: 14mm; }
-body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #111; margin: 0; padding: 16px; }
+body { font-family: Helvetica, Arial, sans-serif; font-size: 9.5pt; color: #111; margin: 0; padding: 16px; }
 header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 12px; }
 header img { height: 40px; }
 h1 { font-size: 16pt; margin: 0 0 2px; }
-h2 { font-size: 11pt; margin: 16px 0 4px; }
-h2 small { font-weight: normal; color: #555; }
-table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #ccc; vertical-align: top; }
-th { background: #f0f0f0; font-size: 9pt; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+thead { display: table-header-group; }
+th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #ccc; vertical-align: top; overflow-wrap: anywhere; }
+thead th { background: #eee; font-size: 8.5pt; }
+tr.adr th { font-size: 10.5pt; padding-top: 14px; border-bottom: 1.5px solid #111; break-after: avoid; page-break-after: avoid; }
+.konti { font-weight: normal; font-size: 8pt; color: #555; }
 .num { text-align: right; }
 tr.snart td { background: #fff1d6; }
-section { break-inside: avoid-page; }
-tr { break-inside: avoid; }
+tbody.grp { break-inside: auto; }
+tr { break-inside: avoid; page-break-inside: avoid; }
 .meta { color: #444; font-size: 9pt; }
 .noprint { margin-bottom: 12px; }
 @media print { .noprint { display: none; } body { padding: 0; } }
 </style></head><body>
 <div class="noprint"><button onclick="window.print()">Udskriv</button></div>
 <header><div><h1>${esc(company.name)}</h1><div class="meta">${company.cvr ? `CVR ${esc(company.cvr)} · ` : ""}Maskinliste pr. ${idag.toLocaleDateString("da-DK")} · ${units.length} maskiner</div>
-<div class="meta">Markeret = aftalen udløber inden for 6 måneder</div></div>
-<img src="data:image/png;base64,${FRELLSEN_LOGO_BASE64}" alt="Frellsen"></header>
-${sektioner || "<p>Ingen maskiner registreret på virksomheden.</p>"}
+${nogenSnart ? `<div class="meta">Markeret = aftalen udløber inden for 6 måneder</div>` : ""}</div>
+<img src="${LOGO_SRC}" alt="Frellsen"></header>
+${tabel}
 <script>window.onload=function(){setTimeout(function(){window.print()},300)}</script>
 </body></html>`;
       w.document.open();
