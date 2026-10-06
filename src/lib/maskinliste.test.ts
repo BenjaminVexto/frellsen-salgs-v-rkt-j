@@ -50,3 +50,18 @@ describe("maskinliste v2", () => {
   it("9100 er maskine", () => expect(erIkkeMaskine("9100 R&G/B2C")).toBe(false));
   it("0 og 1 kopper = ingen", () => { expect(visKopper(0)).toBe(null); expect(visKopper(1)).toBe(null); expect(visKopper(2)).toBe(2); });
 });
+
+import { maskinAftale as _ma, reservedeleStatus as _rs } from "./maskinliste";
+describe("maskinAftale", () => {
+  it("G4 serviceaftale uden leje = kundeejet", () => expect(_ma({ g4: "1 [Serviceaftale]", udlaanstype: "5 [Leje u/b]", lejelinjer: false })).toBe("Kundeejet · serviceaftale"));
+  it("Leje u/b er udlån", () => expect(_ma({ g4: null, udlaanstype: "5 [Leje u/b]", lejelinjer: false })).toBe("Udlån"));
+  it("3 Leje/Leasing er leje", () => expect(_ma({ g4: "1 [Serviceaftale]", udlaanstype: "3 [Leje / Leasing]", lejelinjer: false })).toBe("Leje + serviceaftale"));
+  it("lejelinjer giver leje", () => expect(_ma({ g4: null, udlaanstype: null, lejelinjer: true })).toBe("Leje"));
+  it("ingen data = Ukendt", () => expect(_ma({ g4: null, udlaanstype: null, lejelinjer: false })).toBe("Ukendt"));
+});
+describe("reservedeleStatus", () => {
+  const i = new Date("2026-10-06T00:00:00");
+  it("fremtidig dato", () => expect(_rs("1 [Aftale m/Alt u/b  (83,17,18)]", "2027-10-01", i)?.lang).toMatch(/^Reservedele inkluderet til okt/));
+  it("passeret dato", () => expect(_rs("1 [Aftale m/Alt u/b  (83,17,18)]", "2025-01-01", i)?.lang).toBe("Reservedele faktureres"));
+  it("uden reservedele", () => expect(_rs("2 [Aftale uden Reservedele  (83, 17)]", null, i)?.lang).toBe("Reservedele ikke inkluderet"));
+});

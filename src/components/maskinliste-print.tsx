@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { FRELLSEN_LOGO_BASE64 } from "@/lib/frellsen-logo-base64";
-import { aeldreAflaesning, erIkkeMaskine, maskinAftale, reservedeleStatus, maskinNavn, samletAftale, sorterMaskiner, udloebStatus, visKopper as visKopperVaerdi, type MaskinRaekke } from "@/lib/maskinliste";
+import { aeldreAflaesning, erIkkeMaskine, maskinAftale, reservedeleStatus, maskinNavn, sorterMaskiner, udloebStatus, visKopper as visKopperVaerdi, type MaskinRaekke } from "@/lib/maskinliste";
 import { hentPlaceringer } from "@/components/placering-felt";
 import { adresseNoegle, lokAdresse } from "@/lib/adresse-grupper";
 const LOGO_SRC = `data:image/png;base64,${FRELLSEN_LOGO_BASE64}`;
@@ -94,7 +94,7 @@ export function UdskrivMaskinlisteKnap({
           serienr: u.serial_no ?? "",
           placering: plac.get(sn)?.placering ?? "",
           aftale: maskinAftale({ g4: e?.aftale_type, udlaanstype: mask.get(sn)?.udlanstype, lejelinjer: leje.has(u.location_id), gratisUdlaan: !!u.is_free_loan }),
-          udloeber: e?.binding_ophor ?? e?.beregnet_slutdato ?? null,
+          udloeber: e?.binding_ophor ?? null,
           kopper: visKopperVaerdi(taeller(e?.data)),
           aflaest: e?.taelleraflaesning ?? null,
           service: false,
@@ -148,7 +148,7 @@ export function UdskrivMaskinlisteKnap({
             const rows = sorterMaskiner(g.rows)
               .map((r) => {
                 const st = status(r);
-                const etiket = st === "udloebet" ? " <b>· ophørt</b>" : st === "snart" ? " <b>· ophører snart</b>" : "";
+                const etiket = st === "udloebet" ? " <b>· udløbet</b>" : st === "snart" ? " <b>· udløber snart</b>" : "";
                 const kop =
                   r.kopper != null
                     ? `${r.kopper.toLocaleString("da-DK")}${r.aflaest ? ` · ${fmtDato(r.aflaest)}${aeldreAflaesning(r.aflaest, idag) ? "*" : ""}` : ""}`
@@ -176,7 +176,7 @@ export function UdskrivMaskinlisteKnap({
               .join("")}</tr></thead>${sektioner}</table>`
           : "<p>Ingen maskiner registreret på virksomheden.</p>";
         const hoved = `<header><div><h1>${esc(company.name)}</h1><div class="meta">${company.cvr ? `CVR ${esc(company.cvr)} · ` : ""}Maskinliste pr. ${idag.toLocaleDateString("da-DK")} · ${alle.length} maskiner</div>
-${nogenMarkeret ? `<div class="meta">Markeret = bindingen er ophørt eller ophører inden for 6 måneder</div>` : ""}</div>
+${nogenMarkeret ? `<div class="meta">Markeret = bindingen er udløbet eller udløber inden for 6 måneder</div>` : ""}</div>
 <img src="${LOGO_SRC}" alt="Frellsen"></header>`;
         const fod = nogenAeldre ? `<p class="fod">* aflæst for over 12 måneder siden</p>` : "";
         return hoved + tabel + fod;
