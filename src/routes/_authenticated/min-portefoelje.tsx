@@ -274,6 +274,10 @@ function PortfolioPage() {
       } else if (key === "status") {
         av = a.customer_type ?? "";
         bv = b.customer_type ?? "";
+      } else if (key === "revenue12m" && statusFilter === "tidligere") {
+        // Tidligere kunder: største tab øverst = forbrugsvarer i de 12 mdr. før
+        av = (a as any).forbrug12mPrior ?? 0;
+        bv = (b as any).forbrug12mPrior ?? 0;
       } else if (key === "revenue12m") {
         av = a.revenue12m;
         bv = b.revenue12m;
@@ -394,7 +398,7 @@ function PortfolioPage() {
               </h2>
               <div className={`grid gap-3 ${visDb ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 <RevenueCard
-                  label="Omsætning i alt inkl. maskiner og service · 12 hele mdr."
+                  label="Omsætning i alt inkl. maskiner, leje og service · 12 hele mdr. (Målepunkter viser kun forbrugsvarer)"
                   current={data.totals.revenue12m}
                   prior={data.totals.revenue12mPriorYear}
                 />
