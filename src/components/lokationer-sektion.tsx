@@ -120,7 +120,7 @@ export function LokationerSektion({
   const load = async () => {
     const { data } = await (supabase as any)
       .from("locations")
-      .select("*")
+      .select("*, saelger:profiles!locations_saelger_user_id_fkey(full_name)")
       .eq("company_id", companyId)
       .order("is_primary", { ascending: false })
       .order("city", { ascending: true });
@@ -611,6 +611,20 @@ function LokationRow({
               Lev.nr. {location.visma_delivery_no}
             </div>
           )}
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <span>
+              Sælger:{" "}
+              {(location as any).saelger?.full_name ??
+                ((location as any).saelger_no
+                  ? `Ukendt sælger (${(location as any).saelger_no})`
+                  : (location as any).i_aktoer === false
+                    ? "Ikke i Aktør"
+                    : "Ingen")}
+            </span>
+            {(location as any).kreditspaerret && (
+              <span className="rounded bg-destructive/15 px-1.5 text-destructive">Spærret</span>
+            )}
+          </div>
           <LocationSalesStrip locationId={location.id} isAdmin={!!isAdmin} />
           <EquipmentBox location={location} />
           <div className="pt-2">
