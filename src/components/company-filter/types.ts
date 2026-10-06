@@ -34,6 +34,9 @@ export type LocationLite = {
   zip: string | null;
   visma_delivery_no: string | null;
   saelger_user_id?: string | null;
+  /** Koblede CVR P-numre og P-enhedsnavne — så lokationen kan søges frem på dem. */
+  p_numre?: string[];
+  penhed_navne?: string[];
 };
 
 export type EquipmentSummary = {

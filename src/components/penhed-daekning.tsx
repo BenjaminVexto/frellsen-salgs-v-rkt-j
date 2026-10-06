@@ -570,7 +570,7 @@ export function PenhedDaekning({
         <tr>
           <td colSpan={6}>
             <button className={toggleCls} onClick={() => setVisDaekket((v) => !v)}>
-              Dækket: {daekket.length} afd. · {daekketAnsatte} ansatte
+              Kunde hos os: {daekket.length} P-enheder · {daekketAnsatte} ansatte
               {visDaekket ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </button>
           </td>
@@ -578,7 +578,7 @@ export function PenhedDaekning({
         {visDaekket && daekket.map((p) => <Row key={p.p_number} p={p} dk />)}
         <tr>
           <td colSpan={6} className="pt-2 text-xs font-medium text-muted-foreground py-1">
-            Ikke dækket ({ikke.length})
+            Ikke kunde endnu ({ikke.length})
             {!visIkkeRelevante && skjulteIkkeRel > 0 && (
               <span className="ml-2 font-normal">· {skjulteIkkeRel} ikke relevante skjult</span>
             )}

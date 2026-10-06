@@ -386,6 +386,13 @@
       "when": 1791293771454,
       "tag": "0054_db_for_alle_besoeg_konkurrenter",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1791295238182,
+      "tag": "0055_lokation_under_synlig_virksomhed",
+      "breakpoints": true
     }
   ]
 }

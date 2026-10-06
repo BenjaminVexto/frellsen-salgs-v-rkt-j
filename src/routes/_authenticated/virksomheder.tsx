@@ -37,6 +37,7 @@ import {
   FilterTemplate,
   normalizeFilterConfig,
   useCompanyFilter,
+  lokationMatcher,
 } from "@/components/company-filter";
 import {
   FilterLinje,
@@ -381,12 +382,7 @@ function VirksomhederListe() {
                         if (nameHit || cvrHit || addrHit || cityHit || zipHit)
                           return null;
                         const locs = locationMap.get(r.id) ?? [];
-                        const match = locs.find(
-                          (l) =>
-                            (l.city ?? "").toLowerCase().includes(qq) ||
-                            (l.address ?? "").toLowerCase().includes(qq) ||
-                            (l.zip ?? "").includes(rawQuery),
-                        );
+                        const match = locs.find((l) => lokationMatcher(l, rawQuery));
                         if (!match) return null;
                         const parts = [
                           firstFilled(match.address),
@@ -396,9 +392,11 @@ function VirksomhederListe() {
                         ]
                           .filter((p) => p && p.trim())
                           .join(", ");
+                        const penhed = (match.penhed_navne ?? []).find((n) => n.toLowerCase().includes(qq));
                         return (
                           <div className="text-xs text-primary mt-0.5">
-                            📍 Match: {parts || "lokation"}
+                            📍 Lokation: {penhed ? `${penhed}, ` : ""}{parts || "uden adresse"} – under {r.name}
+                            {r.city ? `, ${r.city}` : ""}
                           </div>
                         );
                       })()}

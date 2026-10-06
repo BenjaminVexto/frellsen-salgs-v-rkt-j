@@ -21,6 +21,8 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { ACTIVITY_TYPES, type ActivityTypeKey } from "@/lib/activity-types";
+import { AdresseSoegning, opretLokationMedPnr } from "@/components/adresse-soegning";
+import type { AdresseHit } from "@/lib/cvr-adresse.functions";
 
 function normCvr(s: string) {
   return s.replace(/\D/g, "").slice(0, 8);
@@ -59,6 +61,8 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
   const [results, setResults] = useState<CvrCompany[]>([]);
   const [searchDone, setSearchDone] = useState(false);
   const [existingByCvr, setExistingByCvr] = useState<Record<string, { id: string; name: string }>>({});
+  const [mode, setMode] = useState<"navn" | "adresse">("navn");
+  const [pendingPenhed, setPendingPenhed] = useState<AdresseHit | null>(null);
 
   // CVR-direkte
   const [showCvrField, setShowCvrField] = useState(false);
@@ -105,6 +109,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
     setContactPerson(""); setContactTitle(""); setPhone(""); setDirectPhone("");
     setEmail(""); setNotes("");
     setActType("telefonopkald"); setActDone(true); setActNextAction(""); setActFollowup("");
+    setMode("navn"); setPendingPenhed(null);
   }
 
   // Debounced søgning
@@ -198,6 +203,28 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
       return;
     }
     applyCvrCompany(c);
+  }
+
+  async function createFromPenhed(h: AdresseHit) {
+    setPendingPenhed(h);
+    if (h.cvr) {
+      try {
+        const res = await lookupFn({ data: { type: "single", cvr: h.cvr } });
+        if (res.success) {
+          applyCvrCompany(res.data as CvrCompany);
+          return;
+        }
+      } catch {
+        /* falder tilbage til manuel udfyldning */
+      }
+    }
+    setSelectedFromCvr(false);
+    setCvr(h.cvr ?? "");
+    setName(h.hoved?.name ?? h.name ?? "");
+    setAddress(h.hoved?.address ?? h.address ?? "");
+    setZip(h.hoved?.zip ?? h.zip ?? "");
+    setCity(h.hoved?.city ?? h.city ?? "");
+    setStep("form");
   }
 
   function startManual() {
@@ -312,12 +339,49 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
         return;
       }
     }
+    // Besøgt adresse (P-enhed) bliver virksomhedens lokation i stedet for hovedsædet.
+    let hash: string | undefined;
+    if (pendingPenhed && auth.user?.id) {
+      try {
+        const { data: prim } = await supabase
+          .from("locations")
+          .select("id, afdeling_nr")
+          .eq("company_id", data.id)
+          .eq("is_primary", true)
+          .maybeSingle();
+        const id = await opretLokationMedPnr({
+          companyId: data.id,
+          afdelingNr: (prim as any)?.afdeling_nr ?? stampAfdelingNr ?? null,
+          hit: pendingPenhed,
+          userId: auth.user.id,
+          eksisterendeLocationId: prim?.id,
+        });
+        hash = `location-${id}`;
+      } catch (e: any) {
+        toast.error("Virksomheden er oprettet, men P-enheden kunne ikke kobles: " + (e?.message ?? ""));
+      }
+    }
     setSaving(false);
     toast.success("Virksomhed oprettet");
     setOpen(false);
     resetAll();
-    navigate({ to: "/virksomheder/$id", params: { id: data.id } });
+    navigate({ to: "/virksomheder/$id", params: { id: data.id }, hash });
   }
+
+  const modeToggle = (
+    <div className="grid grid-cols-2 gap-1 p-1 rounded-md bg-muted mb-3">
+      {([["navn", "Navn eller CVR"], ["adresse", "Adresse"]] as const).map(([k, l]) => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => setMode(k)}
+          className={`h-10 rounded text-sm font-medium ${mode === k ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+        >
+          {l}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetAll(); }}>
@@ -329,7 +393,9 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
           </DialogTitle>
         </DialogHeader>
 
-        {step === "search" && (
+        {step === "search" && mode === "navn" && (
+          <>
+          {modeToggle}
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Tast virksomhedens navn eller CVR-nummer — tilføj by eller postnummer for at finde den hurtigere
@@ -467,11 +533,22 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
               </div>
             </div>
           </div>
+          </>
+        )}
+
+        {step === "search" && mode === "adresse" && (
+          <>
+            {modeToggle}
+            <AdresseSoegning
+              onCreateNew={createFromPenhed}
+              onDone={() => { setOpen(false); resetAll(); }}
+            />
+          </>
         )}
 
         {step === "form" && (
           <div className="space-y-3">
-            <Button variant="ghost" size="sm" onClick={() => setStep("search")} className="-ml-2">
+            <Button variant="ghost" size="sm" onClick={() => { setStep("search"); setPendingPenhed(null); }} className="-ml-2">
               <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til søgning
             </Button>
 
@@ -483,6 +560,19 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
                 </div>
               </Card>
             )}
+
+            {pendingPenhed && (
+              <Card className="p-3 border-primary/40 bg-primary/5 text-sm">
+                Virksomheden oprettes med hovedselskabets CVR-data. Lokationen bliver den besøgte adresse:{" "}
+                <strong>
+                  {[pendingPenhed.address, [pendingPenhed.zip, pendingPenhed.city].filter(Boolean).join(" ")]
+                    .filter(Boolean)
+                    .join(", ")}
+                </strong>{" "}
+                (P-nr. {pendingPenhed.p_number}).
+              </Card>
+            )}
+
 
             {adProtection && (
               <Card className="p-3 border-warning/40 bg-warning/5 flex gap-2 items-start">
