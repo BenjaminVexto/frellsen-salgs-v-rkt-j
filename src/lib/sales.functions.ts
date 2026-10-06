@@ -439,6 +439,8 @@ export const dismissChurningCustomer = createServerFn({ method: "POST" })
         .select("id")
         .eq("company_id", data.company_id)
         .eq("competitor_id", data.competitor_id)
+        .is("afsluttet_dato", null)
+        .limit(1)
         .maybeSingle();
 
       if (existing) {

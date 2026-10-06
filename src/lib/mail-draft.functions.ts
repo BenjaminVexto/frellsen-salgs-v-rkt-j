@@ -58,6 +58,9 @@ export const generateMailDraft = createServerFn({ method: "POST" })
           .from("competitor_assignments")
           .select("contract_expires_at, competitors(name)")
           .eq("company_id", data.company_id)
+          .is("afsluttet_dato", null)
+          .order("contract_expires_at", { ascending: true, nullsFirst: false })
+          .limit(1)
           .maybeSingle(),
         supabaseAdmin
           .from("profiles")

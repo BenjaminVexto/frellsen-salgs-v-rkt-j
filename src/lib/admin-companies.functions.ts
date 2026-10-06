@@ -1100,6 +1100,9 @@ export const generateCompanyBriefing = createServerFn({ method: "POST" })
         .from("competitor_assignments")
         .select("contract_expires_at, notes, competitors(name, competitor_type)")
         .eq("company_id", data.company_id)
+        .is("afsluttet_dato", null)
+        .order("contract_expires_at", { ascending: true, nullsFirst: false })
+        .limit(1)
         .maybeSingle(),
       supabaseAdmin
         .from("sales_opportunities")

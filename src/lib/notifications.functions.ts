@@ -98,6 +98,7 @@ export const checkKonkurrentvinduer = createServerFn({ method: "POST" })
         .select("company_id, contract_expires_at, competitors(name), companies(name)")
         .in("company_id", slice)
         .not("contract_expires_at", "is", null)
+        .is("afsluttet_dato", null)
         .gte("contract_expires_at", today)
         .lte("contract_expires_at", cutoff);
       if (error) throw new Error(error.message);
