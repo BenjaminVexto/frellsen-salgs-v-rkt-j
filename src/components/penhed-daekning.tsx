@@ -144,6 +144,7 @@ export function PenhedDaekning({
   assignedTo,
   onChanged,
   visIkkeRelevante = false,
+  kunIkkeKunde = false,
 }: {
   cvr: string;
   afdelingNr: number;
@@ -152,6 +153,8 @@ export function PenhedDaekning({
   assignedTo?: string | null;
   onChanged?: () => void;
   visIkkeRelevante?: boolean;
+  /** Vis kun P-enheder, vi ikke er hos (sorteret efter ansatte) — bruges under Lokationer. */
+  kunIkkeKunde?: boolean;
 }) {
   const auth = useAuth();
   const kanStyre = auth.maaSeAfdelingspotentiale;
@@ -261,7 +264,7 @@ export function PenhedDaekning({
         oprettet_af: u.user?.id,
         oprettet_dato: new Date().toISOString(),
       },
-      { onConflict: "p_nummer,afdeling_nr" },
+      { onConflict: "p_nummer,location_id" },
     );
     setBusy(null);
     if (error) return toast.error("Kunne ikke koble: " + error.message);
@@ -567,6 +570,8 @@ export function PenhedDaekning({
         </tr>
       </thead>
       <tbody>
+        {kunIkkeKunde && ikke.map((p) => <Row key={p.p_number} p={p} dk={false} />)}
+        {!kunIkkeKunde && (<>
         <tr>
           <td colSpan={6}>
             <button className={toggleCls} onClick={() => setVisDaekket((v) => !v)}>
@@ -596,6 +601,7 @@ export function PenhedDaekning({
           </tr>
         )}
         {visMindre && mindre.map((p) => <Row key={p.p_number} p={p} dk={false} />)}
+        </>)}
       </tbody>
     </table>
     <Dialog open={!!tildelFor} onOpenChange={(o) => !o && setTildelFor(null)}>

@@ -54,7 +54,7 @@ export async function opretLokationMedPnr(opts: {
         kilde: "manuel",
         oprettet_af: opts.userId,
       } as any,
-      { onConflict: "p_nummer,afdeling_nr" },
+      { onConflict: "p_nummer,location_id" },
     );
     if (error) throw error;
   }
