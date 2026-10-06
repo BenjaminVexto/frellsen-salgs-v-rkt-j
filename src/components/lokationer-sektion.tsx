@@ -590,8 +590,8 @@ export function LokationerSektion({
               )}
             </div>
           )}
-          <ul className="divide-y rounded-md border">
-            <li className="hidden sm:grid grid-cols-[minmax(0,1fr)_7rem_9rem_7.5rem_4.5rem_1.25rem] gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30">
+          <ul className="@container divide-y rounded-md border">
+            <li className="hidden @xl:grid grid-cols-[minmax(0,1fr)_5.5rem_7.5rem_6.5rem_3.5rem_1.25rem] gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30">
               <span>Adresse</span><span>Status</span><span>Sælger</span><span className="text-right">Omsætning 12 mdr.</span><span className="text-right">Maskiner</span><span />
             </li>
             {visibleGrupper.map((g) => {
@@ -623,7 +623,7 @@ export function LokationerSektion({
                     type="button"
                     aria-expanded={aaben}
                     onClick={enGruppe ? undefined : toggle}
-                    className="w-full grid grid-cols-[minmax(0,1fr)_1.25rem] sm:grid-cols-[minmax(0,1fr)_7rem_9rem_7.5rem_4.5rem_1.25rem] gap-x-2 gap-y-0.5 items-center px-3 py-2.5 text-left hover:bg-muted/40"
+                    className="w-full grid grid-cols-[minmax(0,1fr)_1.25rem] @xl:grid-cols-[minmax(0,1fr)_5.5rem_7.5rem_6.5rem_3.5rem_1.25rem] gap-x-2 gap-y-0.5 items-center px-3 py-2.5 text-left hover:bg-muted/40"
                   >
                     <span className="min-w-0 text-sm">
                       {byTekst && <span className="font-semibold">{byTekst}</span>}
@@ -632,14 +632,14 @@ export function LokationerSektion({
                       {g.primary && (
                         <Badge variant="outline" className="ml-1.5 h-4 px-1.5 text-[10px] font-normal align-middle">Primær</Badge>
                       )}
-                      <span className="sm:hidden block text-xs text-muted-foreground mt-0.5">
+                      <span className="@xl:hidden block text-xs text-muted-foreground mt-0.5">
                         {[status, saelgere.join(", "), `${Math.round(g.revenue).toLocaleString("da-DK")} kr.`, `${maskiner} maskiner`].join(" · ")}
                       </span>
                     </span>
-                    <span className="hidden sm:block text-xs">{status}</span>
-                    <span className="hidden sm:block text-xs truncate" title={saelgere.join(", ")}>{saelgere.join(", ")}</span>
-                    <span className="hidden sm:block text-xs text-right tabular-nums">{Math.round(g.revenue).toLocaleString("da-DK")} kr.</span>
-                    <span className="hidden sm:block text-xs text-right tabular-nums">{maskiner}</span>
+                    <span className="hidden @xl:block text-xs">{status}</span>
+                    <span className="hidden @xl:block text-xs truncate" title={saelgere.join(", ")}>{saelgere.join(", ")}</span>
+                    <span className="hidden @xl:block text-xs text-right tabular-nums">{Math.round(g.revenue).toLocaleString("da-DK")} kr.</span>
+                    <span className="hidden @xl:block text-xs text-right tabular-nums">{maskiner}</span>
                     {enGruppe ? <span /> : aaben ? <ChevronUp className="h-4 w-4 shrink-0 justify-self-end" /> : <ChevronDown className="h-4 w-4 shrink-0 justify-self-end" />}
                   </button>
                   {aaben && (
