@@ -47,7 +47,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { KUNDEGRUPPE_LABEL, FORHANDLING_HJAELP } from "@/lib/customer-segment-mapping";
 
-const SIDE_STR = 50;
+const FOERSTE_VISNING = 10;
+const SIDE_STR = 25;
 
 const INGEN_SAELGER = "__ingen__";
 const slugify = (v: string) =>
@@ -110,7 +111,7 @@ function PortfolioPage() {
   const [downloading, setDownloading] = useState(false);
   const hentKontakter = useServerFn(getPortfolioKontakter);
   const [showDB, setShowDB] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(SIDE_STR);
+  const [visibleCount, setVisibleCount] = useState(FOERSTE_VISNING);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
   const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus">(() =>
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null)
@@ -361,7 +362,7 @@ function PortfolioPage() {
 
   // Reset pagination when filters/sort change
   useEffect(() => {
-    setVisibleCount(SIDE_STR);
+    setVisibleCount(FOERSTE_VISNING);
   }, [search, kaffeFilter, statusFilter, sektorFilter, topN, sortKey, sortDir, sellerId, saelgerFilter, omraadeFilter, kunFalder]);
 
   const toggleSort = (key: SortKey) => {
@@ -393,12 +394,9 @@ function PortfolioPage() {
               </h2>
               <div className={`grid gap-3 ${visDb ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 <RevenueCard
-                  label="Omsætning i alt inkl. maskiner og service · År-til-Dato"
-                  current={data.totals.revenueYtd}
-                  prior={data.totals.revenueYtdPriorSamePeriod}
-                  latestPeriod={data.totals.ytdLatestPeriod}
-                  kgCurrent={data.totals.weightKgYtd}
-                  kgPrior={data.totals.weightKgYtdPriorSamePeriod}
+                  label="Omsætning i alt inkl. maskiner og service · 12 hele mdr."
+                  current={data.totals.revenue12m}
+                  prior={data.totals.revenue12mPriorYear}
                 />
 
                 <Card className="p-4">
@@ -411,13 +409,13 @@ function PortfolioPage() {
                     <Pill color="success" label="aktive" n={data.statusCounts.aktive} prior={data.statusCountsPrior.aktive} hint="Har købt kaffe eller andre forbrugsvarer inden for de seneste 3 måneder." />
                     <Pill color="warning" label="sovende" n={data.statusCounts.sovende} prior={data.statusCountsPrior.sovende} hint="Har ikke købt forbrugsvarer i 3 måneder, men har købt inden for det seneste år. Tag kontakt." />
                     <Pill color="muted" label="servicekunder" n={data.statusCounts.servicekunder} prior={data.statusCountsPrior.servicekunder} hint="Har vores maskine og betaler for service, men køber ikke kaffe hos os. Mulighed for mersalg." />
-                    <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} prior={data.statusCountsPrior.paaVejVaek} hint="Trendsignal, ikke en status: aktiv kunde med udstyr, men intet køb af forbrugsvarer i over 60 dage." />
+                    <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} prior={data.statusCountsPrior.paaVejVaek} hint="Trendsignal, ikke en status: aktiv kunde med udstyr, hvor forventet køb efter kundens egen rytme er overskredet." />
                   </div>
                 </Card>
                 {visDb && (
                   <Card className="p-4">
                     <div className="text-xs text-muted-foreground mb-1">
-                      DB i alt inkl. maskiner og service · År-til-Dato (admin)
+                      DB i alt inkl. maskiner og service · 12 hele mdr.
                     </div>
                     <div className="text-2xl font-semibold tabular-nums">
                       {fmtKr(data.totals.contribution12m ?? 0)}
@@ -425,9 +423,9 @@ function PortfolioPage() {
 
                     <div className="text-xs text-muted-foreground mt-1">
                       DG:{" "}
-                      {data.totals.revenueYtd > 0
+                      {data.totals.revenue12m > 0
                         ? `${Math.round(
-                            ((data.totals.contribution12m ?? 0) / data.totals.revenueYtd) * 100,
+                            ((data.totals.contribution12m ?? 0) / data.totals.revenue12m) * 100,
                           )} %`
                         : "—"}
                     </div>
@@ -454,18 +452,6 @@ function PortfolioPage() {
                   placeholder="By eller postnr."
                   className="h-9 w-[150px]"
                 />
-                <Select value={kaffeFilter} onValueChange={(v) => setKaffeFilter(v as any)}>
-                  <SelectTrigger className="h-9 w-[160px]">
-                    <SelectValue placeholder="Kaffe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Kaffe: alle</SelectItem>
-                    <SelectItem value="green">Køber normalt</SelectItem>
-                    <SelectItem value="yellow">Køber sjældnere end før</SelectItem>
-                    <SelectItem value="red">Stoppet / aldrig købt</SelectItem>
-                    <SelectItem value="via">Via anden konto</SelectItem>
-                  </SelectContent>
-                </Select>
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
                   <SelectTrigger className="h-9 w-[170px]">
                     <SelectValue placeholder="Status" />
@@ -578,9 +564,6 @@ function PortfolioPage() {
                           Sælger
                         </Th>
                       )}
-                      <Th onClick={() => toggleSort("consumable")} active={sortKey === "consumable"} dir={sortDir}>
-                        Kaffe
-                      </Th>
                       <th className="px-3 py-2 text-left" title="Løbende forbrug (kaffe, drikke m.m.) pr. måned — ekskl. årlig maskinservice/-leje. 5 seneste hele måneder.">
                         Trend · løbende forbrug
                         <div className="text-[10px] font-normal text-muted-foreground">ekskl. maskinservice</div>
@@ -645,15 +628,7 @@ function PortfolioPage() {
                             <td className="px-3 py-2 text-sm">{c.saelger_navn ?? <span className="text-muted-foreground">—</span>}</td>
                           )}
                           <td className="px-3 py-2">
-                            <KaffeIndicator
-                              companyId={c.id}
-                              suppliedViaName={c.supplied_via_name}
-                              suppliedViaId={c.supplied_via_id}
-                            />
-
-                          </td>
-                          <td className="px-3 py-2">
-                            <Sparkline months={c.monthly} revenue12m={c.revenue12m} />
+                            <Sparkline months={c.monthly} growthPct={c.growthPct} falder={c.falder} vokser={c.vokser} />
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">
                             {lastMonth > 0 ? fmtKr(lastMonth) : "—"}
@@ -725,8 +700,8 @@ function PortfolioPage() {
                       <RankingTable
                         title={rankingsExpanded ? "Top 25 — største fald i forbrugsvarer (12 hele mdr. mod de 12 før)" : "Top 5 — største fald i forbrugsvarer (12 hele mdr. mod de 12 før)"}
                         rows={data.rankings.topDecliners}
-                        valueLabel="Forbrug 12 mdr."
-                        valueField="revenueYtd"
+                        valueLabel="Forbrugsvarer 12 mdr."
+                        valueField="revenue12m"
                         showTrend
                         emptyText="Ingen kunder med fald i porteføljen."
                         limit={rankingsExpanded ? undefined : 5}
@@ -734,10 +709,10 @@ function PortfolioPage() {
                     </TabsContent>
                     <TabsContent value="growers" className="mt-4">
                       <RankingTable
-                        title={rankingsExpanded ? "Top 25 — største vækst (YTD vs. samme periode sidste år)" : "Top 5 — største vækst (YTD vs. samme periode sidste år)"}
+                        title={rankingsExpanded ? "Top 25 — største vækst i forbrugsvarer (12 hele mdr. mod de 12 før)" : "Top 5 — største vækst i forbrugsvarer (12 hele mdr. mod de 12 før)"}
                         rows={data.rankings.topGrowers}
-                        valueLabel="Omsætning YTD"
-                        valueField="revenueYtd"
+                        valueLabel="Forbrugsvarer 12 mdr."
+                        valueField="revenue12m"
                         showTrend
                         emptyText="Ingen kunder med vækst i porteføljen."
                         limit={rankingsExpanded ? undefined : 5}
@@ -745,10 +720,10 @@ function PortfolioPage() {
                     </TabsContent>
                     <TabsContent value="top" className="mt-4">
                       <RankingTable
-                        title={rankingsExpanded ? "Top 25 — højest omsætning (år-til-dato)" : "Top 5 — højest omsætning (år-til-dato)"}
+                        title={rankingsExpanded ? "Top 25 — højest omsætning (12 hele mdr.)" : "Top 5 — højest omsætning (12 hele mdr.)"}
                         rows={data.rankings.topRevenue}
-                        valueLabel="Omsætning YTD"
-                        valueField="revenueYtd"
+                        valueLabel="Omsætning 12 mdr."
+                        valueField="revenue12m"
                         showTrend
                         limit={rankingsExpanded ? undefined : 5}
                       />
@@ -818,7 +793,7 @@ function PortfolioPage() {
                 />
                 <SignalList
                   title="I vækst — køber mere end sidste år"
-                  description="Omsætning 12 mdr. er højere end forrige 12 mdr. Værd at fastholde."
+                  description={`Forbrugsvarer de seneste 12 hele mdr. er steget mindst ${data.faldGraenser?.minPct ?? 20} % og ${(data.faldGraenser?.minKr ?? 5000).toLocaleString("da-DK")} kr. mod de 12 før. Værd at fastholde.`}
                   rows={data.signals.growing}
                   kind="growth"
                   initial={5}
@@ -1347,7 +1322,7 @@ function RevenueCard({
     ? "text-destructive"
     : "text-muted-foreground";
   // Beskriv perioden — "År-til-Dato (jan–<måned> <år>)"
-  let periodText = "vs. samme periode sidste år";
+  let periodText = "mod de 12 mdr. før";
   if (latestPeriod) {
     const y = parseInt(latestPeriod.slice(0, 4), 10);
     const m = parseInt(latestPeriod.slice(5, 7), 10);
@@ -1446,8 +1421,7 @@ function RankingTable({
                 <th className="px-3 py-2 text-left">Kunde</th>
                 {showEmployees && <th className="px-3 py-2 text-right">Ansatte</th>}
                 <th className="px-3 py-2 text-right">{valueLabel}</th>
-                {showTrend && <th className="px-3 py-2 text-right">YTD</th>}
-                <th className="px-3 py-2 text-left">Kaffe</th>
+                {showTrend && <th className="px-3 py-2 text-right">Mod 12 mdr. før</th>}
               </tr>
             </thead>
             <tbody>
@@ -1489,20 +1463,12 @@ function RankingTable({
                     {showTrend && (
                       <td className="px-3 py-2 text-right">
                         <Trend
-                          current={valueField === "revenueYtd" ? r.revenueYtd : r.revenue12m}
-                          prior={valueField === "revenueYtd" ? r.revenueYtdPriorSamePeriod : r.revenue12mPrior}
+                          current={r.revenue12m}
+                          prior={r.revenue12mPrior}
                         />
 
                       </td>
                     )}
-                    <td className="px-3 py-2">
-                      <KaffeIndicator
-                        companyId={r.id}
-                        suppliedViaName={r.supplied_via_name}
-                        suppliedViaId={r.supplied_via_id}
-                      />
-
-                    </td>
                   </tr>
                 );
               })}
@@ -1659,13 +1625,8 @@ function classifyKaffe(c: PortfolioCompanyRow): "green" | "yellow" | "red" | "vi
 function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "tidligere" | "service" | "paavejvaek" | "stoppet" | "andet" {
   if (c.stoppet) return "stoppet";
   if (c.customer_type === "aktiv_kunde") {
-    if (c.has_active_equipment && !c.supplied_via_id) {
-      const last = c.last_consumable_sales_date;
-      const days = last
-        ? Math.floor((Date.now() - new Date(last + "T00:00:00Z").getTime()) / 86400000)
-        : Infinity;
-      if (days > 60) return "paavejvaek";
-    }
+    // På vej væk = forventet køb er overskredet (samme regel som kundekortet).
+    if (c.has_active_equipment && !c.supplied_via_id && c.overRytme) return "paavejvaek";
     return "aktiv";
   }
   if (c.customer_type === "sovende_kunde") return "sovende";
@@ -1735,90 +1696,39 @@ const ATTENTION_DROP_PCT = 0.20; // ELLER fald på 20%+ for større kunder
 
 function Sparkline({
   months,
-  revenue12m = 0,
+  growthPct,
+  falder,
+  vokser,
 }: {
   months: { period: string; revenue: number }[];
-  revenue12m?: number;
+  /** Samme mål som "Falder": forbrugsvarer 12 hele mdr. mod de 12 før. */
+  growthPct: number | null;
+  falder?: boolean;
+  vokser?: boolean;
 }) {
   const w = 80;
   const h = 22;
   if (!months.length) return <span className="text-xs text-muted-foreground">—</span>;
   const values = months.map((m) => m.revenue);
   const max = Math.max(...values, 1);
-  const min = 0;
   const step = values.length > 1 ? w / (values.length - 1) : 0;
   const points = values
-    .map((v, i) => {
-      const x = i * step;
-      const y = h - ((v - min) / (max - min || 1)) * h;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
+    .map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h).toFixed(1)}`)
     .join(" ");
-
-  // Default: neutral grå. Store kunder markeres rødt ved vedvarende fald,
-  // grønt ved vedvarende vækst — symmetriske tærskler beregnet på de samme
-  // to gennemsnit (1. halvdel vs 2. halvdel af trendperioden) som vises i tooltip.
-  let color = "stroke-muted-foreground/60";
-  let status: "down" | "up" | null = null;
-  let tooltip: string | undefined;
-  let pctLabel: string | null = null;
-  if (revenue12m >= ATTENTION_MIN_REVENUE_12M && values.length >= 3) {
-    const mid = Math.floor(values.length / 2);
-    const earlyMonths = months.slice(0, mid);
-    const lateMonths = months.slice(mid);
-    const avgEarly = earlyMonths.reduce((s, m) => s + m.revenue, 0) / Math.max(1, earlyMonths.length);
-    const avgLate = lateMonths.reduce((s, m) => s + m.revenue, 0) / Math.max(1, lateMonths.length);
-    const diffKr = avgLate - avgEarly; // positiv = vækst
-    const diffPct = avgEarly > 0 ? diffKr / avgEarly : 0;
-    const fmtKr = (n: number) => Math.round(n).toLocaleString("da-DK") + " kr";
-    const fmtPct = (n: number) => (n * 100).toFixed(0) + "%";
-    const mLabel = (p: string) =>
-      new Date(p + "T00:00:00Z").toLocaleDateString("da-DK", { month: "short" });
-    const earlyRange =
-      earlyMonths.length === 1
-        ? mLabel(earlyMonths[0].period)
-        : `${mLabel(earlyMonths[0].period)}–${mLabel(earlyMonths[earlyMonths.length - 1].period)}`;
-    const lateRange =
-      lateMonths.length === 1
-        ? mLabel(lateMonths[0].period)
-        : `${mLabel(lateMonths[0].period)}–${mLabel(lateMonths[lateMonths.length - 1].period)}`;
-
-    if (avgLate < avgEarly && (-diffKr >= ATTENTION_DROP_KR || -diffPct >= ATTENTION_DROP_PCT)) {
-      color = "stroke-destructive";
-      status = "down";
-      pctLabel = `↓${fmtPct(-diffPct)}`;
-      tooltip =
-        `Stor kunde med vedvarende fald\n` +
-        `Tidligere ${earlyMonths.length} mdr (${earlyRange}, gns/md): ${fmtKr(avgEarly)}\n` +
-        `Seneste ${lateMonths.length} mdr (${lateRange}, gns/md): ${fmtKr(avgLate)}\n` +
-        `Fald: ${fmtKr(-diffKr)} (${fmtPct(-diffPct)})`;
-    } else if (avgLate > avgEarly && (diffKr >= ATTENTION_DROP_KR || diffPct >= ATTENTION_DROP_PCT)) {
-      color = "stroke-emerald-600";
-      status = "up";
-      pctLabel = `↑${fmtPct(diffPct)}`;
-      tooltip =
-        `Stor kunde i vækst\n` +
-        `Tidligere ${earlyMonths.length} mdr (${earlyRange}, gns/md): ${fmtKr(avgEarly)}\n` +
-        `Seneste ${lateMonths.length} mdr (${lateRange}, gns/md): ${fmtKr(avgLate)}\n` +
-        `Stigning: ${fmtKr(diffKr)} (${fmtPct(diffPct)})`;
-    }
-  }
+  const status: "down" | "up" | null = falder ? "down" : vokser ? "up" : null;
+  const color = status === "down" ? "stroke-destructive" : status === "up" ? "stroke-emerald-600" : "stroke-muted-foreground/60";
+  const pctLabel =
+    growthPct == null ? null : `${growthPct < 0 ? "↓" : "↑"}${Math.abs(Math.round(growthPct))}%`;
+  const tooltip = "Procent: forbrugsvarer de seneste 12 hele mdr. mod de 12 før";
   return (
     <span className="inline-flex items-center gap-1.5" title={tooltip}>
       <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block">
-        <polyline
-          fill="none"
-          strokeWidth={status ? 2 : 1.5}
-          className={color}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-        />
+        <polyline fill="none" strokeWidth={status ? 2 : 1.5} className={color} strokeLinecap="round" strokeLinejoin="round" points={points} />
       </svg>
       {pctLabel && (
         <span
           className={`text-[11px] font-medium tabular-nums ${
-            status === "down" ? "text-destructive" : "text-emerald-600"
+            status === "down" ? "text-destructive" : status === "up" ? "text-emerald-600" : "text-muted-foreground"
           }`}
         >
           {pctLabel}
