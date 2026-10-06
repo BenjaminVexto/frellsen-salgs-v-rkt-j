@@ -5,12 +5,12 @@
   - [x] locations: saelger_no, saelger_user_id, kreditspaerret, i_aktoer; companies.kreditspaerret
   - [x] Engangsudfyldning fra Aktør 5/10 på (afdeling, Lev. kund) uden triggere + én samlet genberegning
   - [x] Forudberegnede tabeller pr. (virksomhed, sælger, måned); unik kunde pr. sælger
-  - [ ] Kundestatus pr. sælger ud fra egne lokationer
-  - [ ] "Nye kunder" = ny for Frellsen; "Nye lokationer" separat i Målepunkter
+  - [x] Kundestatus pr. sælger ud fra egne lokationer
+  - [x] "Nye kunder" = ny for Frellsen; "Nye lokationer" separat i Målepunkter
   - [ ] Bonus: mulighed for at fastfryse perioder (intet fastfryses nu)
   - [x] Profil får sælgernummer → lokationer kobles automatisk
-  - [ ] Aktør-import: spærrede med, sælger pr. lokation, assigned_to = hovedkonto, fjern "første række"
-  - [ ] Visninger pr. lokationssælger; "x af y lokationer"; Spærret-badge; spærrede ud af salgsmuligheder/sælg mere/sovende
+  - [x] Aktør-import: spærrede med, sælger pr. lokation, assigned_to = hovedkonto, fjern "første række"
+  - [x] Visninger pr. lokationssælger; "x af y lokationer"; Spærret-badge; spærrede ud af salgsmuligheder/sælg mere/sovende
   - [ ] Kontrol: før/efter pr. sælger, total uændret, "Ikke tildelt" kun uden Visma-sælger
   - [x] Backup af companies (id, assigned_to, kreditspaerret) før udfyldning
   - [x] aktoer_anvend_saelgere: skm_skip + én genberegning, køres via server
@@ -20,3 +20,4 @@
   - [x] Mål skm_genberegn_alt; del pr. afdeling hvis nær 120 s
   - [x] Afd. 23 gemmes som 21 i Aktør-staging
   - [x] Vis lokationer pr. sælgernøgle; ISS 3156300 = Jes
+  - [ ] Maskintal og maskinbonus pr. lokationssælger (følger stadig virksomhedens sælger)
