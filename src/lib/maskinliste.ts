@@ -80,3 +80,30 @@ export function aeldreAflaesning(dato: string | null, idag: Date = new Date()): 
   g.setMonth(g.getMonth() - 12);
   return d < g;
 }
+
+/** Udløbsstatus: "udloebet" hvis datoen er passeret, "snart" inden for 6 mdr., ellers null. */
+export function udloebStatus(dato: string | null, idag: Date = new Date()): "udloebet" | "snart" | null {
+  if (!dato) return null;
+  const d = new Date(dato.slice(0, 10) + "T00:00:00");
+  const i = new Date(idag.getFullYear(), idag.getMonth(), idag.getDate());
+  if (d < i) return "udloebet";
+  return udloeberSnart(dato, idag) ? "snart" : null;
+}
+
+/**
+ * Udstyr der ikke er maskiner (skilte, rollups, skabe/møbler, kander, kurve,
+ * drypbakker, udslagsskuffer, termobeholdere, piedestaler). Køleskabe tæller som maskiner.
+ */
+export const IKKE_MASKINE_REGEL =
+  /(rollup|skilt|udslagsskuffe|termobeholder|pumpekande|kolbekande|steamkande|\bkurv\b|drypbakke|piedestal|(^|[^ø]le|\s)skab\b)/i;
+export function erIkkeMaskine(type: string | null | undefined): boolean {
+  const t = (type ?? "").trim();
+  if (!t) return false;
+  if (/køleskab/i.test(t)) return false;
+  return IKKE_MASKINE_REGEL.test(t);
+}
+
+/** Tællerstand til visning: 0 og 1 regnes som ingen aflæsning. */
+export function visKopper(n: number | null): number | null {
+  return n != null && n > 1 ? n : null;
+}
