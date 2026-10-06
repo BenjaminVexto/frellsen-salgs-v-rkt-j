@@ -23,7 +23,9 @@ export function SalesFactsStrip({
   rows,
   isAdmin,
   antalMaskiner,
+  visEgne,
 }: {
+  visEgne?: boolean;
   rows: SalesMonthlyRow[];
   isAdmin: boolean;
   antalMaskiner?: number | null;
@@ -54,7 +56,7 @@ export function SalesFactsStrip({
         icon={<TrendingUp className="h-4 w-4" />}
         label="Omsætning 12 mdr."
         value={fmtKr(alt.revenue)}
-        note="Alt salg"
+        note="Alle varer · 12 hele måneder"
       />
       <Fact
         icon={<Coffee className="h-4 w-4" />}
@@ -76,7 +78,7 @@ export function SalesFactsStrip({
         icon={<Cpu className="h-4 w-4" />}
         label="Maskiner i alt"
         value={antalMaskiner == null ? "…" : `${antalMaskiner} stk.`}
-        note="Opstillet på alle lokationer"
+        note={visEgne ? "Opstillet på dine lokationer" : "Opstillet på alle lokationer"}
       />
       <Fact
         icon={<Calendar className="h-4 w-4" />}

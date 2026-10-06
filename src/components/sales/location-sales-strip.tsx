@@ -41,7 +41,7 @@ export function LocationSalesStrip({ locationId }: { locationId: string; isAdmin
     const d = new Date();
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
   })();
-  const last12 = filterByPeriod(rows, monthsAgo(11), nextMonth);
+  const last12 = filterByPeriod(rows, monthsAgo(12), currentMonthStart());
   const sum = sumRows(last12);
   const lastP = lastPurchasePeriod(rows);
   const cats = groupByCategory(last12, 1);

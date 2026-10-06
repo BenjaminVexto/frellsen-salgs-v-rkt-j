@@ -1,4 +1,4 @@
-import { useViewAs } from "@/contexts/view-as-context";
+import { useViewAs, useEffektivRolle } from "@/contexts/view-as-context";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -794,7 +794,7 @@ function VirksomhedsKort() {
 
         {/* MIDTEN — Faner */}
         <div className="space-y-4 min-w-0 order-2 lg:order-2">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+          <Tabs value={tab === "udvikling" && !isAdmin ? "oversigt" : tab} onValueChange={(v) => setTab(v as TabKey)}>
             {(() => {
               const allTabs = [
                 { v: "oversigt", label: "Oversigt" },

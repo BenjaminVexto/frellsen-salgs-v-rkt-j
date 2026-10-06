@@ -134,7 +134,7 @@ export function beregnKundeStatus(rows: SalesMonthlyRow[]): KundeStatus {
       kode: "stille",
       tone: "rod",
       overskrift: "Kunden er gået stille",
-      tekst: forventetIntervalDage
+      tekst: forventetIntervalDage && forventetIntervalDage >= 60
         ? `Ingen forbrugsvarer købt i ${dageSidenKoeb} dage. Normalt ${intervalTekst(forventetIntervalDage)}.`
         : `Ingen forbrugsvarer købt i ${dageSidenKoeb} dage.`,
     };
@@ -168,7 +168,8 @@ export function beregnKundeStatus(rows: SalesMonthlyRow[]): KundeStatus {
     kode: "foelger_rytmen",
     tone: "neutral",
     overskrift: "Følger sin rytme",
-    tekst: forventetIntervalDage
+    // Rytmelinjen vises kun ved interval på mindst 2 måneder (samme regel som Oversigt).
+    tekst: forventetIntervalDage && forventetIntervalDage >= 60
       ? `Bestiller ${intervalTekst(forventetIntervalDage)}. ${sidsteForbrugskoeb ? `Sidste forbrugskøb ${datoTekst(sidsteForbrugskoeb)} — inden for normal rytme.` : ""}`.trim()
       : sidsteKoebSaetning,
   };
