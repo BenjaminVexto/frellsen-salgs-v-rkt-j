@@ -40,7 +40,7 @@ export default defineTool({
         .from("activities")
         .select("id, activity_type, note, created_at:udfoert_at, next_action, next_followup_date")
         .eq("company_id", company_id)
-        .order("created_at", { ascending: false })
+        .order("udfoert_at" as any, { ascending: false })
         .limit(10),
     ]);
     if (companyRes.error) {

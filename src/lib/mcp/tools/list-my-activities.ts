@@ -27,7 +27,7 @@ export default defineTool({
       .from("activities")
       .select("id, company_id, activity_type, note, created_at:udfoert_at, next_action, next_followup_date, companies(name)")
       .eq("created_by", ctx.getUserId()!)
-      .order("created_at", { ascending: false })
+      .order("udfoert_at" as any, { ascending: false })
       .limit(limit ?? 20);
     if (error) {
       return { content: [{ type: "text", text: `Fejl: ${error.message}` }], isError: true };
