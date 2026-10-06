@@ -470,6 +470,13 @@
       "when": 1791304769978,
       "tag": "0066_penhed_adresse_norm_ret",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1791305456256,
+      "tag": "0067_penhed_manuel_kobling_ikke_relevant",
+      "breakpoints": true
     }
   ]
 }
