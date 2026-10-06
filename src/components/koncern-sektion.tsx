@@ -47,7 +47,7 @@ export function KoncernSektion({ cvr, children }: { cvr: string | null | undefin
   const resume = q.isLoading
     ? "Koncern: henter …"
     : q.data?.moder
-      ? `Koncern: ${q.data.moder.navn ?? q.data.moder.cvr} + ${q.data.soestre.length} søsterselskab${q.data.soestre.length === 1 ? "" : "er"}`
+      ? `Koncern: ${q.data.moder.name ?? q.data.moder.cvr} + ${q.data.soestre.length} søsterselskab${q.data.soestre.length === 1 ? "" : "er"}`
       : "Koncern: intet moderselskab registreret";
   return (
     <Card className="p-4 space-y-2">
