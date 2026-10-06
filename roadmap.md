@@ -12,3 +12,8 @@
   - [ ] Aktør-import: spærrede med, sælger pr. lokation, assigned_to = hovedkonto, fjern "første række"
   - [ ] Visninger pr. lokationssælger; "x af y lokationer"; Spærret-badge; spærrede ud af salgsmuligheder/sælg mere/sovende
   - [ ] Kontrol: før/efter pr. sælger, total uændret, "Ikke tildelt" kun uden Visma-sælger
+  - [ ] Backup af companies (id, assigned_to, kreditspaerret) før udfyldning
+  - [ ] aktoer_anvend_saelgere: skm_skip + én genberegning, køres via server
+  - [ ] Profil får sælgernr → også assigned_to for hovedkonto-virksomheder
+  - [ ] Kontrol: Compass Group = Mads (ansvarlig), Esbjerg = Anders Mohr
+  - [ ] Sig til før fakturaimport må bruges igen
