@@ -548,6 +548,48 @@ export function PenhedDaekning({
   const toggleCls =
     "flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground py-1";
 
+  if (kunIkkeKunde) {
+    return (
+      <>
+        <ul className="divide-y">
+          {ikke.map((p) => (
+            <li key={p.p_number} className="py-2 text-sm">
+              <div className="font-medium">{p.address ?? "Ukendt adresse"}</div>
+              <div className="text-xs text-muted-foreground">
+                {[[p.zip, p.city].filter(Boolean).join(" "), `P-nr. ${p.p_number}`, `${formatAnsatte(p)} ansatte`]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+              {aabneInfo.has(p.p_number) ? (
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Salgsmulighed: {aabneInfo.get(p.p_number)!.saelger ?? "uden sælger"} ·{" "}
+                  {STADIE_LABEL[aabneInfo.get(p.p_number)!.status] ?? aabneInfo.get(p.p_number)!.status}
+                </div>
+              ) : companyId ? (
+                busy === p.p_number ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mt-1" />
+                ) : (
+                  <button
+                    className="text-xs text-primary hover:underline mt-0.5"
+                    onClick={() => {
+                      if (kanStyre) {
+                        setTildelTil(assignedTo ?? "");
+                        setTildelFor(p);
+                      } else opretMulighed(p);
+                    }}
+                  >
+                    {kanStyre ? "Tildel sælger" : "Opret salgsmulighed"}
+                  </button>
+                )
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        {dialoger}
+      </>
+    );
+  }
+
   return (
     <>
     <div className="overflow-x-auto">
