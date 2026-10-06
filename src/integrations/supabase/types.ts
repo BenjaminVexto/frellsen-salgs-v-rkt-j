@@ -2749,6 +2749,60 @@ export type Database = {
           },
         ]
       }
+      maskine_placering: {
+        Row: {
+          kilde: string
+          opdateret_af: string | null
+          opdateret_at: string
+          placering: string | null
+          serienr: string
+        }
+        Insert: {
+          kilde?: string
+          opdateret_af?: string | null
+          opdateret_at?: string
+          placering?: string | null
+          serienr: string
+        }
+        Update: {
+          kilde?: string
+          opdateret_af?: string | null
+          opdateret_at?: string
+          placering?: string | null
+          serienr?: string
+        }
+        Relationships: []
+      }
+      maskine_placering_log: {
+        Row: {
+          gammel: string | null
+          id: string
+          kilde: string
+          ny: string | null
+          serienr: string
+          udfoert_af: string | null
+          udfoert_at: string
+        }
+        Insert: {
+          gammel?: string | null
+          id?: string
+          kilde: string
+          ny?: string | null
+          serienr: string
+          udfoert_af?: string | null
+          udfoert_at?: string
+        }
+        Update: {
+          gammel?: string | null
+          id?: string
+          kilde?: string
+          ny?: string | null
+          serienr?: string
+          udfoert_af?: string | null
+          udfoert_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           activity_id: string | null
@@ -4363,6 +4417,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_maskine_placering: {
+        Args: { _placering: string; _serienr: string }
+        Returns: undefined
+      }
       import_status: {
         Args: never
         Returns: {
@@ -4896,6 +4954,10 @@ export type Database = {
       saeson_faktor: {
         Args: { _group: string; _period: string }
         Returns: number
+      }
+      saet_maskine_placering: {
+        Args: { _placering: string; _serienr: string }
+        Returns: undefined
       }
       sales_period_completeness_rows: {
         Args: never

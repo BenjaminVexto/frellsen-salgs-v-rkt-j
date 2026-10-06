@@ -533,6 +533,13 @@
       "when": 1791315260214,
       "tag": "0075_maskiner_uden_aftale_og_aflaesning",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1791316052531,
+      "tag": "0076_maskine_placering",
+      "breakpoints": true
     }
   ]
 }
