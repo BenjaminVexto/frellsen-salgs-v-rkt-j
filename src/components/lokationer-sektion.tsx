@@ -20,6 +20,8 @@ import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wre
 import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
 import { AdressePenhedKobling } from "@/components/adresse-penhed-kobling";
+import { useAuth } from "@/hooks/useAuth";
+import { useViewAs } from "@/contexts/view-as-context";
 import { PlaceringFelt, hentPlaceringer, type PlaceringInfo } from "@/components/placering-felt";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { BesoegtKnap } from "@/components/besoegt-knap";
