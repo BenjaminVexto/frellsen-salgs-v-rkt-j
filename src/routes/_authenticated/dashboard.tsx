@@ -234,6 +234,7 @@ function DashboardPage() {
             "id, contract_expires_at, company_id, competitor_id, competitors(name), companies!inner(id, name, city, afdeling_nr)",
           )
           .not("contract_expires_at", "is", null)
+          .is("afsluttet_dato", null)
           .gte("contract_expires_at", today)
           .lte("contract_expires_at", to)
           .order("contract_expires_at", { ascending: true });
