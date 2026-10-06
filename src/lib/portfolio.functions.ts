@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { harGyldigtSammenligningsvindue } from "./kunde-status";
-import { erFalder } from "./fald";
+import { erFalder, erVokser } from "./fald";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PAGE = 1000;
@@ -51,6 +51,9 @@ export type PortfolioCompanyRow = {
   forbrug12mPrior: number;
   /** Forbruget er faldet: 12 hele mdr. mod de 12 før, kun forbrugsvarer. */
   falder: boolean;
+  vokser: boolean;
+  /** Forventet køb er overskredet (rytme). */
+  overRytme: boolean;
   /** Manuel markering "Stoppet". stopSkjult = holdes ude af sovende/fald/Sælg mere lige nu. */
   stoppet: boolean;
   stopSkjult: boolean;
@@ -362,6 +365,18 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     const companyIdSet = new Set<string>(aggRows.map((r) => r.id as string));
 
+    // "Forventet køb er overskredet" (companies.over_rytme) — grundlag for "På vej væk".
+    const overRytmeSet = new Set<string>();
+    {
+      const ids = Array.from(companyIdSet);
+      const svar = await Promise.all(
+        Array.from({ length: Math.ceil(ids.length / 300) }, (_, i) =>
+          (supabase as any).from("companies").select("id").eq("over_rytme", true).in("id", ids.slice(i * 300, i * 300 + 300)),
+        ),
+      );
+      for (const r of svar) for (const x of (r.data ?? []) as any[]) overRytmeSet.add(x.id);
+    }
+
     // Forsyningsrelationer (forsynes_af) — få rækker i alt, hentes i ét kald.
     const relRows: any[] = [];
     for (let from = 0; ; from += PAGE) {
@@ -510,10 +525,11 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       const f12 = c.forbrug12m as number;
       const f12p = c.forbrug12mPrior as number;
       const growthPct =
-        harGyldigtSammenligningsvindue(startPrior) && f12p > 0
+        f12p > 0
           ? ((f12 - f12p) / f12p) * 100
           : null;
       const falder = erFalder(growthPct, f12, f12p, faldMinPct, faldMinKr);
+      const vokser = erVokser(f12, f12p, faldMinPct, faldMinKr);
       const trendDown =
         growthPct !== null && growthPct < TREND_DOWN_PCT && revenue12m >= ATTENTION_MIN_REV_12M;
 
@@ -596,6 +612,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         forbrug12m: f12,
         forbrug12mPrior: f12p,
         falder,
+        vokser,
+        overRytme: overRytmeSet.has(c.id),
         stoppet: c.stoppet,
         stopSkjult: c.stopSkjult,
         stopAarsag: c.stopAarsag,
@@ -629,17 +647,22 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           const lastConsPeriod = getLastCons(c.id);
           const lastConsDate = lastConsPeriod ? periodToDate(lastConsPeriod) : parseDate(c.last_consumable_sales_date);
           const daysSince = lastConsDate ? Math.floor((evalDate.getTime() - lastConsDate.getTime()) / 86400000) : Infinity;
-          if (daysSince > 60) paaVejVaek++;
+          void daysSince;
+          // På vej væk = forventet køb overskredet (samme regel som kundekortet).
+          if (c.overRytme) paaVejVaek++;
         }
       });
       return { aktive, sovende, servicekunder, paaVejVaek };
     };
     const statusNow = tael((c) => c.customer_type, (cid) => lastConsNow.get(cid), refDato);
-    const statusPrior = tael(
+    const statusPriorRaw = tael(
       (c) => statusFor(lastConsPrior.get(c.id), lastSalesPrior.get(c.id), c.has_active_equipment, evalPrior),
       (cid) => lastConsPrior.get(cid),
       evalPrior,
     );
+    // Rytmen for 30 dage siden kendes ikke; "på vej væk" sammenlignes derfor ikke bagud.
+    const statusPrior = { ...statusPriorRaw, paaVejVaek: statusNow.paaVejVaek };
+    void harGyldigtSammenligningsvindue; void startPrior;
     void cutoff12Now; void cutoff12Prior; void cutoff24Prior; void cutoff24Now; void deriveCustomerType;
     const aktive = statusNow.aktive;
     const sovende = statusNow.sovende;
@@ -668,8 +691,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     });
 
     const topRevenue = [...companies]
-      .filter((c) => c.revenueYtd > 0)
-      .sort((a, b) => b.revenueYtd - a.revenueYtd)
+      .filter((c) => c.revenue12m > 0)
+      .sort((a, b) => b.revenue12m - a.revenue12m)
       .slice(0, 25)
       .map(toRanking);
 
@@ -685,13 +708,15 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       .filter((c) => c.falder && !c.stopSkjult)
       .sort((a, b) => (a.forbrug12m - a.forbrug12mPrior) - (b.forbrug12m - b.forbrug12mPrior))
       .slice(0, 25)
-      .map((c) => ({ ...toRanking(c), revenueYtd: c.forbrug12m, revenueYtdPriorSamePeriod: c.forbrug12mPrior }));
+      .map((c) => ({ ...toRanking(c), revenue12m: c.forbrug12m, revenue12mPrior: c.forbrug12mPrior }));
 
-    const topGrowers = withYtdDelta
-      .filter(({ delta }) => delta > 0)
-      .sort((a, b) => b.delta - a.delta)
+    // Største vækst: samme mål og grænser som fald (forbrugsvarer, ≥ grænserne).
+    void withYtdDelta;
+    const topGrowers = companies
+      .filter((c) => c.vokser && !c.stopSkjult)
+      .sort((a, b) => (b.forbrug12m - b.forbrug12mPrior) - (a.forbrug12m - a.forbrug12mPrior))
       .slice(0, 25)
-      .map(({ c }) => toRanking(c));
+      .map((c) => ({ ...toRanking(c), revenue12m: c.forbrug12m, revenue12mPrior: c.forbrug12mPrior }));
 
     const activeCompanies = companies.filter((c) => c.customer_type === "aktiv_kunde");
 
@@ -792,8 +817,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         ...blankSignal(c),
         growthPct: ((c.revenue12m - c.revenue12mPrior) / c.revenue12mPrior) * 100,
       }));
-    const growing = withTrend
-      .filter((r) => (r.growthPct ?? 0) > 0)
+    void withTrend;
+    const growing = companies
+      .filter((c) => c.vokser && !c.stopSkjult)
+      .map((c) => ({ ...blankSignal(c), growthPct: c.growthPct }))
       .sort((a, b) => (b.growthPct ?? 0) - (a.growthPct ?? 0));
     // Faldende: kun forbrugsvarer, 12 hele mdr. mod de 12 før.
     const declining = companies
