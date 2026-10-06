@@ -14,7 +14,7 @@ Pakke 2 er færdig (adressesøgning, lokation via P-nr., lokationssøgning, konc
 - Gennemgang af resterende "min"-visninger, der stadig regner på virksomhed: faldende kunder/forbrugssignal, sovende-lister, kontaktlister, salgsmuligheder. Portefølje, målepunkter og bonus er allerede pr. lokation fra tidligere.
 - Visning i lister: "National Oilwell Varco – Kalundborg (2 af 4 lokationer)".
 - Kundekortet: fordeling pr. lokation med sælgernavn, omsætning seneste 12 mdr., udvikling og status, så faldet kan ses (kontrol: Brøndby hos Claus Wolsing).
-- Undtagelse: maskinbonus følger fortsat virksomhedens sælger, fordi maskiner ikke kan kobles til lokation.
+- Maskinbonus og maskintal: lokationens sælger, når maskinen har en lokation; ellers virksomhedens sælger. Antal maskiner uden lokation rapporteres.
 
 ## 3) Søsterkonti med samme CVR og adresse
 - Ny databasevisning over par: sovende konto/lokation + aktiv konto med samme CVR og samme normaliserede adresse (eller samme postnr., når adressen mangler), i samme afdeling.

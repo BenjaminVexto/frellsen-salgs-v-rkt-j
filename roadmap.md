@@ -22,3 +22,10 @@
   - [x] Vis lokationer pr. sælgernøgle; ISS 3156300 = Jes
   - [ ] Maskintal og maskinbonus pr. lokationssælger (følger stadig virksomhedens sælger)
 - [x] CRM-kursus pakke 1: DB for alle, Besøgt-knap, sælgere skriver konkurrenter, udskrivbar maskinliste
+- [ ] CRM-kursus pakke 3:
+  - [ ] 1) Rytmebaseret sovende (24 mdr = alle data), kundekort-tekst, før/efter pr. afdeling
+  - [ ] 2) Status pr. lokation; "min"-lister pr. lokationssælger; fordeling pr. lokation på kundekort
+  - [ ] 3) Søsterkonti samme CVR+adresse+afdeling: markering, admin-liste, antal par
+  - [ ] 4) Konkurrentaftale pr. lokation med historik; migrér eksisterende
+  - [ ] 5) Send digitalt katalog (mail.frellsen.dk, afsender "Frellsen", reply-to sælger); DNS-liste
+  - [ ] Maskinbonus/maskintal: lokationens sælger når maskinen har lokation; rapportér antal uden lokation
