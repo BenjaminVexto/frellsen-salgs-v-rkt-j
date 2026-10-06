@@ -442,6 +442,13 @@
       "when": 1791302242832,
       "tag": "0062_katalog_indstilling_og_udsendelser",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1791302767624,
+      "tag": "0063_maskiner_uden_lokation_admin",
+      "breakpoints": true
     }
   ]
 }

@@ -4550,6 +4550,24 @@ export type Database = {
       maskin_maerke: { Args: { _txt: string }; Returns: string }
       maskin_modelfamilie: { Args: { _txt: string }; Returns: string }
       maskin_tilvalg_moenstre: { Args: never; Returns: string[] }
+      maskiner_uden_lokation: {
+        Args: never
+        Returns: {
+          adresse: string
+          afdeling_nr: number
+          beskrivelse: string
+          company_id: string
+          company_navn: string
+          fak_kundenr: string
+          lev_kundenr: string
+          machine_id: string
+          navn: string
+          saelger_navn: string
+          serienr: string
+          udlanstype: string
+          varenr: string
+        }[]
+      }
       monthly_revenue_totals: {
         Args: {
           _afdeling_nr?: number
