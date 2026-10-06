@@ -20,6 +20,9 @@ import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wre
 import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
 import { AdressePenhedKobling } from "@/components/adresse-penhed-kobling";
+import { useAuth } from "@/hooks/useAuth";
+import { useViewAs } from "@/contexts/view-as-context";
+import { PlaceringFelt, hentPlaceringer, type PlaceringInfo } from "@/components/placering-felt";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { BesoegtKnap } from "@/components/besoegt-knap";
 import { KatalogKnap } from "@/components/katalog-knap";
@@ -64,6 +67,7 @@ export type Location = {
   equipment_updated_at?: string | null;
 };
 
+const STATUS_RANG: Record<string, number> = { aktiv_kunde: 1, sovende_kunde: 2, servicekunde: 3, tidligere_kunde: 4, spaerret: 5, nyt_emne: 6 };
 const KONTO_STATUS: Record<string, string> = {
   aktiv_kunde: "Aktiv",
   sovende_kunde: "Sovende",
@@ -154,6 +158,8 @@ export function LokationerSektion({
   companyName?: string | null;
   assignedTo?: string | null;
 }) {
+  const { user: authUser } = useAuth();
+  const mitId = useViewAs().effectiveUserId ?? authUser?.id ?? null;
   const [locations, setLocations] = useState<Location[]>([]);
   const [hentet, setHentet] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -448,8 +454,10 @@ export function LokationerSektion({
       g.revenue += summary[l.id]?.revenue12m ?? 0;
     });
     const list = Array.from(map.values());
+    const egen = (g: AdresseGruppe) => !!mitId && g.locs.some((l) => (l as any).saelger_user_id === mitId);
     list.sort((a, b) => {
       if ((a.key === "uden") !== (b.key === "uden")) return a.key === "uden" ? 1 : -1;
+      if (egen(a) !== egen(b)) return egen(a) ? -1 : 1;
       if (sortMode !== "default") return a.foersteIdx - b.foersteIdx;
       if (a.primary !== b.primary) return a.primary ? -1 : 1;
       const ea = a.ansatteEstimat ?? -1;
@@ -458,7 +466,7 @@ export function LokationerSektion({
       return b.revenue - a.revenue;
     });
     return list;
-  }, [sortedLocations, pnrQ.data, summaryQ.data, sortMode, companyFallbackAddress, companyFallbackZip, companyFallbackCity]);
+  }, [mitId, sortedLocations, pnrQ.data, summaryQ.data, sortMode, companyFallbackAddress, companyFallbackZip, companyFallbackCity]);
 
   const expiringByLoc = expiringQ.data ?? new Map<string, number>();
   const expiringTotal = Array.from(expiringByLoc.values()).reduce((n, v) => n + v, 0);
@@ -582,87 +590,98 @@ export function LokationerSektion({
               )}
             </div>
           )}
-          <ul className="space-y-2">
+          <ul className="@container divide-y rounded-md border">
+            <li className="hidden @xl:grid grid-cols-[minmax(0,1fr)_5.5rem_7.5rem_6.5rem_3.5rem_1.25rem] gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30">
+              <span>Adresse</span><span>Status</span><span>Sælger</span><span className="text-right">Omsætning 12 mdr.</span><span className="text-right">Maskiner</span><span />
+            </li>
             {visibleGrupper.map((g) => {
               const aaben = enGruppe || g.locs.some((l) => aabneLok.has(l.id));
-              const by = [g.zip, g.city].filter(Boolean).join(" ");
-              const titel = g.key === "uden"
-                ? "Uden adresse"
-                : [g.address, by].filter(Boolean).join(", ") || "Lokation";
+              const titel = g.key === "uden" ? "Uden adresse" : g.address || "Lokation";
+              const byTekst = g.key === "uden" ? null : [g.zip, g.city].filter(Boolean).join(" ") || null;
               const meta = [
                 g.ansatteTekst ? `${g.ansatteTekst} ansatte` : null,
                 g.pnr ? `P-nr. ${g.pnr}` : null,
-                `${g.locs.length} ${g.locs.length === 1 ? "konto" : "konti"}`,
+                `${g.locs.length} ${g.locs.length === 1 ? "konto" : "konti"}: ${g.locs.map((l) => l.visma_delivery_no ?? "–").join(", ")}`,
               ].filter(Boolean).join(" · ");
+              const bedst = g.locs
+                .map((l) => ((l as any).kreditspaerret ? "spaerret" : ((l as any).customer_type as string)))
+                .sort((x, y) => (STATUS_RANG[x] ?? 9) - (STATUS_RANG[y] ?? 9))[0];
+              const status = bedst === "spaerret" ? "Spærret" : KONTO_STATUS[bedst] ?? "—";
+              const saelgere = Array.from(new Set(g.locs.map((l) => (l as any).saelger?.full_name ?? ((l as any).i_aktoer === false ? "Ikke i Aktør" : "Ingen"))));
+              const maskiner = g.locs.reduce((n, l) => n + (machineCountQ.data?.[l.id] ?? 0), 0);
+              const egen = !!mitId && g.locs.some((l) => (l as any).saelger_user_id === mitId);
+              const toggle = () =>
+                setAabneLok((prev) => {
+                  const n = new Set(prev);
+                  if (aaben) g.locs.forEach((l) => n.delete(l.id));
+                  else g.locs.forEach((l) => n.add(l.id));
+                  return n;
+                });
               return (
-                <li key={g.key} className="rounded-md border">
-                  {!enGruppe && (
-                    <button
-                      type="button"
-                      aria-expanded={aaben}
-                      onClick={() =>
-                        setAabneLok((prev) => {
-                          const n = new Set(prev);
-                          if (aaben) g.locs.forEach((l) => n.delete(l.id));
-                          else g.locs.forEach((l) => n.add(l.id));
-                          return n;
-                        })
-                      }
-                      className="w-full flex items-start justify-between gap-2 px-3 py-2.5 text-left hover:bg-muted/40 rounded-md"
-                    >
-                      <span className="min-w-0">
-                        <span className="flex items-center gap-1.5 text-sm font-medium">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="break-words">{titel}</span>
-                          {g.primary && (
-                            <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-normal">Primær</Badge>
-                          )}
-                        </span>
-                        <span className="block text-xs text-muted-foreground mt-0.5 pl-5">{meta}</span>
+                <li key={g.key} className={`relative ${egen ? "border-l-4 border-l-primary" : "border-l-4 border-l-transparent"} ${aaben ? "bg-muted/40" : ""}`}>
+                  <button
+                    type="button"
+                    aria-expanded={aaben}
+                    onClick={enGruppe ? undefined : toggle}
+                    className="w-full grid grid-cols-[minmax(0,1fr)_1.25rem] @xl:grid-cols-[minmax(0,1fr)_5.5rem_7.5rem_6.5rem_3.5rem_1.25rem] gap-x-2 gap-y-0.5 items-center px-3 py-2.5 text-left hover:bg-muted/40"
+                  >
+                    <span className="min-w-0 text-sm">
+                      {byTekst && <span className="font-semibold">{byTekst}</span>}
+                      {byTekst && <span className="text-muted-foreground"> · </span>}
+                      <span className="break-words">{titel}</span>
+                      {g.primary && (
+                        <Badge variant="outline" className="ml-1.5 h-4 px-1.5 text-[10px] font-normal align-middle">Primær</Badge>
+                      )}
+                      <span className="@xl:hidden block text-xs text-muted-foreground mt-0.5">
+                        {[status, saelgere.join(", "), `${Math.round(g.revenue).toLocaleString("da-DK")} kr.`, `${maskiner} maskiner`].join(" · ")}
                       </span>
-                      {aaben ? <ChevronUp className="h-4 w-4 mt-0.5 shrink-0" /> : <ChevronDown className="h-4 w-4 mt-0.5 shrink-0" />}
-                    </button>
-                  )}
-                  {enGruppe && (
-                    <div className="px-3 pt-2 text-xs text-muted-foreground">{meta}</div>
-                  )}
-                  {aaben && cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
-                    <AdressePenhedKobling
-                      pnr={g.pnr}
-                      pnrAdresse={g.address}
-                      locs={g.locs.filter((l) => l.visma_delivery_no || g.pnr)}
-                      linkInfo={pnrQ.data?.linkInfo ?? {}}
-                      afdelingNr={afdelingNr}
-                      penListe={pnrQ.data?.penListe ?? []}
-                      zip={g.zip}
-                      onChanged={() => pnrQ.refetch()}
-                    />
-                  )}
+                    </span>
+                    <span className="hidden @xl:block text-xs">{status}</span>
+                    <span className="hidden @xl:block text-xs truncate" title={saelgere.join(", ")}>{saelgere.join(", ")}</span>
+                    <span className="hidden @xl:block text-xs text-right tabular-nums">{Math.round(g.revenue).toLocaleString("da-DK")} kr.</span>
+                    <span className="hidden @xl:block text-xs text-right tabular-nums">{maskiner}</span>
+                    {enGruppe ? <span /> : aaben ? <ChevronUp className="h-4 w-4 shrink-0 justify-self-end" /> : <ChevronDown className="h-4 w-4 shrink-0 justify-self-end" />}
+                  </button>
                   {aaben && (
-                    <ul className={`divide-y px-3 ${enGruppe ? "" : "border-t"}`}>
-                      {g.locs.map((l) => (
-                        <LokationRow
-                          key={l.id}
-                          location={l}
-                          isPrimary={l.is_primary}
-                          isAdmin={isAdmin}
-                          open={openId === l.id}
-                          onToggle={() => setOpenId(openId === l.id ? null : l.id)}
-                          contacts={contactsByLocation?.get(l.id) ?? []}
-                          fallbackAddress={l.is_primary ? companyFallbackAddress : null}
-                          fallbackZip={l.is_primary ? companyFallbackZip : null}
-                          fallbackCity={l.is_primary ? companyFallbackCity : null}
-                          onRegister={() => onRegisterActivity(l.id)}
-                          companyId={companyId}
-                          visBesoeg={locations.length > 1}
-                          lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
-                          showLastPurchase={sortMode === "lastPurchase"}
-                          machineCount={machineCountQ.data?.[l.id] ?? 0}
-                          showMachineCount={sortMode === "machines"}
-                          kontoVisning={{ revenue12m: summaryQ.data?.[l.id]?.revenue12m ?? null }}
+                    <div className="pl-6 pr-3 pb-3">
+                      <div className="text-xs text-muted-foreground">{meta}</div>
+                      {cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
+                        <AdressePenhedKobling
+                          pnr={g.pnr}
+                          pnrAdresse={g.address}
+                          locs={g.locs.filter((l) => l.visma_delivery_no || g.pnr)}
+                          linkInfo={pnrQ.data?.linkInfo ?? {}}
+                          afdelingNr={afdelingNr}
+                          penListe={pnrQ.data?.penListe ?? []}
+                          zip={g.zip}
+                          onChanged={() => pnrQ.refetch()}
                         />
-                      ))}
-                    </ul>
+                      )}
+                      <ul className="divide-y mt-1 rounded-md border bg-background px-3">
+                        {g.locs.map((l) => (
+                          <LokationRow
+                            key={l.id}
+                            location={l}
+                            isPrimary={l.is_primary}
+                            isAdmin={isAdmin}
+                            open={openId === l.id}
+                            onToggle={() => setOpenId(openId === l.id ? null : l.id)}
+                            contacts={contactsByLocation?.get(l.id) ?? []}
+                            fallbackAddress={l.is_primary ? companyFallbackAddress : null}
+                            fallbackZip={l.is_primary ? companyFallbackZip : null}
+                            fallbackCity={l.is_primary ? companyFallbackCity : null}
+                            onRegister={() => onRegisterActivity(l.id)}
+                            companyId={companyId}
+                            visBesoeg={locations.length > 1}
+                            lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
+                            showLastPurchase={sortMode === "lastPurchase"}
+                            machineCount={machineCountQ.data?.[l.id] ?? 0}
+                            showMachineCount={sortMode === "machines"}
+                            kontoVisning={{ revenue12m: summaryQ.data?.[l.id]?.revenue12m ?? null }}
+                          />
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </li>
               );
@@ -781,7 +800,14 @@ function LokationRow({
     : KONTO_STATUS[(location as any).customer_type as string] ?? null;
   const kontoSaelger = (location as any).saelger?.full_name ?? null;
   const headline = kontoVisning
-    ? [`Kundenr. ${location.visma_delivery_no ?? "–"}`, kontoStatus, kontoSaelger].filter(Boolean).join(" · ")
+    ? [
+        `Kundenr. ${location.visma_delivery_no ?? "–"}`,
+        kontoStatus,
+        kontoSaelger,
+        (location as any).koeber_paa?.visma_delivery_no && (location as any).customer_type !== "aktiv_kunde"
+          ? `Køber på konto ${(location as any).koeber_paa.visma_delivery_no}`
+          : null,
+      ].filter(Boolean).join(" · ")
     : [address, cityLine].filter(Boolean).join(", ") || "Lokation";
   const lastPurchaseLabel = lastPurchase
     ? new Date(lastPurchase + "T00:00:00Z").toLocaleDateString("da-DK", {
@@ -1076,6 +1102,14 @@ function EquipmentBox({ location }: { location: Location }) {
     Map<string, MachineAgreementStatusValue>
   >(new Map());
   const fetchAgreementStatuses = useServerFn(getMachineAgreementStatuses);
+  const [placeringer, setPlaceringer] = useState<Map<string, PlaceringInfo>>(new Map());
+  useEffect(() => {
+    const sn = Array.from(new Set((units ?? []).filter((u) => !u.is_filter && u.serial_no?.trim()).map((u) => u.serial_no!.trim())));
+    if (!sn.length) return;
+    let c = false;
+    hentPlaceringer(sn).then((m) => { if (!c) setPlaceringer(m); }).catch(() => {});
+    return () => { c = true; };
+  }, [units]);
   const signal = (location.sales_signal ?? "").trim();
 
   useEffect(() => {
@@ -1318,9 +1352,6 @@ function EquipmentBox({ location }: { location: Location }) {
     list: EquipmentUnit[],
     opts: { isFilter?: boolean } = {},
   ) => {
-    const subLocs = Array.from(
-      new Set(list.map((u) => u.sub_location?.trim()).filter(Boolean) as string[]),
-    );
     const hasService = list.some((u) => u.has_service_contract);
     const expiringCount = opts.isFilter
       ? 0
@@ -1394,11 +1425,7 @@ function EquipmentBox({ location }: { location: Location }) {
                 Kundeejet maskine · filter lejet af os
               </div>
             ) : (
-              subLocs.length > 0 && (
-                <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                  {subLocs.join(", ")}
-                </div>
-              )
+null
             )}
           </div>
           {open ? (
@@ -1440,13 +1467,25 @@ function EquipmentBox({ location }: { location: Location }) {
                     <span>
                       {[
                         u.serial_no ? `Serienr ${u.serial_no}` : "Uden serienr",
-                        u.sub_location,
                         u.agreement_type,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
                   </div>
+                  {!opts.isFilter && u.serial_no?.trim() && (
+                    <PlaceringFelt
+                      serienr={u.serial_no.trim()}
+                      info={placeringer.get(u.serial_no.trim())}
+                      onSaved={(ny) =>
+                        setPlaceringer((m) => {
+                          const n = new Map(m);
+                          n.set(u.serial_no!.trim(), { placering: ny, kilde: "crm", af: "dig", at: new Date().toISOString() });
+                          return n;
+                        })
+                      }
+                    />
+                  )}
 
                   {enr && (
                     <div className="mt-1 ml-1 space-y-0.5 text-[11px]">

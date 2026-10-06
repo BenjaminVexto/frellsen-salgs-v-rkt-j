@@ -5,6 +5,7 @@ import { Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { FRELLSEN_LOGO_BASE64 } from "@/lib/frellsen-logo-base64";
 import { aeldreAflaesning, erIkkeMaskine, maskinNavn, samletAftale, sorterMaskiner, udloebStatus, visKopper as visKopperVaerdi, type MaskinRaekke } from "@/lib/maskinliste";
+import { hentPlaceringer } from "@/components/placering-felt";
 import { adresseNoegle, lokAdresse } from "@/lib/adresse-grupper";
 const LOGO_SRC = `data:image/png;base64,${FRELLSEN_LOGO_BASE64}`;
 
@@ -56,7 +57,8 @@ async function hentRaekker(companyId: string) {
     for (const e of data ?? []) enr.set(String(e.serienr), e);
     for (const x of m ?? []) if (x.udlanstype) mask.set(String(x.serienr), x);
   }
-  return { locs: locs ?? [], units, enr, mask };
+  const plac = await hentPlaceringer(serials);
+  return { locs: locs ?? [], units, enr, mask, plac };
 }
 
 export function UdskrivMaskinlisteKnap({
@@ -73,7 +75,7 @@ export function UdskrivMaskinlisteKnap({
     w.document.write("<p style='font-family:sans-serif'>Henter maskinliste…</p>");
     setBusy(true);
     try {
-      const { locs, units, enr, mask } = await hentRaekker(company.id);
+      const { locs, units, enr, mask, plac } = await hentRaekker(company.id);
       const idag = new Date();
       const udeladte = new Map<string, number>();
       const pr = new Map<string, MaskinRaekke[]>();
@@ -88,7 +90,7 @@ export function UdskrivMaskinlisteKnap({
         const r: MaskinRaekke = {
           maskintype: maskinNavn(u.machine_type),
           serienr: u.serial_no ?? "",
-          placering: "",
+          placering: plac.get(sn)?.placering ?? "",
           aftale: samletAftale(mask.get(sn)?.udlanstype ?? u.agreement_type, e?.aftale_type, !!u.is_free_loan),
           udloeber: e?.binding_ophor ?? e?.beregnet_slutdato ?? null,
           kopper: visKopperVaerdi(taeller(e?.data)),
@@ -123,6 +125,7 @@ export function UdskrivMaskinlisteKnap({
         const alle = gl.flatMap((g) => g.rows);
         const visUdloeber = alle.some((r) => r.udloeber);
         const visKopper = alle.some((r) => r.kopper != null);
+        const visPlacering = alle.some((r) => r.placering.trim());
         const visAftale = alle.some((r) => r.aftale !== "—");
         const status = (r: MaskinRaekke) => udloebStatus(r.udloeber, idag);
         const nogenMarkeret = alle.some((r) => status(r));
@@ -130,6 +133,7 @@ export function UdskrivMaskinlisteKnap({
         const kol: { navn: string; bredde: string; cls?: string }[] = [
           { navn: "Maskine", bredde: "28%" },
           { navn: "Serienr.", bredde: "13%" },
+          ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "14%" }] : []),
           ...(visAftale ? [{ navn: "Aftale", bredde: "20%" }] : []),
           ...(visUdloeber ? [{ navn: "Udløber", bredde: "14%" }] : []),
           ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "25%", cls: "num" }] : []),
@@ -147,6 +151,7 @@ export function UdskrivMaskinlisteKnap({
                 const celler = [
                   `<td>${esc(r.maskintype)}</td>`,
                   `<td>${esc(r.serienr || "—")}</td>`,
+                  visPlacering ? `<td>${esc(r.placering || "—")}</td>` : "",
                   visAftale ? `<td class="nw">${esc(r.aftale)}</td>` : "",
                   visUdloeber ? `<td>${fmtDato(r.udloeber)}${etiket}</td>` : "",
                   visKopper ? `<td class="num nw">${kop}</td>` : "",

@@ -147,7 +147,7 @@ export async function fetchExpiringMachines(
       companyName: comp.name,
       serienr: String(u.serial_no),
       machineType: u.machine_type ?? null,
-      subLocation: u.sub_location ?? null,
+      subLocation: null, // sub_location indeholder vejadresser, ikke placering
       agreementType: u.agreement_type ?? null,
       locationId: loc.id,
       locationAddress: loc.address ?? null,
