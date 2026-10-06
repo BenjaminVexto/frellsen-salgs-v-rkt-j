@@ -126,7 +126,15 @@ export function LokationerSektion({
       .eq("company_id", companyId)
       .order("is_primary", { ascending: false })
       .order("city", { ascending: true });
-    setLocations(((data ?? []) as Location[]));
+    const rows = (data ?? []) as any[];
+    // Søsterkonto-mærke: slå kontonummeret op for "køber på"-lokationen.
+    const ids = rows.map((r) => r.koeber_paa_location_id).filter(Boolean);
+    if (ids.length) {
+      const { data: s } = await supabase.from("locations").select("id, visma_delivery_no").in("id", ids);
+      const m = new Map((s ?? []).map((x) => [x.id, x.visma_delivery_no]));
+      for (const r of rows) if (r.koeber_paa_location_id) r.koeber_paa = { visma_delivery_no: m.get(r.koeber_paa_location_id) ?? null };
+    }
+    setLocations(rows as Location[]);
   };
 
   useEffect(() => {
@@ -632,6 +640,12 @@ function LokationRow({
             {(location as any).kreditspaerret && (
               <span className="rounded bg-destructive/15 px-1.5 text-destructive">Spærret</span>
             )}
+            {(location as any).koeber_paa?.visma_delivery_no &&
+              (location as any).customer_type !== "aktiv_kunde" && (
+                <span className="rounded border border-border px-1.5">
+                  Køber på konto {(location as any).koeber_paa.visma_delivery_no}
+                </span>
+              )}
           </div>
           <LocationSalesStrip locationId={location.id} isAdmin={!!isAdmin} />
           <EquipmentBox location={location} />

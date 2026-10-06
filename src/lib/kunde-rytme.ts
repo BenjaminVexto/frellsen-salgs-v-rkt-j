@@ -18,8 +18,10 @@ export function rytmeTekst(input: {
 }): string | null {
   const { koebsmaaneder, intervalMdr, naesteForventet, overRytme, aktiv } = input;
   if (koebsmaaneder == null || koebsmaaneder < 3 || intervalMdr == null) return null;
-  const x = Math.max(1, Math.round(intervalMdr));
-  const hver = x === 1 ? "Køber typisk hver måned" : `Køber typisk hver ~${x}. måned`;
+  const x = Math.round(intervalMdr);
+  // Månedlige købere får ingen linje (heller ikke "overskredet").
+  if (x < 2) return null;
+  const hver = `Køber typisk hver ~${x}. måned`;
   if (overRytme && aktiv) return `${hver} · Forventet køb er overskredet`;
   if (!naesteForventet) return hver;
   const d = new Date(naesteForventet.slice(0, 10) + "T00:00:00Z");

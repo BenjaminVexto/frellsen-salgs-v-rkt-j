@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -32,7 +33,8 @@ function Linje({ s, label }: { s: KoncernSelskab; label?: string }) {
   );
 }
 
-export function KoncernSektion({ cvr }: { cvr: string | null | undefined }) {
+export function KoncernSektion({ cvr, children }: { cvr: string | null | undefined; children?: React.ReactNode }) {
+  const [aaben, setAaben] = useState(false);
   const fn = useServerFn(cvrKoncern);
   const ok = !!cvr && /^\d{8}$/.test(cvr);
   const q = useQuery({
@@ -41,12 +43,24 @@ export function KoncernSektion({ cvr }: { cvr: string | null | undefined }) {
     enabled: ok,
     staleTime: 60 * 60 * 1000,
   });
-  if (!ok) return null;
+  if (!ok) return children ? <>{children}</> : null;
+  const resume = q.isLoading
+    ? "Koncern: henter …"
+    : q.data?.moder
+      ? `Koncern: ${q.data.moder.name ?? q.data.moder.cvr} + ${q.data.soestre.length} søsterselskab${q.data.soestre.length === 1 ? "" : "er"}`
+      : "Koncern: intet moderselskab registreret";
   return (
     <Card className="p-4 space-y-2">
-      <h3 className="font-medium text-sm flex items-center gap-2">
-        <Network className="h-4 w-4" /> Koncern (fra CVR's ejerregister)
-      </h3>
+      <button
+        type="button"
+        onClick={() => setAaben((v) => !v)}
+        aria-expanded={aaben}
+        className="w-full text-left font-medium text-sm flex items-center gap-2"
+      >
+        <Network className="h-4 w-4" /> {resume} <span className="text-muted-foreground">{aaben ? "▾" : "▸"}</span>
+      </button>
+      {aaben && (<>
+      <p className="text-xs text-muted-foreground">Fra CVR's ejerregister</p>
       {q.isLoading && (
         <div className="text-sm text-muted-foreground flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" /> Henter koncerndata …
@@ -78,6 +92,8 @@ export function KoncernSektion({ cvr }: { cvr: string | null | undefined }) {
           )}
         </>
       )}
+      {children}
+      </>)}
     </Card>
   );
 }

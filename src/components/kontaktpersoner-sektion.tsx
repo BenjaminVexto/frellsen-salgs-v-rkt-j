@@ -131,7 +131,9 @@ export function KontaktpersonerSektion({
   // Final dedup pass (same name+email+location twice)
   const seen = new Set<string>();
   const unified = derived.filter((u) => {
-    const k = `${u.location_id ?? ""}|${norm(u.name)}|${norm(u.email)}`;
+    // Samme navn + samme telefon (eller mail, hvis ingen telefon) vises kun én gang.
+    const id = normPhone(u.phone) || norm(u.email) || `loc:${u.location_id ?? ""}`;
+    const k = `${norm(u.name)}|${id}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;

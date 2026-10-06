@@ -21,4 +21,7 @@ describe("købsrytme", () => {
       rytmeTekst({ koebsmaaneder: 5, intervalMdr: 4, naesteForventet: "2026-08-01", overRytme: true, aktiv: true }),
     ).toBe("Køber typisk hver ~4. måned · Forventet køb er overskredet");
   });
+  it("månedlige købere får ingen linje", () => {
+    expect(rytmeTekst({ koebsmaaneder: 12, intervalMdr: 1.2, naesteForventet: "2026-11-01", overRytme: true, aktiv: true })).toBeNull();
+  });
 });
