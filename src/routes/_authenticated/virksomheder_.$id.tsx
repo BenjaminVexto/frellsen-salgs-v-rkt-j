@@ -89,6 +89,8 @@ import { CompanyUdviklingTab } from "@/components/sales/company-udvikling-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { BesoegtKnap } from "@/components/besoegt-knap";
+import { KatalogKnap } from "@/components/katalog-knap";
+import { KundeRytmeLinje } from "@/components/kunde-rytme-linje";
 import { UdskrivMaskinlisteKnap } from "@/components/maskinliste-print";
 import { CompanyPricingSummary } from "@/components/company-pricing-summary";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
@@ -478,7 +480,11 @@ function VirksomhedsKort() {
               <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
             </div>
           </div>
-          <BesoegtKnap companyId={company.id} onSaved={() => void load(true)} />
+          <KundeRytmeLinje companyId={company.id} />
+          <div className="grid grid-cols-2 gap-2">
+            <BesoegtKnap companyId={company.id} onSaved={() => void load(true)} />
+            <KatalogKnap companyId={company.id} onSaved={() => void load(true)} />
+          </div>
           <div className="grid grid-cols-3 gap-2">
             <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-1.5" /> Aktivitet
@@ -576,6 +582,7 @@ function VirksomhedsKort() {
             <SegmentBadge segment3={(company as any).customer_segment_3} />
             <CustomerCategoryBadge category={(company as any).customer_category} />
           </div>
+          <KundeRytmeLinje companyId={company.id} className="mt-2" />
           {company.cvr ? (
             <p className="text-xs text-muted-foreground mb-4 mt-1">CVR {company.cvr}</p>
           ) : ((company as any).binding_status === "offentlig_aftale") ? (
@@ -1047,6 +1054,7 @@ function VirksomhedsKort() {
               <AiBriefingKnap state={briefingState} />
             )}
             <BesoegtKnap companyId={company.id} onSaved={() => void load(true)} />
+            <KatalogKnap companyId={company.id} onSaved={() => void load(true)} />
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
             </Button>
