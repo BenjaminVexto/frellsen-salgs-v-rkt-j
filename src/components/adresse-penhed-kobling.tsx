@@ -2,6 +2,10 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatAnsatte, logPenhed } from "@/components/penhed-daekning";
 
@@ -20,13 +24,17 @@ type Pen = {
  */
 export function AdressePenhedKobling({
   pnr,
+  pnrAdresse,
   locs,
+  linkInfo,
   afdelingNr,
   penListe,
   zip,
   onChanged,
 }: {
   pnr: string | null;
+  pnrAdresse?: string | null;
+  linkInfo: Record<string, { kilde: string; af: string | null }>;
   locs: { id: string; visma_delivery_no: string | null }[];
   afdelingNr: number | null | undefined;
   penListe: Pen[];
@@ -35,6 +43,7 @@ export function AdressePenhedKobling({
 }) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const [bekraeft, setBekraeft] = useState<{ id: string; visma_delivery_no: string | null } | null>(null);
   if (afdelingNr == null) return null;
 
   async function kobl(p: Pen) {
@@ -61,20 +70,21 @@ export function AdressePenhedKobling({
     onChanged();
   }
 
-  async function fjern() {
+  async function fjern(loc: { id: string; visma_delivery_no: string | null }) {
     if (!pnr) return;
+    setBekraeft(null);
     setBusy(true);
     const { data: u } = await supabase.auth.getUser();
-    const ids = locs.map((l) => l.id);
+    // Kun den ene konto fravælges; øvrige konti på P-enheden røres ikke.
     const { error } = await (supabase as any)
       .from("location_pnr_link")
       .update({ kilde: "afvist", oprettet_af: u.user?.id, oprettet_dato: new Date().toISOString() })
       .eq("p_nummer", pnr)
-      .in("location_id", ids);
-    if (!error) await Promise.all(ids.map((id) => logPenhed(pnr, "fjern_kobling", id)));
+      .eq("location_id", loc.id);
+    if (!error) await logPenhed(pnr, "fjern_kobling", loc.id);
     setBusy(false);
     if (error) return toast.error("Kunne ikke fjerne kobling: " + error.message);
-    toast.success("Kobling fjernet – kobles ikke automatisk igen");
+    toast.success(`Kobling fjernet for kundenr. ${loc.visma_delivery_no ?? ""} – kobles ikke automatisk igen`);
     onChanged();
   }
 
@@ -88,11 +98,40 @@ export function AdressePenhedKobling({
 
   if (pnr) {
     return (
-      <div className="px-3 py-1.5 text-xs">
-        <button type="button" className="text-muted-foreground hover:text-foreground hover:underline" onClick={fjern}>
-          Fjern kobling til P-enhed
-        </button>
-      </div>
+      <>
+        <ul className="px-3 py-1 text-xs text-muted-foreground space-y-0.5">
+          {locs.map((l) => {
+            const info = linkInfo[l.id];
+            return (
+              <li key={l.id} className="flex flex-wrap items-center gap-x-1.5">
+                <span>Kundenr. {l.visma_delivery_no ?? "–"}</span>
+                <span>·</span>
+                <span>{info?.kilde === "manuel" ? `koblet manuelt${info.af ? ` af ${info.af}` : ""}` : "koblet automatisk"}</span>
+                <span>·</span>
+                <button type="button" className="hover:text-foreground hover:underline" onClick={() => setBekraeft(l)}>
+                  Fjern kobling
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <AlertDialog open={!!bekraeft} onOpenChange={(o) => !o && setBekraeft(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Fjern kobling for kundenr. {bekraeft?.visma_delivery_no ?? "–"} til P-enhed {pnrAdresse ?? pnr}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Kun denne konto kobles fra og bliver ikke koblet automatisk igen. Andre konti på P-enheden beholder deres kobling.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annullér</AlertDialogCancel>
+              <AlertDialogAction onClick={() => bekraeft && fjern(bekraeft)}>Fjern kobling</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
     );
   }
 

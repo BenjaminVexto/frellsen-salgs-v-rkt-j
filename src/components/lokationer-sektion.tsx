@@ -335,7 +335,7 @@ export function LokationerSektion({
       const sb = supabase as any;
       const [lkRes, penRes] = await Promise.all([
         ids.length
-          ? sb.from("location_pnr_link").select("p_nummer, location_id").in("location_id", ids).in("kilde", ["auto", "manuel"])
+          ? sb.from("location_pnr_link").select("p_nummer, location_id, kilde, oprettet_af").in("location_id", ids).in("kilde", ["auto", "manuel"])
           : Promise.resolve({ data: [] }),
         cvr
           ? sb.from("cvr_penheder").select("p_number, address, zip, city, ansatte_praecis, ansatte_interval, ansatte_estimat").eq("cvr", cvr).eq("is_active", true)
@@ -347,6 +347,14 @@ export function LokationerSektion({
       for (const p of (penRes.data ?? []) as any[]) pInfo[p.p_number] = p;
       const linkByLoc: Record<string, string> = {};
       for (const l of (lkRes.data ?? []) as any[]) linkByLoc[l.location_id] = l.p_nummer;
+      const linkInfo: Record<string, { kilde: string; af: string | null }> = {};
+      const afIds = Array.from(new Set(((lkRes.data ?? []) as any[]).filter((l) => l.kilde === "manuel" && l.oprettet_af).map((l) => l.oprettet_af)));
+      const navne = new Map<string, string>();
+      if (afIds.length) {
+        const { data: pr } = await sb.from("profiles").select("id, full_name").in("id", afIds);
+        for (const x of (pr ?? []) as any[]) navne.set(x.id, x.full_name);
+      }
+      for (const l of (lkRes.data ?? []) as any[]) linkInfo[l.location_id] = { kilde: l.kilde, af: l.oprettet_af ? navne.get(l.oprettet_af) ?? null : null };
       const mangler = Array.from(new Set(Object.values(linkByLoc))).filter((p) => !pInfo[p]);
       if (mangler.length) {
         const { data } = await sb.from("cvr_penheder").select("p_number, address, zip, city, ansatte_praecis, ansatte_interval, ansatte_estimat").in("p_number", mangler);
@@ -367,7 +375,7 @@ export function LokationerSektion({
         irAntal = ((ir ?? []) as any[]).filter((x) => !daekketSet.has(x.p_nummer)).length;
       }
       const penListe = ((penRes.data ?? []) as any[]) as (PenhedInfo & { p_number: string })[];
-      return { linkByLoc, pInfo, ikkeHos, irAntal, penListe };
+      return { linkByLoc, linkInfo, pInfo, ikkeHos, irAntal, penListe };
     },
   });
 
@@ -636,7 +644,9 @@ export function LokationerSektion({
                   {aaben && cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
                     <AdressePenhedKobling
                       pnr={g.pnr}
+                      pnrAdresse={g.address}
                       locs={g.locs.filter((l) => l.visma_delivery_no || g.pnr)}
+                      linkInfo={pnrQ.data?.linkInfo ?? {}}
                       afdelingNr={afdelingNr}
                       penListe={pnrQ.data?.penListe ?? []}
                       zip={g.zip}
