@@ -97,23 +97,8 @@ type AdresseGruppe = {
   foersteIdx: number;
 };
 
-/**
- * Samme normalisering som databasens addr_n_vej/addr_n_husnr:
- * vejnavn + husnr (+bogstav); etage, side, sal og tekst efter komma ignoreres.
- */
-export function adresseNoegle(a: string | null | undefined): string | null {
-  if (!a || !a.trim()) return null;
-  const s = a
-    .toLowerCase()
-    .replace(/[éè]/g, "e")
-    .split(",")[0]!
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/v\.(\s|$)/g, "vej$1");
-  const m = s.match(/^([^0-9]*[^0-9\s])\s*([0-9]+)\s*([a-zæøå]?)(?:[^a-zæøå]|$)/);
-  if (!m) return s || null;
-  return `${m[1]!.replace(/[.\s]+$/, "")}|${m[2]}${m[3] ?? ""}`;
-}
+export { adresseNoegle } from "@/lib/adresse-grupper";
+import { adresseNoegle } from "@/lib/adresse-grupper";
 
 export type LocationContact = {
   id: string;
