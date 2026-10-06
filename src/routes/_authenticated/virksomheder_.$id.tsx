@@ -88,6 +88,8 @@ import { CompanySalesTab } from "@/components/sales/company-sales-tab";
 import { CompanyUdviklingTab } from "@/components/sales/company-udvikling-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
+import { BesoegtKnap } from "@/components/besoegt-knap";
+import { UdskrivMaskinlisteKnap } from "@/components/maskinliste-print";
 import { CompanyPricingSummary } from "@/components/company-pricing-summary";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
@@ -254,8 +256,9 @@ function VirksomhedsKort() {
     }
   }
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (stille?: unknown) => {
+    // Stille genindlæsning (fx efter "Besøgt") må ikke skjule siden.
+    if (stille !== true) setLoading(true);
     const [
       { data: c },
       { data: ct },
@@ -474,6 +477,7 @@ function VirksomhedsKort() {
               <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
             </div>
           </div>
+          <BesoegtKnap companyId={company.id} onSaved={() => void load(true)} />
           <div className="grid grid-cols-3 gap-2">
             <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-1.5" /> Aktivitet
@@ -835,6 +839,7 @@ function VirksomhedsKort() {
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
               {!afloestAf && <AiBriefingSektion state={briefingState} />}
+              <KonkurrentaftaleSektion companyId={company.id} />
 
               {!afloestAf && (
                 <SortimentKort
@@ -1015,6 +1020,9 @@ function VirksomhedsKort() {
 
             {/* FANE: Aftaler */}
             <TabsContent value="aftaler" className="space-y-6 mt-4">
+              <div className="flex justify-end">
+                <UdskrivMaskinlisteKnap company={{ id: company.id, name: company.name, cvr: company.cvr }} />
+              </div>
               <AgreementCardSection segment1={(company as any).customer_segment_1 ?? null} variant="top" />
               <CompanyPricingSummary companyId={company.id} />
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />
@@ -1036,6 +1044,7 @@ function VirksomhedsKort() {
             {!afloestAf && !briefingState.briefing && (
               <AiBriefingKnap state={briefingState} />
             )}
+            <BesoegtKnap companyId={company.id} onSaved={() => void load(true)} />
             <Button className="w-full justify-start" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-2" /> Registrér aktivitet
             </Button>

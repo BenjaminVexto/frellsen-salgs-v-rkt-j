@@ -189,6 +189,8 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<string> => JSON.stringify(await (async (): Promise<PortfolioPayload> => {
     const { supabase, userId } = context;
     const isAdmin = await isAdminUser(supabase, userId);
+    const { data: seDbRes } = await (supabase as any).rpc("maa_se_db", { _user_id: userId });
+    const seDb = isAdmin || seDbRes === true;
 
     // Seller options for admin
     let sellerOptions: { id: string; name: string }[] = [];
@@ -269,7 +271,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       topRevenue: [] as RankingRow[],
       topDecliners: [] as RankingRow[],
       topGrowers: [] as RankingRow[],
-      topContribution: isAdmin ? ([] as RankingRow[]) : null,
+      topContribution: seDb ? ([] as RankingRow[]) : null,
       potential: [] as RankingRow[],
       potentialScatter: [] as ScatterPoint[],
       potentialMissingEmployees: 0,
@@ -316,7 +318,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           weightKgYtdPriorSamePeriod: 0,
           ytdLatestPeriod: null,
           ytdFraction: 1,
-          contribution12m: isAdmin ? 0 : null,
+          contribution12m: seDb ? 0 : null,
         },
 
         statusCounts: { aktive: 0, sovende: 0, servicekunder: 0, paaVejVaek: 0, total: 0 },
@@ -533,7 +535,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         revenueYtd: agg?.revenueYtd ?? 0,
         revenueYtdPriorSamePeriod:
           (agg?.revenueYtdPrior ?? 0) - (agg?.ytdPriorLastMonthRev ?? 0) * (1 - ytdFraction),
-        contribution12m: isAdmin ? (agg?.contribution12m ?? 0) : null,
+        contribution12m: seDb ? (agg?.contribution12m ?? 0) : null,
         employees: c.employees ?? null,
         is_public: !!c.is_public,
         sektor: c.sektor,
@@ -641,7 +643,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     const activeCompanies = companies.filter((c) => c.customer_type === "aktiv_kunde");
 
-    const topContribution: RankingRow[] | null = isAdmin
+    const topContribution: RankingRow[] | null = seDb
       ? [...companies]
           .filter((c) => (c.contribution12m ?? 0) > 0)
           .sort((a, b) => (b.contribution12m ?? 0) - (a.contribution12m ?? 0))
@@ -849,7 +851,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           weightKgYtdPriorSamePeriod: priorAdjWeightKg,
           ytdLatestPeriod: latestPeriod,
           ytdFraction: fraction,
-          contribution12m: isAdmin ? totalContrib : null,
+          contribution12m: seDb ? totalContrib : null,
         };
       })(),
 

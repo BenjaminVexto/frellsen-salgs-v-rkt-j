@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
+import { BesoegtKnap } from "@/components/besoegt-knap";
 import { getLocationSalesSummary } from "@/lib/sales.functions";
 import { getMasterAgreementSuppression } from "@/lib/agreements.functions";
 import {
@@ -413,6 +414,8 @@ export function LokationerSektion({
                 fallbackZip={l.is_primary ? companyFallbackZip : null}
                 fallbackCity={l.is_primary ? companyFallbackCity : null}
                 onRegister={() => onRegisterActivity(l.id)}
+                companyId={companyId}
+                visBesoeg={locations.length > 1}
                 lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
                 showLastPurchase={sortMode === "lastPurchase"}
                 machineCount={machineCountQ.data?.[l.id] ?? 0}
@@ -475,7 +478,11 @@ function LokationRow({
   showLastPurchase,
   machineCount,
   showMachineCount,
+  companyId,
+  visBesoeg,
 }: {
+  companyId?: string;
+  visBesoeg?: boolean;
   location: Location;
   isPrimary?: boolean;
   isAdmin?: boolean;
@@ -627,7 +634,10 @@ function LokationRow({
           </div>
           <LocationSalesStrip locationId={location.id} isAdmin={!!isAdmin} />
           <EquipmentBox location={location} />
-          <div className="pt-2">
+          <div className="pt-2 flex flex-wrap gap-2">
+            {visBesoeg && companyId && (
+              <BesoegtKnap companyId={companyId} locationId={location.id} size="sm" />
+            )}
             <Button size="sm" variant="outline" onClick={onRegister}>
               Registrér aktivitet her
             </Button>

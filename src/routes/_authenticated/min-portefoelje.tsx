@@ -167,7 +167,7 @@ function PortfolioPage() {
   const isAdmin = sellerQ.data?.isAdmin ?? data?.isAdmin ?? auth.role === "admin";
   // DB vises kun når den EFFEKTIVE bruger må se dækningsbidrag — under
   // "Se som sælger" er det sælgerens rettighed, ikke administratorens.
-  const visDb = isAdmin && effectiveMaaSeDb;
+  const visDb = effectiveMaaSeDb;
   // Sælgervælgeren må kun bruges af admin og brugere med maa_se_analyse —
   // og aldrig under "Se som sælger", hvor kun den viste sælgers egne tal må vises.
   const maaVaelgeSaelger =

@@ -21,3 +21,4 @@
   - [x] Afd. 23 gemmes som 21 i Aktør-staging
   - [x] Vis lokationer pr. sælgernøgle; ISS 3156300 = Jes
   - [ ] Maskintal og maskinbonus pr. lokationssælger (følger stadig virksomhedens sælger)
+- [x] CRM-kursus pakke 1: DB for alle, Besøgt-knap, sælgere skriver konkurrenter, udskrivbar maskinliste

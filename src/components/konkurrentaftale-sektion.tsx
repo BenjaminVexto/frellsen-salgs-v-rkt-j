@@ -98,7 +98,7 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
             </>
           ) : (
             <>
-              <Plus className="h-4 w-4 mr-1" /> Registrér
+              <Plus className="h-4 w-4 mr-1" /> Registrér konkurrent
             </>
           )}
         </Button>
@@ -231,6 +231,7 @@ function AssignmentDialog({
   const [competitorId, setCompetitorId] = useState<string>("");
   const [expiresAt, setExpiresAt] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [nyNavn, setNyNavn] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -249,11 +250,12 @@ function AssignmentDialog({
     setCompetitorId(existing?.competitor_id ?? "");
     setExpiresAt(existing?.contract_expires_at ?? "");
     setNotes(existing?.notes ?? "");
+    setNyNavn("");
   }, [open, existing]);
 
   const save = async () => {
-    if (!competitorId) {
-      toast.error("Vælg en konkurrent");
+    if (!competitorId || (competitorId === "__ny" && !nyNavn.trim())) {
+      toast.error(competitorId === "__ny" ? "Skriv navnet på konkurrenten" : "Vælg en konkurrent");
       return;
     }
     if (!currentUserId) {
@@ -262,9 +264,41 @@ function AssignmentDialog({
     }
     setBusy(true);
     try {
+      let konkId = competitorId;
+      if (konkId === "__ny") {
+        const navn = nyNavn.trim();
+        const fundet = competitors.find((c) => c.name.toLowerCase() === navn.toLowerCase());
+        if (fundet) konkId = fundet.id;
+        else {
+          const { data: ny, error: nyErr } = await supabase
+            .from("competitors")
+            .insert({ name: navn, created_by: currentUserId })
+            .select("id")
+            .single();
+          if (nyErr) throw nyErr;
+          konkId = ny.id;
+        }
+      }
+      // Kun én konkurrentaftale pr. virksomhed: skift af konkurrent opdaterer den eksisterende.
+      if (existing && existing.competitor_id !== konkId) {
+        const { error: upErr } = await supabase
+          .from("competitor_assignments")
+          .update({
+            competitor_id: konkId,
+            contract_expires_at: expiresAt || null,
+            notes: notes.trim() || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+        if (upErr) throw upErr;
+        toast.success("Konkurrentaftale gemt");
+        onOpenChange(false);
+        onSaved();
+        return;
+      }
       const payload = {
         company_id: companyId,
-        competitor_id: competitorId,
+        competitor_id: konkId,
         contract_expires_at: expiresAt || null,
         notes: notes.trim() || null,
         registered_by: existing?.registered_by ?? currentUserId,
@@ -300,22 +334,27 @@ function AssignmentDialog({
                 <SelectValue placeholder="Vælg konkurrent" />
               </SelectTrigger>
               <SelectContent>
-                {competitors.length === 0 ? (
-                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                    Ingen konkurrenter oprettet endnu
-                  </div>
-                ) : (
-                  competitors.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))
-                )}
+                <SelectItem value="__ny">+ Ny konkurrent…</SelectItem>
+                {competitors.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {competitorId === "__ny" && (
+              <input
+                autoFocus
+                placeholder="Navn på konkurrent"
+                className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={nyNavn}
+                maxLength={120}
+                onChange={(e) => setNyNavn(e.target.value)}
+              />
+            )}
           </div>
           <div>
-            <Label>Aftale udløber (valgfri)</Label>
+            <Label>Kundens aftale udløber (valgfri)</Label>
             <input
               type="date"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"

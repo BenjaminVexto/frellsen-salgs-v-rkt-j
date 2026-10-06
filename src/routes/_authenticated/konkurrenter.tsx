@@ -88,7 +88,9 @@ type AssignmentRow = {
 
 function KonkurrenterPage() {
   const auth = useAuth();
-  const canWrite = auth.role === "admin" || auth.role === "salgssupport";
+  // Alle brugere kan oprette og redigere konkurrenter; kun admin kan slette.
+  const canWrite = !!auth.role;
+  const canDelete = auth.role === "admin";
 
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -308,6 +310,7 @@ function KonkurrenterPage() {
                           count={counts[c.id] ?? 0}
                           active={selectedId === c.id}
                           canWrite={canWrite}
+                          canDelete={canDelete}
                           onSelect={() => setSelectedId(c.id)}
                           onEdit={() => setEditTarget(c)}
                           onDelete={() => setDeleteTarget(c)}
@@ -333,6 +336,7 @@ function KonkurrenterPage() {
                         count={counts[c.id] ?? 0}
                         active={selectedId === c.id}
                         canWrite={canWrite}
+                        canDelete={canDelete}
                         onSelect={() => setSelectedId(c.id)}
                         onEdit={() => setEditTarget(c)}
                         onDelete={() => setDeleteTarget(c)}
@@ -405,6 +409,7 @@ function CompetitorCard({
   count,
   active,
   canWrite,
+  canDelete,
   onSelect,
   onEdit,
   onDelete,
@@ -413,6 +418,7 @@ function CompetitorCard({
   count: number;
   active: boolean;
   canWrite: boolean;
+  canDelete?: boolean;
   onSelect: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -453,7 +459,7 @@ function CompetitorCard({
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button
+          {canDelete && (<Button
             size="sm"
             variant="ghost"
             className="h-7 w-7 p-0 text-destructive hover:text-destructive"
@@ -464,7 +470,7 @@ function CompetitorCard({
             aria-label="Slet konkurrent"
           >
             <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          </Button>)}
         </div>
       )}
 
