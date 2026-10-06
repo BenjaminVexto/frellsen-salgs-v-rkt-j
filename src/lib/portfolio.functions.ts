@@ -964,6 +964,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       },
       statusCountsPrior: statusPrior,
       senesteFakturadato,
+      faldGraenser: { minPct: faldMinPct, minKr: faldMinKr },
       monthLabels,
       companies,
       rankings: {
