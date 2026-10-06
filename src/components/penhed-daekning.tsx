@@ -144,6 +144,7 @@ export function PenhedDaekning({
   assignedTo,
   onChanged,
   visIkkeRelevante = false,
+  kunIkkeKunde = false,
 }: {
   cvr: string;
   afdelingNr: number;
@@ -152,6 +153,8 @@ export function PenhedDaekning({
   assignedTo?: string | null;
   onChanged?: () => void;
   visIkkeRelevante?: boolean;
+  /** Vis kun P-enheder, vi ikke er hos (sorteret efter ansatte) — bruges under Lokationer. */
+  kunIkkeKunde?: boolean;
 }) {
   const auth = useAuth();
   const kanStyre = auth.maaSeAfdelingspotentiale;
@@ -261,7 +264,7 @@ export function PenhedDaekning({
         oprettet_af: u.user?.id,
         oprettet_dato: new Date().toISOString(),
       },
-      { onConflict: "p_nummer,afdeling_nr" },
+      { onConflict: "p_nummer,location_id" },
     );
     setBusy(null);
     if (error) return toast.error("Kunne ikke koble: " + error.message);
@@ -545,59 +548,8 @@ export function PenhedDaekning({
   const toggleCls =
     "flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground py-1";
 
-  return (
+  const dialoger = (
     <>
-    <table className="w-full text-sm table-fixed">
-      <colgroup>
-        <col className="w-40" />
-        <col />
-        <col className="w-24" />
-        <col className="w-16" />
-        <col className="w-24" />
-        <col className="w-32" />
-      </colgroup>
-      <thead className="text-[11px] text-muted-foreground">
-        <tr>
-          <th className="text-left font-normal pr-3">By</th>
-          <th className="text-left font-normal pr-3">Adresse</th>
-          <th className="text-left font-normal pr-3">P-nr</th>
-          <th className="text-right font-normal pr-3">Ansatte</th>
-          <th className="text-left font-normal pr-3">Visma-kundenr</th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td colSpan={6}>
-            <button className={toggleCls} onClick={() => setVisDaekket((v) => !v)}>
-              Kunde hos os: {daekket.length} P-enheder · {daekketAnsatte} ansatte
-              {visDaekket ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            </button>
-          </td>
-        </tr>
-        {visDaekket && daekket.map((p) => <Row key={p.p_number} p={p} dk />)}
-        <tr>
-          <td colSpan={6} className="pt-2 text-xs font-medium text-muted-foreground py-1">
-            Ikke kunde endnu ({ikke.length})
-            {!visIkkeRelevante && skjulteIkkeRel > 0 && (
-              <span className="ml-2 font-normal">· {skjulteIkkeRel} ikke relevante skjult</span>
-            )}
-          </td>
-        </tr>
-        {store.map((p) => <Row key={p.p_number} p={p} dk={false} />)}
-        {mindre.length > 0 && (
-          <tr>
-            <td colSpan={6}>
-              <button className={toggleCls} onClick={() => setVisMindre((v) => !v)}>
-                {visMindre ? "Skjul" : "Vis"} {mindre.length} mindre afdelinger
-                {visMindre ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              </button>
-            </td>
-          </tr>
-        )}
-        {visMindre && mindre.map((p) => <Row key={p.p_number} p={p} dk={false} />)}
-      </tbody>
-    </table>
     <Dialog open={!!tildelFor} onOpenChange={(o) => !o && setTildelFor(null)}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -664,6 +616,110 @@ export function PenhedDaekning({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
+  );
+
+  if (kunIkkeKunde) {
+    return (
+      <>
+        <ul className="divide-y">
+          {ikke.map((p) => (
+            <li key={p.p_number} className="py-2 text-sm">
+              <div className="font-medium">{p.address ?? "Ukendt adresse"}</div>
+              <div className="text-xs text-muted-foreground">
+                {[[p.zip, p.city].filter(Boolean).join(" "), `P-nr. ${p.p_number}`, `${formatAnsatte(p)} ansatte`]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+              {aabneInfo.has(p.p_number) ? (
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Salgsmulighed: {aabneInfo.get(p.p_number)!.saelger ?? "uden sælger"} ·{" "}
+                  {STADIE_LABEL[aabneInfo.get(p.p_number)!.status] ?? aabneInfo.get(p.p_number)!.status}
+                </div>
+              ) : companyId ? (
+                busy === p.p_number ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mt-1" />
+                ) : (
+                  <button
+                    className="text-xs text-primary hover:underline mt-0.5"
+                    onClick={() => {
+                      if (kanStyre) {
+                        setTildelTil(assignedTo ?? "");
+                        setTildelFor(p);
+                      } else opretMulighed(p);
+                    }}
+                  >
+                    {kanStyre ? "Tildel sælger" : "Opret salgsmulighed"}
+                  </button>
+                )
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        {dialoger}
+      </>
+    );
+  }
+
+  return (
+    <>
+    <div className="overflow-x-auto">
+    <table className="w-full min-w-[600px] text-sm table-fixed">
+      <colgroup>
+        <col className="w-40" />
+        <col />
+        <col className="w-24" />
+        <col className="w-16" />
+        <col className="w-24" />
+        <col className="w-32" />
+      </colgroup>
+      <thead className="text-[11px] text-muted-foreground">
+        <tr>
+          <th className="text-left font-normal pr-3">By</th>
+          <th className="text-left font-normal pr-3">Adresse</th>
+          <th className="text-left font-normal pr-3">P-nr</th>
+          <th className="text-right font-normal pr-3">Ansatte</th>
+          <th className="text-left font-normal pr-3">Visma-kundenr</th>
+          <th />
+        </tr>
+      </thead>
+      <tbody>
+        {kunIkkeKunde && ikke.map((p) => <Row key={p.p_number} p={p} dk={false} />)}
+        {!kunIkkeKunde && (<>
+        <tr>
+          <td colSpan={6}>
+            <button className={toggleCls} onClick={() => setVisDaekket((v) => !v)}>
+              Kunde hos os: {daekket.length} P-enheder · {daekketAnsatte} ansatte
+              {visDaekket ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </button>
+          </td>
+        </tr>
+        {visDaekket && daekket.map((p) => <Row key={p.p_number} p={p} dk />)}
+        <tr>
+          <td colSpan={6} className="pt-2 text-xs font-medium text-muted-foreground py-1">
+            Ikke kunde endnu ({ikke.length})
+            {!visIkkeRelevante && skjulteIkkeRel > 0 && (
+              <span className="ml-2 font-normal">· {skjulteIkkeRel} ikke relevante skjult</span>
+            )}
+          </td>
+        </tr>
+        {store.map((p) => <Row key={p.p_number} p={p} dk={false} />)}
+        {mindre.length > 0 && (
+          <tr>
+            <td colSpan={6}>
+              <button className={toggleCls} onClick={() => setVisMindre((v) => !v)}>
+                {visMindre ? "Skjul" : "Vis"} {mindre.length} mindre afdelinger
+                {visMindre ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </button>
+            </td>
+          </tr>
+        )}
+        {visMindre && mindre.map((p) => <Row key={p.p_number} p={p} dk={false} />)}
+        </>)}
+      </tbody>
+    </table>
+    </div>
+    {dialoger}
     </>
   );
 }

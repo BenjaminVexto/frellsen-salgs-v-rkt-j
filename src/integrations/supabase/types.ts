@@ -3955,6 +3955,9 @@ export type Database = {
       _skm_refresh_keys: { Args: never; Returns: undefined }
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
+      addr_n_del: { Args: { _addr: string }; Returns: string[] }
+      addr_n_husnr: { Args: { _addr: string }; Returns: string }
+      addr_n_vej: { Args: { _addr: string }; Returns: string }
       addr_vej: { Args: { _addr: string }; Returns: string }
       aktive_saelgere: {
         Args: never

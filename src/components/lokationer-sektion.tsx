@@ -18,6 +18,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import { PenhedDaekning } from "@/components/penhed-daekning";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { BesoegtKnap } from "@/components/besoegt-knap";
 import { KatalogKnap } from "@/components/katalog-knap";
@@ -62,6 +63,57 @@ export type Location = {
   equipment_updated_at?: string | null;
 };
 
+const KONTO_STATUS: Record<string, string> = {
+  aktiv_kunde: "Aktiv",
+  sovende_kunde: "Sovende",
+  tidligere_kunde: "Tidligere kunde",
+  servicekunde: "Servicekunde",
+  nyt_emne: "Emne",
+};
+
+type PenhedInfo = {
+  p_number: string;
+  address: string | null;
+  zip: string | null;
+  city: string | null;
+  ansatte_praecis: number | null;
+  ansatte_interval: string | null;
+  ansatte_estimat: number | null;
+};
+
+type AdresseGruppe = {
+  key: string;
+  address: string | null;
+  zip: string | null;
+  city: string | null;
+  pnr: string | null;
+  ansatte: number | null;
+  ansatteTekst: string | null;
+  ansatteEstimat: number | null;
+  locs: Location[];
+  primary: boolean;
+  revenue: number;
+  foersteIdx: number;
+};
+
+/**
+ * Samme normalisering som databasens addr_n_vej/addr_n_husnr:
+ * vejnavn + husnr (+bogstav); etage, side, sal og tekst efter komma ignoreres.
+ */
+export function adresseNoegle(a: string | null | undefined): string | null {
+  if (!a || !a.trim()) return null;
+  const s = a
+    .toLowerCase()
+    .replace(/[éè]/g, "e")
+    .split(",")[0]!
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/v\.(\s|$)/g, "vej$1");
+  const m = s.match(/^([^0-9]*[^0-9\s])\s*([0-9]+)\s*([a-zæøå]?)(?:[^a-zæøå]|$)/);
+  if (!m) return s || null;
+  return `${m[1]!.replace(/[.\s]+$/, "")}|${m[2]}${m[3] ?? ""}`;
+}
+
 export type LocationContact = {
   id: string;
   name: string;
@@ -97,6 +149,10 @@ export function LokationerSektion({
   companyFallbackZip,
   companyFallbackCity,
   initialOpenLocationId,
+  cvr,
+  afdelingNr,
+  companyName,
+  assignedTo,
 }: {
   companyId: string;
   isAdmin: boolean;
@@ -107,11 +163,18 @@ export function LokationerSektion({
   companyFallbackZip?: string | null;
   companyFallbackCity?: string | null;
   initialOpenLocationId?: string | null;
+  cvr?: string | null;
+  afdelingNr?: number | null;
+  companyName?: string | null;
+  assignedTo?: string | null;
 }) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [hentet, setHentet] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  // Åbne adressegrupper registreres via deres lokations-id'er (robust mod at nøglen skifter).
+  const [aabneLok, setAabneLok] = useState<Set<string>>(new Set());
+  const [visIkkeHos, setVisIkkeHos] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [sortMode, setSortMode] = useState<
     "default" | "revenue" | "street" | "lastPurchase" | "machines"
@@ -147,6 +210,7 @@ export function LokationerSektion({
   // Åbn + scroll til en bestemt lokation
   const openLocation = (locationId: string) => {
     setExpanded(true);
+    setAabneLok((prev) => new Set(prev).add(locationId));
     setOpenId(locationId);
     requestAnimationFrame(() => {
       const el = document.getElementById(`location-${locationId}`);
@@ -261,6 +325,47 @@ export function LokationerSektion({
     },
   });
 
+  // P-enheder koblet til lokationerne + CVR'ets P-enheder, vi ikke er hos.
+  const pnrQ = useQuery({
+    enabled: hentet,
+    queryKey: ["lokation-penheder", companyId, cvr ?? null, afdelingNr ?? null, locations.map((l) => l.id).sort().join(",")],
+    queryFn: async () => {
+      const ids = locations.map((l) => l.id);
+      const sb = supabase as any;
+      const [lkRes, penRes] = await Promise.all([
+        ids.length
+          ? sb.from("location_pnr_link").select("p_nummer, location_id").in("location_id", ids).in("kilde", ["auto", "manuel"])
+          : Promise.resolve({ data: [] }),
+        cvr
+          ? sb.from("cvr_penheder").select("p_number, address, zip, city, ansatte_praecis, ansatte_interval, ansatte_estimat").eq("cvr", cvr).eq("is_active", true)
+          : Promise.resolve({ data: [] }),
+      ]);
+      if (lkRes.error) throw new Error(lkRes.error.message);
+      if (penRes.error) throw new Error(penRes.error.message);
+      const pInfo: Record<string, PenhedInfo> = {};
+      for (const p of (penRes.data ?? []) as any[]) pInfo[p.p_number] = p;
+      const linkByLoc: Record<string, string> = {};
+      for (const l of (lkRes.data ?? []) as any[]) linkByLoc[l.location_id] = l.p_nummer;
+      const mangler = Array.from(new Set(Object.values(linkByLoc))).filter((p) => !pInfo[p]);
+      if (mangler.length) {
+        const { data } = await sb.from("cvr_penheder").select("p_number, address, zip, city, ansatte_praecis, ansatte_interval, ansatte_estimat").in("p_number", mangler);
+        for (const p of (data ?? []) as any[]) pInfo[p.p_number] = p;
+      }
+      // Antal P-enheder på CVR'et, der ikke er koblet til nogen lokation i afdelingen (ikke-relevante skjules som i listen).
+      let ikkeHos = 0;
+      const pnrs = ((penRes.data ?? []) as any[]).map((p) => p.p_number);
+      if (pnrs.length && afdelingNr != null) {
+        const [{ data: dk }, { data: ir }] = await Promise.all([
+          sb.from("location_pnr_link").select("p_nummer").in("p_nummer", pnrs).eq("afdeling_nr", afdelingNr).in("kilde", ["auto", "manuel"]),
+          sb.from("penhed_ikke_relevant").select("p_nummer").in("p_nummer", pnrs),
+        ]);
+        const skjul = new Set([...((dk ?? []) as any[]), ...((ir ?? []) as any[])].map((x) => x.p_nummer));
+        ikkeHos = pnrs.filter((p) => !skjul.has(p)).length;
+      }
+      return { linkByLoc, pInfo, ikkeHos };
+    },
+  });
+
   const sortedLocations = useMemo(() => {
     if (sortMode === "street") {
       return [...locations].sort((a, b) => {
@@ -309,6 +414,54 @@ export function LokationerSektion({
     });
   }, [locations, sortMode, summaryQ.data, machineCountQ.data]);
 
+  const grupper = useMemo(() => {
+    const linkByLoc = pnrQ.data?.linkByLoc ?? {};
+    const pInfo = pnrQ.data?.pInfo ?? {};
+    const summary = summaryQ.data ?? {};
+    const map = new Map<string, AdresseGruppe>();
+    sortedLocations.forEach((l, idx) => {
+      const adr = firstFilled(l.address, l.is_primary ? companyFallbackAddress : null);
+      const zip = firstFilled(l.zip, l.is_primary ? companyFallbackZip : null);
+      const city = firstFilled(l.city, l.is_primary ? companyFallbackCity : null);
+      const pnr = linkByLoc[l.id] ?? null;
+      const nk = adresseNoegle(adr);
+      const key = pnr ? `p:${pnr}` : nk ? `a:${zip ?? ""}|${nk}` : "uden";
+      let g = map.get(key);
+      if (!g) {
+        const p = pnr ? pInfo[pnr] : undefined;
+        g = {
+          key,
+          address: key === "uden" ? null : (p?.address ?? adr),
+          zip: p?.zip ?? zip,
+          city: p?.city ?? city,
+          pnr,
+          ansatte: p ? (p.ansatte_praecis ?? null) : null,
+          ansatteTekst: p ? (p.ansatte_praecis != null ? p.ansatte_praecis.toLocaleString("da-DK") : p.ansatte_interval?.replace("-", "–") ?? null) : null,
+          ansatteEstimat: p?.ansatte_estimat ?? (p?.ansatte_praecis ?? null),
+          locs: [],
+          primary: false,
+          revenue: 0,
+          foersteIdx: idx,
+        };
+        map.set(key, g);
+      }
+      g.locs.push(l);
+      if (l.is_primary) g.primary = true;
+      g.revenue += summary[l.id]?.revenue12m ?? 0;
+    });
+    const list = Array.from(map.values());
+    list.sort((a, b) => {
+      if ((a.key === "uden") !== (b.key === "uden")) return a.key === "uden" ? 1 : -1;
+      if (sortMode !== "default") return a.foersteIdx - b.foersteIdx;
+      if (a.primary !== b.primary) return a.primary ? -1 : 1;
+      const ea = a.ansatteEstimat ?? -1;
+      const eb = b.ansatteEstimat ?? -1;
+      if (eb !== ea) return eb - ea;
+      return b.revenue - a.revenue;
+    });
+    return list;
+  }, [sortedLocations, pnrQ.data, summaryQ.data, sortMode, companyFallbackAddress, companyFallbackZip, companyFallbackCity]);
+
   const expiringByLoc = expiringQ.data ?? new Map<string, number>();
   const expiringTotal = Array.from(expiringByLoc.values()).reduce((n, v) => n + v, 0);
   const [expiringOpen, setExpiringOpen] = useState(false);
@@ -335,7 +488,9 @@ export function LokationerSektion({
     );
   }
 
-  const visible = expanded ? sortedLocations : sortedLocations.slice(0, 3);
+  const GRUPPER_VIST = 5;
+  const visibleGrupper = expanded ? grupper : grupper.slice(0, GRUPPER_VIST);
+  const enGruppe = grupper.length === 1;
 
   return (
     <Card className="p-5">
@@ -429,33 +584,81 @@ export function LokationerSektion({
               )}
             </div>
           )}
-          <ul className="divide-y">
-
-            {visible.map((l) => (
-              <LokationRow
-                key={l.id}
-                location={l}
-                isPrimary={l.is_primary}
-                isAdmin={isAdmin}
-                open={openId === l.id}
-                onToggle={() => setOpenId(openId === l.id ? null : l.id)}
-                contacts={contactsByLocation?.get(l.id) ?? []}
-                fallbackAddress={l.is_primary ? companyFallbackAddress : null}
-                fallbackZip={l.is_primary ? companyFallbackZip : null}
-                fallbackCity={l.is_primary ? companyFallbackCity : null}
-                onRegister={() => onRegisterActivity(l.id)}
-                companyId={companyId}
-                visBesoeg={locations.length > 1}
-                lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
-                showLastPurchase={sortMode === "lastPurchase"}
-                machineCount={machineCountQ.data?.[l.id] ?? 0}
-                showMachineCount={sortMode === "machines"}
-
-
-              />
-            ))}
+          <ul className="space-y-2">
+            {visibleGrupper.map((g) => {
+              const aaben = enGruppe || g.locs.some((l) => aabneLok.has(l.id));
+              const by = [g.zip, g.city].filter(Boolean).join(" ");
+              const titel = g.key === "uden"
+                ? "Uden adresse"
+                : [g.address, by].filter(Boolean).join(", ") || "Lokation";
+              const meta = [
+                g.ansatteTekst ? `${g.ansatteTekst} ansatte` : null,
+                g.pnr ? `P-nr. ${g.pnr}` : null,
+                `${g.locs.length} ${g.locs.length === 1 ? "konto" : "konti"}`,
+              ].filter(Boolean).join(" · ");
+              return (
+                <li key={g.key} className="rounded-md border">
+                  {!enGruppe && (
+                    <button
+                      type="button"
+                      aria-expanded={aaben}
+                      onClick={() =>
+                        setAabneLok((prev) => {
+                          const n = new Set(prev);
+                          if (aaben) g.locs.forEach((l) => n.delete(l.id));
+                          else g.locs.forEach((l) => n.add(l.id));
+                          return n;
+                        })
+                      }
+                      className="w-full flex items-start justify-between gap-2 px-3 py-2.5 text-left hover:bg-muted/40 rounded-md"
+                    >
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1.5 text-sm font-medium">
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="break-words">{titel}</span>
+                          {g.primary && (
+                            <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-normal">Primær</Badge>
+                          )}
+                        </span>
+                        <span className="block text-xs text-muted-foreground mt-0.5 pl-5">{meta}</span>
+                      </span>
+                      {aaben ? <ChevronUp className="h-4 w-4 mt-0.5 shrink-0" /> : <ChevronDown className="h-4 w-4 mt-0.5 shrink-0" />}
+                    </button>
+                  )}
+                  {enGruppe && (
+                    <div className="px-3 pt-2 text-xs text-muted-foreground">{meta}</div>
+                  )}
+                  {aaben && (
+                    <ul className={`divide-y px-3 ${enGruppe ? "" : "border-t"}`}>
+                      {g.locs.map((l) => (
+                        <LokationRow
+                          key={l.id}
+                          location={l}
+                          isPrimary={l.is_primary}
+                          isAdmin={isAdmin}
+                          open={openId === l.id}
+                          onToggle={() => setOpenId(openId === l.id ? null : l.id)}
+                          contacts={contactsByLocation?.get(l.id) ?? []}
+                          fallbackAddress={l.is_primary ? companyFallbackAddress : null}
+                          fallbackZip={l.is_primary ? companyFallbackZip : null}
+                          fallbackCity={l.is_primary ? companyFallbackCity : null}
+                          onRegister={() => onRegisterActivity(l.id)}
+                          companyId={companyId}
+                          visBesoeg={locations.length > 1}
+                          lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
+                          showLastPurchase={sortMode === "lastPurchase"}
+                          machineCount={machineCountQ.data?.[l.id] ?? 0}
+                          showMachineCount={sortMode === "machines"}
+                          kontoVisning={{ revenue12m: summaryQ.data?.[l.id]?.revenue12m ?? null }}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ul>
-          {locations.length > 3 && (
+          {grupper.length > GRUPPER_VIST && (
             <Button
               variant="ghost"
               size="sm"
@@ -469,12 +672,38 @@ export function LokationerSektion({
               ) : (
                 <>
                   <ChevronDown className="h-4 w-4 mr-1" />
-                  Vis alle {locations.length} lokationer
+                  Vis alle {grupper.length} adresser
                 </>
               )}
             </Button>
           )}
         </>
+      )}
+
+      {cvr && afdelingNr != null && (pnrQ.data?.ikkeHos ?? 0) > 0 && (
+        <div className="mt-4 border-t pt-3">
+          <button
+            type="button"
+            aria-expanded={visIkkeHos}
+            onClick={() => setVisIkkeHos((v) => !v)}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            {pnrQ.data!.ikkeHos} P-enhed{pnrQ.data!.ikkeHos === 1 ? "" : "er"} vi ikke er hos {visIkkeHos ? "▾" : "▸"}
+          </button>
+          {visIkkeHos && (
+            <div className="mt-2">
+              <PenhedDaekning
+                cvr={cvr}
+                afdelingNr={afdelingNr}
+                companyId={companyId}
+                companyName={companyName ?? null}
+                assignedTo={assignedTo ?? null}
+                kunIkkeKunde
+                onChanged={() => pnrQ.refetch()}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       {isAdmin && (
@@ -510,6 +739,7 @@ function LokationRow({
   showMachineCount,
   companyId,
   visBesoeg,
+  kontoVisning,
 }: {
   companyId?: string;
   visBesoeg?: boolean;
@@ -527,13 +757,21 @@ function LokationRow({
   showLastPurchase?: boolean;
   machineCount?: number;
   showMachineCount?: boolean;
+  /** Vist inde i en adressegruppe: overskriften er kontoen (Visma-nr., status, sælger, omsætning). */
+  kontoVisning?: { revenue12m: number | null } | null;
 }) {
 
   const address = firstFilled(location.address, fallbackAddress);
   const zip = firstFilled(location.zip, fallbackZip);
   const city = firstFilled(location.city, fallbackCity);
   const cityLine = [zip, city].filter(Boolean).join(" ");
-  const headline = [address, cityLine].filter(Boolean).join(", ") || "Lokation";
+  const kontoStatus = (location as any).kreditspaerret
+    ? "Spærret"
+    : KONTO_STATUS[(location as any).customer_type as string] ?? null;
+  const kontoSaelger = (location as any).saelger?.full_name ?? null;
+  const headline = kontoVisning
+    ? [`Kundenr. ${location.visma_delivery_no ?? "–"}`, kontoStatus, kontoSaelger].filter(Boolean).join(" · ")
+    : [address, cityLine].filter(Boolean).join(", ") || "Lokation";
   const lastPurchaseLabel = lastPurchase
     ? new Date(lastPurchase + "T00:00:00Z").toLocaleDateString("da-DK", {
         day: "numeric",
@@ -542,14 +780,18 @@ function LokationRow({
       })
     : "Intet køb registreret";
 
-  const metaLabel = showLastPurchase
+  const metaLabel = kontoVisning && !showLastPurchase && !showMachineCount
+    ? `${Math.round(kontoVisning.revenue12m ?? 0).toLocaleString("da-DK")} kr. / 12 mdr.`
+    : showLastPurchase
     ? (lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel)
     : showMachineCount
       ? (machineCount
           ? `${machineCount} maskine${machineCount === 1 ? "" : "r"}`
           : "Ingen maskiner")
       : null;
-  const metaTone = showLastPurchase
+  const metaTone = kontoVisning && !showLastPurchase && !showMachineCount
+    ? "text-muted-foreground"
+    : showLastPurchase
     ? (lastPurchase ? "text-muted-foreground" : "text-destructive")
     : (machineCount ? "text-muted-foreground" : "text-destructive");
 
@@ -559,22 +801,29 @@ function LokationRow({
         type="button"
         onClick={onToggle}
         className="w-full grid items-center gap-2 py-2.5 text-left hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors"
-        style={{ gridTemplateColumns: "minmax(0, 1fr) 10rem 1.5rem" }}
+        style={{ gridTemplateColumns: kontoVisning ? "minmax(0, 1fr) 1.5rem" : "minmax(0, 1fr) 10rem 1.5rem" }}
       >
         <span className="flex items-center gap-2 min-w-0">
           <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="truncate text-sm">{headline}</span>
-          {isPrimary && (
+          {kontoVisning ? (
+            <span className="min-w-0">
+              <span className="block text-sm break-words">{headline}</span>
+              <span className={`block text-xs tabular-nums ${metaTone}`}>{metaLabel}</span>
+            </span>
+          ) : (
+            <span className="truncate text-sm">{headline}</span>
+          )}
+          {isPrimary && !kontoVisning && (
             <Badge variant="secondary" className="text-xs flex-shrink-0">
               Primær
             </Badge>
           )}
         </span>
-        <span
+{!kontoVisning && (        <span
           className={`text-xs text-right tabular-nums whitespace-nowrap overflow-hidden text-ellipsis ${metaTone}`}
         >
           {metaLabel ?? ""}
-        </span>
+        </span>)}
         {open ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0 justify-self-end" />
         ) : (
