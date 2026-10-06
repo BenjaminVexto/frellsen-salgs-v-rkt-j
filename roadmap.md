@@ -2,21 +2,21 @@
 - [x] Salgsintelligens P-enheder: ansatte, dækning (location_pnr_link), UI, kundekort — plan med 5 rettelser
 - [x] Min salgsstatistik: stabil sælgervælger, indlæsning/fejl pr. tabel, forudberegnede tabeller, korrekt "Data opdateret til"
 - [ ] Sælger pr. lokation (godkendt plan + tilføjelser):
-  - [ ] locations: saelger_no, saelger_user_id, kreditspaerret, i_aktoer; companies.kreditspaerret
-  - [ ] Engangsudfyldning fra Aktør 5/10 på (afdeling, Lev. kund) uden triggere + én samlet genberegning
-  - [ ] Forudberegnede tabeller pr. (virksomhed, sælger, måned); unik kunde pr. sælger
+  - [x] locations: saelger_no, saelger_user_id, kreditspaerret, i_aktoer; companies.kreditspaerret
+  - [x] Engangsudfyldning fra Aktør 5/10 på (afdeling, Lev. kund) uden triggere + én samlet genberegning
+  - [x] Forudberegnede tabeller pr. (virksomhed, sælger, måned); unik kunde pr. sælger
   - [ ] Kundestatus pr. sælger ud fra egne lokationer
   - [ ] "Nye kunder" = ny for Frellsen; "Nye lokationer" separat i Målepunkter
   - [ ] Bonus: mulighed for at fastfryse perioder (intet fastfryses nu)
-  - [ ] Profil får sælgernummer → lokationer kobles automatisk
+  - [x] Profil får sælgernummer → lokationer kobles automatisk
   - [ ] Aktør-import: spærrede med, sælger pr. lokation, assigned_to = hovedkonto, fjern "første række"
   - [ ] Visninger pr. lokationssælger; "x af y lokationer"; Spærret-badge; spærrede ud af salgsmuligheder/sælg mere/sovende
   - [ ] Kontrol: før/efter pr. sælger, total uændret, "Ikke tildelt" kun uden Visma-sælger
-  - [ ] Backup af companies (id, assigned_to, kreditspaerret) før udfyldning
-  - [ ] aktoer_anvend_saelgere: skm_skip + én genberegning, køres via server
-  - [ ] Profil får sælgernr → også assigned_to for hovedkonto-virksomheder
-  - [ ] Kontrol: Compass Group = Mads (ansvarlig), Esbjerg = Anders Mohr
+  - [x] Backup af companies (id, assigned_to, kreditspaerret) før udfyldning
+  - [x] aktoer_anvend_saelgere: skm_skip + én genberegning, køres via server
+  - [x] Profil får sælgernr → også assigned_to for hovedkonto-virksomheder
+  - [x] Kontrol: Compass Group = Mads (ansvarlig), Esbjerg = Anders Mohr
   - [ ] Sig til før fakturaimport må bruges igen
-  - [ ] Mål skm_genberegn_alt; del pr. afdeling hvis nær 120 s
-  - [ ] Afd. 23 gemmes som 21 i Aktør-staging
-  - [ ] Vis lokationer pr. sælgernøgle; ISS 3156300 = Jes
+  - [x] Mål skm_genberegn_alt; del pr. afdeling hvis nær 120 s
+  - [x] Afd. 23 gemmes som 21 i Aktør-staging
+  - [x] Vis lokationer pr. sælgernøgle; ISS 3156300 = Jes
