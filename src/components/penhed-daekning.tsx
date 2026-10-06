@@ -550,7 +550,8 @@ export function PenhedDaekning({
 
   return (
     <>
-    <table className="w-full text-sm table-fixed">
+    <div className="overflow-x-auto">
+    <table className="w-full min-w-[600px] text-sm table-fixed">
       <colgroup>
         <col className="w-40" />
         <col />
@@ -604,6 +605,7 @@ export function PenhedDaekning({
         </>)}
       </tbody>
     </table>
+    </div>
     <Dialog open={!!tildelFor} onOpenChange={(o) => !o && setTildelFor(null)}>
       <DialogContent className="max-w-md">
         <DialogHeader>
