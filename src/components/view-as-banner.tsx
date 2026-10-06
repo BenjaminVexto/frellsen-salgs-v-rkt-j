@@ -58,7 +58,7 @@ export function ViewAsBanner() {
             void qc.invalidateQueries();
           }}
         >
-          <X className="h-4 w-4 mr-1" /> Tilbage til admin
+          <X className="h-4 w-4 mr-1" /> Afslut
         </Button>
       </div>
     </div>
