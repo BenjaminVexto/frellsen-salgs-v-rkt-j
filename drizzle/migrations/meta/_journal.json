@@ -330,6 +330,13 @@
       "when": 1791203937085,
       "tag": "0046_bonus_pr_maaned_forudberegnet",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1791267736522,
+      "tag": "0047_saelger_pr_lokation_grundlag",
+      "breakpoints": true
     }
   ]
 }
