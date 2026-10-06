@@ -76,7 +76,7 @@ export function useAuth(): AuthState {
       const [{ data: roleRows }, { data: profile }, { data: afdRows }, { data: apRet }] =
         await fetchExtras(session.user.id);
       if (!active) return;
-      const roles = new Set((roleRows ?? []).map((r) => r.role));
+      const roles = new Set((roleRows ?? []).map((r: { role: AppRole }) => r.role));
       const role: AppRole = roles.has("admin")
         ? "admin"
         : roles.has("salgssupport")
