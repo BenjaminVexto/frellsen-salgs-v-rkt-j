@@ -372,6 +372,81 @@ export type Database = {
           },
         ]
       }
+      aktoer_lokation_staging: {
+        Row: {
+          afdeling_nr: number
+          batch: string
+          fakt_kunde: string | null
+          kreditspaerret: boolean
+          lev_kund: string
+          saelger_no: string | null
+        }
+        Insert: {
+          afdeling_nr: number
+          batch: string
+          fakt_kunde?: string | null
+          kreditspaerret?: boolean
+          lev_kund: string
+          saelger_no?: string | null
+        }
+        Update: {
+          afdeling_nr?: number
+          batch?: string
+          fakt_kunde?: string | null
+          kreditspaerret?: boolean
+          lev_kund?: string
+          saelger_no?: string | null
+        }
+        Relationships: []
+      }
+      bonus_laas: {
+        Row: {
+          antal_animo: number | null
+          antal_rex: number | null
+          antal_wittenborg: number | null
+          db_bonus: number | null
+          db_grundlag: number | null
+          db_provision_pct: number | null
+          laast_af: string | null
+          laast_at: string
+          maaned: string
+          maskinbonus: number | null
+          ordning_id: string | null
+          samlet_bonus: number | null
+          user_id: string
+        }
+        Insert: {
+          antal_animo?: number | null
+          antal_rex?: number | null
+          antal_wittenborg?: number | null
+          db_bonus?: number | null
+          db_grundlag?: number | null
+          db_provision_pct?: number | null
+          laast_af?: string | null
+          laast_at?: string
+          maaned: string
+          maskinbonus?: number | null
+          ordning_id?: string | null
+          samlet_bonus?: number | null
+          user_id: string
+        }
+        Update: {
+          antal_animo?: number | null
+          antal_rex?: number | null
+          antal_wittenborg?: number | null
+          db_bonus?: number | null
+          db_grundlag?: number | null
+          db_provision_pct?: number | null
+          laast_af?: string | null
+          laast_at?: string
+          maaned?: string
+          maskinbonus?: number | null
+          ordning_id?: string | null
+          samlet_bonus?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       bonus_ordning: {
         Row: {
           bonus_animo: number
@@ -586,6 +661,7 @@ export type Database = {
             | Database["public"]["Enums"]["institution_type"]
             | null
           is_public: boolean
+          kreditspaerret: boolean
           last_consumable_sales_date: string | null
           last_purchase_date: string | null
           last_sales_date: string | null
@@ -640,6 +716,7 @@ export type Database = {
             | Database["public"]["Enums"]["institution_type"]
             | null
           is_public?: boolean
+          kreditspaerret?: boolean
           last_consumable_sales_date?: string | null
           last_purchase_date?: string | null
           last_sales_date?: string | null
@@ -694,6 +771,7 @@ export type Database = {
             | Database["public"]["Enums"]["institution_type"]
             | null
           is_public?: boolean
+          kreditspaerret?: boolean
           last_consumable_sales_date?: string | null
           last_purchase_date?: string | null
           last_sales_date?: string | null
@@ -745,6 +823,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      companies_saelger_backup: {
+        Row: {
+          assigned_to: string | null
+          backup_dato: string
+          company_id: string
+          kreditspaerret: boolean | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          backup_dato: string
+          company_id: string
+          kreditspaerret?: boolean | null
+        }
+        Update: {
+          assigned_to?: string | null
+          backup_dato?: string
+          company_id?: string
+          kreditspaerret?: boolean | null
+        }
+        Relationships: []
       }
       company_briefings: {
         Row: {
@@ -1894,6 +1993,27 @@ export type Database = {
           },
         ]
       }
+      location_mp_info: {
+        Row: {
+          afdeling_nr: number | null
+          company_id: string
+          foerste_ordre: string | null
+          location_id: string
+        }
+        Insert: {
+          afdeling_nr?: number | null
+          company_id: string
+          foerste_ordre?: string | null
+          location_id: string
+        }
+        Update: {
+          afdeling_nr?: number | null
+          company_id?: string
+          foerste_ordre?: string | null
+          location_id?: string
+        }
+        Relationships: []
+      }
       location_pnr_link: {
         Row: {
           afdeling_nr: number
@@ -1947,6 +2067,7 @@ export type Database = {
           address: string | null
           afdeling_nr: number
           agreement_types: string | null
+          aktoer_opdateret: string | null
           city: string | null
           company_id: string
           contact_person: string | null
@@ -1959,12 +2080,17 @@ export type Database = {
           equipment_service_contracts: number | null
           equipment_summary: string | null
           equipment_updated_at: string | null
+          er_hovedkonto: boolean
           has_free_loan: boolean | null
           has_lease_agreement: boolean | null
+          i_aktoer: boolean
           id: string
           is_primary: boolean
+          kreditspaerret: boolean
           phone: string | null
           region: string | null
+          saelger_no: string | null
+          saelger_user_id: string | null
           sales_signal: string | null
           visma_delivery_no: string | null
           visma_enhed: string | null
@@ -1975,6 +2101,7 @@ export type Database = {
           address?: string | null
           afdeling_nr?: number
           agreement_types?: string | null
+          aktoer_opdateret?: string | null
           city?: string | null
           company_id: string
           contact_person?: string | null
@@ -1987,12 +2114,17 @@ export type Database = {
           equipment_service_contracts?: number | null
           equipment_summary?: string | null
           equipment_updated_at?: string | null
+          er_hovedkonto?: boolean
           has_free_loan?: boolean | null
           has_lease_agreement?: boolean | null
+          i_aktoer?: boolean
           id?: string
           is_primary?: boolean
+          kreditspaerret?: boolean
           phone?: string | null
           region?: string | null
+          saelger_no?: string | null
+          saelger_user_id?: string | null
           sales_signal?: string | null
           visma_delivery_no?: string | null
           visma_enhed?: string | null
@@ -2003,6 +2135,7 @@ export type Database = {
           address?: string | null
           afdeling_nr?: number
           agreement_types?: string | null
+          aktoer_opdateret?: string | null
           city?: string | null
           company_id?: string
           contact_person?: string | null
@@ -2015,12 +2148,17 @@ export type Database = {
           equipment_service_contracts?: number | null
           equipment_summary?: string | null
           equipment_updated_at?: string | null
+          er_hovedkonto?: boolean
           has_free_loan?: boolean | null
           has_lease_agreement?: boolean | null
+          i_aktoer?: boolean
           id?: string
           is_primary?: boolean
+          kreditspaerret?: boolean
           phone?: string | null
           region?: string | null
+          saelger_no?: string | null
+          saelger_user_id?: string | null
           sales_signal?: string | null
           visma_delivery_no?: string | null
           visma_enhed?: string | null
@@ -2804,6 +2942,9 @@ export type Database = {
           kg: number
           kg_c4: number
           koder: string[]
+          last_inv_any: string | null
+          last_inv_cons: string | null
+          last_inv_fb: string | null
           period: string
           pos_any: boolean
           pos_c4: boolean
@@ -2813,6 +2954,7 @@ export type Database = {
           rev_ex16: number
           rev_fg: number
           saelger: string | null
+          saelger_noegle: string
         }
         Insert: {
           afdeling_nr: number
@@ -2826,6 +2968,9 @@ export type Database = {
           kg?: number
           kg_c4?: number
           koder?: string[]
+          last_inv_any?: string | null
+          last_inv_cons?: string | null
+          last_inv_fb?: string | null
           period: string
           pos_any?: boolean
           pos_c4?: boolean
@@ -2835,6 +2980,7 @@ export type Database = {
           rev_ex16?: number
           rev_fg?: number
           saelger?: string | null
+          saelger_noegle?: string
         }
         Update: {
           afdeling_nr?: number
@@ -2848,6 +2994,9 @@ export type Database = {
           kg?: number
           kg_c4?: number
           koder?: string[]
+          last_inv_any?: string | null
+          last_inv_cons?: string | null
+          last_inv_fb?: string | null
           period?: string
           pos_any?: boolean
           pos_c4?: boolean
@@ -2857,6 +3006,7 @@ export type Database = {
           rev_ex16?: number
           rev_fg?: number
           saelger?: string | null
+          saelger_noegle?: string
         }
         Relationships: []
       }
@@ -3634,6 +3784,10 @@ export type Database = {
           id: string
         }[]
       }
+      aktoer_anvend_saelgere: {
+        Args: { _batch: string; _fuldt_udtraek?: boolean }
+        Returns: Json
+      }
       analyse_filtre: {
         Args: { _afdeling_nr: number; _fra: string; _til: string }
         Returns: Json
@@ -3955,6 +4109,11 @@ export type Database = {
           _type: string
         }
         Returns: undefined
+      }
+      lok_saelger: { Args: { _location_id: string }; Returns: string }
+      lok_saelger_noegle: {
+        Args: { _i_aktoer: boolean; _no: string; _user: string }
+        Returns: string
       }
       maa_se_analyse: { Args: { _user_id: string }; Returns: boolean }
       maa_se_db: { Args: { _user_id: string }; Returns: boolean }
@@ -4392,6 +4551,7 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      skm_genberegn_alt: { Args: { _afdeling_nr?: number }; Returns: number }
       snapshot_forbrug_signal: { Args: never; Returns: number }
       sortiment_daekning: { Args: { _company_id: string }; Returns: Json }
       te_sortiment_kunde: { Args: { _company_id: string }; Returns: Json }
