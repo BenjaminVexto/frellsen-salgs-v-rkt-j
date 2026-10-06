@@ -93,6 +93,7 @@ import { UdskrivMaskinlisteKnap } from "@/components/maskinliste-print";
 import { CompanyPricingSummary } from "@/components/company-pricing-summary";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
+import { KoncernSektion } from "@/components/koncern-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion, AiBriefingKnap, useCompanyBriefing } from "@/components/ai-briefing-sektion";
@@ -1008,6 +1009,7 @@ function VirksomhedsKort() {
             {/* FANE: Relationer */}
             <TabsContent value="relationer" className="space-y-4 mt-4">
               <SoesterselskaberSektion companyId={company.id} cvr={company.cvr} />
+              <KoncernSektion cvr={company.cvr} />
               <ForsyningsRelationerSektion companyId={company.id} />
               <KontaktpersonerSektion
                 companyId={company.id}

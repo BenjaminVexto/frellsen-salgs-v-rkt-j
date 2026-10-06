@@ -65,6 +65,23 @@ function matchesEmployees(n: number | null, ranges: string[]) {
   });
 }
 
+/** Rammer søgningen en lokation (adresse, by, postnr., leveringsnr., P-nr., P-enhedsnavn)? */
+export function lokationMatcher(l: LocationLite, rawQuery: string): boolean {
+  const raw = rawQuery.trim();
+  const qq = raw.toLowerCase();
+  if (!qq) return false;
+  const adrBy = `${l.address ?? ""} ${l.zip ?? ""} ${l.city ?? ""}`.toLowerCase();
+  return (
+    (l.city ?? "").toLowerCase().includes(qq) ||
+    (l.address ?? "").toLowerCase().includes(qq) ||
+    adrBy.includes(qq) ||
+    (l.zip ?? "").includes(raw) ||
+    (l.visma_delivery_no ?? "").toLowerCase().includes(qq) ||
+    (l.p_numre ?? []).some((p) => p.includes(raw)) ||
+    (l.penhed_navne ?? []).some((n) => n.toLowerCase().includes(qq))
+  );
+}
+
 export type UseCompanyFilterOptions = {
   isAdmin: boolean;
   restrictToIds?: string[] | null;
@@ -168,25 +185,58 @@ export function useCompanyFilter({
     (async () => {
       const ids = rows.map((r) => r.id);
       const m = new Map<string, LocationLite[]>();
+      const byLocId = new Map<string, LocationLite>();
       for (let i = 0; i < ids.length; i += 500) {
         const slice = ids.slice(i, i + 500);
         const { data } = await (supabase as any)
           .from("locations")
-          .select("company_id, city, address, zip, visma_delivery_no, saelger_user_id")
+          .select("id, company_id, city, address, zip, visma_delivery_no, saelger_user_id")
           .in("company_id", slice);
         (data ?? []).forEach((l: any) => {
           const arr = m.get(l.company_id) ?? [];
-          arr.push({
+          const lite: LocationLite = {
             city: l.city,
             address: l.address,
             zip: l.zip,
             visma_delivery_no: l.visma_delivery_no,
             saelger_user_id: l.saelger_user_id ?? null,
-          });
+          };
+          arr.push(lite);
+          byLocId.set(l.id, lite);
           m.set(l.company_id, arr);
         });
       }
-      setLocationMap(m);
+      setLocationMap(new Map(m));
+
+      // P-numre + P-enhedsnavne koblet til lokationerne (kun egne afdelinger via RLS)
+      const links: { p_nummer: string; location_id: string }[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data } = await (supabase as any)
+          .from("location_pnr_link")
+          .select("p_nummer, location_id")
+          .in("kilde", ["auto", "manuel"])
+          .not("location_id", "is", null)
+          .range(from, from + 999);
+        links.push(...(data ?? []));
+        if (!data || data.length < 1000) break;
+      }
+      const navne = new Map<string, string>();
+      const pnrs = Array.from(new Set(links.map((l) => l.p_nummer)));
+      for (let i = 0; i < pnrs.length; i += 300) {
+        const { data } = await (supabase as any)
+          .from("cvr_penheder")
+          .select("p_number, name")
+          .in("p_number", pnrs.slice(i, i + 300));
+        (data ?? []).forEach((p: any) => p.name && navne.set(p.p_number, p.name));
+      }
+      for (const l of links) {
+        const lite = byLocId.get(l.location_id);
+        if (!lite) continue;
+        (lite.p_numre ??= []).push(l.p_nummer);
+        const n = navne.get(l.p_nummer);
+        if (n) (lite.penhed_navne ??= []).push(n);
+      }
+      setLocationMap(new Map(m));
     })();
   }, [rows]);
 
@@ -273,13 +323,7 @@ export function useCompanyFilter({
             (r.zip ?? "").includes(rawQuery) ||
             ((r as any).visma_id ?? "").toLowerCase().includes(qq) ||
             ((r as any).visma_delivery_id ?? "").toLowerCase().includes(qq) ||
-            locs.some(
-              (l) =>
-                (l.city ?? "").toLowerCase().includes(qq) ||
-                (l.address ?? "").toLowerCase().includes(qq) ||
-                (l.zip ?? "").includes(rawQuery) ||
-                (l.visma_delivery_no ?? "").toLowerCase().includes(qq),
-            );
+            locs.some((l) => lokationMatcher(l, rawQuery));
           if (!hit) return false;
         }
       }
