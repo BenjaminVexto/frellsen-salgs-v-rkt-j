@@ -372,6 +372,13 @@
       "when": 1791268763610,
       "tag": "0052_locations_saelger_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1791268862497,
+      "tag": "0053_maalepunkt_detaljer_pr_lokation",
+      "breakpoints": true
     }
   ]
 }
