@@ -183,6 +183,9 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
       }
     }
 
+    // Kunder markeret "Stoppet" holdes ude, så længe markeringen skjuler dem.
+    const { data: stopRows } = await (context.supabase as any).rpc("kunde_stop_status", { _ids: candIds });
+    for (const s of (stopRows ?? []) as any[]) if (s.skjult) dismissedSet.add(s.company_id);
     const kept = signalRows.filter((r) => !dismissedSet.has(r.company_id));
     if (!kept.length) return { customers: [], hasData: true };
 
@@ -471,6 +474,10 @@ export const getPasseretRytme = createServerFn({ method: "POST" })
       .slice(0, 25);
 
     if (!kandidater.length) return { customers: [], hasData: true };
+    const { data: stopRows } = await (context.supabase as any).rpc("kunde_stop_status", {
+      _ids: kandidater.map((k) => k.company_id),
+    });
+    const skjulte = new Set(((stopRows ?? []) as any[]).filter((s) => s.skjult).map((s) => s.company_id));
 
     const compMap = new Map<string, { name: string; city: string | null }>();
     for (let i = 0; i < kandidater.length; i += 150) {

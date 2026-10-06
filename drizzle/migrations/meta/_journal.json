@@ -477,6 +477,13 @@
       "when": 1791305456256,
       "tag": "0067_penhed_manuel_kobling_ikke_relevant",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1791309602420,
+      "tag": "0068_kunde_stop_og_forbrugsfald",
+      "breakpoints": true
     }
   ]
 }

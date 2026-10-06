@@ -388,7 +388,7 @@ export function CompanyFilterPanel({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Alle</SelectItem>
-                  <SelectItem value="udbud">Udbud (40)</SelectItem>
+                  <SelectItem value="udbud">Udbudskunder (40)</SelectItem>
                   <SelectItem value="offentlig_aftale">Offentlig aftale (45)</SelectItem>
                   <SelectItem value="andre">Andre</SelectItem>
                 </SelectContent>

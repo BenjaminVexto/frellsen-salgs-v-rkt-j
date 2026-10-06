@@ -17,7 +17,7 @@ export const STATUS_OPTS = [
 ];
 const SEGMENT_OPTS = [
   { v: "all", l: "Alle" },
-  { v: "udbud", l: "Udbud (40)" },
+  { v: "udbud", l: "Udbudskunder (40)" },
   { v: "offentlig_aftale", l: "Offentlig aftale (45)" },
   { v: "andre", l: "Andre" },
 ] as const;
