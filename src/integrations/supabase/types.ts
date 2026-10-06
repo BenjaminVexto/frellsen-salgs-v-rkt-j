@@ -1574,6 +1574,30 @@ export type Database = {
         }
         Relationships: []
       }
+      fald_indstilling: {
+        Row: {
+          id: boolean
+          min_fald_kr: number
+          min_fald_pct: number
+          opdateret_af: string | null
+          opdateret_at: string
+        }
+        Insert: {
+          id?: boolean
+          min_fald_kr?: number
+          min_fald_pct?: number
+          opdateret_af?: string | null
+          opdateret_at?: string
+        }
+        Update: {
+          id?: boolean
+          min_fald_kr?: number
+          min_fald_pct?: number
+          opdateret_af?: string | null
+          opdateret_at?: string
+        }
+        Relationships: []
+      }
       filter_templates: {
         Row: {
           created_at: string
@@ -2061,6 +2085,7 @@ export type Database = {
           aarsag: string
           company_id: string
           competitor_assignment_id: string | null
+          fjernet_aarsag: string | null
           fjernet_af: string | null
           fjernet_at: string | null
           id: string
@@ -2073,6 +2098,7 @@ export type Database = {
           aarsag: string
           company_id: string
           competitor_assignment_id?: string | null
+          fjernet_aarsag?: string | null
           fjernet_af?: string | null
           fjernet_at?: string | null
           id?: string
@@ -2085,6 +2111,7 @@ export type Database = {
           aarsag?: string
           company_id?: string
           competitor_assignment_id?: string | null
+          fjernet_aarsag?: string | null
           fjernet_af?: string | null
           fjernet_at?: string | null
           id?: string

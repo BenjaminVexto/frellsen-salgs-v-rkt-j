@@ -35,6 +35,7 @@ export function KundeStop({ companyId, onChanged }: { companyId: string; onChang
   const [lok, setLok] = useState<Lok[]>([]);
   const [navne, setNavne] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
+  const [autoFjernet, setAutoFjernet] = useState<{ fjernet_at: string; fjernet_aarsag: string }[]>([]);
 
   const load = useCallback(async () => {
     const [{ data: s }, { data: l }] = await Promise.all([
@@ -47,6 +48,14 @@ export function KundeStop({ companyId, onChanged }: { companyId: string; onChang
       supabase.from("locations").select("id, address, city, visma_delivery_no").eq("company_id", companyId),
     ]);
     const rows = (s ?? []) as Stop[];
+    const { data: af } = await (supabase as any)
+      .from("kunde_stop")
+      .select("fjernet_at, fjernet_aarsag")
+      .eq("company_id", companyId)
+      .not("fjernet_aarsag", "is", null)
+      .order("fjernet_at", { ascending: false })
+      .limit(1);
+    setAutoFjernet((af ?? []) as any[]);
     setStops(rows);
     setLok((l ?? []) as Lok[]);
     const ids = Array.from(new Set(rows.map((r) => r.oprettet_af).filter(Boolean))) as string[];
@@ -91,6 +100,11 @@ export function KundeStop({ companyId, onChanged }: { companyId: string; onChang
               Fjern
             </button>
           </MutationGate>
+        </div>
+      ))}
+      {autoFjernet.map((a) => (
+        <div key={a.fjernet_at} className="text-xs text-muted-foreground">
+          Stoppet: {a.fjernet_aarsag} ({new Date(a.fjernet_at).toLocaleDateString("da-DK")})
         </div>
       ))}
       <MutationGate>
