@@ -979,7 +979,11 @@ export function MaalepunkterFane({
       <Tabel
         nummer={1}
         titel="Omsætning pr. måned (kr.)"
-        undertitel={omsAlle ? "Alle varegrupper" : "Forbrugsvarer"}
+        undertitel={
+          omsAlle
+            ? "Alle varegrupper inkl. leje og service"
+            : "Kun forbrugsvarer — ekskl. maskiner, leje og service (Portefølje viser alt inkl. maskiner og service)"
+        }
         visKey="omsaetning"
         rows={omsTabel}
         dec={0}

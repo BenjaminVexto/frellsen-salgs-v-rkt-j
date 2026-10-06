@@ -512,6 +512,13 @@
       "when": 1791312929810,
       "tag": "0072_salg_12_hele_maaneder",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1791314074379,
+      "tag": "0073_portfolio_db_12_hele_maaneder",
+      "breakpoints": true
     }
   ]
 }
