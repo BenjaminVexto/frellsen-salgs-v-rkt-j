@@ -526,6 +526,13 @@
       "when": 1791314440667,
       "tag": "0074_nye_lokationer_kun_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1791315260214,
+      "tag": "0075_maskiner_uden_aftale_og_aflaesning",
+      "breakpoints": true
     }
   ]
 }
