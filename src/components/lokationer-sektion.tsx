@@ -20,6 +20,7 @@ import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wre
 import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
 import { AdressePenhedKobling } from "@/components/adresse-penhed-kobling";
+import { PlaceringFelt, hentPlaceringer, type PlaceringInfo } from "@/components/placering-felt";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { BesoegtKnap } from "@/components/besoegt-knap";
 import { KatalogKnap } from "@/components/katalog-knap";
@@ -1076,6 +1077,14 @@ function EquipmentBox({ location }: { location: Location }) {
     Map<string, MachineAgreementStatusValue>
   >(new Map());
   const fetchAgreementStatuses = useServerFn(getMachineAgreementStatuses);
+  const [placeringer, setPlaceringer] = useState<Map<string, PlaceringInfo>>(new Map());
+  useEffect(() => {
+    const sn = Array.from(new Set((units ?? []).filter((u) => !u.is_filter && u.serial_no?.trim()).map((u) => u.serial_no!.trim())));
+    if (!sn.length) return;
+    let c = false;
+    hentPlaceringer(sn).then((m) => { if (!c) setPlaceringer(m); }).catch(() => {});
+    return () => { c = true; };
+  }, [units]);
   const signal = (location.sales_signal ?? "").trim();
 
   useEffect(() => {
@@ -1318,9 +1327,6 @@ function EquipmentBox({ location }: { location: Location }) {
     list: EquipmentUnit[],
     opts: { isFilter?: boolean } = {},
   ) => {
-    const subLocs = Array.from(
-      new Set(list.map((u) => u.sub_location?.trim()).filter(Boolean) as string[]),
-    );
     const hasService = list.some((u) => u.has_service_contract);
     const expiringCount = opts.isFilter
       ? 0
@@ -1394,11 +1400,7 @@ function EquipmentBox({ location }: { location: Location }) {
                 Kundeejet maskine · filter lejet af os
               </div>
             ) : (
-              subLocs.length > 0 && (
-                <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                  {subLocs.join(", ")}
-                </div>
-              )
+null
             )}
           </div>
           {open ? (
@@ -1440,13 +1442,25 @@ function EquipmentBox({ location }: { location: Location }) {
                     <span>
                       {[
                         u.serial_no ? `Serienr ${u.serial_no}` : "Uden serienr",
-                        u.sub_location,
                         u.agreement_type,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
                   </div>
+                  {!opts.isFilter && u.serial_no?.trim() && (
+                    <PlaceringFelt
+                      serienr={u.serial_no.trim()}
+                      info={placeringer.get(u.serial_no.trim())}
+                      onSaved={(ny) =>
+                        setPlaceringer((m) => {
+                          const n = new Map(m);
+                          n.set(u.serial_no!.trim(), { placering: ny, kilde: "crm", af: "dig", at: new Date().toISOString() });
+                          return n;
+                        })
+                      }
+                    />
+                  )}
 
                   {enr && (
                     <div className="mt-1 ml-1 space-y-0.5 text-[11px]">
