@@ -121,6 +121,19 @@ export async function hentPenhedDaekning(cvr: string, afdelingNr: number) {
   return rows;
 }
 
+/** Logger hvem der gjorde hvad med en P-enhed (kobling/afkobling/ikke relevant). */
+export async function logPenhed(
+  p_nummer: string,
+  handling: "kobl" | "fjern_kobling" | "ikke_relevant" | "fortryd_ikke_relevant",
+  location_id: string | null = null,
+  begrundelse: string | null = null,
+) {
+  const { error } = await (supabase as any)
+    .from("penhed_handling_log")
+    .insert({ p_nummer, handling, location_id, begrundelse });
+  if (error) console.warn("P-enhed log fejlede:", error.message);
+}
+
 /** Samme grænse som flammen i Afdelingspotentiale. */
 export const STOR_AFDELING_MIN_ANSATTE = 25;
 
