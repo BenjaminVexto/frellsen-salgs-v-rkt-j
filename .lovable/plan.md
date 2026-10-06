@@ -1,67 +1,43 @@
-# Salgsintelligens: P-enheder med ansatte og dækning
+# Sælger pr. lokation
 
 ## Hvad brugeren får
-- I Salgsintelligens viser en udfoldet virksomhed to grupper: "Dækket (n)" og "Ikke dækket (n)". Rækkerne er sorteret efter antal ansatte, med størst først.
-- Kolonnen POTENTIALE viser ansatte i afdelinger, der ikke er dækket (fx "~420 ansatte"), med "63 afd." i grå tekst under. En ny kolonne viser ANSATTE I ALT.
-- Flammen vises, når virksomheden har mindst én aktiv P-enhed, der ikke er dækket, med 25 ansatte eller flere. Grænsen står ét sted i koden.
-- Hver række har en diskret "Kobl til kunde" eller "Fjern kobling". Automatiske koblinger overskriver aldrig en kobling, der er lavet i hånden.
-- CSV-filen får én linje pr. P-enhed med P-nr, adresse, ansatte-interval, ansatte-estimat og om den er dækket (ja/nej).
-- Fanen "Lokationer" på kundekortet viser samme opdeling.
-- Designet forbliver roligt, uden farver på rækkerne.
+- Hver leveringsadresse har sin egen sælger fra Aktør. Kundekortets ansvarlige sælger er sælgeren på hovedkontoen (Lev. kund = Fakt. kunde).
+- Alle sælgervisninger regnes ud fra lokationens sælger: Målepunkter, Portefølje, Analyse, Bonus, "Mine kunder", top/bund, salgsmuligheder og kundestatus pr. sælger.
+- Har en virksomhed lokationer hos flere sælgere, vises den som fx "Compass Group Danmark A/S (1 af 20 lokationer)". Tallene dækker kun sælgerens egne lokationer.
+- Kundekortet viser stadig hele virksomheden. Fanen Lokationer får en kolonne med sælger.
+- Kreditspærrede kunder importeres med sælger som alle andre. De vises som "Spærret" og tæller med i omsætning og historik. De kommer ikke med i Salgsmuligheder, "Sælg mere" eller lister over sovende kunder.
+- Sælgernumre uden bruger vises som "Ukendt sælger (nr.)" og falder aldrig tilbage til virksomhedens sælger.
+- Leveringsnumre, der ikke findes i Aktør, vises som "Ikke i Aktør" og får ingen sælger.
+- Fakturakunder uden hovedkontorække får den sælger, der har højest omsætning de seneste 12 måneder.
 
-## 1. Data: CVR-import
-- `cvr_penheder` får fire nye kolonner, som alle må være tomme: `ansatte_interval`, `ansatte_praecis`, `ansatte_estimat` og `beskaeftigelse_periode`.
-- Synkroniseringen henter også den nyeste beskæftigelse fra CVR (`aarsbeskaeftigelse`/`kvartalsbeskaeftigelse`) for hver P-enhed:
-  - Er der et præcist tal, bruges det som estimat.
-  - Ellers bruges midtpunktet af intervallet, så "10-19" giver 15.
-  - Åbne intervaller som "1000+" bruger den nedre grænse. Intervallet 0 giver 0.
-  - Perioden gemmes som "2026" eller "2026-K2".
-- Ophørte P-enheder hentes nu også og markeres `is_active = false`. Alle visninger filtrerer dem fra.
-- En ugentlig kørsel (pg_cron, mandag nat) sætter alle kunde-CVR'er i kø. Det svarer til knappen "Synkronisér" på admin-overblikket.
+## Data
+- Nye felter på lokationer: sælgernummer, sælgerens bruger (fundet via sælgernummeret på profilen), "spærret" og "i Aktør" (ja/nej).
+- Nyt felt på virksomheder: "spærret" (ja, når alle lokationer er spærret).
+- Engangsudfyldning ud fra Aktør 5/10-2026. Den ændrer kun tildeling og spærring. Ingen salgstal røres.
+- companies.assigned_to sættes ud fra hovedkontoreglen. Reglerne for ukendte numre og manglende hovedkonto følger kontrollisten.
+- De forudberegnede tabeller (sales_kunde_maaned, company_mp_info) skifter sælger fra virksomhed til lokation. Det sker gennem de eksisterende triggere, som udvides til også at reagere på ændringer på lokationer.
 
-## 2. Data: kobling til kunder
-- Ny tabel `location_pnr_link` med disse kolonner:
-  - `afdeling_nr` og `visma_delivery_no` (Vismas nøgle for leveringsadressen). Det er koblingens egentlige nøgle.
-  - `location_id` som en hjælpe-reference. Den sættes til tom, hvis lokationen slettes, og findes igen via Vismas nøgle.
-  - `p_nummer`
-  - `kilde` ('auto' eller 'manuel')
-  - `oprettet_af`
-  - `oprettet_dato`
-- Hvert P-nummer kan kun have én kobling. GRANT og RLS følger `can_view_company`: alle i afdelingen kan læse og lave manuelle koblinger.
-- Auto-match sker på normaliseret adresse og postnummer. Normaliseringen genbruger de eksisterende `addr_base` og `zip_norm`.
-- Auto-match kører efter hver synk og indsætter kun P-enheder, der ikke allerede har en kobling. Det rører aldrig manuelle koblinger.
-- Auto-match kobler kun, når adressen passer til præcis én leveringsadresse, og den leveringsadresse kun passer til én P-enhed. Findes der flere mulige koblinger, laves der ingen automatisk kobling.
-- "Fjern kobling" sletter ikke rækken. Den sætter kilde = 'afvist', og auto-match springer afviste P-numre over.
-- "Fortryd afvisning" sletter afvisningen igen, så P-enheden kan kobles igen, automatisk eller i hånden.
-- `kilde` kan være 'auto', 'manuel' eller 'afvist'.
-- Viewet `salgsintelligens_penhed_status` og `salgsintelligens_mersalg` bygges om, så de bruger koblingerne:
-  - `daekket` betyder, at der findes en kobling med en lokation.
-  - Viewene får disse nye felter: `ansatte_ikke_daekket`, `ansatte_total`, `afd_ikke_daekket` og Visma-kundenr.
-  - Sortering sker på `ansatte_ikke_daekket`.
+## Aktør-importen
+- Indstillingen "Udeluk kreditspærrede kunder" fjernes. Spærring læses fra kolonnen Kreditspærre.
+- Hver række opdaterer sælger og spærring på sin lokation.
+- Virksomhedens ansvarlige sælger sættes til hovedkontoens sælger. Reglen "første række med sælger" fjernes helt.
+- Efter importen genberegnes de berørte sælgere automatisk via triggerne.
 
-## 3–4. UI i Salgsintelligens
-- Den udfoldede række henter alle aktive P-enheder for CVR-nummeret og deler dem i Dækket og Ikke dækket.
-- Ansatte vises som det præcise tal, ellers som "10–19". Er tallet ukendt, vises "–".
-- "Kobl til kunde" åbner en lille liste med virksomhedens lokationer.
-- Konstanten `FLAMME_MIN_ANSATTE_PR_ENHED = 25` styrer flammen.
+## Visninger
+- Funktionerne bag portefølje, målepunkter, bonus og analyse filtrerer på lokationens sælger i stedet for virksomhedens.
+- "Mine kunder"-filteret og sælgerfilteret i kundelisten matcher en virksomhed, hvis den har mindst én af sælgerens lokationer. Tælleren "x af y lokationer" vises.
+- Salgsmuligheder, "Sælg mere" og lister over sovende kunder udelader spærrede kunder.
+- Badget "Spærret" vises på kundekortet og i kundelisterne.
 
-## 5. Kundekortet
-- `CvrPenhederSektion` på fanen "Lokationer" læser fra de synkroniserede P-enheder og koblingerne i stedet for et live-opslag.
-- Den viser samme opdeling og har samme kobl- og fjern-handling.
-- Knappen "Tilføj", der opretter en ny lokation, bliver ved rækker, der ikke er dækket.
+## Kontrol
+- Før/efter-opgørelsen pr. sælger køres igen for de seneste 12 måneder:
+  - Totalen skal være uændret.
+  - "Ikke tildelt" må kun indeholde kunder uden sælger i Visma.
+  - "Ikke i Aktør" og "Ukendt sælger" vises som separate linjer.
+- Stikprøve i preview som Claus og som admin, inkl. Compass Group.
 
 ## Teknisk
-- Migrationer:
-  - kolonner på `cvr_penheder`
-  - `location_pnr_link` med GRANT, RLS og unikt P-nummer
-  - funktionen `auto_link_penheder(_cvrs text[])`
-  - de to views, der bygges om
-  - cron-job
-- Filer, der ændres: `cvr-penhed-sync.server.ts`, `process-penhed-sync.ts`, `salgsintelligens.tsx`, `cvr-penheder-sektion.tsx` og en ny `penhed-link.functions.ts`.
-- Første fulde synk sættes i kø efter udrulning, så ansatte-tallene bliver fyldt ud.
-
-## Er location_id stabil? (kontrolleret)
-- Visma-importen opdaterer leveringsadresser på (virksomhed, leveringsnr.). En eksisterende lokation beholder derfor sit id, og den bliver ikke oprettet igen.
-- Lokationer slettes kun, når en maskindata-import rulles tilbage, og kun hvis de blev oprettet af netop den import.
-- Koblingen bindes alligevel til Vismas leveringsnr. og afdeling. Den overlever derfor, selv hvis en lokation slettes, genoprettes eller flyttes til en efterfølger-virksomhed.
-- Manuelle og afviste koblinger bliver aldrig slettet eller ændret af en import.
+- Migrationer: nye kolonner, opdaterede triggere og RPC'er (portfolio_*, maalepunkt_*, bonus_*, analyse_pivot, aktive_saelgere).
+- Udfyldningen fra Aktør køres som dataopdatering, ikke som migration.
+- Filer: admin.import.visma.tsx, portfolio.functions.ts, sales.server.ts (getSellerCompanyIds), company-filter, lokationer-sektion.tsx, virksomheder_.$id.tsx og salgsmuligheder-visningerne.
+- Husk at publicere bagefter, så importen kører med den nye logik.
