@@ -344,6 +344,41 @@
       "when": 1791267836394,
       "tag": "0048_skm_delete_where_true",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1791268525846,
+      "tag": "0049_portfolio_saelger_pr_lokation",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791268571501,
+      "tag": "0050_nye_kunder_og_nye_lokationer_pr_lokation",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791268672304,
+      "tag": "0051_mersalg_uden_spaerrede",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1791268763610,
+      "tag": "0052_locations_saelger_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1791268862497,
+      "tag": "0053_maalepunkt_detaljer_pr_lokation",
+      "breakpoints": true
     }
   ]
 }

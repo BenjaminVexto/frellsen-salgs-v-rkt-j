@@ -16,6 +16,7 @@ export const checkSovendeKunder = createServerFn({ method: "POST" })
       .from("companies")
       .select("id, name")
       .eq("assigned_to", userId)
+      .eq("kreditspaerret", false)
       .limit(2000);
     if (error) throw new Error(error.message);
     if (!companies?.length) return { created: 0 };

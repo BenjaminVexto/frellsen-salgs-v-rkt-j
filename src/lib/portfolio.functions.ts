@@ -38,6 +38,10 @@ export type PortfolioCompanyRow = {
   sektor: "privat" | "offentlig" | "intern";
   assigned_to: string | null;
   saelger_navn: string | null;
+  /** Antal lokationer hos den valgte sælger (eller alle) og i alt (i Aktør). */
+  lok_antal: number;
+  lok_total: number;
+  kreditspaerret: boolean;
   // Købsrytme (forbrugsvarer — prisgrupper 2/4/6/10), måneds-opløsning.
   rhythmMonths: number | null; // median antal måneder mellem aktive consumable-måneder; null hvis <3 aktive
   monthsSinceConsumable: number | null; // måneder siden seneste consumable-køb
@@ -377,6 +381,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       sektor: (r.sektor ?? "privat") as "privat" | "offentlig" | "intern",
       assigned_to: (r.assigned_to ?? null) as string | null,
       saelger_navn: (r.saelger_navn ?? null) as string | null,
+      lok_antal: Number(r.lok_antal ?? 0),
+      lok_total: Number(r.lok_total ?? 0),
+      kreditspaerret: !!r.kreditspaerret,
     }));
 
     for (const r of aggRows) {
@@ -532,6 +539,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         sektor: c.sektor,
         assigned_to: c.assigned_to,
         saelger_navn: c.saelger_navn,
+        lok_antal: c.lok_antal,
+        lok_total: c.lok_total,
+        kreditspaerret: c.kreditspaerret,
         rhythmMonths,
         monthsSinceConsumable,
         rhythmClass,
@@ -676,6 +686,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
 
     // 1) Maskine men ingen kaffe
     const machineNoCoffee: SignalRow[] = companies
+      .filter((c) => !c.kreditspaerret)
       .filter((c) =>
         c.customer_type === "aktiv_kunde" &&
         c.has_active_equipment &&
@@ -703,6 +714,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       "6": "Drikke & Automatvarer",
     };
     const whiteSpace: SignalRow[] = companies
+      .filter((c) => !c.kreditspaerret)
       .filter((c) => {
         const s = groupsByCompany.get(c.id);
         return s?.has("2");

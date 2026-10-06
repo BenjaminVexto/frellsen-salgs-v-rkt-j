@@ -13,7 +13,7 @@ import {
   importUpsertCompaniesByVismaId,
   importUpdateCompaniesById,
   importInsertLocations,
-  importAssignSellersToCompanies,
+  aktoerAnvendSaelgereFn,
   importUpsertContacts,
   enqueueCvrEnrichment,
   getCvrEnrichmentQueueStatus,
@@ -246,7 +246,7 @@ const TEXT_PRESERVING_HEADERS = new Set<string>([
 type VismaFilters = {
   excludeInternal: boolean;
   excludeForeign: boolean;
-  excludeCreditBlocked: boolean;
+  fuldtUdtraek: boolean;
 };
 
 
@@ -397,7 +397,7 @@ function ImportSide() {
   const [vismaFilters, setVismaFilters] = useState<VismaFilters>({
     excludeInternal: true,
     excludeForeign: true,
-    excludeCreditBlocked: true,
+    fuldtUdtraek: true,
   });
   const [autoMatchReport, setAutoMatchReport] = useState<{ matched: string[]; missing: string[] }>({
     matched: [],
@@ -409,7 +409,7 @@ function ImportSide() {
   const upsertByVismaId = useServerFn(importUpsertCompaniesByVismaId);
   const updateById = useServerFn(importUpdateCompaniesById);
   const upsertLocations = useServerFn(importInsertLocations);
-  const assignSellers = useServerFn(importAssignSellersToCompanies);
+  const anvendSaelgere = useServerFn(aktoerAnvendSaelgereFn);
   const upsertContacts = useServerFn(importUpsertContacts);
   const enqueueEnrich = useServerFn(enqueueCvrEnrichment);
   const fetchQueueStatus = useServerFn(getCvrEnrichmentQueueStatus);
@@ -958,10 +958,7 @@ function ImportSide() {
       return true;
     }
 
-    if (vismaFilters.excludeCreditBlocked) {
-      const credit = (p.raw["Kreditspærre"] ?? "").trim();
-      if (credit) return true;
-    }
+    // Kreditspærrede kunder importeres altid (med sælger) og markeres som spærret.
     return false;
   }
 
@@ -1624,20 +1621,32 @@ function ImportSide() {
       seller_id: sellerByCompany[id] ?? null,
     }));
 
-    // Auto-tildel sælger direkte på virksomheden ud fra Visma-sælgernummer (INDEN finish)
-    const sellerAssignments = Object.entries(sellerByCompany)
-      .filter(([, sid]) => !!sid)
-      .map(([company_id, seller_id]) => ({ company_id, seller_id: seller_id as string }));
-    if (sellerAssignments.length) {
-      importRunner.setLabel(`Tildeler sælgere til ${sellerAssignments.length} virksomheder…`);
-      try {
-        const res = await assignSellers({ data: { assignments: sellerAssignments } });
-        if (res.failed) {
-          console.warn(`Sælger-tildeling: ${res.failed} fejlede`);
+    // Sælger pr. lokation: hver (afdeling, Lev. kund) får sin egen sælger og spærring;
+    // virksomhedens ansvarlige = hovedkontoens sælger (Lev. kund = Fakt. kunde). Køres på serveren.
+    if (mapping.visma_delivery_id) {
+      const stagingRows = prepared
+        .filter((p) => p.skipReason == null && !isWrongFirma(p))
+        .map((p) => {
+          const r = p.raw;
+          const afd = canonAfdeling(r);
+          const lev = (r[mapping.visma_delivery_id!] ?? "").trim();
+          return {
+            afdeling_nr: Number(afd),
+            lev_kund: lev,
+            fakt_kunde: mapping.visma_id ? ((r[mapping.visma_id] ?? "").trim() || null) : null,
+            saelger_no: mapping.salesperson_no ? ((r[mapping.salesperson_no] ?? "").trim() || null) : null,
+            kreditspaerret: !!(r["Kreditspærre"] ?? "").trim(),
+          };
+        })
+        .filter((x) => x.lev_kund && Number.isFinite(x.afdeling_nr));
+      if (stagingRows.length) {
+        importRunner.setLabel(`Opdaterer sælger på ${stagingRows.length} lokationer…`);
+        try {
+          await anvendSaelgere({ data: { fuldtUdtraek: vismaFilters.fuldtUdtraek, rows: stagingRows } });
+        } catch (e) {
+          console.error("Sælger pr. lokation fejlede", e);
+          toast.error("Opdatering af sælger pr. lokation fejlede: " + (e instanceof Error ? e.message : String(e)));
         }
-      } catch (e) {
-        console.error("Auto-tildeling af sælgere fejlede", e);
-        toast.error("Auto-tildeling af sælgere fejlede – kør Trin 5 manuelt");
       }
     }
 
@@ -2533,8 +2542,8 @@ function Trin2VismaConfirm({
   onNext,
 }: {
   report: { matched: string[]; missing: string[] };
-  filters: { excludeInternal: boolean; excludeForeign: boolean; excludeCreditBlocked: boolean };
-  setFilters: (f: { excludeInternal: boolean; excludeForeign: boolean; excludeCreditBlocked: boolean }) => void;
+  filters: { excludeInternal: boolean; excludeForeign: boolean; fuldtUdtraek: boolean };
+  setFilters: (f: { excludeInternal: boolean; excludeForeign: boolean; fuldtUdtraek: boolean }) => void;
   rowCount: number;
   headers: string[];
   mapping: Partial<Record<SystemField, string>>;
@@ -2744,13 +2753,13 @@ function Trin2VismaConfirm({
           </label>
           <label className="flex items-start gap-3 text-sm cursor-pointer">
             <Checkbox
-              checked={filters.excludeCreditBlocked}
-              onCheckedChange={(v) => setFilters({ ...filters, excludeCreditBlocked: v === true })}
+              checked={filters.fuldtUdtraek}
+              onCheckedChange={(v) => setFilters({ ...filters, fuldtUdtraek: v === true })}
               className="mt-0.5"
             />
             <div>
-              <div className="font-medium">Udeluk kreditspærrede kunder</div>
-              <div className="text-xs text-muted-foreground">Kreditspærre-feltet er udfyldt</div>
+              <div className="font-medium">Filen er et fuldt udtræk</div>
+              <div className="text-xs text-muted-foreground">Leveringsnumre i afdelingen, som ikke står i filen, markeres "Ikke i Aktør". Kreditspærrede kunder importeres altid og markeres "Spærret".</div>
             </div>
           </label>
         </div>

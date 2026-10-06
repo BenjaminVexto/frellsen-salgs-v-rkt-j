@@ -2187,6 +2187,13 @@ export type Database = {
             referencedRelation: "salgsintelligens_mersalg"
             referencedColumns: ["company_id"]
           },
+          {
+            foreignKeyName: "locations_saelger_user_id_fkey"
+            columns: ["saelger_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       machine_agreement_status: {
@@ -4305,6 +4312,19 @@ export type Database = {
           sidste_koeb: string
         }[]
       }
+      maalepunkt_nye_lokationer: {
+        Args: {
+          _afdeling_nr?: number
+          _fra: string
+          _saelger: string
+          _til: string
+        }
+        Returns: {
+          antal: number
+          kategori: string
+          maaned: string
+        }[]
+      }
       maalepunkt_oms_detaljer: {
         Args: {
           _afdeling_nr?: number
@@ -4386,12 +4406,15 @@ export type Database = {
           has_active_equipment: boolean
           id: string
           is_public: boolean
+          kreditspaerret: boolean
           last_cons_now: string
           last_cons_prior: string
           last_consumable_sales_date: string
           last_sales_date: string
           last_sales_now: string
           last_sales_prior: string
+          lok_antal: number
+          lok_total: number
           monthly: number[]
           name: string
           revenue_ytd: number

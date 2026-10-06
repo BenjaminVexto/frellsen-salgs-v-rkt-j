@@ -552,6 +552,7 @@ function VirksomhedsKort() {
               type={company.customer_type}
               variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
             />
+            {(company as any).kreditspaerret && <Badge variant="destructive">Spærret</Badge>}
 
           </div>
           <div className="flex items-start justify-between gap-2 mb-1">

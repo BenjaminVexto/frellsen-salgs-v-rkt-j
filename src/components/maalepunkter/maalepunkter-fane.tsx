@@ -353,6 +353,16 @@ export function MaalepunkterFane({
     },
   });
 
+  const nyeLokQ = useQuery({
+    queryKey: ["maalepunkt-nye-lok", qNoegle, fra, til],
+    enabled: harValg,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_nye_lokationer", args);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { maaned: string; kategori: string; antal: number }[];
+    },
+  });
+
   const mNøgle = (d: string) => String(d).slice(0, 7);
 
   // --- Tabel 1: omsætning ---
@@ -466,6 +476,21 @@ export function MaalepunkterFane({
       { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [nyeQ.data, nyeMaal]);
+
+  // Nye lokationer i eksisterende virksomheder (tælles hos lokationens sælger).
+  const nyeLokTabel = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    (nyeLokQ.data ?? []).forEach((r) => {
+      if (!map.has(r.kategori)) map.set(r.kategori, new Map());
+      const m = map.get(r.kategori)!;
+      const key = mNøgle(r.maaned);
+      m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
+    });
+    return [
+      { label: "Øvrige kunder", per: map.get("privat") ?? new Map() },
+      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map() },
+    ];
+  }, [nyeLokQ.data]);
 
 
   const rowTotal = (per: Map<string, number>) =>
@@ -1063,7 +1088,7 @@ export function MaalepunkterFane({
         titel={
           nyeMaal === "db"
             ? "Nye kunder pr. måned — DB i perioden (kr., tælles i måneden for første ordre)"
-            : "Nye kunder pr. måned (antal, tælles i måneden for første ordre)"
+            : "Nye kunder pr. måned (antal, kun kunder nye for Frellsen — første ordre nogensinde)"
         }
         visKey="nye"
         rows={nyeTabel}
@@ -1099,6 +1124,18 @@ export function MaalepunkterFane({
             maaned: m,
           })
         }
+      />
+
+      <Tabel
+        nummer={4}
+        titel="Nye lokationer pr. måned (antal, første ordre på en ny lokation i en eksisterende kunde)"
+        undertitel="Tæller ikke som ny kunde"
+        visKey="nye-lok"
+        rows={nyeLokTabel}
+        dec={0}
+        loading={nyeLokQ.isPending}
+        error={nyeLokQ.error ? (nyeLokQ.error as Error).message : null}
+        onRetry={() => nyeLokQ.refetch()}
       />
 
       <Tabel
