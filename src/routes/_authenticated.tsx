@@ -160,6 +160,7 @@ function AuthenticatedShell() {
     { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
     { to: "/admin/dubletter", label: "Dubletter", icon: Copy },
+    { to: "/admin/soesterkonti", label: "Søsterkonti & katalog", icon: Copy },
     { to: "/admin/overblik", label: "Admin-overblik", icon: BarChart3 },
     { to: "/admin/postnumre", label: "Postnumre og regioner", icon: MapPin },
   ];
