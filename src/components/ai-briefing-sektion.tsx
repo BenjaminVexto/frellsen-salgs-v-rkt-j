@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Sparkles, Loader2, RefreshCw, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
@@ -94,78 +94,67 @@ export function AiBriefingKnap({ state }: { state: BriefingState }) {
   );
 }
 
+/** Sammenfoldet boks nederst på Oversigt. Briefingen laves kun, når sælgeren selv trykker. */
 export function AiBriefingSektion({ state }: { state: BriefingState }) {
   const { briefing, generating, loadingStep } = state;
-  const [briefingExpanded, setBriefingExpanded] = useState(false);
-
-  // Intet at vise, før en briefing findes eller er under generering.
-  if (!briefing && !generating) return null;
+  const [aaben, setAaben] = useState(false);
 
   return (
-    <Card className="p-5">
-      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-        <h2 className="font-semibold flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" /> AI Briefing
-        </h2>
-        {briefing && !generating && (
-          <Button size="sm" variant="outline" onClick={state.generate}>
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Generér ny
-          </Button>
-        )}
-      </div>
-
-      {generating ? (
-        <div className="space-y-2">
-          {loadingSteps.map((step, i) => {
-            const done = i < loadingStep;
-            const active = i === loadingStep;
-            return (
-              <div
-                key={step}
-                className={
-                  "flex items-center gap-2 text-sm " +
-                  (done
-                    ? "text-muted-foreground"
-                    : active
-                      ? "text-foreground font-medium"
-                      : "text-muted-foreground/50")
-                }
-              >
-                {done ? (
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                ) : active ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                ) : (
-                  <span className="h-4 w-4 rounded-full border border-current inline-block" />
-                )}
-                {step}
-              </div>
-            );
-          })}
-        </div>
-      ) : briefing ? (
-        <>
-          <p className="text-xs text-muted-foreground mb-3">
-            Genereret: {format(new Date(briefing.created_at), "d. MMM yyyy, HH:mm", { locale: da })}
-          </p>
-          <div className="border-t pt-3">
-            <div className="relative">
-              <div className={briefingExpanded ? "" : "max-h-12 overflow-hidden relative"}>
-                {!briefingExpanded && (
-                  <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none z-10" />
-                )}
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{briefing.text}</p>
-              </div>
-              <button
-                onClick={() => setBriefingExpanded((b) => !b)}
-                className="text-xs text-primary hover:underline mt-1 block"
-              >
-                {briefingExpanded ? "Skjul ↑" : "Vis hele briefingen ↓"}
-              </button>
+    <Card className="p-0 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setAaben((v) => !v)}
+        className="w-full px-5 py-3 flex items-center justify-between gap-2 text-left hover:bg-accent/40"
+      >
+        <span className="font-semibold flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" /> AI-briefing
+        </span>
+        <span className="text-xs text-muted-foreground flex items-center gap-1">
+          {briefing ? `Seneste ${format(new Date(briefing.created_at), "d. MMM yyyy", { locale: da })}` : "Ingen endnu"}
+          {aaben ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </span>
+      </button>
+      {aaben && (
+        <div className="px-5 pb-5 border-t pt-3 space-y-3">
+          {generating ? (
+            <div className="space-y-2">
+              {loadingSteps.map((step, i) => (
+                <div
+                  key={step}
+                  className={
+                    "flex items-center gap-2 text-sm " +
+                    (i < loadingStep ? "text-muted-foreground" : i === loadingStep ? "text-foreground font-medium" : "text-muted-foreground/50")
+                  }
+                >
+                  {i < loadingStep ? (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  ) : i === loadingStep ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <span className="h-4 w-4 rounded-full border border-current inline-block" />
+                  )}
+                  {step}
+                </div>
+              ))}
             </div>
-          </div>
-        </>
-      ) : null}
+          ) : (
+            <>
+              {briefing && (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Genereret: {format(new Date(briefing.created_at), "d. MMM yyyy, HH:mm", { locale: da })}
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{briefing.text}</p>
+                </>
+              )}
+              <Button size="sm" variant={briefing ? "outline" : "default"} onClick={state.generate}>
+                {briefing ? <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+                {briefing ? "Lav ny briefing" : "Lav briefing"}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
