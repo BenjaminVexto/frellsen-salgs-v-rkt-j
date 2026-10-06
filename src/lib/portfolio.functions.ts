@@ -38,6 +38,10 @@ export type PortfolioCompanyRow = {
   sektor: "privat" | "offentlig" | "intern";
   assigned_to: string | null;
   saelger_navn: string | null;
+  /** Antal lokationer hos den valgte sælger (eller alle) og i alt (i Aktør). */
+  lok_antal: number;
+  lok_total: number;
+  kreditspaerret: boolean;
   // Købsrytme (forbrugsvarer — prisgrupper 2/4/6/10), måneds-opløsning.
   rhythmMonths: number | null; // median antal måneder mellem aktive consumable-måneder; null hvis <3 aktive
   monthsSinceConsumable: number | null; // måneder siden seneste consumable-køb
@@ -377,6 +381,9 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       sektor: (r.sektor ?? "privat") as "privat" | "offentlig" | "intern",
       assigned_to: (r.assigned_to ?? null) as string | null,
       saelger_navn: (r.saelger_navn ?? null) as string | null,
+      lok_antal: Number(r.lok_antal ?? 0),
+      lok_total: Number(r.lok_total ?? 0),
+      kreditspaerret: !!r.kreditspaerret,
     }));
 
     for (const r of aggRows) {
