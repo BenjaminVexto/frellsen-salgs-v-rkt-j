@@ -4305,6 +4305,19 @@ export type Database = {
           sidste_koeb: string
         }[]
       }
+      maalepunkt_nye_lokationer: {
+        Args: {
+          _afdeling_nr?: number
+          _fra: string
+          _saelger: string
+          _til: string
+        }
+        Returns: {
+          antal: number
+          kategori: string
+          maaned: string
+        }[]
+      }
       maalepunkt_oms_detaljer: {
         Args: {
           _afdeling_nr?: number

@@ -351,6 +351,13 @@
       "when": 1791268525846,
       "tag": "0049_portfolio_saelger_pr_lokation",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791268571501,
+      "tag": "0050_nye_kunder_og_nye_lokationer_pr_lokation",
+      "breakpoints": true
     }
   ]
 }
