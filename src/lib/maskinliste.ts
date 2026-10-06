@@ -7,6 +7,7 @@ export type MaskinRaekke = {
   kopper: number | null;
   aflaest: string | null;
   service: boolean;
+  reservedele?: string | null;
 };
 
 /** Aftaletype til visning: Gratis udlån / Leje / Lease / Køb / rå værdi. */
