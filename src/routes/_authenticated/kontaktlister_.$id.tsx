@@ -191,9 +191,9 @@ function KontaktlisteDetalje() {
               const slice = companyIds.slice(i, i + CHUNK);
               const { data } = await supabase
                 .from("activities")
-                .select("company_id, created_at, activity_type")
+                .select("company_id, created_at:udfoert_at, activity_type")
                 .in("company_id", slice)
-                .order("created_at", { ascending: false });
+                .order("udfoert_at" as any, { ascending: false });
               if (data) out.push(...data);
             }
             return { data: out };

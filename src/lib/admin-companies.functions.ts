@@ -1079,7 +1079,7 @@ export const generateCompanyBriefing = createServerFn({ method: "POST" })
       supabaseAdmin.from("companies").select("*").eq("id", data.company_id).single(),
       supabaseAdmin
         .from("activities")
-        .select("activity_type, note, created_at")
+        .select("activity_type, note, created_at:udfoert_at")
         .eq("company_id", data.company_id)
         .order("created_at", { ascending: false })
         .limit(5),

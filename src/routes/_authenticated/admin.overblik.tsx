@@ -124,8 +124,8 @@ function AdminOverblikPage() {
         supabase
           .from("activities")
           .select("created_by, activity_type")
-          .gte("created_at", fromIso)
-          .lt("created_at", toIso),
+          .gte("udfoert_at" as any, fromIso)
+          .lt("udfoert_at" as any, toIso),
         supabase
           .from("sales_opportunities")
           .select("assigned_to, status, estimated_value, next_followup_date"),

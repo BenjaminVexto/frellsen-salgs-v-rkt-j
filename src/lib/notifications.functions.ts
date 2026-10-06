@@ -30,9 +30,9 @@ export const checkSovendeKunder = createServerFn({ method: "POST" })
     for (const c of companies) {
       const { data: latest } = await supabaseAdmin
         .from("activities")
-        .select("created_at")
+        .select("created_at:udfoert_at")
         .eq("company_id", c.id)
-        .order("created_at", { ascending: false })
+        .order("udfoert_at" as any, { ascending: false })
         .limit(1)
         .maybeSingle();
       const latestDate = latest?.created_at;
