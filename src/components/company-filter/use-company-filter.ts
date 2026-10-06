@@ -13,7 +13,7 @@ import {
 } from "./types";
 
 const COMPANY_COLS =
-  "id,name,visma_enhed,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,afdeling_nr,last_purchase_date,last_sales_date,last_consumable_sales_date,has_active_equipment,employees,is_public,binding_status,customer_segment_3,customer_category,afloest_af_company_id,assigned_to,visma_id,visma_delivery_id";
+  "id,name,visma_enhed,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,afdeling_nr,last_purchase_date,last_sales_date,last_consumable_sales_date,has_active_equipment,employees,is_public,binding_status,customer_segment_3,customer_category,afloest_af_company_id,assigned_to,visma_id,visma_delivery_id,koeber_paa_konto";
 
 function matchesMachines(eq: EquipmentSummary | undefined, modes: string[]) {
   if (!modes.length) return true;
@@ -330,6 +330,13 @@ export function useCompanyFilter({
       if (
         filters.customerTypes.length &&
         !filters.customerTypes.includes(r.customer_type)
+      )
+        return false;
+      // Søsterkonto med samme CVR og adresse køber stadig — ikke en reel sovende kunde.
+      if (
+        filters.customerTypes.length &&
+        !filters.customerTypes.includes("tidligere_kunde") &&
+        (r as any).koeber_paa_konto
       )
         return false;
       if (filters.sources.length) {
