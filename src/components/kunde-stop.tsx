@@ -175,7 +175,7 @@ function StopDialog({
             competitor_id: id,
             contract_expires_at: udloeb || null,
             notes: note.trim() || null,
-            registered_by: uid,
+            registered_by: uid as string,
           })
           .select("id")
           .single();
