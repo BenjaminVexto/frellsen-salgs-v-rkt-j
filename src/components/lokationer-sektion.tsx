@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
+import { AdressePenhedKobling } from "@/components/adresse-penhed-kobling";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { BesoegtKnap } from "@/components/besoegt-knap";
 import { KatalogKnap } from "@/components/katalog-knap";
@@ -631,6 +632,16 @@ export function LokationerSektion({
                   )}
                   {enGruppe && (
                     <div className="px-3 pt-2 text-xs text-muted-foreground">{meta}</div>
+                  )}
+                  {aaben && cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
+                    <AdressePenhedKobling
+                      pnr={g.pnr}
+                      locs={g.locs.filter((l) => l.visma_delivery_no || g.pnr)}
+                      afdelingNr={afdelingNr}
+                      penListe={pnrQ.data?.penListe ?? []}
+                      zip={g.zip}
+                      onChanged={() => pnrQ.refetch()}
+                    />
                   )}
                   {aaben && (
                     <ul className={`divide-y px-3 ${enGruppe ? "" : "border-t"}`}>

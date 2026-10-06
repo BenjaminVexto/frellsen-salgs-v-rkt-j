@@ -285,6 +285,7 @@ export function PenhedDaekning({
     );
     setBusy(null);
     if (error) return toast.error("Kunne ikke koble: " + error.message);
+    await logPenhed(p.p_number, "kobl", loc.id);
     toast.success("P-enhed koblet");
     await load();
     onChanged?.();
@@ -294,11 +295,12 @@ export function PenhedDaekning({
     setBusy(p.p_number);
     const { error } = await (supabase as any)
       .from("location_pnr_link")
-      .update({ kilde: "afvist" })
+      .update({ kilde: "afvist", oprettet_af: auth.user?.id, oprettet_dato: new Date().toISOString() })
       .eq("p_nummer", p.p_number)
       .eq("afdeling_nr", afdelingNr);
     setBusy(null);
     if (error) return toast.error("Kunne ikke fjerne: " + error.message);
+    await logPenhed(p.p_number, "fjern_kobling");
     toast.success("Kobling fjernet");
     await load();
     onChanged?.();
