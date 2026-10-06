@@ -158,6 +158,7 @@ export function PenhedDaekning({
   onChanged,
   visIkkeRelevante = false,
   kunIkkeKunde = false,
+  visIkkeHosListe = true,
 }: {
   cvr: string;
   afdelingNr: number;
@@ -168,6 +169,8 @@ export function PenhedDaekning({
   visIkkeRelevante?: boolean;
   /** Vis kun P-enheder, vi ikke er hos (sorteret efter ansatte) — bruges under Lokationer. */
   kunIkkeKunde?: boolean;
+  /** I kunIkkeKunde-mode: om listen over P-enheder vi ikke er hos er foldet ud. */
+  visIkkeHosListe?: boolean;
 }) {
   const auth = useAuth();
   const kanStyre = auth.maaSeAfdelingspotentiale;
@@ -186,6 +189,7 @@ export function PenhedDaekning({
   const [aabne, setAabne] = useState<Set<string>>(new Set());
   const [visDaekket, setVisDaekket] = useState(false);
   const [visMindre, setVisMindre] = useState(false);
+  const [visMarkerede, setVisMarkerede] = useState(false);
 
   useEffect(() => {
     (supabase as any)
@@ -396,6 +400,13 @@ export function PenhedDaekning({
     onChanged?.();
   }
 
+  if (kunIkkeKunde && (!rows || !rows.length)) {
+    return !rows && visIkkeHosListe ? (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Henter P-enheder…
+      </div>
+    ) : null;
+  }
   if (!rows) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
