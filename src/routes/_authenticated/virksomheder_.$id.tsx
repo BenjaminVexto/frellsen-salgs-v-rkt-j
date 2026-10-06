@@ -83,7 +83,6 @@ import { AfdelingBadge } from "@/components/afdeling-badge";
 import { SegmentBadge } from "@/components/binding-status-badge";
 import { CustomerCategoryBadge } from "@/components/customer-category-badge";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
-import { PenhedDaekning } from "@/components/penhed-daekning";
 import { CompanySalesTab } from "@/components/sales/company-sales-tab";
 import { CompanyUdviklingTab } from "@/components/sales/company-udvikling-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
