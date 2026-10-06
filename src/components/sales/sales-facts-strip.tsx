@@ -70,8 +70,7 @@ export function SalesFactsStrip({
           icon={<Wallet className="h-4 w-4" />}
           label="DB forbrugsvarer"
           value={cons.contribution != null ? fmtKr(cons.contribution) : "—"}
-          note={dg != null ? `Dækningsgrad ${(dg * 100).toFixed(1).replace(".", ",")} %` : "Kun synlig for admin"}
-          admin
+          note={dg != null ? `Dækningsgrad ${(dg * 100).toFixed(1).replace(".", ",")} %` : "Dækningsgrad —"}
         />
       )}
       <Fact
