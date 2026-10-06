@@ -51,7 +51,7 @@ export function SalesFactsStrip({
       : null;
 
   return (
-    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3 lg:grid-cols-5" : "md:grid-cols-2 lg:grid-cols-4"}`}>
+    <div className="grid gap-3 grid-cols-2 2xl:grid-cols-3">
       <Fact
         icon={<TrendingUp className="h-4 w-4" />}
         label="Omsætning 12 mdr."
