@@ -107,3 +107,49 @@ export function erIkkeMaskine(type: string | null | undefined): boolean {
 export function visKopper(n: number | null): number | null {
   return n != null && n > 1 ? n : null;
 }
+
+/**
+ * Fælles aftaleregel for maskiner (kundekort + maskinliste).
+ * Grundregler for Visma-maskindata:
+ * - Serviceregistrets "Aftale Type (G4)" er facit. "1 [Serviceaftale]" = kun serviceaftale, kundeejet.
+ * - "u/b" = uden betaling: "5 [Leje u/b]" i maskinregistret er IKKE leje, men udlån.
+ * - "Leje" kun når maskinregistret/G4 siger "3 [Leje / Leasing]", eller der er
+ *   lejelinjer (varegruppe 16/80) på lokationen de seneste 12 mdr.
+ * - Mangler alle kilder, vises "Ukendt" (aldrig "Kundeejet" som standard).
+ */
+export function maskinAftale(p: {
+  g4: string | null | undefined;
+  udlaanstype: string | null | undefined;
+  lejelinjer: boolean;
+  gratisUdlaan?: boolean;
+}): string {
+  const g4 = (p.g4 ?? "").trim().toLowerCase();
+  const u = (p.udlaanstype ?? "").trim().toLowerCase();
+  const erLeje = /^3\s*\[|leje\s*\/\s*leasing/.test(u) || /^3\s*\[|leje\s*\/\s*leasing/.test(g4) || p.lejelinjer;
+  const service = /^1\s*\[|serviceaftale/.test(g4);
+  if (service) return erLeje ? "Leje + serviceaftale" : "Kundeejet · serviceaftale";
+  if (erLeje) return "Leje";
+  if (/^8\s*\[|pr[øo]ve/.test(u)) return "Prøveopsætning";
+  if (/^7\s*\[|bytte/.test(u)) return "Bytteservice";
+  if (p.gratisUdlaan || /^[456]\s*\[|udl[åa]n|u\/b/.test(u)) return "Udlån";
+  return "Ukendt";
+}
+
+export type ReservedeleStatus = { kort: string; lang: string; dato: string | null } | null;
+
+/** Reservedele ud fra "Reservedele (G3)" og "Reserved. efter regn." (dato hvor kunden begynder at betale). */
+export function reservedeleStatus(g3: string | null | undefined, efterRegn: string | null | undefined, idag: Date = new Date()): ReservedeleStatus {
+  const g = (g3 ?? "").toLowerCase();
+  if (/uden\s*reservedele/.test(g)) return { kort: "Ikke inkl.", lang: "Reservedele ikke inkluderet", dato: null };
+  if (/alt p[åa] regning/.test(g)) return { kort: "Faktureres", lang: "Reservedele faktureres", dato: null };
+  const d = (efterRegn ?? "").slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const dt = new Date(d + "T00:00:00");
+    const i = new Date(idag.getFullYear(), idag.getMonth(), idag.getDate());
+    if (dt <= i) return { kort: "Faktureres", lang: "Reservedele faktureres", dato: d };
+    const m = dt.toLocaleDateString("da-DK", { month: "short", year: "numeric" });
+    return { kort: `Inkl. til ${m}`, lang: `Reservedele inkluderet til ${m}`, dato: d };
+  }
+  if (/u\/b|\(83,\s*17,\s*18\)/.test(g)) return { kort: "Inkl.", lang: "Reservedele inkluderet", dato: null };
+  return null;
+}
