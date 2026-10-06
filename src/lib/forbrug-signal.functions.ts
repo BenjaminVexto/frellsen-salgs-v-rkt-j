@@ -45,6 +45,7 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
       "company_id, afdeling_nr, assigned_to, klasse_primaer, aarsag_primaer, afvigelse_pct_primaer, base_kg_primaer, akt_kg_primaer, sidste_koeb_primaer, tabt_kg_pr_mdr, tabt_kr_pr_mdr, grupper_i_fald, handling_paakraevet, forventet_interval_mdr_primaer";
 
     let signalRows: any[] = [];
+    const lokLabel = new Map<string, { byer: string; egne: number; total: number }>();
     if (teamScope) {
       let q = context.supabase
         .from("forbrug_signal_virksomhed" as any)
@@ -61,14 +62,78 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
         data.afdelingNr ?? null,
       );
       if (!companyIds.length) return { customers: [], hasData: false };
+
+      // Lokationer pr. virksomhed: har virksomheden lokationer hos andre sælgere,
+      // bruges kun signalet fra sælgerens egne lokationer.
+      const locs: { id: string; company_id: string; city: string | null; saelger_user_id: string | null; i_aktoer: boolean }[] = [];
       for (let i = 0; i < companyIds.length; i += 150) {
+        const { data: rows, error } = await context.supabase
+          .from("locations")
+          .select("id, company_id, city, saelger_user_id, i_aktoer")
+          .in("company_id", companyIds.slice(i, i + 150));
+        if (error) throw error;
+        if (rows) locs.push(...(rows as any));
+      }
+      const blandet = new Set<string>();
+      for (const l of locs) {
+        if (l.i_aktoer && l.saelger_user_id && l.saelger_user_id !== effectiveUserId) blandet.add(l.company_id);
+      }
+      const egneLok = locs.filter((l) => blandet.has(l.company_id) && l.saelger_user_id === effectiveUserId);
+      for (const cid of blandet) {
+        const alle = locs.filter((l) => l.company_id === cid && l.i_aktoer);
+        const egne = egneLok.filter((l) => l.company_id === cid);
+        const byer = Array.from(new Set(egne.map((l) => l.city).filter(Boolean))).join(", ");
+        lokLabel.set(cid, { byer, egne: egne.length, total: alle.length });
+      }
+
+      const rene = companyIds.filter((id) => !blandet.has(id));
+      for (let i = 0; i < rene.length; i += 150) {
         const { data: rows, error } = await context.supabase
           .from("forbrug_signal_virksomhed" as any)
           .select(SELECT)
           .eq("handling_paakraevet", true)
-          .in("company_id", companyIds.slice(i, i + 150));
+          .in("company_id", rene.slice(i, i + 150));
         if (error) throw error;
         if (rows) signalRows.push(...rows);
+      }
+
+      // Lokationssignaler for egne lokationer i virksomheder med flere sælgere
+      const lokRows: any[] = [];
+      const egneIds = egneLok.map((l) => l.id);
+      for (let i = 0; i < egneIds.length; i += 150) {
+        const { data: rows, error } = await context.supabase
+          .from("forbrug_signal_seneste" as any)
+          .select("company_id, afdeling_nr, location_id, klasse, aarsag, afvigelse_pct, base_kg_pr_mdr, akt_kg_pr_mdr, tabt_kg_pr_mdr, tabt_kr_pr_mdr, sidste_koeb, forventet_interval_mdr")
+          .eq("niveau", "lokation")
+          .eq("handling_paakraevet", true)
+          .in("location_id", egneIds.slice(i, i + 150));
+        if (error) throw error;
+        if (rows) lokRows.push(...rows);
+      }
+      const pr = new Map<string, any[]>();
+      for (const r of lokRows) {
+        const arr = pr.get(r.company_id) ?? [];
+        arr.push(r);
+        pr.set(r.company_id, arr);
+      }
+      for (const [cid, rows] of pr) {
+        const vaerst = [...rows].sort((a, b) => (Number(b.tabt_kr_pr_mdr) || 0) - (Number(a.tabt_kr_pr_mdr) || 0))[0];
+        signalRows.push({
+          company_id: cid,
+          afdeling_nr: vaerst.afdeling_nr,
+          assigned_to: effectiveUserId,
+          klasse_primaer: vaerst.klasse,
+          aarsag_primaer: vaerst.aarsag,
+          afvigelse_pct_primaer: vaerst.afvigelse_pct,
+          base_kg_primaer: vaerst.base_kg_pr_mdr,
+          akt_kg_primaer: vaerst.akt_kg_pr_mdr,
+          sidste_koeb_primaer: vaerst.sidste_koeb,
+          tabt_kg_pr_mdr: rows.reduce((s, r) => s + (Number(r.tabt_kg_pr_mdr) || 0), 0),
+          tabt_kr_pr_mdr: rows.reduce((s, r) => s + (Number(r.tabt_kr_pr_mdr) || 0), 0),
+          grupper_i_fald: rows.length,
+          handling_paakraevet: true,
+          forventet_interval_mdr_primaer: vaerst.forventet_interval_mdr,
+        });
       }
     }
 
@@ -140,8 +205,13 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
       .filter((r) => compMap.has(r.company_id))
       .map((r) => ({
         company_id: r.company_id as string,
-        navn: compMap.get(r.company_id)?.name ?? "",
-        by: compMap.get(r.company_id)?.city ?? null,
+        navn: (() => {
+          const n = compMap.get(r.company_id)?.name ?? "";
+          const ll = lokLabel.get(r.company_id);
+          if (!ll) return n;
+          return `${n}${ll.byer ? ` – ${ll.byer}` : ""} (${ll.egne} af ${ll.total} lokationer)`;
+        })(),
+        by: lokLabel.get(r.company_id)?.byer || compMap.get(r.company_id)?.city || null,
         klasse_primaer: r.klasse_primaer ?? null,
         aarsag_primaer: r.aarsag_primaer ?? null,
         afvigelse_pct_primaer: r.afvigelse_pct_primaer != null ? Number(r.afvigelse_pct_primaer) : null,

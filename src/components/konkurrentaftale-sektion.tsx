@@ -31,44 +31,93 @@ import {
 
 type Competitor = { id: string; name: string };
 
+type Lok = { id: string; address: string | null; city: string | null; visma_delivery_no: string | null; is_primary: boolean };
+
 type Assignment = {
   id: string;
   competitor_id: string;
+  location_id: string | null;
   contract_expires_at: string | null;
   notes: string | null;
   registered_by: string;
+  start_dato: string | null;
+  afsluttet_dato: string | null;
   competitors: { name: string; competitor_type: CompetitorTypeKey | null } | null;
 };
 
+function lokNavn(l: Lok | undefined): string {
+  if (!l) return "Ukendt lokation";
+  const adr = [l.address, l.city].filter(Boolean).join(", ");
+  return `${adr || "Uden adresse"}${l.visma_delivery_no ? ` · ${l.visma_delivery_no}` : ""}`;
+}
+
+function dato(d: string | null) {
+  return d ? format(parseISO(d), "d. MMM yyyy", { locale: da }) : "—";
+}
+
+function Udloeb({ a, companyId }: { a: Assignment; companyId: string }) {
+  if (!a.contract_expires_at) return <span className="text-muted-foreground">Udløb ikke oplyst</span>;
+  const dage = differenceInDays(parseISO(a.contract_expires_at), new Date());
+  const adv = dage <= 90;
+  return (
+    <span className={adv ? "text-warning font-medium inline-flex items-center gap-1" : "text-muted-foreground inline-flex items-center gap-1"}>
+      {adv && <AlertTriangle className="h-3.5 w-3.5" />}
+      {dage < 0 ? "Udløb" : "Udløber"} {dato(a.contract_expires_at)}
+      <button
+        type="button"
+        title="Tilføj til kalender"
+        aria-label="Tilføj til kalender"
+        onClick={() =>
+          import("@/lib/add-to-calendar").then(({ addToCalendar }) =>
+            addToCalendar({
+              title: `Konkurrentaftale udløber: ${a.competitors?.name ?? ""}`,
+              date: a.contract_expires_at!,
+              description: a.notes ?? undefined,
+              url: `${window.location.origin}/virksomheder/${companyId}`,
+              uid: `competitor-${a.id}`,
+            }),
+          )
+        }
+        className="ml-1 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+      >
+        <CalendarPlus className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  );
+}
+
 export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
   const auth = useAuth();
-  const [assignment, setAssignment] = useState<Assignment | null>(null);
-  const [registrantName, setRegistrantName] = useState<string>("");
+  const [rows, setRows] = useState<Assignment[]>([]);
+  const [loks, setLoks] = useState<Lok[]>([]);
+  const [navne, setNavne] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [redigér, setRedigér] = useState<Assignment | null>(null);
+  const [startLok, setStartLok] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("competitor_assignments")
-      .select("id, competitor_id, contract_expires_at, notes, registered_by, competitors(name, competitor_type)")
-      .eq("company_id", companyId)
-      .maybeSingle();
-    if (error && error.code !== "PGRST116") {
-      toast.error(error.message);
-      setLoading(false);
-      return;
-    }
-    setAssignment((data ?? null) as Assignment | null);
-    if (data?.registered_by) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", data.registered_by)
-        .maybeSingle();
-      setRegistrantName(prof?.full_name || "");
-    } else {
-      setRegistrantName("");
+    const [aRes, lRes] = await Promise.all([
+      supabase
+        .from("competitor_assignments")
+        .select("id, competitor_id, location_id, contract_expires_at, notes, registered_by, start_dato, afsluttet_dato, competitors(name, competitor_type)")
+        .eq("company_id", companyId)
+        .order("start_dato", { ascending: false }),
+      supabase
+        .from("locations")
+        .select("id, address, city, visma_delivery_no, is_primary")
+        .eq("company_id", companyId)
+        .order("is_primary", { ascending: false }),
+    ]);
+    if (aRes.error) toast.error(aRes.error.message);
+    const a = (aRes.data ?? []) as unknown as Assignment[];
+    setRows(a);
+    setLoks((lRes.data ?? []) as Lok[]);
+    const ids = Array.from(new Set(a.map((r) => r.registered_by).filter(Boolean)));
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      setNavne(Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.full_name ?? ""])));
     }
     setLoading(false);
   }, [companyId]);
@@ -77,30 +126,26 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
     void load();
   }, [load]);
 
-  const expiresSoon =
-    assignment?.contract_expires_at &&
-    differenceInDays(parseISO(assignment.contract_expires_at), new Date()) <= 90 &&
-    differenceInDays(parseISO(assignment.contract_expires_at), new Date()) >= 0;
-  const expired =
-    assignment?.contract_expires_at &&
-    differenceInDays(parseISO(assignment.contract_expires_at), new Date()) < 0;
+  const aktuelle = rows.filter((r) => !r.afsluttet_dato);
+  const historik = rows.filter((r) => r.afsluttet_dato);
+  const lokById = new Map(loks.map((l) => [l.id, l]));
+  const flereLok = loks.length > 1;
+  const typeForste = aktuelle.find((r) => r.competitors?.competitor_type && COMPETITOR_TYPES[r.competitors.competitor_type]);
+
+  const åbnNy = (lokId: string | null) => {
+    setRedigér(null);
+    setStartLok(lokId);
+    setOpen(true);
+  };
 
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold flex items-center gap-2">
-          <Coffee className="h-4 w-4" /> Konkurrentaftale
+          <Coffee className="h-4 w-4" /> Konkurrentaftale{flereLok ? "r pr. lokation" : ""}
         </h2>
-        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-          {assignment ? (
-            <>
-              <Pencil className="h-3.5 w-3.5 mr-1.5" /> Rediger
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4 mr-1" /> Registrér konkurrent
-            </>
-          )}
+        <Button size="sm" variant="outline" onClick={() => åbnNy(null)}>
+          <Plus className="h-4 w-4 mr-1" /> Registrér konkurrent
         </Button>
       </div>
 
@@ -108,102 +153,83 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
         <div className="py-4 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
-      ) : !assignment ? (
-        <p className="text-sm text-muted-foreground">
-          Ingen konkurrentaftale registreret.
-        </p>
+      ) : aktuelle.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Ingen aktuel konkurrentaftale registreret.</p>
       ) : (
-        <div className="space-y-1 text-sm">
-          <div className="font-medium flex items-center gap-2 flex-wrap">
-            <span>{assignment.competitors?.name ?? "—"}</span>
-            {assignment.competitors?.competitor_type &&
-              COMPETITOR_TYPES[assignment.competitors.competitor_type] && (
-                <span
-                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${COMPETITOR_TYPE_BADGE[assignment.competitors.competitor_type]}`}
-                >
-                  {COMPETITOR_TYPES[assignment.competitors.competitor_type].label}
-                </span>
-              )}
-          </div>
-          {assignment.contract_expires_at && (
-            <div
-              className={
-                expired || expiresSoon
-                  ? "text-warning font-medium flex items-center gap-1"
-                  : "text-muted-foreground flex items-center gap-1"
-              }
-            >
-              {(expired || expiresSoon) && <AlertTriangle className="h-3.5 w-3.5" />}
-              Udløber{" "}
-              {format(parseISO(assignment.contract_expires_at), "d. MMM yyyy", {
-                locale: da,
-              })}
-              <button
-                type="button"
-                title="Tilføj til kalender"
-                aria-label="Tilføj til kalender"
-                onClick={() =>
-                  import("@/lib/add-to-calendar").then(({ addToCalendar }) =>
-                    addToCalendar({
-                      title: `Konkurrentaftale udløber: ${assignment.competitors?.name ?? ""}`,
-                      date: assignment.contract_expires_at!,
-                      description: assignment.notes ?? undefined,
-                      url: `${window.location.origin}/virksomheder/${companyId}`,
-                      uid: `competitor-${assignment.id}`,
-                    }),
-                  )
-                }
-                className="ml-1 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-              >
-                <CalendarPlus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-          {assignment.notes && (
-            <p className="italic text-muted-foreground">"{assignment.notes}"</p>
-          )}
-          {registrantName && (
-            <p className="text-xs text-muted-foreground">
-              Registreret af {registrantName}
-            </p>
-          )}
-        </div>
+        <ul className="divide-y text-sm">
+          {aktuelle.map((a) => (
+            <li key={a.id} className="py-2 flex items-start justify-between gap-3">
+              <div className="space-y-0.5 min-w-0">
+                {flereLok && (
+                  <div className="text-xs text-muted-foreground">{lokNavn(a.location_id ? lokById.get(a.location_id) : undefined)}</div>
+                )}
+                <div className="font-medium flex items-center gap-2 flex-wrap">
+                  <span>{a.competitors?.name ?? "—"}</span>
+                  {a.competitors?.competitor_type && COMPETITOR_TYPES[a.competitors.competitor_type] && (
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${COMPETITOR_TYPE_BADGE[a.competitors.competitor_type]}`}>
+                      {COMPETITOR_TYPES[a.competitors.competitor_type].label}
+                    </span>
+                  )}
+                </div>
+                <div><Udloeb a={a} companyId={companyId} /></div>
+                {a.notes && <p className="italic text-muted-foreground">"{a.notes}"</p>}
+                <p className="text-xs text-muted-foreground">
+                  Siden {dato(a.start_dato)}{navne[a.registered_by] ? ` · registreret af ${navne[a.registered_by]}` : ""}
+                </p>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => { setRedigér(a); setStartLok(a.location_id); setOpen(true); }}>
+                <Pencil className="h-3.5 w-3.5 mr-1" /> Ret / skift
+              </Button>
+            </li>
+          ))}
+        </ul>
       )}
 
-      {assignment?.competitors?.competitor_type &&
-        COMPETITOR_TYPES[assignment.competitors.competitor_type] && (() => {
-          const type = COMPETITOR_TYPES[assignment.competitors.competitor_type!];
-          return (
-            <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs text-muted-foreground">{type.tagline}</span>
+      {historik.length > 0 && (
+        <details className="mt-3 text-sm">
+          <summary className="cursor-pointer text-muted-foreground">Historik ({historik.length})</summary>
+          <ul className="mt-2 space-y-1">
+            {historik.map((h) => (
+              <li key={h.id} className="text-muted-foreground">
+                {h.competitors?.name ?? "—"} · {dato(h.start_dato)} – {dato(h.afsluttet_dato)}
+                {h.contract_expires_at ? ` · udløb ${dato(h.contract_expires_at)}` : ""}
+                {flereLok ? ` · ${lokNavn(h.location_id ? lokById.get(h.location_id) : undefined)}` : ""}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {typeForste?.competitors?.competitor_type && (() => {
+        const type = COMPETITOR_TYPES[typeForste.competitors!.competitor_type!];
+        return (
+          <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Lightbulb className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs text-muted-foreground">{type.tagline}</span>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-muted-foreground mb-0.5">De spørger sandsynligvis:</div>
+                <div className="italic">"{type.identifying_question}"</div>
               </div>
-              <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                <div>
-                  <div className="text-xs text-muted-foreground mb-0.5">
-                    De spørger sandsynligvis:
-                  </div>
-                  <div className="italic">"{type.identifying_question}"</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground mb-0.5">
-                    Frellsens svar:
-                  </div>
-                  <div className="font-medium">"{type.frellsen_pitch}"</div>
-                </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-0.5">Frellsens svar:</div>
+                <div className="font-medium">"{type.frellsen_pitch}"</div>
               </div>
             </div>
-          );
-        })()}
-
+          </div>
+        );
+      })()}
 
       <AssignmentDialog
         open={open}
         onOpenChange={setOpen}
         companyId={companyId}
-        existing={assignment}
+        existing={redigér}
         currentUserId={auth.user?.id ?? null}
+        lokationer={loks}
+        startLokation={startLok}
         onSaved={() => {
           void load();
         }}
@@ -219,11 +245,15 @@ function AssignmentDialog({
   existing,
   currentUserId,
   onSaved,
+  lokationer,
+  startLokation,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   companyId: string;
   existing: Assignment | null;
+  lokationer: Lok[];
+  startLokation: string | null;
   currentUserId: string | null;
   onSaved: () => void;
 }) {
@@ -233,6 +263,7 @@ function AssignmentDialog({
   const [notes, setNotes] = useState<string>("");
   const [nyNavn, setNyNavn] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const [lokId, setLokId] = useState<string>("");
 
   useEffect(() => {
     if (!open) return;
@@ -251,7 +282,8 @@ function AssignmentDialog({
     setExpiresAt(existing?.contract_expires_at ?? "");
     setNotes(existing?.notes ?? "");
     setNyNavn("");
-  }, [open, existing]);
+    setLokId(existing?.location_id ?? startLokation ?? lokationer[0]?.id ?? "");
+  }, [open, existing, startLokation, lokationer]);
 
   const save = async () => {
     if (!competitorId || (competitorId === "__ny" && !nyNavn.trim())) {
@@ -279,35 +311,29 @@ function AssignmentDialog({
           konkId = ny.id;
         }
       }
-      // Kun én konkurrentaftale pr. virksomhed: skift af konkurrent opdaterer den eksisterende.
-      if (existing && existing.competitor_id !== konkId) {
+      // Samme konkurrent på samme lokation: ret udløb/bemærkning.
+      // Ny konkurrent: ny aftale — den gamle afsluttes automatisk og bevares som historik.
+      if (existing && existing.competitor_id === konkId && existing.location_id === lokId) {
         const { error: upErr } = await supabase
           .from("competitor_assignments")
           .update({
-            competitor_id: konkId,
             contract_expires_at: expiresAt || null,
             notes: notes.trim() || null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existing.id);
         if (upErr) throw upErr;
-        toast.success("Konkurrentaftale gemt");
-        onOpenChange(false);
-        onSaved();
-        return;
+      } else {
+        const { error } = await supabase.from("competitor_assignments").insert({
+          company_id: companyId,
+          location_id: lokId || null,
+          competitor_id: konkId,
+          contract_expires_at: expiresAt || null,
+          notes: notes.trim() || null,
+          registered_by: currentUserId,
+        });
+        if (error) throw error;
       }
-      const payload = {
-        company_id: companyId,
-        competitor_id: konkId,
-        contract_expires_at: expiresAt || null,
-        notes: notes.trim() || null,
-        registered_by: existing?.registered_by ?? currentUserId,
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = await supabase
-        .from("competitor_assignments")
-        .upsert(payload, { onConflict: "company_id,competitor_id" });
-      if (error) throw error;
       toast.success("Konkurrentaftale gemt");
       onOpenChange(false);
       onSaved();
@@ -323,10 +349,27 @@ function AssignmentDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {existing ? "Rediger konkurrentaftale" : "Registrér konkurrentaftale"}
+            {existing ? "Konkurrentaftale" : "Registrér konkurrentaftale"}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
+          {lokationer.length > 1 && (
+            <div>
+              <Label>Lokation</Label>
+              <Select value={lokId} onValueChange={setLokId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Vælg lokation" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lokationer.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {lokNavn(l)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label>Konkurrent</Label>
             <Select value={competitorId} onValueChange={setCompetitorId}>

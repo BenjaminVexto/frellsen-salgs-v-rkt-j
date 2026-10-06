@@ -393,6 +393,55 @@
       "when": 1791295238182,
       "tag": "0055_lokation_under_synlig_virksomhed",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791301382210,
+      "tag": "0056_maskiner_lokationssaelger",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1791301477490,
+      "tag": "0057_maskin_detaljer_lokationssaelger",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1791301615190,
+      "tag": "0058_kunde_rytme_lokationsstatus",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1791301816218,
+      "tag": "0059_soesterkonti_regel_og_rytme_i_statusberegning",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1791301907918,
+      "tag": "0060_portefoelje_status_pr_lokation",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1791302037744,
+      "tag": "0061_konkurrentaftale_pr_lokation",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1791302242832,
+      "tag": "0062_katalog_indstilling_og_udsendelser",
+      "breakpoints": true
     }
   ]
 }

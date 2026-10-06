@@ -119,7 +119,8 @@ function KonkurrenterPage() {
 
     const { data: assigns } = await supabase
       .from("competitor_assignments")
-      .select("competitor_id");
+      .select("competitor_id")
+      .is("afsluttet_dato", null);
     const c: Record<string, number> = {};
     (assigns ?? []).forEach((a: any) => {
       c[a.competitor_id] = (c[a.competitor_id] ?? 0) + 1;
@@ -139,7 +140,8 @@ function KonkurrenterPage() {
       .select(
         "id, competitor_id, contract_expires_at, notes, company_id, companies(id, name, city)",
       )
-      .eq("competitor_id", competitorId);
+      .eq("competitor_id", competitorId)
+      .is("afsluttet_dato", null);
     if (error) {
       toast.error(error.message);
       setDetails([]);

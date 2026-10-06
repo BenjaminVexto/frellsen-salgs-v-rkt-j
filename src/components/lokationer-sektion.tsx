@@ -20,6 +20,7 @@ import { MapPin, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } fro
 import { toast } from "sonner";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { BesoegtKnap } from "@/components/besoegt-knap";
+import { KatalogKnap } from "@/components/katalog-knap";
 import { getLocationSalesSummary } from "@/lib/sales.functions";
 import { getMasterAgreementSuppression } from "@/lib/agreements.functions";
 import {
@@ -637,6 +638,9 @@ function LokationRow({
           <div className="pt-2 flex flex-wrap gap-2">
             {visBesoeg && companyId && (
               <BesoegtKnap companyId={companyId} locationId={location.id} size="sm" />
+            )}
+            {visBesoeg && companyId && (
+              <KatalogKnap companyId={companyId} locationId={location.id} size="sm" />
             )}
             <Button size="sm" variant="outline" onClick={onRegister}>
               Registrér aktivitet her

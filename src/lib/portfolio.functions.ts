@@ -802,6 +802,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
           "id, contract_expires_at, company_id, competitors(name), companies!inner(id)",
         )
         .not("contract_expires_at", "is", null)
+        .is("afsluttet_dato", null)
         .gte("contract_expires_at", today_s)
         .lte("contract_expires_at", in90_s)
         .is("companies.afloest_af_company_id", null)

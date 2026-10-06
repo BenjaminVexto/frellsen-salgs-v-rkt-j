@@ -661,6 +661,8 @@ export type Database = {
             | Database["public"]["Enums"]["institution_type"]
             | null
           is_public: boolean
+          koeber_paa_company_id: string | null
+          koeber_paa_konto: string | null
           kreditspaerret: boolean
           last_consumable_sales_date: string | null
           last_purchase_date: string | null
@@ -668,9 +670,13 @@ export type Database = {
           main_branch_code: string | null
           main_branch_text: string | null
           municipality: string | null
+          naeste_koeb_forventet: string | null
           name: string
+          over_rytme: boolean
           parent_cvr: string | null
           phone: string | null
+          rytme_interval_mdr: number | null
+          rytme_koebsmaaneder: number | null
           source: string | null
           source_created_by: string | null
           source_updated_at: string | null
@@ -716,6 +722,8 @@ export type Database = {
             | Database["public"]["Enums"]["institution_type"]
             | null
           is_public?: boolean
+          koeber_paa_company_id?: string | null
+          koeber_paa_konto?: string | null
           kreditspaerret?: boolean
           last_consumable_sales_date?: string | null
           last_purchase_date?: string | null
@@ -723,9 +731,13 @@ export type Database = {
           main_branch_code?: string | null
           main_branch_text?: string | null
           municipality?: string | null
+          naeste_koeb_forventet?: string | null
           name: string
+          over_rytme?: boolean
           parent_cvr?: string | null
           phone?: string | null
+          rytme_interval_mdr?: number | null
+          rytme_koebsmaaneder?: number | null
           source?: string | null
           source_created_by?: string | null
           source_updated_at?: string | null
@@ -771,6 +783,8 @@ export type Database = {
             | Database["public"]["Enums"]["institution_type"]
             | null
           is_public?: boolean
+          koeber_paa_company_id?: string | null
+          koeber_paa_konto?: string | null
           kreditspaerret?: boolean
           last_consumable_sales_date?: string | null
           last_purchase_date?: string | null
@@ -778,9 +792,13 @@ export type Database = {
           main_branch_code?: string | null
           main_branch_text?: string | null
           municipality?: string | null
+          naeste_koeb_forventet?: string | null
           name?: string
+          over_rytme?: boolean
           parent_cvr?: string | null
           phone?: string | null
+          rytme_interval_mdr?: number | null
+          rytme_koebsmaaneder?: number | null
           source?: string | null
           source_created_by?: string | null
           source_updated_at?: string | null
@@ -1108,33 +1126,42 @@ export type Database = {
       }
       competitor_assignments: {
         Row: {
+          afsluttet_dato: string | null
           company_id: string
           competitor_id: string
           contract_expires_at: string | null
           created_at: string
           id: string
+          location_id: string | null
           notes: string | null
           registered_by: string
+          start_dato: string
           updated_at: string
         }
         Insert: {
+          afsluttet_dato?: string | null
           company_id: string
           competitor_id: string
           contract_expires_at?: string | null
           created_at?: string
           id?: string
+          location_id?: string | null
           notes?: string | null
           registered_by: string
+          start_dato?: string
           updated_at?: string
         }
         Update: {
+          afsluttet_dato?: string | null
           company_id?: string
           competitor_id?: string
           contract_expires_at?: string | null
           created_at?: string
           id?: string
+          location_id?: string | null
           notes?: string | null
           registered_by?: string
+          start_dato?: string
           updated_at?: string
         }
         Relationships: [
@@ -1157,6 +1184,13 @@ export type Database = {
             columns: ["competitor_id"]
             isOneToOne: false
             referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_assignments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
@@ -1909,6 +1943,116 @@ export type Database = {
         }
         Relationships: []
       }
+      katalog_indstilling: {
+        Row: {
+          forside_billede_url: string | null
+          id: boolean
+          katalog_url: string
+          opdateret_af: string | null
+          opdateret_at: string
+        }
+        Insert: {
+          forside_billede_url?: string | null
+          id?: boolean
+          katalog_url: string
+          opdateret_af?: string | null
+          opdateret_at?: string
+        }
+        Update: {
+          forside_billede_url?: string | null
+          id?: boolean
+          katalog_url?: string
+          opdateret_af?: string | null
+          opdateret_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "katalog_indstilling_opdateret_af_fkey"
+            columns: ["opdateret_af"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      katalog_udsendelser: {
+        Row: {
+          activity_id: string | null
+          company_id: string
+          created_at: string
+          id: string
+          katalog_url: string
+          location_id: string | null
+          modtager_email: string
+          modtager_navn: string | null
+          sendt_af: string
+          sendt_at: string | null
+          status: string
+        }
+        Insert: {
+          activity_id?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          katalog_url: string
+          location_id?: string | null
+          modtager_email: string
+          modtager_navn?: string | null
+          sendt_af: string
+          sendt_at?: string | null
+          status?: string
+        }
+        Update: {
+          activity_id?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          katalog_url?: string
+          location_id?: string | null
+          modtager_email?: string
+          modtager_navn?: string | null
+          sendt_af?: string
+          sendt_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "katalog_udsendelser_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katalog_udsendelser_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katalog_udsendelser_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "katalog_udsendelser_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katalog_udsendelser_sendt_af_fkey"
+            columns: ["sendt_af"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kundeprisgruppe_sektor: {
         Row: {
           kode: string
@@ -2072,6 +2216,7 @@ export type Database = {
           company_id: string
           contact_person: string | null
           created_at: string
+          customer_type: Database["public"]["Enums"]["customer_type"] | null
           email: string | null
           equipment_coffee_machines: number | null
           equipment_cooling: number | null
@@ -2086,12 +2231,18 @@ export type Database = {
           i_aktoer: boolean
           id: string
           is_primary: boolean
+          koeber_paa_location_id: string | null
           kreditspaerret: boolean
+          naeste_koeb_forventet: string | null
+          over_rytme: boolean
           phone: string | null
           region: string | null
+          rytme_interval_mdr: number | null
+          rytme_koebsmaaneder: number | null
           saelger_no: string | null
           saelger_user_id: string | null
           sales_signal: string | null
+          sidste_forbrugskoeb: string | null
           visma_delivery_no: string | null
           visma_enhed: string | null
           zip: string | null
@@ -2106,6 +2257,7 @@ export type Database = {
           company_id: string
           contact_person?: string | null
           created_at?: string
+          customer_type?: Database["public"]["Enums"]["customer_type"] | null
           email?: string | null
           equipment_coffee_machines?: number | null
           equipment_cooling?: number | null
@@ -2120,12 +2272,18 @@ export type Database = {
           i_aktoer?: boolean
           id?: string
           is_primary?: boolean
+          koeber_paa_location_id?: string | null
           kreditspaerret?: boolean
+          naeste_koeb_forventet?: string | null
+          over_rytme?: boolean
           phone?: string | null
           region?: string | null
+          rytme_interval_mdr?: number | null
+          rytme_koebsmaaneder?: number | null
           saelger_no?: string | null
           saelger_user_id?: string | null
           sales_signal?: string | null
+          sidste_forbrugskoeb?: string | null
           visma_delivery_no?: string | null
           visma_enhed?: string | null
           zip?: string | null
@@ -2140,6 +2298,7 @@ export type Database = {
           company_id?: string
           contact_person?: string | null
           created_at?: string
+          customer_type?: Database["public"]["Enums"]["customer_type"] | null
           email?: string | null
           equipment_coffee_machines?: number | null
           equipment_cooling?: number | null
@@ -2154,12 +2313,18 @@ export type Database = {
           i_aktoer?: boolean
           id?: string
           is_primary?: boolean
+          koeber_paa_location_id?: string | null
           kreditspaerret?: boolean
+          naeste_koeb_forventet?: string | null
+          over_rytme?: boolean
           phone?: string | null
           region?: string | null
+          rytme_interval_mdr?: number | null
+          rytme_koebsmaaneder?: number | null
           saelger_no?: string | null
           saelger_user_id?: string | null
           sales_signal?: string | null
+          sidste_forbrugskoeb?: string | null
           visma_delivery_no?: string | null
           visma_enhed?: string | null
           zip?: string | null
@@ -2186,6 +2351,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "salgsintelligens_mersalg"
             referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "locations_koeber_paa_location_id_fkey"
+            columns: ["koeber_paa_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "locations_saelger_user_id_fkey"
@@ -4077,6 +4249,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      kunde_rytme_genberegn: {
+        Args: { _company_ids?: string[] }
+        Returns: number
+      }
       kundestatus: {
         Args: {
           _has_eq: boolean
@@ -4095,6 +4271,10 @@ export type Database = {
           _ref?: string
         }
         Returns: Database["public"]["Enums"]["customer_type"]
+      }
+      kundestatus_rang: {
+        Args: { _t: Database["public"]["Enums"]["customer_type"] }
+        Returns: number
       }
       kundetype: { Args: { _segment_3: string }; Returns: string }
       location_sales_summary: {
@@ -4495,6 +4675,10 @@ export type Database = {
       }
       region_for_postnr: { Args: { _zip: string }; Returns: string }
       relink_sales_locations: { Args: never; Returns: Json }
+      rytme_graense_dage: {
+        Args: { _interval: number; _koebsmaaneder: number }
+        Returns: number
+      }
       saelger_navn: { Args: { _id: string }; Returns: string }
       saeson_faktor: {
         Args: { _group: string; _period: string }
@@ -4576,6 +4760,24 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
       skm_genberegn_alt: { Args: { _afdeling_nr?: number }; Returns: number }
       snapshot_forbrug_signal: { Args: never; Returns: number }
+      soesterkonti_par: {
+        Args: never
+        Returns: {
+          afdeling_nr: number
+          aktiv_adresse: string
+          aktiv_company_id: string
+          aktiv_konto: string
+          aktiv_navn: string
+          aktiv_sidste_koeb: string
+          cvr: string
+          samme_virksomhed: boolean
+          sovende_adresse: string
+          sovende_company_id: string
+          sovende_konto: string
+          sovende_navn: string
+          sovende_sidste_koeb: string
+        }[]
+      }
       sortiment_daekning: { Args: { _company_id: string }; Returns: Json }
       te_sortiment_kunde: { Args: { _company_id: string }; Returns: Json }
       te_sortiment_oversigt: {

@@ -35,6 +35,7 @@ import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_authenticated/admin.importhistorik'
 import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
 import { Route as AuthenticatedAdminPostnumreRouteImport } from './routes/_authenticated/admin.postnumre'
+import { Route as AuthenticatedAdminSoesterkontiRouteImport } from './routes/_authenticated/admin.soesterkonti'
 import { Route as AuthenticatedAdminTilbudskatalogRouteImport } from './routes/_authenticated/admin.tilbudskatalog'
 import { Route as AuthenticatedAftalerIndexRouteImport } from './routes/_authenticated/aftaler.index'
 import { Route as AuthenticatedAftalerIdRouteImport } from './routes/_authenticated/aftaler.$id'
@@ -206,6 +207,12 @@ const AuthenticatedAdminPostnumreRoute =
     path: '/admin/postnumre',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminSoesterkontiRoute =
+  AuthenticatedAdminSoesterkontiRouteImport.update({
+    id: '/admin/soesterkonti',
+    path: '/admin/soesterkonti',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminTilbudskatalogRoute =
   AuthenticatedAdminTilbudskatalogRouteImport.update({
     id: '/admin/tilbudskatalog',
@@ -373,6 +380,7 @@ export interface FileRoutesByFullPath {
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/admin/postnumre': typeof AuthenticatedAdminPostnumreRoute
+  '/admin/soesterkonti': typeof AuthenticatedAdminSoesterkontiRoute
   '/admin/tilbudskatalog': typeof AuthenticatedAdminTilbudskatalogRoute
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
@@ -423,6 +431,7 @@ export interface FileRoutesByTo {
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/admin/postnumre': typeof AuthenticatedAdminPostnumreRoute
+  '/admin/soesterkonti': typeof AuthenticatedAdminSoesterkontiRoute
   '/admin/tilbudskatalog': typeof AuthenticatedAdminTilbudskatalogRoute
   '/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/kontaktlister/$id': typeof AuthenticatedKontaktlisterIdRoute
@@ -476,6 +485,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/_authenticated/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/_authenticated/admin/postnumre': typeof AuthenticatedAdminPostnumreRoute
+  '/_authenticated/admin/soesterkonti': typeof AuthenticatedAdminSoesterkontiRoute
   '/_authenticated/admin/tilbudskatalog': typeof AuthenticatedAdminTilbudskatalogRoute
   '/_authenticated/aftaler/$id': typeof AuthenticatedAftalerIdRoute
   '/_authenticated/kontaktlister_/$id': typeof AuthenticatedKontaktlisterIdRoute
@@ -529,6 +539,7 @@ export interface FileRouteTypes {
     | '/admin/importhistorik'
     | '/admin/overblik'
     | '/admin/postnumre'
+    | '/admin/soesterkonti'
     | '/admin/tilbudskatalog'
     | '/aftaler/$id'
     | '/kontaktlister/$id'
@@ -579,6 +590,7 @@ export interface FileRouteTypes {
     | '/admin/importhistorik'
     | '/admin/overblik'
     | '/admin/postnumre'
+    | '/admin/soesterkonti'
     | '/admin/tilbudskatalog'
     | '/aftaler/$id'
     | '/kontaktlister/$id'
@@ -631,6 +643,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/importhistorik'
     | '/_authenticated/admin/overblik'
     | '/_authenticated/admin/postnumre'
+    | '/_authenticated/admin/soesterkonti'
     | '/_authenticated/admin/tilbudskatalog'
     | '/_authenticated/aftaler/$id'
     | '/_authenticated/kontaktlister_/$id'
@@ -859,6 +872,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminPostnumreRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/soesterkonti': {
+      id: '/_authenticated/admin/soesterkonti'
+      path: '/admin/soesterkonti'
+      fullPath: '/admin/soesterkonti'
+      preLoaderRoute: typeof AuthenticatedAdminSoesterkontiRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/tilbudskatalog': {
       id: '/_authenticated/admin/tilbudskatalog'
       path: '/admin/tilbudskatalog'
@@ -1077,6 +1097,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminImporthistorikRoute: typeof AuthenticatedAdminImporthistorikRoute
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
   AuthenticatedAdminPostnumreRoute: typeof AuthenticatedAdminPostnumreRoute
+  AuthenticatedAdminSoesterkontiRoute: typeof AuthenticatedAdminSoesterkontiRoute
   AuthenticatedAdminTilbudskatalogRoute: typeof AuthenticatedAdminTilbudskatalogRoute
   AuthenticatedAftalerIdRoute: typeof AuthenticatedAftalerIdRoute
   AuthenticatedKontaktlisterIdRoute: typeof AuthenticatedKontaktlisterIdRoute
@@ -1107,6 +1128,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminImporthistorikRoute: AuthenticatedAdminImporthistorikRoute,
   AuthenticatedAdminOverblikRoute: AuthenticatedAdminOverblikRoute,
   AuthenticatedAdminPostnumreRoute: AuthenticatedAdminPostnumreRoute,
+  AuthenticatedAdminSoesterkontiRoute: AuthenticatedAdminSoesterkontiRoute,
   AuthenticatedAdminTilbudskatalogRoute: AuthenticatedAdminTilbudskatalogRoute,
   AuthenticatedAftalerIdRoute: AuthenticatedAftalerIdRoute,
   AuthenticatedKontaktlisterIdRoute: AuthenticatedKontaktlisterIdRoute,
