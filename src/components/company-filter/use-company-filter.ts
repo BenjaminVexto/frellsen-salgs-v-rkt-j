@@ -172,7 +172,7 @@ export function useCompanyFilter({
         const slice = ids.slice(i, i + 500);
         const { data } = await (supabase as any)
           .from("locations")
-          .select("company_id, city, address, zip, visma_delivery_no")
+          .select("company_id, city, address, zip, visma_delivery_no, saelger_user_id")
           .in("company_id", slice);
         (data ?? []).forEach((l: any) => {
           const arr = m.get(l.company_id) ?? [];
@@ -181,6 +181,7 @@ export function useCompanyFilter({
             address: l.address,
             zip: l.zip,
             visma_delivery_no: l.visma_delivery_no,
+            saelger_user_id: l.saelger_user_id ?? null,
           });
           m.set(l.company_id, arr);
         });
@@ -309,6 +310,8 @@ export function useCompanyFilter({
         const assigns = new Set<string>(assignmentMap.get(r.id) ?? []);
         const own = (r as any).assigned_to as string | null;
         if (own) assigns.add(own);
+        // Sælger pr. lokation: virksomheden vises hos alle sælgere med en lokation.
+        for (const l of locationMap.get(r.id) ?? []) if (l.saelger_user_id) assigns.add(l.saelger_user_id);
         if (filters.saelger === "ikke_tildelt") {
           if (assigns.size > 0) return false;
         } else if (filters.saelger === "mine") {

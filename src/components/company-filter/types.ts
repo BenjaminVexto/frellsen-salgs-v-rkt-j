@@ -33,6 +33,7 @@ export type LocationLite = {
   address: string | null;
   zip: string | null;
   visma_delivery_no: string | null;
+  saelger_user_id?: string | null;
 };
 
 export type EquipmentSummary = {
