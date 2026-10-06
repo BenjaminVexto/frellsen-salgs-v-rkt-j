@@ -342,15 +342,19 @@ export function PenhedDaekning({
   }
 
   async function markerIkkeRelevant() {
-    if (!irFor || !irAarsag) return;
-    if (irAarsag === "andet" && !irTekst.trim()) return toast.error("Skriv en årsag");
+    if (!irFor) return;
+    // Under Lokationer: kun en valgfri kort begrundelse. Ellers årsagsliste.
+    const tekst = irTekst.trim();
+    const aarsag = kunIkkeKunde ? (tekst ? "andet" : "uden_aarsag") : irAarsag;
+    if (!aarsag) return;
+    if (aarsag === "andet" && !tekst) return toast.error("Skriv en årsag");
     const p = irFor;
     setBusy(p.p_number);
     const { error } = await (supabase as any).from("penhed_ikke_relevant").upsert(
       {
         p_nummer: p.p_number,
-        aarsag: irAarsag,
-        fritekst: irAarsag === "andet" ? irTekst.trim() : null,
+        aarsag,
+        fritekst: aarsag === "andet" ? tekst : null,
         created_by: auth.user?.id,
         created_at: new Date().toISOString(),
       },
@@ -358,9 +362,11 @@ export function PenhedDaekning({
     );
     setBusy(null);
     if (error) return toast.error("Kunne ikke markere: " + error.message);
+    await logPenhed(p.p_number, "ikke_relevant", null, tekst || null);
     setIrFor(null);
     toast.success("Markeret som ikke relevant");
     await load();
+    onChanged?.();
   }
 
   async function fortrydIkkeRelevant(p: PenhedDaekningRow) {
@@ -371,8 +377,10 @@ export function PenhedDaekning({
       .eq("p_nummer", p.p_number);
     setBusy(null);
     if (error) return toast.error("Kunne ikke fortryde: " + error.message);
+    await logPenhed(p.p_number, "fortryd_ikke_relevant");
     toast.success("Markering fortrudt");
     await load();
+    onChanged?.();
   }
 
   if (!rows) {
