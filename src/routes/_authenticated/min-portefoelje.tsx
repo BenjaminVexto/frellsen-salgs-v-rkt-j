@@ -26,6 +26,7 @@ import {
   type RankingRow,
   type ScatterPoint,
   type SignalRow,
+  type VindTilbageRow,
 } from "@/lib/portfolio.functions";
 import {
   getForbrugSignalMap,
@@ -44,6 +45,9 @@ import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { KUNDEGRUPPE_LABEL, FORHANDLING_HJAELP } from "@/lib/customer-segment-mapping";
+
+const SIDE_STR = 50;
 
 const INGEN_SAELGER = "__ingen__";
 const slugify = (v: string) =>
@@ -82,13 +86,15 @@ function PortfolioPage() {
   useEffect(() => {
     if (isImpersonating && viewAsUserId) setSellerId(viewAsUserId);
   }, [isImpersonating, viewAsUserId]);
-  const [sortKey, setSortKey] = useState<SortKey>("month:last");
+  const [sortKey, setSortKey] = useState<SortKey>("revenue12m");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   // Filters
   const [search, setSearch] = useState("");
   const [kaffeFilter, setKaffeFilter] = useState<"all" | "green" | "yellow" | "red" | "via">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "aktiv" | "sovende" | "service" | "paavejvaek">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "aktiv" | "sovende" | "tidligere" | "service" | "paavejvaek" | "stoppet">("all");
+  const [omraadeFilter, setOmraadeFilter] = useState("");
+  const [kunFalder, setKunFalder] = useState(false);
   const [sektorFilter, setSektorFilter] = useState<"all" | "privat" | "offentlig">("all");
   const [topN, setTopN] = useState<0 | 50 | 100 | 200>(0);
   useEffect(() => {
@@ -104,7 +110,7 @@ function PortfolioPage() {
   const [downloading, setDownloading] = useState(false);
   const hentKontakter = useServerFn(getPortfolioKontakter);
   const [showDB, setShowDB] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(5);
+  const [visibleCount, setVisibleCount] = useState(SIDE_STR);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
   const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus">(() =>
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null)
@@ -223,8 +229,19 @@ function PortfolioPage() {
   const sortedCompanies = useMemo(() => {
     if (!data) return [] as (PortfolioCompanyRow & { rang: number })[];
     const searchLc = search.trim().toLowerCase();
+    const omraadeLc = omraadeFilter.trim().toLowerCase();
     const filtered = data.companies.filter((c) => {
-      if (searchLc && !c.name.toLowerCase().includes(searchLc)) return false;
+      if (
+        searchLc &&
+        !c.name.toLowerCase().includes(searchLc) &&
+        !(c.address ?? "").toLowerCase().includes(searchLc)
+      )
+        return false;
+      if (omraadeLc) {
+        const hay = `${c.city ?? ""} ${c.zip ?? ""} ${c.address ?? ""}`.toLowerCase();
+        if (!hay.includes(omraadeLc)) return false;
+      }
+      if (kunFalder && (!c.falder || c.stopSkjult)) return false;
       if (kaffeFilter !== "all") {
         const cls = classifyKaffe(c);
         if (cls !== kaffeFilter) return false;
@@ -274,7 +291,7 @@ function PortfolioPage() {
       return 0;
     });
     return arr.map((c) => ({ ...c, rang: rank.get(c.id)! }));
-  }, [data, sortKey, sortDir, search, kaffeFilter, statusFilter, sektorFilter, topN, saelgerFilter, visSaelgerFilter]);
+  }, [data, sortKey, sortDir, search, kaffeFilter, statusFilter, sektorFilter, topN, saelgerFilter, visSaelgerFilter, omraadeFilter, kunFalder]);
 
   const downloadExcel = async () => {
     if (!sortedCompanies.length) return;
@@ -282,8 +299,8 @@ function PortfolioPage() {
     try {
       const { rows } = await hentKontakter({ data: { companyIds: sortedCompanies.map((c) => c.id) } });
       const km = new Map(rows.map((r) => [r.company_id, r]));
-      const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", service: "Servicekunde", paavejvaek: "Aktiv (på vej væk)", andet: "Tidligere" };
-      const sektorLabel: Record<string, string> = { privat: "Øvrige kunder", offentlig: "Offentlige udbud", intern: "Intern" };
+      const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", service: "Servicekunde", paavejvaek: "Aktiv (på vej væk)", tidligere: "Tidligere", stoppet: "Stoppet", andet: "Andet" };
+      const sektorLabel: Record<string, string> = { privat: "Forhandlingskunder", offentlig: "Udbudskunder", intern: "Intern" };
       const data = [...sortedCompanies].sort((a, b) => a.rang - b.rang).map((c) => {
         const k = km.get(c.id);
         return {
@@ -344,8 +361,8 @@ function PortfolioPage() {
 
   // Reset pagination when filters/sort change
   useEffect(() => {
-    setVisibleCount(5);
-  }, [search, kaffeFilter, statusFilter, sektorFilter, topN, sortKey, sortDir, sellerId, saelgerFilter]);
+    setVisibleCount(SIDE_STR);
+  }, [search, kaffeFilter, statusFilter, sektorFilter, topN, sortKey, sortDir, sellerId, saelgerFilter, omraadeFilter, kunFalder]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -427,10 +444,16 @@ function PortfolioPage() {
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Søg kunde…"
+                    placeholder="Søg på navn eller adresse…"
                     className="pl-8 h-9"
                   />
                 </div>
+                <Input
+                  value={omraadeFilter}
+                  onChange={(e) => setOmraadeFilter(e.target.value)}
+                  placeholder="By eller postnr."
+                  className="h-9 w-[150px]"
+                />
                 <Select value={kaffeFilter} onValueChange={(v) => setKaffeFilter(v as any)}>
                   <SelectTrigger className="h-9 w-[160px]">
                     <SelectValue placeholder="Kaffe" />
@@ -451,7 +474,9 @@ function PortfolioPage() {
                     <SelectItem value="all">Status: alle</SelectItem>
                     <SelectItem value="aktiv">Aktiv</SelectItem>
                     <SelectItem value="sovende">Sovende</SelectItem>
+                    <SelectItem value="tidligere">Tidligere</SelectItem>
                     <SelectItem value="service">Servicekunde</SelectItem>
+                    <SelectItem value="stoppet">Stoppet</SelectItem>
                     <SelectItem value="paavejvaek">På vej væk</SelectItem>
                   </SelectContent>
                 </Select>
@@ -500,11 +525,15 @@ function PortfolioPage() {
                     <SelectValue placeholder="Sektor" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Sektor: alle</SelectItem>
-                    <SelectItem value="privat">Øvrige kunder</SelectItem>
-                    <SelectItem value="offentlig">Offentlige udbud</SelectItem>
+                    <SelectItem value="all">Kundegruppe: alle</SelectItem>
+                    <SelectItem value="privat">Forhandlingskunder</SelectItem>
+                    <SelectItem value="offentlig">Udbudskunder</SelectItem>
                   </SelectContent>
                 </Select>
+                <label className="flex items-center gap-1.5 text-sm h-9 px-2 rounded-md border border-input cursor-pointer">
+                  <Checkbox checked={kunFalder} onCheckedChange={(v) => setKunFalder(v === true)} />
+                  Falder
+                </label>
                 <Select value={String(topN)} onValueChange={(v) => setTopN(Number(v) as any)}>
                   <SelectTrigger className="h-9 w-[130px]">
                     <SelectValue placeholder="Vis" />
@@ -526,7 +555,9 @@ function PortfolioPage() {
                     </div>
                   )}
                   <span className="text-xs text-muted-foreground tabular-nums">
-                    {sortedCompanies.length.toLocaleString("da-DK")} kunder
+                    {sortedCompanies.length.toLocaleString("da-DK")} virksomheder
+                    {sortedCompanies.length > 0 &&
+                      ` · viser 1–${Math.min(visibleCount, sortedCompanies.length).toLocaleString("da-DK")}`}
                   </span>
                   <Button size="sm" variant="outline" onClick={downloadExcel} disabled={downloading || !sortedCompanies.length}>
                     {downloading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
@@ -601,6 +632,11 @@ function PortfolioPage() {
                             {c.kreditspaerret && (
                               <Badge variant="destructive" className="ml-2 text-[10px]">Spærret</Badge>
                             )}
+                            {c.stoppet && (
+                              <Badge variant="outline" className="ml-2 text-[10px]">
+                                Stoppet{c.stopAarsag ? ` · ${STOP_AARSAG_KORT[c.stopAarsag] ?? ""}` : ""}
+                              </Badge>
+                            )}
                             {c.city && (
                               <div className="text-xs text-muted-foreground">{c.city}</div>
                             )}
@@ -649,12 +685,10 @@ function PortfolioPage() {
               {sortedCompanies.length > visibleCount && (
                 <button
                   type="button"
-                  onClick={() => setVisibleCount((n) => (n < 50 ? 50 : n + 50))}
+                  onClick={() => setVisibleCount((n) => n + SIDE_STR)}
                   className="w-full px-4 py-3 text-sm text-muted-foreground hover:bg-accent/40 border-t border-border"
                 >
-                  {visibleCount < 50
-                    ? `Udvid (vis 50 ad gangen, ${(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)`
-                    : `Vis 50 flere (${(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)`}
+                  {`Vis flere (${Math.min(SIDE_STR, sortedCompanies.length - visibleCount).toLocaleString("da-DK")} af ${(sortedCompanies.length - visibleCount).toLocaleString("da-DK")} tilbage)`}
                 </button>
               )}
             </Card>
@@ -689,9 +723,9 @@ function PortfolioPage() {
                     </TabsList>
                     <TabsContent value="decliners" className="mt-4">
                       <RankingTable
-                        title={rankingsExpanded ? "Top 25 — største fald (YTD vs. samme periode sidste år)" : "Top 5 — største fald (YTD vs. samme periode sidste år)"}
+                        title={rankingsExpanded ? "Top 25 — største fald i forbrugsvarer (12 hele mdr. mod de 12 før)" : "Top 5 — største fald i forbrugsvarer (12 hele mdr. mod de 12 før)"}
                         rows={data.rankings.topDecliners}
-                        valueLabel="Omsætning YTD"
+                        valueLabel="Forbrug 12 mdr."
                         valueField="revenueYtd"
                         showTrend
                         emptyText="Ingen kunder med fald i porteføljen."
@@ -741,7 +775,7 @@ function PortfolioPage() {
                   <Card className="p-4">
                     <div className="text-sm text-muted-foreground">
                       Potentiale-ratio = omsætning 12 mdr. ÷ antal medarbejdere.
-                      Aktive øvrige kunder med kendt medarbejdertal. Offentlige udbud
+                      Aktive forhandlingskunder med kendt medarbejdertal. Udbudskunder
                       (kundesegment 3 = 40) er udeladt.
                       {data.rankings.potentialMissingEmployees > 0 && (
                         <>
@@ -779,6 +813,7 @@ function PortfolioPage() {
                   description="Køber kaffe, men mangler te, chokolade eller drikke/automatvarer."
                   rows={data.signals.whiteSpace}
                   kind="whitespace"
+                  sektorFaner
                   initial={5}
                 />
                 <SignalList
@@ -797,11 +832,12 @@ function PortfolioPage() {
                 />
                 <SignalList
                   title="Faldende — køber mindre end sidste år"
-                  description="Omsætning er faldet, men kunden køber stadig. Tidlig advarsel."
+                  description="Forbrugsvarer de seneste 12 hele mdr. er lavere end de 12 før (uden maskiner, leje, service, vandfiltre og reservedele)."
                   rows={data.signals.declining}
                   kind="decline"
                   initial={5}
                 />
+                <VindTilbageListe rows={data.signals.vindTilbage ?? []} />
               </div>
             </section>
 
@@ -903,13 +939,18 @@ function SignalList({
   rows,
   kind,
   initial = 10,
+  sektorFaner = false,
 }: {
   title: string;
   description: string;
   rows: SignalRow[];
   kind: "machine" | "whitespace" | "growth" | "decline" | "expiry";
   initial?: number;
+  sektorFaner?: boolean;
 }) {
+  const [sektor, setSektor] = useState<"privat" | "offentlig">("privat");
+  const alleRows = rows;
+  rows = sektorFaner ? alleRows.filter((r) => (r.sektor === "offentlig") === (sektor === "offentlig")) : alleRows;
   const [expanded, setExpanded] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
@@ -946,6 +987,22 @@ function SignalList({
       </button>
       {!collapsed && (
         <>
+          {sektorFaner && (
+            <div className="px-4 pt-2 border-b border-border bg-background">
+              <Tabs value={sektor} onValueChange={(v) => setSektor(v as "privat" | "offentlig")}>
+                <TabsList className="h-8">
+                  {(["privat", "offentlig"] as const).map((k) => (
+                    <TabsTrigger key={k} value={k} className="text-xs" title={k === "privat" ? FORHANDLING_HJAELP : undefined}>
+                      {KUNDEGRUPPE_LABEL[k]} ({alleRows.filter((r) => (r.sektor === "offentlig") === (k === "offentlig")).length})
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+              {sektor === "privat" && (
+                <p className="text-[11px] text-muted-foreground py-1">{FORHANDLING_HJAELP}</p>
+              )}
+            </div>
+          )}
           {kind === "whitespace" && groupOptions.length > 0 && (
             <div className="px-4 py-2 border-b border-border flex flex-wrap items-center gap-1.5 bg-background">
               <span className="text-xs text-muted-foreground mr-1">Filtrér:</span>
@@ -1489,7 +1546,7 @@ function ScatterPlot({ points }: { points: ScatterPoint[] }) {
   if (!points.length) {
     return (
       <Card className="p-6 text-center text-sm text-muted-foreground">
-        Ingen datapunkter at vise — kræver aktive øvrige kunder med medarbejdertal.
+        Ingen datapunkter at vise — kræver aktive forhandlingskunder med medarbejdertal.
       </Card>
     );
   }
@@ -1599,7 +1656,8 @@ function classifyKaffe(c: PortfolioCompanyRow): "green" | "yellow" | "red" | "vi
   return "red";
 }
 
-function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "service" | "paavejvaek" | "andet" {
+function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "tidligere" | "service" | "paavejvaek" | "stoppet" | "andet" {
+  if (c.stoppet) return "stoppet";
   if (c.customer_type === "aktiv_kunde") {
     if (c.has_active_equipment && !c.supplied_via_id) {
       const last = c.last_consumable_sales_date;
@@ -1612,7 +1670,61 @@ function classifyStatus(c: PortfolioCompanyRow): "aktiv" | "sovende" | "service"
   }
   if (c.customer_type === "sovende_kunde") return "sovende";
   if (c.customer_type === "servicekunde") return "service";
+  if (c.customer_type === "tidligere_kunde") return "tidligere";
   return "andet";
+}
+
+const STOP_AARSAG_KORT: Record<string, string> = {
+  tabt_til_konkurrent: "tabt til konkurrent",
+  lukket: "lukket/ophørt",
+  oensker_ikke_kontakt: "ønsker ikke kontakt",
+};
+
+function VindTilbageListe({ rows }: { rows: VindTilbageRow[] }) {
+  const [alle, setAlle] = useState(false);
+  const vist = alle ? rows : rows.slice(0, 5);
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-4 py-3 border-b border-border bg-muted/60">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-base font-bold text-foreground">Vind tilbage</h3>
+          <span className="text-xs text-muted-foreground tabular-nums">{rows.length}</span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Tabt til konkurrent — konkurrentaftalen udløber inden for 6 måneder (eller 12 måneder siden markeringen).
+        </p>
+      </div>
+      {!rows.length ? (
+        <div className="px-4 py-6 text-center text-sm text-muted-foreground">Ingen kunder at vinde tilbage lige nu.</div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {vist.map((r) => (
+            <li key={r.stop_id} className="px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-accent/30">
+              <div className="min-w-0">
+                <Link to="/virksomheder/$id" params={{ id: r.company_id }} className="font-medium text-sm hover:underline truncate block">
+                  {r.company_name}
+                </Link>
+                {r.lokation && <div className="text-xs text-muted-foreground truncate">{r.lokation}</div>}
+              </div>
+              <div className="text-right text-xs text-muted-foreground shrink-0">
+                {r.konkurrent ?? "Konkurrent"}
+                <div>
+                  {r.udloeber
+                    ? `udløber ${new Date(r.udloeber + "T00:00:00Z").toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" })}`
+                    : "ingen udløbsdato"}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {rows.length > 5 && (
+        <button type="button" onClick={() => setAlle((v) => !v)} className="w-full px-4 py-2 text-xs text-muted-foreground hover:bg-accent/40 border-t border-border">
+          {alle ? "Vis færre" : `Vis alle (${rows.length})`}
+        </button>
+      )}
+    </Card>
+  );
 }
 
 // Tærskler for hvornår en trend markeres som "kræver opmærksomhed".

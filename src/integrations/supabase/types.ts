@@ -2053,6 +2053,74 @@ export type Database = {
           },
         ]
       }
+      kunde_stop: {
+        Row: {
+          aarsag: string
+          company_id: string
+          competitor_assignment_id: string | null
+          fjernet_af: string | null
+          fjernet_at: string | null
+          id: string
+          location_id: string | null
+          note: string | null
+          oprettet_af: string | null
+          oprettet_at: string
+        }
+        Insert: {
+          aarsag: string
+          company_id: string
+          competitor_assignment_id?: string | null
+          fjernet_af?: string | null
+          fjernet_at?: string | null
+          id?: string
+          location_id?: string | null
+          note?: string | null
+          oprettet_af?: string | null
+          oprettet_at?: string
+        }
+        Update: {
+          aarsag?: string
+          company_id?: string
+          competitor_assignment_id?: string | null
+          fjernet_af?: string | null
+          fjernet_at?: string | null
+          id?: string
+          location_id?: string | null
+          note?: string | null
+          oprettet_af?: string | null
+          oprettet_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kunde_stop_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kunde_stop_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "kunde_stop_competitor_assignment_id_fkey"
+            columns: ["competitor_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kunde_stop_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kundeprisgruppe_sektor: {
         Row: {
           kode: string
@@ -4294,6 +4362,23 @@ export type Database = {
         Args: { _company_ids?: string[] }
         Returns: number
       }
+      kunde_stop_skjuler: {
+        Args: { _s: Database["public"]["Tables"]["kunde_stop"]["Row"] }
+        Returns: boolean
+      }
+      kunde_stop_status: {
+        Args: { _ids: string[] }
+        Returns: {
+          aarsag: string
+          company_id: string
+          skjult: boolean
+          stoppet: boolean
+        }[]
+      }
+      kunde_stop_vind_dato: {
+        Args: { _s: Database["public"]["Tables"]["kunde_stop"]["Row"] }
+        Returns: string
+      }
       kundestatus: {
         Args: {
           _has_eq: boolean
@@ -4635,6 +4720,7 @@ export type Database = {
       portfolio_aggregat: {
         Args: { _afdeling_nr?: number; _saelger?: string }
         Returns: {
+          address: string
           assigned_to: string
           city: string
           cons_perioder: string[]
@@ -4642,6 +4728,8 @@ export type Database = {
           contribution12m: number
           customer_type: string
           employees: number
+          forbrug12m: number
+          forbrug12m_prior: number
           has_active_equipment: boolean
           id: string
           is_public: boolean
@@ -4662,8 +4750,12 @@ export type Database = {
           revenue12m_prior: number
           saelger_navn: string
           sektor: string
+          stop_aarsag: string
+          stop_skjult: boolean
+          stoppet: boolean
           vare_grupper: string[]
           ytd_prior_last_month_rev: number
+          zip: string
         }[]
       }
       portfolio_aggregat_json: {
@@ -4865,6 +4957,21 @@ export type Database = {
       tildel_penhed: {
         Args: { _company_id: string; _p_nummer: string; _saelger: string }
         Returns: string
+      }
+      vind_tilbage_liste: {
+        Args: { _saelger?: string }
+        Returns: {
+          company_id: string
+          company_name: string
+          konkurrent: string
+          location_id: string
+          lokation: string
+          oprettet_at: string
+          saelger: string
+          stop_id: string
+          udloeber: string
+          vind_dato: string
+        }[]
       }
     }
     Enums: {

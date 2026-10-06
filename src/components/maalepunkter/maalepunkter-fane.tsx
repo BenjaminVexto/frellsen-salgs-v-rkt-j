@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { FORHANDLING_HJAELP } from "@/lib/customer-segment-mapping";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -42,7 +43,7 @@ const FARVER_MAERKE = [
 /** Farve pr. rækkelabel — private og offentlige altid ens på tværs af grafer. */
 function raekkeFarve(label: string, i: number): string {
   const l = label.toLowerCase();
-  if (l.startsWith("privat") || l.startsWith("øvrige")) return FARVE_PRIVAT;
+  if (l.startsWith("privat") || l.startsWith("øvrige") || l.startsWith("forhandling")) return FARVE_PRIVAT;
   if (l.startsWith("offentlig")) return FARVE_OFFENTLIG;
   return FARVER_MAERKE[i % FARVER_MAERKE.length];
 }
@@ -376,8 +377,8 @@ export function MaalepunkterFane({
       m.set(key, (m.get(key) ?? 0) + Number(r.vaerdi || 0));
     });
     return [
-      { label: "Øvrige kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
-      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+      { label: "Forhandlingskunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Udbudskunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [omsQ.data]);
 
@@ -392,8 +393,8 @@ export function MaalepunkterFane({
       m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
     });
     return [
-      { label: "Øvrige kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
-      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+      { label: "Forhandlingskunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Udbudskunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [kunderQ.data]);
 
@@ -409,8 +410,8 @@ export function MaalepunkterFane({
       m.set(key, (m.get(key) ?? 0) + Number(r.vaerdi || 0));
     });
     return [
-      { label: "Øvrige kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
-      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+      { label: "Forhandlingskunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Udbudskunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [dbQ.data]);
 
@@ -425,8 +426,8 @@ export function MaalepunkterFane({
       else if (r.kategori === "offentlig") offentlig += v;
     });
     return new Map<string, number>([
-      ["Øvrige kunder", privat],
-      ["Offentlige udbud", offentlig],
+      ["Forhandlingskunder", privat],
+      ["Udbudskunder", offentlig],
       ["Total", privat + offentlig],
     ]);
   };
@@ -472,8 +473,8 @@ export function MaalepunkterFane({
       m.set(key, (m.get(key) ?? 0) + v);
     });
     return [
-      { label: "Øvrige kunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
-      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
+      { label: "Forhandlingskunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
+      { label: "Udbudskunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
     ];
   }, [nyeQ.data, nyeMaal]);
 
@@ -487,8 +488,8 @@ export function MaalepunkterFane({
       m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
     });
     return [
-      { label: "Øvrige kunder", per: map.get("privat") ?? new Map() },
-      { label: "Offentlige udbud", per: map.get("offentlig") ?? new Map() },
+      { label: "Forhandlingskunder", per: map.get("privat") ?? new Map() },
+      { label: "Udbudskunder", per: map.get("offentlig") ?? new Map() },
     ];
   }, [nyeLokQ.data]);
 
@@ -871,6 +872,11 @@ export function MaalepunkterFane({
                       >
                         {r.label}
                       </button>
+                      {r.label === "Forhandlingskunder" && (
+                        <div className="text-[10px] text-muted-foreground font-normal whitespace-normal leading-tight">
+                          {FORHANDLING_HJAELP}
+                        </div>
+                      )}
                     </td>
                     {maaneder.map((m) => (
                       <td key={m} className="text-right py-1.5 px-2">
@@ -1162,8 +1168,8 @@ export function MaalepunkterFane({
               value={kundetype}
               onValueChange={(v) => v && setKundetype(v as Kundetype)}
             >
-              <ToggleGroupItem value="offentlig">Offentlige udbud</ToggleGroupItem>
-              <ToggleGroupItem value="privat">Øvrige kunder</ToggleGroupItem>
+              <ToggleGroupItem value="offentlig">Udbudskunder</ToggleGroupItem>
+              <ToggleGroupItem value="privat" title={FORHANDLING_HJAELP}>Forhandlingskunder</ToggleGroupItem>
               <ToggleGroupItem value="alle">Alle</ToggleGroupItem>
             </ToggleGroup>
           </div>

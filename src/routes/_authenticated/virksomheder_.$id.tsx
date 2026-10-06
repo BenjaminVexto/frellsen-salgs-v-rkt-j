@@ -88,6 +88,7 @@ import { CompanyUdviklingTab } from "@/components/sales/company-udvikling-tab";
 import { DokumenterSektion } from "@/components/dokumenter-sektion";
 import { KonkurrentaftaleSektion } from "@/components/konkurrentaftale-sektion";
 import { BesoegtKnap } from "@/components/besoegt-knap";
+import { KundeStop } from "@/components/kunde-stop";
 import { KatalogKnap } from "@/components/katalog-knap";
 import { KundeRytmeLinje } from "@/components/kunde-rytme-linje";
 import { UdskrivMaskinlisteKnap } from "@/components/maskinliste-print";
@@ -484,6 +485,7 @@ function VirksomhedsKort() {
             <BesoegtKnap companyId={company.id} onSaved={() => void load(true)} />
             <KatalogKnap companyId={company.id} onSaved={() => void load(true)} />
           </div>
+          <KundeStop companyId={company.id} onChanged={() => void load(true)} />
           <div className="grid grid-cols-3 gap-2">
             <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
               <PlusCircle className="h-4 w-4 mr-1.5" /> Aktivitet

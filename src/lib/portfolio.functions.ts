@@ -42,6 +42,18 @@ export type PortfolioCompanyRow = {
   lok_antal: number;
   lok_total: number;
   kreditspaerret: boolean;
+  /** Virksomhedens og lokationernes adresser (til søgning). */
+  address: string | null;
+  zip: string | null;
+  /** Forbrugsvarer (samme grupper som kundestatus) 12 hele mdr. og de 12 før. */
+  forbrug12m: number;
+  forbrug12mPrior: number;
+  /** Forbruget er faldet: 12 hele mdr. mod de 12 før, kun forbrugsvarer. */
+  falder: boolean;
+  /** Manuel markering "Stoppet". stopSkjult = holdes ude af sovende/fald/Sælg mere lige nu. */
+  stoppet: boolean;
+  stopSkjult: boolean;
+  stopAarsag: string | null;
   // Købsrytme (forbrugsvarer — prisgrupper 2/4/6/10), måneds-opløsning.
   rhythmMonths: number | null; // median antal måneder mellem aktive consumable-måneder; null hvis <3 aktive
   monthsSinceConsumable: number | null; // måneder siden seneste consumable-køb
@@ -91,6 +103,18 @@ export type SignalRow = {
   expiresAt: string | null;
   expiryLabel: string | null;
   expirySubtitle: string | null;
+  sektor: "privat" | "offentlig" | "intern";
+};
+
+export type VindTilbageRow = {
+  stop_id: string;
+  company_id: string;
+  company_name: string;
+  location_id: string | null;
+  lokation: string | null;
+  konkurrent: string | null;
+  udloeber: string | null;
+  vind_dato: string;
 };
 
 export type PortfolioPayload = {
@@ -143,6 +167,7 @@ export type PortfolioPayload = {
     declining: SignalRow[];
     expiringAgreements: SignalRow[];
     expiringCompetitor: SignalRow[];
+    vindTilbage: VindTilbageRow[];
   };
 };
 
@@ -283,6 +308,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       declining: [] as SignalRow[],
       expiringAgreements: [] as SignalRow[],
       expiringCompetitor: [] as SignalRow[],
+      vindTilbage: [] as VindTilbageRow[],
     };
 
     // --- Aggregering sker i databasen: én række pr. virksomhed + én totalrække. ---
@@ -386,6 +412,13 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       lok_antal: Number(r.lok_antal ?? 0),
       lok_total: Number(r.lok_total ?? 0),
       kreditspaerret: !!r.kreditspaerret,
+      address: (r.address ?? null) as string | null,
+      zip: (r.zip ?? null) as string | null,
+      forbrug12m: Number(r.forbrug12m) || 0,
+      forbrug12mPrior: Number(r.forbrug12m_prior) || 0,
+      stoppet: !!r.stoppet,
+      stopSkjult: !!r.stop_skjult,
+      stopAarsag: (r.stop_aarsag ?? null) as string | null,
     }));
 
     for (const r of aggRows) {
@@ -468,10 +501,15 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       // growthPct + trendDown
       // Datagulv: en 12-mdr.-sammenligning kræver, at hele år-før-vinduet er
       // dækket af salgshistorik. Ellers vises ingen procent.
+      // Fald/vækst måles kun på forbrugsvarer (uden maskiner, leje, service,
+      // vandfiltre og reservedele): 12 hele mdr. mod de 12 før.
+      const f12 = c.forbrug12m as number;
+      const f12p = c.forbrug12mPrior as number;
       const growthPct =
-        harGyldigtSammenligningsvindue(startPrior) && revenue12mPrior > 0
-          ? ((revenue12m - revenue12mPrior) / revenue12mPrior) * 100
+        harGyldigtSammenligningsvindue(startPrior) && f12p > 0
+          ? ((f12 - f12p) / f12p) * 100
           : null;
+      const falder = growthPct !== null && f12 > 0 && f12 < f12p;
       const trendDown =
         growthPct !== null && growthPct < TREND_DOWN_PCT && revenue12m >= ATTENTION_MIN_REV_12M;
 
@@ -549,6 +587,14 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         rhythmClass,
         growthPct,
         trendDown,
+        address: c.address,
+        zip: c.zip,
+        forbrug12m: f12,
+        forbrug12mPrior: f12p,
+        falder,
+        stoppet: c.stoppet,
+        stopSkjult: c.stopSkjult,
+        stopAarsag: c.stopAarsag,
       };
     });
 
@@ -629,11 +675,13 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       .filter((c) => c.revenueYtdPriorSamePeriod > 0 || c.revenueYtd > 0)
       .map((c) => ({ c, delta: c.revenueYtd - c.revenueYtdPriorSamePeriod }));
 
-    const topDecliners = withYtdDelta
-      .filter(({ delta }) => delta < 0)
-      .sort((a, b) => a.delta - b.delta)
+    // Største fald: kun forbrugsvarer, 12 hele mdr. mod de 12 før.
+    // Stoppede kunder er ude, så længe markeringen holder dem ude.
+    const topDecliners = companies
+      .filter((c) => c.falder && !c.stopSkjult)
+      .sort((a, b) => (a.forbrug12m - a.forbrug12mPrior) - (b.forbrug12m - b.forbrug12mPrior))
       .slice(0, 25)
-      .map(({ c }) => toRanking(c));
+      .map((c) => ({ ...toRanking(c), revenueYtd: c.forbrug12m, revenueYtdPriorSamePeriod: c.forbrug12mPrior }));
 
     const topGrowers = withYtdDelta
       .filter(({ delta }) => delta > 0)
@@ -684,11 +732,12 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       expiresAt: null,
       expiryLabel: null,
       expirySubtitle: null,
+      sektor: c.sektor,
     });
 
     // 1) Maskine men ingen kaffe
     const machineNoCoffee: SignalRow[] = companies
-      .filter((c) => !c.kreditspaerret)
+      .filter((c) => !c.kreditspaerret && !c.stopSkjult)
       .filter((c) =>
         c.customer_type === "aktiv_kunde" &&
         c.has_active_equipment &&
@@ -716,7 +765,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       "6": "Drikke & Automatvarer",
     };
     const whiteSpace: SignalRow[] = companies
-      .filter((c) => !c.kreditspaerret)
+      .filter((c) => !c.kreditspaerret && !c.stopSkjult)
       .filter((c) => {
         const s = groupsByCompany.get(c.id);
         return s?.has("2");
@@ -742,8 +791,10 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
     const growing = withTrend
       .filter((r) => (r.growthPct ?? 0) > 0)
       .sort((a, b) => (b.growthPct ?? 0) - (a.growthPct ?? 0));
-    const declining = withTrend
-      .filter((r) => (r.growthPct ?? 0) < 0)
+    // Faldende: kun forbrugsvarer, 12 hele mdr. mod de 12 før.
+    const declining = companies
+      .filter((c) => c.falder && !c.stopSkjult)
+      .map((c) => ({ ...blankSignal(c), growthPct: c.growthPct }))
       .sort((a, b) => (a.growthPct ?? 0) - (b.growthPct ?? 0));
 
     // 5 / 6) Udløb inden for 90 dage
@@ -827,6 +878,23 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       })
       .filter(Boolean) as SignalRow[];
 
+    const { data: vtData, error: vtErr } = await (supabase as any).rpc("vind_tilbage_liste", {
+      _saelger: appliedSellerId,
+    });
+    if (vtErr) throw vtErr;
+    const vindTilbage: VindTilbageRow[] = ((vtData ?? []) as any[])
+      .filter((r) => companyIdSet.has(r.company_id) || data.afdelingNr == null)
+      .map((r) => ({
+        stop_id: r.stop_id,
+        company_id: r.company_id,
+        company_name: r.company_name,
+        location_id: r.location_id ?? null,
+        lokation: r.lokation ?? null,
+        konkurrent: r.konkurrent ?? null,
+        udloeber: r.udloeber ?? null,
+        vind_dato: r.vind_dato,
+      }));
+
     return {
       isAdmin,
       appliedSellerId: isAdmin || erSalgssupport ? appliedSellerId : null,
@@ -883,6 +951,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         declining,
         expiringAgreements,
         expiringCompetitor,
+        vindTilbage,
       },
     };
   })()));

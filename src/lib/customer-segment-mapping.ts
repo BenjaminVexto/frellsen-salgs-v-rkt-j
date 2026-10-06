@@ -81,3 +81,10 @@ export function deriveCustomerCategory(
   if (code && CATEGORY_BY_CODE[code]) return CATEGORY_BY_CODE[code];
   return category;
 }
+
+/** Visningsnavne for opdelingen (kun etiketter — opdelingen er kundetype()). */
+export const KUNDEGRUPPE_LABEL = {
+  privat: "Forhandlingskunder",
+  offentlig: "Udbudskunder",
+} as const;
+export const FORHANDLING_HJAELP = "Firmaer og halvoffentlige kunder, vi kan forhandle med";
