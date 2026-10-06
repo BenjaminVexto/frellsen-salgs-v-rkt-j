@@ -22,9 +22,14 @@ function Side() {
   const q = useQuery({
     queryKey: ["maskiner-uden-lokation"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("maskiner_uden_lokation");
+      const [{ data, error }, { data: fs, error: fe }] = await Promise.all([
+        supabase.rpc("maskiner_uden_lokation"),
+        (supabase as any).rpc("maskiner_uden_lokation_forslag"),
+      ]);
       if (error) throw error;
-      return data ?? [];
+      if (fe) throw fe;
+      const fm = new Map<string, any>(((fs ?? []) as any[]).map((f) => [f.machine_id, f]));
+      return (data ?? []).map((r: any) => ({ ...r, f: fm.get(r.machine_id) }));
     },
   });
   return (
@@ -32,7 +37,7 @@ function Side() {
       <div>
         <h1 className="text-xl font-semibold">Maskiner uden lokation</h1>
         <p className="text-sm text-muted-foreground">
-          Aktive maskiner, hvor leveringsnummeret ikke findes som lokation i afdelingen. De tælles hos virksomhedens sælger, indtil de kobles.
+          Aktive maskiner, hvor leveringsnummeret ikke findes som lokation i afdelingen. De tælles hos virksomhedens sælger, indtil de kobles. "Foreslået lokation" er en tør kørsel på leveringsnummeret — intet gemmes, før det er godkendt.
         </p>
       </div>
       <Card className="p-0 overflow-x-auto">
@@ -51,6 +56,7 @@ function Side() {
                 <th className="text-left p-2">Serienr.</th>
                 <th className="text-left p-2">Lev. kund / Fakt. kunde</th>
                 <th className="text-left p-2">Navn / adresse på maskinen</th>
+                <th className="text-left p-2">Foreslået lokation</th>
               </tr>
             </thead>
             <tbody>
@@ -67,13 +73,29 @@ function Side() {
                   <td className="p-2">{r.serienr ?? "—"}</td>
                   <td className="p-2">{r.lev_kundenr ?? "—"} / {r.fak_kundenr ?? "—"}</td>
                   <td className="p-2">{r.navn ?? "—"}{r.adresse ? <div className="text-xs text-muted-foreground">{r.adresse}</div> : null}</td>
+                  <td className="p-2">
+                    {r.f?.lok_id ? (
+                      <>
+                        <Link to="/virksomheder/$id" params={{ id: r.f.lok_company_id }} className="hover:underline">{r.f.lok_company_navn}</Link>
+                        <div className="text-xs text-muted-foreground">
+                          Afd. {r.f.lok_afdeling_nr} · kundenr. {r.f.lok_kundenr}{r.f.lok_adresse ? ` · ${r.f.lok_adresse}` : ""}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.f.adresse_ens ? "Samme adresse" : "Anden adresse"} · sælger {r.f.ny_saelger_navn ?? "—"}
+                          {r.f.skifter_saelger ? " · skifter sælger" : ""}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">{r.f?.antal_match > 1 ? `${r.f.antal_match} mulige — intet forslag` : "Intet match"}</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </Card>
-      {q.data && <p className="text-xs text-muted-foreground">{q.data.length} maskiner</p>}
+      {q.data && <p className="text-xs text-muted-foreground">{q.data.length} maskiner · {q.data.filter((r: any) => r.f?.lok_id).length} med entydigt forslag · {q.data.filter((r: any) => r.f?.skifter_saelger).length} ville skifte sælger</p>}
     </div>
   );
 }

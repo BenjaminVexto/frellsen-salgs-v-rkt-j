@@ -5,3 +5,5 @@
 - DB/DG visibility is decided by the database function maa_se_db (admin or profiles.maa_se_db), never by the admin role alone — so it can be switched off per person.
 - Address search and group (parent/sister) data come live from the CVR Elasticsearch distribution (produktionsenhed/virksomhed indexes) merged with cvr_penheder — because our local copy only covers CVRs already in the CRM.
 - P-enheder kobles til lokationer via location_pnr_link (unik pr. P-nr + lokation, så én P-enhed kan dække flere konti på samme adresse); auto-matchning bruger addr_n_vej/addr_n_husnr + postnr og springer lokationer over, der matcher flere P-enheder — because usikre match ikke må kobles automatisk.
+
+- Aktiviteters dato vises og sorteres på activities.udfoert_at (brugervalgt, højst 14 dage tilbage, valideret af trigger); created_at er den uændrede registreringstid — so the two can be compared.

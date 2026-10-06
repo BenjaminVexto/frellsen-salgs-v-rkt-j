@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { cn } from "@/lib/utils";
+import { adresseValg, type LokLite } from "@/lib/adresse-grupper";
 
 function startAfDag() {
   const d = new Date();
@@ -26,7 +27,10 @@ export function BesoegtKnap({
   size = "lg",
   className,
   onSaved,
+  locations,
 }: {
+  /** Virksomhedens lokationer: ved flere adresser vælges adressen ved tryk (egne øverst). */
+  locations?: LokLite[];
   companyId: string;
   locationId?: string | null;
   size?: "lg" | "sm";
@@ -41,6 +45,9 @@ export function BesoegtKnap({
   const [busy, setBusy] = useState(false);
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [vaelgOpen, setVaelgOpen] = useState(false);
+  const valg = !locationId && locations ? adresseValg(locations, user?.id) : [];
+  const flereAdresser = valg.length > 1;
 
   // Find lokation (primær hvis ikke angivet) og om der allerede er registreret besøg i dag.
   useEffect(() => {
@@ -65,7 +72,7 @@ export function BesoegtKnap({
         .eq("created_by", user.id)
         .eq("company_id", companyId)
         .eq("activity_type", "besøg" as any)
-        .gte("created_at", startAfDag())
+        .gte("udfoert_at" as any, startAfDag())
         .limit(1);
       q = lid ? q.eq("location_id", lid) : q.is("location_id", null);
       const { data: eks } = await q;
@@ -81,22 +88,40 @@ export function BesoegtKnap({
   const fortryd = async (id: string) => {
     const { error } = await supabase.from("activities").delete().eq("id", id);
     if (error) return toast.error("Kunne ikke fortryde: " + error.message);
-    setAlleredeId(null);
+    setAlleredeId((cur) => (cur === id ? null : cur));
     toast("Besøg fortrudt");
     onSaved?.();
   };
 
-  const registrer = async () => {
-    if (!user?.id || busy || alleredeId) return;
+  const registrer = async (valgtLok?: string, valgtIds?: string[]) => {
+    if (!user?.id || busy) return;
     if (isImpersonating) return toast.error("Read-only — du ser som en anden sælger");
+    if (flereAdresser && !valgtLok) return setVaelgOpen(true);
+    if (!valgtLok && alleredeId) return;
+    setVaelgOpen(false);
     setBusy(true);
+    if (valgtLok) {
+      const { data: eks } = await supabase
+        .from("activities")
+        .select("id")
+        .eq("created_by", user.id)
+        .eq("activity_type", "besøg" as any)
+        .in("location_id", valgtIds ?? [valgtLok])
+        .gte("udfoert_at" as any, startAfDag())
+        .limit(1);
+      if ((eks ?? []).length) {
+        setBusy(false);
+        return toast("Allerede registreret i dag på den adresse");
+      }
+    }
+    const lokTilGem = valgtLok ?? locId;
     const { data, error } = await supabase
       .from("activities")
       .insert({
         company_id: companyId,
         created_by: user.id,
         activity_type: "besøg" as any,
-        location_id: locId,
+        location_id: lokTilGem,
         note: null,
         ...(stampAfdelingNr != null ? { afdeling_nr: stampAfdelingNr } : {}),
       } as any)
@@ -105,7 +130,7 @@ export function BesoegtKnap({
     setBusy(false);
     if (error || !data) return toast.error("Kunne ikke registrere besøg: " + (error?.message ?? ""));
     const id = (data as any).id as string;
-    setAlleredeId(id);
+    if (!valgtLok) setAlleredeId(id);
     onSaved?.();
     toast.success("Besøg registreret", {
       duration: 10000,
@@ -128,20 +153,40 @@ export function BesoegtKnap({
     <>
       <Button
         type="button"
-        onClick={registrer}
-        disabled={busy || !!alleredeId || !user}
-        variant={alleredeId ? "outline" : "default"}
+        onClick={() => void registrer()}
+        disabled={busy || (!flereAdresser && !!alleredeId) || !user}
+        variant={alleredeId && !flereAdresser ? "outline" : "default"}
         className={cn(stor ? "h-12 w-full text-base font-semibold" : "h-9", className)}
       >
         {busy ? (
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        ) : alleredeId ? (
+        ) : alleredeId && !flereAdresser ? (
           <Check className="h-4 w-4 mr-2" />
         ) : (
           <MapPinCheck className={cn(stor ? "h-5 w-5" : "h-4 w-4", "mr-2")} />
         )}
-        {alleredeId ? "Allerede registreret i dag" : "Besøgt"}
+        {alleredeId && !flereAdresser ? "Allerede registreret i dag" : "Besøgt"}
       </Button>
+      <Dialog open={vaelgOpen} onOpenChange={setVaelgOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hvilken adresse besøgte du?</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto space-y-1.5">
+            {valg.map((v) => (
+              <button
+                key={v.key}
+                type="button"
+                onClick={() => void registrer(v.kontoId, v.locIds)}
+                className="w-full text-left rounded-md border border-border px-3 py-3 text-sm hover:bg-accent active:scale-[0.99]"
+              >
+                {v.label}
+                {v.egen && <span className="ml-2 text-xs text-primary">Din</span>}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!noteFor} onOpenChange={(o) => !o && setNoteFor(null)}>
         <DialogContent>
           <DialogHeader>

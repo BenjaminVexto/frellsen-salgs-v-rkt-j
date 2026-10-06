@@ -484,6 +484,13 @@
       "when": 1791309602420,
       "tag": "0068_kunde_stop_og_forbrugsfald",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1791310229237,
+      "tag": "0069_aktivitet_dato_og_maskineforslag",
+      "breakpoints": true
     }
   ]
 }

@@ -833,3 +833,31 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
       isAdmin,
     };
   });
+
+/** Månedsrækker for et udvalg af lokationer (fx sælgerens egne på en virksomhed). */
+export const getSalesForLocations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { locationIds: string[] }) => {
+    if (!Array.isArray(input?.locationIds) || !input.locationIds.length) throw new Error("locationIds krævet");
+    return { locationIds: input.locationIds.slice(0, 500) };
+  })
+  .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean }> => {
+    const isAdmin = await kanSeDbUser(context.supabase, context.userId);
+    // Kun lokationer brugeren må se (RLS); service-klienten bruges derefter kun til DB.
+    const { data: synlige } = await context.supabase.from("locations").select("id").in("id", data.locationIds);
+    const ids = ((synlige ?? []) as any[]).map((l) => l.id as string);
+    if (!ids.length) return { rows: [], isAdmin };
+    const salesClient = isAdmin ? supabaseAdmin : context.supabase;
+    const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
+    const rows = await fetchAllSalesMonthlyRows(async (from, to) =>
+      await salesClient
+        .from("sales_monthly")
+        .select(cols)
+        .in("location_id", ids)
+        .order("period", { ascending: true })
+        .order("visma_delivery_no", { ascending: true })
+        .order("product_group_1", { ascending: true })
+        .range(from, to),
+    );
+    return { rows: isAdmin ? withContribution(rows ?? []) : stripContribution(rows ?? []), isAdmin };
+  });
