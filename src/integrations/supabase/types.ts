@@ -70,6 +70,7 @@ export type Database = {
           next_followup_date: string | null
           note: string | null
           opportunity_id: string | null
+          udfoert_at: string
         }
         Insert: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -84,6 +85,7 @@ export type Database = {
           next_followup_date?: string | null
           note?: string | null
           opportunity_id?: string | null
+          udfoert_at?: string
         }
         Update: {
           activity_type?: Database["public"]["Enums"]["activity_type"]
@@ -98,6 +100,7 @@ export type Database = {
           next_followup_date?: string | null
           note?: string | null
           opportunity_id?: string | null
+          udfoert_at?: string
         }
         Relationships: [
           {
@@ -4692,6 +4695,22 @@ export type Database = {
           serienr: string
           udlanstype: string
           varenr: string
+        }[]
+      }
+      maskiner_uden_lokation_forslag: {
+        Args: never
+        Returns: {
+          adresse_ens: boolean
+          antal_match: number
+          lok_adresse: string
+          lok_afdeling_nr: number
+          lok_company_id: string
+          lok_company_navn: string
+          lok_id: string
+          lok_kundenr: string
+          machine_id: string
+          ny_saelger_navn: string
+          skifter_saelger: boolean
         }[]
       }
       monthly_revenue_totals: {
