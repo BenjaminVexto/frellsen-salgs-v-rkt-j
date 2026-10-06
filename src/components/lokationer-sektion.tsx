@@ -353,6 +353,7 @@ export function LokationerSektion({
       }
       // Antal P-enheder på CVR'et, der ikke er koblet til nogen lokation i afdelingen (ikke-relevante skjules som i listen).
       let ikkeHos = 0;
+      let irAntal = 0;
       const pnrs = ((penRes.data ?? []) as any[]).map((p) => p.p_number);
       if (pnrs.length && afdelingNr != null) {
         const [{ data: dk }, { data: ir }] = await Promise.all([
@@ -361,8 +362,11 @@ export function LokationerSektion({
         ]);
         const skjul = new Set([...((dk ?? []) as any[]), ...((ir ?? []) as any[])].map((x) => x.p_nummer));
         ikkeHos = pnrs.filter((p) => !skjul.has(p)).length;
+        const daekketSet = new Set(((dk ?? []) as any[]).map((x) => x.p_nummer));
+        irAntal = ((ir ?? []) as any[]).filter((x) => !daekketSet.has(x.p_nummer)).length;
       }
-      return { linkByLoc, pInfo, ikkeHos };
+      const penListe = ((penRes.data ?? []) as any[]) as (PenhedInfo & { p_number: string })[];
+      return { linkByLoc, pInfo, ikkeHos, irAntal, penListe };
     },
   });
 
@@ -680,29 +684,30 @@ export function LokationerSektion({
         </>
       )}
 
-      {cvr && afdelingNr != null && (pnrQ.data?.ikkeHos ?? 0) > 0 && (
+      {cvr && afdelingNr != null && ((pnrQ.data?.ikkeHos ?? 0) > 0 || (pnrQ.data?.irAntal ?? 0) > 0) && (
         <div className="mt-4 border-t pt-3">
-          <button
-            type="button"
-            aria-expanded={visIkkeHos}
-            onClick={() => setVisIkkeHos((v) => !v)}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
-          >
-            {pnrQ.data!.ikkeHos} P-enhed{pnrQ.data!.ikkeHos === 1 ? "" : "er"} vi ikke er hos {visIkkeHos ? "▾" : "▸"}
-          </button>
-          {visIkkeHos && (
-            <div className="mt-2">
-              <PenhedDaekning
-                cvr={cvr}
-                afdelingNr={afdelingNr}
-                companyId={companyId}
-                companyName={companyName ?? null}
-                assignedTo={assignedTo ?? null}
-                kunIkkeKunde
-                onChanged={() => pnrQ.refetch()}
-              />
-            </div>
+          {(pnrQ.data?.ikkeHos ?? 0) > 0 && (
+            <button
+              type="button"
+              aria-expanded={visIkkeHos}
+              onClick={() => setVisIkkeHos((v) => !v)}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              {pnrQ.data!.ikkeHos} P-enhed{pnrQ.data!.ikkeHos === 1 ? "" : "er"} vi ikke er hos {visIkkeHos ? "▾" : "▸"}
+            </button>
           )}
+          <div className={visIkkeHos ? "mt-2" : ""}>
+            <PenhedDaekning
+              cvr={cvr}
+              afdelingNr={afdelingNr}
+              companyId={companyId}
+              companyName={companyName ?? null}
+              assignedTo={assignedTo ?? null}
+              kunIkkeKunde
+              visIkkeHosListe={visIkkeHos && (pnrQ.data?.ikkeHos ?? 0) > 0}
+              onChanged={() => pnrQ.refetch()}
+            />
+          </div>
         </div>
       )}
 
