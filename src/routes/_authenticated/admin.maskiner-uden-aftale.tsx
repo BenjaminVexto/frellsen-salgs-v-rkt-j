@@ -26,9 +26,17 @@ function Side() {
   const q = useQuery({
     queryKey: ["maskiner-uden-aftale"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("maskiner_uden_aftale_og_aflaesning");
-      if (error) throw error;
-      return (data ?? []) as any[];
+      // Hent i bidder — svaret er ellers begrænset til 1.000 rækker.
+      const alle: any[] = [];
+      for (let fra = 0; ; fra += 1000) {
+        const { data, error } = await (supabase as any)
+          .rpc("maskiner_uden_aftale_og_aflaesning")
+          .range(fra, fra + 999);
+        if (error) throw error;
+        alle.push(...(data ?? []));
+        if (!data || data.length < 1000) break;
+      }
+      return alle;
     },
   });
   const rows = useMemo(() => {
