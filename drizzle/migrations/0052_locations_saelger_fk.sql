@@ -1,0 +1,2 @@
+ALTER TABLE public.locations ADD CONSTRAINT locations_saelger_user_id_fkey FOREIGN KEY (saelger_user_id) REFERENCES public.profiles(id) ON DELETE SET NULL NOT VALID;
+ALTER TABLE public.locations VALIDATE CONSTRAINT locations_saelger_user_id_fkey;

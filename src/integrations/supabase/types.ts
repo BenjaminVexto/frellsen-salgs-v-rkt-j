@@ -2187,6 +2187,13 @@ export type Database = {
             referencedRelation: "salgsintelligens_mersalg"
             referencedColumns: ["company_id"]
           },
+          {
+            foreignKeyName: "locations_saelger_user_id_fkey"
+            columns: ["saelger_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       machine_agreement_status: {
