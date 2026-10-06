@@ -4421,6 +4421,7 @@ export type Database = {
         Args: { _placering: string; _serienr: string }
         Returns: undefined
       }
+      import_maskine_placeringer: { Args: { _rows: Json }; Returns: number }
       import_status: {
         Args: never
         Returns: {
@@ -4515,6 +4516,10 @@ export type Database = {
       lok_saelger_noegle: {
         Args: { _i_aktoer: boolean; _no: string; _user: string }
         Returns: string
+      }
+      lokationer_med_leje: {
+        Args: { _location_ids: string[] }
+        Returns: string[]
       }
       maa_se_analyse: { Args: { _user_id: string }; Returns: boolean }
       maa_se_db: { Args: { _user_id: string }; Returns: boolean }
@@ -4946,6 +4951,20 @@ export type Database = {
       }
       region_for_postnr: { Args: { _zip: string }; Returns: string }
       relink_sales_locations: { Args: never; Returns: Json }
+      reservedele_til_betaling: {
+        Args: { _saelger: string }
+        Returns: {
+          adresse: string
+          by: string
+          company_id: string
+          dato: string
+          location_id: string
+          maskintype: string
+          saelger_user_id: string
+          serienr: string
+          virksomhed: string
+        }[]
+      }
       rytme_graense_dage: {
         Args: { _interval: number; _koebsmaaneder: number }
         Returns: number

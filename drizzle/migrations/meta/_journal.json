@@ -540,6 +540,20 @@
       "when": 1791316052531,
       "tag": "0076_maskine_placering",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1791317130250,
+      "tag": "0077_maskine_placering_visma_vinder_og_leje",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1791317284463,
+      "tag": "0078_reservedele_til_betaling",
+      "breakpoints": true
     }
   ]
 }

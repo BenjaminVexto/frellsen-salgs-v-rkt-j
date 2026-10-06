@@ -974,6 +974,16 @@ export const importMachines = createServerFn({ method: "POST" })
         }
         enrichmentUpserted += slice.length;
       }
+      // Placering kommer kun fra serviceregistrets "Placering (Adr1)" — aldrig adresselinje 2.
+      // Tom værdi overskriver aldrig; ny ikke-tom Visma-værdi vinder og logges (import_maskine_placeringer).
+      const placRows = enrRows
+        .map((r: any) => ({ serienr: r.serienr, placering: t(r.data?.placering) }))
+        .filter((r) => r.placering);
+      for (let i = 0; i < placRows.length; i += 500) {
+        const { error } = await (supabaseAdmin as any).rpc("import_maskine_placeringer", { _rows: placRows.slice(i, i + 500) });
+        if (error) throw new Error("placering: " + error.message);
+      }
+      console.log(`[machines-import] STEP 10b: placeringer=${placRows.length}`);
       console.log(`[machines-import] STEP 10 DONE: enrichmentUpserted=${enrichmentUpserted}`);
 
       const { count: enrCountAfter } = await supabaseAdmin

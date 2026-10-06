@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { FRELLSEN_LOGO_BASE64 } from "@/lib/frellsen-logo-base64";
-import { aeldreAflaesning, erIkkeMaskine, maskinNavn, samletAftale, sorterMaskiner, udloebStatus, visKopper as visKopperVaerdi, type MaskinRaekke } from "@/lib/maskinliste";
+import { aeldreAflaesning, erIkkeMaskine, maskinAftale, reservedeleStatus, maskinNavn, sorterMaskiner, udloebStatus, visKopper as visKopperVaerdi, type MaskinRaekke } from "@/lib/maskinliste";
 import { hentPlaceringer } from "@/components/placering-felt";
 import { adresseNoegle, lokAdresse } from "@/lib/adresse-grupper";
 const LOGO_SRC = `data:image/png;base64,${FRELLSEN_LOGO_BASE64}`;
@@ -58,7 +58,9 @@ async function hentRaekker(companyId: string) {
     for (const x of m ?? []) if (x.udlanstype) mask.set(String(x.serienr), x);
   }
   const plac = await hentPlaceringer(serials);
-  return { locs: locs ?? [], units, enr, mask, plac };
+  const { data: lj } = await (supabase as any).rpc("lokationer_med_leje", { _location_ids: locIds });
+  const leje = new Set<string>(((lj ?? []) as any[]).map((x) => String(typeof x === "string" ? x : x.lokationer_med_leje ?? x)));
+  return { locs: locs ?? [], units, enr, mask, plac, leje };
 }
 
 export function UdskrivMaskinlisteKnap({
@@ -75,7 +77,7 @@ export function UdskrivMaskinlisteKnap({
     w.document.write("<p style='font-family:sans-serif'>Henter maskinliste…</p>");
     setBusy(true);
     try {
-      const { locs, units, enr, mask, plac } = await hentRaekker(company.id);
+      const { locs, units, enr, mask, plac, leje } = await hentRaekker(company.id);
       const idag = new Date();
       const udeladte = new Map<string, number>();
       const pr = new Map<string, MaskinRaekke[]>();
@@ -91,17 +93,18 @@ export function UdskrivMaskinlisteKnap({
           maskintype: maskinNavn(u.machine_type),
           serienr: u.serial_no ?? "",
           placering: plac.get(sn)?.placering ?? "",
-          aftale: samletAftale(mask.get(sn)?.udlanstype ?? u.agreement_type, e?.aftale_type, !!u.is_free_loan),
-          udloeber: e?.binding_ophor ?? e?.beregnet_slutdato ?? null,
+          aftale: maskinAftale({ g4: e?.aftale_type, udlaanstype: mask.get(sn)?.udlanstype, lejelinjer: leje.has(u.location_id), gratisUdlaan: !!u.is_free_loan }),
+          udloeber: e?.binding_ophor ?? null,
           kopper: visKopperVaerdi(taeller(e?.data)),
           aflaest: e?.taelleraflaesning ?? null,
           service: false,
+          reservedele: reservedeleStatus(e?.data?.reservedele, e?.data?.reservedele_efter, idag)?.kort ?? null,
         };
         const arr = pr.get(u.location_id) ?? [];
         arr.push(r);
         pr.set(u.location_id, arr);
       }
-      const erTom = (r: MaskinRaekke) => r.aftale === "—" && r.kopper == null;
+      const erTom = (r: MaskinRaekke) => r.aftale === "Ukendt" && r.kopper == null;
       type Grp = { adr: string; primaer: boolean; konti: string[]; rows: MaskinRaekke[] };
       const lavGrupper = (medTomme: boolean) => {
         const grupper = new Map<string, Grp>();
@@ -126,17 +129,19 @@ export function UdskrivMaskinlisteKnap({
         const visUdloeber = alle.some((r) => r.udloeber);
         const visKopper = alle.some((r) => r.kopper != null);
         const visPlacering = alle.some((r) => r.placering.trim());
-        const visAftale = alle.some((r) => r.aftale !== "—");
+        const visAftale = alle.some((r) => r.aftale !== "Ukendt");
+        const visRd = alle.some((r) => r.reservedele);
         const status = (r: MaskinRaekke) => udloebStatus(r.udloeber, idag);
         const nogenMarkeret = alle.some((r) => status(r));
         const nogenAeldre = alle.some((r) => r.kopper != null && r.aflaest && aeldreAflaesning(r.aflaest, idag));
         const kol: { navn: string; bredde: string; cls?: string }[] = [
-          { navn: "Maskine", bredde: "28%" },
-          { navn: "Serienr.", bredde: "13%" },
-          ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "14%" }] : []),
-          ...(visAftale ? [{ navn: "Aftale", bredde: "20%" }] : []),
-          ...(visUdloeber ? [{ navn: "Udløber", bredde: "14%" }] : []),
-          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "25%", cls: "num" }] : []),
+          { navn: "Maskine", bredde: "23%" },
+          { navn: "Serienr.", bredde: "12%" },
+          ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "12%" }] : []),
+          ...(visAftale ? [{ navn: "Aftale", bredde: "16%" }] : []),
+          ...(visUdloeber ? [{ navn: "Binding ophører", bredde: "12%" }] : []),
+          ...(visRd ? [{ navn: "Reservedele", bredde: "11%" }] : []),
+          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "14%", cls: "num" }] : []),
         ];
         const sektioner = gl
           .map((g) => {
@@ -150,11 +155,12 @@ export function UdskrivMaskinlisteKnap({
                     : "—";
                 const celler = [
                   `<td>${esc(r.maskintype)}</td>`,
-                  `<td>${esc(r.serienr || "—")}</td>`,
+                  `<td class="nw">${esc(r.serienr || "—")}</td>`,
                   visPlacering ? `<td>${esc(r.placering || "—")}</td>` : "",
                   visAftale ? `<td class="nw">${esc(r.aftale)}</td>` : "",
                   visUdloeber ? `<td>${fmtDato(r.udloeber)}${etiket}</td>` : "",
-                  visKopper ? `<td class="num nw">${kop}</td>` : "",
+                  visRd ? `<td>${esc(r.reservedele || "—")}</td>` : "",
+                  visKopper ? `<td class="num">${kop}</td>` : "",
                 ].join("");
                 return `<tr class="${st ?? ""}">${celler}</tr>`;
               })
@@ -170,7 +176,7 @@ export function UdskrivMaskinlisteKnap({
               .join("")}</tr></thead>${sektioner}</table>`
           : "<p>Ingen maskiner registreret på virksomheden.</p>";
         const hoved = `<header><div><h1>${esc(company.name)}</h1><div class="meta">${company.cvr ? `CVR ${esc(company.cvr)} · ` : ""}Maskinliste pr. ${idag.toLocaleDateString("da-DK")} · ${alle.length} maskiner</div>
-${nogenMarkeret ? `<div class="meta">Markeret = aftalen er udløbet eller udløber inden for 6 måneder</div>` : ""}</div>
+${nogenMarkeret ? `<div class="meta">Markeret = bindingen er udløbet eller udløber inden for 6 måneder</div>` : ""}</div>
 <img src="${LOGO_SRC}" alt="Frellsen"></header>`;
         const fod = nogenAeldre ? `<p class="fod">* aflæst for over 12 måneder siden</p>` : "";
         return hoved + tabel + fod;
@@ -201,7 +207,7 @@ tr { break-inside: avoid; page-break-inside: avoid; }
 .noprint { margin-bottom: 12px; }
 @media print { .noprint { display: none; } body { padding: 0; } }
 </style></head><body>
-<div class="noprint"><label><input type="checkbox" id="medtomme"> Medtag maskiner uden aftale og aflæsning</label> <button onclick="window.print()">Udskriv</button></div>
+<div class="noprint"><label><input type="checkbox" id="medtomme"> Medtag maskiner med ukendt aftale og uden aflæsning</label> <button onclick="window.print()">Udskriv</button></div>
 <div id="indhold">${udenTomme}</div>
 <script>var V={uden:${JSON.stringify(udenTomme).replace(/</g, "\\u003c")},med:${JSON.stringify(medTomme).replace(/</g, "\\u003c")}};document.getElementById("medtomme").onchange=function(e){document.getElementById("indhold").innerHTML=e.target.checked?V.med:V.uden};</script>
 </body></html>`;

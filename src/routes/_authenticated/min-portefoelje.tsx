@@ -34,6 +34,7 @@ import {
 } from "@/lib/forbrug-signal.functions";
 import { klasseLabel, erFaldKlasse } from "@/lib/forbrug-labels";
 import { useViewAs } from "@/contexts/view-as-context";
+import { ReservedeleListe } from "@/components/reservedele-liste";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { fmtKr } from "@/lib/sales-utils";
 import { AnalyseFane } from "@/components/analyse/analyse-fane";
@@ -671,6 +672,10 @@ function PortfolioPage() {
                 </button>
               )}
             </Card>
+
+            <div className="mt-8">
+              <ReservedeleListe saelgerId={maalepunkterSaelgerId || null} />
+            </div>
 
             {/* RANKINGS — Lag 2 */}
             <section className="mt-8">

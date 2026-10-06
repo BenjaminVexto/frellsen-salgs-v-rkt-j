@@ -22,6 +22,7 @@ import { PenhedDaekning } from "@/components/penhed-daekning";
 import { AdressePenhedKobling } from "@/components/adresse-penhed-kobling";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
+import { maskinAftale, reservedeleStatus } from "@/lib/maskinliste";
 import { PlaceringFelt, hentPlaceringer, type PlaceringInfo } from "@/components/placering-felt";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
 import { BesoegtKnap } from "@/components/besoegt-knap";
@@ -1003,6 +1004,13 @@ function deriveOwnership(u: {
   return { kind: k in OWNERSHIP_LABEL ? k : "ukendt", label: OWNERSHIP_LABEL[k] ?? "Ukendt" };
 }
 
+function aftaleKind(t: string): Ownership {
+  if (t.startsWith("Kundeejet")) return "kunde_ejet";
+  if (t.startsWith("Leje")) return "leje_binding";
+  if (t === "Ukendt") return "ukendt";
+  return "leje_ub";
+}
+
 function OwnershipBadge({ kind, label }: { kind: Ownership; label: string }) {
   const tone =
     kind === "kunde_ejet"
@@ -1028,6 +1036,9 @@ type EnrichmentInfo = {
   respons?: string | null;
   kobt_dato?: string | null;
   lease_leje_dato?: string | null;
+  aftale_type?: string | null;
+  reservedele?: string | null;
+  reservedele_efter?: string | null;
 };
 
 function fmtDa(iso?: string | null): string {
@@ -1098,6 +1109,8 @@ function EquipmentBox({ location }: { location: Location }) {
   type SortMode = "standard" | "age_desc" | "age_asc" | "cups_desc" | "cups_asc" | "binding_asc" | "binding_desc";
   const [sortMode, setSortMode] = useState<SortMode>("standard");
   const [enrichBySerial, setEnrichBySerial] = useState<Map<string, EnrichmentInfo>>(new Map());
+  const [udlaan, setUdlaan] = useState<Map<string, string>>(new Map());
+  const [harLeje, setHarLeje] = useState(false);
   const [agreementStatusBySerial, setAgreementStatusBySerial] = useState<
     Map<string, MachineAgreementStatusValue>
   >(new Map());
@@ -1152,9 +1165,18 @@ function EquipmentBox({ location }: { location: Location }) {
       // så ledende nuller bevares korrekt.
       const { data: enrData, error: enrError } = await (supabase as any)
         .from("machine_enrichment")
-        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data, kobt_dato, lease_leje_dato")
+        .select("serienr, taelleraflaesning, binding_ophor, handlingsdato, data, kobt_dato, lease_leje_dato, aftale_type")
         .eq("record_status", "aktiv")
         .in("serienr", serials);
+      const [{ data: mData }, { data: lejeData }] = await Promise.all([
+        (supabase as any).from("machines").select("serienr, udlanstype").eq("record_status", "aktiv").in("serienr", serials),
+        (supabase as any).rpc("lokationer_med_leje", { _location_ids: [location.id] }),
+      ]);
+      if (cancelled) return;
+      const u = new Map<string, string>();
+      for (const x of (mData ?? []) as any[]) if (x.udlanstype) u.set(String(x.serienr), x.udlanstype);
+      setUdlaan(u);
+      setHarLeje(((lejeData ?? []) as any[]).length > 0);
       if (enrError) {
         console.error("[lokationer-sektion] Kunne ikke hente machine_enrichment:", enrError.message);
       }
@@ -1169,6 +1191,9 @@ function EquipmentBox({ location }: { location: Location }) {
           respons: pickRespons(e.data),
           kobt_dato: e.kobt_dato ?? null,
           lease_leje_dato: e.lease_leje_dato ?? null,
+          aftale_type: e.aftale_type ?? null,
+          reservedele: e.data?.reservedele ?? null,
+          reservedele_efter: e.data?.reservedele_efter ?? null,
         });
       }
       setEnrichBySerial(m);
@@ -1437,8 +1462,17 @@ null
         {open && (
           <ul className="border-t divide-y text-xs">
             {(opts.isFilter ? list : sortUnits(list)).map((u) => {
-              const o = deriveOwnership(u);
               const enr = u.serial_no ? enrichBySerial.get(u.serial_no.trim()) : null;
+              const aftaleTekst = opts.isFilter
+                ? deriveOwnership(u).label
+                : maskinAftale({
+                    g4: enr?.aftale_type,
+                    udlaanstype: u.serial_no ? udlaan.get(u.serial_no.trim()) : null,
+                    lejelinjer: harLeje,
+                    gratisUdlaan: u.is_free_loan,
+                  });
+              const o = { kind: aftaleKind(aftaleTekst), label: aftaleTekst };
+              const rd = !opts.isFilter && enr ? reservedeleStatus(enr.reservedele, enr.reservedele_efter) : null;
               const today = new Date().toISOString().slice(0, 10);
               const bindingPassed =
                 enr?.binding_ophor && enr.binding_ophor < today ? true : false;
@@ -1467,7 +1501,7 @@ null
                     <span>
                       {[
                         u.serial_no ? `Serienr ${u.serial_no}` : "Uden serienr",
-                        u.agreement_type,
+                        rd?.lang,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
