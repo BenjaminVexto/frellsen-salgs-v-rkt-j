@@ -379,6 +379,13 @@
       "when": 1791268862497,
       "tag": "0053_maalepunkt_detaljer_pr_lokation",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1791293771454,
+      "tag": "0054_db_for_alle_besoeg_konkurrenter",
+      "breakpoints": true
     }
   ]
 }

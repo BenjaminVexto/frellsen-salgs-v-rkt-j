@@ -5,6 +5,7 @@ import {
   SALES_COLS_BASE,
   SALES_COLS_ADMIN,
   isAdminUser,
+  kanSeDbUser,
   isTeamScopeUser,
   resolveEffectiveUserId,
   fetchAllSalesMonthlyRows,
@@ -34,7 +35,8 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; isAdmin: boolean; hasActiveEquipment: boolean; gruppeNavne: Record<string, string> }> => {
-    const isAdmin = await isAdminUser(context.supabase, context.userId);
+    // "isAdmin" i svaret betyder her: må se DB (admin eller maa_se_db).
+    const isAdmin = await kanSeDbUser(context.supabase, context.userId);
     const [aggRes, companyRes, rolleRes] = await Promise.all([
       (context.supabase as any).rpc("company_group_monthly", { _company_id: data.companyId }),
       context.supabase
@@ -89,7 +91,11 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }): Promise<{ rows: SalesMonthlyRow[]; topProducts: TopProductRow[]; isAdmin: boolean }> => {
-    const isAdmin = await isAdminUser(context.supabase, context.userId);
+    // "isAdmin" i svaret betyder her: må se DB (admin eller maa_se_db).
+    const isAdmin = await kanSeDbUser(context.supabase, context.userId);
+    // Service-klienten bruges kun til at læse DB; adgangen tjekkes først via RLS.
+    const { data: synlig } = await context.supabase.from("locations").select("id").eq("id", data.locationId).maybeSingle();
+    if (!synlig) throw new Error("Ingen adgang til lokationen");
     const salesClient = isAdmin ? supabaseAdmin : context.supabase;
     const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
     const [monthlyRes, topRes] = await Promise.all([
@@ -140,7 +146,8 @@ export const getTopProductsForCompanyCategory = createServerFn({ method: "POST" 
     return input;
   })
   .handler(async ({ data, context }): Promise<{ topProducts: CategoryTopProduct[]; isAdmin: boolean }> => {
-    const isAdmin = await isAdminUser(context.supabase, context.userId);
+    // "isAdmin" i svaret betyder her: må se DB (admin eller maa_se_db).
+    const isAdmin = await kanSeDbUser(context.supabase, context.userId);
     const { data: locs, error: lerr } = await context.supabase
       .from("locations")
       .select("id")
@@ -709,7 +716,8 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }): Promise<UdviklingDetaljer> => {
-    const isAdmin = await isAdminUser(context.supabase, context.userId);
+    // "isAdmin" i svaret betyder her: må se DB (admin eller maa_se_db).
+    const isAdmin = await kanSeDbUser(context.supabase, context.userId);
     const { data: locs, error: lerr } = await context.supabase
       .from("locations")
       .select("id")

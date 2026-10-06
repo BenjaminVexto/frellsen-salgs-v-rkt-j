@@ -168,3 +168,9 @@ export function maskinBucketNavn(kode: string, description: string | null | unde
   if (kode === "16") return "Maskiner";
   return "Øvrig teknik";
 }
+
+/** Må brugeren se dækningsbidrag? Admin eller profiles.maa_se_db (via DB-funktionen maa_se_db). */
+export async function kanSeDbUser(supabase: any, userId: string): Promise<boolean> {
+  const { data } = await supabase.rpc("maa_se_db", { _user_id: userId });
+  return data === true;
+}

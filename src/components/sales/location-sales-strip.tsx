@@ -14,7 +14,7 @@ import {
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Loader2, TrendingUp } from "lucide-react";
 
-export function LocationSalesStrip({ locationId, isAdmin }: { locationId: string; isAdmin: boolean }) {
+export function LocationSalesStrip({ locationId }: { locationId: string; isAdmin?: boolean }) {
   const fetchFn = useServerFn(getSalesForLocation);
   const q = useQuery({
     queryKey: ["sales-location", locationId],
@@ -32,6 +32,8 @@ export function LocationSalesStrip({ locationId, isAdmin }: { locationId: string
   if (q.error || !q.data) return null;
 
   const rows = q.data.rows;
+  // Serveren afgør om DB må vises (admin eller maa_se_db).
+  const isAdmin = q.data.isAdmin;
   const topProducts = q.data.topProducts;
   if (!rows.length && !topProducts.length) return null;
 

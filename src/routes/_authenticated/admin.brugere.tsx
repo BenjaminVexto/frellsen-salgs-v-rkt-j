@@ -182,7 +182,7 @@ function BrugerStyringSide() {
     role: "saelger" as AppRoleX,
     region: "",
     salesperson_no: "",
-    maa_se_db: false,
+    maa_se_db: true,
     maa_se_analyse: false,
     maa_se_afdelingspotentiale: false,
   });
