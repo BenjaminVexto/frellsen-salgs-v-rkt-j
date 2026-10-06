@@ -37,3 +37,16 @@ describe("samletAftale", () => {
     expect(aeldreAflaesning("2025-11-01", idag)).toBe(false);
   });
 });
+
+import { udloebStatus, erIkkeMaskine, visKopper } from "./maskinliste";
+describe("maskinliste v2", () => {
+  const idag = new Date("2026-10-06T12:00:00");
+  it("udløbet i fortiden", () => expect(udloebStatus("2024-12-31", idag)).toBe("udloebet"));
+  it("31.12.2026 udløber snart", () => expect(udloebStatus("2026-12-31", idag)).toBe("snart"));
+  it("2028 ingen markering", () => expect(udloebStatus("2028-12-31", idag)).toBe(null));
+  it("rollup er ikke maskine", () => expect(erIkkeMaskine("Frellsen Bærekraft Rollup")).toBe(true));
+  it("Wittenborg skab er ikke maskine", () => expect(erIkkeMaskine("Wittenborg 9000 serie Skab, L")).toBe(true));
+  it("køleskab er maskine", () => expect(erIkkeMaskine("Køleskab Vitrifrigo 7L, L")).toBe(false));
+  it("9100 er maskine", () => expect(erIkkeMaskine("9100 R&G/B2C")).toBe(false));
+  it("0 og 1 kopper = ingen", () => { expect(visKopper(0)).toBe(null); expect(visKopper(1)).toBe(null); expect(visKopper(2)).toBe(2); });
+});
