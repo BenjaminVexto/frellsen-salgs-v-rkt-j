@@ -505,6 +505,13 @@
       "when": 1791311133294,
       "tag": "0071_maskiner_afdeling_fra_levnr",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1791312929810,
+      "tag": "0072_salg_12_hele_maaneder",
+      "breakpoints": true
     }
   ]
 }
