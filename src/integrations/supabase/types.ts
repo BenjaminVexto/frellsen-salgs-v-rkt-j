@@ -4706,6 +4706,7 @@ export type Database = {
       maskin_maerke: { Args: { _txt: string }; Returns: string }
       maskin_modelfamilie: { Args: { _txt: string }; Returns: string }
       maskin_tilvalg_moenstre: { Args: never; Returns: string[] }
+      maskiner_ret_afdeling: { Args: never; Returns: number }
       maskiner_uden_lokation: {
         Args: never
         Returns: {

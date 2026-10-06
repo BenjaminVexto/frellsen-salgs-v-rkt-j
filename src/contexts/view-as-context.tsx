@@ -46,7 +46,7 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
 
   // Hydrate from sessionStorage once auth is known.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || auth.loading) return;
     if (!isAdmin) {
       // Non-admins can never impersonate. Clear any stale value.
       setState({ viewAsUserId: null, viewAsName: null });
@@ -61,7 +61,7 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
-  }, [isAdmin]);
+  }, [isAdmin, auth.loading]);
 
   const setViewAs = useCallback(
     (id: string, name: string) => {
@@ -81,6 +81,31 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const impersonating = isAdmin && !!state.viewAsUserId;
+
+  // Skrivebeskyttelse under "Se som sælger": alle ændringer af tabeller og
+  // filer i databasen afvises, uanset om knappen er spærret i skærmbilledet.
+  useEffect(() => {
+    if (!impersonating || typeof window === "undefined") return;
+    const orig = window.fetch;
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+      const erSkriv = method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+      const erTabel = /\/rest\/v1\/(?!rpc\/)/.test(url) || /\/storage\/v1\/object/.test(url);
+      if (erSkriv && erTabel) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "Skrivebeskyttet: du ser som en anden bruger" }), {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return orig(input as any, init);
+    };
+    return () => {
+      window.fetch = orig;
+    };
+  }, [impersonating]);
 
   // Rettighederne for den viste sælger hentes eksplicit — auth.uid() kan ikke
   // skiftes, så visningen må styres af den effektive brugers rettigheder.

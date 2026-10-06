@@ -352,6 +352,12 @@ export const importMachines = createServerFn({ method: "POST" })
         machinesUpserted += slice.length;
       }
       console.log(`[machines-import] STEP 5 DONE: machinesUpserted=${machinesUpserted}`);
+      // Maskinens afdeling bestemmes af leveringsnummeret, ikke fast afd. 11.
+      if (machineRows.length > 0) {
+        const { data: flyttet, error: afdErr } = await (supabaseAdmin as any).rpc("maskiner_ret_afdeling");
+        if (afdErr) throw new Error("maskiner_ret_afdeling: " + afdErr.message);
+        console.log(`[machines-import] STEP 5b: afdeling rettet for ${flyttet} maskiner`);
+      }
 
       let machinesMarkedUdgaaet = 0;
       if (data.machineRows.length > 0) {
@@ -387,7 +393,7 @@ export const importMachines = createServerFn({ method: "POST" })
         data.enrichmentRows.length > 0 ||
         data.enrichmentRowsUdenSn.length > 0;
       // Fælles lokationsopslag — bruges af både rental-aggregat og Wittenborg-pass.
-      const locByNormDelivery = new Map<string, { id: string; company_id: string }>();
+      const locByNormDelivery = new Map<string, { id: string; company_id: string; afdeling_nr?: number | null }>();
       const locsByCompany = new Map<string, { id: string; visma_delivery_no: string | null }[]>();
       const compByNormFak = new Map<string, { id: string; last_consumable_sales_date: string | null }>();
 
@@ -397,15 +403,19 @@ export const importMachines = createServerFn({ method: "POST" })
         while (true) {
           const { data: rows, error } = await supabaseAdmin
             .from("locations")
-            .select("id, company_id, visma_delivery_no")
+            .select("id, company_id, visma_delivery_no, afdeling_nr")
             .range(from, from + PAGE - 1);
           if (error) throw new Error("locations select: " + error.message);
           if (!rows || rows.length === 0) break;
           for (const l of rows as any[]) {
             if (l.visma_delivery_no) {
               const kk = normalizeVismaNo(l.visma_delivery_no);
-              if (kk && !locByNormDelivery.has(kk)) {
-                locByNormDelivery.set(kk, { id: l.id, company_id: l.company_id });
+              // Lev. kund er kun entydig sammen med afdelingen: findes nummeret i
+              // afd. 11 (maskinlistens udgangspunkt) bruges den lokation; ellers
+              // lokationen i den afdeling, hvor nummeret findes (jf. maskiner_ret_afdeling).
+              const eks = locByNormDelivery.get(kk);
+              if (kk && (!eks || (l.afdeling_nr === 11 && eks.afdeling_nr !== 11))) {
+                locByNormDelivery.set(kk, { id: l.id, company_id: l.company_id, afdeling_nr: l.afdeling_nr });
               }
             }
             const arr = locsByCompany.get(l.company_id) ?? [];

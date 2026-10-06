@@ -1,3 +1,4 @@
+import { useViewAs } from "@/contexts/view-as-context";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -183,6 +184,8 @@ function VirksomhedsKort() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { user, role } = useAuth();
+  // Under "Se som sælger" vises egne lokationer for den sælger, man ser som.
+  const visUserId = useViewAs().effectiveUserId ?? user?.id ?? null;
   const isAdmin = role === "admin";
   const canWriteDocs = role === "admin" || role === "salgssupport";
   const [company, setCompany] = useState<Company | null>(null);
@@ -606,7 +609,7 @@ function VirksomhedsKort() {
             </div>
           )}
 
-          <DineLokationer locations={locations as any} userId={user?.id ?? null} hovedkontoSaelger={(company as any).assigned_to ?? null} />
+          <DineLokationer locations={locations as any} userId={visUserId} hovedkontoSaelger={(company as any).assigned_to ?? null} />
           {/* Tildelt sælger — fremhævet */}
           <div className="mb-4 rounded-md border bg-muted/40 px-3 py-2 flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -855,7 +858,7 @@ function VirksomhedsKort() {
                 <KundeSalgstal
                   companyId={company.id}
                   alleLokIds={locations.map((l) => l.id)}
-                  egneLokIds={locations.filter((l: any) => user?.id && l.saelger_user_id === user.id).map((l) => l.id)}
+                  egneLokIds={locations.filter((l: any) => visUserId && l.saelger_user_id === visUserId).map((l) => l.id)}
                 />
               )}
               <KonkurrentaftaleSektion companyId={company.id} />

@@ -498,6 +498,13 @@
       "when": 1791310853907,
       "tag": "0070_fald_graenser_og_stop_auto_fjern",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1791311133294,
+      "tag": "0071_maskiner_afdeling_fra_levnr",
+      "breakpoints": true
     }
   ]
 }

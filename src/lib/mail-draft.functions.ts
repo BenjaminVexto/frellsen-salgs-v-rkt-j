@@ -44,9 +44,9 @@ export const generateMailDraft = createServerFn({ method: "POST" })
           .single(),
         supabaseAdmin
           .from("activities")
-          .select("activity_type, note, created_at")
+          .select("activity_type, note, created_at:udfoert_at")
           .eq("company_id", data.company_id)
-          .order("created_at", { ascending: false })
+          .order("udfoert_at" as any, { ascending: false })
           .limit(3),
         supabaseAdmin
           .from("sales_opportunities")

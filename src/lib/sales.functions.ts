@@ -332,7 +332,7 @@ export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("activities")
       .select("id", { count: "exact", head: true })
-      .gte("created_at", monthStart);
+      .gte("udfoert_at" as any, monthStart);
     if (!teamScope) q = q.eq("created_by", effectiveUserId);
     if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
     const { count, error } = await q;
@@ -368,10 +368,10 @@ export const getMyNewActivitiesList = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("activities")
       .select(
-        "id, created_at, activity_type, note, company_id, created_by, companies(name), profiles!activities_created_by_profiles_fkey(full_name)",
+        "id, created_at:udfoert_at, activity_type, note, company_id, created_by, companies(name), profiles!activities_created_by_profiles_fkey(full_name)",
       )
-      .gte("created_at", monthStart)
-      .order("created_at", { ascending: false })
+      .gte("udfoert_at" as any, monthStart)
+      .order("udfoert_at" as any, { ascending: false })
       .range(offset, offset + limit - 1);
     if (!teamScope) q = q.eq("created_by", effectiveUserId);
     if (data.afdelingNr != null) q = q.eq("afdeling_nr", data.afdelingNr);
