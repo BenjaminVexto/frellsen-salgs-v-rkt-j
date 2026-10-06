@@ -470,3 +470,157 @@ export const listPricingKp2Groups = createServerFn({ method: "GET" })
       generalCount,
     };
   });
+
+export type PrismatrixKonto = { nr: string; label: string; egen: boolean; antal: number };
+
+/** En rabatlinje er brugbar, når den giver en reel rabat (ikke 0 og ikke 100 %). */
+export function erBrugbarRabat(r: Pick<PricingRow, "rab_kr" | "rab_pct" | "saerpris_kr">): boolean {
+  const kr = Number(r.rab_kr ?? 0);
+  const pct = Number(r.rab_pct ?? 0);
+  const saer = Number(r.saerpris_kr ?? 0);
+  if (pct === 100) return false;
+  return kr > 0 || pct > 0 || saer > 0;
+}
+
+/**
+ * Prismatrix-overblik til kundekortet: kontovalg (sælgerens egen konto først),
+ * KP-koder med navn og hvilke rabatlinjer der rammer varer købt seneste 12 hele mdr.
+ */
+export const getPrismatrixOverblik = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        company_id: z.string().uuid(),
+        konto: z.string().trim().max(30).nullish(),
+        visUserId: z.string().uuid().nullish(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: company, error } = await supabaseAdmin
+      .from("companies")
+      .select("visma_id, customer_segment_1, customer_segment_2")
+      .eq("id", data.company_id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const vismaId = ((company as any)?.visma_id ?? "").toString().trim() || null;
+    const seg1 = ((company as any)?.customer_segment_1 ?? null) as string | null;
+    const seg2 = ((company as any)?.customer_segment_2 ?? null) as string | null;
+    const kp1 = extractLeadingCode(seg1);
+    const kp2 = extractLeadingCode(seg2);
+
+    const { data: locs } = await supabaseAdmin
+      .from("locations")
+      .select("id, visma_delivery_no, address, city, saelger_user_id")
+      .eq("company_id", data.company_id);
+    const locList = (locs ?? []) as any[];
+
+    // Konti = virksomhedens kundenr + leveringsnumre, der har egne prisaftaler.
+    const nrs = Array.from(
+      new Set([vismaId, ...locList.map((l) => String(l.visma_delivery_no ?? "").trim())].filter(Boolean) as string[]),
+    );
+    const antalPrNr = new Map<string, number>();
+    if (nrs.length) {
+      const { data: cnt } = await supabaseAdmin
+        .from("agreement_pricing" as any)
+        .select("fak_kundenr")
+        .eq("record_status", "aktiv")
+        .in("fak_kundenr", nrs)
+        .limit(5000);
+      for (const r of (cnt ?? []) as any[]) {
+        const k = String(r.fak_kundenr).trim();
+        antalPrNr.set(k, (antalPrNr.get(k) ?? 0) + 1);
+      }
+    }
+    const egneNr = new Set(
+      locList
+        .filter((l) => data.visUserId && l.saelger_user_id === data.visUserId)
+        .map((l) => String(l.visma_delivery_no ?? "").trim()),
+    );
+    const konti: PrismatrixKonto[] = nrs
+      .filter((n) => n === vismaId || antalPrNr.has(n))
+      .map((n) => {
+        const l = locList.find((x) => String(x.visma_delivery_no ?? "").trim() === n);
+        const adr = l ? [l.address, l.city].filter(Boolean).join(", ") : "";
+        return { nr: n, label: adr ? `${n} · ${adr}` : n, egen: egneNr.has(n), antal: antalPrNr.get(n) ?? 0 };
+      })
+      .sort((a, b) => Number(b.egen) - Number(a.egen) || Number(b.nr === vismaId) - Number(a.nr === vismaId));
+
+    const valgt =
+      (data.konto && konti.some((k) => k.nr === data.konto) ? data.konto : null) ??
+      konti.find((k) => k.egen && k.antal > 0)?.nr ??
+      vismaId ??
+      konti[0]?.nr ??
+      null;
+
+    const rows = await fetchPricingForCompany(valgt, kp1, kp2);
+
+    // Købte varer seneste 12 hele måneder på virksomhedens lokationer.
+    const nu = new Date();
+    const fra = new Date(Date.UTC(nu.getUTCFullYear(), nu.getUTCMonth() - 12, 1)).toISOString().slice(0, 10);
+    const til = new Date(Date.UTC(nu.getUTCFullYear(), nu.getUTCMonth(), 1)).toISOString().slice(0, 10);
+    const koebt = new Map<string, number>();
+    const locIds = locList.map((l) => l.id);
+    for (let i = 0; i < locIds.length; i += 100) {
+      for (let from = 0; ; from += 1000) {
+        const { data: sp } = await supabaseAdmin
+          .from("sales_monthly_products")
+          .select("varenr, revenue")
+          .in("location_id", locIds.slice(i, i + 100))
+          .gte("period", fra)
+          .lt("period", til)
+          .range(from, from + 999);
+        for (const r of (sp ?? []) as any[]) {
+          const v = String(r.varenr ?? "").trim();
+          if (v) koebt.set(v, (koebt.get(v) ?? 0) + (Number(r.revenue) || 0));
+        }
+        if (!sp || sp.length < 1000) break;
+      }
+    }
+    const varenre = Array.from(koebt.keys());
+    const prodGrp = new Map<string, { p1: string | null; p2: string | null; p3: string | null }>();
+    for (let i = 0; i < varenre.length; i += 300) {
+      const { data: pr } = await supabaseAdmin
+        .from("products")
+        .select("varenr, produktprisgruppe_1, produktprisgruppe_2, produktprisgruppe_3")
+        .in("varenr", varenre.slice(i, i + 300));
+      for (const p of (pr ?? []) as any[]) {
+        prodGrp.set(String(p.varenr).trim(), {
+          p1: extractLeadingCode(p.produktprisgruppe_1),
+          p2: extractLeadingCode(p.produktprisgruppe_2),
+          p3: extractLeadingCode(p.produktprisgruppe_3),
+        });
+      }
+    }
+    const nz = (c: string | null) => (c && c !== "0" ? c : null);
+    const koebtOmsPrRow: Record<string, number> = {};
+    for (const r of rows) {
+      if (!erBrugbarRabat(r)) continue;
+      const v = (r.varenr ?? "").trim();
+      let oms = 0;
+      if (v && v !== "0") oms = koebt.get(v) ?? 0;
+      else {
+        const g3 = nz(extractLeadingCode(r.produktprisgruppe3));
+        const g2 = nz(extractLeadingCode(r.produktprisgruppe2));
+        const g1 = nz(extractLeadingCode(r.produktprisgruppe1));
+        if (!g1 && !g2 && !g3) continue;
+        for (const [vnr, o] of koebt) {
+          const p = prodGrp.get(vnr);
+          if (!p) continue;
+          if (g3 ? p.p3 === g3 : g2 ? p.p2 === g2 : p.p1 === g1) oms += o;
+        }
+      }
+      if (oms > 0) koebtOmsPrRow[r.id] = oms;
+    }
+
+    return {
+      konti,
+      valgt,
+      vismaId,
+      kp1: kp1 ? { kode: kp1, navn: extractGroupLabel(seg1) } : null,
+      kp2: kp2 ? { kode: kp2, navn: extractGroupLabel(seg2) } : null,
+      rows,
+      koebtOmsPrRow,
+    };
+  });

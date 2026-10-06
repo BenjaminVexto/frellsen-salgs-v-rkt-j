@@ -120,7 +120,7 @@ export function KundeSalgstal({
         <p className="text-sm text-destructive">Kunne ikke hente salgstal.</p>
       ) : (
         <div className="grid grid-cols-2 2xl:grid-cols-3 gap-x-4 gap-y-3">
-          <Tal label="Omsætning 12 mdr." vaerdi={fmtKr(tal.oms12)} />
+          <Tal label="Omsætning 12 mdr." vaerdi={fmtKr(tal.oms12)} under={<p className="text-xs text-muted-foreground">Alle varer · 12 hele måneder</p>} />
           <Tal
             label="Forbrugsvarer mod 12 mdr. før"
             vaerdi={

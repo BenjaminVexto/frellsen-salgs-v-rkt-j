@@ -23,7 +23,9 @@ export function SalesFactsStrip({
   rows,
   isAdmin,
   antalMaskiner,
+  visEgne,
 }: {
+  visEgne?: boolean;
   rows: SalesMonthlyRow[];
   isAdmin: boolean;
   antalMaskiner?: number | null;
@@ -49,12 +51,12 @@ export function SalesFactsStrip({
       : null;
 
   return (
-    <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-3 lg:grid-cols-5" : "md:grid-cols-2 lg:grid-cols-4"}`}>
+    <div className="grid gap-3 grid-cols-2 2xl:grid-cols-3">
       <Fact
         icon={<TrendingUp className="h-4 w-4" />}
         label="Omsætning 12 mdr."
         value={fmtKr(alt.revenue)}
-        note="Alt salg"
+        note="Alle varer · 12 hele måneder"
       />
       <Fact
         icon={<Coffee className="h-4 w-4" />}
@@ -68,15 +70,14 @@ export function SalesFactsStrip({
           icon={<Wallet className="h-4 w-4" />}
           label="DB forbrugsvarer"
           value={cons.contribution != null ? fmtKr(cons.contribution) : "—"}
-          note={dg != null ? `Dækningsgrad ${(dg * 100).toFixed(1).replace(".", ",")} %` : "Kun synlig for admin"}
-          admin
+          note={dg != null ? `Dækningsgrad ${(dg * 100).toFixed(1).replace(".", ",")} %` : "Dækningsgrad —"}
         />
       )}
       <Fact
         icon={<Cpu className="h-4 w-4" />}
         label="Maskiner i alt"
         value={antalMaskiner == null ? "…" : `${antalMaskiner} stk.`}
-        note="Opstillet på alle lokationer"
+        note={visEgne ? "Opstillet på dine lokationer" : "Opstillet på alle lokationer"}
       />
       <Fact
         icon={<Calendar className="h-4 w-4" />}

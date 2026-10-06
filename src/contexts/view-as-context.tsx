@@ -166,3 +166,14 @@ export function useViewAs(): ViewAsContextValue {
 export function useCanMutate(): boolean {
   return !useViewAs().isImpersonating;
 }
+
+/**
+ * Rollen skærmen skal vises ud fra: den valgte sælgers rolle under "Se som",
+ * ellers den indloggede brugers. Indtil sælgerens rolle er hentet antages "saelger".
+ */
+export function useEffektivRolle(): AppRole | null {
+  const v = useViewAs();
+  const auth = useAuth();
+  if (v.isImpersonating) return v.effectiveRole ?? "saelger";
+  return auth.role;
+}

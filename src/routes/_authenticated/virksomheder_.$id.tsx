@@ -1,4 +1,4 @@
-import { useViewAs } from "@/contexts/view-as-context";
+import { useViewAs, useEffektivRolle } from "@/contexts/view-as-context";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -183,7 +183,9 @@ const firstFilled = (...values: Array<string | null | undefined>) => {
 function VirksomhedsKort() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { user, role } = useAuth();
+  const { user } = useAuth();
+  // Knapper og faner vises ud fra den valgte sælgers rolle under "Se som".
+  const role = useEffektivRolle();
   // Under "Se som sælger" vises egne lokationer for den sælger, man ser som.
   const visUserId = useViewAs().effectiveUserId ?? user?.id ?? null;
   const isAdmin = role === "admin";
@@ -792,13 +794,13 @@ function VirksomhedsKort() {
 
         {/* MIDTEN — Faner */}
         <div className="space-y-4 min-w-0 order-2 lg:order-2">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+          <Tabs value={tab === "udvikling" && !isAdmin ? "oversigt" : tab} onValueChange={(v) => setTab(v as TabKey)}>
             {(() => {
               const allTabs = [
                 { v: "oversigt", label: "Oversigt" },
                 { v: "aktivitet", label: "Aktivitet" },
                 { v: "salg", label: "Salg" },
-                { v: "udvikling", label: "Udvikling" },
+                ...(isAdmin ? [{ v: "udvikling", label: "Udvikling" }] : []),
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
                 { v: "aftaler", label: "Aftaler" },
@@ -973,19 +975,20 @@ function VirksomhedsKort() {
                 companyId={company.id}
                 totalLocations={locations.length}
                 locationIds={locations.map((l) => l.id)}
+                egneLokIds={locations.filter((l: any) => visUserId && l.saelger_user_id === visUserId).map((l) => l.id)}
                 skjulSignaler={!!afloestAf}
               />
             </TabsContent>
 
             {/* FANE: Udvikling */}
-            <TabsContent value="udvikling" className="space-y-4 mt-4">
+            {isAdmin && <TabsContent value="udvikling" className="space-y-4 mt-4">
               <CompanyUdviklingTab
                 companyId={company.id}
                 locations={locations}
                 locationIds={locations.map((l) => l.id)}
                 skjulSignaler={!!afloestAf}
               />
-            </TabsContent>
+            </TabsContent>}
 
             {/* FANE: Lokationer */}
             <TabsContent value="lokationer" className="space-y-4 mt-4">

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { BookOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { useViewAs } from "@/contexts/view-as-context";
+import { useViewAs, useEffektivRolle } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,8 @@ export function KatalogKnap({
   className?: string;
   onSaved?: () => void;
 }) {
-  const { user, role } = useAuth() as any;
+  const { user } = useAuth() as any;
+  const role = useEffektivRolle();
   const { isImpersonating } = useViewAs();
   const { stampAfdelingNr } = useAfdeling();
   const [open, setOpen] = useState(false);
