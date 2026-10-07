@@ -1,4 +1,5 @@
 import { useViewAs, useEffektivRolle } from "@/contexts/view-as-context";
+import { KundeVaerdiLinje } from "@/components/sales/kunde-vaerdi";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";

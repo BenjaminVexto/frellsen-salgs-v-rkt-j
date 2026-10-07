@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Top20Kunder } from "@/components/sales/kunde-vaerdi";
 import { DataOpdateret } from "@/components/data-opdateret";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
