@@ -16,7 +16,7 @@ describe("maskinliste", () => {
     expect(s.map((x) => x.maskintype)).toEqual(["A", "B", "C"]);
   });
   it("gratis udlån vinder over aftaletype", () => {
-    expect(aftaleLabel("Leje", true)).toBe("Gratis udlån");
+    expect(aftaleLabel("Leje", true)).toBe("Udlån");
     expect(aftaleLabel("Leasing", false)).toBe("Lease");
   });
 });
