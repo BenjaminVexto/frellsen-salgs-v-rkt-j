@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Top20Kunder } from "@/components/sales/kunde-vaerdi";
 import { DataOpdateret } from "@/components/data-opdateret";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -71,6 +70,7 @@ export const Route = createFileRoute("/_authenticated/min-portefoelje")({
 });
 
 type SortKey =
+  | "db12m"
   | "name"
   | "status"
   | "revenue12m"
@@ -113,6 +113,13 @@ function PortfolioPage() {
   const [downloading, setDownloading] = useState(false);
   const hentKontakter = useServerFn(getPortfolioKontakter);
   const [showDB, setShowDB] = useState(false);
+  // Slås Vis DB fra under DB-sortering, falder sorteringen tilbage til 12 hele mdr. faldende.
+  useEffect(() => {
+    if (!showDB && sortKey === "db12m") {
+      setSortKey("revenue12m");
+      setSortDir("desc");
+    }
+  }, [showDB, sortKey]);
   const [visibleCount, setVisibleCount] = useState(FOERSTE_VISNING);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
   const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus">(() =>
@@ -264,6 +271,21 @@ function PortfolioPage() {
     const key = sortKey;
     const dir = sortDir === "asc" ? 1 : -1;
     const lastPeriod = data.monthLabels[data.monthLabels.length - 1]?.period;
+    if (key === "db12m") {
+      // Numerisk; virksomheder uden DB altid sidst uanset retning.
+      const v = (c: PortfolioCompanyRow) => {
+        const x = Number(c.contribution12m ?? 0);
+        return x === 0 || !Number.isFinite(x) ? null : x;
+      };
+      arr.sort((a, b) => {
+        const av = v(a), bv = v(b);
+        if (av == null && bv == null) return b.revenue12m - a.revenue12m;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return (av - bv) * dir;
+      });
+      return arr.map((c) => ({ ...c, rang: rank.get(c.id)! }));
+    }
     arr.sort((a, b) => {
       let av: any;
       let bv: any;
@@ -308,7 +330,7 @@ function PortfolioPage() {
       const km = new Map(rows.map((r) => [r.company_id, r]));
       const statusLabel: Record<string, string> = { aktiv: "Aktiv", sovende: "Sovende", service: "Servicekunde", paavejvaek: "Aktiv (på vej væk)", tidligere: "Tidligere", stoppet: "Stoppet", andet: "Andet" };
       const sektorLabel: Record<string, string> = { privat: "Forhandlingskunder", offentlig: "Udbudskunder", intern: "Intern" };
-      const data = [...sortedCompanies].sort((a, b) => a.rang - b.rang).map((c) => {
+      const data = sortedCompanies.map((c) => {
         const k = km.get(c.id);
         return {
           Rang: c.rang,
@@ -325,6 +347,7 @@ function PortfolioPage() {
           Status: statusLabel[classifyStatus(c) as string] ?? String(classifyStatus(c) ?? ""),
           "Omsætning 12 hele mdr.": Math.round(c.revenue12m * 100) / 100,
           "Omsætning seneste md.": Math.round((c.monthly[c.monthly.length - 1]?.revenue ?? 0) * 100) / 100,
+          ...(visDb && showDB ? { "DB 12 hele mdr.": Math.round((c.contribution12m ?? 0) * 100) / 100 } : {}),
           Kontaktperson: k?.kontaktperson ?? "",
           Titel: k?.titel ?? "",
           Telefon: k?.telefon ?? "",
@@ -596,7 +619,11 @@ function PortfolioPage() {
                       <Th onClick={() => toggleSort("status")} active={sortKey === "status"} dir={sortDir}>
                         Status
                       </Th>
-                      {visDb && showDB && <th className="px-3 py-2 text-right">DB 12m</th>}
+                      {visDb && showDB && (
+                        <Th onClick={() => toggleSort("db12m")} active={sortKey === "db12m"} dir={sortDir} align="right" title="Dækningsbidrag de seneste 12 hele måneder.">
+                          DB 12M
+                        </Th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -863,8 +890,6 @@ function PortfolioPage() {
         )}
 
       </div>
-
-      {effectiveMaaSeDb && maalepunkterSaelgerId && <Top20Kunder saelgerId={maalepunkterSaelgerId} />}
 
       {visAnalyse || visMaalepunkter || visBonus ? (
         <Tabs
