@@ -8,3 +8,4 @@
 
 - Aktiviteters dato vises og sorteres på activities.udfoert_at (brugervalgt, højst 14 dage tilbage, valideret af trigger); created_at er den uændrede registreringstid — so the two can be compared.
 - Maskiners "Placering i bygningen" ligger i maskine_placering pr. serienr. (ikke på location_equipment_units, som importen sletter/genindsætter); importen må kun skrive via import_maskine_placering, der ignorerer tomme værdier og aldrig overskriver CRM-indtastninger — because brugerindtastninger ikke må gå tabt ved import.
+- Fakturajournalens DB 0-linjer udledes pr. kunde mod Vismas summeringslinje (src/lib/invoice-db-udledning.ts, invoice_lines.db_kilde, invoice_db_afstemning) — never a general 'DB 0 = 100 %' rule, because real DB-0 sales (machines) exist.
