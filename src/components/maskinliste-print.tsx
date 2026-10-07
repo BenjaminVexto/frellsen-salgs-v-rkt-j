@@ -158,13 +158,13 @@ export function UdskrivMaskinlisteKnap({
         const nogenMarkeret = alle.some((r) => status(r));
         const nogenAeldre = alle.some((r) => r.kopper != null && r.aflaest && aeldreAflaesning(r.aflaest, idag));
         const kol: { navn: string; bredde: string; cls?: string }[] = [
-          { navn: "Maskine", bredde: "21%" },
-          { navn: "Serienr.", bredde: "12%" },
-          ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "11%" }] : []),
-          ...(visAftale ? [{ navn: "Aftale", bredde: "12%" }] : []),
-          ...(visUdloeber ? [{ navn: "Binding ophører", bredde: "13%", cls: "nw" }] : []),
-          ...(visRd ? [{ navn: "Reservedele", bredde: "12%" }] : []),
-          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "19%", cls: "num nw" }] : []),
+          { navn: "Maskine", bredde: "26%" },
+          { navn: "Serienr.", bredde: "11%" },
+          ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "10%" }] : []),
+          ...(visAftale ? [{ navn: "Aftale", bredde: "17%" }] : []),
+          ...(visUdloeber ? [{ navn: "Binding ophører", bredde: "12%", cls: "nw" }] : []),
+          ...(visRd ? [{ navn: "Reservedele", bredde: "9%" }] : []),
+          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "15%", cls: "num nw" }] : []),
         ];
         const sektioner = gl
           .map((g) => {
@@ -210,14 +210,14 @@ ${nogenMarkeret ? `<div class="meta">Markeret = bindingen er udløbet eller udl�
       const html = `<!doctype html><html lang="da"><head><meta charset="utf-8"><title>Maskinliste – ${esc(company.name)}</title>
 <style>
 @page { size: A4; margin: 14mm; }
-body { font-family: Helvetica, Arial, sans-serif; font-size: 9.5pt; color: #111; margin: 0; padding: 16px; }
+body { font-family: Helvetica, Arial, sans-serif; font-size: 9pt; color: #111; margin: 0; padding: 16px; }
 header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 12px; }
 header img { height: 40px; }
 h1 { font-size: 16pt; margin: 0 0 2px; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 thead { display: table-header-group; }
-th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #ccc; vertical-align: top; overflow-wrap: anywhere; }
-thead th { background: #eee; font-size: 8.5pt; }
+th, td { text-align: left; padding: 4px 5px; border-bottom: 1px solid #ccc; vertical-align: top; overflow-wrap: anywhere; }
+thead th { background: #eee; font-size: 8pt; }
 tr.adr th { font-size: 10.5pt; padding-top: 14px; border-bottom: 1.5px solid #111; break-after: avoid; page-break-after: avoid; }
 .konti { font-weight: normal; font-size: 8pt; color: #555; }
 .num { text-align: right; }
