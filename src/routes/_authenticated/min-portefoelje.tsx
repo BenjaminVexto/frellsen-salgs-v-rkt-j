@@ -863,6 +863,8 @@ function PortfolioPage() {
 
       </div>
 
+      {effectiveMaaSeDb && maalepunkterSaelgerId && <Top20Kunder saelgerId={maalepunkterSaelgerId} />}
+
       {visAnalyse || visMaalepunkter || visBonus ? (
         <Tabs
           value={tab}

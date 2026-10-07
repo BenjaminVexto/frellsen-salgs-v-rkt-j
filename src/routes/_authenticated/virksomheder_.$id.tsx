@@ -855,6 +855,7 @@ function VirksomhedsKort() {
 
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
+              {!afloestAf && <KundeVaerdiLinje companyId={company.id} />}
               {!afloestAf && (
                 <KundeSalgstal
                   companyId={company.id}
