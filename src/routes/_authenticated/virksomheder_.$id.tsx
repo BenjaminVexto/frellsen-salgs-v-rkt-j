@@ -1,4 +1,5 @@
 import { useViewAs, useEffektivRolle } from "@/contexts/view-as-context";
+import { KundeVaerdiLinje } from "@/components/sales/kunde-vaerdi";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -855,6 +856,7 @@ function VirksomhedsKort() {
 
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
+              {!afloestAf && <KundeVaerdiLinje companyId={company.id} />}
               {!afloestAf && (
                 <KundeSalgstal
                   companyId={company.id}
