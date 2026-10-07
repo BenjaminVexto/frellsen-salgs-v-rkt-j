@@ -347,6 +347,7 @@ function PortfolioPage() {
           Status: statusLabel[classifyStatus(c) as string] ?? String(classifyStatus(c) ?? ""),
           "Omsætning 12 hele mdr.": Math.round(c.revenue12m * 100) / 100,
           "Omsætning seneste md.": Math.round((c.monthly[c.monthly.length - 1]?.revenue ?? 0) * 100) / 100,
+          ...(visDb && showDB ? { "DB 12 hele mdr.": Math.round((c.contribution12m ?? 0) * 100) / 100 } : {}),
           Kontaktperson: k?.kontaktperson ?? "",
           Titel: k?.titel ?? "",
           Telefon: k?.telefon ?? "",
