@@ -65,3 +65,8 @@ describe("reservedeleStatus", () => {
   it("passeret dato", () => expect(_rs("1 [Aftale m/Alt u/b  (83,17,18)]", "2025-01-01", i)?.lang).toBe("Reservedele faktureres"));
   it("uden reservedele", () => expect(_rs("2 [Aftale uden Reservedele  (83, 17)]", null, i)?.lang).toBe("Reservedele ikke inkluderet"));
 });
+
+describe("aftale: kundeejet trods lejelinjer", () => {
+  it("G4 serviceaftale + lejelinjer = kundeejet", () =>
+    expect(_ma({ g4: "1 [Serviceaftale]", udlaanstype: "5 [Leje u/b]", lejelinjer: true })).toBe("Kundeejet · serviceaftale"));
+});

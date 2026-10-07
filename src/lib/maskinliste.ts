@@ -8,6 +8,10 @@ export type MaskinRaekke = {
   aflaest: string | null;
   service: boolean;
   reservedele?: string | null;
+  /** Antal enheder på linjen (udstyr uden serienr. samles pr. type). */
+  antal?: number;
+  /** Tilbehør/filtre (termobeholdere, fødder, vandfiltre m.m.) — ikke maskine. */
+  tilbehoer?: boolean;
 };
 
 /** Aftaletype til visning: Gratis udlån / Leje / Lease / Køb / rå værdi. */
@@ -97,6 +101,12 @@ export function udloebStatus(dato: string | null, idag: Date = new Date()): "udl
  */
 export const IKKE_MASKINE_REGEL =
   /(rollup|skilt|udslagsskuffe|termobeholder|pumpekande|kolbekande|steamkande|\bkurv\b|drypbakke|piedestal|(^|[^ø]le|\s)skab\b)/i;
+/** Udelades helt fra maskinlisten (reklame, ikke udstyr hos kunden). */
+export function erUdeladt(type: string | null | undefined): boolean {
+  return /(rollup|skilt)/i.test(type ?? "");
+}
+
+/** Tilbehør (vises på listen, men tælles ikke som maskine). */
 export function erIkkeMaskine(type: string | null | undefined): boolean {
   const t = (type ?? "").trim();
   if (!t) return false;
@@ -126,9 +136,12 @@ export function maskinAftale(p: {
 }): string {
   const g4 = (p.g4 ?? "").trim().toLowerCase();
   const u = (p.udlaanstype ?? "").trim().toLowerCase();
-  const erLeje = /^3\s*\[|leje\s*\/\s*leasing/.test(u) || /^3\s*\[|leje\s*\/\s*leasing/.test(g4) || p.lejelinjer;
+  const registerLeje = /^3\s*\[|leje\s*\/\s*leasing/.test(u) || /^3\s*\[|leje\s*\/\s*leasing/.test(g4);
+  const erLeje = registerLeje || p.lejelinjer;
   const service = /^1\s*\[|serviceaftale/.test(g4);
-  if (service) return erLeje ? "Leje + serviceaftale" : "Kundeejet · serviceaftale";
+  // G4 er facit: "Serviceaftale" = kundeejet. Lejelinjer på lokationen gør ikke en
+  // kundeejet maskine til leje — kun registrenes egen lejeaftale gør.
+  if (service) return registerLeje ? "Leje + serviceaftale" : "Kundeejet · serviceaftale";
   if (erLeje) return "Leje";
   if (/^8\s*\[|pr[øo]ve/.test(u)) return "Prøveopsætning";
   if (/^7\s*\[|bytte/.test(u)) return "Bytteservice";
