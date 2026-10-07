@@ -158,8 +158,8 @@ export function UdskrivMaskinlisteKnap({
         const nogenMarkeret = alle.some((r) => status(r));
         const nogenAeldre = alle.some((r) => r.kopper != null && r.aflaest && aeldreAflaesning(r.aflaest, idag));
         const kol: { navn: string; bredde: string; cls?: string }[] = [
-          { navn: "Maskine", bredde: "22%" },
-          { navn: "Serienr.", bredde: "10%" },
+          { navn: "Maskine", bredde: "20%" },
+          { navn: "Serienr.", bredde: "12%" },
           ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "10%" }] : []),
           ...(visAftale ? [{ navn: "Aftale", bredde: "21%" }] : []),
           ...(visUdloeber ? [{ navn: "Binding ophører", bredde: "12%", cls: "nw" }] : []),
