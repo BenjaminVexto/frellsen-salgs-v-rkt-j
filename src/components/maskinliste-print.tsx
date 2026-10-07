@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { FRELLSEN_LOGO_BASE64 } from "@/lib/frellsen-logo-base64";
-import { aeldreAflaesning, erIkkeMaskine, maskinAftale, reservedeleStatus, maskinNavn, sorterMaskiner, udloebStatus, visKopper as visKopperVaerdi, type MaskinRaekke } from "@/lib/maskinliste";
+import { aeldreAflaesning, erIkkeMaskine, erUdeladt, maskinAftale, reservedeleStatus, maskinNavn, sorterMaskiner, udloebStatus, visKopper as visKopperVaerdi, type MaskinRaekke } from "@/lib/maskinliste";
 import { hentPlaceringer } from "@/components/placering-felt";
 import { adresseNoegle, lokAdresse } from "@/lib/adresse-grupper";
 const LOGO_SRC = `data:image/png;base64,${FRELLSEN_LOGO_BASE64}`;
@@ -29,7 +29,7 @@ function taeller(data: any): number | null {
 async function hentRaekker(companyId: string, kunLok?: string[]) {
   const { data: alleLocs, error } = await supabase
     .from("locations")
-    .select("id, address, zip, city, visma_delivery_no, is_primary")
+    .select("id, address, zip, city, visma_delivery_no, is_primary, afdeling_nr")
     .eq("company_id", companyId);
   if (error) throw error;
   const locs = kunLok ? (alleLocs ?? []).filter((l) => kunLok.includes(l.id)) : alleLocs;
@@ -39,8 +39,7 @@ async function hentRaekker(companyId: string, kunLok?: string[]) {
     const { data, error: e } = await (supabase as any)
       .from("location_equipment_units")
       .select("location_id, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, is_filter")
-      .in("location_id", locIds.slice(i, i + 200))
-      .eq("is_filter", false);
+      .in("location_id", locIds.slice(i, i + 200));
     if (e) throw e;
     units.push(...(data ?? []));
   }
@@ -55,15 +54,36 @@ async function hentRaekker(companyId: string, kunLok?: string[]) {
         .select("serienr, taelleraflaesning, binding_ophor, beregnet_slutdato, aftale_type, data")
         .eq("record_status", "aktiv")
         .in("serienr", del),
-      (supabase as any).from("machines").select("serienr, udlanstype").eq("record_status", "aktiv").in("serienr", del),
+      (supabase as any).from("machines").select("serienr, udlanstype, beskrivelse").eq("record_status", "aktiv").in("serienr", del),
     ]);
     for (const e of data ?? []) enr.set(String(e.serienr), e);
-    for (const x of m ?? []) if (x.udlanstype) mask.set(String(x.serienr), x);
+    // Vandfiltre i maskinregistret står på maskinens serienr. — de må ikke give maskinen filtrets udlånstype.
+    for (const x of m ?? []) {
+      if (!x.udlanstype) continue;
+      const filter = /brita|filter/i.test(x.beskrivelse ?? "");
+      const k = String(x.serienr);
+      if (!filter || !mask.has(k)) mask.set(k, { ...x, filter });
+      else if (mask.get(k).filter && !filter) mask.set(k, { ...x, filter });
+    }
   }
   const plac = await hentPlaceringer(serials);
   const { data: lj } = await (supabase as any).rpc("lokationer_med_leje", { _location_ids: locIds });
   const leje = new Set<string>(((lj ?? []) as any[]).map((x) => String(typeof x === "string" ? x : x.lokationer_med_leje ?? x)));
-  return { locs: locs ?? [], units, enr, mask, plac, leje };
+  // Fakturajournalens "Aflæs Tællerstand NNN" har intet serienr. Den bruges kun, hvor
+  // kontoen har præcis én maskine med tæller — ellers kan den ikke kobles sikkert.
+  const fakturaAflaesning = new Map<string, { n: number; dato: string }>();
+  for (const l of locs ?? []) {
+    if (!l.visma_delivery_no) continue;
+    const medTaeller = units.filter((u) => u.location_id === l.id && (u.serial_no ?? "").trim() && taeller(enr.get(u.serial_no.trim())?.data) != null);
+    if (medTaeller.length !== 1) continue;
+    let q = (supabase as any).from("invoice_lines").select("faktura_dato, varetekst").eq("visma_delivery_no", l.visma_delivery_no).ilike("varetekst", "Aflæs Tællerstand%").order("faktura_dato", { ascending: false }).limit(1);
+    if ((l as any).afdeling_nr != null) q = q.eq("afdeling_nr", (l as any).afdeling_nr);
+    const { data: il } = await q;
+    const x = (il ?? [])[0];
+    const n = x ? Number(String(x.varetekst).replace(/\D/g, "")) : NaN;
+    if (x && Number.isFinite(n) && n > 0) fakturaAflaesning.set(medTaeller[0].serial_no.trim(), { n, dato: x.faktura_dato });
+  }
+  return { locs: locs ?? [], units, enr, mask, plac, leje, fakturaAflaesning };
 }
 
 export type MaskinlisteAdresse = { key: string; label: string; locIds: string[]; egen: boolean };
@@ -100,34 +120,62 @@ export function UdskrivMaskinlisteKnap({
     w.document.write("<p style='font-family:sans-serif'>Henter maskinliste…</p>");
     setBusy(true);
     try {
-      const { locs, units, enr, mask, plac, leje } = await hentRaekker(company.id, kunLok ?? locationIds);
+      const { locs, units, enr, mask, plac, leje, fakturaAflaesning } = await hentRaekker(company.id, kunLok ?? locationIds);
       const idag = new Date();
       const udeladte = new Map<string, number>();
       const pr = new Map<string, MaskinRaekke[]>();
+      const samlet = new Map<string, MaskinRaekke>();
       for (const u of units) {
-        if (erIkkeMaskine(u.machine_type)) {
+        if (erUdeladt(u.machine_type)) {
           const k = (u.machine_type ?? "").trim();
           udeladte.set(k, (udeladte.get(k) ?? 0) + 1);
           continue;
         }
         const sn = (u.serial_no ?? "").trim();
-        const e = enr.get(sn);
+        const e = sn ? enr.get(sn) : undefined;
+        const tilbehoer = !!u.is_filter || erIkkeMaskine(u.machine_type);
+        const navn = maskinNavn(String(u.machine_type ?? "").replace(/,\s*L\s*$/, "").replace(/\s+/g, " "));
+        let kopper = visKopperVaerdi(taeller(e?.data));
+        let aflaest: string | null = e?.taelleraflaesning ?? null;
+        const fa = sn ? fakturaAflaesning.get(sn) : undefined;
+        if (fa && (!aflaest || fa.dato > aflaest) && fa.n >= (kopper ?? 0)) {
+          kopper = visKopperVaerdi(fa.n);
+          aflaest = fa.dato;
+        }
+        const aftale = u.is_filter
+          ? "Gratis udlån"
+          : maskinAftale({ g4: e?.aftale_type, udlaanstype: mask.get(sn)?.udlanstype ?? (u.is_free_loan ? "4 [Udlån]" : null), lejelinjer: leje.has(u.location_id), gratisUdlaan: !!u.is_free_loan });
+        if (!sn) {
+          // Udstyr uden serienr. samles pr. type på én linje med antal.
+          const k = `${u.location_id}|${navn}|${aftale}`;
+          const fx = samlet.get(k);
+          if (fx) { fx.antal = (fx.antal ?? 1) + 1; continue; }
+        }
         const r: MaskinRaekke = {
-          maskintype: maskinNavn(u.machine_type),
+          maskintype: navn,
+          tilbehoer,
+          antal: 1,
           serienr: u.serial_no ?? "",
           placering: plac.get(sn)?.placering ?? "",
-          aftale: maskinAftale({ g4: e?.aftale_type, udlaanstype: mask.get(sn)?.udlanstype, lejelinjer: leje.has(u.location_id), gratisUdlaan: !!u.is_free_loan }),
+          aftale,
           udloeber: e?.binding_ophor ?? null,
-          kopper: visKopperVaerdi(taeller(e?.data)),
-          aflaest: e?.taelleraflaesning ?? null,
+          kopper,
+          aflaest,
           service: false,
           reservedele: reservedeleStatus(e?.data?.reservedele, e?.data?.reservedele_efter, idag)?.kort ?? null,
         };
+        if (!sn) samlet.set(`${u.location_id}|${navn}|${aftale}`, r);
         const arr = pr.get(u.location_id) ?? [];
         arr.push(r);
         pr.set(u.location_id, arr);
       }
-      const erTom = (r: MaskinRaekke) => r.aftale === "Ukendt" && r.kopper == null;
+      // Kun maskiner med reelt ukendt aftale og uden aflæsning — aldrig tilbehør/udlånt udstyr.
+      const erTom = (r: MaskinRaekke) => !r.tilbehoer && r.aftale === "Ukendt" && r.kopper == null;
+      const optael = (rows: MaskinRaekke[]) => {
+        const m = rows.filter((r) => !r.tilbehoer).reduce((s, r) => s + (r.antal ?? 1), 0);
+        const t = rows.filter((r) => r.tilbehoer).reduce((s, r) => s + (r.antal ?? 1), 0);
+        return `${m} ${m === 1 ? "maskine" : "maskiner"}${t ? ` + ${t} stk. tilbehør og filtre` : ""}`;
+      };
       type Grp = { adr: string; primaer: boolean; konti: string[]; rows: MaskinRaekke[] };
       const lavGrupper = (medTomme: boolean) => {
         const grupper = new Map<string, Grp>();
@@ -177,7 +225,7 @@ export function UdskrivMaskinlisteKnap({
                     ? `${r.kopper.toLocaleString("da-DK")}${r.aflaest ? ` · ${fmtDato(r.aflaest)}${aeldreAflaesning(r.aflaest, idag) ? "*" : ""}` : ""}`
                     : "—";
                 const celler = [
-                  `<td>${esc(r.maskintype)}</td>`,
+                  `<td>${esc(r.maskintype)}${(r.antal ?? 1) > 1 ? ` <b>×${r.antal}</b>` : ""}</td>`,
                   `<td class="nw">${esc(r.serienr || "—")}</td>`,
                   visPlacering ? `<td>${esc(r.placering || "—")}</td>` : "",
                   visAftale ? `<td>${esc(r.aftale)}</td>` : "",
@@ -189,7 +237,7 @@ export function UdskrivMaskinlisteKnap({
               })
               .join("");
             return `<tbody class="grp"><tr class="adr"><th colspan="${kol.length}">${esc(g.adr)}${
-              g.konti.length ? `<div class="konti">Kundenr. ${esc(g.konti.join(", "))} · ${g.rows.length} maskiner</div>` : ""
+              g.konti.length ? `<div class="konti">Kundenr. ${esc(g.konti.join(", "))} · ${optael(g.rows)}</div>` : ""
             }</th></tr>${rows}</tbody>`;
           })
           .join("");
@@ -198,7 +246,7 @@ export function UdskrivMaskinlisteKnap({
               .map((k) => `<th class="${k.cls ?? ""}">${k.navn}</th>`)
               .join("")}</tr></thead>${sektioner}</table>`
           : "<p>Ingen maskiner registreret på virksomheden.</p>";
-        const hoved = `<header><div><h1>${esc(company.name)}</h1><div class="meta">${company.cvr ? `CVR ${esc(company.cvr)} · ` : ""}Maskinliste pr. ${idag.toLocaleDateString("da-DK")} · ${alle.length} maskiner</div>
+        const hoved = `<header><div><h1>${esc(company.name)}</h1><div class="meta">${company.cvr ? `CVR ${esc(company.cvr)} · ` : ""}Maskinliste pr. ${idag.toLocaleDateString("da-DK")} · ${optael(alle)}</div>
 ${nogenMarkeret ? `<div class="meta">Markeret = bindingen er udløbet eller udløber inden for 6 måneder</div>` : ""}</div>
 <img src="${LOGO_SRC}" alt="Frellsen"></header>`;
         const fod = nogenAeldre ? `<p class="fod">* aflæst for over 12 måneder siden</p>` : "";
