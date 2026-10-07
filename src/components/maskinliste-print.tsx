@@ -158,13 +158,13 @@ export function UdskrivMaskinlisteKnap({
         const nogenMarkeret = alle.some((r) => status(r));
         const nogenAeldre = alle.some((r) => r.kopper != null && r.aflaest && aeldreAflaesning(r.aflaest, idag));
         const kol: { navn: string; bredde: string; cls?: string }[] = [
-          { navn: "Maskine", bredde: "20%" },
-          { navn: "Serienr.", bredde: "12%" },
+          { navn: "Maskine", bredde: "22.5%" },
+          { navn: "Serienr.", bredde: "11.5%" },
           ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "10%" }] : []),
-          ...(visAftale ? [{ navn: "Aftale", bredde: "21%" }] : []),
+          ...(visAftale ? [{ navn: "Aftale", bredde: "20%" }] : []),
           ...(visUdloeber ? [{ navn: "Binding ophører", bredde: "12%", cls: "nw" }] : []),
           ...(visRd ? [{ navn: "Reservedele", bredde: "10%", cls: "nw" }] : []),
-          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "17%", cls: "num nw" }] : []),
+          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "16%", cls: "num nw" }] : []),
         ];
         const sektioner = gl
           .map((g) => {
