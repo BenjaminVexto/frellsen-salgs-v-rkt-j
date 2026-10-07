@@ -16,12 +16,12 @@ export type MaskinRaekke = {
 
 /** Aftaletype til visning: Gratis udlån / Leje / Lease / Køb / rå værdi. */
 export function aftaleLabel(raw: string | null | undefined, gratisUdlaan: boolean): string {
-  if (gratisUdlaan) return "Gratis udlån";
+  if (gratisUdlaan) return "Udlån";
   // Visma-koder som "1 [Serviceaftale]" vises som teksten i parentesen.
   const ren = (raw ?? "").replace(/^\s*\d+\s*\[(.*)\]\s*$/, "$1").trim();
   const t = ren.toLowerCase();
   if (!t.trim()) return "—";
-  if (/udl[åa]n|gratis/.test(t)) return "Gratis udlån";
+  if (/udl[åa]n|gratis|u\/b/.test(t)) return "Udlån";
   if (/lease|leasing/.test(t)) return "Lease";
   if (/leje/.test(t)) return "Leje";
   if (/k[øo]b|solgt|salg/.test(t)) return "Køb";
@@ -142,6 +142,9 @@ export function maskinAftale(p: {
   // G4 er facit: "Serviceaftale" = kundeejet. Lejelinjer på lokationen gør ikke en
   // kundeejet maskine til leje — kun registrenes egen lejeaftale gør.
   if (service) return registerLeje ? "Leje + serviceaftale" : "Kundeejet · serviceaftale";
+  // Maskinregistrets udlånstype er facit: 4 [Udlån] og 5 [Leje u/b] er udlån, også selv om
+  // lokationen har lejelinjer eller serviceregistret siger "4 [Lejeaftale]".
+  if (/^[456]\s*\[|udl[åa]n|u\/b/.test(u) && !/^3\s*\[|leje\s*\/\s*leasing/.test(u)) return "Udlån";
   if (erLeje) return "Leje";
   if (/^8\s*\[|pr[øo]ve/.test(u)) return "Prøveopsætning";
   if (/^7\s*\[|bytte/.test(u)) return "Bytteservice";

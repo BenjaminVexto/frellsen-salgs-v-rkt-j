@@ -25,7 +25,7 @@ const MASKINE_OPTS = [
   { v: "any", l: "Har maskine" },
   { v: "none", l: "Ingen registreret maskine" },
   { v: "leased", l: "Har leje-maskiner" },
-  { v: "free_loan", l: "Har gratis udlån" },
+  { v: "free_loan", l: "Har udlån" },
   { v: "service", l: "Har serviceaftale" },
 ];
 const ANSATTE_OPTS = [

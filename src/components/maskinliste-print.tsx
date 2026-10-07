@@ -38,7 +38,7 @@ async function hentRaekker(companyId: string, kunLok?: string[]) {
   for (let i = 0; i < locIds.length; i += 200) {
     const { data, error: e } = await (supabase as any)
       .from("location_equipment_units")
-      .select("location_id, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, is_filter")
+      .select("location_id, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, is_filter, udstyr_type")
       .in("location_id", locIds.slice(i, i + 200));
     if (e) throw e;
     units.push(...(data ?? []));
@@ -142,8 +142,9 @@ export function UdskrivMaskinlisteKnap({
           kopper = visKopperVaerdi(fa.n);
           aflaest = fa.dato;
         }
+        // Filtre/tilbehør: importens udstyrstype (samme som kundekortet).
         const aftale = u.is_filter
-          ? "Gratis udlån"
+          ? u.udstyr_type === "leje_binding" ? "Leje" : u.udstyr_type === "kunde_ejet" ? "Kundeejet" : u.is_free_loan || u.udstyr_type === "leje_ub" ? "Udlån" : "Ukendt"
           : maskinAftale({ g4: e?.aftale_type, udlaanstype: mask.get(sn)?.udlanstype ?? (u.is_free_loan ? "4 [Udlån]" : null), lejelinjer: leje.has(u.location_id), gratisUdlaan: !!u.is_free_loan });
         if (!sn) {
           // Udstyr uden serienr. samles pr. type på én linje med antal.

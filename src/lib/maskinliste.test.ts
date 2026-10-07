@@ -16,7 +16,7 @@ describe("maskinliste", () => {
     expect(s.map((x) => x.maskintype)).toEqual(["A", "B", "C"]);
   });
   it("gratis udlån vinder over aftaletype", () => {
-    expect(aftaleLabel("Leje", true)).toBe("Gratis udlån");
+    expect(aftaleLabel("Leje", true)).toBe("Udlån");
     expect(aftaleLabel("Leasing", false)).toBe("Lease");
   });
 });
@@ -66,6 +66,12 @@ describe("reservedeleStatus", () => {
   it("uden reservedele", () => expect(_rs("2 [Aftale uden Reservedele  (83, 17)]", null, i)?.lang).toBe("Reservedele ikke inkluderet"));
 });
 
+describe("udlån er ikke leje", () => {
+  it("4 Udlån + lejelinjer + G4 Lejeaftale = Udlån", () =>
+    expect(_ma({ g4: "4 [Lejeaftale]", udlaanstype: "4 [Udlån]", lejelinjer: true })).toBe("Udlån"));
+  it("5 Leje u/b + lejelinjer = Udlån", () => expect(_ma({ g4: null, udlaanstype: "5 [Leje u/b]", lejelinjer: true })).toBe("Udlån"));
+  it("3 Leje/Leasing = Leje", () => expect(_ma({ g4: null, udlaanstype: "3 [Leje / Leasing]", lejelinjer: false })).toBe("Leje"));
+});
 describe("aftale: kundeejet trods lejelinjer", () => {
   it("G4 serviceaftale + lejelinjer = kundeejet", () =>
     expect(_ma({ g4: "1 [Serviceaftale]", udlaanstype: "5 [Leje u/b]", lejelinjer: true })).toBe("Kundeejet · serviceaftale"));
