@@ -6,6 +6,7 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { readFileSmart } from "./file-encoding";
+import { udledKundeDb, DB_TOLERANCE, type DbKilde, type DbUdfald } from "./invoice-db-udledning";
 
 
 /** Kolonneplacering (0-baseret) pr. format. Kundenavn/KPG1/KPG2 findes kun i det gamle. */
@@ -300,6 +301,34 @@ export type InvoiceLineRaw = {
   db: number | null;
   dg: number | null;
   initialer: string | null;
+  db_kilde: DbKilde;
+};
+
+/** Én kundes summeringslinje fra Visma + afstemningens udfald. */
+export type DbSummering = {
+  visma_delivery_no: string;
+  periode_fra: string | null;
+  periode_til: string | null;
+  beloeb: number;
+  db_summering: number;
+  db_linjer_foer: number;
+  db_linjer_efter: number;
+  udfald: DbUdfald;
+};
+
+export type DbAfstemning = {
+  summeringer: DbSummering[];
+  antal: Record<DbUdfald, number>;
+  udledtBeloeb: number;
+  udledtPrVaregruppe: Record<string, number>;
+  db0KorrektPrVaregruppe: Record<string, number>;
+  /** Kunder hvor linje-DB efter udledning ≠ summeringens DB (±1 kr.). */
+  afvigelser: DbSummering[];
+  linjerUdenSummering: number;
+  totallinjeDb: number | null;
+  totallinjeBeloeb: number | null;
+  linjeDbFoer: number;
+  linjeDbEfter: number;
 };
 
 
@@ -331,6 +360,7 @@ export type ParseStats = {
   /** Linjer pr. (afdeling, måned) — det er KUN disse måneder importen rører. */
   maaneder: MaanedOpsummering[];
   hovedmaaned: string | null;
+  dbAfstemning: DbAfstemning;
 };
 
 /** Afdelingsopslag brugt til firma-filter og afdelingsvalidering. */
@@ -439,7 +469,23 @@ export async function parseInvoiceJournal(
     ikkeFaktureretEksempler: [],
     maaneder: [],
     hovedmaaned: null,
+    dbAfstemning: {
+      summeringer: [],
+      antal: { uaendret: 0, udledt: 0, udledt_80: 0, db0_korrekt: 0, uafklaret: 0 },
+      udledtBeloeb: 0,
+      udledtPrVaregruppe: {},
+      db0KorrektPrVaregruppe: {},
+      afvigelser: [],
+      linjerUdenSummering: 0,
+      totallinjeDb: null,
+      totallinjeBeloeb: null,
+      linjeDbFoer: 0,
+      linjeDbEfter: 0,
+    },
   };
+  const afst = stats.dbAfstemning;
+  // Linjer siden sidste summeringslinje — summeringen kommer EFTER kundens linjer.
+  let pending: InvoiceLineRaw[] = [];
   const firmaSampleSet = new Set<string>();
   const deliverySet = new Set<string>();
   let minDate: Date | null = null;
@@ -464,6 +510,51 @@ export async function parseInvoiceJournal(
   for (const row of rows) {
     if (!Array.isArray(row)) continue;
     const firma = String(row[COL.FIRMA] ?? "").trim();
+    // Summerings-/totallinje: firma = afdeling = ordrenr. = dato = "0".
+    // Kundenr. udfyldt = kundens summering; kundenr. "0" = filens totallinje.
+    const z = (i: number) => String(row[i] ?? "").trim() === "0";
+    if (firma === "0" && z(COL.AFDELING) && z(COL.ORDER_NO) && z(COL.DATE)) {
+      stats.subtotalRows++;
+      const kunde = String(row[COL.DELIVERY] ?? "").trim();
+      const beloeb = parseDanishNumber(row[COL.REVENUE]);
+      const sDb = parseDanishNumber(row[COL.DB]);
+      if (!kunde || kunde === "0") {
+        afst.totallinjeDb = sDb;
+        afst.totallinjeBeloeb = beloeb;
+        continue;
+      }
+      const egne = pending.filter((l) => l.visma_delivery_no === kunde);
+      afst.linjerUdenSummering += pending.length - egne.length;
+      pending = [];
+      const foer = egne.reduce((a, l) => a + (l.db ?? 0), 0);
+      const nul = egne.filter((l) => (l.db ?? 0) === 0 && (l.beloeb ?? 0) !== 0);
+      const udfald = udledKundeDb(egne, sDb);
+      const efter = egne.reduce((a, l) => a + (l.db ?? 0), 0);
+      afst.antal[udfald]++;
+      const vg = (l: InvoiceLineRaw) => `${l.varegruppe_1 ?? "–"}/${l.varegruppe_2 ?? "–"}`;
+      for (const l of nul) {
+        if (l.db_kilde === "udledt_subtotal") {
+          afst.udledtBeloeb += l.beloeb ?? 0;
+          afst.udledtPrVaregruppe[vg(l)] = (afst.udledtPrVaregruppe[vg(l)] ?? 0) + (l.beloeb ?? 0);
+        } else if (udfald === "db0_korrekt") {
+          afst.db0KorrektPrVaregruppe[vg(l)] = (afst.db0KorrektPrVaregruppe[vg(l)] ?? 0) + (l.beloeb ?? 0);
+        }
+      }
+      const datoer = egne.map((l) => l.faktura_dato).sort();
+      const rec: DbSummering = {
+        visma_delivery_no: kunde,
+        periode_fra: datoer[0] ?? null,
+        periode_til: datoer[datoer.length - 1] ?? null,
+        beloeb,
+        db_summering: sDb,
+        db_linjer_foer: Math.round(foer * 100) / 100,
+        db_linjer_efter: Math.round(efter * 100) / 100,
+        udfald,
+      };
+      afst.summeringer.push(rec);
+      if (Math.abs(efter - sDb) > DB_TOLERANCE) afst.afvigelser.push(rec);
+      continue;
+    }
     // Firma-filteret frasorterer også per-kunde subtotalrækkerne, som har
     // Firma="0"/Afdeling="0". Derfor kører afdelingsvalideringen EFTER dette.
     const firmaOk = allowedFirma.size ? allowedFirma.has(firma) : !firma || firma === ALLOWED_FIRMA;
@@ -567,7 +658,9 @@ export async function parseInvoiceJournal(
       db: numOrNull(row[COL.DB]),
       dg: numOrNull(row[COL.DG]),
       initialer: strOrNull(row[COL.INITIALER]),
+      db_kilde: "linje",
     });
+    pending.push(rawLines[rawLines.length - 1]);
   }
 
   if (detaljeRaekker > 0 && stats.fejlRaekker / detaljeRaekker > MAX_FEJL_ANDEL) {
@@ -586,6 +679,9 @@ export async function parseInvoiceJournal(
     );
   }
 
+  afst.linjerUdenSummering += pending.length;
+  afst.linjeDbEfter = rawLines.reduce((a, l) => a + (l.db ?? 0), 0);
+  afst.linjeDbFoer = afst.linjeDbEfter - afst.udledtBeloeb;
   stats.uniqueDeliveryNos = deliverySet.size;
   stats.periodFrom = minDate ? monthStart(minDate) : null;
   stats.periodTo = maxDate ? monthStart(maxDate) : null;
