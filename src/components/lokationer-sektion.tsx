@@ -1313,7 +1313,7 @@ function EquipmentBox({ location }: { location: Location }) {
 
   const machineGroups = groupBy(machines);
   const filterGroups = groupBy(filters);
-  const filtersFreeLoan = filters.some((f) => f.is_free_loan);
+  const filtersFreeLoan = filters.length > 0 && filters.every((f) => f.is_free_loan);
 
   const todayISO = new Date().toISOString().slice(0, 10);
   const in90ISO = (() => {
