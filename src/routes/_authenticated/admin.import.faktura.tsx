@@ -206,6 +206,17 @@ function FakturaImportSide() {
           dateTo: stats.dateTo,
           afdelinger: Object.keys(stats.rowsByAfdeling).map((k) => Number(k)),
           filename: file?.name ?? null,
+          dbSummeringer: stats.dbAfstemning.summeringer,
+          dbRapport: {
+            antal: stats.dbAfstemning.antal,
+            udledtBeloeb: stats.dbAfstemning.udledtBeloeb,
+            udledtPrVaregruppe: stats.dbAfstemning.udledtPrVaregruppe,
+            db0KorrektPrVaregruppe: stats.dbAfstemning.db0KorrektPrVaregruppe,
+            afvigelser: stats.dbAfstemning.afvigelser.length,
+            totallinjeDb: stats.dbAfstemning.totallinjeDb,
+            linjeDbFoer: stats.dbAfstemning.linjeDbFoer,
+            linjeDbEfter: stats.dbAfstemning.linjeDbEfter,
+          },
           berorteMaaneder: stats.maaneder.map(({ afdeling_nr, maaned, fra, til, linjer }) => ({
             afdeling_nr, maaned, fra, til, linjer,
           })),
@@ -447,6 +458,7 @@ function FilOpsummering({ stats }: { stats: ParseStats }) {
         {stats.subtotalRows.toLocaleString("da-DK")} subtotalrækker sorteret fra
         {stats.hovedmaaned && <> · hovedperiode omkring {maanedNavn(stats.hovedmaaned)}</>}
       </p>
+      <DbAfstemningRapport a={stats.dbAfstemning} />
       {stats.ikkeFaktureret > 0 && (
         <div className="text-xs text-muted-foreground">
           <span className="font-medium text-foreground">
@@ -499,6 +511,58 @@ function FilOpsummering({ stats }: { stats: ParseStats }) {
         </table>
       </div>
       <p className="text-xs text-muted-foreground">Kun månederne ovenfor ryddes og genberegnes.</p>
+    </div>
+  );
+}
+
+const kr = (n: number) => `${Math.round(n).toLocaleString("da-DK")} kr.`;
+function topVg(m: Record<string, number>) {
+  return Object.entries(m).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 5)
+    .map(([k, v]) => `${k}: ${kr(v)}`).join(" · ");
+}
+function DbAfstemningRapport({ a }: { a: ParseStats["dbAfstemning"] }) {
+  const totalOk = a.totallinjeDb == null ? null : Math.abs(a.linjeDbEfter - a.totallinjeDb) <= 1;
+  const uafklarede = a.summeringer.filter((s) => s.udfald === "uafklaret");
+  const vis = [...new Map([...uafklarede, ...a.afvigelser].map((s) => [s.visma_delivery_no, s])).values()];
+  return (
+    <div className="space-y-1 text-xs">
+      <div className="font-medium text-foreground">DB-afstemning mod Vismas summeringslinjer</div>
+      <ul className="list-disc pl-5 text-muted-foreground">
+        <li>{(a.antal.uaendret).toLocaleString("da-DK")} kunder uden ændring</li>
+        <li>
+          {(a.antal.udledt + a.antal.udledt_80).toLocaleString("da-DK")} kunder hvor DB 0-linjer bliver 100 % ({kr(a.udledtBeloeb)})
+          {a.antal.udledt_80 > 0 && <> — heraf {a.antal.udledt_80} kun på varegruppe 2 = 80</>}
+          {topVg(a.udledtPrVaregruppe) && <> · {topVg(a.udledtPrVaregruppe)}</>}
+        </li>
+        <li>
+          {a.antal.db0_korrekt.toLocaleString("da-DK")} kunder hvor DB 0 er rigtig
+          {topVg(a.db0KorrektPrVaregruppe) && <> · {topVg(a.db0KorrektPrVaregruppe)}</>}
+        </li>
+        <li className={a.antal.uafklaret ? "text-amber-700 dark:text-amber-400" : ""}>
+          {a.antal.uafklaret} uafklarede kunder (DB uændret)
+        </li>
+        <li>
+          DB i alt: {kr(a.linjeDbFoer)} fra linjerne → {kr(a.linjeDbEfter)} efter udledning
+          {a.totallinjeDb != null ? <> · Vismas totallinje {kr(a.totallinjeDb)}</> : <> · totallinje ikke fundet</>}
+          {totalOk === true && " ✓"}
+        </li>
+        {a.linjerUdenSummering > 0 && <li>{a.linjerUdenSummering} linjer uden summeringslinje (DB uændret)</li>}
+      </ul>
+      {(totalOk === false || vis.length > 0) && (
+        <div className="text-amber-700 dark:text-amber-400">
+          {totalOk === false && <div>Filens DB rammer ikke totallinjen (afvigelse {kr(a.linjeDbEfter - (a.totallinjeDb ?? 0))}).</div>}
+          {vis.length > 0 && (
+            <table className="mt-1 tabular-nums">
+              <thead><tr className="text-left"><th className="pr-4">Kundenr.</th><th className="pr-4 text-right">Summering DB</th><th className="pr-4 text-right">Linjer DB</th><th>Udfald</th></tr></thead>
+              <tbody>
+                {vis.slice(0, 50).map((s) => (
+                  <tr key={s.visma_delivery_no}><td className="pr-4">{s.visma_delivery_no}</td><td className="pr-4 text-right">{kr(s.db_summering)}</td><td className="pr-4 text-right">{kr(s.db_linjer_efter)}</td><td>{s.udfald}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   );
 }
