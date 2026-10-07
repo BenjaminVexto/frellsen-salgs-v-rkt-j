@@ -1,3 +1,4 @@
+import { UdskrivMaskinlisteKnap } from "@/components/maskinliste-print";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
@@ -511,6 +512,19 @@ export function LokationerSektion({
           )}
         </h2>
         <div className="flex items-center gap-2">
+          {grupper.some((g) => (machineCountQ.data && g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0))) && (
+            <UdskrivMaskinlisteKnap
+              company={{ id: companyId, name: companyName ?? "", cvr }}
+              adresser={grupper
+                .filter((g) => g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0))
+                .map((g) => ({
+                  key: g.key,
+                  label: [g.city, g.address].filter(Boolean).join(" · ") || "Uden adresse",
+                  locIds: g.locs.map((l) => l.id),
+                  egen: !!mitId && g.locs.some((l) => (l as any).saelger_user_id === mitId),
+                }))}
+            />
+          )}
           {locations.length > 1 && (
             <Select value={sortMode} onValueChange={(v) => setSortMode(v as any)}>
               <SelectTrigger className="h-8 text-xs w-auto min-w-[180px]">
@@ -645,7 +659,17 @@ export function LokationerSektion({
                   </button>
                   {aaben && (
                     <div className="pl-6 pr-3 pb-3">
-                      <div className="text-xs text-muted-foreground">{meta}</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs text-muted-foreground">{meta}</div>
+                        {maskiner > 0 && (
+                          <UdskrivMaskinlisteKnap
+                            lille
+                            label="Maskinliste for denne adresse"
+                            company={{ id: companyId, name: companyName ?? "", cvr }}
+                            locationIds={g.locs.map((l) => l.id)}
+                          />
+                        )}
+                      </div>
                       {cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
                         <AdressePenhedKobling
                           pnr={g.pnr}
