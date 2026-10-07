@@ -161,10 +161,10 @@ export function UdskrivMaskinlisteKnap({
           { navn: "Maskine", bredde: "22.5%" },
           { navn: "Serienr.", bredde: "11.5%" },
           ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "10%" }] : []),
-          ...(visAftale ? [{ navn: "Aftale", bredde: "20%" }] : []),
+          ...(visAftale ? [{ navn: "Aftale", bredde: "19%" }] : []),
           ...(visUdloeber ? [{ navn: "Binding ophører", bredde: "12%", cls: "nw" }] : []),
           ...(visRd ? [{ navn: "Reservedele", bredde: "10%", cls: "nw" }] : []),
-          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "16%", cls: "num nw" }] : []),
+          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "17%", cls: "num nw" }] : []),
         ];
         const sektioner = gl
           .map((g) => {
