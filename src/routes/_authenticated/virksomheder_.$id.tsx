@@ -92,7 +92,6 @@ import { BesoegtKnap } from "@/components/besoegt-knap";
 import { KundeStop } from "@/components/kunde-stop";
 import { KatalogKnap } from "@/components/katalog-knap";
 import { KundeRytmeLinje } from "@/components/kunde-rytme-linje";
-import { UdskrivMaskinlisteKnap } from "@/components/maskinliste-print";
 import { CompanyPricingSummary } from "@/components/company-pricing-summary";
 import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktpersoner-sektion";
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
@@ -1041,9 +1040,6 @@ function VirksomhedsKort() {
 
             {/* FANE: Aftaler */}
             <TabsContent value="aftaler" className="space-y-6 mt-4">
-              <div className="flex justify-end">
-                <UdskrivMaskinlisteKnap company={{ id: company.id, name: company.name, cvr: company.cvr }} />
-              </div>
               <AgreementCardSection segment1={(company as any).customer_segment_1 ?? null} variant="top" />
               <CompanyPricingSummary companyId={company.id} />
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />

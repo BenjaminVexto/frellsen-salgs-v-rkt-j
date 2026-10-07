@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
@@ -24,12 +26,13 @@ function taeller(data: any): number | null {
   return null;
 }
 
-async function hentRaekker(companyId: string) {
-  const { data: locs, error } = await supabase
+async function hentRaekker(companyId: string, kunLok?: string[]) {
+  const { data: alleLocs, error } = await supabase
     .from("locations")
     .select("id, address, zip, city, visma_delivery_no, is_primary")
     .eq("company_id", companyId);
   if (error) throw error;
+  const locs = kunLok ? (alleLocs ?? []).filter((l) => kunLok.includes(l.id)) : alleLocs;
   const locIds = (locs ?? []).map((l) => l.id);
   const units: any[] = [];
   for (let i = 0; i < locIds.length; i += 200) {
@@ -63,21 +66,41 @@ async function hentRaekker(companyId: string) {
   return { locs: locs ?? [], units, enr, mask, plac, leje };
 }
 
+export type MaskinlisteAdresse = { key: string; label: string; locIds: string[]; egen: boolean };
+
 export function UdskrivMaskinlisteKnap({
   company,
+  locationIds,
+  adresser,
+  label = "Maskinliste til kunde (PDF)",
+  lille = false,
 }: {
   company: { id: string; name: string; cvr?: string | null };
+  /** Fast udvalg af lokationer (fx én adresse). */
+  locationIds?: string[];
+  /** Når sat, vælger brugeren adresser i en dialog (egne valgt som standard). */
+  adresser?: MaskinlisteAdresse[];
+  label?: string;
+  lille?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
+  const [dlg, setDlg] = useState(false);
+  const [valgt, setValgt] = useState<Set<string>>(new Set());
 
-  const udskriv = async () => {
+  const aabnDialog = () => {
+    const egne = (adresser ?? []).filter((a) => a.egen);
+    setValgt(new Set((egne.length ? egne : adresser ?? []).map((a) => a.key)));
+    setDlg(true);
+  };
+
+  const udskriv = async (kunLok?: string[]) => {
     // Åbn vinduet straks (inden for klikket), så pop-up-blokering ikke slår til.
     const w = window.open("", "_blank");
     if (!w) return toast.error("Tillad pop-up-vinduer for at udskrive");
     w.document.write("<p style='font-family:sans-serif'>Henter maskinliste…</p>");
     setBusy(true);
     try {
-      const { locs, units, enr, mask, plac, leje } = await hentRaekker(company.id);
+      const { locs, units, enr, mask, plac, leje } = await hentRaekker(company.id, kunLok ?? locationIds);
       const idag = new Date();
       const udeladte = new Map<string, number>();
       const pr = new Map<string, MaskinRaekke[]>();
@@ -135,13 +158,13 @@ export function UdskrivMaskinlisteKnap({
         const nogenMarkeret = alle.some((r) => status(r));
         const nogenAeldre = alle.some((r) => r.kopper != null && r.aflaest && aeldreAflaesning(r.aflaest, idag));
         const kol: { navn: string; bredde: string; cls?: string }[] = [
-          { navn: "Maskine", bredde: "23%" },
-          { navn: "Serienr.", bredde: "12%" },
-          ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "12%" }] : []),
-          ...(visAftale ? [{ navn: "Aftale", bredde: "16%" }] : []),
-          ...(visUdloeber ? [{ navn: "Binding ophører", bredde: "12%" }] : []),
-          ...(visRd ? [{ navn: "Reservedele", bredde: "11%" }] : []),
-          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "14%", cls: "num" }] : []),
+          { navn: "Maskine", bredde: "22.5%" },
+          { navn: "Serienr.", bredde: "11.5%" },
+          ...(visPlacering ? [{ navn: "Placering i bygningen", bredde: "10%" }] : []),
+          ...(visAftale ? [{ navn: "Aftale", bredde: "19%" }] : []),
+          ...(visUdloeber ? [{ navn: "Binding ophører", bredde: "12%", cls: "nw" }] : []),
+          ...(visRd ? [{ navn: "Reservedele", bredde: "10%", cls: "nw" }] : []),
+          ...(visKopper ? [{ navn: "Kopper · aflæst", bredde: "17%", cls: "num nw" }] : []),
         ];
         const sektioner = gl
           .map((g) => {
@@ -157,10 +180,10 @@ export function UdskrivMaskinlisteKnap({
                   `<td>${esc(r.maskintype)}</td>`,
                   `<td class="nw">${esc(r.serienr || "—")}</td>`,
                   visPlacering ? `<td>${esc(r.placering || "—")}</td>` : "",
-                  visAftale ? `<td class="nw">${esc(r.aftale)}</td>` : "",
+                  visAftale ? `<td>${esc(r.aftale)}</td>` : "",
                   visUdloeber ? `<td>${fmtDato(r.udloeber)}${etiket}</td>` : "",
                   visRd ? `<td>${esc(r.reservedele || "—")}</td>` : "",
-                  visKopper ? `<td class="num">${kop}</td>` : "",
+                  visKopper ? `<td class="num nw">${kop}</td>` : "",
                 ].join("");
                 return `<tr class="${st ?? ""}">${celler}</tr>`;
               })
@@ -187,14 +210,14 @@ ${nogenMarkeret ? `<div class="meta">Markeret = bindingen er udløbet eller udl�
       const html = `<!doctype html><html lang="da"><head><meta charset="utf-8"><title>Maskinliste – ${esc(company.name)}</title>
 <style>
 @page { size: A4; margin: 14mm; }
-body { font-family: Helvetica, Arial, sans-serif; font-size: 9.5pt; color: #111; margin: 0; padding: 16px; }
+body { font-family: Helvetica, Arial, sans-serif; font-size: 9pt; color: #111; margin: 0; padding: 16px; }
 header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 12px; }
 header img { height: 40px; }
 h1 { font-size: 16pt; margin: 0 0 2px; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 thead { display: table-header-group; }
-th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #ccc; vertical-align: top; overflow-wrap: anywhere; }
-thead th { background: #eee; font-size: 8.5pt; }
+th, td { text-align: left; padding: 4px 5px; border-bottom: 1px solid #ccc; vertical-align: top; overflow-wrap: anywhere; }
+thead th { background: #eee; font-size: 8pt; }
 tr.adr th { font-size: 10.5pt; padding-top: 14px; border-bottom: 1.5px solid #111; break-after: avoid; page-break-after: avoid; }
 .konti { font-weight: normal; font-size: 8pt; color: #555; }
 .num { text-align: right; }
@@ -222,10 +245,62 @@ tr { break-inside: avoid; page-break-inside: avoid; }
     }
   };
 
+  const ikon = busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Printer className="h-4 w-4 mr-2" />;
+  if (lille)
+    return (
+      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => udskriv()} disabled={busy}>
+        {ikon}
+        {label}
+      </Button>
+    );
   return (
-    <Button variant="outline" size="sm" onClick={udskriv} disabled={busy}>
-      {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Printer className="h-4 w-4 mr-2" />}
-      Udskriv maskinliste
-    </Button>
+    <>
+      <Button variant="outline" size="sm" onClick={() => (adresser?.length ? aabnDialog() : udskriv())} disabled={busy}>
+        {ikon}
+        {label}
+      </Button>
+      {adresser && (
+        <Dialog open={dlg} onOpenChange={setDlg}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Maskinliste til kunde</DialogTitle>
+            </DialogHeader>
+            <div className="flex gap-3 text-xs">
+              <button type="button" className="underline" onClick={() => setValgt(new Set(adresser.map((a) => a.key)))}>Vælg alle</button>
+              <button type="button" className="underline" onClick={() => setValgt(new Set(adresser.filter((a) => a.egen).map((a) => a.key)))}>Kun mine</button>
+              <button type="button" className="underline" onClick={() => setValgt(new Set())}>Ingen</button>
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto space-y-1">
+              {adresser.map((a) => (
+                <label key={a.key} className="flex items-center gap-2 text-sm py-1">
+                  <Checkbox
+                    checked={valgt.has(a.key)}
+                    onCheckedChange={(c) => {
+                      const n = new Set(valgt);
+                      c ? n.add(a.key) : n.delete(a.key);
+                      setValgt(n);
+                    }}
+                  />
+                  <span>{a.label}</span>
+                  {a.egen && <span className="text-xs text-muted-foreground">(din)</span>}
+                </label>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button
+                disabled={!valgt.size || busy}
+                onClick={() => {
+                  const ids = adresser.filter((a) => valgt.has(a.key)).flatMap((a) => a.locIds);
+                  setDlg(false);
+                  void udskriv(ids);
+                }}
+              >
+                Lav maskinliste ({valgt.size} adresser)
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
