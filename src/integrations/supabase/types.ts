@@ -4492,6 +4492,30 @@ export type Database = {
         }
         Returns: boolean
       }
+      kunde_db_rang: {
+        Args: { _company: string }
+        Returns: {
+          antal: number
+          db: number
+          db_foer: number
+          egen: boolean
+          rang: number
+          saelger: string
+          saelger_navn: string
+        }[]
+      }
+      kunde_db_rang_liste: {
+        Args: { _saelger: string }
+        Returns: {
+          antal: number
+          by: string
+          company_id: string
+          db: number
+          db_foer: number
+          navn: string
+          rang: number
+        }[]
+      }
       kunde_rytme_genberegn: {
         Args: { _company_ids?: string[] }
         Returns: number
