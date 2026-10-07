@@ -504,12 +504,10 @@ export function LokationerSektion({
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
-          <MapPin className="h-4 w-4" /> Lokationer
-          {locations.length > 0 && (
-            <span className="text-xs text-muted-foreground font-normal">
-              ({locations.length})
-            </span>
-          )}
+          <MapPin className="h-4 w-4" />
+          {locations.length > 0
+            ? `${grupper.length} ${grupper.length === 1 ? "adresse" : "adresser"} · ${locations.length} ${locations.length === 1 ? "konto" : "konti"}`
+            : "Lokationer"}
         </h2>
         <div className="flex items-center gap-2">
           {grupper.some((g) => (machineCountQ.data && g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0))) && (
@@ -641,8 +639,7 @@ export function LokationerSektion({
                     className="w-full grid grid-cols-[minmax(0,1fr)_1.25rem] @xl:grid-cols-[minmax(0,1fr)_5.5rem_7.5rem_6.5rem_3.5rem_1.25rem] gap-x-2 gap-y-0.5 items-center px-3 py-2.5 text-left hover:bg-muted/40"
                   >
                     <span className="min-w-0 text-sm">
-                      {byTekst && <span className="font-semibold">{byTekst}</span>}
-                      {byTekst && <span className="text-muted-foreground"> · </span>}
+                      {byTekst && <span className="block font-semibold">{byTekst}</span>}
                       <span className="break-words">{titel}</span>
                       {g.primary && (
                         <Badge variant="outline" className="ml-1.5 h-4 px-1.5 text-[10px] font-normal align-middle">Primær</Badge>
