@@ -282,7 +282,7 @@ export function CompanyFilterPanel({
                 label="Maskiner"
                 options={[
                   { v: "leased", l: "Har leje-maskiner" },
-                  { v: "free_loan", l: "Har gratis udlån" },
+                  { v: "free_loan", l: "Har udlån" },
                   { v: "service", l: "Har serviceaftale" },
                   { v: "none", l: "Ingen registreret maskine" },
                 ]}

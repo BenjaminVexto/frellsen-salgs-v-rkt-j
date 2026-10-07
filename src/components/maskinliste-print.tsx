@@ -143,7 +143,7 @@ export function UdskrivMaskinlisteKnap({
           aflaest = fa.dato;
         }
         const aftale = u.is_filter
-          ? "Gratis udlån"
+          ? "Udlån"
           : maskinAftale({ g4: e?.aftale_type, udlaanstype: mask.get(sn)?.udlanstype ?? (u.is_free_loan ? "4 [Udlån]" : null), lejelinjer: leje.has(u.location_id), gratisUdlaan: !!u.is_free_loan });
         if (!sn) {
           // Udstyr uden serienr. samles pr. type på én linje med antal.

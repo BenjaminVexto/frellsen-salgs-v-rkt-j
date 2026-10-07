@@ -1012,7 +1012,7 @@ type EquipmentUnit = {
 type Ownership = "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
 
 const OWNERSHIP_LABEL: Record<Ownership, string> = {
-  leje_ub: "Leje – ingen binding",
+  leje_ub: "Udlån",
   leje_binding: "Leje",
   kunde_ejet: "Kundeejet",
   ukendt: "Ukendt",
@@ -1037,9 +1037,9 @@ function OwnershipBadge({ kind, label }: { kind: Ownership; label: string }) {
     kind === "kunde_ejet"
       ? "bg-emerald-100 text-emerald-900 border-emerald-200"
       : kind === "leje_binding"
-        ? "bg-violet-100 text-violet-900 border-violet-200"
+        ? "bg-amber-100 text-amber-900 border-amber-200"
         : kind === "leje_ub"
-          ? "bg-amber-100 text-amber-900 border-amber-200"
+          ? "bg-sky-100 text-sky-900 border-sky-200"
           : "bg-slate-100 text-slate-800 border-slate-200";
   return (
     <Badge className={`${tone} hover:${tone} text-xs font-medium`}>
@@ -1295,7 +1295,7 @@ function EquipmentBox({ location }: { location: Location }) {
   const summaryParts: string[] = [];
   if (ownershipCounts.kunde_ejet) summaryParts.push(`${ownershipCounts.kunde_ejet} kundeejede`);
   if (ownershipCounts.leje_binding) summaryParts.push(`${ownershipCounts.leje_binding} leje`);
-  if (ownershipCounts.leje_ub) summaryParts.push(`${ownershipCounts.leje_ub} leje – ingen binding`);
+  if (ownershipCounts.leje_ub) summaryParts.push(`${ownershipCounts.leje_ub} udlån`);
   if (ownershipCounts.ukendt) summaryParts.push(`${ownershipCounts.ukendt} ukendt`);
 
 
@@ -1652,7 +1652,7 @@ null
             return (
               <div className="text-xs text-muted-foreground pl-1">
                 inkl. {parts.join(", ")}
-                {filtersFreeLoan ? " (gratis udlån)" : ""}
+                {filtersFreeLoan ? " (udlån)" : ""}
               </div>
             );
           })()}
