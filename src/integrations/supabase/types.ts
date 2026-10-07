@@ -1775,6 +1775,48 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_db_afstemning: {
+        Row: {
+          beloeb: number | null
+          created_at: string
+          db_linjer_efter: number | null
+          db_linjer_foer: number | null
+          db_summering: number | null
+          id: string
+          job_id: string
+          periode_fra: string | null
+          periode_til: string | null
+          udfald: string
+          visma_delivery_no: string
+        }
+        Insert: {
+          beloeb?: number | null
+          created_at?: string
+          db_linjer_efter?: number | null
+          db_linjer_foer?: number | null
+          db_summering?: number | null
+          id?: string
+          job_id: string
+          periode_fra?: string | null
+          periode_til?: string | null
+          udfald: string
+          visma_delivery_no: string
+        }
+        Update: {
+          beloeb?: number | null
+          created_at?: string
+          db_linjer_efter?: number | null
+          db_linjer_foer?: number | null
+          db_summering?: number | null
+          id?: string
+          job_id?: string
+          periode_fra?: string | null
+          periode_til?: string | null
+          udfald?: string
+          visma_delivery_no?: string
+        }
+        Relationships: []
+      }
       invoice_import_jobs: {
         Row: {
           aggregate_month_idx: number
@@ -1893,6 +1935,7 @@ export type Database = {
           beloeb: number | null
           created_at: string
           db: number | null
+          db_kilde: string
           dg: number | null
           enhedspris: number | null
           faktura_dato: string
@@ -1920,6 +1963,7 @@ export type Database = {
           beloeb?: number | null
           created_at?: string
           db?: number | null
+          db_kilde?: string
           dg?: number | null
           enhedspris?: number | null
           faktura_dato: string
@@ -1947,6 +1991,7 @@ export type Database = {
           beloeb?: number | null
           created_at?: string
           db?: number | null
+          db_kilde?: string
           dg?: number | null
           enhedspris?: number | null
           faktura_dato?: string

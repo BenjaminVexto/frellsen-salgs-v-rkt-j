@@ -84,6 +84,12 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       filename?: string | null;
       /** (afdeling, måned) som filen indeholder — KUN disse ryddes og genberegnes. */
       berorteMaaneder: Array<{ afdeling_nr: number; maaned: string; fra: string; til: string; linjer: number }>;
+      /** Vismas summeringslinjer pr. kunde + afstemningens udfald. */
+      dbSummeringer?: Array<{
+        visma_delivery_no: string; periode_fra: string | null; periode_til: string | null;
+        beloeb: number; db_summering: number; db_linjer_foer: number; db_linjer_efter: number; udfald: string;
+      }>;
+      dbRapport?: Record<string, unknown>;
     }) => {
       if (!input?.jobId) throw new Error("jobId mangler");
       if (!Array.isArray(input.berorteMaaneder)) throw new Error("berorteMaaneder mangler");
@@ -132,9 +138,20 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       berorte_maaneder: data.berorteMaaneder,
       locations_matched: data.locationsMatched,
       unmatched_delivery_nos: data.unmatched.slice(0, 500),
-      payload: { rows_by_afdeling: data.rowsByAfdeling ?? {}, filename: data.filename ?? null },
+      payload: {
+        rows_by_afdeling: data.rowsByAfdeling ?? {},
+        filename: data.filename ?? null,
+        db_afstemning: data.dbRapport ?? null,
+      },
       attempts: 0,
     } as any);
     if (error) throw new Error(error.message);
+    const summ = data.dbSummeringer ?? [];
+    for (let i = 0; i < summ.length; i += 1000) {
+      const { error: aErr } = await supabaseAdmin
+        .from("invoice_db_afstemning")
+        .insert(summ.slice(i, i + 1000).map((r) => ({ ...r, job_id: data.jobId })));
+      if (aErr) throw new Error("DB-afstemning: " + aErr.message);
+    }
     return { jobId: data.jobId };
   });
