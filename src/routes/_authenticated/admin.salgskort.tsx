@@ -414,7 +414,7 @@ function SalgskortPage() {
 
           <Card className={"relative overflow-hidden min-h-[70vh] " + (redigerer ? "ring-2 ring-primary" : "")}>
             <Kort geo={geo} onKlik={(f) => (redigerer ? tildel(f) : setValgtFlade(f))} redigerer={redigerer && !!valgtDistrikt} onMal={tildel} zoom={zoom} />
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 flex rounded border border-border bg-background/95 text-xs overflow-hidden">
+            <div className="absolute z-10 top-2 left-1/2 -translate-x-1/2 flex rounded border border-border bg-background/95 text-xs overflow-hidden">
               {([["virk", "Virkelighed"], ["distr", "Distrikter"], ["over", "Overensstemmelse"]] as const).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setVisning(k)} className={"px-3 py-1 " + (visning === k ? "bg-primary text-primary-foreground" : "hover:bg-muted")}>{l}</button>
               ))}
