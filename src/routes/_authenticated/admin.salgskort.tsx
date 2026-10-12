@@ -473,9 +473,9 @@ function Kort({ geo, onKlik }: { geo: { main: any; bh: any }; onKlik: (f: number
 
   return (
     <>
-      <div ref={mainRef} className="absolute inset-0" />
+      <div className="absolute inset-0"><div ref={mainRef} style={{ width: "100%", height: "100%" }} /></div>
       <div className="absolute bottom-6 right-2 h-32 w-40 border border-border rounded bg-background overflow-hidden">
-        <div ref={bhRef} className="absolute inset-0" />
+        <div className="absolute inset-0"><div ref={bhRef} style={{ width: "100%", height: "100%" }} /></div>
         <div className="absolute top-0.5 left-1 text-[10px] text-muted-foreground pointer-events-none">Bornholm</div>
       </div>
       {tip && (
