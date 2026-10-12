@@ -967,6 +967,8 @@ export const importMachines = createServerFn({ method: "POST" })
         const seenKey = new Set<string>();
         const witRows: Record<string, any>[] = [];
         for (const w of wittenborgUdenSnUnits) {
+          // SN-listen vinder: samme serienr må ikke stå både som wittenborg og wittenborg_uden_sn.
+          if (w.serial_no && snSerials.has(w.serial_no)) continue;
           const k = `${w.location_id}||${w.serial_no}`;
           if (seenKey.has(k)) continue;
           seenKey.add(k);
@@ -994,6 +996,7 @@ export const importMachines = createServerFn({ method: "POST" })
           if (error) console.error("[machines-import] wittenborg_uden_sn insert fejl:", error.message);
           else wittenborgUdenSnUnitsInserted += slice.length;
         }
+        taelUdstyr("wittenborg_uden_sn", witRows);
         console.log(
           `[machines-import] STEP 6d DONE: wittenborgUdenSnInserted=${wittenborgUdenSnUnitsInserted} (uniqueRows=${witRows.length}) onLocs=${witLocs.length} unmatched=${wittenborgUdenSnUnmatched}`,
         );
@@ -1115,28 +1118,47 @@ export const importMachines = createServerFn({ method: "POST" })
 
 
 
+      // Udgået-markering kun for de kilder, der er uploadet i denne import.
       let enrichmentMarkedUdgaaet = 0;
-      if (data.enrichmentRows.length > 0 || data.enrichmentRowsUdenSn.length > 0) {
+      const enrichmentUdgaaetPrKilde: Record<string, number> = {};
+      for (const k of kilderIImport) {
         const { data: upd, error } = await supabaseAdmin
           .from("machine_enrichment" as any)
           .update({ record_status: "udgaaet", udgaaet_dato: importedAt })
+          .eq("kilde", k)
           .or(`last_seen_import.is.null,last_seen_import.lt.${importedAt}`)
           .neq("record_status", "udgaaet")
           .select("serienr");
         if (error) throw new Error("enrichment udgået-mark: " + JSON.stringify(error));
-        enrichmentMarkedUdgaaet = upd?.length ?? 0;
+        enrichmentUdgaaetPrKilde[k] = upd?.length ?? 0;
+        enrichmentMarkedUdgaaet += upd?.length ?? 0;
       }
 
-      console.log(`[machines-import] FÆRDIG: machines=${machinesUpserted} enrichment=${enrichmentUpserted}`);
+      // Kontrol: antal aktive enrichment-rækker pr. kilde efter import.
+      const enrichmentAktivPrKilde: Record<string, number> = {};
+      for (const k of kilderIImport) {
+        const { count } = await supabaseAdmin
+          .from("machine_enrichment" as any)
+          .select("serienr", { count: "exact", head: true })
+          .eq("kilde", k)
+          .eq("record_status", "aktiv");
+        enrichmentAktivPrKilde[k] = count ?? 0;
+      }
+
+      console.log(`[machines-import] FÆRDIG: machines=${machinesUpserted} enrichment=${enrichmentUpserted} udgaaet=${JSON.stringify(enrichmentUdgaaetPrKilde)} aktiv=${JSON.stringify(enrichmentAktivPrKilde)}`);
       return {
+        needsConfirmation: false as const,
         machinesUpserted,
         enrichmentUpserted,
         machineRowsParsed: data.machineRows.length,
-        enrichmentRowsParsed: data.enrichmentRows.length,
+        enrichmentRowsParsed: data.enrichmentRows.length + data.enrichmentRowsUdenSn.length,
         machinesActiveBefore,
         enrichmentActiveBefore,
         machinesMarkedUdgaaet,
         enrichmentMarkedUdgaaet,
+        enrichmentUdgaaetPrKilde,
+        enrichmentAktivPrKilde,
+        udstyrTypeCounts,
         machinesReactivated,
         enrichmentReactivated,
         unitsLocationsUpdated,
@@ -1148,10 +1170,8 @@ export const importMachines = createServerFn({ method: "POST" })
         wittenborgTypeCounts,
         wittenborgUdenSnUnitsInserted,
         haendelserInserted,
-
         wittenborgUdenSnUnmatched,
         importedAt,
-
       };
     } catch (e: any) {
       console.error("[machines-import] TOP-LEVEL FEJL:", e?.message ?? String(e), "\nSTACK:", e?.stack ?? "(ingen)");
