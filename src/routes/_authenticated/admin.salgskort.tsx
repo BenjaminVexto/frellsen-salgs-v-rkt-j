@@ -573,7 +573,12 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
     let dead = false;
     let ro: ResizeObserver | null = null;
     (async () => {
-      const maplibregl = (await import("maplibre-gl")).default;
+      const [mod, workerMod] = await Promise.all([
+        import("maplibre-gl/dist/maplibre-gl-csp.js" as any),
+        import("maplibre-gl/dist/maplibre-gl-csp-worker.js?url" as any),
+      ]);
+      const maplibregl: typeof import("maplibre-gl") = (mod as any).default ?? mod;
+      (maplibregl as any).setWorkerUrl(workerMod.default);
       if (dead) return;
       const style: any = { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": BG } }] };
       const make = (el: HTMLDivElement, idx: number, inset: boolean) => {
