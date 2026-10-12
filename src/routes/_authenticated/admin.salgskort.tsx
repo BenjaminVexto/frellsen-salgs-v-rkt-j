@@ -417,20 +417,25 @@ function Kort({ geo, onKlik }: { geo: { main: any; bh: any }; onKlik: (f: number
   const maps = useRef<any[]>([]);
   const [tip, setTip] = useState<{ x: number; y: number; t: string; p: string } | null>(null);
   const klikRef = useRef(onKlik); klikRef.current = onKlik;
+  const geoRef = useRef(geo); geoRef.current = geo;
+  const fitted = useRef([false, false]);
 
   useEffect(() => {
     let dead = false;
+    let ro: ResizeObserver | null = null;
     (async () => {
       const maplibregl = (await import("maplibre-gl")).default;
       if (dead) return;
       const style: any = { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": BG } }] };
-      const make = (el: HTMLDivElement, data: any, inset: boolean) => {
+      const make = (el: HTMLDivElement, idx: number, inset: boolean) => {
         const m = new maplibregl.Map({ container: el, style, attributionControl: false, dragRotate: false, ...(inset ? { interactive: false } : {}) });
         m.on("load", () => {
+          m.resize();
+          const data = idx === 0 ? geoRef.current.main : geoRef.current.bh;
           m.addSource("f", { type: "geojson", data });
           m.addLayer({ id: "fill", type: "fill", source: "f", paint: { "fill-color": ["get", "color"], "fill-opacity": ["get", "opacity"] } });
           m.addLayer({ id: "line", type: "line", source: "f", paint: { "line-color": "#ffffff", "line-width": 0.5 } });
-          const b = bbox(data); if (b) m.fitBounds(b, { padding: inset ? 6 : 20, duration: 0 });
+          const b = bbox(data); if (b) { m.fitBounds(b, { padding: inset ? 6 : 20, duration: 0 }); fitted.current[idx] = true; }
           m.on("mousemove", "fill", (e: any) => {
             const p = e.features?.[0]?.properties; m.getCanvas().style.cursor = "pointer";
             const r = (inset ? bhRef : mainRef).current!.getBoundingClientRect();
@@ -442,13 +447,16 @@ function Kort({ geo, onKlik }: { geo: { main: any; bh: any }; onKlik: (f: number
         });
         return m;
       };
-      maps.current = [make(mainRef.current!, geo.main, false), make(bhRef.current!, geo.bh, true)];
+      if (!mainRef.current || !bhRef.current) return;
+      maps.current = [make(mainRef.current, 0, false), make(bhRef.current, 1, true)];
+      ro = new ResizeObserver(() => maps.current.forEach((m) => m.resize()));
+      ro.observe(mainRef.current); ro.observe(bhRef.current);
       if (bhRef.current) {
         // tillad hover/klik i indsat boks
         maps.current[1].on("load", () => { maps.current[1].getCanvas().style.pointerEvents = "auto"; });
       }
     })();
-    return () => { dead = true; maps.current.forEach((m) => m.remove()); maps.current = []; };
+    return () => { dead = true; ro?.disconnect(); maps.current.forEach((m) => m.remove()); maps.current = []; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -456,7 +464,10 @@ function Kort({ geo, onKlik }: { geo: { main: any; bh: any }; onKlik: (f: number
     [geo.main, geo.bh].forEach((d, i) => {
       const m = maps.current[i];
       const s = m?.getSource?.("f");
-      if (s) s.setData(d);
+      if (s) {
+        s.setData(d);
+        if (!fitted.current[i]) { const b = bbox(d); if (b) { m.resize(); m.fitBounds(b, { padding: i ? 6 : 20, duration: 0 }); fitted.current[i] = true; } }
+      }
     });
   }, [geo]);
 
