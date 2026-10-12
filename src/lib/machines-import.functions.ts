@@ -588,7 +588,8 @@ export const importMachines = createServerFn({ method: "POST" })
             location_id: loc.id,
             machine_type: cleanG2(t(r.maskin_type)) || null,
             serial_no: serienr,
-            sub_location: t(r.adresselinje2) || null,
+            // Placering kun fra serviceregistrets "Placering (Adr1)" — aldrig Adresselinje 2.
+            sub_location: t((r as any).placering ?? (r.data as any)?.placering) || null,
             navn: t(r.navn) || null,
             udstyr_type,
             has_service_contract: isServiceAgreement((r as any).aftale_type),
@@ -635,7 +636,8 @@ export const importMachines = createServerFn({ method: "POST" })
             location_id: loc.id,
             machine_type: cleanG2(t(r.maskin_type)) || null,
             serial_no: serienr,
-            sub_location: t(r.adresselinje2) || null,
+            // Placering kun fra serviceregistrets "Placering (Adr1)" — aldrig Adresselinje 2.
+            sub_location: t((r as any).placering ?? (r.data as any)?.placering) || null,
             navn: t(r.navn) || null,
             udstyr_type,
             has_service_contract: isServiceAgreement((r as any).aftale_type),
@@ -706,7 +708,7 @@ export const importMachines = createServerFn({ method: "POST" })
             is_filter: isFilterUnit(desc),
             machine_type: desc.trim() || null,
             serial_no: (r.serienr ?? "").toString().trim() || null,
-            sub_location: (r.adresselinje2 ?? "").toString().trim() || null,
+            sub_location: null, // Adresselinje 2 er vejadressen; placering vises via machine_enrichment
             agreement_type: agreementShort,
             is_free_loan: isFree,
             has_service_contract: false,
