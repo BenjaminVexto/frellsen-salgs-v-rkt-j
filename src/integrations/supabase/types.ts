@@ -2954,6 +2954,59 @@ export type Database = {
           },
         ]
       }
+      postnummer_flade_map: {
+        Row: {
+          flade: number | null
+          postnr: string
+        }
+        Insert: {
+          flade?: number | null
+          postnr: string
+        }
+        Update: {
+          flade?: number | null
+          postnr?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postnummer_flade_map_flade_fkey"
+            columns: ["flade"]
+            isOneToOne: false
+            referencedRelation: "postnummer_flader"
+            referencedColumns: ["flade"]
+          },
+        ]
+      }
+      postnummer_flader: {
+        Row: {
+          flade: number
+          geom: Json | null
+          landsdel: string | null
+          lx: number | null
+          ly: number | null
+          navn: string | null
+          postnumre: number[] | null
+        }
+        Insert: {
+          flade: number
+          geom?: Json | null
+          landsdel?: string | null
+          lx?: number | null
+          ly?: number | null
+          navn?: string | null
+          postnumre?: number[] | null
+        }
+        Update: {
+          flade?: number
+          geom?: Json | null
+          landsdel?: string | null
+          lx?: number | null
+          ly?: number | null
+          navn?: string | null
+          postnumre?: number[] | null
+        }
+        Relationships: []
+      }
       postnummer_region: {
         Row: {
           created_at: string
@@ -4194,6 +4247,26 @@ export type Database = {
       addr_n_husnr: { Args: { _addr: string }; Returns: string }
       addr_n_vej: { Args: { _addr: string }; Returns: string }
       addr_vej: { Args: { _addr: string }; Returns: string }
+      admin_salgskort_lokationer: {
+        Args: never
+        Returns: {
+          afdeling_nr: number
+          agreement_types: string
+          company_id: string
+          customer_segment_1: string
+          customer_segment_2: string
+          customer_segment_3: string
+          customer_type: string
+          db_12m: number
+          location_id: string
+          omsaetning_12m: number
+          saelger_navn: string
+          saelger_user_id: string
+          salesperson_no: string
+          virksomhedsnavn: string
+          zip_norm: string
+        }[]
+      }
       aktive_saelgere: {
         Args: never
         Returns: {
