@@ -77,6 +77,8 @@ const ENRICHMENT_ALIASES: Record<string, string> = {
   maskintypeg2: "maskin_type",
   typemaskg2: "maskin_type", // UDEN SN: "Type mask (G2)"
   oplysning1tilbehoer: "tilbehor",
+  tilbehoeropl1: "tilbehor", // "Tilbehør \n(opl.1)"
+  tilbehoer: "tilbehor",
   emailadresse: "email",
   levkundenr: "lev_kundenr",
   levkundnr: "lev_kundenr", // UDEN SN: "Lev kundnr"
@@ -84,6 +86,11 @@ const ENRICHMENT_ALIASES: Record<string, string> = {
   status: "status",
   kundeprisgruppe1: "kundeprisgruppe1",
   responsgr6: "respons",
+  responsg6: "respons", // u/serviceaftale: "Respons (G6)"
+  senesteaktivitetdt1: "seneste_aktivitet",
+  koebtbrugtopl5: "kobt_brugt",
+  kobtbrugtopl5: "kobt_brugt",
+  ophoersdato: "ophoersdato",
   navn: "navn",
   reservedeleg3: "reservedele",
   gruppe3: "reservedele", // UDEN SN: "Gruppe 3"
@@ -136,6 +143,8 @@ const DATE_FIELDS = new Set([
   "leaset_dato",
   "kobt_dato",
   "lease_leje_dato",
+  "seneste_aktivitet",
+  "ophoersdato",
 ]);
 const NUMBER_FIELDS = new Set(["taellerstand"]);
 
@@ -150,6 +159,8 @@ const ENRICHMENT_DATE_FIELDS = new Set([
   "binding_ophor",
   "beregnet_slutdato",
   "taelleraflaesning",
+  "seneste_aktivitet",
+  "ophoersdato",
 ]);
 
 // "2027-07 juli" / "2025-07 Juli - se aftale" / "2024-12" → "2024-12-01"
@@ -346,6 +357,9 @@ const ENRICHMENT_EXPECTED = [
   "chf",
   "taellerstand",
   "taelleraflaesning",
+  "seneste_aktivitet",
+  "kobt_brugt",
+  "ophoersdato",
 ];
 
 type FileState = {
