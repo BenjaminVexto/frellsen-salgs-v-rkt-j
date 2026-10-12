@@ -568,6 +568,13 @@
       "when": 1791381102160,
       "tag": "0080_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1791800881650,
+      "tag": "0081_salgskort",
+      "breakpoints": true
     }
   ]
 }
