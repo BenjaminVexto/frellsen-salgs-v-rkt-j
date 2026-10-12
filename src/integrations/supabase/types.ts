@@ -1574,6 +1574,105 @@ export type Database = {
         }
         Relationships: []
       }
+      distrikt_flade: {
+        Row: {
+          distrikt_id: string
+          flade: number
+          opdateret_af: string | null
+          opdateret_at: string
+        }
+        Insert: {
+          distrikt_id: string
+          flade: number
+          opdateret_af?: string | null
+          opdateret_at?: string
+        }
+        Update: {
+          distrikt_id?: string
+          flade?: number
+          opdateret_af?: string | null
+          opdateret_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distrikt_flade_distrikt_id_fkey"
+            columns: ["distrikt_id"]
+            isOneToOne: false
+            referencedRelation: "distrikter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distrikt_flade_flade_fkey"
+            columns: ["flade"]
+            isOneToOne: true
+            referencedRelation: "postnummer_flader"
+            referencedColumns: ["flade"]
+          },
+        ]
+      }
+      distrikt_flade_log: {
+        Row: {
+          flade: number
+          fra_distrikt_id: string | null
+          id: string
+          til_distrikt_id: string | null
+          udfoert_af: string | null
+          udfoert_at: string
+        }
+        Insert: {
+          flade: number
+          fra_distrikt_id?: string | null
+          id?: string
+          til_distrikt_id?: string | null
+          udfoert_af?: string | null
+          udfoert_at?: string
+        }
+        Update: {
+          flade?: number
+          fra_distrikt_id?: string | null
+          id?: string
+          til_distrikt_id?: string | null
+          udfoert_af?: string | null
+          udfoert_at?: string
+        }
+        Relationships: []
+      }
+      distrikter: {
+        Row: {
+          aktiv: boolean
+          created_at: string
+          daekkes_af_user_id: string | null
+          farve: string
+          id: string
+          landsdel: string | null
+          navn: string
+          saelger_user_id: string | null
+          sort: number
+        }
+        Insert: {
+          aktiv?: boolean
+          created_at?: string
+          daekkes_af_user_id?: string | null
+          farve?: string
+          id?: string
+          landsdel?: string | null
+          navn: string
+          saelger_user_id?: string | null
+          sort?: number
+        }
+        Update: {
+          aktiv?: boolean
+          created_at?: string
+          daekkes_af_user_id?: string | null
+          farve?: string
+          id?: string
+          landsdel?: string | null
+          navn?: string
+          saelger_user_id?: string | null
+          sort?: number
+        }
+        Relationships: []
+      }
       fald_indstilling: {
         Row: {
           id: boolean
@@ -3857,6 +3956,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      salgskort_indstilling: {
+        Row: {
+          id: number
+          kam_kpg3: string[]
+          opdateret_at: string
+        }
+        Insert: {
+          id?: number
+          kam_kpg3?: string[]
+          opdateret_at?: string
+        }
+        Update: {
+          id?: number
+          kam_kpg3?: string[]
+          opdateret_at?: string
+        }
+        Relationships: []
       }
       tmp_crm_nord: {
         Row: {

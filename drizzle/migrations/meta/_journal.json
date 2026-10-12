@@ -575,6 +575,13 @@
       "when": 1791800881650,
       "tag": "0081_salgskort",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1791804561024,
+      "tag": "0082_distriktskort",
+      "breakpoints": true
     }
   ]
 }
