@@ -53,10 +53,10 @@ const VISMA_VALG: Valg[] = [
     to: "/admin/import/maskiner",
     icon: Cog,
     emoji: "⚙️",
-    title: "Maskinliste + Wittenborg SN-liste",
+    title: "Maskinliste + Wittenborg (m/service og u/serviceaftale)",
     raekkefoelge: 3,
     description:
-      "Importér Maskinlisten og Wittenborg SN-listen til de separate tabeller machines og machine_enrichment (joinet på serienr). Rækkefølge-uafhængig.",
+      "Importér Maskinlisten og begge Wittenborg-lister fra Vismas serviceregister (Serienr. m/service og Serienr. u/serviceaftale) til machines og machine_enrichment (joinet på serienr). Hver Wittenborg-liste er et fuldt øjebliksbillede. Rækkefølge-uafhængig.",
     hint: "Brug dette til at synkronisere det rå maskinregister med Wittenborg-data",
   },
   {
