@@ -149,7 +149,8 @@ function classifyWittenborg(r: {
   else {
     const at = (r.aftale_type ?? "").trim().toLowerCase();
     if (at.startsWith("1 [serviceaftale]") || at.startsWith("0")) return "kunde_ejet";
-    if (at.startsWith("4 [lejeaftale]")) frellsenOwned = true;
+    // "4 [Lejeaftale]" og "2 [Lejeaftale - betaler filter]" er begge lejeaftaler (Frellsen-ejet).
+    if (at.startsWith("4 [lejeaftale") || at.startsWith("2 [lejeaftale")) frellsenOwned = true;
     else return "ukendt";
   }
   if (!frellsenOwned) return "ukendt";
@@ -203,6 +204,7 @@ export const importMachines = createServerFn({ method: "POST" })
         machineRows: z.array(MachineRow).max(200000).default([]),
         enrichmentRows: z.array(EnrichmentRow).max(200000).default([]),
         enrichmentRowsUdenSn: z.array(EnrichmentRow).max(200000).default([]),
+        bekraeftUdgaaet: z.boolean().optional().default(false),
         diagnostics: z
           .object({
             machinesFile: z.string().optional(),
@@ -271,6 +273,50 @@ export const importMachines = createServerFn({ method: "POST" })
       if (withSerienr === 0) {
         throw new Error("Wittenborg UDEN SN: 0 rækker har serienr — tjek header-detection");
       }
+    }
+    if (
+      data.enrichmentRows.length > 0 &&
+      !data.enrichmentRows.some((r) => isServiceAgreement((r as any).aftale_type))
+    ) {
+      throw new Error(
+        "SN-listen indeholder ingen serviceaftaler — eksporten fra Visma er sandsynligvis filtreret",
+      );
+    }
+
+    // ---- Udgået-forhåndstjek pr. kilde (kun kilder, der er uploadet) ----
+    const kilderIImport: ("sn" | "uden_sn")[] = [];
+    if (data.enrichmentRows.length > 0) kilderIImport.push("sn");
+    if (data.enrichmentRowsUdenSn.length > 0) kilderIImport.push("uden_sn");
+    const importSerienr = new Set(
+      [...data.enrichmentRows, ...data.enrichmentRowsUdenSn].map((r) => t(r.serienr)).filter(Boolean),
+    );
+    const udgaaetPreview: Record<string, { aktive: number; udgaar: number }> = {};
+    for (const k of kilderIImport) {
+      let aktive = 0;
+      let udgaar = 0;
+      let from = 0;
+      while (true) {
+        const { data: rows, error } = await supabaseAdmin
+          .from("machine_enrichment" as any)
+          .select("serienr")
+          .eq("kilde", k)
+          .eq("record_status", "aktiv")
+          .order("serienr")
+          .range(from, from + 999);
+        if (error) throw new Error("udgået-forhåndstjek: " + error.message);
+        if (!rows || rows.length === 0) break;
+        for (const r of rows as any[]) {
+          aktive++;
+          if (!importSerienr.has(r.serienr)) udgaar++;
+        }
+        if (rows.length < 1000) break;
+        from += 1000;
+      }
+      udgaaetPreview[k] = { aktive, udgaar };
+    }
+    const overGraense = Object.values(udgaaetPreview).some((p) => p.aktive > 0 && p.udgaar > p.aktive * 0.1);
+    if (overGraense && !data.bekraeftUdgaaet) {
+      return { needsConfirmation: true as const, udgaaetPreview };
     }
 
     const importedAt = new Date().toISOString();
@@ -808,18 +854,59 @@ export const importMachines = createServerFn({ method: "POST" })
         );
       }
 
-      // ---- STEP 6c: Indsæt source='wittenborg' units (idempotent pr. lokation) ----
-      if (wittenborgUnits.length > 0) {
+      // Udstyrstype-optælling pr. kilde (til resultatkortet).
+      const udstyrTypeCounts: Record<string, Record<string, number>> = {};
+      const taelUdstyr = (source: string, rows: Record<string, any>[]) => {
+        const m = (udstyrTypeCounts[source] ??= {});
+        for (const r of rows) {
+          const k = r.udstyr_type ?? "ukendt";
+          m[k] = (m[k] ?? 0) + 1;
+        }
+      };
+
+      // Serienumre på SN-listen (m/service) — SN-listen vinder over u/serviceaftale.
+      const snSerials = new Set<string>();
+      if (data.enrichmentRows.length > 0) {
+        data.enrichmentRows.forEach((r) => t(r.serienr) && snSerials.add(t(r.serienr)));
+      } else if (data.enrichmentRowsUdenSn.length > 0) {
+        let from = 0;
+        while (true) {
+          const { data: rows, error } = await supabaseAdmin
+            .from("location_equipment_units")
+            .select("serial_no")
+            .eq("source", "wittenborg")
+            .not("serial_no", "is", null)
+            .order("id")
+            .range(from, from + 999);
+          if (error) throw new Error("wittenborg serienr opslag: " + error.message);
+          if (!rows || rows.length === 0) break;
+          (rows as any[]).forEach((r) => r.serial_no && snSerials.add(r.serial_no));
+          if (rows.length < 1000) break;
+          from += 1000;
+        }
+      }
+
+      // ---- STEP 6c: source='wittenborg' — listen er et fuldt øjebliksbillede: erstat ALLE enheder ----
+      if (data.enrichmentRows.length > 0) {
         const witLocs = Array.from(wittenborgLocIds);
-        const CHUNK_D = 300;
-        for (let i = 0; i < witLocs.length; i += CHUNK_D) {
-          const slice = witLocs.slice(i, i + CHUNK_D);
+        {
           const { error } = await supabaseAdmin
             .from("location_equipment_units")
             .delete()
-            .eq("source", "wittenborg")
-            .in("location_id", slice);
-          if (error) console.error("[machines-import] wittenborg delete fejl:", error.message);
+            .eq("source", "wittenborg");
+          if (error) throw new Error("wittenborg delete fejl: " + error.message);
+        }
+        // Hvis u/serviceaftale-listen ikke uploades nu: fjern dens enheder for serienumre, der nu står på SN-listen.
+        if (data.enrichmentRowsUdenSn.length === 0 && snSerials.size > 0) {
+          const arr = Array.from(snSerials);
+          for (let i = 0; i < arr.length; i += 300) {
+            const { error } = await supabaseAdmin
+              .from("location_equipment_units")
+              .delete()
+              .eq("source", "wittenborg_uden_sn")
+              .in("serial_no", arr.slice(i, i + 300));
+            if (error) throw new Error("wittenborg_uden_sn dublet-oprydning: " + error.message);
+          }
         }
         const witBatchId =
           typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -857,23 +944,21 @@ export const importMachines = createServerFn({ method: "POST" })
           if (error) console.error("[machines-import] wittenborg insert fejl:", error.message);
           else wittenborgUnitsInserted += slice.length;
         }
+        taelUdstyr("wittenborg", witRows);
         console.log(
           `[machines-import] STEP 6c DONE: wittenborgInserted=${wittenborgUnitsInserted} (uniqueRows=${witRows.length}) onLocs=${witLocs.length} unmatched=${wittenborgUnmatched}`,
         );
       }
 
-      // ---- STEP 6d: Indsæt source='wittenborg_uden_sn' units (idempotent pr. lokation) ----
-      if (wittenborgUdenSnUnits.length > 0) {
+      // ---- STEP 6d: source='wittenborg_uden_sn' — fuldt øjebliksbillede: erstat ALLE enheder ----
+      if (data.enrichmentRowsUdenSn.length > 0) {
         const witLocs = Array.from(wittenborgUdenSnLocIds);
-        const CHUNK_D = 300;
-        for (let i = 0; i < witLocs.length; i += CHUNK_D) {
-          const slice = witLocs.slice(i, i + CHUNK_D);
+        {
           const { error } = await supabaseAdmin
             .from("location_equipment_units")
             .delete()
-            .eq("source", "wittenborg_uden_sn")
-            .in("location_id", slice);
-          if (error) console.error("[machines-import] wittenborg_uden_sn delete fejl:", error.message);
+            .eq("source", "wittenborg_uden_sn");
+          if (error) throw new Error("wittenborg_uden_sn delete fejl: " + error.message);
         }
         const witBatchId =
           typeof crypto !== "undefined" && "randomUUID" in crypto
