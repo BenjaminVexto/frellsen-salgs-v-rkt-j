@@ -362,6 +362,19 @@ const ENRICHMENT_EXPECTED = [
   "ophoersdato",
 ];
 
+const KILDE_LABEL: Record<string, string> = {
+  sn: "Serienr. m/service",
+  uden_sn: "Serienr. u/serviceaftale",
+  wittenborg: "Serienr. m/service",
+  wittenborg_uden_sn: "Serienr. u/serviceaftale",
+};
+const UDSTYR_LABEL: Record<string, string> = {
+  leje_ub: "Leje u/binding",
+  leje_binding: "Leje m/binding",
+  kunde_ejet: "Kundeejet",
+  ukendt: "Ukendt",
+};
+
 type FileState = {
   file: File | null;
   diag: MappingResult | null;
@@ -386,6 +399,8 @@ function MaskinerImportSide() {
     enrichmentMarkedUdgaaet?: number;
     machinesReactivated?: number;
     enrichmentReactivated?: number;
+    enrichmentUdgaaetPrKilde?: Record<string, number>;
+    udstyrTypeCounts?: Record<string, Record<string, number>>;
   } | null>(null);
   const importFn = useServerFn(importMachines);
   const recomputeStatuses = useServerFn(recomputeAllCompanyStatuses);
@@ -426,7 +441,7 @@ function MaskinerImportSide() {
   }
 
 
-  async function runImport() {
+  async function runImport(bekraeftUdgaaet = false) {
     if (!machineState.diag && !enrichState.diag && !enrichUdenSnState.diag) {
       toast.error("Upload mindst én fil før import");
       return;
@@ -434,8 +449,9 @@ function MaskinerImportSide() {
     setBusy(true);
     setResult(null);
     try {
-      const res = await importFn({
+      const res: any = await importFn({
         data: {
+          bekraeftUdgaaet,
           machineRows: machineState.diag?.rows ?? [],
           enrichmentRows: (enrichState.diag?.rows ?? []).filter((r) => r.serienr) as any,
           enrichmentRowsUdenSn: (enrichUdenSnState.diag?.rows ?? []).filter((r) => r.serienr) as any,
@@ -455,6 +471,18 @@ function MaskinerImportSide() {
           },
         },
       });
+      if (res?.needsConfirmation) {
+        const p = res.udgaaetPreview as Record<string, { aktive: number; udgaar: number }>;
+        const linjer = Object.entries(p)
+          .map(([k, v]) => `${KILDE_LABEL[k] ?? k}: ${v.udgaar} af ${v.aktive} aktive (${v.aktive ? Math.round((v.udgaar / v.aktive) * 100) : 0} %)`)
+          .join("\n");
+        setBusy(false);
+        if (window.confirm(`Importen vil markere mere end 10 % af de aktive maskiner som udgået:\n\n${linjer}\n\nEr du sikker på, at filerne er komplette og ufiltrerede?`)) {
+          return runImport(true);
+        }
+        toast.info("Import annulleret — intet er ændret");
+        return;
+      }
       setResult(res);
       toast.success("Maskin-import gennemført");
       void logImport("maskiner", "ok", maskinFilnavne());
@@ -510,7 +538,7 @@ function MaskinerImportSide() {
         <Cog className="h-6 w-6" /> Maskiner & Wittenborg-enrichment
       </h1>
       <p className="text-sm text-muted-foreground mb-6">
-        Importér Maskinlisten og Wittenborg-listerne (SN + UDEN SN). Filerne kan uploades i vilkårlig
+        Importér Maskinlisten og Wittenborg-listerne (m/service og u/serviceaftale). Filerne kan uploades i vilkårlig
         rækkefølge — header-rækken findes automatisk via ankerfelter, og felter mappes via alias.
       </p>
 
@@ -525,8 +553,8 @@ function MaskinerImportSide() {
           disabled={busy}
         />
         <FileSlot
-          label="Wittenborg SN"
-          help="XLSX/XLS. Header findes automatisk. Joines med maskiner via serienr."
+          label="Wittenborg – Serienr. m/service"
+          help="XLSX/XLS. Eksporteres fra fanen “Serienr. m/service” i Vismas serviceregister. Fuldt øjebliksbillede — erstatter alle maskiner fra denne liste."
           state={enrichState}
           onFile={(f) =>
             handleFile(
@@ -535,15 +563,15 @@ function MaskinerImportSide() {
               ENRICHMENT_ANCHORS,
               ENRICHMENT_EXPECTED,
               setEnrichState,
-              "Wittenborg SN",
+              "Serienr. m/service",
               { detectDates: true },
             )
           }
           disabled={busy}
         />
         <FileSlot
-          label="Wittenborg UDEN SN"
-          help="XLSX/XLS. Samme struktur som SN-listen, men mangler binding/slutdato. Parses med samme alias-tabel."
+          label="Wittenborg – Serienr. u/serviceaftale"
+          help="XLSX/XLS. Eksporteres fra fanen “Serienr. u/serviceaftale” i Vismas serviceregister. Fuldt øjebliksbillede — erstatter alle maskiner fra denne liste."
           state={enrichUdenSnState}
           onFile={(f) =>
             handleFile(
@@ -552,15 +580,26 @@ function MaskinerImportSide() {
               ENRICHMENT_ANCHORS,
               ENRICHMENT_EXPECTED,
               setEnrichUdenSnState,
-              "Wittenborg UDEN SN",
+              "Serienr. u/serviceaftale",
               { detectDates: true },
             )
           }
           disabled={busy}
         />
 
+        {!!enrichState.diag?.rows.length !== !!enrichUdenSnState.diag?.rows.length && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 flex gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              Kun én af de to Wittenborg-filer er valgt. Maskinerne fra listen{" "}
+              <strong>{enrichState.diag?.rows.length ? "Serienr. u/serviceaftale" : "Serienr. m/service"}</strong>{" "}
+              bliver ikke berørt, og kun maskiner fra den uploadede liste kan blive markeret som udgået.
+            </span>
+          </div>
+        )}
+
         <div className="pt-4 border-t flex items-center gap-3">
-          <Button onClick={runImport} disabled={!canRun}>
+          <Button onClick={() => runImport()} disabled={!canRun}>
             {busy ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
@@ -571,8 +610,8 @@ function MaskinerImportSide() {
           {canRun && !result && (
             <span className="text-xs text-muted-foreground">
               {machineState.diag?.rows.length ?? 0} maskinrækker +{" "}
-              {enrichState.diag?.rows.length ?? 0} SN +{" "}
-              {enrichUdenSnState.diag?.rows.length ?? 0} UDEN SN upserter
+              {enrichState.diag?.rows.length ?? 0} m/service +{" "}
+              {enrichUdenSnState.diag?.rows.length ?? 0} u/serviceaftale upserter
             </span>
           )}
         </div>
@@ -601,6 +640,23 @@ function MaskinerImportSide() {
               <strong>{result.enrichmentMarkedUdgaaet ?? 0}</strong> enrichment-rækker nyflagget{" "}
               <em>udgået</em> · <strong>{result.enrichmentReactivated ?? 0}</strong> reaktiveret
             </li>
+            {result.enrichmentUdgaaetPrKilde && Object.keys(result.enrichmentUdgaaetPrKilde).length > 0 && (
+              <li>
+                Udgåede pr. kilde:{" "}
+                {Object.entries(result.enrichmentUdgaaetPrKilde)
+                  .map(([k, n]) => `${KILDE_LABEL[k] ?? k}: ${n}`)
+                  .join(" · ")}
+              </li>
+            )}
+            {result.udstyrTypeCounts &&
+              Object.entries(result.udstyrTypeCounts).map(([src, counts]) => (
+                <li key={src}>
+                  {KILDE_LABEL[src] ?? src} pr. udstyrstype:{" "}
+                  {Object.entries(counts)
+                    .map(([k, n]) => `${UDSTYR_LABEL[k] ?? k}: ${n}`)
+                    .join(" · ")}
+                </li>
+              ))}
           </ul>
           <p className="text-xs text-emerald-800 mt-3">
             Udgåede rækker slettes ikke — se{" "}
