@@ -1,3 +1,4 @@
+import { dekomprimerJson } from "@/lib/komprimer-json";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { DataOpdateret } from "@/components/data-opdateret";
 import { useAuth } from "@/hooks/useAuth";
@@ -175,11 +176,11 @@ function PortfolioPage() {
     // Svaret sendes som én JSON-streng — ellers rammer den store kundeliste
     // serverfunktionernes grænse for antal serialiseringsposter.
     queryFn: async () =>
-      JSON.parse(
+      dekomprimerJson<PortfolioPayload>(
         await fn({
           data: { sellerId: sellerId === "all" ? null : sellerId, afdelingNr: afdelingFilter },
         }),
-      ) as PortfolioPayload,
+      ),
   });
 
   const data = q.data;

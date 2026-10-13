@@ -1,3 +1,4 @@
+import { komprimerJson } from "./komprimer-json";
 import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { harGyldigtSammenligningsvindue } from "./kunde-status";
@@ -217,7 +218,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
   // afdelingNr er et rent kosmetisk filter fra afdelingsvælgeren — den rigtige
   // adgangskontrol ligger i RLS/my_afdelinger().
   .inputValidator((input: { sellerId?: string | null; afdelingNr?: number | null }) => input ?? {})
-  .handler(async ({ data, context }): Promise<string> => JSON.stringify(await (async (): Promise<PortfolioPayload> => {
+  .handler(async ({ data, context }): Promise<string> => komprimerJson(await (async (): Promise<PortfolioPayload> => {
     const { supabase, userId } = context;
     const isAdmin = await isAdminUser(supabase, userId);
     const { data: seDbRes } = await (supabase as any).rpc("maa_se_db", { _user_id: userId });
