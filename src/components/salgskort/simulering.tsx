@@ -622,14 +622,14 @@ function MultiValg({ titel, valg, valgte, setValgte, vis }: { titel: string; val
   const v = (x: string) => (vis ? vis(x) : x);
   const liste = [...valg.filter(([x]) => valgte.includes(x)), ...valg.filter(([x]) => !valgte.includes(x) && (!ql || v(x).toLowerCase().includes(ql)))];
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 min-w-0">
       <div className="text-xs font-medium">{titel}{valgte.length ? ` (${valgte.length} valgt)` : ""}</div>
       <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Søg…" className="h-7 text-xs" />
       <div className="max-h-32 overflow-y-auto rounded border border-border p-1 space-y-0.5">
         {liste.slice(0, ql ? 200 : 60).map(([x, n]) => (
-          <label key={x} className="flex items-center gap-2 text-xs cursor-pointer">
+          <label key={x} className="flex items-center gap-2 text-xs cursor-pointer min-w-0">
             <Checkbox checked={valgte.includes(x)} onCheckedChange={() => setValgte(valgte.includes(x) ? valgte.filter((y) => y !== x) : [...valgte, x])} />
-            <span className="flex-1 truncate" title={v(x)}>{v(x)}</span><span className="text-muted-foreground tabular-nums">{n}</span>
+            <span className="flex-1 min-w-0 truncate" title={v(x)}>{v(x)}</span><span className="text-muted-foreground tabular-nums shrink-0">{n}</span>
           </label>
         ))}
         {!liste.length && <div className="text-xs text-muted-foreground p-1">Ingen match.</div>}
@@ -672,9 +672,9 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, ukendte, o
   const kpg2Vis = (k: string) => { const [a, c] = k.split("||"); return `${c} (${a})`; };
   return (
     <Dialog open onOpenChange={(o) => !o && onLuk()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] [&>*]:min-w-0">
         <DialogHeader><DialogTitle>{r.id ? "Rediger regel" : "Ny regel"}</DialogTitle></DialogHeader>
-        <div className="space-y-3 text-sm">
+        <div className="space-y-3 text-sm min-w-0">
           <div className="flex gap-2">
             <Button size="sm" variant={type === "tildel" ? "default" : "outline"} onClick={() => setType("tildel")}>Tildel til sælger</Button>
             <Button size="sm" variant={type === "udeluk" ? "default" : "outline"} onClick={() => setType("udeluk")}>Må ikke have</Button>
