@@ -616,7 +616,7 @@ function KontaktlisteDetalje() {
                 {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={13}
+                      colSpan={11}
                       className="text-center text-sm text-muted-foreground py-12"
                     >
                       Ingen virksomheder matcher filtrene.
