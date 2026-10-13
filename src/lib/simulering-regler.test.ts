@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bestemSaelger, kamPortefoelje, tildelMatches, type KamAftale, type Regel } from "./simulering-regler";
+import { bestemSaelger, kamMatcher, parseKoder, kamPortefoelje, tildelMatches, type KamAftale, type Regel } from "./simulering-regler";
 
 const lok = (p: Partial<{ kpg1: string; kpg2: string; kpg3: string; ansatte: number | null }> = {}) =>
   ({ kpg1: "10 [Erhverv]", kpg2: "(ingen)", kpg3: "20 [Kontor]", ansatte: 20, ...p });
