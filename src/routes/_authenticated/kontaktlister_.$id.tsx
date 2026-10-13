@@ -377,7 +377,7 @@ function KontaktlisteDetalje() {
 
   const total = rows.length;
   const kontaktet = rows.filter(
-    (r) => r.status !== "ny" && r.status !== "skal_kontaktes",
+    (r) => r.status !== "ny",
   ).length;
   const pct = total > 0 ? Math.round((kontaktet / total) * 100) : 0;
 

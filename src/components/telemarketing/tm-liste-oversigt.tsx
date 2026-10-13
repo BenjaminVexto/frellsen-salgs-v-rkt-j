@@ -22,7 +22,7 @@ export function TmListeOversigt() {
           return {
             ...l,
             total: r.length,
-            tilbage: r.filter((a: any) => ["ny", "skal_kontaktes", "kontaktet", "senere_emne"].includes(a.status)).length,
+            tilbage: r.filter((a: any) => ["ny", "forsoegt", "ring_igen"].includes(a.status)).length,
           };
         }),
       );
