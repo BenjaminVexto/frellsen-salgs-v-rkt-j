@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { byggKoe, ingenSvarIRaekke, statusTekst, udfaldStatistik } from "./telemarketing";
+import { byggKoe, ingenSvarIRaekke, statusTekst, udfaldStatistik, iStatusGruppe, standardRang, ringIgenIDag } from "./telemarketing";
 
 const nu = new Date("2026-10-13T12:00:00Z");
 
@@ -37,5 +37,30 @@ describe("udfald og statistik", () => {
     expect(s.succes).toBe(2);
     expect(s.succesrate).toBeCloseTo(2 / 3);
     expect(s.ringet).toBe(4);
+  });
+});
+
+describe("bureau-overblik", () => {
+  it("fri note tæller ikke som opkald og bryder ikke 'ingen svar' i træk", () => {
+    const s = udfaldStatistik([{ company_id: "a", udfald: "note", user_id: "tm" }, { company_id: "b", udfald: "ingen_svar", user_id: "tm" }]);
+    expect(s.opkald).toBe(1);
+    expect(s.ringet).toBe(1);
+    const o = (at: string, udfald: any) => ({ at, udfald, ring_igen_at: null });
+    expect(ingenSvarIRaekke([o("1", "ingen_svar"), o("2", "note"), o("3", "ingen_svar")])).toBe(2);
+  });
+  it("Afsluttet = ikke interesseret, ønsker ikke kontakt, forkert nummer; Succes = møde, tilbud", () => {
+    expect(["ikke_interesseret", "oensker_ikke_kontakt", "forkert_nummer"].every((s) => iStatusGruppe(s, "afsluttet"))).toBe(true);
+    expect(iStatusGruppe("møde_booket", "succes") && iStatusGruppe("tilbud_oensket", "succes")).toBe(true);
+    expect(iStatusGruppe("ring_igen", "afsluttet")).toBe(false);
+  });
+  it("standardsortering: forfalden ring igen før Ny før resten", () => {
+    const igen = { status: "ring_igen", opkald: [{ at: "2026-10-13T09:00:00Z", udfald: "ring_igen" as const, ring_igen_at: "2026-10-13T10:00:00Z" }] };
+    expect(standardRang(igen, nu)[0]).toBe(0);
+    expect(standardRang({ status: "ny", opkald: [] }, nu)[0]).toBe(1);
+    expect(standardRang({ status: "forsoegt", opkald: [] }, nu)[0]).toBe(3);
+  });
+  it("ring igen senere i dag vises under 'Ring igen i dag', i morgen gør ikke", () => {
+    expect(ringIgenIDag("2026-10-13T15:00:00", new Date("2026-10-13T12:00:00"))).toBe(true);
+    expect(ringIgenIDag("2026-10-14T09:00:00", new Date("2026-10-13T12:00:00"))).toBe(false);
   });
 });
