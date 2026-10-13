@@ -715,7 +715,7 @@ function KontaktlisteDetalje() {
                           {r.last_activity_at ? (
                             <div className="text-muted-foreground">
                               {new Date(r.last_activity_at).toLocaleDateString("da-DK")}
-                              {r.last_activity_type ? ` · ${r.last_activity_type}` : ""}
+                              {r.last_activity_type ? ` · ${r.last_activity_type.replace(/_/g, " ")}` : ""}
                             </div>
                           ) : null}
                           {!r.next_followup_date && !r.last_activity_at && (
