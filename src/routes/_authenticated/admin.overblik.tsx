@@ -1,6 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { hentAlle } from "@/lib/hent-alle";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -118,9 +119,9 @@ function AdminOverblikPage() {
       const [profilesRes, rolesRes, asgRes, actRes, oppRes] = await Promise.all([
         supabase.from("profiles").select("id, full_name"),
         supabase.from("user_roles").select("user_id, role").eq("role", "saelger"),
-        supabase
-          .from("contact_list_assignments")
-          .select("assigned_to, status"),
+        hentAlle((f, t) =>
+          supabase.from("contact_list_assignments").select("id, assigned_to, status").order("id").range(f, t),
+        ).then((data) => ({ data, error: null })),
         supabase
           .from("activities")
           .select("created_by, activity_type")

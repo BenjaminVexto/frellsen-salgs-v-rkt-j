@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { hentAlle } from "@/lib/hent-alle";
 import { Card } from "@/components/ui/card";
 import { Loader2, Phone } from "lucide-react";
 
@@ -13,9 +14,11 @@ export function TmListeOversigt() {
     (async () => {
       const { data: ls } = await supabase.from("contact_lists").select("id, name, purpose").eq("is_active", true).order("created_at", { ascending: false });
       const ids = (ls ?? []).map((l) => l.id);
-      const { data: as } = ids.length
-        ? await supabase.from("contact_list_assignments").select("contact_list_id, status").in("contact_list_id", ids)
-        : { data: [] as any[] };
+      const as: any[] = ids.length
+        ? await hentAlle((f, t) =>
+            supabase.from("contact_list_assignments").select("id, contact_list_id, status").in("contact_list_id", ids).order("id").range(f, t),
+          ).catch(() => [])
+        : [];
       setLister(
         (ls ?? []).map((l: any) => {
           const r = (as ?? []).filter((a: any) => a.contact_list_id === l.id);
