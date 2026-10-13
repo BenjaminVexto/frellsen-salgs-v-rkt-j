@@ -42,6 +42,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Download, Globe } from "lucide-react";
+import { hentAlle } from "@/lib/hent-alle";
+import { formatTelefon, telHref, webHref, telefonNumre } from "@/lib/telefon";
 import { Ringevisning } from "@/components/telemarketing/ringevisning";
 import { BureauPanel } from "@/components/telemarketing/bureau-panel";
 
@@ -114,11 +117,20 @@ type Row = {
   assigned_to: string | null;
   location_id: string | null;
   location_city: string | null;
+  location_phone: string | null;
+  location_address: string | null;
+  location_zip: string | null;
+  kontakt: { name: string; title: string | null; phone: string | null; email: string | null } | null;
   company: {
     name: string;
     city: string | null;
     employees: number | null;
     customer_type: string;
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+    address: string | null;
+    zip: string | null;
   };
   seller_name: string;
   last_activity_at: string | null;
@@ -145,6 +157,7 @@ function KontaktlisteDetalje() {
   const [fSeller, setFSeller] = useState<string>("alle");
   const [fOnlyMine, setFOnlyMine] = useState(false);
   const [fOverdue, setFOverdue] = useState(false);
+  const [fKunTlf, setFKunTlf] = useState(false);
 
   // sort
   const [sortKey, setSortKey] = useState<string>("company");
@@ -162,18 +175,22 @@ function KontaktlisteDetalje() {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: listData }, { data: assigns }] = await Promise.all([
+    const [{ data: listData }, assigns] = await Promise.all([
       supabase
         .from("contact_lists")
         .select("name, description, purpose")
         .eq("id", id)
         .maybeSingle(),
-      supabase
-        .from("contact_list_assignments")
-        .select(
-          "id, company_id, status, priority, next_followup_date, next_action_note, assigned_to, location_id, companies(name, city, employees, customer_type)",
-        )
-        .eq("contact_list_id", id),
+      hentAlle<any>((f, t) =>
+        supabase
+          .from("contact_list_assignments")
+          .select(
+            "id, company_id, status, priority, next_followup_date, next_action_note, assigned_to, location_id, companies(name, city, employees, customer_type, phone, email, website, address, zip)",
+          )
+          .eq("contact_list_id", id)
+          .order("id")
+          .range(f, t) as any,
+      ).catch((e) => { toast.error("Kunne ikke hente listen: " + (e?.message ?? e)); return [] as any[]; }),
     ]);
     setList(listData as any);
 
@@ -189,7 +206,7 @@ function KontaktlisteDetalje() {
       ),
     );
 
-    const [{ data: profs }, { data: acts }, { data: locs }] = await Promise.all([
+    const [{ data: profs }, { data: acts }, { data: locs }, { data: kontakter }] = await Promise.all([
       userIds.length
         ? supabase.from("profiles").select("id, full_name").in("id", userIds)
         : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
@@ -209,12 +226,33 @@ function KontaktlisteDetalje() {
             return { data: out };
           })()
         : Promise.resolve({ data: [] as any[] }),
-      locationIds.length
-        ? (supabase as any).from("locations").select("id, city").in("id", locationIds)
-        : Promise.resolve({ data: [] as { id: string; city: string | null }[] }),
+      (async () => {
+        const out: any[] = [];
+        for (let i = 0; i < locationIds.length; i += 200) {
+          const { data } = await (supabase as any).from("locations").select("id, city, phone, address, zip").in("id", locationIds.slice(i, i + 200));
+          if (data) out.push(...data);
+        }
+        return { data: out };
+      })(),
+      (async () => {
+        const out: any[] = [];
+        for (let i = 0; i < companyIds.length; i += 200) {
+          const slice = companyIds.slice(i, i + 200);
+          const data = await hentAlle<any>((f, t) =>
+            supabase.from("contacts").select("id, company_id, name, title, phone, email, is_primary").in("company_id", slice).order("id").range(f, t) as any,
+          ).catch(() => []);
+          out.push(...data);
+        }
+        return { data: out };
+      })(),
     ]);
+    const kontaktMap = new Map<string, any>();
+    for (const k of kontakter ?? []) {
+      const cur = kontaktMap.get(k.company_id);
+      if (!cur || (k.is_primary && !cur.is_primary)) kontaktMap.set(k.company_id, k);
+    }
     const pMap = new Map((profs ?? []).map((p) => [p.id, p.full_name]));
-    const locMap = new Map<string, string | null>((locs ?? []).map((l: any) => [l.id as string, l.city as string | null]));
+    const locMap = new Map<string, any>((locs ?? []).map((l: any) => [l.id as string, l]));
     const lastActMap = new Map<string, { at: string; type: string }>();
     for (const a of acts ?? []) {
       if (!lastActMap.has(a.company_id)) {
@@ -234,12 +272,24 @@ function KontaktlisteDetalje() {
       next_action_note: a.next_action_note,
       assigned_to: a.assigned_to,
       location_id: a.location_id ?? null,
-      location_city: a.location_id ? (locMap.get(a.location_id) ?? null) : null,
+      location_city: a.location_id ? (locMap.get(a.location_id)?.city ?? null) : null,
+      location_phone: a.location_id ? (locMap.get(a.location_id)?.phone ?? null) : null,
+      location_address: a.location_id ? (locMap.get(a.location_id)?.address ?? null) : null,
+      location_zip: a.location_id ? (locMap.get(a.location_id)?.zip ?? null) : null,
+      kontakt: (() => {
+        const k = kontaktMap.get(a.company_id);
+        return k ? { name: k.name, title: k.title, phone: k.phone, email: k.email } : null;
+      })(),
       company: a.companies ?? {
         name: "?",
         city: null,
         employees: null,
         customer_type: "nyt_emne",
+        phone: null,
+        email: null,
+        website: null,
+        address: null,
+        zip: null,
       },
       seller_name: a.assigned_to ? pMap.get(a.assigned_to) ?? "Ukendt" : "—",
       last_activity_at: lastActMap.get(a.company_id)?.at ?? null,
@@ -268,6 +318,7 @@ function KontaktlisteDetalje() {
     let arr = rows;
     if (fStatus !== "alle") arr = arr.filter((r) => r.status === fStatus);
     if (fPriority !== "alle") arr = arr.filter((r) => r.priority === fPriority);
+    if (fKunTlf) arr = arr.filter((r) => telefonNumre(r.location_phone, r.company.phone).length > 0);
     if (isAdmin && fSeller !== "alle")
       arr = arr.filter((r) => r.assigned_to === fSeller);
     if (isAdmin && fOnlyMine)
