@@ -22,8 +22,6 @@ export async function registrerUdfald(listId: string, companyId: string, udfald:
   return data as { id: string; status: string; saelger: string | null };
 }
 
-const KRAEVER_DETALJER: Udfald[] = ["ring_igen", "ikke_interesseret", "moede_booket"];
-
 /** "Registrér udfald" – samme dialog i ringevisningen og i listevisningen. */
 export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClose, onDone }: {
   listId: string;
@@ -122,10 +120,8 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
                 {kontakt === "ny" && <Input className="mt-2" placeholder="Navn" value={nyKontakt} onChange={(e) => setNyKontakt(e.target.value)} />}
               </div>
             )}
-            {(KRAEVER_DETALJER.includes(udfald) || udfald === "tilbud_oensket") || true ? (
-              <div><Label>Note{udfald === "moede_booket" ? " (påkrævet)" : ""}</Label>
-                <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></div>
-            ) : null}
+            <div><Label>Note{udfald === "moede_booket" ? " (påkrævet)" : ""}</Label>
+              <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></div>
           </div>
         )}
         <DialogFooter>
