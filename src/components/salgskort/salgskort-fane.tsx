@@ -299,7 +299,8 @@ export function SalgskortFane() {
     const afviger: SimRow[] = [];
     const regelStat = new Map<string, { n: number; oms: number }>();
     const overlap = new Map<string, Map<string, number>>();
-    if (visning !== "sim" || !st.sc || !data || !dd) return { kons: [] as KonsekvensRow[], flyt, afviger, regelStat, overlap, ukendte: 0, penhed: 0, kam: [] as KamRow[], scKamStat: new Map<string, { n: number; oms: number }>() };
+    const dStat = new Map<string, { n: number; oms: number }>();
+    if (visning !== "sim" || !st.sc || !data || !dd) return { kons: [] as KonsekvensRow[], flyt, afviger, regelStat, overlap, ukendte: 0, penhed: 0, kam: [] as KamRow[], scKamStat: new Map<string, { n: number; oms: number }>(), dStat };
     const fn = new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]));
     const gDistr = new Map(dd.distrikter.map((d) => [d.id, d]));
     const get = (k: string) => { let e = kons.get(k); if (!e) kons.set(k, (e = { key: k, foer: tomAgg(), efter: tomAgg() })); return e; };
@@ -321,6 +322,7 @@ export function SalgskortFane() {
       for (const [k, side] of [[r.sKey, "foer"], [til, "efter"]] as const) {
         const a = get(k)[side]; a.n++; a.aktive += aktiv ? 1 : 0; a.oms += r.omsaetning_12m; a.db += r.db_12m;
       }
+      if (scD && til === scSaelgerKey(scD)) { const e = dStat.get(scD.id) ?? { n: 0, oms: 0 }; e.n++; e.oms += r.omsaetning_12m; dStat.set(scD.id, e); }
       if (b.aarsag && b.aarsag !== "geo") { const s = regelStat.get(b.aarsag) ?? { n: 0, oms: 0 }; s.n++; s.oms += r.omsaetning_12m; regelStat.set(b.aarsag, s); }
       const basis = { location_id: r.location_id, company_id: r.company_id, virksomhed: r.virksomhedsnavn ?? "", postnr: r.zip_norm ?? "",
         by: r.flade != null ? fn.get(r.flade) ?? "" : "", aktiv, oms: r.omsaetning_12m, db: r.db_12m, nu: r.sKey };
@@ -335,7 +337,7 @@ export function SalgskortFane() {
     for (const a of scKam) scKamStat.set(a.id, taelKam(a, true));
     const tom = { aftaler: 0, n: 0, oms: 0, db: 0 };
     const kam: KamRow[] = [...new Set([...kf.keys(), ...ke.keys()])].map((k) => ({ key: k, foer: kf.get(k) ?? tom, efter: ke.get(k) ?? tom })).sort((a, b) => b.efter.oms - a.efter.oms);
-    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt, afviger, regelStat, overlap, ukendte, penhed, kam, scKamStat };
+    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt, afviger, regelStat, overlap, ukendte, penhed, kam, scKamStat, dStat };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visning, st.sc, data, dd, filtrerede, simLoks, scMap, regler, scKam]);
   const regelValg = useMemo(() => ({
@@ -417,7 +419,7 @@ export function SalgskortFane() {
     });
     return { main: mk(false), bh: mk(true) };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, pFlade, farver, fremhaevAktiv, visning, overens, dd, distriktMap, profilNavn, st.sc, scMap, fiktivMap]);
+  }, [data, pFlade, farver, fremhaevAktiv, visning, overens, dd, distriktMap, profilNavn, st.sc, scMap, fiktivMap, hoverDistr]);
 
   if (auth.loading) return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Indlæser…</div>;
   if (auth.role !== "admin") return null;
@@ -583,7 +585,7 @@ export function SalgskortFane() {
             ) : visning === "sim" ? (
               dd ? <SimuleringPanel st={st} dd={dd} navn={simNavn} farve={simFarve} konsekvens={sim.kons} flytninger={sim.flyt}
                 afviger={sim.afviger} regler={regler} regelStat={sim.regelStat} overlap={sim.overlap} taelRegel={taelRegel} regioner={regioner} ukendteAnsatte={sim.ukendte} penhedAnsatte={sim.penhed}
-                antalLok={filtrerede.length} regelValg={regelValg} kamPort={sim.kam} kamTael={(a) => taelKam(a, true)} kamStat={sim.scKamStat}
+                antalLok={filtrerede.length} regelValg={regelValg} kamPort={sim.kam} kamTael={(a) => taelKam(a, true)} kamStat={sim.scKamStat} dStatSc={sim.dStat}
                 redigerer={redigerer} setRedigerer={setRedigerer}
                 valgt={valgtDistrikt} setValgt={setValgtDistrikt} fladeNavn={new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]))} /> : null
             ) : (
