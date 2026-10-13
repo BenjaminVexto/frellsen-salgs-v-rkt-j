@@ -281,3 +281,20 @@ export const getSalespersonMap = createServerFn({ method: "GET" })
     }
     return out;
   });
+
+export const adminDeleteUser = createServerFn({ method: "POST" })
+  .middleware([kraevIntern])
+  .inputValidator((input: unknown) => z.object({ user_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.userId);
+    if (data.user_id === context.userId) throw new Error("Du kan ikke slette dig selv");
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+    if (error) {
+      throw new Error(
+        /foreign key|violates|constraint|Database error/i.test(error.message)
+          ? "Brugeren har data i CRM'et (aktiviteter, kunder m.m.) og kan ikke slettes. Deaktivér brugeren i stedet."
+          : error.message,
+      );
+    }
+    return { ok: true };
+  });
