@@ -570,16 +570,9 @@ function KontaktlisteDetalje() {
                     sortDir={sortDir}
                     onSort={toggleSort}
                   />
-                  <TableHead>Telefon</TableHead>
-                  <TableHead>E-mail</TableHead>
+                  <TableHead>Telefon / e-mail</TableHead>
                   <TableHead>Kontaktperson</TableHead>
-                  <SortableHead
-                    label="By"
-                    k="city"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={toggleSort}
-                  />
+
                   <SortableHead
                     label="Ansatte"
                     k="employees"
@@ -654,33 +647,27 @@ function KontaktlisteDetalje() {
                               <Globe className="h-3.5 w-3.5" />
                             </a>
                           )}
-                          {r.location_city && (
-                            <div className="text-xs text-muted-foreground font-normal">
-                              📍 {r.location_city}
-                            </div>
-                          )}
+                          <div className="text-xs text-muted-foreground font-normal truncate">
+                            {r.location_city && r.location_city !== r.company.city ? `📍 ${r.location_city}` : (r.company.city ?? "")}
+                          </div>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-sm">
+                        <TableCell className="text-sm max-w-[220px]">
                           {(() => {
                             const n = telefonNumre(r.location_phone, r.company.phone);
-                            if (!n.length) return <span className="text-xs text-muted-foreground">—</span>;
+                            if (!n.length) return <div className="text-xs text-muted-foreground">—</div>;
                             return n.map((t, i) => (
-                              <div key={t} className={i ? "text-xs text-muted-foreground" : ""}>
+                              <div key={t} className={`whitespace-nowrap ${i ? "text-xs text-muted-foreground" : ""}`}>
                                 <a href={telHref(t)} className="hover:underline">{formatTelefon(t)}</a>
                               </div>
                             ));
                           })()}
-                        </TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate">
-                          {r.company.email ? (
-                            <a href={`mailto:${r.company.email}`} className="hover:underline" title={r.company.email}>{r.company.email}</a>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                          {r.company.email && (
+                            <a href={`mailto:${r.company.email}`} className="block truncate text-xs text-muted-foreground hover:underline" title={r.company.email}>{r.company.email}</a>
                           )}
                         </TableCell>
                         <TableCell className="text-sm max-w-[180px]">
                           {r.kontakt ? (
-                            <div className="truncate" title={`${r.kontakt.name}${r.kontakt.title ? ` · ${r.kontakt.title}` : ""}`}>
+                            <div title={`${r.kontakt.name}${r.kontakt.title ? ` · ${r.kontakt.title}` : ""}`}>
                               <div className="truncate">{r.kontakt.name}</div>
                               {r.kontakt.title && <div className="text-xs text-muted-foreground truncate">{r.kontakt.title}</div>}
                             </div>
@@ -688,7 +675,7 @@ function KontaktlisteDetalje() {
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">{r.company.city ?? "—"}</TableCell>
+
                         <TableCell className="text-sm">{r.company.employees ?? "—"}</TableCell>
                         <TableCell>
                           <CustomerStatusBadge
