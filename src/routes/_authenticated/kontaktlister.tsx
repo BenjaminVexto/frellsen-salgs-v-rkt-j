@@ -88,10 +88,21 @@ function KontaktlisterOversigt() {
       return;
     }
     const ids = lists.map((l) => l.id);
-    const { data: assigns } = await supabase
-      .from("contact_list_assignments")
-      .select("contact_list_id, status, assigned_to")
-      .in("contact_list_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+    let assigns: { contact_list_id: string; status: string; assigned_to: string | null }[] = [];
+    try {
+      assigns = ids.length
+        ? await hentAlle((fra, til) =>
+            supabase
+              .from("contact_list_assignments")
+              .select("id, contact_list_id, status, assigned_to")
+              .in("contact_list_id", ids)
+              .order("id")
+              .range(fra, til),
+          )
+        : [];
+    } catch (e: any) {
+      toast.error("Kunne ikke hente virksomheder på listerne: " + (e?.message ?? e));
+    }
 
     const userIds = Array.from(
       new Set((assigns ?? []).map((a) => a.assigned_to).filter(Boolean) as string[]),
