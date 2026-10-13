@@ -105,13 +105,35 @@ export function regelTekst(r: Regel, navn: (k: string) => string, distriktNavn?:
   return `${navn(r.saelger)} må ikke have: ${bet} → ${alt}`;
 }
 
-/** KAM-aftale: lokationen er på aftalen, hvis dens KPG1/KPG2/KPG3 (efter kodetype) er blandt koderne. */
-export type KamAftale = { id: string; navn: string; kodetype: "kpg1" | "kpg2" | "kpg3"; koder: string[]; ansvarlige: string[]; aktiv: boolean };
+/** KAM-aftale: lokationen er på aftalen, hvis den ligger i området OG matcher én af koderne (ELLER mellem KPG1/KPG2/KPG3). */
+export type KamAftale = { id: string; navn: string; kpg1: string[]; kpg2: string[]; kpg3: string[]; omraade?: Omraade | null; ansvarlige: string[]; aktiv: boolean };
 
 export function kamMatcher(a: KamAftale, l: RegelLok): boolean {
-  if (!a.aktiv) return false;
-  const v = a.kodetype === "kpg1" ? l.kpg1 : a.kodetype === "kpg2" ? l.kpg1 + "||" + l.kpg2 : l.kpg3;
-  return a.koder.includes(v);
+  if (!a.aktiv || !iOmraade(l, a.omraade)) return false;
+  return a.kpg1.includes(l.kpg1) || a.kpg2.includes(l.kpg1 + "||" + l.kpg2) || a.kpg3.includes(l.kpg3);
+}
+
+const nr = (s: string) => s.match(/^\s*(\d+)/)?.[1] ?? null;
+/** Kort kodeoversigt, fx "KPG1 22, 33 · KPG3 15, 30". */
+export function kodeOversigt(b: { kpg1?: string[]; kpg2?: string[]; kpg3?: string[] }): string {
+  const f = (l: string[]) => l.map((k) => nr(k) ?? k).join(", ");
+  return [b.kpg1?.length ? "KPG1 " + f(b.kpg1) : "", b.kpg2?.length ? "KPG2 " + f(b.kpg2.map((k) => k.split("||")[1] ?? k)) : "", b.kpg3?.length ? "KPG3 " + f(b.kpg3) : ""]
+    .filter(Boolean).join(" · ") || "ingen koder";
+}
+
+/**
+ * Indsæt koder kopieret fra Excel: adskilt af linjeskift, komma, semikolon eller tab; som "60" eller "60 [FKS kunder]".
+ * Matches mod kendte koder (for KPG2 nøgler "KPG1||KPG2", matchet på KPG2-delen).
+ */
+export function parseKoder(tekst: string, kendte: string[], type: "kpg1" | "kpg2" | "kpg3"): { fundet: string[]; ikke: string[] } {
+  const del = (k: string) => (type === "kpg2" ? k.split("||")[1] ?? k : k);
+  const fundet = new Set<string>(); const ikke: string[] = [];
+  for (const t of tekst.split(/[\n\r,;\t]+/).map((s) => s.trim()).filter(Boolean)) {
+    const tn = nr(t);
+    const hit = kendte.filter((k) => del(k).trim().toLowerCase() === t.toLowerCase() || (tn != null && nr(del(k)) === tn && (/^\d+$/.test(t) || del(k).toLowerCase().startsWith(t.toLowerCase().split("[")[0].trim()))));
+    if (hit.length) hit.forEach((h) => fundet.add(h)); else ikke.push(t);
+  }
+  return { fundet: [...fundet], ikke };
 }
 
 export type KamPort = { aftaler: number; n: number; oms: number; db: number };
