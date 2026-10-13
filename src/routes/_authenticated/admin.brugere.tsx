@@ -9,6 +9,7 @@ import {
   adminSetUserActive,
   adminResetUserPassword,
   adminUpdateUserEmail,
+  adminDeleteUser,
 } from "@/lib/admin-users.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Pencil, KeyRound, Mail, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Loader2, Plus, Pencil, KeyRound, Mail, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BonusOrdningAdmin } from "@/components/bonus/bonus-ordning-admin";
 import { CvrApiStatusKort } from "@/components/cvr-api-status-kort";
@@ -100,6 +101,7 @@ function BrugerStyringSide() {
   const setActiveFn = useServerFn(adminSetUserActive);
   const resetPwFn = useServerFn(adminResetUserPassword);
   const updateEmailFn = useServerFn(adminUpdateUserEmail);
+  const deleteFn = useServerFn(adminDeleteUser);
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
@@ -404,6 +406,19 @@ function BrugerStyringSide() {
       toast.success(next ? "Bruger aktiveret" : "Bruger deaktiveret");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Kunne ikke ændre status");
+    }
+  };
+
+  const onDeleteUser = async () => {
+    if (!editRow) return;
+    if (!window.confirm(`Slet ${editRow.full_name || editRow.email} permanent? Det kan ikke fortrydes.`)) return;
+    try {
+      await deleteFn({ data: { user_id: editRow.id } });
+      setRows((prev) => prev.filter((x) => x.id !== editRow.id));
+      setEditRow(null);
+      toast.success("Bruger slettet");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Kunne ikke slette bruger");
     }
   };
 
@@ -826,6 +841,11 @@ function BrugerStyringSide() {
                 <Button variant="outline" size="sm" onClick={() => setPwOpen(true)}>
                   <KeyRound className="h-4 w-4 mr-1" /> Nulstil adgangskode
                 </Button>
+                {editRow.id !== auth.user?.id && (
+                  <Button variant="destructive" size="sm" className="ml-auto" onClick={onDeleteUser}>
+                    <Trash2 className="h-4 w-4 mr-1" /> Slet bruger
+                  </Button>
+                )}
               </div>
             </div>
               </TabsContent>
