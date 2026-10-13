@@ -37,7 +37,7 @@ export async function hentDistriktData(): Promise<DistriktData> {
 
 const kr = (n: number) => Math.round(n).toLocaleString("da-DK") + " kr.";
 
-export type DistriktStat = { flader: number; n: number; match: number; db: number };
+export type DistriktStat = { flader: number; n: number; match: number; db: number; oms: number };
 
 export function DistriktPanel({
   data, stats, navn, redigerer, setRedigerer, valgt, setValgt, kanFortryde, onFortryd, onGemt, kpg3Koder,
@@ -72,8 +72,10 @@ export function DistriktPanel({
       {data.distrikter.length === 0 && <div className="text-muted-foreground text-sm">Ingen distrikter endnu.</div>}
       <ul className="space-y-1">
         {data.distrikter.map((d) => {
-          const s = stats.get(d.id) ?? { flader: 0, n: 0, match: 0, db: 0 };
+          const s = stats.get(d.id) ?? { flader: 0, n: 0, match: 0, db: 0, oms: 0 };
           const pct = s.n ? Math.round((100 * s.match) / s.n) + " %" : "—";
+          const ds = distriktSaelger(d);
+          const hos = s.n && ds ? ` hos ${navn(ds).split(/\s+/).slice(0, 2).join(" ")}` : "";
           const saelger = d.saelger_user_id ? navn(d.saelger_user_id) : `NY – dækkes af ${d.daekkes_af_user_id ? navn(d.daekkes_af_user_id) : "ingen"}`;
           return (
             <li key={d.id}
@@ -85,8 +87,11 @@ export function DistriktPanel({
                 <button type="button" className="text-muted-foreground hover:underline" onClick={(e) => { e.stopPropagation(); setEdit(d); }}>Rediger</button>
               </div>
               <div className="text-muted-foreground mt-0.5">{saelger}{d.landsdel ? ` · ${d.landsdel}` : ""}</div>
-              <div className="grid grid-cols-4 gap-1 mt-1 tabular-nums">
-                <span>{s.flader} fl.</span><span>{s.n} lok.</span><span>{kr(s.db)}</span><span className="text-right">{pct}</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 tabular-nums">
+                <span>{s.flader} {s.flader === 1 ? "flade" : "flader"}</span>
+                <span>{s.n.toLocaleString("da-DK")} {s.n === 1 ? "lokation" : "lokationer"}</span>
+                <span>{kr(s.oms)} oms.</span>
+                <span className="cursor-help" title="Andel af distriktets geografiske lokationer, hvor ansvarlig sælger i Visma er distriktets sælger">{pct}{hos}</span>
               </div>
             </li>
           );
