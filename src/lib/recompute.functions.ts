@@ -28,11 +28,14 @@ export const recomputeAllCompanyStatuses = createServerFn({ method: "POST" })
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: companies, error: idsErr } = await supabaseAdmin
-      .from("companies")
-      .select("id");
-    if (idsErr) {
-      return { ok: false as const, error: idsErr.message };
+    let companies: { id: string }[];
+    try {
+      const { hentAlle } = await import("@/lib/hent-alle");
+      companies = await hentAlle<{ id: string }>((f, t) =>
+        supabaseAdmin.from("companies").select("id").order("id").range(f, t) as any,
+      );
+    } catch (e: any) {
+      return { ok: false as const, error: e?.message ?? String(e) };
     }
     const ids = (companies ?? []).map((c: { id: string }) => c.id);
 

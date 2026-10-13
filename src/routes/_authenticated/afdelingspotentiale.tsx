@@ -1,4 +1,5 @@
 import { Checkbox } from "@/components/ui/checkbox";
+import { hentAlle } from "@/lib/hent-alle";
 import { PenhedDaekning, hentPenhedDaekning } from "@/components/penhed-daekning";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -185,12 +186,15 @@ function HorisontalMersalg() {
   const [aabneAntal, setAabneAntal] = useState<Map<string, number>>(new Map());
 
   async function hentAabne() {
-    const { data } = await (supabase as any)
-      .from("sales_opportunities")
-      .select("company_id, assigned_to, p_nummer")
-      .not("p_nummer", "is", null)
-      .not("status", "in", "(vundet,tabt)")
-      .limit(10000);
+    const data = await hentAlle((f, t) =>
+      (supabase as any)
+        .from("sales_opportunities")
+        .select("company_id, assigned_to, p_nummer")
+        .not("p_nummer", "is", null)
+        .not("status", "in", "(vundet,tabt)")
+        .order("id")
+        .range(f, t),
+    ).catch(() => [] as any[]);
     const s = new Map<string, Set<string>>();
     const n = new Map<string, number>();
     for (const o of (data ?? []) as any[]) {
@@ -205,14 +209,18 @@ function HorisontalMersalg() {
   async function analyse() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("salgsintelligens_mersalg")
-        .select(
-          "company_id, cvr, name, city, potential, daekket, penheder_total, assigned_to, antal_kundenumre, afdeling_nr, ansatte_ikke_daekket, ansatte_total, max_ansatte_ikke_daekket, uden_tal_ikke_daekket, uden_tal_total",
-        )
-        .order("ansatte_ikke_daekket", { ascending: false, nullsFirst: false })
-        .order("potential", { ascending: false })
-        .limit(2000);
+      const { data, error } = await hentAlle((f, t) =>
+        supabase
+          .from("salgsintelligens_mersalg")
+          .select(
+            "company_id, cvr, name, city, potential, daekket, penheder_total, assigned_to, antal_kundenumre, afdeling_nr, ansatte_ikke_daekket, ansatte_total, max_ansatte_ikke_daekket, uden_tal_ikke_daekket, uden_tal_total",
+          )
+          .order("ansatte_ikke_daekket", { ascending: false, nullsFirst: false })
+          .order("potential", { ascending: false })
+          .order("company_id")
+          .range(f, t) as any,
+        2000,
+      ).then((rows) => ({ data: rows, error: null as any }), (error) => ({ data: null, error }));
 
       if (error) {
         toast.error("Kunne ikke hente data: " + error.message);

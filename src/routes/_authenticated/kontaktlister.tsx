@@ -641,26 +641,25 @@ function OpretListeDialog({
     if (ringere.length) {
       await (supabase as any).from("kontaktliste_ringer").insert(ringere.map((user_id) => ({ contact_list_id: list.id, user_id })));
     }
+    let udenDistrikt = 0;
     if (ids.length) {
-      // Telemarketing + "distriktssælger": tildel pr. virksomhed via distriktskortet
-      // (postnr. → flade → distrikt → sælger), ellers reservesælgeren.
+      // Telemarketing + "distriktssælger": tildel pr. virksomhed via distriktskortet.
+      // Opslaget (postnr. → flade → distrikt → sælger) sker i databasen.
       const saelgerFor = new Map<string, string | null>();
       if (distriktTildeling) {
-        const [{ data: pm }, { data: df }, { data: d }] = await Promise.all([
-          supabase.from("postnummer_flade_map").select("postnr, flade"),
-          supabase.from("distrikt_flade").select("flade, distrikt_id"),
-          supabase.from("distrikter").select("id, saelger_user_id, daekkes_af_user_id"),
-        ]);
-        const dSaelger = new Map((d ?? []).map((x: any) => [x.id, x.saelger_user_id ?? x.daekkes_af_user_id ?? null]));
-        const fladeD = new Map((df ?? []).map((x: any) => [x.flade, x.distrikt_id]));
-        const pnS = new Map((pm ?? []).map((x: any) => [String(x.postnr), dSaelger.get(fladeD.get(x.flade)) ?? null]));
         for (let i = 0; i < ids.length; i += 200) {
-          const { data: cz } = await supabase.from("companies").select("id, zip").in("id", ids.slice(i, i + 200));
-          (cz ?? []).forEach((c: any) => {
-            const z = String(c.zip ?? "").replace(/\D/g, "").slice(0, 4);
-            saelgerFor.set(c.id, pnS.get(z) ?? null);
+          const { data: cz, error: dErr } = await (supabase as any).rpc("distrikt_saelger_for_virksomheder", {
+            _company_ids: ids.slice(i, i + 200),
           });
+          if (dErr) {
+            toast.error("Kunne ikke slå distriktssælger op: " + dErr.message);
+            setSaving(false);
+            onCreated();
+            return;
+          }
+          (cz ?? []).forEach((c: any) => saelgerFor.set(c.company_id, c.saelger_user_id ?? null));
         }
+        udenDistrikt = ids.filter((id) => !saelgerFor.get(id)).length;
       }
       const rows = ids.map((company_id) => ({
         contact_list_id: list.id,
@@ -682,6 +681,13 @@ function OpretListeDialog({
           return;
         }
       }
+    }
+    if (udenDistrikt > 0) {
+      const reserve = sellers.find((s) => s.id === responsibleSeller)?.full_name;
+      toast.warning(
+        `${udenDistrikt} ${udenDistrikt === 1 ? "virksomhed" : "virksomheder"} kunne ikke placeres i et distrikt – tildelt ${reserve ? `reservesælger (${reserve})` : "ingen"}`,
+        { duration: 15000 },
+      );
     }
     toast.success(`Kontaktliste oprettet med ${ids.length} virksomheder`);
     setSaving(false);

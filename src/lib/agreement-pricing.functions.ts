@@ -523,12 +523,16 @@ export const getPrismatrixOverblik = createServerFn({ method: "POST" })
     );
     const antalPrNr = new Map<string, number>();
     if (nrs.length) {
-      const { data: cnt } = await supabaseAdmin
-        .from("agreement_pricing" as any)
-        .select("fak_kundenr")
-        .eq("record_status", "aktiv")
-        .in("fak_kundenr", nrs)
-        .limit(5000);
+      const { hentAlle } = await import("@/lib/hent-alle");
+      const cnt = await hentAlle((f, t) =>
+        supabaseAdmin
+          .from("agreement_pricing" as any)
+          .select("id, fak_kundenr")
+          .eq("record_status", "aktiv")
+          .in("fak_kundenr", nrs)
+          .order("id")
+          .range(f, t) as any,
+      ).catch(() => [] as any[]);
       for (const r of (cnt ?? []) as any[]) {
         const k = String(r.fak_kundenr).trim();
         antalPrNr.set(k, (antalPrNr.get(k) ?? 0) + 1);

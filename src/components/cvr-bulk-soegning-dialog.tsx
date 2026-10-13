@@ -190,43 +190,41 @@ export function CvrBulkSoegningDialog({
   }, [open]);
 
   // Distrikter fra det gældende distriktskort
-  type Distrikt = { id: string; navn: string; farve: string | null; saelger: string | null; flader: number[] };
+  type Distrikt = { id: string; navn: string; farve: string | null; saelger: string | null; flader: number };
   const [distrikter, setDistrikter] = useState<Distrikt[]>([]);
-  const [fladePn, setFladePn] = useState<Map<number, number[]>>(new Map());
   const [valgteDistrikter, setValgteDistrikter] = useState<string[]>([]);
+  const [antalPostnumre, setAntalPostnumre] = useState(0);
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const [{ data: d }, { data: df }, { data: pf }] = await Promise.all([
-        supabase.from("distrikter").select("id, navn, farve, sort, saelger_user_id, daekkes_af_user_id").eq("aktiv", true).order("sort"),
-        supabase.from("distrikt_flade").select("flade, distrikt_id"),
-        supabase.from("postnummer_flader").select("flade, postnumre"),
-      ]);
-      const uids = [...new Set((d ?? []).flatMap((x: any) => [x.saelger_user_id, x.daekkes_af_user_id]).filter(Boolean))];
-      const { data: profs } = uids.length
-        ? await supabase.from("profiles").select("id, full_name").in("id", uids as string[])
-        : { data: [] as any[] };
-      const navn = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
-      setFladePn(new Map((pf ?? []).map((x: any) => [x.flade, x.postnumre ?? []])));
+      // Opslaget sker i databasen – distrikt-/fladetabellerne hentes ikke til browseren.
+      const { data: d } = await (supabase as any).rpc("distrikt_oversigt");
       setDistrikter(
-        (d ?? []).map((x: any) => ({
+        ((d ?? []) as any[]).map((x) => ({
           id: x.id,
           navn: x.navn,
           farve: x.farve,
           saelger: x.saelger_user_id
-            ? (navn.get(x.saelger_user_id) ?? null)
-            : x.daekkes_af_user_id ? `NY – dækkes af ${navn.get(x.daekkes_af_user_id) ?? "?"}` : "NY",
-          flader: (df ?? []).filter((f: any) => f.distrikt_id === x.id).map((f: any) => f.flade),
+            ? (x.saelger_navn ?? null)
+            : x.daekkes_af_user_id ? `NY – dækkes af ${x.daekkes_af_navn ?? "?"}` : "NY",
+          flader: x.flader ?? 0,
         })),
       );
     })();
   }, [open]);
+  useEffect(() => {
+    if (!valgteDistrikter.length) { setAntalPostnumre(0); return; }
+    let aktiv = true;
+    (supabase as any).rpc("distrikt_postnumre", { _distrikt_ids: valgteDistrikter }).then(({ data }: any) => {
+      if (aktiv) setAntalPostnumre((data ?? []).length);
+    });
+    return () => { aktiv = false; };
+  }, [valgteDistrikter]);
   const distriktInfo = useMemo(() => {
     const valgte = distrikter.filter((d) => valgteDistrikter.includes(d.id));
-    const flader = valgte.flatMap((d) => d.flader);
-    const pn = new Set(flader.flatMap((f) => fladePn.get(f) ?? []));
-    return { n: valgte.length, flader: flader.length, postnumre: pn.size, navne: valgte.map((d) => d.navn) };
-  }, [distrikter, valgteDistrikter, fladePn]);
+    const flader = valgte.reduce((s, d) => s + d.flader, 0);
+    return { n: valgte.length, flader, postnumre: antalPostnumre, navne: valgte.map((d) => d.navn) };
+  }, [distrikter, valgteDistrikter, antalPostnumre]);
 
   // Filtre
   const [kommuner, setKommuner] = useState<string[]>([]);

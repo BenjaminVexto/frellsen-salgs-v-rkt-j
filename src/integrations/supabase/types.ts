@@ -4749,6 +4749,14 @@ export type Database = {
       }
     }
     Functions: {
+      _distrikt_saelger: {
+        Args: { _postnr: string }
+        Returns: {
+          distrikt_id: string
+          distrikt_navn: string
+          saelger_user_id: string
+        }[]
+      }
       _import_type_label: { Args: { _t: string }; Returns: string }
       _maalepunkt_db_detaljer_raw: {
         Args: {
@@ -5017,6 +5025,42 @@ export type Database = {
         Returns: Database["public"]["Enums"]["agreement_type"]
       }
       derive_te_type: { Args: { _beskrivelse: string }; Returns: string }
+      distrikt_oversigt: {
+        Args: never
+        Returns: {
+          daekkes_af_navn: string
+          daekkes_af_user_id: string
+          farve: string
+          flader: number
+          id: string
+          navn: string
+          postnumre: number
+          saelger_navn: string
+          saelger_user_id: string
+          sort: number
+        }[]
+      }
+      distrikt_postnumre: {
+        Args: { _distrikt_ids: string[] }
+        Returns: number[]
+      }
+      distrikt_saelger_for_postnumre: {
+        Args: { _postnumre: string[] }
+        Returns: {
+          distrikt_id: string
+          distrikt_navn: string
+          postnr: string
+          saelger_navn: string
+          saelger_user_id: string
+        }[]
+      }
+      distrikt_saelger_for_virksomheder: {
+        Args: { _company_ids: string[] }
+        Returns: {
+          company_id: string
+          saelger_user_id: string
+        }[]
+      }
       dublet_kandidater: {
         Args: never
         Returns: {
