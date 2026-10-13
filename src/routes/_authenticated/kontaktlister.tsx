@@ -5,6 +5,7 @@ import { TmListeOversigt } from "@/components/telemarketing/tm-liste-oversigt";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { hentAlle } from "@/lib/hent-alle";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
