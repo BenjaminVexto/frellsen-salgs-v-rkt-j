@@ -623,7 +623,7 @@ function KontaktlisteDetalje() {
                 {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={12}
+                      colSpan={13}
                       className="text-center text-sm text-muted-foreground py-12"
                     >
                       Ingen virksomheder matcher filtrene.
@@ -635,7 +635,7 @@ function KontaktlisteDetalje() {
                       r.next_followup_date && r.next_followup_date < today;
                     return (
                       <TableRow key={r.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium max-w-[240px]">
                           <Link
                             to="/virksomheder/$id"
                             params={{ id: r.company_id }}
@@ -671,44 +671,45 @@ function KontaktlisteDetalje() {
                             ));
                           })()}
                         </TableCell>
-                        <TableCell className="text-sm max-w-[220px] truncate">
+                        <TableCell className="text-sm max-w-[200px] truncate">
                           {r.company.email ? (
                             <a href={`mailto:${r.company.email}`} className="hover:underline" title={r.company.email}>{r.company.email}</a>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-sm max-w-[180px]">
                           {r.kontakt ? (
-                            <div>
-                              <div>{r.kontakt.name}</div>
-                              {r.kontakt.title && <div className="text-xs text-muted-foreground">{r.kontakt.title}</div>}
+                            <div className="truncate" title={`${r.kontakt.name}${r.kontakt.title ? ` · ${r.kontakt.title}` : ""}`}>
+                              <div className="truncate">{r.kontakt.name}</div>
+                              {r.kontakt.title && <div className="text-xs text-muted-foreground truncate">{r.kontakt.title}</div>}
                             </div>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell>{r.company.city ?? "—"}</TableCell>
-                        <TableCell>{r.company.employees ?? "—"}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{r.company.city ?? "—"}</TableCell>
+                        <TableCell className="text-sm">{r.company.employees ?? "—"}</TableCell>
                         <TableCell>
                           <CustomerStatusBadge
                             type={r.company.customer_type}
                             variant="outline"
-                            className="text-xs"
+                            className="text-xs whitespace-nowrap"
                           />
                         </TableCell>
 
-                        <TableCell className="text-sm">{r.seller_name}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{r.seller_name}</TableCell>
                         <TableCell>
-                          <div className="flex flex-col items-start gap-1">
+                          <div className="flex items-center gap-2 whitespace-nowrap">
                             <Badge variant={r.status === "møde_booket" || r.status === "tilbud_oensket" ? "default" : "outline"} className="text-xs whitespace-nowrap">
                               {statusTekst(r.status, r.status_aarsag, r.antal_forsoeg)}
                             </Badge>
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setUdfaldRow(r)}>
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setUdfaldRow(r)}>
                               Registrér udfald
                             </Button>
                           </div>
                         </TableCell>
+
                         <TableCell>
                           <Select
                             value={r.priority}
