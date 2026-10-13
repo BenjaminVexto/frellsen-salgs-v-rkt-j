@@ -603,6 +603,13 @@
       "when": 1791884338544,
       "tag": "0085_scenarie_kopier_regler",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1791885241330,
+      "tag": "0086_kam_aftaler",
+      "breakpoints": true
     }
   ]
 }

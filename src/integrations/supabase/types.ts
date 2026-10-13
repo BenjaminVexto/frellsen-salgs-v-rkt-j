@@ -2144,6 +2144,39 @@ export type Database = {
         }
         Relationships: []
       }
+      kam_aftale: {
+        Row: {
+          aktiv: boolean
+          id: string
+          kam_ansvarlige: string[]
+          koder: string[]
+          kodetype: string
+          navn: string
+          opdateret_at: string
+          oprettet_at: string
+        }
+        Insert: {
+          aktiv?: boolean
+          id?: string
+          kam_ansvarlige?: string[]
+          koder?: string[]
+          kodetype?: string
+          navn: string
+          opdateret_at?: string
+          oprettet_at?: string
+        }
+        Update: {
+          aktiv?: boolean
+          id?: string
+          kam_ansvarlige?: string[]
+          koder?: string[]
+          kodetype?: string
+          navn?: string
+          opdateret_at?: string
+          oprettet_at?: string
+        }
+        Relationships: []
+      }
       katalog_indstilling: {
         Row: {
           forside_billede_url: string | null
@@ -4092,6 +4125,50 @@ export type Database = {
           },
           {
             foreignKeyName: "scenarie_flade_scenarie_id_fkey"
+            columns: ["scenarie_id"]
+            isOneToOne: false
+            referencedRelation: "distrikt_scenarie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scenarie_kam: {
+        Row: {
+          aktiv: boolean
+          id: string
+          kam_ansvarlige: string[]
+          kam_fiktive: string[]
+          kilde_kam_id: string | null
+          koder: string[]
+          kodetype: string
+          navn: string
+          scenarie_id: string
+        }
+        Insert: {
+          aktiv?: boolean
+          id?: string
+          kam_ansvarlige?: string[]
+          kam_fiktive?: string[]
+          kilde_kam_id?: string | null
+          koder?: string[]
+          kodetype: string
+          navn: string
+          scenarie_id: string
+        }
+        Update: {
+          aktiv?: boolean
+          id?: string
+          kam_ansvarlige?: string[]
+          kam_fiktive?: string[]
+          kilde_kam_id?: string | null
+          koder?: string[]
+          kodetype?: string
+          navn?: string
+          scenarie_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenarie_kam_scenarie_id_fkey"
             columns: ["scenarie_id"]
             isOneToOne: false
             referencedRelation: "distrikt_scenarie"
