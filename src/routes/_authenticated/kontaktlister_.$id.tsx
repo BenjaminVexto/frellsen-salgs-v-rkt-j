@@ -42,6 +42,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { LISTE_STATUSSER, STATUS_LABEL, statusTekst, type ListeStatus } from "@/lib/telemarketing";
+import { UdfaldDialog } from "@/components/kontaktliste/udfald-dialog";
 import { Download, Globe } from "lucide-react";
 import { hentAlle } from "@/lib/hent-alle";
 import { formatTelefon, telHref, webHref, telefonNumre } from "@/lib/telefon";
@@ -60,18 +62,7 @@ function KontaktlisteSide() {
   return <KontaktlisteDetalje />;
 }
 
-const STATUS_OPTIONS: { value: AssignmentStatus; label: string }[] = [
-  { value: "ny", label: "Ny" },
-  { value: "skal_kontaktes", label: "Skal kontaktes" },
-  { value: "kontaktet", label: "Kontaktet" },
-  { value: "talt_med", label: "Talt med" },
-  { value: "møde_booket", label: "Møde booket" },
-  { value: "tilbud_sendt", label: "Tilbud sendt" },
-  { value: "ikke_relevant", label: "Ikke relevant" },
-  { value: "senere_emne", label: "Senere emne" },
-  { value: "vundet", label: "Vundet" },
-  { value: "tabt", label: "Tabt" },
-];
+const STATUS_OPTIONS: { value: AssignmentStatus; label: string }[] = LISTE_STATUSSER.map((v) => ({ value: v, label: STATUS_LABEL[v] }));
 
 const PRIORITY_OPTIONS: { value: PriorityLevel; label: string }[] = [
   { value: "høj", label: "Høj" },
@@ -87,30 +78,18 @@ const CUSTOMER_TYPE_LABEL: Record<string, string> = {
   tidligere_kunde: "Tidligere kunde",
 };
 
-type AssignmentStatus =
-  | "ny"
-  | "skal_kontaktes"
-  | "kontaktet"
-  | "talt_med"
-  | "møde_booket"
-  | "tilbud_sendt"
-  | "ikke_relevant"
-  | "senere_emne"
-  | "vundet"
-  | "tabt";
+type AssignmentStatus = ListeStatus;
 
 type PriorityLevel = "høj" | "middel" | "lav";
 
-const REQUIRES_FOLLOWUP: AssignmentStatus[] = [
-  "talt_med",
-  "møde_booket",
-  "tilbud_sendt",
-];
 
 type Row = {
   id: string;
   company_id: string;
   status: AssignmentStatus;
+  status_aarsag: string | null;
+  antal_forsoeg: number;
+  kontakter: { id: string; navn: string; titel: string | null }[];
   priority: PriorityLevel;
   next_followup_date: string | null;
   next_action_note: string | null;
@@ -163,13 +142,7 @@ function KontaktlisteDetalje() {
   const [sortKey, setSortKey] = useState<string>("company");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  // status change requiring followup
-  const [pending, setPending] = useState<{
-    row: Row;
-    newStatus: AssignmentStatus;
-  } | null>(null);
-  const [pDate, setPDate] = useState("");
-  const [pAction, setPAction] = useState("");
+  const [udfaldRow, setUdfaldRow] = useState<Row | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -185,7 +158,7 @@ function KontaktlisteDetalje() {
         supabase
           .from("contact_list_assignments")
           .select(
-            "id, company_id, status, priority, next_followup_date, next_action_note, assigned_to, location_id, companies(name, city, employees, customer_type, phone, email, website, address, zip)",
+            "id, company_id, status, status_aarsag, antal_forsoeg, priority, next_followup_date, next_action_note, assigned_to, location_id, companies(name, city, employees, customer_type, phone, email, website, address, zip)",
           )
           .eq("contact_list_id", id)
           .order("id")
@@ -247,7 +220,11 @@ function KontaktlisteDetalje() {
       })(),
     ]);
     const kontaktMap = new Map<string, any>();
-    for (const k of kontakter ?? []) {
+    const alleKontakter = new Map<string, { id: string; navn: string; titel: string | null }[]>();
+    for (const k of [...(kontakter ?? [])].sort((a: any, b: any) => Number(!!b.is_primary) - Number(!!a.is_primary))) {
+      const arr = alleKontakter.get(k.company_id) ?? [];
+      arr.push({ id: k.id, navn: k.name, titel: k.title });
+      alleKontakter.set(k.company_id, arr);
       const cur = kontaktMap.get(k.company_id);
       if (!cur || (k.is_primary && !cur.is_primary)) kontaktMap.set(k.company_id, k);
     }
@@ -267,6 +244,9 @@ function KontaktlisteDetalje() {
       id: a.id,
       company_id: a.company_id,
       status: a.status,
+      status_aarsag: a.status_aarsag ?? null,
+      antal_forsoeg: a.antal_forsoeg ?? 0,
+      kontakter: alleKontakter.get(a.company_id) ?? [],
       priority: a.priority,
       next_followup_date: a.next_followup_date,
       next_action_note: a.next_action_note,
@@ -364,7 +344,7 @@ function KontaktlisteDetalje() {
   }, [rows, fStatus, fPriority, fSeller, fOnlyMine, fOverdue, fKunTlf, sortKey, sortDir, isAdmin, auth.user?.id, today]);
 
   const eksporterCsv = () => {
-    const STATUS = new Map(STATUS_OPTIONS.map((s) => [s.value, s.label]));
+
     const hoved = ["Virksomhed", "Telefon", "E-mail", "Hjemmeside", "Adresse", "Postnr.", "By", "Kontaktperson", "Kontaktperson titel", "Ansatte", "Sælger", "Status", "Prioritet", "Næste opfølgning"];
     const linjer = filtered.map((r) => [
       r.company.name,
@@ -378,7 +358,7 @@ function KontaktlisteDetalje() {
       r.kontakt?.title ?? "",
       r.company.employees ?? "",
       r.seller_name,
-      STATUS.get(r.status) ?? r.status,
+      statusTekst(r.status, r.status_aarsag, r.antal_forsoeg),
       r.priority,
       r.next_followup_date ?? "",
     ]);
@@ -406,50 +386,6 @@ function KontaktlisteDetalje() {
     else {
       setSortKey(key);
       setSortDir("asc");
-    }
-  };
-
-  const applyStatus = async (
-    row: Row,
-    newStatus: AssignmentStatus,
-    followupDate?: string,
-    followupAction?: string,
-  ) => {
-    const payload: any = { status: newStatus };
-    if (followupDate !== undefined) payload.next_followup_date = followupDate;
-    if (followupAction !== undefined) payload.next_action_note = followupAction;
-    const { error } = await supabase
-      .from("contact_list_assignments")
-      .update(payload)
-      .eq("id", row.id);
-    if (error) {
-      toast.error(error.message);
-      return false;
-    }
-    // log activity
-    if (auth.user?.id) {
-      await supabase.from("activities").insert({
-        company_id: row.company_id,
-        contact_list_assignment_id: row.id,
-        created_by: auth.user.id,
-        activity_type: "intern_note",
-        note: `Status ændret til ${STATUS_OPTIONS.find((s) => s.value === newStatus)?.label}`,
-        next_followup_date: followupDate ?? null,
-        next_action: followupAction ?? null,
-      });
-    }
-    toast.success("Status opdateret");
-    load();
-    return true;
-  };
-
-  const onStatusChange = (row: Row, newStatus: AssignmentStatus) => {
-    if (REQUIRES_FOLLOWUP.includes(newStatus)) {
-      setPending({ row, newStatus });
-      setPDate(row.next_followup_date ?? "");
-      setPAction(row.next_action_note ?? "");
-    } else {
-      applyStatus(row, newStatus);
     }
   };
 
@@ -763,23 +699,14 @@ function KontaktlisteDetalje() {
 
                         <TableCell className="text-sm">{r.seller_name}</TableCell>
                         <TableCell>
-                          <Select
-                            value={r.status}
-                            onValueChange={(v) =>
-                              onStatusChange(r, v as AssignmentStatus)
-                            }
-                          >
-                            <SelectTrigger className="h-8 w-[150px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {STATUS_OPTIONS.map((s) => (
-                                <SelectItem key={s.value} value={s.value}>
-                                  {s.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="flex flex-col items-start gap-1">
+                            <Badge variant={r.status === "møde_booket" || r.status === "tilbud_oensket" ? "default" : "outline"} className="text-xs whitespace-nowrap">
+                              {statusTekst(r.status, r.status_aarsag, r.antal_forsoeg)}
+                            </Badge>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setUdfaldRow(r)}>
+                              Registrér udfald
+                            </Button>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Select
@@ -840,62 +767,24 @@ function KontaktlisteDetalje() {
         </>
       )}
 
-      <Dialog
-        open={!!pending}
-        onOpenChange={(o) => !o && setPending(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tvungen opfølgning påkrævet</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Status "
-            {STATUS_OPTIONS.find((s) => s.value === pending?.newStatus)?.label}"
-            kræver næste opfølgningsdato og næste handling.
-          </p>
-          <div className="space-y-3">
-            <div>
-              <Label>Næste opfølgningsdato *</Label>
-              <Input
-                type="date"
-                value={pDate}
-                onChange={(e) => setPDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Næste handling *</Label>
-              <Textarea
-                value={pAction}
-                onChange={(e) => setPAction(e.target.value)}
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setPending(null)}>
-              Annullér
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!pDate || !pAction.trim()) {
-                  toast.error("Begge felter er påkrævet");
-                  return;
-                }
-                if (!pending) return;
-                const ok = await applyStatus(
-                  pending.row,
-                  pending.newStatus,
-                  pDate,
-                  pAction.trim(),
-                );
-                if (ok) setPending(null);
-              }}
-            >
-              Gem
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {udfaldRow && (
+        <UdfaldDialog
+          listId={id}
+          virksomhed={{
+            company_id: udfaldRow.company_id,
+            navn: udfaldRow.company.name,
+            telefon: telefonNumre(udfaldRow.location_phone, udfaldRow.company.phone)[0] ?? null,
+            kontakter: udfaldRow.kontakter,
+          }}
+          opretKontakt={async (navn, titel) => {
+            const { data, error } = await supabase.from("contacts").insert({ company_id: udfaldRow.company_id, name: navn, title: titel }).select("id").single();
+            if (error) { toast.error(error.message); return null; }
+            return data.id;
+          }}
+          onClose={() => setUdfaldRow(null)}
+          onDone={() => { setUdfaldRow(null); void load(); }}
+        />
+      )}
 
       <Dialog open={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)}>
         <DialogContent>
