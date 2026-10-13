@@ -12,7 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { toast } from "sonner";
 import { AfvigelsesListe, DistriktPanel, distriktSaelger, hentDistriktData, initialer, type AfvigRow, type DistriktData, type DistriktStat } from "@/components/salgskort/distrikt";
 import { SimuleringPanel, scSaelgerKey, tomAgg, useScenarie, type KamRow, type KonsekvensRow, type SimRow } from "@/components/salgskort/simulering";
-import { bestemSaelger, kamMatcher, kamPortefoelje, type KamAftale, type Regel } from "@/lib/simulering-regler";
+import { bestemSaelger, kamMatcher, kamPortefoelje, regelMatcher, tildelMatches, type KamAftale, type Regel, type RegelLok } from "@/lib/simulering-regler";
 
 type Flade = { flade: number; navn: string | null; landsdel: string | null; postnumre: number[] | null; geom: any };
 type Lok = {
@@ -258,20 +258,46 @@ export function SalgskortFane() {
     id: r.id, type: r.type, aktiv: r.aktiv, b: r.betingelse ?? {},
     saelger: r.saelger_user_id ?? (r.saelger_fiktiv_id ? "f:" + r.saelger_fiktiv_id : "__ingen"),
   })), [st.sc]);
+  // Regionsopslag (postnummer-intervaller) til reglers område
+  const [regionIv, setRegionIv] = useState<{ fra: number; til: number; region: string }[]>([]);
+  useEffect(() => {
+    if (visning !== "sim" || regionIv.length) return;
+    (supabase as any).from("postnummer_region").select("postnr_fra,postnr_til,region").then(({ data }: any) =>
+      setRegionIv((data ?? []).map((r: any) => ({ fra: r.postnr_fra, til: r.postnr_til, region: r.region }))));
+  }, [visning, regionIv.length]);
+  const fladeLandsdel = useMemo(() => new Map((data?.flader ?? []).map((f) => [f.flade, f.landsdel])), [data]);
+  const simLoks = useMemo(() => {
+    if (visning !== "sim" || !st.sc) return [] as { r: Row; lok: RegelLok }[];
+    const reg = (z: string | null) => { const n = Number(z); if (!z || !Number.isFinite(n)) return null; return regionIv.find((i) => n >= i.fra && n <= i.til)?.region ?? null; };
+    return filtrerede.map((r) => ({ r, lok: { kpg1: r.kpg1, kpg2: r.kpg2, kpg3: r.kpg3, ansatte: r.ansatte ?? null,
+      landsdel: r.flade != null ? fladeLandsdel.get(r.flade) ?? null : null,
+      distrikt: r.flade != null ? st.sc!.fladeDistrikt.get(r.flade) ?? null : null, region: reg(r.zip_norm) } }));
+  }, [visning, st.sc, filtrerede, fladeLandsdel, regionIv]);
+  const regioner = useMemo(() => [...new Set(regionIv.map((i) => i.region))].sort((a, b) => a.localeCompare(b, "da")), [regionIv]);
+  /** Live-tal i regeldialogen: lokationer der matcher (uden hensyn til andre regler), Frellsen undtaget. */
+  const taelRegel = (r: Regel) => {
+    let n = 0, oms = 0;
+    for (const x of simLoks) if (x.r.salesperson_no !== "199" && regelMatcher(x.lok, r.b, r.type)) { n++; oms += x.r.omsaetning_12m; }
+    return { n, oms };
+  };
   const sim = useMemo(() => {
     const kons = new Map<string, KonsekvensRow>();
     const flyt: SimRow[] = [];
     const afviger: SimRow[] = [];
     const regelStat = new Map<string, { n: number; oms: number }>();
-    if (visning !== "sim" || !st.sc || !data || !dd) return { kons: [] as KonsekvensRow[], flyt, afviger, regelStat, ukendte: 0, penhed: 0, kam: [] as KamRow[] };
+    const overlap = new Map<string, Map<string, number>>();
+    if (visning !== "sim" || !st.sc || !data || !dd) return { kons: [] as KonsekvensRow[], flyt, afviger, regelStat, overlap, ukendte: 0, penhed: 0, kam: [] as KamRow[] };
     const fn = new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]));
     const gDistr = new Map(dd.distrikter.map((d) => [d.id, d]));
     const get = (k: string) => { let e = kons.get(k); if (!e) kons.set(k, (e = { key: k, foer: tomAgg(), efter: tomAgg() })); return e; };
     let ukendte = 0, penhed = 0;
-    filtrerede.forEach((r) => {
+    simLoks.forEach(({ r, lok }) => {
       if (r.ansatte == null) ukendte++; else if (r.ansatte_kilde === "penhed") penhed++;
       const frellsen = r.salesperson_no === "199";
-      const lok = { kpg1: r.kpg1, kpg2: r.kpg2, kpg3: r.kpg3, ansatte: r.ansatte ?? null };
+      if (!frellsen) {
+        const m = tildelMatches(lok, regler);
+        for (const tabt of m.slice(1)) { let o = overlap.get(tabt); if (!o) overlap.set(tabt, (o = new Map())); o.set(m[0]!, (o.get(m[0]!) ?? 0) + 1); }
+      }
       const scD = r.flade != null ? scMap.get(st.sc!.fladeDistrikt.get(r.flade) ?? "") : undefined;
       const gD = r.flade != null ? gDistr.get(dd.fladeDistrikt.get(r.flade) ?? "") : undefined;
       const fælles = { nu: r.sKey, frellsen, lok };
@@ -294,8 +320,8 @@ export function SalgskortFane() {
     const kf = kamPortefoelje(kamRows, dd.kamAftaler), ke = kamPortefoelje(kamRows, scKam);
     const tom = { aftaler: 0, n: 0, oms: 0, db: 0 };
     const kam: KamRow[] = [...new Set([...kf.keys(), ...ke.keys()])].map((k) => ({ key: k, foer: kf.get(k) ?? tom, efter: ke.get(k) ?? tom })).sort((a, b) => b.efter.oms - a.efter.oms);
-    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt, afviger, regelStat, ukendte, penhed, kam };
-  }, [visning, st.sc, data, dd, filtrerede, scMap, regler]);
+    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt, afviger, regelStat, overlap, ukendte, penhed, kam };
+  }, [visning, st.sc, data, dd, filtrerede, simLoks, scMap, regler]);
   const regelValg = useMemo(() => ({
     kpg1: [...(options.kpg1 ?? new Map()).entries()].sort((a, b) => b[1] - a[1]),
     kpg2: [...(options.kpg2 ?? new Map()).entries()].filter(([k]) => !k.endsWith("||(ingen)")).sort((a, b) => b[1] - a[1]),
@@ -526,7 +552,7 @@ export function SalgskortFane() {
               <FladePanel flade={flade} fordeling={pFlade.get(flade.flade)} lok={filtrerede.filter((r) => r.flade === flade.flade)} navne={saelgerNavn} farver={farver} kamTip={kamTip} onLuk={() => setValgtFlade(null)} />
             ) : visning === "sim" ? (
               dd ? <SimuleringPanel st={st} dd={dd} navn={simNavn} farve={simFarve} konsekvens={sim.kons} flytninger={sim.flyt}
-                afviger={sim.afviger} regler={regler} regelStat={sim.regelStat} ukendteAnsatte={sim.ukendte} penhedAnsatte={sim.penhed}
+                afviger={sim.afviger} regler={regler} regelStat={sim.regelStat} overlap={sim.overlap} taelRegel={taelRegel} regioner={regioner} ukendteAnsatte={sim.ukendte} penhedAnsatte={sim.penhed}
                 antalLok={filtrerede.length} regelValg={regelValg} kamPort={sim.kam}
                 redigerer={redigerer} setRedigerer={setRedigerer}
                 valgt={valgtDistrikt} setValgt={setValgtDistrikt} fladeNavn={new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]))} /> : null
