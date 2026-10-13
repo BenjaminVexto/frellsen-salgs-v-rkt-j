@@ -1,4 +1,6 @@
 import { CvrBulkSoegningDialog } from "@/components/cvr-bulk-soegning-dialog";
+import { RingerVaelger } from "@/components/telemarketing/ringer-vaelger";
+import { TmListeOversigt } from "@/components/telemarketing/tm-liste-oversigt";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,6 +71,7 @@ function KontaktlisterOversigt() {
   const [deleting, setDeleting] = useState(false);
 
   const isAdmin = auth.role === "admin";
+  const isTm = auth.role === "telemarketing";
 
   const load = async () => {
     setLoading(true);
@@ -169,6 +172,8 @@ function KontaktlisterOversigt() {
     setDeleting(false);
     toast.success("Kontaktliste slettet");
   };
+
+  if (isTm) return <TmListeOversigt />;
 
   return (
     <div className="px-3 md:px-8 py-4 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
@@ -455,6 +460,7 @@ function OpretListeDialog({
 }) {
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [ringere, setRingere] = useState<string[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [responsibleSeller, setResponsibleSeller] = useState<string>("");
   const [step, setStep] = useState<1 | 2>(1);
@@ -569,7 +575,22 @@ function OpretListeDialog({
       setSaving(false);
       return;
     }
-    const ids = Array.from(selectedIds);
+    let ids = Array.from(selectedIds);
+    // "Ønsker ikke kontakt" udelukkes altid fra kontaktlister.
+    if (ids.length) {
+      const spaerret = new Set<string>();
+      for (let i = 0; i < ids.length; i += 300) {
+        const { data: sp } = await supabase.from("companies").select("id").in("id", ids.slice(i, i + 300)).eq("ikke_kontakt" as any, true);
+        (sp ?? []).forEach((r: any) => spaerret.add(r.id));
+      }
+      if (spaerret.size) {
+        ids = ids.filter((x) => !spaerret.has(x));
+        toast.info(`${spaerret.size} virksomhed(er) ønsker ikke kontakt og er udeladt`);
+      }
+    }
+    if (ringere.length) {
+      await (supabase as any).from("kontaktliste_ringer").insert(ringere.map((user_id) => ({ contact_list_id: list.id, user_id })));
+    }
     if (ids.length) {
       const rows = ids.map((company_id) => ({
         contact_list_id: list.id,
@@ -641,9 +662,10 @@ function OpretListeDialog({
                 placeholder="Fx: Sovende kunder Jylland — fokus på reaktivering af kaffeaftale"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Vises øverst på listen når sælgeren åbner den.
+                Vises øverst på listen når sælgeren åbner den – og som manus for telemarketing.
               </p>
             </div>
+            <RingerVaelger value={ringere} onChange={setRingere} />
           </div>
         ) : (
           <div className="space-y-4">

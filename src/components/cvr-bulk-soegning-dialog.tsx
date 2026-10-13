@@ -289,14 +289,22 @@ export function CvrBulkSoegningDialog({
     const cvrs = items.map((r) => r.cvr);
     if (!cvrs.length) return items;
     const existingSet = new Set<string>();
+    const ikkeKontakt = new Set<string>();
     for (let i = 0; i < cvrs.length; i += 500) {
       const { data } = await supabase
         .from("companies")
-        .select("cvr")
+        .select("cvr, ikke_kontakt")
         .in("cvr", cvrs.slice(i, i + 500));
-      (data ?? []).forEach((r: any) => r.cvr && existingSet.add(r.cvr));
+      (data ?? []).forEach((r: any) => {
+        if (!r.cvr) return;
+        existingSet.add(r.cvr);
+        if (r.ikke_kontakt) ikkeKontakt.add(r.cvr);
+      });
     }
-    return items.map((r) => ({ ...r, existing: existingSet.has(r.cvr) }));
+    // "Ønsker ikke kontakt" fjernes altid fra CVR-søgninger.
+    return items
+      .filter((r) => !ikkeKontakt.has(r.cvr))
+      .map((r) => ({ ...r, existing: existingSet.has(r.cvr) }));
   }
 
   function buildRequestFilters() {

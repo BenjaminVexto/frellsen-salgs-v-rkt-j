@@ -49,11 +49,14 @@ export const importCompaniesFromCvr = createServerFn({ method: "POST" })
     const cvrs = data.companies.map((c) => c.cvr);
     const { data: existing } = await supabaseAdmin
       .from("companies")
-      .select("id, cvr")
+      .select("id, cvr, ikke_kontakt")
       .in("cvr", cvrs);
-    const existingMap = new Map((existing ?? []).map((r) => [r.cvr as string, r.id as string]));
+    const ikkeKontakt = new Set((existing ?? []).filter((r: any) => r.ikke_kontakt).map((r) => r.cvr as string));
+    const existingMap = new Map(
+      (existing ?? []).filter((r: any) => !r.ikke_kontakt).map((r) => [r.cvr as string, r.id as string]),
+    );
 
-    const toInsert = data.companies.filter((c) => !existingMap.has(c.cvr));
+    const toInsert = data.companies.filter((c) => !existingMap.has(c.cvr) && !ikkeKontakt.has(c.cvr));
     const insertedIds: string[] = [];
     if (toInsert.length) {
       const rows = toInsert.map((c) => ({
