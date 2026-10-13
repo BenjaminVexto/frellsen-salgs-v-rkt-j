@@ -474,7 +474,7 @@ export function SalgskortFane() {
                 </div>
               )}
               {visning === "virk" && !flade && (
-                <div className="absolute bottom-2 right-2 rounded-md bg-background/90 border border-border px-2 py-1 text-xs text-muted-foreground pointer-events-none">Klik på en flade for detaljer</div>
+                <div className="absolute bottom-6 right-2 rounded-md bg-background/90 border border-border px-2 py-1 text-xs text-muted-foreground pointer-events-none">Klik på en flade for detaljer</div>
               )}
               <div className="absolute bottom-1 left-2 text-[10px] text-muted-foreground">Kilde: DAGI, Klimadatastyrelsen · Kystlinje © OpenStreetMap-bidragydere</div>
             </div>
