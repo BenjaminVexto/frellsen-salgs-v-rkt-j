@@ -12,6 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { toast } from "sonner";
 import { AfvigelsesListe, DistriktPanel, distriktSaelger, hentDistriktData, initialer, kpg3Kode, type AfvigRow, type DistriktData, type DistriktStat } from "@/components/salgskort/distrikt";
 import { SimuleringPanel, scSaelgerKey, tomAgg, useScenarie, type KonsekvensRow, type SimRow } from "@/components/salgskort/simulering";
+import { bestemSaelger, type Regel } from "@/lib/simulering-regler";
 
 type Flade = { flade: number; navn: string | null; landsdel: string | null; postnumre: number[] | null; geom: any };
 type Lok = {
@@ -19,6 +20,7 @@ type Lok = {
   saelger_user_id: string | null; saelger_navn: string | null; salesperson_no: string | null; afdeling_nr: number | null;
   customer_segment_1: string | null; customer_segment_2: string | null; customer_segment_3: string | null;
   customer_type: string | null; agreement_types: string | null; omsaetning_12m: number; db_12m: number;
+  ansatte?: number | null; ansatte_kilde?: string | null;
 };
 type Row = Lok & { geografisk: boolean; kam: boolean; flade: number | null; sKey: string; sNavn: string; udstyr: string[]; kpg1: string; kpg2: string; kpg3: string; status: string; afd: string };
 
@@ -247,25 +249,48 @@ export function SalgskortFane() {
   const fiktivMap = useMemo(() => new Map((st.sc?.saelgere ?? []).map((x) => [x.id, x])), [st.sc]);
   const simNavn = (k: string) => k.startsWith("f:") ? (fiktivMap.get(k.slice(2))?.navn ?? "?") + " (fiktiv)" : saelgerNavn.get(k) ?? (k === "__ingen" ? "Uden sælger" : pNavn(k));
   const simFarve = (k: string) => farver.get(k) ?? (k.startsWith("f:") ? fiktivMap.get(k.slice(2))?.farve : undefined) ?? GRAA_INGEN;
+  const regler: Regel[] = useMemo(() => (st.sc?.regler ?? []).map((r) => ({
+    id: r.id, type: r.type, aktiv: r.aktiv, b: r.betingelse ?? {},
+    saelger: r.saelger_user_id ?? (r.saelger_fiktiv_id ? "f:" + r.saelger_fiktiv_id : "__ingen"),
+  })), [st.sc]);
   const sim = useMemo(() => {
     const kons = new Map<string, KonsekvensRow>();
     const flyt: SimRow[] = [];
-    if (visning !== "sim" || !st.sc || !data) return { kons: [] as KonsekvensRow[], flyt };
+    const afviger: SimRow[] = [];
+    const regelStat = new Map<string, { n: number; oms: number }>();
+    if (visning !== "sim" || !st.sc || !data || !dd) return { kons: [] as KonsekvensRow[], flyt, afviger, regelStat, ukendte: 0, penhed: 0 };
     const fn = new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]));
+    const gDistr = new Map(dd.distrikter.map((d) => [d.id, d]));
     const get = (k: string) => { let e = kons.get(k); if (!e) kons.set(k, (e = { key: k, foer: tomAgg(), efter: tomAgg() })); return e; };
+    let ukendte = 0, penhed = 0;
     filtrerede.forEach((r) => {
-      let til = r.sKey;
-      const fri = r.geografisk || (r.kam && !laasKam && r.salesperson_no !== "199");
-      if (fri && r.flade != null) { const d = scMap.get(st.sc!.fladeDistrikt.get(r.flade) ?? ""); if (d) til = scSaelgerKey(d); }
+      if (r.ansatte == null) ukendte++; else if (r.ansatte_kilde === "penhed") penhed++;
+      const frellsen = r.salesperson_no === "199";
+      const fri = r.geografisk || (r.kam && !laasKam && !frellsen);
+      const lok = { kpg1: r.kpg1, kpg2: r.kpg2, kpg3: r.kpg3, ansatte: r.ansatte ?? null };
+      const scD = r.flade != null ? scMap.get(st.sc!.fladeDistrikt.get(r.flade) ?? "") : undefined;
+      const gD = r.flade != null ? gDistr.get(dd.fladeDistrikt.get(r.flade) ?? "") : undefined;
+      const fælles = { nu: r.sKey, frellsen, kamLaast: r.kam && laasKam, fri, lok };
+      const b = bestemSaelger({ ...fælles, geo: scD ? scSaelgerKey(scD) : null, regler });
+      const g = bestemSaelger({ ...fælles, geo: gD ? distriktSaelger(gD) ?? "__ingen" : null, regler: [] });
+      const til = b.til;
       const aktiv = r.customer_type === "aktiv_kunde";
       for (const [k, side] of [[r.sKey, "foer"], [til, "efter"]] as const) {
         const a = get(k)[side]; a.n++; a.aktive += aktiv ? 1 : 0; a.oms += r.omsaetning_12m; a.db += r.db_12m;
       }
-      if (til !== r.sKey) flyt.push({ location_id: r.location_id, company_id: r.company_id, virksomhed: r.virksomhedsnavn ?? "", postnr: r.zip_norm ?? "",
-        by: r.flade != null ? fn.get(r.flade) ?? "" : "", fra: r.sKey, til, aktiv, oms: r.omsaetning_12m, db: r.db_12m });
+      if (b.aarsag && b.aarsag !== "geo") { const s = regelStat.get(b.aarsag) ?? { n: 0, oms: 0 }; s.n++; s.oms += r.omsaetning_12m; regelStat.set(b.aarsag, s); }
+      const basis = { location_id: r.location_id, company_id: r.company_id, virksomhed: r.virksomhedsnavn ?? "", postnr: r.zip_norm ?? "",
+        by: r.flade != null ? fn.get(r.flade) ?? "" : "", aktiv, oms: r.omsaetning_12m, db: r.db_12m, nu: r.sKey };
+      if (til !== g.til) flyt.push({ ...basis, fra: g.til, til, aarsag: b.aarsag && b.aarsag !== "geo" ? b.aarsag : "geo" });
+      if (g.til !== r.sKey) afviger.push({ ...basis, fra: r.sKey, til: g.til, aarsag: null });
     });
-    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt };
-  }, [visning, st.sc, data, filtrerede, scMap, laasKam]);
+    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt, afviger, regelStat, ukendte, penhed };
+  }, [visning, st.sc, data, dd, filtrerede, scMap, laasKam, regler]);
+  const regelValg = useMemo(() => ({
+    kpg1: [...(options.kpg1 ?? new Map()).entries()].sort((a, b) => b[1] - a[1]),
+    kpg2: [...(options.kpg2 ?? new Map()).entries()].filter(([k]) => !k.endsWith("||(ingen)")).sort((a, b) => b[1] - a[1]),
+    kpg3: [...(options.kpg3 ?? new Map()).entries()].sort((a, b) => b[1] - a[1]),
+  }), [options]);
 
   // Pr. flade: fordeling pr. sælger
   const pFlade = useMemo(() => {
@@ -499,6 +524,8 @@ export function SalgskortFane() {
               <FladePanel flade={flade} fordeling={pFlade.get(flade.flade)} lok={filtrerede.filter((r) => r.flade === flade.flade)} navne={saelgerNavn} farver={farver} onLuk={() => setValgtFlade(null)} />
             ) : visning === "sim" ? (
               dd ? <SimuleringPanel st={st} dd={dd} navn={simNavn} farve={simFarve} konsekvens={sim.kons} flytninger={sim.flyt}
+                afviger={sim.afviger} regler={regler} regelStat={sim.regelStat} ukendteAnsatte={sim.ukendte} penhedAnsatte={sim.penhed}
+                antalLok={filtrerede.length} regelValg={regelValg}
                 laasKam={laasKam} setLaasKam={setLaasKam} redigerer={redigerer} setRedigerer={setRedigerer}
                 valgt={valgtDistrikt} setValgt={setValgtDistrikt} fladeNavn={new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]))} /> : null
             ) : (
