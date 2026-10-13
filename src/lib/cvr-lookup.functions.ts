@@ -55,6 +55,12 @@ const SOURCE_FIELDS = [
   "Vrvirksomhed.aarsbeskaeftigelse",
   "Vrvirksomhed.kvartalsbeskaeftigelse",
   "Vrvirksomhed.maanedsbeskaeftigelse",
+  "Vrvirksomhed.telefonNummer",
+  "Vrvirksomhed.elektroniskPost",
+  "Vrvirksomhed.hjemmeside",
+  "Vrvirksomhed.virksomhedMetadata.nyesteMaanedsbeskaeftigelse",
+  "Vrvirksomhed.virksomhedMetadata.nyesteKvartalsbeskaeftigelse",
+  "Vrvirksomhed.virksomhedMetadata.nyesteAarsbeskaeftigelse",
   "Vrvirksomhed.penheder.pNummer",
 ];
 
@@ -92,9 +98,17 @@ function mapVirksomhed(v: any): CvrCompany {
   const bi2 = pickLatest<any>(v?.bibranche2);
   const bi3 = pickLatest<any>(v?.bibranche3);
 
-  const mnd = pickLatest<any>(v?.maanedsbeskaeftigelse);
-  const kvt = pickLatest<any>(v?.kvartalsbeskaeftigelse);
-  const aar = pickLatest<any>(v?.aarsbeskaeftigelse);
+  const mnd = meta?.nyesteMaanedsbeskaeftigelse ?? null;
+  const kvt = meta?.nyesteKvartalsbeskaeftigelse ?? null;
+  const aar = meta?.nyesteAarsbeskaeftigelse ?? null;
+  // Kontaktoplysninger: kun gældende (uden gyldigTil) og ikke hemmelige
+  const currentContact = (arr: any): string | null => {
+    if (!Array.isArray(arr)) return null;
+    const hit = arr
+      .filter((x: any) => x && !x.hemmelig && !x?.periode?.gyldigTil && x.kontaktoplysning)
+      .sort((a: any, b: any) => String(b?.periode?.gyldigFra ?? "").localeCompare(String(a?.periode?.gyldigFra ?? "")))[0];
+    return hit ? String(hit.kontaktoplysning) : null;
+  };
   let employees_interval: string | null = null;
   let employees_source: string | null = null;
   if (mnd?.intervalKodeAntalAnsatte) {
@@ -115,9 +129,9 @@ function mapVirksomhed(v: any): CvrCompany {
     zip: addr?.postnummer != null ? String(addr.postnummer) : null,
     city: addr?.postdistrikt ?? null,
     municipality: addr?.kommune?.kommuneNavn ?? null,
-    phone: meta?.nyesteTelefonnummer?.kontaktoplysning ?? null,
-    email: meta?.nyesteElektroniskPost?.kontaktoplysning ?? null,
-    website: meta?.nyesteHjemmeside?.kontaktoplysning ?? null,
+    phone: currentContact(v?.telefonNummer) ?? meta?.nyesteTelefonnummer?.kontaktoplysning ?? null,
+    email: currentContact(v?.elektroniskPost) ?? meta?.nyesteElektroniskPost?.kontaktoplysning ?? null,
+    website: currentContact(v?.hjemmeside) ?? meta?.nyesteHjemmeside?.kontaktoplysning ?? null,
     company_form: form?.kortBeskrivelse ?? form?.virksomhedsformkode ?? null,
     status: meta?.sammensatStatus ?? "UKENDT",
     start_date: liv?.periode?.gyldigFra ?? null,

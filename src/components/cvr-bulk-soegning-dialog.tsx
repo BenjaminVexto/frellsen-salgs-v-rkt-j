@@ -64,8 +64,8 @@ const BRANCH_CATEGORIES: { label: string; prefixes: string[] }[] = [
 
 // Svarer til CVR's intervalkoder efter ANTAL_-prefix er fjernet
 const EMPLOYEE_BUCKETS: { label: string; codes: string[] }[] = [
-  { label: "0",       codes: ["0"]       },
-  { label: "1",       codes: ["1"]       },
+  { label: "0",       codes: ["0", "0_0"] },
+  { label: "1",       codes: ["1", "1_1"] },
   { label: "2-4",     codes: ["2_4"]     },
   { label: "5-9",     codes: ["5_9"]     },
   { label: "10-19",   codes: ["10_19"]   },
@@ -142,7 +142,7 @@ function matchesEmployeeFilter(
   const selectedCodes = EMPLOYEE_BUCKETS
     .filter((b) => selectedBuckets.includes(b.label))
     .flatMap((b) => b.codes);
-  return selectedCodes.includes(employees);
+  return selectedCodes.some((c) => (c.endsWith("_") ? employees.startsWith(c) : employees === c));
 }
 
 export function CvrBulkSoegningDialog({
