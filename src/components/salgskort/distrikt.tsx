@@ -313,7 +313,7 @@ export function KamFormDialog({ start, valg, personer, distrikter, distriktTitel
   const omr: Omraade = f.omraade ?? { type: "land", vaerdier: [] };
   const pn = new Map(personer);
   const tom = !f.kpg1.length && !f.kpg2.length && !f.kpg3.length;
-  const live = tom ? { n: 0, oms: 0 } : tael({ id: "_", navn: "", ...f, omraade: omr.type === "land" ? null : omr, ansvarlige: [], aktiv: true });
+  const live = tom ? { n: 0, oms: 0 } : tael({ id: "_", ...f, omraade: omr.type === "land" ? null : omr, ansvarlige: [], aktiv: true });
   const gem = async () => {
     if (!f.navn.trim()) return toast.error("Navn mangler");
     if (tom) return toast.error("Vælg mindst én kode");
