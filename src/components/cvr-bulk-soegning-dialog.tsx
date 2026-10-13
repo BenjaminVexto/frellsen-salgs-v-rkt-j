@@ -792,7 +792,7 @@ export function CvrBulkSoegningDialog({
                   </span>
                 </div>
                 {!allFetched && !fetchingAll && !searching && (
-                  <p className="text-xs rounded border border-warning/40 bg-warning/15 text-warning-foreground px-2 py-1">
+                  <p className="text-xs rounded border border-warning/40 bg-warning/15 text-foreground px-2 py-1">
                     Kun de første {fetchedCount.toLocaleString("da")} af {esTotalBeforeEmpFilter.toLocaleString("da")} er hentet – listen er ufuldstændig
                   </p>
                 )}
