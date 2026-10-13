@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 
-export type AppRole = "admin" | "saelger" | "salgssupport";
+export type AppRole = "admin" | "saelger" | "salgssupport" | "telemarketing";
 
 export interface AuthState {
   loading: boolean;
@@ -79,6 +79,8 @@ export function useAuth(): AuthState {
       const roles = new Set((roleRows ?? []).map((r: { role: AppRole }) => r.role));
       const role: AppRole = roles.has("admin")
         ? "admin"
+        : roles.has("telemarketing")
+          ? "telemarketing"
         : roles.has("salgssupport")
           ? "salgssupport"
           : "saelger";
