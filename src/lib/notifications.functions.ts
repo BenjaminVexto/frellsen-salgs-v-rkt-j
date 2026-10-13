@@ -1,4 +1,5 @@
 import { kraevIntern } from "@/lib/kraev-intern";
+import { hentAlle } from "@/lib/hent-alle";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -13,13 +14,15 @@ export const checkSovendeKunder = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const userId = context.userId;
     // Hent virksomheder tildelt direkte (companies.assigned_to)
-    const { data: companies, error } = await supabaseAdmin
-      .from("companies")
-      .select("id, name")
-      .eq("assigned_to", userId)
-      .eq("kreditspaerret", false)
-      .limit(2000);
-    if (error) throw new Error(error.message);
+    const companies = await hentAlle<{ id: string; name: string }>((f, t) =>
+      supabaseAdmin
+        .from("companies")
+        .select("id, name")
+        .eq("assigned_to", userId)
+        .eq("kreditspaerret", false)
+        .order("id")
+        .range(f, t) as any,
+    ).catch((e) => { throw new Error(e?.message ?? String(e)); });
     if (!companies?.length) return { created: 0 };
 
     const cutoff = new Date();
@@ -77,11 +80,9 @@ export const checkKonkurrentvinduer = createServerFn({ method: "POST" })
   .middleware([kraevIntern])
   .handler(async ({ context }) => {
     const userId = context.userId;
-    const { data: companies } = await supabaseAdmin
-      .from("companies")
-      .select("id")
-      .eq("assigned_to", userId)
-      .limit(2000);
+    const companies = await hentAlle<{ id: string }>((f, t) =>
+      supabaseAdmin.from("companies").select("id").eq("assigned_to", userId).order("id").range(f, t) as any,
+    ).catch(() => [] as { id: string }[]);
     const ids = (companies ?? []).map((c) => c.id);
     if (!ids.length) return { created: 0 };
 

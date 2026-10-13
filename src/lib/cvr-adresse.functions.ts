@@ -87,11 +87,10 @@ async function crmForCvrs(supabase: any, cvrs: string[]) {
   const ids = (comps ?? []).map((c: any) => c.id);
   const locsBy = new Map<string, CrmKonto["locations"]>();
   if (ids.length) {
-    const { data: locs } = await supabase
-      .from("locations")
-      .select("id, company_id, address, zip, city")
-      .in("company_id", ids)
-      .limit(2000);
+    const { hentAlle } = await import("@/lib/hent-alle");
+    const locs = await hentAlle<any>((f, t) =>
+      supabase.from("locations").select("id, company_id, address, zip, city").in("company_id", ids).order("id").range(f, t),
+    ).catch(() => [] as any[]);
     for (const l of locs ?? []) {
       const a = locsBy.get(l.company_id) ?? [];
       a.push({ id: l.id, address: l.address, zip: l.zip, city: l.city });

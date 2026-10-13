@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { hentAlle } from "@/lib/hent-alle";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAfdeling } from "@/contexts/afdeling-context";
@@ -171,10 +172,13 @@ export function useCompanyFilter({
   useEffect(() => {
     if (!isAdmin) return;
     (async () => {
-      const { data } = await supabase
-        .from("contact_list_assignments")
-        .select("company_id, assigned_to")
-        .limit(10000);
+      const data = await hentAlle<AssignmentRow>((f, t) =>
+        supabase
+          .from("contact_list_assignments")
+          .select("company_id, assigned_to")
+          .order("id")
+          .range(f, t) as any,
+      ).catch(() => [] as AssignmentRow[]);
       const m = new Map<string, string[]>();
       for (const r of rows as any[]) {
         if (r.assigned_to) m.set(r.id, [r.assigned_to]);

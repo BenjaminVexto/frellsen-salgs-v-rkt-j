@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { hentAlle } from "@/lib/hent-alle";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,8 @@ export async function hentDistriktData(): Promise<DistriktData> {
   const sb = supabase as any;
   const [d, f, i, p] = await Promise.all([
     sb.from("distrikter").select("*").order("sort").order("navn"),
-    sb.from("distrikt_flade").select("flade,distrikt_id"),
+    hentAlle((f, t) => sb.from("distrikt_flade").select("flade,distrikt_id").order("flade").range(f, t)).then(
+      (data) => ({ data, error: null }), (error) => ({ data: null, error })),
     sb.from("kam_aftale").select("*").order("navn"),
     sb.from("profiles").select("id,full_name,is_active").order("full_name"),
   ]);

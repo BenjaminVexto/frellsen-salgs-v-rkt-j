@@ -1,4 +1,5 @@
 import { kraevIntern } from "@/lib/kraev-intern";
+import { hentAlle } from "@/lib/hent-alle";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
@@ -597,13 +598,16 @@ export const getUnderkategoriSeries = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<UnderkategoriPunktDTO[]> => {
     if (!data.locationIds.length) return [];
     const [salgRes, mapping] = await Promise.all([
-      context.supabase
-        .from("sales_monthly_products")
-        .select("varenr, period, revenue, weight_kg")
-        .in("location_id", data.locationIds)
-        .gte("period", data.fra)
-        .lt("period", data.til)
-        .limit(20000),
+      hentAlle((f, t) =>
+        context.supabase
+          .from("sales_monthly_products")
+          .select("id, varenr, period, revenue, weight_kg")
+          .in("location_id", data.locationIds)
+          .gte("period", data.fra)
+          .lt("period", data.til)
+          .order("id")
+          .range(f, t) as any,
+      ).then((rows) => ({ data: rows, error: null }), (error) => ({ data: null, error })),
       hentUnderkategoriMap(context.supabase),
     ]);
     if (salgRes.error) throw salgRes.error;

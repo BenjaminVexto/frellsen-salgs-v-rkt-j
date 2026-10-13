@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { hentAlle } from "@/lib/hent-alle";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -313,16 +314,18 @@ function TilbudBygger() {
   const consumablesQuery = useQuery({
     queryKey: ["quote-consumables"],
     queryFn: async (): Promise<ProductSimple[]> => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("varenr, beskrivelse, listepris, is_favorit, kategori")
-        .in("kategori", ["kaffe", "te", "chokolade", "maelk", "tilbehoer"])
-        .eq("is_tilbudsegnet", true)
-        .eq("record_status", "aktiv")
-        .order("is_favorit", { ascending: false })
-        .order("beskrivelse", { ascending: true })
-        .limit(3000);
-      if (error) throw error;
+      const data = await hentAlle((f, t) =>
+        supabase
+          .from("products")
+          .select("varenr, beskrivelse, listepris, is_favorit, kategori")
+          .in("kategori", ["kaffe", "te", "chokolade", "maelk", "tilbehoer"])
+          .eq("is_tilbudsegnet", true)
+          .eq("record_status", "aktiv")
+          .order("is_favorit", { ascending: false })
+          .order("beskrivelse", { ascending: true })
+          .order("varenr")
+          .range(f, t) as any,
+      );
       return (data ?? []) as any;
     },
   });

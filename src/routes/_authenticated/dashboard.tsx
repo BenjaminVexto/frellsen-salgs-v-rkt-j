@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { hentAlle } from "@/lib/hent-alle";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -110,13 +111,14 @@ function DashboardPage() {
     queryKey: ["dashboard-lists", userId, isAdmin, afdelingFilter],
     queryFn: async () => {
       // hent unikke kontaktlister via assignments (team-bredt for admin/support)
-      let q = supabase
-        .from("contact_list_assignments")
-        .select("contact_list_id, status, contact_list:contact_lists(id, name, is_active), company:companies!inner(afdeling_nr)");
-      if (!isAdmin) q = q.eq("assigned_to", userId!);
-      if (afdelingFilter != null) q = q.eq("company.afdeling_nr", afdelingFilter);
-      const { data: assignments, error } = await q;
-      if (error) throw error;
+      const assignments = await hentAlle((f, t) => {
+        let q = supabase
+          .from("contact_list_assignments")
+          .select("contact_list_id, status, contact_list:contact_lists(id, name, is_active), company:companies!inner(afdeling_nr)");
+        if (!isAdmin) q = q.eq("assigned_to", userId!);
+        if (afdelingFilter != null) q = q.eq("company.afdeling_nr", afdelingFilter);
+        return q.order("id").range(f, t) as any;
+      });
 
       const byList = new Map<
         string,
