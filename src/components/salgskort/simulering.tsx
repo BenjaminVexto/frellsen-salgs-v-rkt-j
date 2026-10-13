@@ -1,0 +1,540 @@
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
+import { toast } from "sonner";
+import type { DistriktData, Profil } from "@/components/salgskort/distrikt";
+
+export type Scenarie = { id: string; navn: string; beskrivelse: string | null; status: "kladde" | "gjort_gaeldende" | "arkiveret"; oprettet_at: string; opdateret_at: string };
+export type ScDistrikt = {
+  id: string; scenarie_id: string; kilde_distrikt_id: string | null; navn: string; farve: string; landsdel: string | null; sort: number;
+  saelger_user_id: string | null; saelger_fiktiv_id: string | null; daekkes_af_user_id: string | null;
+};
+export type ScSaelger = { id: string; scenarie_id: string; navn: string; farve: string; profil_id: string | null };
+export type ScData = { distrikter: ScDistrikt[]; saelgere: ScSaelger[]; fladeDistrikt: Map<number, string> };
+
+const sb = () => supabase as any;
+const kr = (n: number) => Math.round(n).toLocaleString("da-DK") + " kr.";
+const fortegn = (n: number, f: (n: number) => string) => (n > 0 ? "+" : n < 0 ? "−" : "") + f(Math.abs(n));
+
+/** Sælgernøgle for et scenariedistrikt: rigtig sælger, fiktiv ("f:<id>"), dækkende sælger, ellers "__ingen". */
+export const scSaelgerKey = (d: ScDistrikt) =>
+  d.saelger_user_id ?? (d.saelger_fiktiv_id ? "f:" + d.saelger_fiktiv_id : null) ?? d.daekkes_af_user_id ?? "__ingen";
+
+async function hentScenarier(): Promise<Scenarie[]> {
+  const { data, error } = await sb().from("distrikt_scenarie").select("*").order("oprettet_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+async function hentScenarie(id: string): Promise<ScData> {
+  const [d, s, f] = await Promise.all([
+    sb().from("scenarie_distrikt").select("*").eq("scenarie_id", id).order("sort").order("navn"),
+    sb().from("scenarie_saelger").select("*").eq("scenarie_id", id).order("navn"),
+    sb().from("scenarie_flade").select("flade,distrikt_id").eq("scenarie_id", id).range(0, 4999),
+  ]);
+  for (const r of [d, s, f]) if (r.error) throw r.error;
+  const m = new Map<number, string>();
+  (f.data ?? []).forEach((r: any) => m.set(r.flade, r.distrikt_id));
+  return { distrikter: d.data ?? [], saelgere: s.data ?? [], fladeDistrikt: m };
+}
+
+export function useScenarie(aktiv: boolean) {
+  const [scenarier, setScenarier] = useState<Scenarie[]>([]);
+  const [valgtId, setValgtId] = useState<string | null>(null);
+  const [sc, setSc] = useState<ScData | null>(null);
+  const [fortryd, setFortryd] = useState<{ flade: number; fra: string | null }[]>([]);
+  const reloadListe = async (vaelg?: string | null) => {
+    try {
+      const l = await hentScenarier();
+      setScenarier(l);
+      const ny = vaelg !== undefined ? vaelg : valgtId && l.some((s) => s.id === valgtId) ? valgtId : l.find((s) => s.status === "kladde")?.id ?? null;
+      setValgtId(ny);
+    } catch (e: any) { toast.error("Scenarier: " + (e.message ?? e)); }
+  };
+  const reload = async () => {
+    if (!valgtId) { setSc(null); return; }
+    try { setSc(await hentScenarie(valgtId)); } catch (e: any) { toast.error("Scenarie: " + (e.message ?? e)); }
+  };
+  useEffect(() => { if (aktiv && !scenarier.length) reloadListe(); /* eslint-disable-next-line */ }, [aktiv]);
+  useEffect(() => { setFortryd([]); reload(); /* eslint-disable-next-line */ }, [valgtId]);
+
+  const saetFlade = async (fl: number, til: string | null) => {
+    if (!sc || !valgtId) return;
+    const m = new Map(sc.fladeDistrikt);
+    til ? m.set(fl, til) : m.delete(fl);
+    setSc({ ...sc, fladeDistrikt: m });
+    const r = til
+      ? await sb().from("scenarie_flade").upsert({ scenarie_id: valgtId, flade: fl, distrikt_id: til })
+      : await sb().from("scenarie_flade").delete().eq("scenarie_id", valgtId).eq("flade", fl);
+    if (r.error) { toast.error("Kunne ikke gemme: " + r.error.message); reload(); }
+  };
+  const tildel = (fl: number, did: string) => {
+    if (!sc) return;
+    const fra = sc.fladeDistrikt.get(fl) ?? null;
+    if (fra === did) return;
+    setFortryd((u) => [...u, { flade: fl, fra }]);
+    saetFlade(fl, did);
+  };
+  const fortrydSeneste = () => {
+    const s = fortryd[fortryd.length - 1];
+    if (!s) return;
+    setFortryd((u) => u.slice(0, -1));
+    saetFlade(s.flade, s.fra);
+  };
+  return { scenarier, valgtId, setValgtId, sc, reload, reloadListe, tildel, fortrydSeneste, kanFortryde: fortryd.length > 0 };
+}
+export type ScenarieState = ReturnType<typeof useScenarie>;
+
+export type SimRow = {
+  location_id: string; company_id: string; virksomhed: string; postnr: string; by: string;
+  fra: string; til: string; aktiv: boolean; oms: number; db: number;
+};
+export type KonsekvensRow = { key: string; foer: Agg; efter: Agg };
+type Agg = { n: number; aktive: number; oms: number; db: number };
+export const tomAgg = (): Agg => ({ n: 0, aktive: 0, oms: 0, db: 0 });
+
+export function SimuleringPanel({
+  st, dd, navn, farve, konsekvens, flytninger, laasKam, setLaasKam, redigerer, setRedigerer, valgt, setValgt, fladeNavn,
+}: {
+  st: ScenarieState; dd: DistriktData; navn: (k: string) => string; farve: (k: string) => string;
+  konsekvens: KonsekvensRow[]; flytninger: SimRow[]; laasKam: boolean; setLaasKam: (b: boolean) => void;
+  redigerer: boolean; setRedigerer: (b: boolean) => void; valgt: string | null; setValgt: (id: string | null) => void;
+  fladeNavn: Map<number, string>;
+}) {
+  const [fane, setFane] = useState<"distr" | "kons">("distr");
+  const [navnDlg, setNavnDlg] = useState<null | { titel: string; start: string; ok: (n: string) => Promise<void> }>(null);
+  const [editD, setEditD] = useState<Partial<ScDistrikt> | null>(null);
+  const [editS, setEditS] = useState<Partial<ScSaelger> | null>(null);
+  const [merge, setMerge] = useState<ScDistrikt | null>(null);
+  const [visGoer, setVisGoer] = useState(false);
+  const [saelgerF, setSaelgerF] = useState<string | null>(null);
+  const valgtSc = st.scenarier.find((s) => s.id === st.valgtId) ?? null;
+  const sc = st.sc;
+  const laast = valgtSc?.status !== "kladde";
+
+  const rpc = async (fn: string, args: any) => {
+    const { data, error } = await sb().rpc(fn, args);
+    if (error) { toast.error(error.message); return null; }
+    return data as string;
+  };
+  const nyt = () => setNavnDlg({ titel: "Nyt scenarie (kopi af gældende distriktskort)", start: "", ok: async (n) => { const id = await rpc("scenarie_opret", { _navn: n }); if (id) await st.reloadListe(id); } });
+  const omdoeb = () => valgtSc && setNavnDlg({ titel: "Omdøb scenarie", start: valgtSc.navn, ok: async (n) => {
+    const { error } = await sb().from("distrikt_scenarie").update({ navn: n, opdateret_at: new Date().toISOString() }).eq("id", valgtSc.id);
+    if (error) toast.error(error.message); else await st.reloadListe(valgtSc.id);
+  } });
+  const kopier = () => valgtSc && setNavnDlg({ titel: "Kopiér scenarie", start: valgtSc.navn + " (kopi)", ok: async (n) => { const id = await rpc("scenarie_kopier", { _id: valgtSc.id, _navn: n }); if (id) await st.reloadListe(id); } });
+  const saetStatus = async (status: Scenarie["status"]) => {
+    if (!valgtSc) return;
+    const { error } = await sb().from("distrikt_scenarie").update({ status, opdateret_at: new Date().toISOString() }).eq("id", valgtSc.id);
+    if (error) toast.error(error.message); else await st.reloadListe(valgtSc.id);
+  };
+  const slet = async () => {
+    if (!valgtSc || !confirm(`Slet scenariet "${valgtSc.navn}"? Det kan ikke fortrydes.`)) return;
+    const { error } = await sb().from("distrikt_scenarie").delete().eq("id", valgtSc.id);
+    if (error) toast.error(error.message); else await st.reloadListe(null);
+  };
+
+  const dStats = useMemo(() => {
+    const m = new Map<string, number>();
+    sc?.fladeDistrikt.forEach((d) => m.set(d, (m.get(d) ?? 0) + 1));
+    return m;
+  }, [sc]);
+  const fiktivNavn = (id: string | null) => sc?.saelgere.find((s) => s.id === id)?.navn ?? "?";
+  const dSaelgerTekst = (d: ScDistrikt) => d.saelger_user_id ? navn(d.saelger_user_id)
+    : d.saelger_fiktiv_id ? `${fiktivNavn(d.saelger_fiktiv_id)} (fiktiv)`
+    : `NY – dækkes af ${d.daekkes_af_user_id ? navn(d.daekkes_af_user_id) : "ingen"}`;
+
+  const sletDistrikt = async (d: ScDistrikt) => {
+    if (!confirm(`Slet distriktet "${d.navn}"? Dets ${dStats.get(d.id) ?? 0} flader bliver uden distrikt.`)) return;
+    const { error } = await sb().from("scenarie_distrikt").delete().eq("id", d.id);
+    if (error) toast.error(error.message); else { if (valgt === d.id) setValgt(null); st.reload(); }
+  };
+  const sletSaelger = async (s: ScSaelger) => {
+    if (!confirm(`Slet den fiktive sælger "${s.navn}"? Distrikter med sælgeren bliver ubesatte.`)) return;
+    const { error } = await sb().from("scenarie_saelger").delete().eq("id", s.id);
+    if (error) toast.error(error.message); else st.reload();
+  };
+
+  const flyt = saelgerF ? flytninger.filter((r) => r.fra === saelgerF || r.til === saelgerF) : flytninger;
+
+  return (
+    <div className="flex flex-col min-h-0 flex-1">
+      <div className="p-3 space-y-2 border-b border-border shrink-0">
+        <div className="flex items-center gap-2">
+          <select className="flex-1 min-w-0 rounded-md border border-input bg-background px-2 py-1.5 text-sm" value={st.valgtId ?? ""} onChange={(e) => st.setValgtId(e.target.value || null)}>
+            <option value="">Vælg scenarie…</option>
+            {st.scenarier.map((s) => <option key={s.id} value={s.id}>{s.navn}{s.status === "arkiveret" ? " (arkiveret)" : s.status === "gjort_gaeldende" ? " (gjort gældende)" : ""}</option>)}
+          </select>
+          <Button size="sm" onClick={nyt}>Nyt scenarie</Button>
+        </div>
+        {valgtSc && (
+          <div className="flex flex-wrap gap-1">
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={omdoeb}>Omdøb</Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={kopier}>Kopiér</Button>
+            {valgtSc.status === "kladde"
+              ? <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => saetStatus("arkiveret")}>Arkivér</Button>
+              : <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => saetStatus("kladde")}>Genåbn som kladde</Button>}
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={slet}>Slet</Button>
+            <Button size="sm" className="h-7 text-xs ml-auto" disabled={laast} onClick={() => setVisGoer(true)}>Gør gældende</Button>
+          </div>
+        )}
+        {valgtSc && laast && <div className="text-xs text-muted-foreground">Scenariet er {valgtSc.status === "arkiveret" ? "arkiveret" : "gjort gældende"} og kan kun ses. Genåbn det som kladde for at redigere.</div>}
+      </div>
+
+      {!valgtSc || !sc ? (
+        <div className="p-6 text-center text-muted-foreground text-sm">
+          {st.scenarier.length ? "Vælg et scenarie ovenfor." : "Ingen scenarier endnu. Opret et nyt scenarie – det starter som en kopi af det gældende distriktskort."}
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-2 px-3 pt-2 shrink-0">
+            <Button size="sm" variant={fane === "distr" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setFane("distr")}>Distrikter og sælgere</Button>
+            <Button size="sm" variant={fane === "kons" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setFane("kons")}>Konsekvens ({flytninger.length} flyt)</Button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+            {fane === "distr" ? (
+              <>
+                {!laast && (
+                  <Button size="sm" variant={redigerer ? "default" : "outline"} className="w-full" onClick={() => setRedigerer(!redigerer)}>
+                    {redigerer ? "Afslut redigering" : "Redigér grænser"}
+                  </Button>
+                )}
+                {redigerer && (
+                  <div className="rounded border-2 border-primary bg-primary/5 p-2 text-xs space-y-2">
+                    <div className="font-medium">Redigeringstilstand (scenarie)</div>
+                    <div>{valgt ? <>Klik eller træk hen over flader for at flytte dem til <b>{sc.distrikter.find((d) => d.id === valgt)?.navn}</b>.</> : "Vælg et distrikt i listen herunder."}</div>
+                    <Button size="sm" variant="outline" disabled={!st.kanFortryde} onClick={st.fortrydSeneste}>Fortryd seneste</Button>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Distrikter ({sc.distrikter.length})</span>
+                  {!laast && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditD({ navn: "", farve: "#3b5b92", landsdel: "Vest", sort: sc.distrikter.length + 1 })}>Nyt distrikt</Button>}
+                </div>
+                <ul className="space-y-1">
+                  {sc.distrikter.map((d) => (
+                    <li key={d.id} onClick={() => redigerer && setValgt(d.id)}
+                      className={"rounded border p-2 text-xs " + (redigerer ? "cursor-pointer hover:bg-muted/40 " : "") + (valgt === d.id && redigerer ? "border-primary ring-1 ring-primary" : "border-border")}>
+                      <div className="flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-sm shrink-0" style={{ background: d.farve, outline: d.saelger_user_id ? undefined : "1px dashed currentColor" }} />
+                        <span className="font-medium flex-1 truncate">{d.navn}</span>
+                        {!laast && (
+                          <span className="flex gap-2 text-muted-foreground">
+                            <button type="button" className="hover:underline" onClick={(e) => { e.stopPropagation(); setEditD(d); }}>Rediger</button>
+                            <button type="button" className="hover:underline" onClick={(e) => { e.stopPropagation(); setMerge(d); }}>Slå sammen</button>
+                            <button type="button" className="hover:underline" onClick={(e) => { e.stopPropagation(); sletDistrikt(d); }}>Slet</button>
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-muted-foreground mt-0.5">{dSaelgerTekst(d)}{d.landsdel ? ` · ${d.landsdel}` : ""} · {dStats.get(d.id) ?? 0} {(dStats.get(d.id) ?? 0) === 1 ? "flade" : "flader"}</div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex items-center justify-between pt-2">
+                  <span className="font-medium">Fiktive sælgere ({sc.saelgere.length})</span>
+                  {!laast && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditS({ navn: "Ny sælger ", farve: "#6a6a6a" })}>Ny fiktiv sælger</Button>}
+                </div>
+                {sc.saelgere.length === 0 && <div className="text-xs text-muted-foreground">Ingen fiktive sælgere i scenariet.</div>}
+                <ul className="space-y-1">
+                  {sc.saelgere.map((s) => (
+                    <li key={s.id} className="rounded border border-dashed border-border p-2 text-xs flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-full shrink-0" style={{ background: s.farve, outline: "1px dashed currentColor" }} />
+                      <span className="flex-1 truncate"><span className="font-medium">{s.navn}</span> (fiktiv){s.profil_id ? ` → ${navn(s.profil_id)}` : <span className="text-muted-foreground"> · ikke koblet</span>}</span>
+                      {!laast && <>
+                        <button type="button" className="text-muted-foreground hover:underline" onClick={() => setEditS(s)}>Rediger</button>
+                        <button type="button" className="text-muted-foreground hover:underline" onClick={() => sletSaelger(s)}>Slet</button>
+                      </>}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Checkbox checked={laasKam} onCheckedChange={(v) => setLaasKam(!!v)} />
+                  Lås KAM-kunder (beholder nuværende sælger)
+                </label>
+                <Konsekvens rows={konsekvens} navn={navn} farve={farve} valgt={saelgerF} onVaelg={(k) => setSaelgerF(saelgerF === k ? null : k)} />
+                <Flytteliste rows={flyt} navn={navn} filter={saelgerF ? navn(saelgerF) : null} onFjernFilter={() => setSaelgerF(null)} />
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {navnDlg && <NavnDialog {...navnDlg} onLuk={() => setNavnDlg(null)} />}
+      {editD && sc && st.valgtId && <ScDistriktDialog d={editD} scenarieId={st.valgtId} profiler={dd.profiler} fiktive={sc.saelgere} onLuk={() => setEditD(null)} onGemt={() => { setEditD(null); st.reload(); }} />}
+      {editS && st.valgtId && <ScSaelgerDialog s={editS} scenarieId={st.valgtId} profiler={dd.profiler} onLuk={() => setEditS(null)} onGemt={() => { setEditS(null); st.reload(); }} />}
+      {merge && sc && st.valgtId && <MergeDialog kilde={merge} scenarieId={st.valgtId} distrikter={sc.distrikter} onLuk={() => setMerge(null)} onGemt={() => { setMerge(null); st.reload(); }} />}
+      {visGoer && sc && valgtSc && (
+        <GoerGaeldendeDialog sc={sc} scenarie={valgtSc} dd={dd} flytninger={flytninger.length} fladeNavn={fladeNavn}
+          onLuk={() => setVisGoer(false)} onFaerdig={async () => { setVisGoer(false); await st.reloadListe(valgtSc.id); }} />
+      )}
+    </div>
+  );
+}
+
+function Konsekvens({ rows, navn, farve, valgt, onVaelg }: { rows: KonsekvensRow[]; navn: (k: string) => string; farve: (k: string) => string; valgt: string | null; onVaelg: (k: string) => void }) {
+  const fe = (a: number, b: number, f: (n: number) => string = (n) => n.toLocaleString("da-DK")) => (
+    <div className="whitespace-nowrap leading-tight"><div className="text-muted-foreground">{f(a)} →</div><div>{f(b)}</div></div>
+  );
+  const k = (n: number) => Math.round(n / 1000).toLocaleString("da-DK");
+  const pct = (a: number, b: number) => (a ? fortegn(Math.round(((b - a) / Math.abs(a)) * 100), (n) => n + " %") : "—");
+  const t = rows.reduce((s, r) => ({ foer: add(s.foer, r.foer), efter: add(s.efter, r.efter) }), { foer: tomAgg(), efter: tomAgg() });
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-[11px] [&_td]:px-0.5 [&_th]:px-0.5">
+        <thead className="text-muted-foreground">
+          <tr className="text-right"><th className="text-left font-medium px-1">Sælger</th><th className="font-medium px-1">Lok.</th><th className="font-medium px-1">Aktive</th><th className="font-medium px-1">Oms.</th><th className="font-medium px-1">Δ oms.</th><th className="font-medium px-1">DB</th><th className="font-medium px-1">Δ DB</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key} onClick={() => onVaelg(r.key)} className={"border-t border-border cursor-pointer hover:bg-muted/40 text-right tabular-nums " + (valgt === r.key ? "bg-muted/60" : "")}>
+              <td className="text-left px-1 py-1 max-w-[88px]"><div className="flex items-center gap-1 min-w-0">
+                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: farve(r.key), outline: r.key.startsWith("f:") ? "1px dashed currentColor" : undefined }} />
+                <span className="truncate" title={navn(r.key)}>{navn(r.key)}</span></div></td>
+              <td className="px-1">{fe(r.foer.n, r.efter.n)}</td>
+              <td className="px-1">{fe(r.foer.aktive, r.efter.aktive)}</td>
+              <td className="px-1">{fe(r.foer.oms, r.efter.oms, k)}</td>
+              <td className="px-1 whitespace-nowrap leading-tight">{fortegn(r.efter.oms - r.foer.oms, k)}<div className="text-muted-foreground">{pct(r.foer.oms, r.efter.oms)}</div></td>
+              <td className="px-1">{fe(r.foer.db, r.efter.db, k)}</td>
+              <td className="px-1 whitespace-nowrap">{fortegn(r.efter.db - r.foer.db, k)}</td>
+            </tr>
+          ))}
+          <tr className="border-t-2 border-border font-medium text-right tabular-nums">
+            <td className="text-left px-1 py-1">I alt</td><td className="px-1">{fe(t.foer.n, t.efter.n)}</td><td className="px-1">{fe(t.foer.aktive, t.efter.aktive)}</td>
+            <td className="px-1">{fe(t.foer.oms, t.efter.oms, k)}</td><td className="px-1">{fortegn(t.efter.oms - t.foer.oms, k)}</td><td className="px-1">{fe(t.foer.db, t.efter.db, k)}</td><td className="px-1">{fortegn(t.efter.db - t.foer.db, k)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div className="text-[11px] text-muted-foreground mt-1">Før → efter. Oms. og DB 12 mdr. i 1.000 kr. Klik på en sælger for at filtrere flyttelisten.</div>
+    </div>
+  );
+}
+const add = (a: Agg, b: Agg): Agg => ({ n: a.n + b.n, aktive: a.aktive + b.aktive, oms: a.oms + b.oms, db: a.db + b.db });
+
+function Flytteliste({ rows, navn, filter, onFjernFilter }: { rows: SimRow[]; navn: (k: string) => string; filter: string | null; onFjernFilter: () => void }) {
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<{ k: "virksomhed" | "postnr" | "fra" | "til" | "oms" | "db"; asc: boolean }>({ k: "oms", asc: false });
+  const ql = q.trim().toLowerCase();
+  const vis = rows.filter((r) => !ql || [r.virksomhed, r.postnr, r.by, navn(r.fra), navn(r.til)].some((v) => v.toLowerCase().includes(ql)))
+    .sort((a, b) => {
+      const d = sort.k === "oms" ? a.oms - b.oms : sort.k === "db" ? a.db - b.db
+        : sort.k === "fra" || sort.k === "til" ? navn(a[sort.k]).localeCompare(navn(b[sort.k]), "da") : a[sort.k].localeCompare(b[sort.k], "da");
+      return sort.asc ? d : -d;
+    });
+  const th = (k: typeof sort.k, l: string, right?: boolean) => {
+    const Ic = sort.k !== k ? ArrowUpDown : sort.asc ? ArrowUp : ArrowDown;
+    return <th className={"px-1 py-1 font-medium whitespace-nowrap " + (right ? "text-right" : "text-left")}>
+      <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => setSort({ k, asc: sort.k === k ? !sort.asc : !(k === "oms" || k === "db") })}>{l}<Ic className="h-3 w-3" /></button></th>;
+  };
+  const eksport = () => {
+    const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [["Virksomhed", "Postnr", "By", "Fra sælger", "Til sælger", "Oms. 12 mdr", "DB 12 mdr"].map(esc).join(";"),
+      ...vis.map((r) => [r.virksomhed, r.postnr, r.by, navn(r.fra), navn(r.til), Math.round(r.oms), Math.round(r.db)].map(esc).join(";"))];
+    const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "flytteliste.csv"; a.click();
+  };
+  return (
+    <div className="space-y-2 pt-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium">Flytteliste</span>
+        <span className="text-xs text-muted-foreground tabular-nums">{vis.length} af {rows.length} lokationer</span>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={eksport} disabled={!vis.length}>Eksportér CSV</Button>
+      </div>
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Søg virksomhed, postnr., sælger…" className="h-8 pl-7 text-xs" />
+      </div>
+      {filter && <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-xs">Fra/til: {filter}<button type="button" aria-label="Fjern" onClick={onFjernFilter}><X className="h-3 w-3" /></button></span>}
+      <table className="w-full text-xs">
+        <thead className="text-muted-foreground"><tr>{th("virksomhed", "Lokation")}{th("postnr", "Postnr./by")}{th("fra", "Fra")}{th("til", "Til")}{th("oms", "Oms.", true)}{th("db", "DB", true)}</tr></thead>
+        <tbody>
+          {vis.map((r) => (
+            <tr key={r.location_id} className="border-t border-border cursor-pointer hover:bg-muted/40" onClick={() => window.open(`/virksomheder/${r.company_id}`, "_blank")}>
+              <td className="px-1 py-1 max-w-[110px] truncate" title={r.virksomhed}>{r.virksomhed}</td>
+              <td className="px-1 max-w-[80px] truncate" title={`${r.postnr} ${r.by}`}>{r.postnr} {r.by}</td>
+              <td className="px-1 max-w-[70px] truncate" title={navn(r.fra)}>{navn(r.fra)}</td>
+              <td className="px-1 max-w-[70px] truncate" title={navn(r.til)}>{navn(r.til)}</td>
+              <td className="px-1 text-right tabular-nums whitespace-nowrap">{kr(r.oms)}</td>
+              <td className="px-1 text-right tabular-nums whitespace-nowrap text-muted-foreground">{kr(r.db)}</td>
+            </tr>
+          ))}
+          {!vis.length && <tr><td colSpan={6} className="p-3 text-center text-muted-foreground">Ingen lokationer skifter sælger.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function NavnDialog({ titel, start, ok, onLuk }: { titel: string; start: string; ok: (n: string) => Promise<void>; onLuk: () => void }) {
+  const [n, setN] = useState(start);
+  const [b, setB] = useState(false);
+  return (
+    <Dialog open onOpenChange={(o) => !o && onLuk()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{titel}</DialogTitle></DialogHeader>
+        <Input autoFocus value={n} onChange={(e) => setN(e.target.value)} placeholder="Navn" />
+        <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button>
+          <Button disabled={b || !n.trim()} onClick={async () => { setB(true); await ok(n.trim()); setB(false); onLuk(); }}>Gem</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const sel = "w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm";
+
+function ScDistriktDialog({ d, scenarieId, profiler, fiktive, onLuk, onGemt }: { d: Partial<ScDistrikt>; scenarieId: string; profiler: Profil[]; fiktive: ScSaelger[]; onLuk: () => void; onGemt: () => void }) {
+  const [f, setF] = useState<Partial<ScDistrikt>>(d);
+  const aktive = profiler.filter((p) => p.is_active !== false && p.full_name);
+  const saelgerVal = f.saelger_user_id ? "u:" + f.saelger_user_id : f.saelger_fiktiv_id ? "f:" + f.saelger_fiktiv_id : "";
+  const besat = !!saelgerVal;
+  const gem = async () => {
+    if (!f.navn?.trim()) return toast.error("Navn mangler");
+    const row = { scenarie_id: scenarieId, navn: f.navn.trim(), farve: f.farve || "#888888", landsdel: f.landsdel || null, sort: f.sort ?? 0,
+      saelger_user_id: f.saelger_user_id || null, saelger_fiktiv_id: f.saelger_fiktiv_id || null, daekkes_af_user_id: besat ? null : f.daekkes_af_user_id || null };
+    const { error } = f.id ? await sb().from("scenarie_distrikt").update(row).eq("id", f.id) : await sb().from("scenarie_distrikt").insert(row);
+    if (error) return toast.error(error.message);
+    onGemt();
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onLuk()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{f.id ? "Rediger distrikt (scenarie)" : "Nyt distrikt (scenarie)"}</DialogTitle></DialogHeader>
+        <div className="space-y-3 text-sm">
+          <label className="block">Navn<Input value={f.navn ?? ""} onChange={(e) => setF({ ...f, navn: e.target.value })} /></label>
+          <label className="block">Sælger
+            <select className={sel} value={saelgerVal} onChange={(e) => {
+              const v = e.target.value;
+              setF({ ...f, saelger_user_id: v.startsWith("u:") ? v.slice(2) : null, saelger_fiktiv_id: v.startsWith("f:") ? v.slice(2) : null });
+            }}>
+              <option value="">NY (ubesat)</option>
+              {fiktive.length > 0 && <optgroup label="Fiktive sælgere">{fiktive.map((s) => <option key={s.id} value={"f:" + s.id}>{s.navn} (fiktiv)</option>)}</optgroup>}
+              <optgroup label="Sælgere">{aktive.map((p) => <option key={p.id} value={"u:" + p.id}>{p.full_name}</option>)}</optgroup>
+            </select>
+          </label>
+          {!besat && (
+            <label className="block">Dækkes midlertidigt af
+              <select className={sel} value={f.daekkes_af_user_id ?? ""} onChange={(e) => setF({ ...f, daekkes_af_user_id: e.target.value || null })}>
+                <option value="">Ingen</option>
+                {aktive.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+              </select>
+            </label>
+          )}
+          <div className="grid grid-cols-3 gap-2">
+            <label className="block">Landsdel
+              <select className={sel} value={f.landsdel ?? ""} onChange={(e) => setF({ ...f, landsdel: e.target.value || null })}>
+                <option value="">—</option><option>Øst</option><option>Vest</option>
+              </select>
+            </label>
+            <label className="block">Farve<Input type="color" value={f.farve ?? "#888888"} onChange={(e) => setF({ ...f, farve: e.target.value })} /></label>
+            <label className="block">Sortering<Input type="number" value={f.sort ?? 0} onChange={(e) => setF({ ...f, sort: Number(e.target.value) })} /></label>
+          </div>
+        </div>
+        <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button onClick={gem}>Gem</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ScSaelgerDialog({ s, scenarieId, profiler, onLuk, onGemt }: { s: Partial<ScSaelger>; scenarieId: string; profiler: Profil[]; onLuk: () => void; onGemt: () => void }) {
+  const [f, setF] = useState<Partial<ScSaelger>>(s);
+  const aktive = profiler.filter((p) => p.is_active !== false && p.full_name);
+  const gem = async () => {
+    if (!f.navn?.trim()) return toast.error("Navn mangler");
+    const row = { scenarie_id: scenarieId, navn: f.navn.trim(), farve: f.farve || "#6a6a6a", profil_id: f.profil_id || null };
+    const { error } = f.id ? await sb().from("scenarie_saelger").update(row).eq("id", f.id) : await sb().from("scenarie_saelger").insert(row);
+    if (error) return toast.error(error.message);
+    onGemt();
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onLuk()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{f.id ? "Rediger fiktiv sælger" : "Ny fiktiv sælger"}</DialogTitle></DialogHeader>
+        <div className="space-y-3 text-sm">
+          <label className="block">Navn<Input value={f.navn ?? ""} onChange={(e) => setF({ ...f, navn: e.target.value })} placeholder="Fx Ny sælger Fyn" /></label>
+          <label className="block">Farve<Input type="color" value={f.farve ?? "#6a6a6a"} onChange={(e) => setF({ ...f, farve: e.target.value })} /></label>
+          <label className="block">Kobl til rigtig profil (kræves før scenariet kan gøres gældende)
+            <select className={sel} value={f.profil_id ?? ""} onChange={(e) => setF({ ...f, profil_id: e.target.value || null })}>
+              <option value="">Ikke koblet</option>
+              {aktive.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+            </select>
+          </label>
+        </div>
+        <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button onClick={gem}>Gem</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MergeDialog({ kilde, scenarieId, distrikter, onLuk, onGemt }: { kilde: ScDistrikt; scenarieId: string; distrikter: ScDistrikt[]; onLuk: () => void; onGemt: () => void }) {
+  const [til, setTil] = useState("");
+  const gem = async () => {
+    if (!til) return;
+    const a = await sb().from("scenarie_flade").update({ distrikt_id: til }).eq("scenarie_id", scenarieId).eq("distrikt_id", kilde.id);
+    if (a.error) return toast.error(a.error.message);
+    const b = await sb().from("scenarie_distrikt").delete().eq("id", kilde.id);
+    if (b.error) return toast.error(b.error.message);
+    toast.success("Distrikter slået sammen");
+    onGemt();
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onLuk()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Slå "{kilde.navn}" sammen med…</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">Alle flader flyttes til det valgte distrikt, og "{kilde.navn}" slettes fra scenariet.</p>
+        <select className={sel} value={til} onChange={(e) => setTil(e.target.value)}>
+          <option value="">Vælg distrikt</option>
+          {distrikter.filter((d) => d.id !== kilde.id).map((d) => <option key={d.id} value={d.id}>{d.navn}</option>)}
+        </select>
+        <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button disabled={!til} onClick={gem}>Slå sammen</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function GoerGaeldendeDialog({ sc, scenarie, dd, flytninger, fladeNavn, onLuk, onFaerdig }: {
+  sc: ScData; scenarie: Scenarie; dd: DistriktData; flytninger: number; fladeNavn: Map<number, string>; onLuk: () => void; onFaerdig: () => void;
+}) {
+  const [b, setB] = useState(false);
+  const scMap = new Map(sc.distrikter.map((d) => [d.id, d]));
+  const flader = new Set<number>([...sc.fladeDistrikt.keys(), ...dd.fladeDistrikt.keys()]);
+  let skifter = 0;
+  flader.forEach((fl) => { const s = scMap.get(sc.fladeDistrikt.get(fl) ?? ""); if ((s?.kilde_distrikt_id ?? null) !== (dd.fladeDistrikt.get(fl) ?? null)) skifter++; });
+  const brugte = new Set(sc.distrikter.map((d) => d.saelger_fiktiv_id).filter(Boolean));
+  const mangler = sc.saelgere.filter((s) => brugte.has(s.id) && !s.profil_id);
+  const nye = sc.distrikter.filter((d) => !d.kilde_distrikt_id || !dd.distrikter.some((x) => x.id === d.kilde_distrikt_id)).length;
+  const fjernes = dd.distrikter.filter((x) => !sc.distrikter.some((d) => d.kilde_distrikt_id === x.id)).length;
+  void fladeNavn;
+  const goer = async () => {
+    setB(true);
+    const { error } = await sb().rpc("scenarie_gor_gaeldende", { _id: scenarie.id });
+    setB(false);
+    if (error) return toast.error(error.message);
+    toast.success("Scenariet er nu det gældende distriktskort. Det tidligere er gemt som arkiveret scenarie.");
+    onFaerdig();
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onLuk()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Gør "{scenarie.navn}" gældende?</DialogTitle></DialogHeader>
+        <div className="space-y-2 text-sm">
+          <ul className="list-disc pl-5 space-y-0.5">
+            <li>{skifter.toLocaleString("da-DK")} flader skifter distrikt</li>
+            <li>{flytninger.toLocaleString("da-DK")} lokationer skifter sælger (under de aktive filtre)</li>
+            <li>{nye} nye distrikter · {fjernes} distrikter fjernes</li>
+          </ul>
+          <p className="text-muted-foreground">Det nuværende distriktskort gemmes som arkiveret scenarie "Gældende før [dato]". Sælgertildelingen på lokationer og i Visma ændres ikke – brug flyttelisten til det.</p>
+          {mangler.length > 0 && (
+            <div className="rounded border border-border bg-muted/50 p-2">
+              <b>Kan ikke gøres gældende endnu.</b> Disse fiktive sælgere skal kobles til en rigtig profil først: {mangler.map((s) => s.navn).join(", ")}.
+            </div>
+          )}
+        </div>
+        <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button disabled={b || mangler.length > 0} onClick={goer}>Gør gældende</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

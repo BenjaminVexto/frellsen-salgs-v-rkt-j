@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { toast } from "sonner";
 import { AfvigelsesListe, DistriktPanel, distriktSaelger, hentDistriktData, initialer, kpg3Kode, type AfvigRow, type DistriktData, type DistriktStat } from "@/components/salgskort/distrikt";
+import { SimuleringPanel, scSaelgerKey, tomAgg, useScenarie, type KonsekvensRow, type SimRow } from "@/components/salgskort/simulering";
 
 type Flade = { flade: number; navn: string | null; landsdel: string | null; postnumre: number[] | null; geom: any };
 type Lok = {
@@ -102,13 +103,14 @@ export function SalgskortFane() {
   const [fremhaev, setFremhaev] = useState<string | null>(null);
   const [visIkkePlaceret, setVisIkkePlaceret] = useState(false);
   const [udfoldKpg1, setUdfoldKpg1] = useState<Set<string>>(new Set());
-  const [visning, setVisningRaw] = useState<"virk" | "distr" | "over">("virk");
+  const [visning, setVisningRaw] = useState<"virk" | "distr" | "over" | "sim">("virk");
   const [kundetype, setKundetype] = useState<"geo" | "kam" | "alle">("alle");
-  const setVisning = (v: "virk" | "distr" | "over") => { setVisningRaw(v); setKundetype(v === "virk" ? "alle" : "geo"); if (v === "virk") setRedigerer(false); };
+  const setVisning = (v: "virk" | "distr" | "over" | "sim") => { setVisningRaw(v); setKundetype(v === "virk" || v === "sim" ? "alle" : "geo"); setRedigerer(false); setValgtDistrikt(null); };
   const [dd, setDd] = useState<DistriktData | null>(null);
   const [redigerer, setRedigerer] = useState(false);
   const [valgtDistrikt, setValgtDistrikt] = useState<string | null>(null);
-  const [fortryd, setFortryd] = useState<{ flade: number; fra: string | null }[]>([]);
+  const st = useScenarie(visning === "sim");
+  const [laasKam, setLaasKam] = useState(true);
   const [zoom, setZoom] = useState<{ flade: number; n: number } | null>(null);
   const [fane, setFane] = useState<"saelgere" | "afvig">("saelgere");
   const [hoverSaelger, setHoverSaelger] = useState<string | null>(null);
@@ -238,28 +240,32 @@ export function SalgskortFane() {
     return [...m.entries()].map(([kode, e]) => ({ kode, ...e })).sort((a, b) => Number(a.kode) - Number(b.kode));
   }, [rows]);
 
-  const tildel = async (fl: number) => {
-    if (!dd || !valgtDistrikt) return;
-    const fra = dd.fladeDistrikt.get(fl) ?? null;
-    if (fra === valgtDistrikt) return;
-    const nyMap = new Map(dd.fladeDistrikt); nyMap.set(fl, valgtDistrikt);
-    setDd({ ...dd, fladeDistrikt: nyMap });
-    setFortryd((u) => [...u, { flade: fl, fra }]);
-    const { error } = await (supabase as any).from("distrikt_flade").upsert({ flade: fl, distrikt_id: valgtDistrikt, opdateret_af: auth.user?.id, opdateret_at: new Date().toISOString() });
-    if (error) { toast.error("Kunne ikke gemme: " + error.message); genhentDistrikt(); }
-  };
-  const fortrydSeneste = async () => {
-    const sidste = fortryd[fortryd.length - 1];
-    if (!sidste || !dd) return;
-    setFortryd((u) => u.slice(0, -1));
-    const nyMap = new Map(dd.fladeDistrikt);
-    const sb = supabase as any;
-    let res;
-    if (sidste.fra) { nyMap.set(sidste.flade, sidste.fra); res = await sb.from("distrikt_flade").upsert({ flade: sidste.flade, distrikt_id: sidste.fra, opdateret_af: auth.user?.id, opdateret_at: new Date().toISOString() }); }
-    else { nyMap.delete(sidste.flade); res = await sb.from("distrikt_flade").delete().eq("flade", sidste.flade); }
-    setDd({ ...dd, fladeDistrikt: nyMap });
-    if (res.error) { toast.error(res.error.message); genhentDistrikt(); }
-  };
+  const tildel = (fl: number) => { if (visning === "sim" && valgtDistrikt) st.tildel(fl, valgtDistrikt); };
+
+  // Simulering: sælger efter scenariet pr. lokation
+  const scMap = useMemo(() => new Map((st.sc?.distrikter ?? []).map((d) => [d.id, d])), [st.sc]);
+  const fiktivMap = useMemo(() => new Map((st.sc?.saelgere ?? []).map((x) => [x.id, x])), [st.sc]);
+  const simNavn = (k: string) => k.startsWith("f:") ? (fiktivMap.get(k.slice(2))?.navn ?? "?") + " (fiktiv)" : saelgerNavn.get(k) ?? (k === "__ingen" ? "Uden sælger" : pNavn(k));
+  const simFarve = (k: string) => farver.get(k) ?? (k.startsWith("f:") ? fiktivMap.get(k.slice(2))?.farve : undefined) ?? GRAA_INGEN;
+  const sim = useMemo(() => {
+    const kons = new Map<string, KonsekvensRow>();
+    const flyt: SimRow[] = [];
+    if (visning !== "sim" || !st.sc || !data) return { kons: [] as KonsekvensRow[], flyt };
+    const fn = new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]));
+    const get = (k: string) => { let e = kons.get(k); if (!e) kons.set(k, (e = { key: k, foer: tomAgg(), efter: tomAgg() })); return e; };
+    filtrerede.forEach((r) => {
+      let til = r.sKey;
+      const fri = r.geografisk || (r.kam && !laasKam && r.salesperson_no !== "199");
+      if (fri && r.flade != null) { const d = scMap.get(st.sc!.fladeDistrikt.get(r.flade) ?? ""); if (d) til = scSaelgerKey(d); }
+      const aktiv = r.customer_type === "aktiv_kunde";
+      for (const [k, side] of [[r.sKey, "foer"], [til, "efter"]] as const) {
+        const a = get(k)[side]; a.n++; a.aktive += aktiv ? 1 : 0; a.oms += r.omsaetning_12m; a.db += r.db_12m;
+      }
+      if (til !== r.sKey) flyt.push({ location_id: r.location_id, company_id: r.company_id, virksomhed: r.virksomhedsnavn ?? "", postnr: r.zip_norm ?? "",
+        by: r.flade != null ? fn.get(r.flade) ?? "" : "", fra: r.sKey, til, aktiv, oms: r.omsaetning_12m, db: r.db_12m });
+    });
+    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt };
+  }, [visning, st.sc, data, filtrerede, scMap, laasKam]);
 
   // Pr. flade: fordeling pr. sælger
   const pFlade = useMemo(() => {
@@ -292,7 +298,15 @@ export function SalgskortFane() {
       features: data.flader.filter((f) => f.geom && erBornholm(f) === bh).map((f) => {
         const s = pFlade.get(f.flade);
         let color = TOM, opacity = 1, lc = "#ffffff", lw = 0.5, ubesat = false, tip = (f.postnumre ?? []).join(", ");
-        if (visning !== "virk") {
+        if (visning === "sim") {
+          const d = scMap.get(st.sc?.fladeDistrikt.get(f.flade) ?? "");
+          if (!d) { lc = "#d62728"; lw = 1.5; tip = "Intet distrikt"; }
+          else {
+            color = d.farve; const fiktiv = !!d.saelger_fiktiv_id; const besat = !!(d.saelger_user_id || d.saelger_fiktiv_id);
+            opacity = besat ? 0.8 : 0.35; ubesat = !d.saelger_user_id; lc = ubesat ? "#333333" : "#ffffff"; lw = ubesat ? 1 : 0.5;
+            tip = `${d.navn} · ${d.saelger_user_id ? pNavn(d.saelger_user_id) : fiktiv ? (fiktivMap.get(d.saelger_fiktiv_id!)?.navn ?? "?") + " (fiktiv)" : "NY – dækkes af " + (d.daekkes_af_user_id ? pNavn(d.daekkes_af_user_id) : "ingen")}`;
+          }
+        } else if (visning !== "virk") {
           const d = distriktMap.get(dd?.fladeDistrikt.get(f.flade) ?? "");
           const o = overens.get(f.flade);
           if (!d) { lc = "#d62728"; lw = 1.5; }
@@ -325,7 +339,7 @@ export function SalgskortFane() {
     });
     return { main: mk(false), bh: mk(true) };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, pFlade, farver, fremhaevAktiv, visning, overens, dd, distriktMap, profilNavn]);
+  }, [data, pFlade, farver, fremhaevAktiv, visning, overens, dd, distriktMap, profilNavn, st.sc, scMap, fiktivMap]);
 
   if (auth.loading) return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Indlæser…</div>;
   if (auth.role !== "admin") return null;
@@ -429,15 +443,15 @@ export function SalgskortFane() {
           </Card>
 
           <Card className={"flex flex-col lg:h-full h-[70vh] overflow-hidden " + (redigerer ? "ring-2 ring-primary" : "")}>
-            <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
               <div className="flex rounded-md border border-border text-xs overflow-hidden">
-                {([["virk", "Virkelighed"], ["distr", "Distrikter"], ["over", "Overensstemmelse"]] as const).map(([k, l]) => (
-                  <button key={k} type="button" onClick={() => setVisning(k)} className={"px-3 py-1 " + (visning === k ? "bg-primary text-primary-foreground" : "hover:bg-muted")}>{l}</button>
+                {([["virk", "Virkelighed"], ["distr", "Distrikter"], ["over", "Overensstemmelse"], ["sim", "Simulering"]] as const).map(([k, l]) => (
+                  <button key={k} type="button" onClick={() => setVisning(k)} className={"px-1.5 py-1 whitespace-nowrap " + (visning === k ? "bg-primary text-primary-foreground" : "hover:bg-muted")}>{l}</button>
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                {redigerer && <span className="rounded bg-primary text-primary-foreground px-2 py-0.5 text-xs">Redigeringstilstand</span>}
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setVisIkkePlaceret(true)}>Ikke placeret ({ikkePlaceret.length})</Button>
+                {redigerer && <span className="rounded bg-primary text-primary-foreground px-2 py-0.5 text-xs whitespace-nowrap">Redigerer</span>}
+                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setVisIkkePlaceret(true)}>Ikke placeret ({ikkePlaceret.length})</Button>
               </div>
             </div>
             {visning === "virk" && saelgerBjaelke.length > 0 && (
@@ -465,11 +479,11 @@ export function SalgskortFane() {
             )}
             <div className="relative flex-1 min-h-0">
               <Kort geo={geo} onKlik={(f) => (redigerer ? tildel(f) : setValgtFlade(f))} redigerer={redigerer && !!valgtDistrikt} onMal={tildel} zoom={zoom} />
-              {visning !== "virk" && dd && dd.distrikter.length === 0 && (
+              {(visning === "distr" || visning === "over") && dd && dd.distrikter.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/70 pointer-events-none">
                   <div className="rounded-lg border border-border bg-card p-6 text-center shadow">
                     <div className="text-lg font-medium">Distriktskortet er ikke oprettet endnu</div>
-                    <p className="text-sm text-muted-foreground mt-1">Opret distrikter i panelet til højre, eller indlæs startforslaget.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Opret distrikter i et scenarie under Simulering og gør det gældende.</p>
                   </div>
                 </div>
               )}
@@ -483,13 +497,17 @@ export function SalgskortFane() {
           <Card className="lg:h-full min-h-[60vh] text-sm flex flex-col overflow-hidden">
             {visning === "virk" && flade ? (
               <FladePanel flade={flade} fordeling={pFlade.get(flade.flade)} lok={filtrerede.filter((r) => r.flade === flade.flade)} navne={saelgerNavn} farver={farver} onLuk={() => setValgtFlade(null)} />
+            ) : visning === "sim" ? (
+              dd ? <SimuleringPanel st={st} dd={dd} navn={simNavn} farve={simFarve} konsekvens={sim.kons} flytninger={sim.flyt}
+                laasKam={laasKam} setLaasKam={setLaasKam} redigerer={redigerer} setRedigerer={setRedigerer}
+                valgt={valgtDistrikt} setValgt={setValgtDistrikt} fladeNavn={new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]))} /> : null
             ) : (
               <>
                 {visning !== "virk" && dd && (
                   <div className="p-3 overflow-y-auto max-h-[50%] shrink-0">
                     <DistriktPanel data={dd} stats={distriktStats} navn={pNavn} redigerer={redigerer} setRedigerer={setRedigerer}
-                      valgt={valgtDistrikt} setValgt={setValgtDistrikt} kanFortryde={fortryd.length > 0} onFortryd={fortrydSeneste}
-                      onGemt={genhentDistrikt} kpg3Koder={kpg3Koder} />
+                      valgt={null} setValgt={() => {}} kanFortryde={false} onFortryd={() => {}}
+                      onGemt={genhentDistrikt} kpg3Koder={kpg3Koder} kunVisning />
                   </div>
                 )}
               <div className={"flex flex-col min-h-0 " + (visning !== "virk" ? "flex-1 border-t border-border" : "flex-1")}>

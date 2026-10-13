@@ -582,6 +582,13 @@
       "when": 1791804561024,
       "tag": "0082_distriktskort",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1791874804075,
+      "tag": "0083_distrikt_scenarier",
+      "breakpoints": true
     }
   ]
 }
