@@ -134,7 +134,7 @@ function DashboardPage() {
           progressed: 0,
         };
         entry.total += 1;
-        if (a.status && !["ny", "skal_kontaktes"].includes(a.status)) {
+        if (a.status && a.status !== "ny") {
           entry.progressed += 1;
         }
         byList.set(list.id, entry);

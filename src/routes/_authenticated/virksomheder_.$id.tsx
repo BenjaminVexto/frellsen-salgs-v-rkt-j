@@ -145,24 +145,7 @@ const activityTypes: { value: ActivityType; label: string }[] = [
   { value: "andet" as ActivityType, label: "Andet" },
 ];
 
-const assignmentStatuses: { value: AssignmentStatus; label: string }[] = [
-  { value: "ny", label: "Ny" },
-  { value: "skal_kontaktes", label: "Skal kontaktes" },
-  { value: "kontaktet", label: "Kontaktet" },
-  { value: "talt_med", label: "Talt med" },
-  { value: "møde_booket", label: "Møde booket" },
-  { value: "tilbud_sendt", label: "Tilbud sendt" },
-  { value: "ikke_relevant", label: "Ikke relevant" },
-  { value: "senere_emne", label: "Senere emne" },
-  { value: "vundet", label: "Vundet" },
-  { value: "tabt", label: "Tabt" },
-];
 
-const STATUS_REQUIRES_FOLLOWUP: AssignmentStatus[] = [
-  "talt_med",
-  "møde_booket",
-  "tilbud_sendt",
-];
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
 type Contact = Database["public"]["Tables"]["contacts"]["Row"];
@@ -1429,8 +1412,8 @@ function RegistrerAktivitetDialog({
     }
   }, [open, assignments, userId, presetLocationId]);
 
-  const requiresFollowup =
-    updateStatus !== "" && STATUS_REQUIRES_FOLLOWUP.includes(updateStatus as AssignmentStatus);
+  // Kontaktliste-status ændres kun via "Registrér udfald" på listen.
+  const requiresFollowup = false;
 
   async function save() {
     if (!type) {
@@ -1484,17 +1467,6 @@ function RegistrerAktivitetDialog({
             : `${n} kolleger notificeret`,
         );
       }
-    }
-    if (updateStatus && assignmentId) {
-      const { error: e2 } = await supabase
-        .from("contact_list_assignments")
-        .update({
-          status: updateStatus as AssignmentStatus,
-          next_action_note: nextAction.trim() || null,
-          next_followup_date: nextDate ? format(nextDate, "yyyy-MM-dd") : null,
-        })
-        .eq("id", assignmentId);
-      if (e2) toast.error("Aktivitet gemt, men status kunne ikke opdateres: " + e2.message);
     }
     toast.success("Aktivitet gemt");
     setSaving(false);
@@ -1560,19 +1532,6 @@ function RegistrerAktivitetDialog({
               placeholder="Hvad skete der? Tag kolleger med @Fornavn"
             />
           </div>
-          {assignments.length > 0 && (
-            <div>
-              <Label className="mb-1.5 block">Opdater status (valgfri)</Label>
-              <Select value={updateStatus} onValueChange={(v) => setUpdateStatus(v as AssignmentStatus)}>
-                <SelectTrigger><SelectValue placeholder="Ingen ændring" /></SelectTrigger>
-                <SelectContent>
-                  {assignmentStatuses.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           <div>
             <Label className="mb-1.5 block">
               Næste handling {requiresFollowup && <span className="text-destructive">*</span>}

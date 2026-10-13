@@ -105,7 +105,7 @@ function KontaktlisterOversigt() {
       const items = (assigns ?? []).filter((a) => a.contact_list_id === l.id);
       const total = items.length;
       const kontaktet = items.filter(
-        (a) => a.status !== "ny" && a.status !== "skal_kontaktes",
+        (a) => a.status !== "ny",
       ).length;
       const sellerIds = Array.from(
         new Set(items.map((a) => a.assigned_to).filter(Boolean) as string[]),

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Loader2, Phone, Plus, Pencil, CalendarCheck, Mail, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { AARSAGER, UDFALD_LABEL, byggKoe, ingenSvarIRaekke, type Udfald } from "@/lib/telemarketing";
+import { UdfaldDialog, registrerUdfald } from "@/components/kontaktliste/udfald-dialog";
 
 type Kontakt = { id: string; navn: string; titel: string | null; telefon: string | null; email: string | null };
 type Opkald = { id: string; at: string; udfald: Udfald; aarsag: string | null; note: string | null; ring_igen_at: string | null; moede_at: string | null; bruger: string | null };
@@ -28,7 +29,7 @@ const fmt = (s: string) => new Date(s).toLocaleString("da-DK", { dateStyle: "sho
 export function Ringevisning({ listId }: { listId: string }) {
   const [data, setData] = useState<{ liste: { navn: string; manus: string | null }; virksomheder: V[] } | null>(null);
   const [valgt, setValgt] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<null | "ring_igen" | "ikke_interesseret" | "moede_booket">(null);
+  const [dialog, setDialog] = useState<null | Udfald>(null);
   const [kontaktForm, setKontaktForm] = useState<Partial<Kontakt> | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -48,10 +49,9 @@ export function Ringevisning({ listId }: { listId: string }) {
   const registrer = async (udfald: Udfald, extra: Record<string, unknown> = {}) => {
     if (!aktuel) return;
     setBusy(true);
-    const { data: r, error } = await rpc("tm_registrer_opkald", { _list: listId, _company: aktuel.company_id, _udfald: udfald, ...extra });
+    const r = await registrerUdfald(listId, aktuel.company_id, udfald, extra);
     setBusy(false);
-    if (error) { toast.error(error.message); return false; }
-    toast.success(udfald === "moede_booket" ? `Møde booket – sendt til ${r?.saelger ?? "sælger"}` : `Registreret: ${UDFALD_LABEL[udfald]}`);
+    if (!r) return false;
     setDialog(null);
     setValgt(null);
     await load();
@@ -131,12 +131,6 @@ export function Ringevisning({ listId }: { listId: string }) {
               )}
             </div>
 
-            {ingenSvar >= 3 && (
-              <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm flex items-center gap-3">
-                <span className="flex-1">{ingenSvar} × ingen svar. Foreslået status: Ikke opnået.</span>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => registrer("ikke_opnaaet")}>Sæt Ikke opnået</Button>
-              </div>
-            )}
 
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" disabled={busy} onClick={() => registrer("ingen_svar")}>Ingen svar</Button>
@@ -144,6 +138,7 @@ export function Ringevisning({ listId }: { listId: string }) {
               <Button variant="outline" disabled={busy} onClick={() => registrer("forkert_nummer")}>Forkert nummer</Button>
               <Button variant="outline" disabled={busy} onClick={() => setDialog("ikke_interesseret")}>Ikke interesseret</Button>
               <Button variant="outline" disabled={busy} onClick={() => { if (confirm("Virksomheden udelukkes fra alle fremtidige lister. Fortsæt?")) void registrer("oensker_ikke_kontakt"); }}>Ønsker ikke kontakt</Button>
+              <Button variant="outline" disabled={busy} onClick={() => setDialog("tilbud_oensket")}>Ønsker tilbud/materiale</Button>
               <Button disabled={busy} onClick={() => setDialog("moede_booket")}><CalendarCheck className="h-4 w-4 mr-2" />Møde booket</Button>
             </div>
             {aktuel.moede_saelger && <div className="text-xs text-muted-foreground">Møder går til: {aktuel.moede_saelger}</div>}
@@ -187,8 +182,15 @@ export function Ringevisning({ listId }: { listId: string }) {
       </div>
 
       {aktuel && dialog && (
-        <UdfaldDialog type={dialog} kontakter={aktuel.kontakter} busy={busy}
-          onClose={() => setDialog(null)} onSubmit={(extra) => registrer(dialog, extra)} />
+        <UdfaldDialog listId={listId} initial={dialog}
+          virksomhed={{ company_id: aktuel.company_id, navn: aktuel.navn, telefon: aktuel.telefon, kontakter: aktuel.kontakter }}
+          opretKontakt={async (navn, titel) => {
+            const { data: id, error } = await rpc("tm_gem_kontakt", { _list: listId, _company: aktuel.company_id, _id: null, _navn: navn, _titel: titel, _telefon: null, _email: null });
+            if (error) { toast.error(error.message); return null; }
+            return id as string;
+          }}
+          onClose={() => setDialog(null)}
+          onDone={() => { setDialog(null); setValgt(null); void load(); }} />
       )}
       {aktuel && kontaktForm && (
         <KontaktDialog initial={kontaktForm} onClose={() => setKontaktForm(null)}
@@ -201,65 +203,6 @@ export function Ringevisning({ listId }: { listId: string }) {
           }} />
       )}
     </div>
-  );
-}
-
-function UdfaldDialog({ type, kontakter, busy, onClose, onSubmit }: {
-  type: "ring_igen" | "ikke_interesseret" | "moede_booket"; kontakter: Kontakt[]; busy: boolean;
-  onClose: () => void; onSubmit: (extra: Record<string, unknown>) => void;
-}) {
-  const [tid, setTid] = useState("");
-  const [aarsag, setAarsag] = useState("");
-  const [note, setNote] = useState("");
-  const [kontakt, setKontakt] = useState("");
-  const send = () => {
-    if (type === "ring_igen") {
-      if (!tid) return toast.error("Vælg dato og tid");
-      onSubmit({ _ring_igen_at: new Date(tid).toISOString(), _note: note || null });
-    } else if (type === "ikke_interesseret") {
-      if (!aarsag) return toast.error("Vælg en årsag");
-      onSubmit({ _aarsag: aarsag, _note: note || null });
-    } else {
-      if (!tid || !kontakt || !note.trim()) return toast.error("Udfyld dato, tid, kontaktperson og note");
-      onSubmit({ _moede_at: new Date(tid).toISOString(), _contact_id: kontakt, _note: note });
-    }
-  };
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>{UDFALD_LABEL[type]}</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          {type !== "ikke_interesseret" && (
-            <div><Label>{type === "moede_booket" ? "Mødetidspunkt" : "Ring igen"}</Label>
-              <Input type="datetime-local" value={tid} onChange={(e) => setTid(e.target.value)} /></div>
-          )}
-          {type === "ikke_interesseret" && (
-            <div><Label>Årsag</Label>
-              <Select value={aarsag} onValueChange={setAarsag}>
-                <SelectTrigger><SelectValue placeholder="Vælg årsag" /></SelectTrigger>
-                <SelectContent>{AARSAGER.map((a) => <SelectItem key={a.v} value={a.v}>{a.l}</SelectItem>)}</SelectContent>
-              </Select></div>
-          )}
-          {type === "moede_booket" && (
-            <div><Label>Kontaktperson</Label>
-              {kontakter.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Opret først en kontaktperson på virksomheden.</p>
-              ) : (
-                <Select value={kontakt} onValueChange={setKontakt}>
-                  <SelectTrigger><SelectValue placeholder="Vælg kontaktperson" /></SelectTrigger>
-                  <SelectContent>{kontakter.map((k) => <SelectItem key={k.id} value={k.id}>{k.navn}{k.titel ? ` – ${k.titel}` : ""}</SelectItem>)}</SelectContent>
-                </Select>
-              )}</div>
-          )}
-          <div><Label>Note{type === "moede_booket" ? " (påkrævet)" : ""}</Label>
-            <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Annullér</Button>
-          <Button disabled={busy} onClick={send}>{busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Gem</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
