@@ -354,7 +354,7 @@ export function SimuleringPanel({
 
 function Konsekvens({ rows, navn, farve, valgt, onVaelg }: { rows: KonsekvensRow[]; navn: (k: string) => string; farve: (k: string) => string; valgt: string | null; onVaelg: (k: string) => void }) {
   const fe = (a: number, b: number, f: (n: number) => string = (n) => n.toLocaleString("da-DK")) => (
-    <div className="whitespace-nowrap leading-tight"><div className="text-muted-foreground">{f(a)} →</div><div>{f(b)}</div></div>
+    <span className="whitespace-nowrap"><span className="text-muted-foreground">{f(a)}→</span>{f(b)}</span>
   );
   const k = (n: number) => Math.round(n / 1000).toLocaleString("da-DK");
   const pct = (a: number, b: number) => (a ? fortegn(Math.round(((b - a) / Math.abs(a)) * 100), (n) => n + " %") : "—");
@@ -368,7 +368,7 @@ function Konsekvens({ rows, navn, farve, valgt, onVaelg }: { rows: KonsekvensRow
         <tbody>
           {rows.map((r) => (
             <tr key={r.key} onClick={() => onVaelg(r.key)} className={"border-t border-border cursor-pointer hover:bg-muted/40 text-right tabular-nums " + (valgt === r.key ? "bg-muted/60" : "")}>
-              <td className="text-left px-1 py-1 max-w-[88px]"><div className="flex items-center gap-1 min-w-0">
+              <td className="text-left px-1 py-1 max-w-[80px]"><div className="flex items-center gap-1 min-w-0">
                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: farve(r.key), outline: r.key.startsWith("f:") ? "1px dashed currentColor" : undefined }} />
                 <span className="truncate" title={navn(r.key)}>{navn(r.key)}</span></div></td>
               <td className="px-1">{fe(r.foer.n, r.efter.n)}</td>
@@ -613,6 +613,106 @@ function GoerGaeldendeDialog({ sc, scenarie, dd, flytninger, fladeNavn, onLuk, o
           )}
         </div>
         <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button disabled={b || mangler.length > 0} onClick={goer}>Gør gældende</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MultiValg({ titel, valg, valgte, setValgte, vis }: { titel: string; valg: Valg; valgte: string[]; setValgte: (v: string[]) => void; vis?: (v: string) => string }) {
+  const [q, setQ] = useState("");
+  const ql = q.trim().toLowerCase();
+  const v = (x: string) => (vis ? vis(x) : x);
+  const liste = [...valg.filter(([x]) => valgte.includes(x)), ...valg.filter(([x]) => !valgte.includes(x) && (!ql || v(x).toLowerCase().includes(ql)))];
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium">{titel}{valgte.length ? ` (${valgte.length} valgt)` : ""}</div>
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Søg…" className="h-7 text-xs" />
+      <div className="max-h-32 overflow-y-auto rounded border border-border p-1 space-y-0.5">
+        {liste.slice(0, ql ? 200 : 60).map(([x, n]) => (
+          <label key={x} className="flex items-center gap-2 text-xs cursor-pointer">
+            <Checkbox checked={valgte.includes(x)} onCheckedChange={() => setValgte(valgte.includes(x) ? valgte.filter((y) => y !== x) : [...valgte, x])} />
+            <span className="flex-1 truncate" title={v(x)}>{v(x)}</span><span className="text-muted-foreground tabular-nums">{n}</span>
+          </label>
+        ))}
+        {!liste.length && <div className="text-xs text-muted-foreground p-1">Ingen match.</div>}
+      </div>
+    </div>
+  );
+}
+
+function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, ukendte, onLuk, onGemt }: {
+  r: Partial<ScRegel>; scenarieId: string; antal: number; profiler: Profil[]; fiktive: ScSaelger[]; valg: RegelValg; ukendte: number; onLuk: () => void; onGemt: () => void;
+}) {
+  const [type, setType] = useState<RegelType>(r.type ?? "tildel");
+  const [saelger, setSaelger] = useState(r.saelger_user_id ? "u:" + r.saelger_user_id : r.saelger_fiktiv_id ? "f:" + r.saelger_fiktiv_id : "");
+  const [b, setB] = useState<Betingelse>(r.betingelse ?? {});
+  const [ansatteTil, setAnsatteTil] = useState(b.ansatteOver != null);
+  const aktive = profiler.filter((p) => p.is_active !== false && p.full_name);
+  const saelgerOpt = (
+    <>
+      <option value="">Vælg sælger…</option>
+      <optgroup label="Sælgere">{aktive.map((p) => <option key={p.id} value={"u:" + p.id}>{p.full_name}</option>)}</optgroup>
+      {fiktive.length > 0 && <optgroup label="Fiktive sælgere">{fiktive.map((f) => <option key={f.id} value={"f:" + f.id}>{f.navn} (fiktiv)</option>)}</optgroup>}
+    </>
+  );
+  const gem = async () => {
+    if (!saelger) return toast.error("Vælg en sælger");
+    const bet: Betingelse = type === "tildel"
+      ? { kpg1: b.kpg1 ?? [], kpg2: b.kpg2 ?? [], kpg3: b.kpg3 ?? [] }
+      : { kpg1: b.kpg1 ?? [], kpg3: b.kpg3 ?? [], ansatteOver: ansatteTil ? b.ansatteOver ?? 100 : null, ukendtSomOver: !!b.ukendtSomOver,
+          alternativ: b.alternativ ?? "behold", alternativSaelger: b.alternativ === "saelger" ? b.alternativSaelger ?? null : null };
+    const tom = !bet.kpg1?.length && !bet.kpg2?.length && !bet.kpg3?.length && bet.ansatteOver == null;
+    if (tom) return toast.error("Vælg mindst én betingelse");
+    if (bet.alternativ === "saelger" && !bet.alternativSaelger) return toast.error("Vælg hvem de udelukkede lokationer går til");
+    const row = { scenarie_id: scenarieId, type, betingelse: bet, aktiv: r.aktiv ?? true,
+      saelger_user_id: saelger.startsWith("u:") ? saelger.slice(2) : null, saelger_fiktiv_id: saelger.startsWith("f:") ? saelger.slice(2) : null,
+      ...(r.id ? {} : { sortering: antal }) };
+    const { error } = r.id ? await sb().from("scenarie_regel").update(row).eq("id", r.id) : await sb().from("scenarie_regel").insert(row);
+    if (error) return toast.error(error.message);
+    onGemt();
+  };
+  const kpg2Vis = (k: string) => { const [a, c] = k.split("||"); return `${c} (${a})`; };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onLuk()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{r.id ? "Rediger regel" : "Ny regel"}</DialogTitle></DialogHeader>
+        <div className="space-y-3 text-sm">
+          <div className="flex gap-2">
+            <Button size="sm" variant={type === "tildel" ? "default" : "outline"} onClick={() => setType("tildel")}>Tildel til sælger</Button>
+            <Button size="sm" variant={type === "udeluk" ? "default" : "outline"} onClick={() => setType("udeluk")}>Må ikke have</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{type === "tildel" ? "Lokationer der matcher, går til sælgeren uanset geografi." : "Lokationer der matcher, må ikke gå til sælgeren. Flere valgte betingelser = én af dem er nok."}</p>
+          <label className="block">Sælger<select className={sel} value={saelger} onChange={(e) => setSaelger(e.target.value)}>{saelgerOpt}</select></label>
+          <MultiValg titel="Aftale (KPG1)" valg={valg.kpg1} valgte={b.kpg1 ?? []} setValgte={(v) => setB({ ...b, kpg1: v })} />
+          {type === "tildel" && <MultiValg titel="Underaftale (KPG2)" valg={valg.kpg2} valgte={b.kpg2 ?? []} setValgte={(v) => setB({ ...b, kpg2: v })} vis={kpg2Vis} />}
+          <MultiValg titel="Segment (KPG3)" valg={valg.kpg3} valgte={b.kpg3 ?? []} setValgte={(v) => setB({ ...b, kpg3: v })} />
+          {type === "udeluk" && (
+            <>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-xs cursor-pointer"><Checkbox checked={ansatteTil} onCheckedChange={(v) => setAnsatteTil(!!v)} />Antal ansatte over</label>
+                {ansatteTil && <>
+                  <Input type="number" min={0} className="h-8 w-32" value={b.ansatteOver ?? 100} onChange={(e) => setB({ ...b, ansatteOver: Number(e.target.value) })} />
+                  <p className="text-[11px] text-muted-foreground">Bruger virksomhedens samlede antal ansatte (CVR). Findes det ikke, bruges summen af koblede P-enheder. {ukendte.toLocaleString("da-DK")} lokationer (under de aktive filtre) har ukendt antal.</p>
+                  <label className="block text-xs">Ukendt antal ansatte tæller som
+                    <select className={sel} value={b.ukendtSomOver ? "over" : "under"} onChange={(e) => setB({ ...b, ukendtSomOver: e.target.value === "over" })}>
+                      <option value="under">under grænsen</option><option value="over">over grænsen</option>
+                    </select>
+                  </label>
+                </>}
+              </div>
+              <label className="block">Udelukkede lokationer
+                <select className={sel} value={b.alternativ ?? "behold"} onChange={(e) => setB({ ...b, alternativ: e.target.value as any })}>
+                  <option value="behold">Beholder nuværende sælger</option><option value="saelger">Går til…</option>
+                </select>
+              </label>
+              {b.alternativ === "saelger" && (
+                <select className={sel} value={b.alternativSaelger ? (b.alternativSaelger.startsWith("f:") ? b.alternativSaelger : "u:" + b.alternativSaelger) : ""}
+                  onChange={(e) => { const v = e.target.value; setB({ ...b, alternativSaelger: !v ? null : v.startsWith("u:") ? v.slice(2) : v }); }}>{saelgerOpt}</select>
+              )}
+            </>
+          )}
+        </div>
+        <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button onClick={gem}>Gem</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
