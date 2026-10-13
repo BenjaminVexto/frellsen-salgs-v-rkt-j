@@ -189,13 +189,13 @@ export function SalgskortFane() {
 
   // Overensstemmelse pr. flade (kun geografiske lokationer under filtrene)
   const overens = useMemo(() => {
-    const m = new Map<number, { n: number; match: number; db: number }>();
+    const m = new Map<number, { n: number; match: number; db: number; oms: number }>();
     if (!dd) return m;
     filtrerede.forEach((r) => {
       if (r.flade == null || !r.geografisk) return;
       const d = distriktMap.get(dd.fladeDistrikt.get(r.flade) ?? "");
-      const e = m.get(r.flade) ?? { n: 0, match: 0, db: 0 };
-      e.n++; e.db += r.db_12m;
+      const e = m.get(r.flade) ?? { n: 0, match: 0, db: 0, oms: 0 };
+      e.n++; e.db += r.db_12m; e.oms += r.omsaetning_12m;
       if (d && distriktSaelger(d) === r.saelger_user_id) e.match++;
       m.set(r.flade, e);
     });
@@ -206,9 +206,9 @@ export function SalgskortFane() {
     const m = new Map<string, DistriktStat>();
     if (!dd) return m;
     dd.fladeDistrikt.forEach((did, fl) => {
-      const s = m.get(did) ?? { flader: 0, n: 0, match: 0, db: 0 };
+      const s = m.get(did) ?? { flader: 0, n: 0, match: 0, db: 0, oms: 0 };
       const o = overens.get(fl);
-      s.flader++; if (o) { s.n += o.n; s.match += o.match; s.db += o.db; }
+      s.flader++; if (o) { s.n += o.n; s.match += o.match; s.db += o.db; s.oms += o.oms; }
       m.set(did, s);
     });
     return m;
@@ -474,7 +474,7 @@ export function SalgskortFane() {
                 </div>
               )}
               {visning === "virk" && !flade && (
-                <div className="absolute top-2 right-2 rounded-md bg-background/90 border border-border px-2 py-1 text-xs text-muted-foreground pointer-events-none">Klik på en flade for detaljer</div>
+                <div className="absolute bottom-6 right-2 rounded-md bg-background/90 border border-border px-2 py-1 text-xs text-muted-foreground pointer-events-none">Klik på en flade for detaljer</div>
               )}
               <div className="absolute bottom-1 left-2 text-[10px] text-muted-foreground">Kilde: DAGI, Klimadatastyrelsen · Kystlinje © OpenStreetMap-bidragydere</div>
             </div>
@@ -781,7 +781,7 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
   return (
     <>
       <div className="absolute inset-0"><div ref={mainRef} style={{ width: "100%", height: "100%" }} /></div>
-      <div className="absolute bottom-6 right-2 h-32 w-40 border border-border rounded bg-background overflow-hidden">
+      <div className="absolute top-2 right-2 h-[90px] w-[110px] border border-border rounded bg-background overflow-hidden">
         <div className="absolute inset-0"><div ref={bhRef} style={{ width: "100%", height: "100%" }} /></div>
         <div className="absolute top-0.5 left-1 text-[10px] text-muted-foreground pointer-events-none">Bornholm</div>
       </div>
