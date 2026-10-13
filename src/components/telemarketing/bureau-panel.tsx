@@ -7,14 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Download, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { RingerVaelger, useTmBrugere } from "./ringer-vaelger";
-import { AARSAGER, OPNAAET, UDFALD_LABEL, type Udfald } from "@/lib/telemarketing";
+import { AARSAGER, SUCCES, UDFALD_LABEL, udfaldStatistik, type Udfald } from "@/lib/telemarketing";
 
-type Opk = { id: string; created_at: string; user_id: string; company_id: string; udfald: Udfald; aarsag: string | null; note: string | null; moede_at: string | null; moede_saelger_user_id: string | null };
+type Opk = { id: string; created_at: string; user_id: string; rolle: string | null; company_id: string; udfald: Udfald; aarsag: string | null; note: string | null; moede_at: string | null; moede_saelger_user_id: string | null };
 
 const sb = supabase as any;
+const ROLLE: Record<string, string> = { telemarketing: "Bureau", saelger: "Sælger", admin: "Admin" };
 
 /** Admin: bureau-opsætning og opkaldsoverblik på en kontaktliste. */
-export function BureauPanel({ listId }: { listId: string }) {
+export function BureauPanel({ listId, refreshKey = 0 }: { listId: string; refreshKey?: number }) {
   const tm = useTmBrugere();
   const [ringere, setRingere] = useState<string[]>([]);
   const [modtager, setModtager] = useState<"distrikt" | "fast">("distrikt");
@@ -46,7 +47,7 @@ export function BureauPanel({ listId }: { listId: string }) {
         setFirmaNavn(Object.fromEntries((c ?? []).map((x: any) => [x.id, x.name])));
       }
     })();
-  }, [listId]);
+  }, [listId, refreshKey]);
 
   const gemRingere = async (v: string[]) => {
     const fjern = ringere.filter((x) => !v.includes(x));
@@ -66,27 +67,25 @@ export function BureauPanel({ listId }: { listId: string }) {
     (id && (tm.find((t) => t.user_id === id)?.navn || saelgere.find((s) => s.id === id)?.full_name)) || "—";
 
   const stat = useMemo(() => {
-    const virks = new Set(opkald.map((o) => o.company_id));
-    const opnaaet = new Set(opkald.filter((o) => OPNAAET.includes(o.udfald)).map((o) => o.company_id));
-    const moeder = opkald.filter((o) => o.udfald === "moede_booket").length;
+    const base = udfaldStatistik(opkald);
     const aarsag: Record<string, number> = {};
     opkald.filter((o) => o.udfald === "ikke_interesseret").forEach((o) => { aarsag[o.aarsag ?? "andet"] = (aarsag[o.aarsag ?? "andet"] ?? 0) + 1; });
-    const pr: Record<string, { opkald: number; moeder: number }> = {};
-    const dag: Record<string, { opkald: number; moeder: number }> = {};
+    const pr: Record<string, { opkald: number; succes: number; rolle: string | null }> = {};
+    const dag: Record<string, { opkald: number; succes: number }> = {};
     for (const o of opkald) {
       const d = o.created_at.slice(0, 10);
-      (pr[o.user_id] ??= { opkald: 0, moeder: 0 }).opkald++;
-      (dag[d] ??= { opkald: 0, moeder: 0 }).opkald++;
-      if (o.udfald === "moede_booket") { pr[o.user_id].moeder++; dag[d].moeder++; }
+      (pr[o.user_id] ??= { opkald: 0, succes: 0, rolle: o.rolle }).opkald++;
+      (dag[d] ??= { opkald: 0, succes: 0 }).opkald++;
+      if (SUCCES.includes(o.udfald)) { pr[o.user_id].succes++; dag[d].succes++; }
     }
-    return { ringet: virks.size, opkald: opkald.length, opnaaet: opnaaet.size, moeder, aarsag, pr, dag };
+    return { ...base, aarsag, pr, dag };
   }, [opkald]);
 
   const csv = () => {
     const esc = (s: unknown) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-    const lines = [["Tidspunkt", "Virksomhed", "Bruger", "Udfald", "Årsag", "Note", "Møde", "Møde hos"].join(";")];
+    const lines = [["Tidspunkt", "Virksomhed", "Bruger", "Rolle", "Udfald", "Årsag", "Note", "Møde", "Møde hos"].join(";")];
     for (const o of opkald) {
-      lines.push([new Date(o.created_at).toLocaleString("da-DK"), firmaNavn[o.company_id] ?? o.company_id, navn(o.user_id),
+      lines.push([new Date(o.created_at).toLocaleString("da-DK"), firmaNavn[o.company_id] ?? o.company_id, navn(o.user_id), ROLLE[o.rolle ?? ""] ?? "",
         UDFALD_LABEL[o.udfald], AARSAGER.find((a) => a.v === o.aarsag)?.l ?? o.aarsag ?? "", o.note ?? "",
         o.moede_at ? new Date(o.moede_at).toLocaleString("da-DK") : "", o.moede_saelger_user_id ? navn(o.moede_saelger_user_id) : ""].map(esc).join(";"));
     }
@@ -121,21 +120,22 @@ export function BureauPanel({ listId }: { listId: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        {[["Virksomheder ringet", stat.ringet], ["Opkald i alt", stat.opkald], ["Opnået", stat.opnaaet], ["Møder booket", stat.moeder]].map(([l, v]) => (
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
+        {[["Virksomheder ringet", stat.ringet], ["Registreringer i alt", stat.opkald], ["Opnået", stat.opnaaet], ["Møder booket", stat.moeder], ["Tilbud ønsket", stat.tilbud],
+          ["Succes", `${stat.succes} (${Math.round(stat.succesrate * 100)} % af opnået)`]].map(([l, v]) => (
           <div key={l as string} className="rounded-md border p-2"><div className="text-xs text-muted-foreground">{l}</div><div className="text-lg font-semibold tabular-nums">{v}</div></div>
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-3 text-sm">
         <div><div className="font-medium mb-1">Ikke interesseret – årsager</div>
           {AARSAGER.map((a) => <div key={a.v} className="flex justify-between"><span>{a.l}</span><span className="tabular-nums">{stat.aarsag[a.v] ?? 0}</span></div>)}</div>
-        <div><div className="font-medium mb-1">Pr. bureaubruger</div>
-          {Object.entries(stat.pr).map(([u, x]) => <div key={u} className="flex justify-between"><span>{navn(u)}</span><span className="tabular-nums">{x.opkald} opkald · {x.moeder} møder</span></div>)}
+        <div><div className="font-medium mb-1">Pr. bruger</div>
+          {Object.entries(stat.pr).map(([u, x]) => <div key={u} className="flex justify-between gap-2"><span>{navn(u)} <span className="text-xs text-muted-foreground">({ROLLE[x.rolle ?? ""] ?? "?"})</span></span><span className="tabular-nums">{x.opkald} registreringer · {x.succes} succes</span></div>)}
           {!Object.keys(stat.pr).length && <span className="text-muted-foreground">Ingen opkald endnu</span>}</div>
         <div><div className="font-medium mb-1">Pr. dag</div>
-          {Object.entries(stat.dag).sort((a, b) => b[0].localeCompare(a[0])).map(([d, x]) => <div key={d} className="flex justify-between"><span>{new Date(d).toLocaleDateString("da-DK")}</span><span className="tabular-nums">{x.opkald} opkald · {x.moeder} møder</span></div>)}</div>
+          {Object.entries(stat.dag).sort((a, b) => b[0].localeCompare(a[0])).map(([d, x]) => <div key={d} className="flex justify-between"><span>{new Date(d).toLocaleDateString("da-DK")}</span><span className="tabular-nums">{x.opkald} registreringer · {x.succes} succes</span></div>)}</div>
       </div>
-      <Button size="sm" variant="outline" onClick={csv} disabled={!opkald.length}><Download className="h-4 w-4 mr-2" />Eksportér opkald (CSV)</Button>
+      <Button size="sm" variant="outline" onClick={csv} disabled={!opkald.length}><Download className="h-4 w-4 mr-2" />Eksportér registreringer (CSV)</Button>
     </Card>
   );
 }

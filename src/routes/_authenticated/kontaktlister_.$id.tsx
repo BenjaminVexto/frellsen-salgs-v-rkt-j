@@ -143,6 +143,7 @@ function KontaktlisteDetalje() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const [udfaldRow, setUdfaldRow] = useState<Row | null>(null);
+  const [statRefresh, setStatRefresh] = useState(0);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -438,7 +439,7 @@ function KontaktlisteDetalje() {
         <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til kontaktlister
       </Button>
 
-      {isAdmin && list && <BureauPanel listId={id} />}
+      {isAdmin && list && <BureauPanel listId={id} refreshKey={statRefresh} />}
 
       {loading ? (
         <div className="p-12 flex justify-center">
@@ -782,7 +783,7 @@ function KontaktlisteDetalje() {
             return data.id;
           }}
           onClose={() => setUdfaldRow(null)}
-          onDone={() => { setUdfaldRow(null); void load(); }}
+          onDone={() => { setUdfaldRow(null); setStatRefresh((n) => n + 1); void load(); }}
         />
       )}
 
