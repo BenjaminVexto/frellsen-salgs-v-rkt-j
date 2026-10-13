@@ -386,7 +386,7 @@ function Konsekvens({ rows, navn, farve, valgt, onVaelg }: { rows: KonsekvensRow
         <tbody>
           {rows.map((r) => (
             <tr key={r.key} onClick={() => onVaelg(r.key)} className={"border-t border-border cursor-pointer hover:bg-muted/40 text-right tabular-nums " + (valgt === r.key ? "bg-muted/60" : "")}>
-              <td className="text-left px-1 py-1 max-w-[96px]"><div className="flex items-center gap-1 min-w-0">
+              <td className="text-left px-1 py-1 max-w-[160px]"><div className="flex items-center gap-1 min-w-0">
                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: farve(r.key), outline: r.key.startsWith("f:") ? "1px dashed currentColor" : undefined }} />
                 <span className="truncate" title={navn(r.key)}>{navn(r.key)}</span></div></td>
               <td className="px-1">{fe(r.foer.n, r.efter.n)}</td>
@@ -448,7 +448,7 @@ function Flytteliste({ titel, undertekst, rows, navn, aarsag, filter, onFjernFil
         <tbody>
           {vis.map((r) => (
             <tr key={r.location_id} className="border-t border-border cursor-pointer hover:bg-muted/40" onClick={() => window.open(`/virksomheder/${r.company_id}`, "_blank")}>
-              <td className="px-1 py-1 max-w-[110px] truncate" title={r.virksomhed}>{r.virksomhed}</td>
+              <td className="px-1 py-1 max-w-[200px] truncate" title={r.virksomhed}>{r.virksomhed}</td>
               <td className="px-1 max-w-[80px] truncate" title={`${r.postnr} ${r.by}`}>{r.postnr} {r.by}</td>
               <td className="px-1 max-w-[70px] truncate" title={navn(r.fra)}>{navn(r.fra)}</td>
               <td className="px-1 max-w-[70px] truncate" title={navn(r.til)}>{navn(r.til)}</td>
@@ -748,7 +748,7 @@ function KamPortefoelje({ rows, navn, farve }: { rows: KamRow[]; navn: (k: strin
           <tbody>
             {rows.map((r) => (
               <tr key={r.key} className="border-t border-border text-right tabular-nums">
-                <td className="text-left px-1 py-1 max-w-[96px]"><div className="flex items-center gap-1 min-w-0">
+                <td className="text-left px-1 py-1 max-w-[160px]"><div className="flex items-center gap-1 min-w-0">
                   <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: farve(r.key), outline: r.key.startsWith("f:") ? "1px dashed currentColor" : undefined }} />
                   <span className="truncate" title={navn(r.key)}>{navn(r.key)}</span></div></td>
                 <td className="px-1">{fe(r.foer.aftaler, r.efter.aftaler)}</td>
