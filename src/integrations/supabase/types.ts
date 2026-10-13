@@ -657,6 +657,9 @@ export type Database = {
           employees: number | null
           has_active_equipment: boolean
           id: string
+          ikke_kontakt: boolean
+          ikke_kontakt_af: string | null
+          ikke_kontakt_at: string | null
           import_batch_date: string | null
           import_batch_id: string | null
           industry: string | null
@@ -718,6 +721,9 @@ export type Database = {
           employees?: number | null
           has_active_equipment?: boolean
           id?: string
+          ikke_kontakt?: boolean
+          ikke_kontakt_af?: string | null
+          ikke_kontakt_at?: string | null
           import_batch_date?: string | null
           import_batch_id?: string | null
           industry?: string | null
@@ -779,6 +785,9 @@ export type Database = {
           employees?: number | null
           has_active_equipment?: boolean
           id?: string
+          ikke_kontakt?: boolean
+          ikke_kontakt_af?: string | null
+          ikke_kontakt_at?: string | null
           import_batch_date?: string | null
           import_batch_id?: string | null
           industry?: string | null
@@ -1346,6 +1355,8 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          moede_modtager: string
+          moede_saelger_user_id: string | null
           name: string
           purpose: string | null
         }
@@ -1355,6 +1366,8 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          moede_modtager?: string
+          moede_saelger_user_id?: string | null
           name: string
           purpose?: string | null
         }
@@ -1364,6 +1377,8 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          moede_modtager?: string
+          moede_saelger_user_id?: string | null
           name?: string
           purpose?: string | null
         }
@@ -2295,6 +2310,88 @@ export type Database = {
             columns: ["sendt_af"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kontaktliste_opkald: {
+        Row: {
+          aarsag: string | null
+          activity_id: string | null
+          company_id: string
+          contact_list_id: string
+          created_at: string
+          id: string
+          moede_at: string | null
+          moede_contact_id: string | null
+          moede_saelger_user_id: string | null
+          note: string | null
+          ring_igen_at: string | null
+          udfald: string
+          user_id: string
+        }
+        Insert: {
+          aarsag?: string | null
+          activity_id?: string | null
+          company_id: string
+          contact_list_id: string
+          created_at?: string
+          id?: string
+          moede_at?: string | null
+          moede_contact_id?: string | null
+          moede_saelger_user_id?: string | null
+          note?: string | null
+          ring_igen_at?: string | null
+          udfald: string
+          user_id: string
+        }
+        Update: {
+          aarsag?: string | null
+          activity_id?: string | null
+          company_id?: string
+          contact_list_id?: string
+          created_at?: string
+          id?: string
+          moede_at?: string | null
+          moede_contact_id?: string | null
+          moede_saelger_user_id?: string | null
+          note?: string | null
+          ring_igen_at?: string | null
+          udfald?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kontaktliste_opkald_contact_list_id_fkey"
+            columns: ["contact_list_id"]
+            isOneToOne: false
+            referencedRelation: "contact_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kontaktliste_ringer: {
+        Row: {
+          contact_list_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_list_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_list_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kontaktliste_ringer_contact_list_id_fkey"
+            columns: ["contact_list_id"]
+            isOneToOne: false
+            referencedRelation: "contact_lists"
             referencedColumns: ["id"]
           },
         ]
@@ -4927,6 +5024,7 @@ export type Database = {
         }[]
       }
       dublet_navn_norm: { Args: { _name: string }; Returns: string }
+      er_telemarketing: { Args: never; Returns: boolean }
       faktura_uden_kunde: {
         Args: never
         Returns: {
@@ -5667,6 +5765,13 @@ export type Database = {
           saelger: string
         }[]
       }
+      telemarketing_brugere: {
+        Args: never
+        Returns: {
+          navn: string
+          user_id: string
+        }[]
+      }
       tick_cvr_enrichment: {
         Args: { _apikey: string; _url: string }
         Returns: boolean
@@ -5683,6 +5788,38 @@ export type Database = {
         Args: { _company_id: string; _p_nummer: string; _saelger: string }
         Returns: string
       }
+      tm_er_ringer: { Args: { _list: string }; Returns: boolean }
+      tm_gem_kontakt: {
+        Args: {
+          _company: string
+          _email: string
+          _id: string
+          _list: string
+          _navn: string
+          _telefon: string
+          _titel: string
+        }
+        Returns: string
+      }
+      tm_moede_saelger: {
+        Args: { _company: string; _list: string }
+        Returns: string
+      }
+      tm_pre_request: { Args: never; Returns: undefined }
+      tm_registrer_opkald: {
+        Args: {
+          _aarsag?: string
+          _company: string
+          _contact_id?: string
+          _list: string
+          _moede_at?: string
+          _note?: string
+          _ring_igen_at?: string
+          _udfald: string
+        }
+        Returns: Json
+      }
+      tm_virksomheder: { Args: { _list: string }; Returns: Json }
       vind_tilbage_liste: {
         Args: { _saelger?: string }
         Returns: {

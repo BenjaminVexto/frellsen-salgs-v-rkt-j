@@ -624,6 +624,13 @@
       "when": 1791899623334,
       "tag": "0088_app_role_telemarketing",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1791899785356,
+      "tag": "0089_telemarketing_adgang",
+      "breakpoints": true
     }
   ]
 }
