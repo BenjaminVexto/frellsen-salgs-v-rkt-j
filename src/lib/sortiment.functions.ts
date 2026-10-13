@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -28,7 +29,7 @@ export type SortimentDaekning = {
 
 /** Hele sortimentsdækningen for én virksomhed i ét serverkald. */
 export const getSortimentDaekning = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { companyId: string }) => {
     if (!input?.companyId) throw new Error("companyId krævet");
     return input;

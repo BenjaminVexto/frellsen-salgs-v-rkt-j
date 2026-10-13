@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -8,7 +9,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
  * og opretter "sovende_kunde"-notifikationer (idempotent via partielt unikt indeks).
  */
 export const checkSovendeKunder = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     const userId = context.userId;
     // Hent virksomheder tildelt direkte (companies.assigned_to)
@@ -73,7 +74,7 @@ export const checkSovendeKunder = createServerFn({ method: "POST" })
  * Finder konkurrentaftaler for brugerens virksomheder som udløber inden for 90 dage.
  */
 export const checkKonkurrentvinduer = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     const userId = context.userId;
     const { data: companies } = await supabaseAdmin
@@ -133,7 +134,7 @@ export const checkKonkurrentvinduer = createServerFn({ method: "POST" })
  * Finder aktiviteter med next_followup_date = i dag og opretter opfølgnings-notifikationer.
  */
 export const checkOpfoelgninger = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     const userId = context.userId;
     const today = new Date().toISOString().slice(0, 10);
@@ -170,7 +171,7 @@ export const checkOpfoelgninger = createServerFn({ method: "POST" })
   });
 
 export const runDailyChecks = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) => z.object({}).parse(input ?? {}))
   .handler(async ({ context }) => {
     // Indlejret kald via supabaseAdmin (samme funktioner)

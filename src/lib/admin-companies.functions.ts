@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -104,7 +105,7 @@ async function stampCompaniesToBatch(
 }
 
 export const getCompanyDeletionStats = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ company_id: z.string().uuid() }).parse(input),
   )
@@ -125,7 +126,7 @@ export const getCompanyDeletionStats = createServerFn({ method: "POST" })
   });
 
 export const adminDeleteCompany = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ company_id: z.string().uuid() }).parse(input),
   )
@@ -136,7 +137,7 @@ export const adminDeleteCompany = createServerFn({ method: "POST" })
   });
 
 export const createImportBatch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -168,7 +169,7 @@ export const createImportBatch = createServerFn({ method: "POST" })
   });
 
 export const listImportBatches = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
     const { data: batches, error } = await supabaseAdmin
@@ -231,7 +232,7 @@ export const listImportBatches = createServerFn({ method: "GET" })
   });
 
 export const getImportBatchBreakdown = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ batch_id: z.string().uuid() }).parse(input),
   )
@@ -289,7 +290,7 @@ export const getImportBatchBreakdown = createServerFn({ method: "POST" })
   });
 
 export const deleteBatchGroup = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -364,7 +365,7 @@ function stableStringify(obj: any): string {
 }
 
 export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       rows: z.array(CompanyRow).min(1).max(25000),
@@ -456,7 +457,7 @@ export const importUpsertCompaniesByCvr = createServerFn({ method: "POST" })
 
 
 export const importInsertCompaniesNoCvr = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       rows: z.array(CompanyRow).min(1).max(25000),
@@ -487,7 +488,7 @@ export const importInsertCompaniesNoCvr = createServerFn({ method: "POST" })
 // allerede findes, UPDATE'es kun de medsendte felter; ellers INSERT.
 // Bruges ved kunde-re-import hvor visma_id er den autoritative grupperings-nøgle.
 export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       rows: z.array(CompanyRow).min(1).max(25000),
@@ -665,7 +666,7 @@ export const importUpsertCompaniesByVismaId = createServerFn({ method: "POST" })
   });
 
 export const importUpdateCompaniesById = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       updates: z.array(z.object({
@@ -725,7 +726,7 @@ export const importUpdateCompaniesById = createServerFn({ method: "POST" })
   });
 
 export const importAssignSellersToCompanies = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       assignments: z.array(z.object({
@@ -765,7 +766,7 @@ export const importAssignSellersToCompanies = createServerFn({ method: "POST" })
   });
 
 export const importInsertLocations = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       rows: z.array(z.record(z.string(), z.any())).min(1).max(50000),
@@ -890,7 +891,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
   });
 
 export const importUpsertContacts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       rows: z.array(z.object({
@@ -939,7 +940,7 @@ async function ensureDocumentWriter(userId: string) {
 }
 
 export const uploadCompanyDocument = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -990,7 +991,7 @@ export const uploadCompanyDocument = createServerFn({ method: "POST" })
   });
 
 export const deleteCompanyDocument = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ document_id: z.string().uuid() }).parse(input),
   )
@@ -1012,7 +1013,7 @@ export const deleteCompanyDocument = createServerFn({ method: "POST" })
   });
 
 export const getDocumentSignedUrl = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ document_id: z.string().uuid() }).parse(input),
   )
@@ -1031,7 +1032,7 @@ export const getDocumentSignedUrl = createServerFn({ method: "POST" })
   });
 
 export const downloadCompanyDocument = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ document_id: z.string().uuid() }).parse(input),
   )
@@ -1061,7 +1062,7 @@ export const downloadCompanyDocument = createServerFn({ method: "POST" })
 // AI Briefing — genererer kort briefing med Claude + web search
 // ============================================================
 export const generateCompanyBriefing = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ company_id: z.string().uuid() }).parse(input),
   )
@@ -1435,7 +1436,7 @@ Generer en kortfattet briefing der hjælper sælgeren til at ringe eller besøge
 
 
 export const enrichCompaniesFromCvr = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       company_ids: z.array(z.string().uuid()).min(1).max(500),
@@ -1454,7 +1455,7 @@ export const enrichCompaniesFromCvr = createServerFn({ method: "POST" })
 // Hver enqueue starter en ny "kampagne" (campaign_id), så fremgangslinjen
 // kan vise korrekt procent mod den oprindelige total.
 export const enqueueCvrEnrichment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       company_ids: z.array(z.string().uuid()).min(1).max(50000),
@@ -1483,7 +1484,7 @@ export const enqueueCvrEnrichment = createServerFn({ method: "POST" })
 // procenten regnes mod den oprindelige total (antal lagt i kø).
 // "processed" = done + failed, så linjen når 100% når køen er tømt.
 export const getCvrEnrichmentQueueStatus = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
     const { data: latest, error: latestErr } = await supabaseAdmin
@@ -1536,7 +1537,7 @@ export const getCvrEnrichmentQueueStatus = createServerFn({ method: "GET" })
 // Nulstiller attempts og last_error så worker-cron tager dem igen.
 // Rører IKKE done eller processing jobs.
 export const requeueFailedCvrEnrichment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
     const { data: latest, error: latestErr } = await supabaseAdmin
@@ -1570,7 +1571,7 @@ export const requeueFailedCvrEnrichment = createServerFn({ method: "POST" })
 // ============================================================
 
 export const getImportBatchInfo = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ batch_id: z.string().uuid() }).parse(input),
   )
@@ -1656,7 +1657,7 @@ export const getImportBatchInfo = createServerFn({ method: "POST" })
   });
 
 export const deleteImportBatch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ batch_id: z.string().uuid() }).parse(input),
   )
@@ -1744,7 +1745,7 @@ export const deleteImportBatch = createServerFn({ method: "POST" })
  * hovedkontoens sælger (Lev. kund = Fakt. kunde). Én samlet genberegning.
  */
 export const aktoerAnvendSaelgereFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((d) =>
     z
       .object({

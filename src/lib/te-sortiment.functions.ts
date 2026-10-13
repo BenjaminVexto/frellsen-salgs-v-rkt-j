@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -44,7 +45,7 @@ export type TeSortimentKunde = {
 
 /** Te-sortimentet for én virksomhed i ét serverkald. */
 export const getTeSortimentKunde = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { companyId: string }) => {
     if (!input?.companyId) throw new Error("companyId krævet");
     return input;
@@ -68,7 +69,7 @@ export type TeOversigtRaekke = {
 
 /** Hele te-oversigten for afdeling 21 i ét serverkald. */
 export const getTeSortimentOversigt = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }): Promise<TeOversigtRaekke[]> => {
     const { data, error } = await (context.supabase as any).rpc("te_sortiment_oversigt");
     if (error) throw new Error(error.message);

@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -42,7 +43,7 @@ export function erGyldigPerson(v: any): boolean {
 }
 
 export const getPortfolioKontakter = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((d) => z.object({ companyIds: z.array(z.string().uuid()).max(20000) }).parse(d))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as any;

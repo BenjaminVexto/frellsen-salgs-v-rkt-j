@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -18,7 +19,7 @@ export type EffektiveRettigheder = {
  * Kun admin må spørge om en anden bruger end sig selv.
  */
 export const getEffektiveRettigheder = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ userId: z.string().uuid() }).parse(input),
   )

@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -6,7 +7,7 @@ const CVR_ES_URL =
   "http://distribution.virk.dk/cvr-permanent/virksomhed/_search";
 
 export const cvrDebugRaw = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ cvr: z.string().regex(/^\d{8}$/, "CVR skal være 8 cifre") }).parse(input),
   )

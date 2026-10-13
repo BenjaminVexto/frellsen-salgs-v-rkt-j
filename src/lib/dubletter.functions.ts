@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -52,7 +53,7 @@ export type DubletPar = {
  * kommune har ét CVR og mange selvstændige institutioner.
  */
 export const getDubletKandidater = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
 
@@ -106,7 +107,7 @@ export const getDubletKandidater = createServerFn({ method: "POST" })
 
 /** Sæt eller fjern markeringen "afløst af". */
 export const setAfloestAf = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -129,7 +130,7 @@ export const setAfloestAf = createServerFn({ method: "POST" })
 
 /** Markér forslaget som "ikke en dublet" — eller fortryd afvisningen. */
 export const setDubletAfvist = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({

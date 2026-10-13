@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -38,7 +39,7 @@ function intervalToNumber(interval: string | null | undefined): number | null {
 }
 
 export const importCompaniesFromCvr = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ companies: z.array(CompanySchema).min(1).max(25000) }).parse(input),
   )
@@ -96,7 +97,7 @@ export const importCompaniesFromCvr = createServerFn({ method: "POST" })
   });
 
 export const checkCvrConnection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     if (!(await isAdmin(context.userId))) throw new Error("Forbidden");
     const user = process.env.CVR_USERNAME;

@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { harGyldigtSammenligningsvindue } from "./kunde-status";
 import { erFalder, erVokser } from "./fald";
@@ -212,7 +213,7 @@ function shiftMonths(period: string, delta: number): string {
 }
 
 export const getMyPortfolio = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   // afdelingNr er et rent kosmetisk filter fra afdelingsvælgeren — den rigtige
   // adgangskontrol ligger i RLS/my_afdelinger().
   .inputValidator((input: { sellerId?: string | null; afdelingNr?: number | null }) => input ?? {})
@@ -996,7 +997,7 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
  * så vælgeren aldrig forsvinder, mens en sælgers tal hentes.
  */
 export const getSellerOptions = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     const isAdmin = await isAdminUser(supabase, userId);

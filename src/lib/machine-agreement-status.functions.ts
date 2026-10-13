@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -17,7 +18,7 @@ export type MachineAgreementStatusRow = {
 };
 
 export const getMachineAgreementStatuses = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { serienrs: string[] }) => input)
   .handler(async ({ data, context }) => {
     if (!data.serienrs.length) return { statuses: [] as MachineAgreementStatusRow[] };
@@ -36,7 +37,7 @@ export const getMachineAgreementStatuses = createServerFn({ method: "POST" })
   });
 
 export const setMachineAgreementStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator(
     (input: {
       serienr: string;
@@ -65,7 +66,7 @@ export const setMachineAgreementStatus = createServerFn({ method: "POST" })
   });
 
 export const clearMachineAgreementStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { serienr: string }) => input)
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase

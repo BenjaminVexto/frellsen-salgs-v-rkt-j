@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
@@ -25,7 +26,7 @@ export type FaldendeKunde = {
 
 
 export const getFaldendeKunder = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator(
     (input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) =>
       input ?? {},
@@ -257,7 +258,7 @@ export type ForbrugSignalGruppe = {
 export type ForbrugSignalLokation = ForbrugSignalGruppe & { location_id: string | null };
 
 export const getForbrugSignalForCompany = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { companyId: string }) => input)
   .handler(
     async ({
@@ -358,7 +359,7 @@ export type ForbrugSignalKort = {
 
 /** Slår signalet op for en liste virksomheder (til tabeller/rangeringer). */
 export const getForbrugSignalMap = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { companyIds: string[] }) => input)
   .handler(async ({ data, context }): Promise<ForbrugSignalKort[]> => {
     const ids = Array.from(new Set((data.companyIds ?? []).filter(Boolean)));
@@ -401,7 +402,7 @@ export type RytmeKunde = {
  * til på den kritiske liste). Kræver ingen år-før-data.
  */
 export const getPasseretRytme = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator(
     (input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) =>
       input ?? {},

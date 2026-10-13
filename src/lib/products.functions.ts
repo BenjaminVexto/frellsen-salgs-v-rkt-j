@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -64,7 +65,7 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
 }
 
 export const listProducts = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }): Promise<ProductRow[]> => {
     await assertAdmin(context);
     const PAGE = 1000;
@@ -85,7 +86,7 @@ export const listProducts = createServerFn({ method: "GET" })
 
 /** Varegruppekode → navn. Afdelingsnavne (produktgruppe_navn) vinder over globale. */
 export const listProductGroupNames = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({ afdelingNr: z.number().int().nullable().optional() })
@@ -134,7 +135,7 @@ const UpdateSchema = z
   .strict();
 
 export const updateProductSalesFields = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) => UpdateSchema.parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
@@ -194,7 +195,7 @@ export const updateProductSalesFields = createServerFn({ method: "POST" })
 
 /** Sæt bonusklasse på flere varer ad gangen (markerer dem som manuelt sat). */
 export const setBonusklasseForProducts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({

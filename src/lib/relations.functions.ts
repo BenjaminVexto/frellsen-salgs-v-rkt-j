@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -62,7 +63,7 @@ export function extractKundenrReferences(notes: string | null | undefined, ownVi
 // ---------- READ ----------
 
 export const getCompanyRelations = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((d: { companyId: string }) => d)
   .handler(async ({ data, context }): Promise<{
     confirmed: ConfirmedRelation[];
@@ -170,7 +171,7 @@ export const getCompanyRelations = createServerFn({ method: "GET" })
 // ---------- WRITE ----------
 
 export const confirmRelationSuggestion = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((d: { suggestionId: string; relationType: RelationType }) => d)
   .handler(async ({ data, context }) => {
     const supabase = context.supabase;
@@ -232,7 +233,7 @@ export const confirmRelationSuggestion = createServerFn({ method: "POST" })
   });
 
 export const rejectRelationSuggestion = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((d: { suggestionId: string }) => d)
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
@@ -244,7 +245,7 @@ export const rejectRelationSuggestion = createServerFn({ method: "POST" })
   });
 
 export const deleteCompanyRelation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((d: { relationId: string }) => d)
   .handler(async ({ data, context }) => {
     const supabase = context.supabase;
@@ -272,7 +273,7 @@ export const deleteCompanyRelation = createServerFn({ method: "POST" })
 // ---------- RESCAN ----------
 
 export const rescanRelationSuggestions = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     const supabase = context.supabase;
 
@@ -388,7 +389,7 @@ export type CompanySearchResult = {
 };
 
 export const searchCompaniesForRelation = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((d: { query: string; excludeCompanyId?: string }) => d)
   .handler(async ({ data, context }): Promise<CompanySearchResult[]> => {
     const supabase = context.supabase;
@@ -450,7 +451,7 @@ export const searchCompaniesForRelation = createServerFn({ method: "GET" })
   });
 
 export const createManualRelation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((d: { fromCompanyId: string; toCompanyId: string; relationType: RelationType }) => d)
   .handler(async ({ data, context }) => {
     const supabase = context.supabase;

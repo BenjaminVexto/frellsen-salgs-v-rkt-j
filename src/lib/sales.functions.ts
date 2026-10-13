@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
@@ -29,7 +30,7 @@ const MASKIN_KODER_LIKE = Array.from(MASKIN_KODER)
 
 
 export const getSalesForCompany = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { companyId: string }) => {
     if (!input?.companyId) throw new Error("companyId krævet");
     return input;
@@ -85,7 +86,7 @@ export const getSalesForCompany = createServerFn({ method: "POST" })
 
 
 export const getSalesForLocation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { locationId: string }) => {
     if (!input?.locationId) throw new Error("locationId krævet");
     return input;
@@ -140,7 +141,7 @@ export type CategoryTopProduct = {
 };
 
 export const getTopProductsForCompanyCategory = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { companyId: string; categoryLabel: string }) => {
     if (!input?.companyId || !input?.categoryLabel) throw new Error("input krævet");
     return input;
@@ -196,7 +197,7 @@ export const getTopProductsForCompanyCategory = createServerFn({ method: "POST" 
 
 
 export const getLocationSalesSummary = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { locationIds: string[] }) => {
     if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
     return input;
@@ -223,7 +224,7 @@ export const getLocationSalesSummary = createServerFn({ method: "POST" })
 // Omsætning 12 mdr. + sidste køb pr. company_id (samme kilde som fanen "Salg").
 // companies.turnover_12m er tom og bruges ikke.
 export const getCompanySalesSummary = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { companyIds: string[] }) => {
     if (!Array.isArray(input?.companyIds)) throw new Error("companyIds krævet");
     return input;
@@ -253,7 +254,7 @@ export const getCompanySalesSummary = createServerFn({ method: "POST" })
 
 
 export const getMyMonthlySales = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
   .handler(async ({ data, context }): Promise<{
     revenue: number;
@@ -319,7 +320,7 @@ export const getMyMonthlySales = createServerFn({ method: "POST" })
   });
 
 export const getMyNewActivitiesCount = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ count: number }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
@@ -353,7 +354,7 @@ export type MonthActivityRow = {
 
 /** Samme filter som getMyNewActivitiesCount — blot rækkerne bag tallet. Paget. */
 export const getMyNewActivitiesList = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input?: { viewAsUserId?: string | null; teamScope?: boolean; afdelingNr?: number | null; offset?: number; limit?: number }) => input ?? {})
   .handler(async ({ data, context }): Promise<{ rows: MonthActivityRow[]; nextOffset: number | null }> => {
     const effectiveUserId = await resolveEffectiveUserId(context.supabase, context.userId, data.viewAsUserId);
@@ -403,7 +404,7 @@ export const getMyNewActivitiesList = createServerFn({ method: "POST" })
 type DismissReason = "lost_competitor" | "lost_tender" | "closed" | "paused";
 
 export const dismissChurningCustomer = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator(
     (input: {
       company_id: string;
@@ -474,7 +475,7 @@ export const dismissChurningCustomer = createServerFn({ method: "POST" })
   });
 
 export const listCompetitorsForSelect = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("competitors")
@@ -493,7 +494,7 @@ export type MonthlyTopProduct = {
 };
 
 export const getMonthlyTopProducts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { locationIds: string[]; period: string }) => {
     if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
     if (!input?.period) throw new Error("period krævet");
@@ -587,7 +588,7 @@ export type UnderkategoriPunktDTO = {
 
 /** Én serie pr. underkategori pr. måned for kundens lokationer. */
 export const getUnderkategoriSeries = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { locationIds: string[]; fra: string; til: string }) => {
     if (!Array.isArray(input?.locationIds)) throw new Error("locationIds krævet");
     if (!input?.fra || !input?.til) throw new Error("periode krævet");
@@ -631,7 +632,7 @@ export const getUnderkategoriSeries = createServerFn({ method: "POST" })
 
 /** Varelinjer for én måned. Filtreres og sorteres efter den valgte enhed. */
 export const getMonthlyConsumableProducts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator(
     (input: {
       locationIds: string[];
@@ -712,7 +713,7 @@ export type UdviklingDetaljer = {
 
 /** Sortimentsbredde (6 hele mdr. mod samme 6 mdr. året før) + maskin/teknik-fordeling. */
 export const getUdviklingDetaljer = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { companyId: string }) => {
     if (!input?.companyId) throw new Error("companyId krævet");
     return input;
@@ -836,7 +837,7 @@ export const getUdviklingDetaljer = createServerFn({ method: "POST" })
 
 /** Månedsrækker for et udvalg af lokationer (fx sælgerens egne på en virksomhed). */
 export const getSalesForLocations = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { locationIds: string[] }) => {
     if (!Array.isArray(input?.locationIds) || !input.locationIds.length) throw new Error("locationIds krævet");
     return { locationIds: input.locationIds.slice(0, 500) };

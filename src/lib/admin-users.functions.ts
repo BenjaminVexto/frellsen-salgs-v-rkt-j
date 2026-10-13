@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -15,7 +16,7 @@ async function ensureAdmin(userId: string) {
 }
 
 export const adminCreateUser = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -67,7 +68,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
   });
 
 export const adminUpdateUser = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -108,7 +109,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
   });
 
 export const adminSetUserActive = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -139,7 +140,7 @@ export const adminSetUserActive = createServerFn({ method: "POST" })
   });
 
 export const adminResetUserPassword = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -159,7 +160,7 @@ export const adminResetUserPassword = createServerFn({ method: "POST" })
   });
 
 export const adminUpdateUserEmail = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -179,7 +180,7 @@ export const adminUpdateUserEmail = createServerFn({ method: "POST" })
   });
 
 export const adminListUsers = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
 
@@ -227,7 +228,7 @@ export const adminListUsers = createServerFn({ method: "GET" })
 export type SellerOption = { id: string; full_name: string; region: string | null };
 
 export const listSellers = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }): Promise<{ sellers: SellerOption[] }> => {
     await ensureAdmin(context.userId);
     const { data: roles, error: rolesErr } = await supabaseAdmin
@@ -259,7 +260,7 @@ export const listSellers = createServerFn({ method: "GET" })
  * direkte fra klienten, derfor hentes de her serverside.
  */
 export const getSalespersonMap = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }): Promise<Array<[string, string]>> => {
     await ensureAdmin(context.userId);
     const { data, error } = await supabaseAdmin
