@@ -4567,10 +4567,6 @@ export type Database = {
         }[]
       }
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
-      _scenarie_regel_kopier: {
-        Args: { _fra: string; _til: string }
-        Returns: undefined
-      }
       _skm_refresh_keys: { Args: never; Returns: undefined }
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
