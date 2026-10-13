@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bestemSaelger, kamPortefoelje, type KamAftale, type Regel } from "./simulering-regler";
+import { bestemSaelger, kamPortefoelje, tildelMatches, type KamAftale, type Regel } from "./simulering-regler";
 
 const lok = (p: Partial<{ kpg1: string; kpg2: string; kpg3: string; ansatte: number | null }> = {}) =>
   ({ kpg1: "10 [Erhverv]", kpg2: "(ingen)", kpg3: "20 [Kontor]", ansatte: 20, ...p });
@@ -60,5 +60,29 @@ describe("KAM-portefølje", () => {
   });
   it("inaktive aftaler tæller ikke", () => {
     expect(kamPortefoelje(rows, [{ ...a1, aktiv: false }]).get("jes")).toBeUndefined();
+  });
+});
+
+describe("regel-område", () => {
+  const anders: Regel = { id: "o", type: "tildel", saelger: "anders2", aktiv: true,
+    b: { kpg3: ["40 [Offentlige Udbud]", "45 [Offentlige aftale]"], omraade: { type: "distrikt", vaerdier: ["nj", "mj"] } } };
+  const off = (p: object) => ({ ...lok({ kpg3: "40 [Offentlige Udbud]" }), ...p });
+  it("rammer kun lokationer i de valgte distrikter", () => {
+    expect(bestemSaelger({ ...base, lok: off({ distrikt: "nj" }), regler: [anders] }).til).toBe("anders2");
+    expect(bestemSaelger({ ...base, lok: off({ distrikt: "sj" }), regler: [anders] }).til).toBe("f:ny");
+  });
+  it("landsdel-afgrænsning", () => {
+    const r: Regel = { ...anders, b: { ...anders.b, omraade: { type: "landsdel", vaerdier: ["Vest"] } } };
+    expect(bestemSaelger({ ...base, lok: off({ landsdel: "Vest" }), regler: [r] }).til).toBe("anders2");
+    expect(bestemSaelger({ ...base, lok: off({ landsdel: "Øst" }), regler: [r] }).til).toBe("f:ny");
+  });
+  it("regel uden område gælder hele landet", () => {
+    const r: Regel = { ...anders, b: { kpg3: anders.b.kpg3 } };
+    expect(bestemSaelger({ ...base, lok: off({ distrikt: "sj" }), regler: [r] }).til).toBe("anders2");
+  });
+  it("øverste regel vinder ved overlap", () => {
+    const jes70: Regel = { id: "j", type: "tildel", saelger: "jes", aktiv: true, b: { kpg1: ["70 [X]"] } };
+    expect(bestemSaelger({ ...base, lok: off({ distrikt: "nj", kpg1: "70 [X]" }), regler: [jes70, anders] }).til).toBe("jes");
+    expect(tildelMatches(off({ distrikt: "nj", kpg1: "70 [X]" }), [jes70, anders])).toEqual(["j", "o"]);
   });
 });
