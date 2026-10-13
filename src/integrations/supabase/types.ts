@@ -5715,7 +5715,7 @@ export type Database = {
         | "opfølgning_aftalt"
         | "andet"
       agreement_type: "offentlig" | "erhverv" | "ski" | "ukendt"
-      app_role: "admin" | "saelger" | "salgssupport"
+      app_role: "admin" | "saelger" | "salgssupport" | "telemarketing"
       assignment_status:
         | "ny"
         | "skal_kontaktes"
@@ -5909,7 +5909,7 @@ export const Constants = {
         "andet",
       ],
       agreement_type: ["offentlig", "erhverv", "ski", "ukendt"],
-      app_role: ["admin", "saelger", "salgssupport"],
+      app_role: ["admin", "saelger", "salgssupport", "telemarketing"],
       assignment_status: [
         "ny",
         "skal_kontaktes",
