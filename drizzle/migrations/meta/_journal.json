@@ -645,6 +645,13 @@
       "when": 1791914683944,
       "tag": "0091_cvr_findes_i_crm_hurtig",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1791914752161,
+      "tag": "0092_cvr_findes_i_crm_kun_uden_cvr",
+      "breakpoints": true
     }
   ]
 }
