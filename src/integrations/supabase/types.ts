@@ -4099,6 +4099,57 @@ export type Database = {
           },
         ]
       }
+      scenarie_regel: {
+        Row: {
+          aktiv: boolean
+          betingelse: Json
+          id: string
+          oprettet_at: string
+          saelger_fiktiv_id: string | null
+          saelger_user_id: string | null
+          scenarie_id: string
+          sortering: number
+          type: string
+        }
+        Insert: {
+          aktiv?: boolean
+          betingelse?: Json
+          id?: string
+          oprettet_at?: string
+          saelger_fiktiv_id?: string | null
+          saelger_user_id?: string | null
+          scenarie_id: string
+          sortering?: number
+          type: string
+        }
+        Update: {
+          aktiv?: boolean
+          betingelse?: Json
+          id?: string
+          oprettet_at?: string
+          saelger_fiktiv_id?: string | null
+          saelger_user_id?: string | null
+          scenarie_id?: string
+          sortering?: number
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenarie_regel_saelger_fiktiv_id_fkey"
+            columns: ["saelger_fiktiv_id"]
+            isOneToOne: false
+            referencedRelation: "scenarie_saelger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scenarie_regel_scenarie_id_fkey"
+            columns: ["scenarie_id"]
+            isOneToOne: false
+            referencedRelation: "distrikt_scenarie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scenarie_saelger: {
         Row: {
           farve: string
@@ -4516,6 +4567,10 @@ export type Database = {
         }[]
       }
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
+      _scenarie_regel_kopier: {
+        Args: { _fra: string; _til: string }
+        Returns: undefined
+      }
       _skm_refresh_keys: { Args: never; Returns: undefined }
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
@@ -4528,6 +4583,8 @@ export type Database = {
         Returns: {
           afdeling_nr: number
           agreement_types: string
+          ansatte: number
+          ansatte_kilde: string
           company_id: string
           customer_segment_1: string
           customer_segment_2: string
