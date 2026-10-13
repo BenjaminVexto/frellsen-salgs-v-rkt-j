@@ -450,7 +450,7 @@ export function CvrBulkSoegningDialog({
           const labelBits: string[] = [];
           if (regioner.length) labelBits.push(regioner.join(", "));
           if (kommuner.length) labelBits.push(kommuner.join(", "));
-          if (!labelBits.length && (zipFrom || zipTo)) (zipFrom || zipTo) labelBits.push(`postnr ${zipFrom || "…"}–${zipTo || "…"}`);
+          if (zipFrom || zipTo) labelBits.push(`postnr ${zipFrom || "…"}–${zipTo || "…"}`);
           const dateLabel = new Date().toLocaleDateString("da-DK", {
             day: "numeric",
             month: "short",
