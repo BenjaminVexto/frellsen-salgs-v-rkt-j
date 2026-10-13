@@ -406,7 +406,7 @@ export function SalgskortFane() {
       )}
 
       {data && data.flader.length > 0 && geo && (
-        <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_420px] lg:h-[calc(100vh-14rem)]">
+        <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_minmax(420px,1fr)] 2xl:grid-cols-[260px_minmax(0,1fr)_minmax(520px,1.4fr)] lg:h-[calc(100vh-14rem)]">
           <Card className="p-3 space-y-4 lg:h-full max-h-[80vh] lg:max-h-none overflow-y-auto text-sm">
             <div className="flex items-center justify-between">
               <span className="font-medium">Filtre</span>
