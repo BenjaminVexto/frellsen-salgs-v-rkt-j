@@ -54,6 +54,8 @@ function fetchExtras(userId: string): Promise<any[]> {
       .maybeSingle(),
     supabase.rpc("my_afdelinger"),
     (supabase as any).rpc("har_afdelingspotentiale", { _uid: userId }),
+    // Telemarketing kan ikke læse user_roles (spærret i databasen) – spørg direkte.
+    (supabase as any).rpc("er_telemarketing"),
   ]);
   extrasCache = { userId, promise };
   promise.catch(() => {
@@ -73,10 +75,11 @@ export function useAuth(): AuthState {
         if (active) setState({ ...EMPTY, loading: false });
         return;
       }
-      const [{ data: roleRows }, { data: profile }, { data: afdRows }, { data: apRet }] =
+      const [{ data: roleRows }, { data: profile }, { data: afdRows }, { data: apRet }, { data: tmRet }] =
         await fetchExtras(session.user.id);
       if (!active) return;
       const roles = new Set((roleRows ?? []).map((r: { role: AppRole }) => r.role));
+      if (tmRet === true) roles.add("telemarketing");
       const role: AppRole = roles.has("admin")
         ? "admin"
         : roles.has("telemarketing")
