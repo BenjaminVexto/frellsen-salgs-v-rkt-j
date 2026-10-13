@@ -185,18 +185,11 @@ export const cvrBulkSide = createServerFn({ method: "POST" })
     try {
       const { distrikt_ids, ...filters } = data.filters;
       if (distrikt_ids?.length) {
-        // Distrikt → flader → postnumre (distrikttabellerne er admin-only via RLS)
-        const { data: fl, error } = await context.supabase
-          .from("distrikt_flade").select("flade").in("distrikt_id", distrikt_ids);
+        // Distrikt → flader → postnumre slås op i databasen (admin-only funktion)
+        const { data: dp, error } = await (context.supabase as any).rpc("distrikt_postnumre", { _distrikt_ids: distrikt_ids });
         if (error) throw new Error(error.message);
-        const flader = (fl ?? []).map((r) => r.flade);
         const pn = new Set<number>(filters.postnumre ?? []);
-        if (flader.length) {
-          const { data: pf, error: e2 } = await context.supabase
-            .from("postnummer_flader").select("postnumre").in("flade", flader);
-          if (e2) throw new Error(e2.message);
-          (pf ?? []).forEach((r: any) => (r.postnumre ?? []).forEach((p: number) => pn.add(p)));
-        }
+        ((dp ?? []) as number[]).forEach((p) => pn.add(p));
         if (!pn.size && !filters.municipality_codes?.length) {
           return JSON.stringify({ success: true, data: [], total: 0, next: null });
         }
