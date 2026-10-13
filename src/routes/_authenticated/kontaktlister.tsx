@@ -471,10 +471,44 @@ function OpretListeDialog({
   const [responsibleSeller, setResponsibleSeller] = useState<string>("");
   const [step, setStep] = useState<1 | 2>(1);
   const [saving, setSaving] = useState(false);
+  const [moedeModtager, setMoedeModtager] = useState<"distrikt" | "fast">("distrikt");
+  const [fastSaelger, setFastSaelger] = useState("");
+  const distriktTildeling = ringere.length > 0 && moedeModtager === "distrikt";
+
+  // "Fra CVR-import": find en tidligere importbatch igen
+  const [batches, setBatches] = useState<{ id: string; filename: string; company_count: number | null }[]>([]);
+  const [batchId, setBatchId] = useState("");
+  const [batchIds, setBatchIds] = useState<string[] | null>(null);
+  const [onlyPhone, setOnlyPhone] = useState(false);
+  useEffect(() => {
+    supabase
+      .from("import_batches")
+      .select("id, filename, company_count")
+      .ilike("filename", "CVR-søgning%")
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data }) => setBatches((data ?? []) as any));
+  }, []);
+  useEffect(() => {
+    if (!batchId) { setBatchIds(null); return; }
+    let cancelled = false;
+    (async () => {
+      const ids: string[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from("companies").select("id").eq("import_batch_id" as any, batchId).range(from, from + 999);
+        if (error) { toast.error("Kunne ikke hente importen: " + error.message); break; }
+        ids.push(...(data ?? []).map((x: any) => x.id));
+        if (!data || data.length < 1000) break;
+      }
+      if (!cancelled) { setBatchIds(ids); setUserTouchedSelection(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [batchId]);
 
   // Shared company filter — samme komponent som /virksomheder
   const {
-    filtered,
+    filtered: filteredBase,
     loading: loadingCompanies,
     q,
     setQ,
@@ -485,8 +519,12 @@ function OpretListeDialog({
     isFilterActive,
   } = useCompanyFilter({
     isAdmin: true,
-    restrictToIds: preselectedCompanyIds ?? null,
+    restrictToIds: batchIds ?? preselectedCompanyIds ?? null,
   });
+  const filtered = useMemo(
+    () => (onlyPhone ? filteredBase.filter((c: any) => !!c.phone && String(c.phone).trim() !== "") : filteredBase),
+    [filteredBase, onlyPhone],
+  );
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -560,8 +598,12 @@ function OpretListeDialog({
       toast.error("Listenavn er påkrævet");
       return;
     }
-    if (!responsibleSeller) {
+    if (!responsibleSeller && !distriktTildeling) {
       toast.error("Vælg en ansvarlig sælger");
+      return;
+    }
+    if (ringere.length && moedeModtager === "fast" && !fastSaelger) {
+      toast.error("Vælg sælgeren, der får møderne");
       return;
     }
     setSaving(true);
@@ -573,7 +615,9 @@ function OpretListeDialog({
         description: purpose.trim() || null,
         purpose: purpose.trim() || null,
         created_by: userRes.user?.id,
-      })
+        moede_modtager: moedeModtager,
+        moede_saelger_user_id: (moedeModtager === "fast" ? fastSaelger : responsibleSeller) || null,
+      } as any)
       .select("id")
       .single();
     if (error || !list) {
@@ -585,8 +629,8 @@ function OpretListeDialog({
     // "Ønsker ikke kontakt" udelukkes altid fra kontaktlister.
     if (ids.length) {
       const spaerret = new Set<string>();
-      for (let i = 0; i < ids.length; i += 300) {
-        const { data: sp } = await supabase.from("companies").select("id").in("id", ids.slice(i, i + 300)).eq("ikke_kontakt" as any, true);
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data: sp } = await supabase.from("companies").select("id").in("id", ids.slice(i, i + 200)).eq("ikke_kontakt" as any, true);
         (sp ?? []).forEach((r: any) => spaerret.add(r.id));
       }
       if (spaerret.size) {
@@ -598,10 +642,30 @@ function OpretListeDialog({
       await (supabase as any).from("kontaktliste_ringer").insert(ringere.map((user_id) => ({ contact_list_id: list.id, user_id })));
     }
     if (ids.length) {
+      // Telemarketing + "distriktssælger": tildel pr. virksomhed via distriktskortet
+      // (postnr. → flade → distrikt → sælger), ellers reservesælgeren.
+      const saelgerFor = new Map<string, string | null>();
+      if (distriktTildeling) {
+        const [{ data: pm }, { data: df }, { data: d }] = await Promise.all([
+          supabase.from("postnummer_flade_map").select("postnr, flade"),
+          supabase.from("distrikt_flade").select("flade, distrikt_id"),
+          supabase.from("distrikter").select("id, saelger_user_id, daekkes_af_user_id"),
+        ]);
+        const dSaelger = new Map((d ?? []).map((x: any) => [x.id, x.saelger_user_id ?? x.daekkes_af_user_id ?? null]));
+        const fladeD = new Map((df ?? []).map((x: any) => [x.flade, x.distrikt_id]));
+        const pnS = new Map((pm ?? []).map((x: any) => [String(x.postnr), dSaelger.get(fladeD.get(x.flade)) ?? null]));
+        for (let i = 0; i < ids.length; i += 200) {
+          const { data: cz } = await supabase.from("companies").select("id, zip").in("id", ids.slice(i, i + 200));
+          (cz ?? []).forEach((c: any) => {
+            const z = String(c.zip ?? "").replace(/\D/g, "").slice(0, 4);
+            saelgerFor.set(c.id, pnS.get(z) ?? null);
+          });
+        }
+      }
       const rows = ids.map((company_id) => ({
         contact_list_id: list.id,
         company_id,
-        assigned_to: responsibleSeller,
+        assigned_to: distriktTildeling ? (saelgerFor.get(company_id) ?? (responsibleSeller || null)) : responsibleSeller,
         status: "ny" as const,
       }));
       for (let i = 0; i < rows.length; i += 500) {
@@ -640,8 +704,37 @@ function OpretListeDialog({
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
+            <RingerVaelger value={ringere} onChange={setRingere} />
+            {ringere.length > 0 && (
+              <div className="space-y-2 rounded-md border p-3">
+                <Label>Møder går til</Label>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input type="radio" checked={moedeModtager === "distrikt"} onChange={() => setMoedeModtager("distrikt")} />
+                    Distriktssælger ud fra postnummer
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="radio" checked={moedeModtager === "fast"} onChange={() => setMoedeModtager("fast")} />
+                    Fast sælger
+                  </label>
+                </div>
+                {moedeModtager === "fast" && (
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                    value={fastSaelger}
+                    onChange={(e) => setFastSaelger(e.target.value)}
+                  >
+                    <option value="">— Vælg sælger —</option>
+                    {sellers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.full_name || "Uden navn"}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
             <div>
-              <Label>Ansvarlig sælger for denne liste *</Label>
+              <Label>{distriktTildeling ? "Reservesælger (valgfri)" : "Ansvarlig sælger for denne liste *"}</Label>
               <select
                 className="w-full border rounded-md px-3 py-2 text-sm bg-background mt-1"
                 value={responsibleSeller}
@@ -655,7 +748,9 @@ function OpretListeDialog({
                 ))}
               </select>
               <p className="text-xs text-muted-foreground mt-1">
-                Alle valgte virksomheder tildeles denne sælger.
+                {distriktTildeling
+                  ? "Hver virksomhed tildeles distriktssælgeren for sit postnummer. Reservesælgeren bruges kun, hvor postnummeret ikke ligger i et distrikt."
+                  : "Alle valgte virksomheder tildeles denne sælger."}
               </p>
             </div>
 
@@ -671,7 +766,6 @@ function OpretListeDialog({
                 Vises øverst på listen når sælgeren åbner den – og som manus for telemarketing.
               </p>
             </div>
-            <RingerVaelger value={ringere} onChange={setRingere} />
           </div>
         ) : (
           <div className="space-y-4">
@@ -710,6 +804,28 @@ function OpretListeDialog({
               municipalities={municipalities}
               isAdmin={true}
             />
+
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <Label className="whitespace-nowrap">Fra CVR-import</Label>
+                <select
+                  className="border rounded-md px-2 py-1 text-sm bg-background max-w-[420px]"
+                  value={batchId}
+                  onChange={(e) => setBatchId(e.target.value)}
+                >
+                  <option value="">{preselectedCompanyIds?.length ? "Netop importeret" : "Alle virksomheder"}</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.filename} ({(b.company_count ?? 0).toLocaleString("da")})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="flex items-center gap-2">
+                <Checkbox checked={onlyPhone} onCheckedChange={(v) => { setOnlyPhone(!!v); setUserTouchedSelection(false); }} />
+                Kun med telefonnummer
+              </label>
+            </div>
 
             <CustomerStatusLegend />
 
@@ -809,8 +925,12 @@ function OpretListeDialog({
                     toast.error("Listenavn er påkrævet");
                     return;
                   }
-                  if (!responsibleSeller) {
+                  if (!responsibleSeller && !distriktTildeling) {
                     toast.error("Vælg en ansvarlig sælger");
+                    return;
+                  }
+                  if (ringere.length && moedeModtager === "fast" && !fastSaelger) {
+                    toast.error("Vælg sælgeren, der får møderne");
                     return;
                   }
                   setStep(2);

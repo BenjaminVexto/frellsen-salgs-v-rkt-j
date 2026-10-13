@@ -928,8 +928,8 @@ function ImportSide() {
     try {
       const cvrToCompanyId = new Map<string, string>();
       // Hent CVR for de oprettede/opdaterede company-id'er
-      for (let i = 0; i < companyIds.length; i += 500) {
-        const slice = companyIds.slice(i, i + 500);
+      for (let i = 0; i < companyIds.length; i += 200) {
+        const slice = companyIds.slice(i, i + 200);
         const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
         (data ?? []).forEach((r: any) => { if (r.cvr) cvrToCompanyId.set(r.cvr, r.id); });
       }
@@ -996,8 +996,8 @@ function ImportSide() {
     try {
       // Hent location id-map (company_id, visma_delivery_no) -> location_id
       const locIdMap = new Map<string, string>();
-      for (let i = 0; i < companyIds.length; i += 500) {
-        const slice = companyIds.slice(i, i + 500);
+      for (let i = 0; i < companyIds.length; i += 200) {
+        const slice = companyIds.slice(i, i + 200);
         const { data } = await (supabase as any)
           .from("locations")
           .select("id, company_id, visma_delivery_no")
@@ -1011,8 +1011,8 @@ function ImportSide() {
 
       // Byg cvr -> company_id map
       const cvrToCompanyId = new Map<string, string>();
-      for (let i = 0; i < companyIds.length; i += 500) {
-        const slice = companyIds.slice(i, i + 500);
+      for (let i = 0; i < companyIds.length; i += 200) {
+        const slice = companyIds.slice(i, i + 200);
         const { data } = await supabase.from("companies").select("id, cvr").in("id", slice);
         (data ?? []).forEach((c: any) => { if (c.cvr) cvrToCompanyId.set(c.cvr, c.id); });
       }

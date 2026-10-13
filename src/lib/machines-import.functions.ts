@@ -805,7 +805,7 @@ export const importMachines = createServerFn({ method: "POST" })
             if (g) g.ids.push(u.id);
             else groups.set(kk, { payload: u.payload, ids: [u.id] });
           }
-          const CHUNK_U = 300;
+          const CHUNK_U = 200;
           for (const { payload, ids } of groups.values()) {
             for (let i = 0; i < ids.length; i += CHUNK_U) {
               const slice = ids.slice(i, i + CHUNK_U);
@@ -820,7 +820,7 @@ export const importMachines = createServerFn({ method: "POST" })
         // Service- og wittenborg-units røres ikke her.
         const affected = Array.from(usedLocationIds);
         if (affected.length) {
-          const CHUNK_D = 300;
+          const CHUNK_D = 200;
           for (let i = 0; i < affected.length; i += CHUNK_D) {
             const slice = affected.slice(i, i + CHUNK_D);
             const { error } = await supabaseAdmin

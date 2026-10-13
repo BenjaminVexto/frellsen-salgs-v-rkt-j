@@ -1765,8 +1765,8 @@ function ImportSide() {
           ) {
             const companiesWithLocs = [...new Set(locRows.map((r) => r.company_id))];
             const locIdMap = new Map<string, { id: string; is_primary: boolean }>();
-            for (let i = 0; i < companiesWithLocs.length; i += 500) {
-              const slice = companiesWithLocs.slice(i, i + 500);
+            for (let i = 0; i < companiesWithLocs.length; i += 200) {
+              const slice = companiesWithLocs.slice(i, i + 200);
               const { data } = await (supabase as any)
                 .from("locations")
                 .select("id, company_id, visma_delivery_no, is_primary")

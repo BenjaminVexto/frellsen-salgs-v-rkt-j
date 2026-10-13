@@ -359,7 +359,7 @@ export const getMasterAgreementSuppression = createServerFn({ method: "POST" })
     }
     if (byKp1.size === 0) return result;
 
-    const CHUNK = 500;
+    const CHUNK = 200;
     for (let i = 0; i < data.companyIds.length; i += CHUNK) {
       const slice = data.companyIds.slice(i, i + CHUNK);
       const { data: companies, error: cErr } = await supabaseAdmin

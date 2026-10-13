@@ -18,7 +18,7 @@ async function ensureAdmin(userId: string) {
 async function cascadeDeleteCompanies(companyIds: string[]) {
   if (!companyIds.length) return;
   // Chunk for at undgå for lange URL'er og rammen af query-limits
-  const CHUNK = 500;
+  const CHUNK = 200;
   for (let i = 0; i < companyIds.length; i += CHUNK) {
     const slice = companyIds.slice(i, i + CHUNK);
     // Børn først for at undgå FK-konflikter
@@ -93,7 +93,7 @@ async function stampCompaniesToBatch(
 ) {
   if (!companyIds.length) return;
   const uniqueCompanyIds = Array.from(new Set(companyIds));
-  const CHUNK = 500;
+  const CHUNK = 200;
   for (let i = 0; i < uniqueCompanyIds.length; i += CHUNK) {
     const slice = uniqueCompanyIds.slice(i, i + CHUNK);
     const { error } = await supabaseAdmin
@@ -698,7 +698,7 @@ export const importUpdateCompaniesById = createServerFn({ method: "POST" })
       else groups.set(key, { payload: u.payload, ids: [u.id] });
     }
 
-    const CHUNK = 500;
+    const CHUNK = 200;
     for (const { payload, ids } of groups.values()) {
       for (let i = 0; i < ids.length; i += CHUNK) {
         const slice = ids.slice(i, i + CHUNK);
@@ -747,7 +747,7 @@ export const importAssignSellersToCompanies = createServerFn({ method: "POST" })
     let updated = 0;
     let failed = 0;
     for (const [seller, ids] of bySeller.entries()) {
-      const CHUNK = 500;
+      const CHUNK = 200;
       for (let i = 0; i < ids.length; i += CHUNK) {
         const slice = ids.slice(i, i + CHUNK);
         const { error, count } = await supabaseAdmin
@@ -1601,7 +1601,7 @@ export const getImportBatchInfo = createServerFn({ method: "POST" })
       ];
       const locInfo: { id: string; address: string | null; city: string | null; company_name: string | null }[] = [];
       if (locIds.length) {
-        const CHUNK = 300;
+        const CHUNK = 200;
         for (let i = 0; i < locIds.length; i += CHUNK) {
           const slice = locIds.slice(i, i + CHUNK);
           const { data: rows } = await supabaseAdmin
@@ -1693,7 +1693,7 @@ export const deleteImportBatch = createServerFn({ method: "POST" })
       // Slet lokationer der blev oprettet ved importen — kun hvis de stadig kun har equipment-data
       const created = payload.created_location_ids ?? [];
       if (created.length) {
-        const CHUNK = 300;
+        const CHUNK = 200;
         for (let i = 0; i < created.length; i += CHUNK) {
           const slice = created.slice(i, i + CHUNK);
           await supabaseAdmin.from("locations").delete().in("id", slice);
