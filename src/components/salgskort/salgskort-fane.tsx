@@ -112,6 +112,7 @@ export function SalgskortFane() {
   const [dd, setDd] = useState<DistriktData | null>(null);
   const [redigerer, setRedigerer] = useState(false);
   const [valgtDistrikt, setValgtDistrikt] = useState<string | null>(null);
+  const [hoverDistr, setHoverDistr] = useState<string | null>(null);
   const st = useScenarie(visning === "sim");
   const [zoom, setZoom] = useState<{ flade: number; n: number } | null>(null);
   const [fane, setFane] = useState<"saelgere" | "afvig">("saelgere");
@@ -380,6 +381,7 @@ export function SalgskortFane() {
           else {
             color = d.farve; const fiktiv = !!d.saelger_fiktiv_id; const besat = !!(d.saelger_user_id || d.saelger_fiktiv_id);
             opacity = besat ? 0.8 : 0.35; ubesat = !d.saelger_user_id; lc = ubesat ? "#333333" : "#ffffff"; lw = ubesat ? 1 : 0.5;
+            if (hoverDistr) opacity = hoverDistr === d.id ? 0.95 : 0.12;
             tip = `${d.navn} · ${d.saelger_user_id ? pNavn(d.saelger_user_id) : fiktiv ? (fiktivMap.get(d.saelger_fiktiv_id!)?.navn ?? "?") + " (fiktiv)" : "NY – dækkes af " + (d.daekkes_af_user_id ? pNavn(d.daekkes_af_user_id) : "ingen")}`;
           }
         } else if (visning !== "virk") {
@@ -534,6 +536,18 @@ export function SalgskortFane() {
                 {fremhaev && <button type="button" className="inline-flex items-center gap-1 text-muted-foreground hover:underline" onClick={() => setFremhaev(null)}><X className="h-3 w-3" /> Fjern fremhævning</button>}
               </div>
             )}
+            {visning === "sim" && st.sc && st.sc.distrikter.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b border-border px-3 py-1.5 text-xs" onMouseLeave={() => setHoverDistr(null)}>
+                {st.sc.distrikter.map((d) => (
+                  <button key={d.id} type="button" onMouseEnter={() => setHoverDistr(d.id)}
+                    onClick={() => { setValgtDistrikt(d.id); if (st.scenarier.find((s) => s.id === st.valgtId)?.status === "kladde") setRedigerer(true); }}
+                    className={"inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 hover:bg-muted " + (valgtDistrikt === d.id && redigerer ? "bg-muted font-medium" : "")}>
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.farve, outline: d.saelger_user_id ? undefined : "1px dashed currentColor" }} />
+                    <span className="whitespace-nowrap">{d.navn} – {simNavn(scSaelgerKey(d))}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {chips.length > 0 && (
               <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-2">
                 {chips.map((c) => (
@@ -546,7 +560,8 @@ export function SalgskortFane() {
               </div>
             )}
             <div className="relative flex-1 min-h-0">
-              <Kort geo={geo} onKlik={(f) => (redigerer ? tildel(f) : setValgtFlade(f))} redigerer={redigerer && !!valgtDistrikt} onMal={tildel} zoom={zoom} />
+              <Kort geo={geo} onKlik={(f) => (redigerer ? tildel(f) : setValgtFlade(f))} redigerer={redigerer && !!valgtDistrikt} onMal={tildel} zoom={zoom}
+                fitKey={`${visning}|${!!flade}|${st.valgtId ?? ""}|${chips.length > 0}|${saelgerBjaelke.length > 0}`} />
               {(visning === "distr" || visning === "over") && dd && dd.distrikter.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/70 pointer-events-none">
                   <div className="rounded-lg border border-border bg-card p-6 text-center shadow">
