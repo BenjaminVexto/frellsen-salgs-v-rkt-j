@@ -1279,6 +1279,7 @@ export type Database = {
       }
       contact_list_assignments: {
         Row: {
+          antal_forsoeg: number
           assigned_to: string | null
           company_id: string
           contact_list_id: string
@@ -1289,9 +1290,11 @@ export type Database = {
           next_followup_date: string | null
           priority: Database["public"]["Enums"]["priority_level"]
           status: Database["public"]["Enums"]["assignment_status"]
+          status_aarsag: string | null
           updated_at: string
         }
         Insert: {
+          antal_forsoeg?: number
           assigned_to?: string | null
           company_id: string
           contact_list_id: string
@@ -1302,9 +1305,11 @@ export type Database = {
           next_followup_date?: string | null
           priority?: Database["public"]["Enums"]["priority_level"]
           status?: Database["public"]["Enums"]["assignment_status"]
+          status_aarsag?: string | null
           updated_at?: string
         }
         Update: {
+          antal_forsoeg?: number
           assigned_to?: string | null
           company_id?: string
           contact_list_id?: string
@@ -1315,6 +1320,7 @@ export type Database = {
           next_followup_date?: string | null
           priority?: Database["public"]["Enums"]["priority_level"]
           status?: Database["public"]["Enums"]["assignment_status"]
+          status_aarsag?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2369,6 +2375,7 @@ export type Database = {
           moede_saelger_user_id: string | null
           note: string | null
           ring_igen_at: string | null
+          rolle: string | null
           udfald: string
           user_id: string
         }
@@ -2384,6 +2391,7 @@ export type Database = {
           moede_saelger_user_id?: string | null
           note?: string | null
           ring_igen_at?: string | null
+          rolle?: string | null
           udfald: string
           user_id: string
         }
@@ -2399,6 +2407,7 @@ export type Database = {
           moede_saelger_user_id?: string | null
           note?: string | null
           ring_igen_at?: string | null
+          rolle?: string | null
           udfald?: string
           user_id?: string
         }
@@ -5976,6 +5985,13 @@ export type Database = {
         | "senere_emne"
         | "vundet"
         | "tabt"
+        | "forsoegt"
+        | "ring_igen"
+        | "forkert_nummer"
+        | "ikke_interesseret"
+        | "oensker_ikke_kontakt"
+        | "tilbud_oensket"
+        | "ikke_opnaaet"
       company_relation_type:
         | "forsynes_af"
         | "leverer_til"
@@ -6170,6 +6186,13 @@ export const Constants = {
         "senere_emne",
         "vundet",
         "tabt",
+        "forsoegt",
+        "ring_igen",
+        "forkert_nummer",
+        "ikke_interesseret",
+        "oensker_ikke_kontakt",
+        "tilbud_oensket",
+        "ikke_opnaaet",
       ],
       company_relation_type: [
         "forsynes_af",

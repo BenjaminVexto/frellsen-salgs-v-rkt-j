@@ -680,6 +680,13 @@
       "when": 1791918062341,
       "tag": "0096_cvr_direktoer_job",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1791918553652,
+      "tag": "0097_kontaktliste_udfald_status",
+      "breakpoints": true
     }
   ]
 }
