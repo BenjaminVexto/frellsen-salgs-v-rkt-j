@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Search, X } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { SoegListe, IndsaetKoder, KamFormDialog, omrKort, type DistriktData, type Profil } from "@/components/salgskort/distrikt";
 import { kodeOversigt, regelTekst, type KamAftale, type Betingelse, type Omraade, type Regel, type RegelType } from "@/lib/simulering-regler";
@@ -109,14 +110,14 @@ type Agg = { n: number; aktive: number; oms: number; db: number };
 export const tomAgg = (): Agg => ({ n: 0, aktive: 0, oms: 0, db: 0 });
 
 export function SimuleringPanel({
-  st, dd, navn, farve, konsekvens, flytninger, afviger, regler, regelStat, overlap, taelRegel, regioner, ukendteAnsatte, penhedAnsatte, antalLok, regelValg, kamPort, kamTael, kamStat, redigerer, setRedigerer, valgt, setValgt, fladeNavn,
+  st, dd, navn, farve, konsekvens, flytninger, afviger, regler, regelStat, overlap, taelRegel, regioner, ukendteAnsatte, penhedAnsatte, antalLok, regelValg, kamPort, kamTael, kamStat, redigerer, setRedigerer, valgt, setValgt, fladeNavn, dStatSc,
 }: {
   st: ScenarieState; dd: DistriktData; navn: (k: string) => string; farve: (k: string) => string;
   konsekvens: KonsekvensRow[]; flytninger: SimRow[]; afviger: SimRow[]; regler: Regel[]; regelStat: Map<string, { n: number; oms: number }>;
   overlap: Map<string, Map<string, number>>; taelRegel: (r: Regel) => { n: number; oms: number }; regioner: string[];
   ukendteAnsatte: number; penhedAnsatte: number; antalLok: number; regelValg: RegelValg; kamPort: KamRow[]; kamTael: (a: KamAftale) => { n: number; oms: number }; kamStat: Map<string, { n: number; oms: number }>;
   redigerer: boolean; setRedigerer: (b: boolean) => void; valgt: string | null; setValgt: (id: string | null) => void;
-  fladeNavn: Map<number, string>;
+  fladeNavn: Map<number, string>; dStatSc?: Map<string, { n: number; oms: number }>;
 }) {
   const [fane, setFane] = useState<"distr" | "kons">("distr");
   const [navnDlg, setNavnDlg] = useState<null | { titel: string; start: string; ok: (n: string) => Promise<void> }>(null);
@@ -235,6 +236,21 @@ export function SimuleringPanel({
           <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
             {fane === "distr" ? (
               <>
+                {(() => {
+                  const d = konsekvens.map((k) => ({ k: k.key, d: k.efter.oms - k.foer.oms })).filter((x) => Math.round(x.d) !== 0).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+                  return (
+                    <div className="sticky -top-3 z-10 -mx-3 -mt-3 mb-1 border-b border-border bg-card px-3 py-1.5 flex flex-wrap gap-1" data-testid="delta-bjaelke">
+                      {d.length === 0 ? <span className="text-xs text-muted-foreground">Ingen ændring i omsætning pr. sælger.</span> : d.map((x) => (
+                        <button key={x.k} type="button" onClick={() => { setSaelgerF(x.k); setFane("kons"); }}
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs hover:bg-muted">
+                          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: farve(x.k) }} />
+                          <span className="whitespace-nowrap">{navn(x.k)}</span>
+                          <span className="tabular-nums font-medium">{fortegn(x.d, mio)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
                 {!laast && (
                   <Button size="sm" variant={redigerer ? "default" : "outline"} className="w-full" onClick={() => setRedigerer(!redigerer)}>
                     {redigerer ? "Afslut redigering" : "Redigér grænser"}
@@ -254,19 +270,13 @@ export function SimuleringPanel({
                 <ul className="space-y-1">
                   {sc.distrikter.map((d) => (
                     <li key={d.id} onClick={() => redigerer && setValgt(d.id)}
-                      className={"rounded border p-2 text-xs " + (redigerer ? "cursor-pointer hover:bg-muted/40 " : "") + (valgt === d.id && redigerer ? "border-primary ring-1 ring-primary" : "border-border")}>
+                      className={"rounded border px-2 py-1.5 text-xs leading-snug " + (redigerer ? "cursor-pointer hover:bg-muted/40 " : "") + (valgt === d.id && redigerer ? "border-primary ring-1 ring-primary" : "border-border")}>
                       <div className="flex items-center gap-2">
                         <span className="h-3 w-3 rounded-sm shrink-0" style={{ background: d.farve, outline: d.saelger_user_id ? undefined : "1px dashed currentColor" }} />
                         <span className="font-medium flex-1 truncate">{d.navn}</span>
-                        {!laast && (
-                          <span className="flex gap-2 text-muted-foreground">
-                            <button type="button" className="hover:underline" onClick={(e) => { e.stopPropagation(); setEditD(d); }}>Rediger</button>
-                            <button type="button" className="hover:underline" onClick={(e) => { e.stopPropagation(); setMerge(d); }}>Slå sammen</button>
-                            <button type="button" className="hover:underline" onClick={(e) => { e.stopPropagation(); sletDistrikt(d); }}>Slet</button>
-                          </span>
-                        )}
+                        {!laast && <RaekkeMenu punkter={[["Rediger", () => setEditD(d)], ["Slå sammen", () => setMerge(d)], ["Slet", () => sletDistrikt(d)]]} />}
                       </div>
-                      <div className="text-muted-foreground mt-0.5">{dSaelgerTekst(d)}{d.landsdel ? ` · ${d.landsdel}` : ""} · {dStats.get(d.id) ?? 0} {(dStats.get(d.id) ?? 0) === 1 ? "flade" : "flader"}</div>
+                      <div className="text-muted-foreground mt-0.5">{dSaelgerTekst(d)}{d.landsdel ? ` · ${d.landsdel}` : ""} · {dStats.get(d.id) ?? 0} {(dStats.get(d.id) ?? 0) === 1 ? "flade" : "flader"}<span className="tabular-nums"> · {(dStatSc?.get(d.id)?.n ?? 0).toLocaleString("da-DK")} lok. · {mio(dStatSc?.get(d.id)?.oms ?? 0)}</span></div>
                     </li>
                   ))}
                 </ul>
@@ -277,13 +287,10 @@ export function SimuleringPanel({
                 {sc.saelgere.length === 0 && <div className="text-xs text-muted-foreground">Ingen fiktive sælgere i scenariet.</div>}
                 <ul className="space-y-1">
                   {sc.saelgere.map((s) => (
-                    <li key={s.id} className="rounded border border-dashed border-border p-2 text-xs flex items-center gap-2">
+                    <li key={s.id} className="rounded border border-dashed border-border px-2 py-1.5 text-xs leading-snug flex items-center gap-2">
                       <span className="h-3 w-3 rounded-full shrink-0" style={{ background: s.farve, outline: "1px dashed currentColor" }} />
                       <span className="flex-1 truncate"><span className="font-medium">{s.navn}</span> (fiktiv){s.profil_id ? ` → ${navn(s.profil_id)}` : <span className="text-muted-foreground"> · ikke koblet</span>}</span>
-                      {!laast && <>
-                        <button type="button" className="text-muted-foreground hover:underline" onClick={() => setEditS(s)}>Rediger</button>
-                        <button type="button" className="text-muted-foreground hover:underline" onClick={() => sletSaelger(s)}>Slet</button>
-                      </>}
+                      {!laast && <RaekkeMenu punkter={[["Rediger", () => setEditS(s)], ["Slet", () => sletSaelger(s)]]} />}
                     </li>
                   ))}
                 </ul>
@@ -298,21 +305,17 @@ export function SimuleringPanel({
                     const rr = regler.find((x) => x.id === r.id);
                     const s = regelStat.get(r.id) ?? { n: 0, oms: 0 };
                     return (
-                      <li key={r.id} className={"rounded border border-border p-2 text-xs space-y-1 " + (r.aktiv ? "" : "opacity-60")}>
+                      <li key={r.id} className={"rounded border border-border px-2 py-1.5 text-xs leading-snug space-y-0.5 " + (r.aktiv ? "" : "opacity-60")}>
                         <div className="flex items-start gap-2">
                           <Checkbox className="mt-0.5" disabled={laast} checked={r.aktiv} onCheckedChange={() => toggleRegel(r)} aria-label="Aktiv" />
                           <span className="flex-1">{regelNavn.get(r.id) ?? ""}</span>
                           {!laast && <span className="flex gap-1 text-muted-foreground shrink-0">
                             <button type="button" aria-label="Op" disabled={i === 0} className="disabled:opacity-30" onClick={() => flytRegel(i, -1)}><ArrowUp className="h-3 w-3" /></button>
                             <button type="button" aria-label="Ned" disabled={i === sc.regler.length - 1} className="disabled:opacity-30" onClick={() => flytRegel(i, 1)}><ArrowDown className="h-3 w-3" /></button>
+                            <RaekkeMenu punkter={[["Rediger", () => setEditR(r)], ["Kopiér", () => setEditR({ ...r, id: undefined, aktiv: true })], ["Slet", () => sletRegel(r)]]} />
                           </span>}
                         </div>
-                        <div className="flex items-center gap-2 text-muted-foreground pl-6">
-                          <span className="flex-1 tabular-nums">Rammer {s.n.toLocaleString("da-DK")} lokationer · {kr(s.oms)} oms.</span>
-                          {!laast && <><button type="button" className="hover:underline" onClick={() => setEditR(r)}>Rediger</button>
-                            <button type="button" className="hover:underline" onClick={() => setEditR({ ...r, id: undefined, aktiv: true })}>Kopiér</button>
-                            <button type="button" className="hover:underline" onClick={() => sletRegel(r)}>Slet</button></>}
-                        </div>
+                        <div className="block text-muted-foreground pl-6 tabular-nums">Rammer {s.n.toLocaleString("da-DK")} lokationer · {kr(s.oms)} oms.</div>
                         {(() => {
                           const o = overlap.get(r.id); if (!o?.size) return null;
                           const tot = [...o.values()].reduce((a, b) => a + b, 0);
@@ -341,20 +344,17 @@ export function SimuleringPanel({
                     const ans = [...k.kam_ansvarlige.map((x) => navn(x)), ...k.kam_fiktive.map((x) => navn("f:" + x))];
                     const ks = kamStat.get(k.id) ?? { n: 0, oms: 0 };
                     return (
-                      <li key={k.id} className={"rounded border border-border p-2 text-xs flex items-start gap-2 " + (k.aktiv ? "" : "opacity-60")} data-testid="sc-kam">
+                      <li key={k.id} className={"rounded border border-border px-2 py-1.5 text-xs flex items-start gap-2 " + (k.aktiv ? "" : "opacity-60")} data-testid="sc-kam">
                         <span className="flex-1 min-w-0 leading-snug">
                           <span className="font-medium">{k.navn}</span>{k.ny_i_scenarie && <span className="ml-1 rounded border border-border px-1 text-[10px] text-muted-foreground">ny</span>}
                           <span className="text-muted-foreground"> · {kodeOversigt(k)}{omrKort(k.omraade, sc.distrikter)} · {ans.length ? ans.join(", ") : "ingen ansvarlig"} · </span>
                           <span className="tabular-nums whitespace-nowrap">{ks.n.toLocaleString("da-DK")} lok. · {mio(ks.oms)}</span>
                         </span>
-                        {!laast && <span className="flex gap-2 shrink-0">
-                          <button type="button" className="text-muted-foreground hover:underline" onClick={() => setEditK(k)}>Rediger</button>
-                          <button type="button" className="text-muted-foreground hover:underline" onClick={async () => {
-                            if (!confirm(`Slet KAM-aftalen "${k.navn}" i scenariet?`)) return;
-                            const { error } = await sb().from("scenarie_kam").delete().eq("id", k.id);
-                            if (error) toast.error(error.message); else st.reload();
-                          }}>Slet</button>
-                        </span>}
+                        {!laast && <RaekkeMenu punkter={[["Rediger", () => setEditK(k)], ["Slet", async () => {
+                          if (!confirm(`Slet KAM-aftalen "${k.navn}" i scenariet?`)) return;
+                          const { error } = await sb().from("scenarie_kam").delete().eq("id", k.id);
+                          if (error) toast.error(error.message); else st.reload();
+                        }]]} />}
                       </li>
                     );
                   })}
@@ -834,3 +834,16 @@ function KamPortefoelje({ rows, navn, farve }: { rows: KamRow[]; navn: (k: strin
 }
 
 const mio = (n: number) => Math.abs(n) >= 1e6 ? (n / 1e6).toLocaleString("da-DK", { maximumFractionDigits: 1 }) + " mio." : Math.round(n / 1000).toLocaleString("da-DK") + " t.kr.";
+
+function RaekkeMenu({ punkter }: { punkter: [string, () => void][] }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label="Handlinger" className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-3.5 w-3.5" /></button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        {punkter.map(([l, f]) => <DropdownMenuItem key={l} onSelect={() => f()}>{l}</DropdownMenuItem>)}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
