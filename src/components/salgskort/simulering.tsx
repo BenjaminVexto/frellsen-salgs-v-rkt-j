@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { SoegListe, kodeVis, type DistriktData, type Profil } from "@/components/salgskort/distrikt";
-import { regelTekst, type Betingelse, type Regel, type RegelType } from "@/lib/simulering-regler";
+import { regelTekst, type Betingelse, type Omraade, type Regel, type RegelType } from "@/lib/simulering-regler";
 
 export type Scenarie = { id: string; navn: string; beskrivelse: string | null; status: "kladde" | "gjort_gaeldende" | "arkiveret"; oprettet_at: string; opdateret_at: string };
 export type ScDistrikt = {
@@ -109,10 +109,11 @@ type Agg = { n: number; aktive: number; oms: number; db: number };
 export const tomAgg = (): Agg => ({ n: 0, aktive: 0, oms: 0, db: 0 });
 
 export function SimuleringPanel({
-  st, dd, navn, farve, konsekvens, flytninger, afviger, regler, regelStat, ukendteAnsatte, penhedAnsatte, antalLok, regelValg, kamPort, redigerer, setRedigerer, valgt, setValgt, fladeNavn,
+  st, dd, navn, farve, konsekvens, flytninger, afviger, regler, regelStat, overlap, taelRegel, regioner, ukendteAnsatte, penhedAnsatte, antalLok, regelValg, kamPort, redigerer, setRedigerer, valgt, setValgt, fladeNavn,
 }: {
   st: ScenarieState; dd: DistriktData; navn: (k: string) => string; farve: (k: string) => string;
   konsekvens: KonsekvensRow[]; flytninger: SimRow[]; afviger: SimRow[]; regler: Regel[]; regelStat: Map<string, { n: number; oms: number }>;
+  overlap: Map<string, Map<string, number>>; taelRegel: (r: Regel) => { n: number; oms: number }; regioner: string[];
   ukendteAnsatte: number; penhedAnsatte: number; antalLok: number; regelValg: RegelValg; kamPort: KamRow[];
   redigerer: boolean; setRedigerer: (b: boolean) => void; valgt: string | null; setValgt: (id: string | null) => void;
   fladeNavn: Map<number, string>;
@@ -176,7 +177,8 @@ export function SimuleringPanel({
 
   const filtrer = (l: SimRow[]) => saelgerF ? l.filter((r) => r.fra === saelgerF || r.til === saelgerF || r.nu === saelgerF) : l;
   const flyt = filtrer(flytninger);
-  const regelNavn = new Map(regler.map((r) => [r.id, regelTekst(r, navn)]));
+  const dNavn = (id: string) => sc?.distrikter.find((d) => d.id === id)?.navn ?? "?";
+  const regelNavn = new Map(regler.map((r) => [r.id, regelTekst(r, navn, dNavn)]));
   const aarsagTekst = (a: string | null) => !a || a === "geo" ? "Geografi" : regelNavn.get(a) ?? "Regel";
   const sletRegel = async (r: ScRegel) => {
     if (!confirm("Slet reglen?")) return;
@@ -299,7 +301,7 @@ export function SimuleringPanel({
                       <li key={r.id} className={"rounded border border-border p-2 text-xs space-y-1 " + (r.aktiv ? "" : "opacity-60")}>
                         <div className="flex items-start gap-2">
                           <Checkbox className="mt-0.5" disabled={laast} checked={r.aktiv} onCheckedChange={() => toggleRegel(r)} aria-label="Aktiv" />
-                          <span className="flex-1">{rr ? regelTekst(rr, navn) : ""}</span>
+                          <span className="flex-1">{regelNavn.get(r.id) ?? ""}</span>
                           {!laast && <span className="flex gap-1 text-muted-foreground shrink-0">
                             <button type="button" aria-label="Op" disabled={i === 0} className="disabled:opacity-30" onClick={() => flytRegel(i, -1)}><ArrowUp className="h-3 w-3" /></button>
                             <button type="button" aria-label="Ned" disabled={i === sc.regler.length - 1} className="disabled:opacity-30" onClick={() => flytRegel(i, 1)}><ArrowDown className="h-3 w-3" /></button>
@@ -308,8 +310,17 @@ export function SimuleringPanel({
                         <div className="flex items-center gap-2 text-muted-foreground pl-6">
                           <span className="flex-1 tabular-nums">Rammer {s.n.toLocaleString("da-DK")} lokationer · {kr(s.oms)} oms.</span>
                           {!laast && <><button type="button" className="hover:underline" onClick={() => setEditR(r)}>Rediger</button>
+                            <button type="button" className="hover:underline" onClick={() => setEditR({ ...r, id: undefined, aktiv: true })}>Kopiér</button>
                             <button type="button" className="hover:underline" onClick={() => sletRegel(r)}>Slet</button></>}
                         </div>
+                        {(() => {
+                          const o = overlap.get(r.id); if (!o?.size) return null;
+                          const tot = [...o.values()].reduce((a, b) => a + b, 0);
+                          const tip = [...o.entries()].map(([id, n]) => `${n.toLocaleString("da-DK")} tages af: ${regelNavn.get(id) ?? "?"}`).join("\n");
+                          return <div className="pl-6 text-[11px] text-muted-foreground underline decoration-dotted cursor-help w-fit" title={tip}>
+                            {tot.toLocaleString("da-DK")} {tot === 1 ? "lokation tages" : "lokationer tages"} af en regel over denne
+                          </div>;
+                        })()}
                         {r.type === "udeluk" && r.betingelse?.ansatteOver != null && (
                           <div className="text-[11px] text-muted-foreground pl-6">
                             Ansatte = virksomhedens antal (CVR){penhedAnsatte ? `; P-enhedstal for ${penhedAnsatte.toLocaleString("da-DK")} lok. uden virksomhedstal` : ""}. {ukendteAnsatte.toLocaleString("da-DK")} af {antalLok.toLocaleString("da-DK")} lokationer har ukendt antal – tæller som {r.betingelse.ukendtSomOver ? "over" : "under"} grænsen.
@@ -359,6 +370,7 @@ export function SimuleringPanel({
       {editD && sc && st.valgtId && <ScDistriktDialog d={editD} scenarieId={st.valgtId} profiler={dd.profiler} fiktive={sc.saelgere} onLuk={() => setEditD(null)} onGemt={() => { setEditD(null); st.reload(); }} />}
       {editS && st.valgtId && <ScSaelgerDialog s={editS} scenarieId={st.valgtId} profiler={dd.profiler} onLuk={() => setEditS(null)} onGemt={() => { setEditS(null); st.reload(); }} />}
       {editR && sc && st.valgtId && <RegelDialog r={editR} scenarieId={st.valgtId} antal={sc.regler.length} profiler={dd.profiler} fiktive={sc.saelgere} valg={regelValg}
+        distrikter={sc.distrikter} regioner={regioner} taelRegel={taelRegel}
         ukendte={ukendteAnsatte} onLuk={() => setEditR(null)} onGemt={() => { setEditR(null); st.reload(); }} />}
       {editK && sc && <ScKamDialog k={editK} profiler={dd.profiler} fiktive={sc.saelgere} onLuk={() => setEditK(null)} onGemt={() => { setEditK(null); st.reload(); }} />}
       {merge && sc && st.valgtId && <MergeDialog kilde={merge} scenarieId={st.valgtId} distrikter={sc.distrikter} onLuk={() => setMerge(null)} onGemt={() => { setMerge(null); st.reload(); }} />}
@@ -656,8 +668,10 @@ function MultiValg({ titel, valg, valgte, setValgte, vis }: { titel: string; val
   );
 }
 
-function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, ukendte, onLuk, onGemt }: {
-  r: Partial<ScRegel>; scenarieId: string; antal: number; profiler: Profil[]; fiktive: ScSaelger[]; valg: RegelValg; ukendte: number; onLuk: () => void; onGemt: () => void;
+function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, distrikter, regioner, taelRegel, ukendte, onLuk, onGemt }: {
+  r: Partial<ScRegel>; scenarieId: string; antal: number; profiler: Profil[]; fiktive: ScSaelger[]; valg: RegelValg;
+  distrikter: ScDistrikt[]; regioner: string[]; taelRegel: (r: Regel) => { n: number; oms: number };
+  ukendte: number; onLuk: () => void; onGemt: () => void;
 }) {
   const [type, setType] = useState<RegelType>(r.type ?? "tildel");
   const [saelger, setSaelger] = useState(r.saelger_user_id ? "u:" + r.saelger_user_id : r.saelger_fiktiv_id ? "f:" + r.saelger_fiktiv_id : "");
@@ -671,12 +685,24 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, ukendte, o
       {fiktive.length > 0 && <optgroup label="Fiktive sælgere">{fiktive.map((f) => <option key={f.id} value={"f:" + f.id}>{f.navn} (fiktiv)</option>)}</optgroup>}
     </>
   );
+  const omr: Omraade = b.omraade ?? { type: "land", vaerdier: [] };
+  const setOmr = (o: Omraade) => setB({ ...b, omraade: o });
+  const byg = (): Betingelse => {
+    const omraade = omr.type === "land" ? null : omr;
+    return type === "tildel"
+      ? { kpg1: b.kpg1 ?? [], kpg2: b.kpg2 ?? [], kpg3: b.kpg3 ?? [], omraade }
+      : { kpg1: b.kpg1 ?? [], kpg3: b.kpg3 ?? [], ansatteOver: ansatteTil ? b.ansatteOver ?? 100 : null, ukendtSomOver: !!b.ukendtSomOver,
+          alternativ: b.alternativ ?? "behold", alternativSaelger: b.alternativ === "saelger" ? b.alternativSaelger ?? null : null, omraade };
+  };
+  const live = useMemo(() => {
+    const bet = byg();
+    if (!bet.kpg1?.length && !bet.kpg2?.length && !bet.kpg3?.length && bet.ansatteOver == null) return { n: 0, oms: 0 };
+    return taelRegel({ id: "_", type, saelger: "", aktiv: true, b: bet });
+  }, [b, type, ansatteTil]);
   const gem = async () => {
     if (!saelger) return toast.error("Vælg en sælger");
-    const bet: Betingelse = type === "tildel"
-      ? { kpg1: b.kpg1 ?? [], kpg2: b.kpg2 ?? [], kpg3: b.kpg3 ?? [] }
-      : { kpg1: b.kpg1 ?? [], kpg3: b.kpg3 ?? [], ansatteOver: ansatteTil ? b.ansatteOver ?? 100 : null, ukendtSomOver: !!b.ukendtSomOver,
-          alternativ: b.alternativ ?? "behold", alternativSaelger: b.alternativ === "saelger" ? b.alternativSaelger ?? null : null };
+    if (omr.type !== "land" && !omr.vaerdier.length) return toast.error("Vælg mindst ét område, eller vælg Hele landet");
+    const bet = byg();
     const tom = !bet.kpg1?.length && !bet.kpg2?.length && !bet.kpg3?.length && bet.ansatteOver == null;
     if (tom) return toast.error("Vælg mindst én betingelse");
     if (bet.alternativ === "saelger" && !bet.alternativSaelger) return toast.error("Vælg hvem de udelukkede lokationer går til");
@@ -697,7 +723,7 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, ukendte, o
             <Button size="sm" variant={type === "tildel" ? "default" : "outline"} onClick={() => setType("tildel")}>Tildel til sælger</Button>
             <Button size="sm" variant={type === "udeluk" ? "default" : "outline"} onClick={() => setType("udeluk")}>Må ikke have</Button>
           </div>
-          <p className="text-xs text-muted-foreground">{type === "tildel" ? "Lokationer der matcher, går til sælgeren uanset geografi." : "Lokationer der matcher, må ikke gå til sælgeren. Flere valgte betingelser = én af dem er nok."}</p>
+          <p className="text-xs text-muted-foreground">{type === "tildel" ? "Lokationer der matcher, går til sælgeren uanset distrikt (inden for det valgte område)." : "Lokationer der matcher, må ikke gå til sælgeren. Flere valgte betingelser = én af dem er nok."}</p>
           <label className="block">Sælger<select className={sel} value={saelger} onChange={(e) => setSaelger(e.target.value)}>{saelgerOpt}</select></label>
           <MultiValg titel="Aftale (KPG1)" valg={valg.kpg1} valgte={b.kpg1 ?? []} setValgte={(v) => setB({ ...b, kpg1: v })} />
           {type === "tildel" && <MultiValg titel="Underaftale (KPG2)" valg={valg.kpg2} valgte={b.kpg2 ?? []} setValgte={(v) => setB({ ...b, kpg2: v })} vis={kpg2Vis} />}
@@ -727,7 +753,23 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, ukendte, o
               )}
             </>
           )}
+          <div className="space-y-1 border-t border-border pt-2">
+            <div className="font-medium">Område</div>
+            <p className="text-[11px] text-muted-foreground">Lokationen skal matche betingelserne ovenfor <b>og</b> ligge i området.</p>
+            <div className="flex flex-wrap gap-3 text-xs">
+              {([["land", "Hele landet"], ["landsdel", "Landsdel"], ["distrikt", "Distrikter"], ...(regioner.length ? [["region", "Regioner"]] : [])] as [Omraade["type"], string][]).map(([t, l]) => (
+                <label key={t} className="flex items-center gap-1 cursor-pointer">
+                  <input type="radio" name="omr" checked={omr.type === t} onChange={() => setOmr({ type: t, vaerdier: [] })} />{l}
+                </label>
+              ))}
+            </div>
+            {omr.type === "landsdel" && <SoegListe titel="Landsdel" valg={[["Vest", null], ["Øst", null]]} valgte={omr.vaerdier} setValgte={(v) => setOmr({ ...omr, vaerdier: v })} vis={(x) => x} />}
+            {omr.type === "distrikt" && <SoegListe titel="Scenariets distrikter" valg={distrikter.map((d) => [d.id, null] as [string, null])} valgte={omr.vaerdier}
+              setValgte={(v) => setOmr({ ...omr, vaerdier: v })} vis={(x) => distrikter.find((d) => d.id === x)?.navn ?? "?"} />}
+            {omr.type === "region" && <SoegListe titel="Regioner" valg={regioner.map((x) => [x, null] as [string, null])} valgte={omr.vaerdier} setValgte={(v) => setOmr({ ...omr, vaerdier: v })} vis={(x) => x} />}
+          </div>
         </div>
+        <div className="text-xs tabular-nums text-muted-foreground" data-testid="regel-live">Rammer {live.n.toLocaleString("da-DK")} lokationer · {kr(live.oms)}</div>
         <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button onClick={gem}>Gem</Button></DialogFooter>
       </DialogContent>
     </Dialog>
