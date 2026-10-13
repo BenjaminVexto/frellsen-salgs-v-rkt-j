@@ -1,3 +1,4 @@
+import { formatTelefon, telHref, webHref } from "@/lib/telefon";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Phone, Plus, Pencil, CalendarCheck } from "lucide-react";
+import { Loader2, Phone, Plus, Pencil, CalendarCheck, Mail, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { AARSAGER, UDFALD_LABEL, byggKoe, ingenSvarIRaekke, type Udfald } from "@/lib/telemarketing";
 
@@ -94,14 +95,39 @@ export function Ringevisning({ listId }: { listId: string }) {
                   {aktuel.branche ?? "Ukendt branche"} · {aktuel.ansatte != null ? `${aktuel.ansatte} ansatte` : "ansatte ukendt"}
                   {aktuel.cvr && ` · CVR ${aktuel.cvr}`}
                 </div>
-                {aktuel.hjemmeside && <div className="text-sm">{aktuel.hjemmeside}</div>}
               </div>
+            </div>
+
+            <div className="rounded-lg border bg-muted/40 p-3 flex flex-wrap items-center gap-x-6 gap-y-2" data-testid="kontaktinfo">
               {aktuel.telefon ? (
-                <a href={`tel:${aktuel.telefon.replace(/\s/g, "")}`}>
-                  <Button size="lg"><Phone className="h-4 w-4 mr-2" />{aktuel.telefon}</Button>
+                <a href={telHref(aktuel.telefon)}>
+                  <Button size="lg" className="h-12 px-6 text-lg font-semibold">
+                    <Phone className="h-5 w-5 mr-2" />{formatTelefon(aktuel.telefon)}
+                  </Button>
                 </a>
               ) : (
                 <Badge variant="destructive">Intet telefonnummer</Badge>
+              )}
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  {aktuel.email
+                    ? <a className="text-primary hover:underline" href={`mailto:${aktuel.email}`}>{aktuel.email}</a>
+                    : <span className="text-muted-foreground">Ingen e-mail</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  {aktuel.hjemmeside
+                    ? <a className="text-primary hover:underline" href={webHref(aktuel.hjemmeside)} target="_blank" rel="noreferrer">{aktuel.hjemmeside}</a>
+                    : <span className="text-muted-foreground">Ingen hjemmeside</span>}
+                </div>
+              </div>
+              {aktuel.kontakter[0] && (
+                <div className="text-sm">
+                  <div className="text-xs uppercase text-muted-foreground">Spørg efter</div>
+                  <div className="font-medium">{aktuel.kontakter[0].navn}</div>
+                  {aktuel.kontakter[0].titel && <div className="text-xs text-muted-foreground">{aktuel.kontakter[0].titel}</div>}
+                </div>
               )}
             </div>
 

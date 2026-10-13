@@ -1463,6 +1463,48 @@ export type Database = {
         }
         Relationships: []
       }
+      cvr_direktoer_job: {
+        Row: {
+          beskrivelse: string | null
+          company_ids: string[]
+          created_at: string
+          created_by: string | null
+          fejl: string | null
+          fundet: number
+          id: string
+          naeste: number
+          opdateret_at: string
+          oprettet: number
+          status: string
+        }
+        Insert: {
+          beskrivelse?: string | null
+          company_ids: string[]
+          created_at?: string
+          created_by?: string | null
+          fejl?: string | null
+          fundet?: number
+          id?: string
+          naeste?: number
+          opdateret_at?: string
+          oprettet?: number
+          status?: string
+        }
+        Update: {
+          beskrivelse?: string | null
+          company_ids?: string[]
+          created_at?: string
+          created_by?: string | null
+          fejl?: string | null
+          fundet?: number
+          id?: string
+          naeste?: number
+          opdateret_at?: string
+          oprettet?: number
+          status?: string
+        }
+        Relationships: []
+      }
       cvr_enrichment_jobs: {
         Row: {
           attempts: number

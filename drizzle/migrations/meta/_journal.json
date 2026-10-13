@@ -673,6 +673,13 @@
       "when": 1791917708505,
       "tag": "0095_distrikt_saelger_opslag",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1791918062341,
+      "tag": "0096_cvr_direktoer_job",
+      "breakpoints": true
     }
   ]
 }

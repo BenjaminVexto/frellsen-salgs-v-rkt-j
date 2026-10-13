@@ -42,6 +42,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Download, Globe } from "lucide-react";
+import { hentAlle } from "@/lib/hent-alle";
+import { formatTelefon, telHref, webHref, telefonNumre } from "@/lib/telefon";
 import { Ringevisning } from "@/components/telemarketing/ringevisning";
 import { BureauPanel } from "@/components/telemarketing/bureau-panel";
 
@@ -114,11 +117,20 @@ type Row = {
   assigned_to: string | null;
   location_id: string | null;
   location_city: string | null;
+  location_phone: string | null;
+  location_address: string | null;
+  location_zip: string | null;
+  kontakt: { name: string; title: string | null; phone: string | null; email: string | null } | null;
   company: {
     name: string;
     city: string | null;
     employees: number | null;
     customer_type: string;
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+    address: string | null;
+    zip: string | null;
   };
   seller_name: string;
   last_activity_at: string | null;
@@ -145,6 +157,7 @@ function KontaktlisteDetalje() {
   const [fSeller, setFSeller] = useState<string>("alle");
   const [fOnlyMine, setFOnlyMine] = useState(false);
   const [fOverdue, setFOverdue] = useState(false);
+  const [fKunTlf, setFKunTlf] = useState(false);
 
   // sort
   const [sortKey, setSortKey] = useState<string>("company");
@@ -162,18 +175,22 @@ function KontaktlisteDetalje() {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: listData }, { data: assigns }] = await Promise.all([
+    const [{ data: listData }, assigns] = await Promise.all([
       supabase
         .from("contact_lists")
         .select("name, description, purpose")
         .eq("id", id)
         .maybeSingle(),
-      supabase
-        .from("contact_list_assignments")
-        .select(
-          "id, company_id, status, priority, next_followup_date, next_action_note, assigned_to, location_id, companies(name, city, employees, customer_type)",
-        )
-        .eq("contact_list_id", id),
+      hentAlle<any>((f, t) =>
+        supabase
+          .from("contact_list_assignments")
+          .select(
+            "id, company_id, status, priority, next_followup_date, next_action_note, assigned_to, location_id, companies(name, city, employees, customer_type, phone, email, website, address, zip)",
+          )
+          .eq("contact_list_id", id)
+          .order("id")
+          .range(f, t) as any,
+      ).catch((e) => { toast.error("Kunne ikke hente listen: " + (e?.message ?? e)); return [] as any[]; }),
     ]);
     setList(listData as any);
 
@@ -189,7 +206,7 @@ function KontaktlisteDetalje() {
       ),
     );
 
-    const [{ data: profs }, { data: acts }, { data: locs }] = await Promise.all([
+    const [{ data: profs }, { data: acts }, { data: locs }, { data: kontakter }] = await Promise.all([
       userIds.length
         ? supabase.from("profiles").select("id, full_name").in("id", userIds)
         : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
@@ -209,12 +226,33 @@ function KontaktlisteDetalje() {
             return { data: out };
           })()
         : Promise.resolve({ data: [] as any[] }),
-      locationIds.length
-        ? (supabase as any).from("locations").select("id, city").in("id", locationIds)
-        : Promise.resolve({ data: [] as { id: string; city: string | null }[] }),
+      (async () => {
+        const out: any[] = [];
+        for (let i = 0; i < locationIds.length; i += 200) {
+          const { data } = await (supabase as any).from("locations").select("id, city, phone, address, zip").in("id", locationIds.slice(i, i + 200));
+          if (data) out.push(...data);
+        }
+        return { data: out };
+      })(),
+      (async () => {
+        const out: any[] = [];
+        for (let i = 0; i < companyIds.length; i += 200) {
+          const slice = companyIds.slice(i, i + 200);
+          const data = await hentAlle<any>((f, t) =>
+            supabase.from("contacts").select("id, company_id, name, title, phone, email, is_primary").in("company_id", slice).order("id").range(f, t) as any,
+          ).catch(() => []);
+          out.push(...data);
+        }
+        return { data: out };
+      })(),
     ]);
+    const kontaktMap = new Map<string, any>();
+    for (const k of kontakter ?? []) {
+      const cur = kontaktMap.get(k.company_id);
+      if (!cur || (k.is_primary && !cur.is_primary)) kontaktMap.set(k.company_id, k);
+    }
     const pMap = new Map((profs ?? []).map((p) => [p.id, p.full_name]));
-    const locMap = new Map<string, string | null>((locs ?? []).map((l: any) => [l.id as string, l.city as string | null]));
+    const locMap = new Map<string, any>((locs ?? []).map((l: any) => [l.id as string, l]));
     const lastActMap = new Map<string, { at: string; type: string }>();
     for (const a of acts ?? []) {
       if (!lastActMap.has(a.company_id)) {
@@ -234,12 +272,24 @@ function KontaktlisteDetalje() {
       next_action_note: a.next_action_note,
       assigned_to: a.assigned_to,
       location_id: a.location_id ?? null,
-      location_city: a.location_id ? (locMap.get(a.location_id) ?? null) : null,
+      location_city: a.location_id ? (locMap.get(a.location_id)?.city ?? null) : null,
+      location_phone: a.location_id ? (locMap.get(a.location_id)?.phone ?? null) : null,
+      location_address: a.location_id ? (locMap.get(a.location_id)?.address ?? null) : null,
+      location_zip: a.location_id ? (locMap.get(a.location_id)?.zip ?? null) : null,
+      kontakt: (() => {
+        const k = kontaktMap.get(a.company_id);
+        return k ? { name: k.name, title: k.title, phone: k.phone, email: k.email } : null;
+      })(),
       company: a.companies ?? {
         name: "?",
         city: null,
         employees: null,
         customer_type: "nyt_emne",
+        phone: null,
+        email: null,
+        website: null,
+        address: null,
+        zip: null,
       },
       seller_name: a.assigned_to ? pMap.get(a.assigned_to) ?? "Ukendt" : "—",
       last_activity_at: lastActMap.get(a.company_id)?.at ?? null,
@@ -268,6 +318,7 @@ function KontaktlisteDetalje() {
     let arr = rows;
     if (fStatus !== "alle") arr = arr.filter((r) => r.status === fStatus);
     if (fPriority !== "alle") arr = arr.filter((r) => r.priority === fPriority);
+    if (fKunTlf) arr = arr.filter((r) => telefonNumre(r.location_phone, r.company.phone).length > 0);
     if (isAdmin && fSeller !== "alle")
       arr = arr.filter((r) => r.assigned_to === fSeller);
     if (isAdmin && fOnlyMine)
@@ -310,7 +361,39 @@ function KontaktlisteDetalje() {
       return 0;
     });
     return arr;
-  }, [rows, fStatus, fPriority, fSeller, fOnlyMine, fOverdue, sortKey, sortDir, isAdmin, auth.user?.id, today]);
+  }, [rows, fStatus, fPriority, fSeller, fOnlyMine, fOverdue, fKunTlf, sortKey, sortDir, isAdmin, auth.user?.id, today]);
+
+  const eksporterCsv = () => {
+    const STATUS = new Map(STATUS_OPTIONS.map((s) => [s.value, s.label]));
+    const hoved = ["Virksomhed", "Telefon", "E-mail", "Hjemmeside", "Adresse", "Postnr.", "By", "Kontaktperson", "Kontaktperson titel", "Ansatte", "Sælger", "Status", "Prioritet", "Næste opfølgning"];
+    const linjer = filtered.map((r) => [
+      r.company.name,
+      telefonNumre(r.location_phone, r.company.phone).map(formatTelefon).join(" / "),
+      r.company.email ?? r.kontakt?.email ?? "",
+      r.company.website ?? "",
+      r.location_address ?? r.company.address ?? "",
+      r.location_zip ?? r.company.zip ?? "",
+      r.location_city ?? r.company.city ?? "",
+      r.kontakt?.name ?? "",
+      r.kontakt?.title ?? "",
+      r.company.employees ?? "",
+      r.seller_name,
+      STATUS.get(r.status) ?? r.status,
+      r.priority,
+      r.next_followup_date ?? "",
+    ]);
+    const esc = (v: unknown) => {
+      const t = String(v ?? "");
+      return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    };
+    const csv = "\ufeff" + [hoved, ...linjer].map((l) => l.map(esc).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(list?.name ?? "kontaktliste").replace(/[^\wæøåÆØÅ ,.-]/g, "_")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const total = rows.length;
   const kontaktet = rows.filter(
@@ -465,7 +548,7 @@ function KontaktlisteDetalje() {
           </Card>
 
           <Card className="p-4 mb-4">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-3 items-end">
               <div>
                 <Label className="text-xs">Status</Label>
                 <Select value={fStatus} onValueChange={setFStatus}>
@@ -526,6 +609,16 @@ function KontaktlisteDetalje() {
                 <Switch checked={fOverdue} onCheckedChange={setFOverdue} />
                 Kun overskredet
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch checked={fKunTlf} onCheckedChange={setFKunTlf} />
+                Kun med telefon
+              </label>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {filtered.length} af {rows.length}
+                <Button size="sm" variant="outline" className="ml-auto" onClick={eksporterCsv}>
+                  <Download className="h-4 w-4 mr-1" /> CSV
+                </Button>
+              </div>
             </div>
           </Card>
 
@@ -540,6 +633,9 @@ function KontaktlisteDetalje() {
                     sortDir={sortDir}
                     onSort={toggleSort}
                   />
+                  <TableHead>Telefon</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>Kontaktperson</TableHead>
                   <SortableHead
                     label="By"
                     k="city"
@@ -590,7 +686,7 @@ function KontaktlisteDetalje() {
                 {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={9}
+                      colSpan={12}
                       className="text-center text-sm text-muted-foreground py-12"
                     >
                       Ingen virksomheder matcher filtrene.
@@ -610,10 +706,49 @@ function KontaktlisteDetalje() {
                           >
                             {r.company.name}
                           </Link>
+                          {r.company.website && (
+                            <a
+                              href={webHref(r.company.website)}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={r.company.website}
+                              className="ml-1.5 inline-flex align-middle text-muted-foreground hover:text-primary"
+                            >
+                              <Globe className="h-3.5 w-3.5" />
+                            </a>
+                          )}
                           {r.location_city && (
                             <div className="text-xs text-muted-foreground font-normal">
                               📍 {r.location_city}
                             </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {(() => {
+                            const n = telefonNumre(r.location_phone, r.company.phone);
+                            if (!n.length) return <span className="text-xs text-muted-foreground">—</span>;
+                            return n.map((t, i) => (
+                              <div key={t} className={i ? "text-xs text-muted-foreground" : ""}>
+                                <a href={telHref(t)} className="hover:underline">{formatTelefon(t)}</a>
+                              </div>
+                            ));
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[220px] truncate">
+                          {r.company.email ? (
+                            <a href={`mailto:${r.company.email}`} className="hover:underline" title={r.company.email}>{r.company.email}</a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {r.kontakt ? (
+                            <div>
+                              <div>{r.kontakt.name}</div>
+                              {r.kontakt.title && <div className="text-xs text-muted-foreground">{r.kontakt.title}</div>}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell>{r.company.city ?? "—"}</TableCell>
