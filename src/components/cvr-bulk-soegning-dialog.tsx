@@ -45,6 +45,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { cvrBulkSide } from "@/lib/cvr-lookup.functions";
 import { matchesEmployeeCodes } from "@/lib/cvr-bulk-query";
 import { importCompaniesFromCvr } from "@/lib/cvr-import.functions";
+import { startDirektoerJob } from "@/lib/cvr-direktoer.functions";
 import {
   createImportBatch,
   importAssignSellersToCompanies,
@@ -157,6 +158,7 @@ export function CvrBulkSoegningDialog({
   const bulkFn = useServerFn(cvrBulkSide);
   const abortRef = useRef(false);
   const importFn = useServerFn(importCompaniesFromCvr);
+  const startDirektoer = useServerFn(startDirektoerJob);
   const createBatch = useServerFn(createImportBatch);
   const assignSellersFn = useServerFn(importAssignSellersToCompanies);
 
@@ -541,6 +543,8 @@ export function CvrBulkSoegningDialog({
       const res = await importFn({ data: { companies: payload } });
       const newIds: string[] = (res as any).inserted_ids ?? [];
       if (newIds.length) {
+        // Direktør/indehaver hentes i baggrunden som kontaktperson (fremdrift vises på Kontaktlister)
+        startDirektoer({ data: { company_ids: newIds, beskrivelse: `CVR-import (${newIds.length})` } }).catch(() => {});
         try {
           const labelBits: string[] = [];
           if (distriktInfo.navne.length) labelBits.push(distriktInfo.navne.join(", "));

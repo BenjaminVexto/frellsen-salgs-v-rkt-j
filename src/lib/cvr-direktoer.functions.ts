@@ -56,7 +56,8 @@ export const koerDirektoerTrin = createServerFn({ method: "POST" })
     const sb = context.supabase as any;
     const { data: job, error } = await sb.from("cvr_direktoer_job").select("*").eq("id", data.job_id).single();
     if (error) throw new Error(error.message);
-    if (job.status !== "koerer") return job;
+    const { company_ids: _ids, ...meta } = job;
+    if (job.status !== "koerer") return meta;
     const user = process.env["CVR_USERNAME"];
     const pass = process.env["CVR_PASSWORD"];
     if (!user || !pass) throw new Error("CVR-adgang mangler");
@@ -73,7 +74,7 @@ export const koerDirektoerTrin = createServerFn({ method: "POST" })
         opdateret_at: new Date().toISOString(),
       };
       await sb.from("cvr_direktoer_job").update(upd).eq("id", job.id);
-      return { ...job, ...upd };
+      return { ...meta, ...upd };
     } catch (e: any) {
       await sb.from("cvr_direktoer_job").update({ fejl: String(e?.message ?? e).slice(0, 500), opdateret_at: new Date().toISOString() }).eq("id", job.id);
       throw e;

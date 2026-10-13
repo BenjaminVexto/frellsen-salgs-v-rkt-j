@@ -1,3 +1,4 @@
+import { CvrDirektoerPanel } from "@/components/cvr-direktoer-panel";
 import { CvrBulkSoegningDialog } from "@/components/cvr-bulk-soegning-dialog";
 import { RingerVaelger } from "@/components/telemarketing/ringer-vaelger";
 import { TmListeOversigt } from "@/components/telemarketing/tm-liste-oversigt";
@@ -178,6 +179,7 @@ function KontaktlisterOversigt() {
 
   return (
     <div className="px-3 md:px-8 py-4 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
+      {isAdmin && <CvrDirektoerPanel />}
       <div className="flex items-center justify-between mb-4 md:mb-6 gap-3 flex-wrap">
         <div>
           <h1 className="text-xl md:text-3xl font-semibold">Kontaktlister</h1>
