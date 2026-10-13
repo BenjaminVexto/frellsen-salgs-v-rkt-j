@@ -165,7 +165,6 @@ function AuthenticatedShell() {
     { to: "/admin/maskiner-uden-aftale", label: "Maskiner uden aftale og aflæsning", icon: Copy },
     { to: "/admin/overblik", label: "Admin-overblik", icon: BarChart3 },
     { to: "/admin/postnumre", label: "Postnumre og regioner", icon: MapPin },
-    { to: "/admin/salgskort", label: "Salgskort", icon: MapPin },
   ];
 
   const handleLogout = async () => {
