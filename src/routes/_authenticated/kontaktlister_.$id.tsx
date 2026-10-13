@@ -581,13 +581,6 @@ function KontaktlisteDetalje() {
                     onSort={toggleSort}
                   />
                   <SortableHead
-                    label="Kundetype"
-                    k="customer_type"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={toggleSort}
-                  />
-                  <SortableHead
                     label="Sælger"
                     k="seller"
                     sortKey={sortKey}
@@ -597,19 +590,13 @@ function KontaktlisteDetalje() {
                   <TableHead>Status</TableHead>
                   <TableHead>Prioritet</TableHead>
                   <SortableHead
-                    label="Næste opfølgning"
+                    label="Opfølgning"
                     k="followup"
                     sortKey={sortKey}
                     sortDir={sortDir}
                     onSort={toggleSort}
                   />
-                  <SortableHead
-                    label="Seneste aktivitet"
-                    k="last_activity"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={toggleSort}
-                  />
+
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -647,9 +634,17 @@ function KontaktlisteDetalje() {
                               <Globe className="h-3.5 w-3.5" />
                             </a>
                           )}
-                          <div className="text-xs text-muted-foreground font-normal truncate">
-                            {r.location_city && r.location_city !== r.company.city ? `📍 ${r.location_city}` : (r.company.city ?? "")}
+                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground font-normal min-w-0">
+                            <span className="truncate">
+                              {r.location_city && r.location_city !== r.company.city ? `📍 ${r.location_city}` : (r.company.city ?? "")}
+                            </span>
+                            <CustomerStatusBadge
+                              type={r.company.customer_type}
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 whitespace-nowrap shrink-0"
+                            />
                           </div>
+
                         </TableCell>
                         <TableCell className="text-sm max-w-[220px]">
                           {(() => {
@@ -677,13 +672,7 @@ function KontaktlisteDetalje() {
                         </TableCell>
 
                         <TableCell className="text-sm">{r.company.employees ?? "—"}</TableCell>
-                        <TableCell>
-                          <CustomerStatusBadge
-                            type={r.company.customer_type}
-                            variant="outline"
-                            className="text-xs whitespace-nowrap"
-                          />
-                        </TableCell>
+
 
                         <TableCell className="text-sm whitespace-nowrap">{r.seller_name}</TableCell>
                         <TableCell>
@@ -704,7 +693,7 @@ function KontaktlisteDetalje() {
                               onPriorityChange(r, v as PriorityLevel)
                             }
                           >
-                            <SelectTrigger className="h-8 w-[110px]">
+                            <SelectTrigger className="h-8 w-[96px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -716,36 +705,24 @@ function KontaktlisteDetalje() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
                           {r.next_followup_date ? (
-                            <span
-                              className={`text-sm inline-flex items-center gap-1 ${overdue ? "text-destructive font-medium" : ""}`}
-                            >
+                            <div className={`inline-flex items-center gap-1 ${overdue ? "text-destructive font-medium" : ""}`}>
                               {overdue && <AlertTriangle className="h-3 w-3" />}
-                              {new Date(r.next_followup_date).toLocaleDateString(
-                                "da-DK",
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {r.last_activity_at ? (
-                            <div className="text-xs">
-                              <div>
-                                {new Date(r.last_activity_at).toLocaleDateString(
-                                  "da-DK",
-                                )}
-                              </div>
-                              <div className="text-muted-foreground">
-                                {r.last_activity_type}
-                              </div>
+                              Næste: {new Date(r.next_followup_date).toLocaleDateString("da-DK")}
                             </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : null}
+                          {r.last_activity_at ? (
+                            <div className="text-muted-foreground">
+                              {new Date(r.last_activity_at).toLocaleDateString("da-DK")}
+                              {r.last_activity_type ? ` · ${r.last_activity_type}` : ""}
+                            </div>
+                          ) : null}
+                          {!r.next_followup_date && !r.last_activity_at && (
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
+
                       </TableRow>
                     );
                   })
