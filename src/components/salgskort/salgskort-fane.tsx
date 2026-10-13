@@ -10,9 +10,9 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Loader2, Search, X } from "lucide-reac
 import { Input } from "@/components/ui/input";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { toast } from "sonner";
-import { AfvigelsesListe, DistriktPanel, distriktSaelger, hentDistriktData, initialer, kpg3Kode, type AfvigRow, type DistriktData, type DistriktStat } from "@/components/salgskort/distrikt";
-import { SimuleringPanel, scSaelgerKey, tomAgg, useScenarie, type KonsekvensRow, type SimRow } from "@/components/salgskort/simulering";
-import { bestemSaelger, type Regel } from "@/lib/simulering-regler";
+import { AfvigelsesListe, DistriktPanel, distriktSaelger, hentDistriktData, initialer, type AfvigRow, type DistriktData, type DistriktStat } from "@/components/salgskort/distrikt";
+import { SimuleringPanel, scSaelgerKey, tomAgg, useScenarie, type KamRow, type KonsekvensRow, type SimRow } from "@/components/salgskort/simulering";
+import { bestemSaelger, kamMatcher, kamPortefoelje, type KamAftale, type Regel } from "@/lib/simulering-regler";
 
 type Flade = { flade: number; navn: string | null; landsdel: string | null; postnumre: number[] | null; geom: any };
 type Lok = {
@@ -22,7 +22,7 @@ type Lok = {
   customer_type: string | null; agreement_types: string | null; omsaetning_12m: number; db_12m: number;
   ansatte?: number | null; ansatte_kilde?: string | null;
 };
-type Row = Lok & { geografisk: boolean; kam: boolean; flade: number | null; sKey: string; sNavn: string; udstyr: string[]; kpg1: string; kpg2: string; kpg3: string; status: string; afd: string };
+type Row = Lok & { geografisk: boolean; kamIds: string[]; flade: number | null; sKey: string; sNavn: string; udstyr: string[]; kpg1: string; kpg2: string; kpg3: string; status: string; afd: string };
 
 const PALETTE = ["#1f77b4","#d62728","#2ca02c","#ff7f0e","#9467bd","#8c564b","#e377c2","#17becf","#bcbd22","#3b5b92","#b5651d","#006d5b","#c71585","#4b8b3b","#a0522d","#5f4b8b","#d4a017","#00838f","#7b1fa2","#558b2f"];
 const GRAA_FRELLSEN = "#8a8a8a";
@@ -67,17 +67,18 @@ function udstyrAf(a: string | null): string[] {
   return out.size ? [...out] : ["Intet"];
 }
 
-type Dim = "afd" | "kpg1" | "kpg2" | "kpg3" | "status" | "udstyr" | "sKey";
+type Dim = "afd" | "kpg1" | "kpg2" | "kpg3" | "kam" | "status" | "udstyr" | "sKey";
 const DIMS: { key: Dim; label: string }[] = [
   { key: "afd", label: "Afdeling" },
   { key: "kpg1", label: "Aftale (KPG1)" },
   { key: "kpg3", label: "Segment (KPG3)" },
+  { key: "kam", label: "KAM-aftale" },
   { key: "status", label: "Status" },
   { key: "udstyr", label: "Udstyr" },
   { key: "sKey", label: "Sælger" },
 ];
 type Filters = Record<Dim, Set<string>>;
-const tomFiltre = (): Filters => ({ afd: new Set(), kpg1: new Set(), kpg2: new Set(), kpg3: new Set(), status: new Set(), udstyr: new Set(), sKey: new Set() });
+const tomFiltre = (): Filters => ({ afd: new Set(), kpg1: new Set(), kpg2: new Set(), kpg3: new Set(), kam: new Set(), status: new Set(), udstyr: new Set(), sKey: new Set() });
 
 function matcher(r: Row, f: Filters, skip?: Dim) {
   for (const d of Object.keys(f) as Dim[]) {
@@ -85,6 +86,7 @@ function matcher(r: Row, f: Filters, skip?: Dim) {
     const s = f[d];
     if (!s.size) continue;
     if (d === "udstyr") { if (!r.udstyr.some((u) => s.has(u))) return false; }
+    else if (d === "kam") { if (!(r.kamIds.length ? r.kamIds.some((k) => s.has(k)) : s.has("__ingen"))) return false; }
     else if (d === "kpg2") { if (!s.has(r.kpg1 + "||" + r.kpg2)) return false; }
     else if (!s.has(r[d] as string)) return false;
   }
@@ -106,13 +108,11 @@ export function SalgskortFane() {
   const [visIkkePlaceret, setVisIkkePlaceret] = useState(false);
   const [udfoldKpg1, setUdfoldKpg1] = useState<Set<string>>(new Set());
   const [visning, setVisningRaw] = useState<"virk" | "distr" | "over" | "sim">("virk");
-  const [kundetype, setKundetype] = useState<"geo" | "kam" | "alle">("alle");
-  const setVisning = (v: "virk" | "distr" | "over" | "sim") => { setVisningRaw(v); setKundetype(v === "virk" || v === "sim" ? "alle" : "geo"); setRedigerer(false); setValgtDistrikt(null); };
+  const setVisning = (v: "virk" | "distr" | "over" | "sim") => { setVisningRaw(v); setRedigerer(false); setValgtDistrikt(null); };
   const [dd, setDd] = useState<DistriktData | null>(null);
   const [redigerer, setRedigerer] = useState(false);
   const [valgtDistrikt, setValgtDistrikt] = useState<string | null>(null);
   const st = useScenarie(visning === "sim");
-  const [laasKam, setLaasKam] = useState(true);
   const [zoom, setZoom] = useState<{ flade: number; n: number } | null>(null);
   const [fane, setFane] = useState<"saelgere" | "afvig">("saelgere");
   const [hoverSaelger, setHoverSaelger] = useState<string | null>(null);
@@ -138,9 +138,10 @@ export function SalgskortFane() {
       const frellsen = r.salesperson_no === "199";
       const sKey = frellsen ? "__frellsen" : r.saelger_user_id ?? "__ingen";
       const sNavn = frellsen ? "Frellsen (199)" : r.saelger_user_id ? r.saelger_navn || "Ukendt sælger" : "Uden sælger";
-      const kam = !!dd && dd.kam.includes(kpg3Kode(r.customer_segment_3) ?? "__");
+      const kpgLok = { kpg1: r.customer_segment_1 || "(ingen)", kpg2: r.customer_segment_2 || "(ingen)", kpg3: r.customer_segment_3 || "(ingen)", ansatte: null };
+      const kamIds = (dd?.kamAftaler ?? []).filter((a) => kamMatcher(a, kpgLok)).map((a) => a.id);
       return {
-        ...r, kam, geografisk: !kam && !frellsen, omsaetning_12m: Number(r.omsaetning_12m) || 0, db_12m: Number(r.db_12m) || 0,
+        ...r, kamIds, geografisk: !frellsen, omsaetning_12m: Number(r.omsaetning_12m) || 0, db_12m: Number(r.db_12m) || 0,
         flade: r.zip_norm ? data.map.get(r.zip_norm) ?? null : null,
         sKey, sNavn, udstyr: udstyrAf(r.agreement_types),
         kpg1: r.customer_segment_1 || "(ingen)", kpg2: r.customer_segment_2 || "(ingen)",
@@ -158,7 +159,7 @@ export function SalgskortFane() {
     return m;
   }, [rows]);
 
-  const filtrerede = useMemo(() => rows.filter((r) => matcher(r, filters) && (kundetype === "alle" || (kundetype === "geo" ? r.geografisk : r.kam))), [rows, filters, kundetype]);
+  const filtrerede = useMemo(() => rows.filter((r) => matcher(r, filters)), [rows, filters]);
 
   const options = useMemo(() => {
     const res: Record<string, Map<string, number>> = {};
@@ -166,7 +167,7 @@ export function SalgskortFane() {
       const m = new Map<string, number>();
       rows.forEach((r) => {
         if (!matcher(r, filters, key)) return;
-        const vals = key === "udstyr" ? r.udstyr : [r[key] as string];
+        const vals = key === "udstyr" ? r.udstyr : key === "kam" ? (r.kamIds.length ? r.kamIds : ["__ingen"]) : [r[key] as string];
         vals.forEach((v) => m.set(v, (m.get(v) ?? 0) + 1));
       });
       res[key] = m;
@@ -191,7 +192,7 @@ export function SalgskortFane() {
   const pNavn = (id: string | null) => (id ? profilNavn.get(id) ?? "Ukendt" : "—");
   const distriktMap = useMemo(() => new Map((dd?.distrikter ?? []).map((d) => [d.id, d])), [dd]);
 
-  // Overensstemmelse pr. flade (kun geografiske lokationer under filtrene)
+  // Overensstemmelse pr. flade (alle lokationer undtagen Frellsen 199, under filtrene)
   const overens = useMemo(() => {
     const m = new Map<number, { n: number; match: number; db: number; oms: number }>();
     if (!dd) return m;
@@ -236,11 +237,15 @@ export function SalgskortFane() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtrerede, dd, distriktMap, data, profilNavn]);
 
-  const kpg3Koder = useMemo(() => {
-    const m = new Map<string, { label: string; n: number }>();
-    rows.forEach((r) => { const k = kpg3Kode(r.customer_segment_3); if (!k) return; const e = m.get(k) ?? { label: r.customer_segment_3!, n: 0 }; e.n++; m.set(k, e); });
-    return [...m.entries()].map(([kode, e]) => ({ kode, ...e })).sort((a, b) => Number(a.kode) - Number(b.kode));
-  }, [rows]);
+  const kamNavn = useMemo(() => new Map((dd?.kamAftaler ?? []).map((a) => [a.id, a])), [dd]);
+  const kamStat = useMemo(() => {
+    const m = new Map<string, { n: number; oms: number }>();
+    filtrerede.forEach((r) => r.kamIds.forEach((k) => { const e = m.get(k) ?? { n: 0, oms: 0 }; e.n++; e.oms += r.omsaetning_12m; m.set(k, e); }));
+    return m;
+  }, [filtrerede]);
+  const kamTip = (ids: string[]) => ids.map((id) => { const a = kamNavn.get(id); if (!a) return ""; return `${a.navn}${a.ansvarlige.length ? " – " + a.ansvarlige.map((x) => pNavn(x)).join(", ") : ""}`; }).filter(Boolean).join("\n");
+  const filterVaerdi = (d: Dim, v: string) => d === "sKey" ? saelgerNavn.get(v) ?? v : d === "kpg2" ? v.split("||")[1] : d === "afd" ? "Afd. " + v
+    : d === "kam" ? (v === "__ingen" ? "Ingen KAM-aftale" : kamNavn.get(v)?.navn ?? "?") : v;
 
   const tildel = (fl: number) => { if (visning === "sim" && valgtDistrikt) st.tildel(fl, valgtDistrikt); };
 
@@ -258,7 +263,7 @@ export function SalgskortFane() {
     const flyt: SimRow[] = [];
     const afviger: SimRow[] = [];
     const regelStat = new Map<string, { n: number; oms: number }>();
-    if (visning !== "sim" || !st.sc || !data || !dd) return { kons: [] as KonsekvensRow[], flyt, afviger, regelStat, ukendte: 0, penhed: 0 };
+    if (visning !== "sim" || !st.sc || !data || !dd) return { kons: [] as KonsekvensRow[], flyt, afviger, regelStat, ukendte: 0, penhed: 0, kam: [] as KamRow[] };
     const fn = new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]));
     const gDistr = new Map(dd.distrikter.map((d) => [d.id, d]));
     const get = (k: string) => { let e = kons.get(k); if (!e) kons.set(k, (e = { key: k, foer: tomAgg(), efter: tomAgg() })); return e; };
@@ -266,11 +271,10 @@ export function SalgskortFane() {
     filtrerede.forEach((r) => {
       if (r.ansatte == null) ukendte++; else if (r.ansatte_kilde === "penhed") penhed++;
       const frellsen = r.salesperson_no === "199";
-      const fri = r.geografisk || (r.kam && !laasKam && !frellsen);
       const lok = { kpg1: r.kpg1, kpg2: r.kpg2, kpg3: r.kpg3, ansatte: r.ansatte ?? null };
       const scD = r.flade != null ? scMap.get(st.sc!.fladeDistrikt.get(r.flade) ?? "") : undefined;
       const gD = r.flade != null ? gDistr.get(dd.fladeDistrikt.get(r.flade) ?? "") : undefined;
-      const fælles = { nu: r.sKey, frellsen, kamLaast: r.kam && laasKam, fri, lok };
+      const fælles = { nu: r.sKey, frellsen, lok };
       const b = bestemSaelger({ ...fælles, geo: scD ? scSaelgerKey(scD) : null, regler });
       const g = bestemSaelger({ ...fælles, geo: gD ? distriktSaelger(gD) ?? "__ingen" : null, regler: [] });
       const til = b.til;
@@ -284,8 +288,14 @@ export function SalgskortFane() {
       if (til !== g.til) flyt.push({ ...basis, fra: g.til, til, aarsag: b.aarsag && b.aarsag !== "geo" ? b.aarsag : "geo" });
       if (g.til !== r.sKey) afviger.push({ ...basis, fra: r.sKey, til: g.til, aarsag: null });
     });
-    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt, afviger, regelStat, ukendte, penhed };
-  }, [visning, st.sc, data, dd, filtrerede, scMap, laasKam, regler]);
+    const kamRows = filtrerede.filter((r) => r.salesperson_no !== "199").map((r) => ({ id: r.location_id, lok: { kpg1: r.kpg1, kpg2: r.kpg2, kpg3: r.kpg3, ansatte: null }, oms: r.omsaetning_12m, db: r.db_12m }));
+    const scKam: KamAftale[] = (st.sc.kam ?? []).map((k) => ({ id: k.id, navn: k.navn, kodetype: k.kodetype, koder: k.koder ?? [], aktiv: k.aktiv,
+      ansvarlige: [...(k.kam_ansvarlige ?? []), ...(k.kam_fiktive ?? []).map((f) => "f:" + f)] }));
+    const kf = kamPortefoelje(kamRows, dd.kamAftaler), ke = kamPortefoelje(kamRows, scKam);
+    const tom = { aftaler: 0, n: 0, oms: 0, db: 0 };
+    const kam: KamRow[] = [...new Set([...kf.keys(), ...ke.keys()])].map((k) => ({ key: k, foer: kf.get(k) ?? tom, efter: ke.get(k) ?? tom })).sort((a, b) => b.efter.oms - a.efter.oms);
+    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt, afviger, regelStat, ukendte, penhed, kam };
+  }, [visning, st.sc, data, dd, filtrerede, scMap, regler]);
   const regelValg = useMemo(() => ({
     kpg1: [...(options.kpg1 ?? new Map()).entries()].sort((a, b) => b[1] - a[1]),
     kpg2: [...(options.kpg2 ?? new Map()).entries()].filter(([k]) => !k.endsWith("||(ingen)")).sort((a, b) => b[1] - a[1]),
@@ -339,7 +349,7 @@ export function SalgskortFane() {
             if (d) { color = d.farve; opacity = d.saelger_user_id ? 0.8 : 0.35; ubesat = !d.saelger_user_id; lc = ubesat ? "#333333" : "#ffffff"; lw = ubesat ? 1 : 0.5; }
             tip = d ? `${d.navn} · ${d.saelger_user_id ? pNavn(d.saelger_user_id) : "NY – dækkes af " + (d.daekkes_af_user_id ? pNavn(d.daekkes_af_user_id) : "ingen")}` : "Intet distrikt";
           } else {
-            if (!o || !o.n) { color = "#cccccc"; tip = (d ? d.navn + " · " : "") + "Ingen geografiske lokationer"; }
+            if (!o || !o.n) { color = "#cccccc"; tip = (d ? d.navn + " · " : "") + "Ingen lokationer"; }
             else {
               const pct = o.match / o.n;
               color = pct >= 0.995 ? "#2e9e48" : pct >= 0.7 ? "#e8c330" : "#d62728"; opacity = 0.8;
@@ -379,7 +389,7 @@ export function SalgskortFane() {
   const chips: { key: string; label: string; fjern: () => void }[] = [];
   (Object.keys(filters) as Dim[]).forEach((d) => filters[d].forEach((v) => {
     const dl = DIMS.find((x) => x.key === d)?.label ?? "Underaftale";
-    const vl = d === "sKey" ? saelgerNavn.get(v) ?? v : d === "kpg2" ? v.split("||")[1] : d === "afd" ? "Afd. " + v : v;
+    const vl = filterVaerdi(d, v);
     chips.push({ key: d + v, label: `${dl.replace(/ \(.*\)/, "")}: ${vl}`, fjern: () => toggle(d, v) });
   }));
   const sorteretSaelgere = [...saelgerBjaelke].sort((a, b) => (sSort.asc ? 1 : -1) * (a[1][sSort.k] - b[1][sSort.k]));
@@ -401,14 +411,6 @@ export function SalgskortFane() {
             <div className="flex items-center justify-between">
               <span className="font-medium">Filtre</span>
               <Button size="sm" variant="outline" onClick={nulstil}>Nulstil filtre</Button>
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Kundetype</div>
-              <div className="flex gap-1">
-                {([["geo", "Geografiske"], ["kam", "KAM"], ["alle", "Alle"]] as const).map(([k, l]) => (
-                  <Button key={k} size="sm" variant={kundetype === k ? "default" : "outline"} className="h-7 px-2 text-xs" onClick={() => setKundetype(k)}>{l}</Button>
-                ))}
-              </div>
             </div>
             {DIMS.map(({ key, label }) => {
               let opts = [...options[key].entries()].sort((a, b) => b[1] - a[1]);
@@ -436,7 +438,7 @@ export function SalgskortFane() {
                       <label className="flex items-center gap-2 py-0.5 cursor-pointer">
                         <Checkbox checked={filters[key].has(v)} onCheckedChange={() => toggle(key, v)} />
                         {key === "sKey" && <span className="h-3 w-3 rounded-sm shrink-0" style={{ background: farver.get(v) }} />}
-                        <span className="flex-1 truncate">{key === "sKey" ? saelgerNavn.get(v) : v}</span>
+                        <span className="flex-1 truncate">{filterVaerdi(key, v)}</span>
                         <span className="text-muted-foreground tabular-nums">{n}</span>
                         {key === "kpg1" && (
                           <button type="button" className="text-xs text-muted-foreground px-1" onClick={(e) => { e.preventDefault(); setUdfoldKpg1((s) => { const t = new Set(s); t.has(v) ? t.delete(v) : t.add(v); return t; }); }}>
@@ -521,12 +523,12 @@ export function SalgskortFane() {
 
           <Card className="lg:h-full min-h-[60vh] text-sm flex flex-col overflow-hidden">
             {visning === "virk" && flade ? (
-              <FladePanel flade={flade} fordeling={pFlade.get(flade.flade)} lok={filtrerede.filter((r) => r.flade === flade.flade)} navne={saelgerNavn} farver={farver} onLuk={() => setValgtFlade(null)} />
+              <FladePanel flade={flade} fordeling={pFlade.get(flade.flade)} lok={filtrerede.filter((r) => r.flade === flade.flade)} navne={saelgerNavn} farver={farver} kamTip={kamTip} onLuk={() => setValgtFlade(null)} />
             ) : visning === "sim" ? (
               dd ? <SimuleringPanel st={st} dd={dd} navn={simNavn} farve={simFarve} konsekvens={sim.kons} flytninger={sim.flyt}
                 afviger={sim.afviger} regler={regler} regelStat={sim.regelStat} ukendteAnsatte={sim.ukendte} penhedAnsatte={sim.penhed}
-                antalLok={filtrerede.length} regelValg={regelValg}
-                laasKam={laasKam} setLaasKam={setLaasKam} redigerer={redigerer} setRedigerer={setRedigerer}
+                antalLok={filtrerede.length} regelValg={regelValg} kamPort={sim.kam}
+                redigerer={redigerer} setRedigerer={setRedigerer}
                 valgt={valgtDistrikt} setValgt={setValgtDistrikt} fladeNavn={new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]))} /> : null
             ) : (
               <>
@@ -534,7 +536,7 @@ export function SalgskortFane() {
                   <div className="p-3 overflow-y-auto max-h-[50%] shrink-0">
                     <DistriktPanel data={dd} stats={distriktStats} navn={pNavn} redigerer={redigerer} setRedigerer={setRedigerer}
                       valgt={null} setValgt={() => {}} kanFortryde={false} onFortryd={() => {}}
-                      onGemt={genhentDistrikt} kpg3Koder={kpg3Koder} kunVisning />
+                      onGemt={genhentDistrikt} kamValg={regelValg} kamStat={kamStat} kunVisning />
                   </div>
                 )}
               <div className={"flex flex-col min-h-0 " + (visning !== "virk" ? "flex-1 border-t border-border" : "flex-1")}>
@@ -612,9 +614,9 @@ function SortTh({ label, aktiv, asc, onClick, left, w }: { label: string; aktiv:
 
 type LokInfo = { address: string | null; city: string | null; visma_delivery_no: string | null };
 
-function FladePanel({ flade, fordeling, lok, navne, farver, onLuk }: {
+function FladePanel({ flade, fordeling, lok, navne, farver, kamTip, onLuk }: {
   flade: Flade; fordeling?: Map<string, { n: number; oms: number; db: number }>; lok: Row[];
-  navne: Map<string, string>; farver: Map<string, string>; onLuk: () => void;
+  navne: Map<string, string>; farver: Map<string, string>; kamTip: (ids: string[]) => string; onLuk: () => void;
 }) {
   const ford = [...(fordeling?.entries() ?? [])].sort((a, b) => b[1].oms - a[1].oms);
   const [q, setQ] = useState("");
@@ -708,7 +710,10 @@ function FladePanel({ flade, fordeling, lok, navne, farver, onLuk }: {
                 return (
                   <tr key={r.location_id} className="border-t border-border hover:bg-muted/40">
                     <td className="px-2 py-1">
-                      <Link to="/virksomheder/$id" params={{ id: r.company_id }} target="_blank" className="block truncate hover:underline" title={r.virksomhedsnavn ?? ""}>{r.virksomhedsnavn}</Link>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Link to="/virksomheder/$id" params={{ id: r.company_id }} target="_blank" className="truncate hover:underline" title={r.virksomhedsnavn ?? ""}>{r.virksomhedsnavn}</Link>
+                        {r.kamIds.length > 0 && <span className="shrink-0 rounded border border-border px-1 text-[10px] leading-4 text-muted-foreground cursor-help" title={"KAM: " + kamTip(r.kamIds)}>KAM</span>}
+                      </div>
                     </td>
                     <td className="px-2 w-[32%]"><div className="flex items-center gap-1.5 min-w-0"><span className="h-2 w-2 rounded-full shrink-0" style={{ background: farver.get(r.sKey) }} /><span className="truncate" title={r.sNavn}>{r.sNavn}</span></div></td>
                     <td className="px-2 text-right tabular-nums whitespace-nowrap">{kr(r.omsaetning_12m)}</td>

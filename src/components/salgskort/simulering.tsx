@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import type { DistriktData, Profil } from "@/components/salgskort/distrikt";
+import { SoegListe, kodeVis, type DistriktData, type Profil } from "@/components/salgskort/distrikt";
 import { regelTekst, type Betingelse, type Regel, type RegelType } from "@/lib/simulering-regler";
 
 export type Scenarie = { id: string; navn: string; beskrivelse: string | null; status: "kladde" | "gjort_gaeldende" | "arkiveret"; oprettet_at: string; opdateret_at: string };
@@ -16,7 +16,9 @@ export type ScDistrikt = {
 };
 export type ScSaelger = { id: string; scenarie_id: string; navn: string; farve: string; profil_id: string | null };
 export type ScRegel = { id: string; scenarie_id: string; sortering: number; type: RegelType; saelger_user_id: string | null; saelger_fiktiv_id: string | null; betingelse: Betingelse; aktiv: boolean };
-export type ScData = { distrikter: ScDistrikt[]; saelgere: ScSaelger[]; fladeDistrikt: Map<number, string>; regler: ScRegel[] };
+export type ScKam = { id: string; scenarie_id: string; kilde_kam_id: string | null; navn: string; kodetype: "kpg1" | "kpg2" | "kpg3"; koder: string[]; kam_ansvarlige: string[]; kam_fiktive: string[]; aktiv: boolean };
+export type ScData = { distrikter: ScDistrikt[]; saelgere: ScSaelger[]; fladeDistrikt: Map<number, string>; regler: ScRegel[]; kam: ScKam[] };
+export type KamRow = { key: string; foer: { aftaler: number; n: number; oms: number; db: number }; efter: { aftaler: number; n: number; oms: number; db: number } };
 
 const sb = () => supabase as any;
 const kr = (n: number) => Math.round(n).toLocaleString("da-DK") + " kr.";
@@ -32,16 +34,17 @@ async function hentScenarier(): Promise<Scenarie[]> {
   return data ?? [];
 }
 async function hentScenarie(id: string): Promise<ScData> {
-  const [d, s, f, g] = await Promise.all([
+  const [d, s, f, g, k] = await Promise.all([
     sb().from("scenarie_distrikt").select("*").eq("scenarie_id", id).order("sort").order("navn"),
     sb().from("scenarie_saelger").select("*").eq("scenarie_id", id).order("navn"),
     sb().from("scenarie_flade").select("flade,distrikt_id").eq("scenarie_id", id).range(0, 4999),
     sb().from("scenarie_regel").select("*").eq("scenarie_id", id).order("sortering").order("oprettet_at"),
+    sb().from("scenarie_kam").select("*").eq("scenarie_id", id).order("navn"),
   ]);
-  for (const r of [d, s, f, g]) if (r.error) throw r.error;
+  for (const r of [d, s, f, g, k]) if (r.error) throw r.error;
   const m = new Map<number, string>();
   (f.data ?? []).forEach((r: any) => m.set(r.flade, r.distrikt_id));
-  return { distrikter: d.data ?? [], saelgere: s.data ?? [], fladeDistrikt: m, regler: g.data ?? [] };
+  return { distrikter: d.data ?? [], saelgere: s.data ?? [], fladeDistrikt: m, regler: g.data ?? [], kam: k.data ?? [] };
 }
 
 export function useScenarie(aktiv: boolean) {
@@ -106,11 +109,11 @@ type Agg = { n: number; aktive: number; oms: number; db: number };
 export const tomAgg = (): Agg => ({ n: 0, aktive: 0, oms: 0, db: 0 });
 
 export function SimuleringPanel({
-  st, dd, navn, farve, konsekvens, flytninger, afviger, regler, regelStat, ukendteAnsatte, penhedAnsatte, antalLok, regelValg, laasKam, setLaasKam, redigerer, setRedigerer, valgt, setValgt, fladeNavn,
+  st, dd, navn, farve, konsekvens, flytninger, afviger, regler, regelStat, ukendteAnsatte, penhedAnsatte, antalLok, regelValg, kamPort, redigerer, setRedigerer, valgt, setValgt, fladeNavn,
 }: {
   st: ScenarieState; dd: DistriktData; navn: (k: string) => string; farve: (k: string) => string;
   konsekvens: KonsekvensRow[]; flytninger: SimRow[]; afviger: SimRow[]; regler: Regel[]; regelStat: Map<string, { n: number; oms: number }>;
-  ukendteAnsatte: number; penhedAnsatte: number; antalLok: number; regelValg: RegelValg; laasKam: boolean; setLaasKam: (b: boolean) => void;
+  ukendteAnsatte: number; penhedAnsatte: number; antalLok: number; regelValg: RegelValg; kamPort: KamRow[];
   redigerer: boolean; setRedigerer: (b: boolean) => void; valgt: string | null; setValgt: (id: string | null) => void;
   fladeNavn: Map<number, string>;
 }) {
@@ -123,6 +126,7 @@ export function SimuleringPanel({
   const [saelgerF, setSaelgerF] = useState<string | null>(null);
   const [editR, setEditR] = useState<Partial<ScRegel> | null>(null);
   const [visAfv, setVisAfv] = useState(false);
+  const [editK, setEditK] = useState<ScKam | null>(null);
   const valgtSc = st.scenarier.find((s) => s.id === st.valgtId) ?? null;
   const sc = st.sc;
   const laast = valgtSc?.status !== "kladde";
@@ -285,7 +289,7 @@ export function SimuleringPanel({
                   <span className="font-medium">Regler ({sc.regler.length})</span>
                   {!laast && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditR({ type: "tildel", aktiv: true, betingelse: {} })}>Ny regel</Button>}
                 </div>
-                <p className="text-[11px] text-muted-foreground">Rækkefølge: Frellsen (199) → låste KAM-kunder → "Tildel"-regler oppefra → geografi → "Må ikke have"-regler.</p>
+                <p className="text-[11px] text-muted-foreground">Rækkefølge: Frellsen (199) → "Tildel"-regler oppefra → geografi → "Må ikke have"-regler.</p>
                 {sc.regler.length === 0 && <div className="text-xs text-muted-foreground">Ingen regler – fordelingen følger kun geografien.</div>}
                 <ul className="space-y-1">
                   {sc.regler.map((r, i) => {
@@ -315,14 +319,27 @@ export function SimuleringPanel({
                     );
                   })}
                 </ul>
+                <div className="flex items-center justify-between pt-2">
+                  <span className="font-medium">KAM-ansvar ({sc.kam.length})</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">KAM-ansvar flytter ikke lokationer – distriktssælgeren følger regler og geografi.</p>
+                {sc.kam.length === 0 && <div className="text-xs text-muted-foreground">Ingen KAM-aftaler i scenariet.</div>}
+                <ul className="space-y-1">
+                  {sc.kam.map((k) => {
+                    const ans = [...k.kam_ansvarlige.map((x) => navn(x)), ...k.kam_fiktive.map((x) => navn("f:" + x))];
+                    return (
+                      <li key={k.id} className={"rounded border border-border p-2 text-xs flex items-center gap-2 " + (k.aktiv ? "" : "opacity-60")}>
+                        <span className="flex-1 min-w-0"><span className="font-medium">{k.navn}</span><span className="text-muted-foreground"> · {ans.length ? ans.join(", ") : "ingen ansvarlig"}</span></span>
+                        {!laast && <button type="button" className="text-muted-foreground hover:underline shrink-0" onClick={() => setEditK(k)}>Skift ansvarlige</button>}
+                      </li>
+                    );
+                  })}
+                </ul>
               </>
             ) : (
               <>
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <Checkbox checked={laasKam} onCheckedChange={(v) => setLaasKam(!!v)} />
-                  Lås KAM-kunder (beholder nuværende sælger)
-                </label>
                 <Konsekvens rows={konsekvens} navn={navn} farve={farve} valgt={saelgerF} onVaelg={(k) => setSaelgerF(saelgerF === k ? null : k)} />
+                <KamPortefoelje rows={kamPort} navn={navn} farve={farve} />
                 <Flytteliste titel="Flyttes i scenariet" undertekst="Fra = sælger efter det gældende distriktskort, til = sælger i scenariet."
                   rows={flyt} navn={navn} aarsag={aarsagTekst} filter={saelgerF ? navn(saelgerF) : null} onFjernFilter={() => setSaelgerF(null)} fil="flyttes-i-scenariet.csv" />
                 <div className="border-t border-border pt-2">
@@ -343,6 +360,7 @@ export function SimuleringPanel({
       {editS && st.valgtId && <ScSaelgerDialog s={editS} scenarieId={st.valgtId} profiler={dd.profiler} onLuk={() => setEditS(null)} onGemt={() => { setEditS(null); st.reload(); }} />}
       {editR && sc && st.valgtId && <RegelDialog r={editR} scenarieId={st.valgtId} antal={sc.regler.length} profiler={dd.profiler} fiktive={sc.saelgere} valg={regelValg}
         ukendte={ukendteAnsatte} onLuk={() => setEditR(null)} onGemt={() => { setEditR(null); st.reload(); }} />}
+      {editK && sc && <ScKamDialog k={editK} profiler={dd.profiler} fiktive={sc.saelgere} onLuk={() => setEditK(null)} onGemt={() => { setEditK(null); st.reload(); }} />}
       {merge && sc && st.valgtId && <MergeDialog kilde={merge} scenarieId={st.valgtId} distrikter={sc.distrikter} onLuk={() => setMerge(null)} onGemt={() => { setMerge(null); st.reload(); }} />}
       {visGoer && sc && valgtSc && (
         <GoerGaeldendeDialog sc={sc} scenarie={valgtSc} dd={dd} flytninger={flytninger.length} fladeNavn={fladeNavn}
@@ -710,6 +728,61 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, ukendte, o
             </>
           )}
         </div>
+        <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button onClick={gem}>Gem</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function KamPortefoelje({ rows, navn, farve }: { rows: KamRow[]; navn: (k: string) => string; farve: (k: string) => string }) {
+  const k = (n: number) => Math.round(n / 1000).toLocaleString("da-DK");
+  const fe = (a: number, b: number, f: (n: number) => string = (n) => n.toLocaleString("da-DK")) => (
+    <span><span className="text-muted-foreground whitespace-nowrap">{f(a)}→</span><wbr /><span className="whitespace-nowrap">{f(b)}</span></span>
+  );
+  return (
+    <div className="pt-2">
+      <div className="font-medium mb-1">KAM-portefølje</div>
+      {!rows.length ? <div className="text-xs text-muted-foreground">Ingen KAM-ansvarlige.</div> : (
+        <table className="w-full text-[11px]">
+          <thead className="text-muted-foreground"><tr className="text-right"><th className="text-left font-medium px-1">KAM-ansvarlig</th><th className="font-medium px-1">Aft.</th><th className="font-medium px-1">Lok.</th><th className="font-medium px-1">Oms. · Δ</th><th className="font-medium px-1">DB · Δ</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="border-t border-border text-right tabular-nums">
+                <td className="text-left px-1 py-1 max-w-[96px]"><div className="flex items-center gap-1 min-w-0">
+                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: farve(r.key), outline: r.key.startsWith("f:") ? "1px dashed currentColor" : undefined }} />
+                  <span className="truncate" title={navn(r.key)}>{navn(r.key)}</span></div></td>
+                <td className="px-1">{fe(r.foer.aftaler, r.efter.aftaler)}</td>
+                <td className="px-1">{fe(r.foer.n, r.efter.n)}</td>
+                <td className="px-1 leading-tight">{fe(r.foer.oms, r.efter.oms, k)}<div className="text-muted-foreground whitespace-nowrap">{fortegn(r.efter.oms - r.foer.oms, k)}</div></td>
+                <td className="px-1 leading-tight">{fe(r.foer.db, r.efter.db, k)}<div className="text-muted-foreground whitespace-nowrap">{fortegn(r.efter.db - r.foer.db, k)}</div></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="text-[11px] text-muted-foreground mt-1">Før = gældende KAM-aftaler, efter = scenariet. Oms. og DB i 1.000 kr. KAM-grundlag er et selvstændigt provisionsgrundlag og lægges ikke sammen med distriktssælgernes tal.</div>
+    </div>
+  );
+}
+
+function ScKamDialog({ k, profiler, fiktive, onLuk, onGemt }: { k: ScKam; profiler: Profil[]; fiktive: ScSaelger[]; onLuk: () => void; onGemt: () => void }) {
+  const [valgte, setValgte] = useState<string[]>([...k.kam_ansvarlige.map((x) => "u:" + x), ...k.kam_fiktive.map((x) => "f:" + x)]);
+  const pn = new Map<string, string>([...profiler.map((p) => ["u:" + p.id, p.full_name ?? "?"] as [string, string]), ...fiktive.map((f) => ["f:" + f.id, f.navn + " (fiktiv)"] as [string, string])]);
+  const valg: [string, null][] = [...profiler.filter((p) => p.is_active !== false && p.full_name).map((p) => ["u:" + p.id, null] as [string, null]), ...fiktive.map((f) => ["f:" + f.id, null] as [string, null])];
+  const gem = async () => {
+    const { error } = await sb().from("scenarie_kam").update({
+      kam_ansvarlige: valgte.filter((x) => x.startsWith("u:")).map((x) => x.slice(2)),
+      kam_fiktive: valgte.filter((x) => x.startsWith("f:")).map((x) => x.slice(2)),
+    }).eq("id", k.id);
+    if (error) return toast.error(error.message);
+    onGemt();
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onLuk()}>
+      <DialogContent className="max-w-md overflow-x-hidden grid-cols-[minmax(0,1fr)] [&>*]:min-w-0">
+        <DialogHeader><DialogTitle>KAM-ansvarlige: {k.navn}</DialogTitle></DialogHeader>
+        <div className="text-xs text-muted-foreground truncate" title={k.koder.map((x) => kodeVis(k.kodetype, x)).join(", ")}>{k.koder.length} koder ({k.kodetype.toUpperCase()})</div>
+        <SoegListe titel="KAM-ansvarlige" valg={valg} valgte={valgte} setValgte={setValgte} vis={(x) => pn.get(x) ?? "Ukendt"} />
         <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button onClick={gem}>Gem</Button></DialogFooter>
       </DialogContent>
     </Dialog>
