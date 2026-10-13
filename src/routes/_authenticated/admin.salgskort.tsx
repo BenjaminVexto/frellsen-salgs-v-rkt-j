@@ -350,7 +350,6 @@ function SalgskortPage() {
   });
   const total = saelgerBjaelke.reduce((a, [, e]) => ({ n: a.n + e.n, oms: a.oms + e.oms, db: a.db + e.db }), { n: 0, oms: 0, db: 0 });
   const flade = valgtFlade != null ? data?.flader.find((f) => f.flade === valgtFlade) : null;
-  const visPanel = (visning !== "virk" && !!dd) || (visning === "virk" && !!flade);
   const nulstil = () => { setFilters(tomFiltre()); setFremhaev(null); };
   const chips: { key: string; label: string; fjern: () => void }[] = [];
   (Object.keys(filters) as Dim[]).forEach((d) => filters[d].forEach((v) => {
@@ -680,7 +679,6 @@ function FladePanel({ flade, fordeling, lok, navne, farver, onLuk }: {
             </thead>
             <tbody>
               {vis.map((r) => {
-                const i = info.get(r.location_id);
                 return (
                   <tr key={r.location_id} className="border-t border-border hover:bg-muted/40">
                     <td className="px-2 py-1">
