@@ -110,7 +110,6 @@ const KOMMUNER = [
   "Vesthimmerlands","Viborg","Vordingborg","Ærø",
 ].sort((a, b) => a.localeCompare(b, "da"));
 
-const PAGE_SIZE = 100;
 const ROWS_PER_PAGE = 100;
 
 type CvrRow = {
@@ -458,6 +457,7 @@ export function CvrBulkSoegningDialog({
           industry: r.industry,
           employees_interval: r.employees,
           company_form: r.company_form,
+          pnumre: r.pnumre.slice(0, 500),
         }));
       const res = await importFn({ data: { companies: payload } });
       const newIds: string[] = (res as any).inserted_ids ?? [];
