@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Phone, Plus, Pencil, CalendarCheck } from "lucide-react";
+import { Loader2, Phone, Plus, Pencil, CalendarCheck, Mail, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { AARSAGER, UDFALD_LABEL, byggKoe, ingenSvarIRaekke, type Udfald } from "@/lib/telemarketing";
 
