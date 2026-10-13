@@ -40,6 +40,7 @@ import { fmtKr } from "@/lib/sales-utils";
 import { AnalyseFane } from "@/components/analyse/analyse-fane";
 import { MaalepunkterFane } from "@/components/maalepunkter/maalepunkter-fane";
 import { BonusFane } from "@/components/bonus/bonus-fane";
+import { SalgskortFane } from "@/components/salgskort/salgskort-fane";
 import { getPortfolioKontakter } from "@/lib/portfolio-kontakter.functions";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
@@ -66,6 +67,8 @@ const SignalMapContext = createContext<Map<string, ForbrugSignalKort>>(new Map()
 
 export const Route = createFileRoute("/_authenticated/min-portefoelje")({
   component: PortfolioPage,
+  validateSearch: (s: Record<string, unknown>): { fane?: string } =>
+    typeof s.fane === "string" ? { fane: s.fane } : {},
   head: () => ({ meta: [{ title: "Min salgsstatistik — Frellsen" }] }),
 });
 
@@ -122,7 +125,8 @@ function PortfolioPage() {
   }, [showDB, sortKey]);
   const [visibleCount, setVisibleCount] = useState(FOERSTE_VISNING);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
-  const [tab, setTab] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus">(() =>
+  const urlFane = Route.useSearch().fane;
+  const [tabState, setTabState] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus" | "salgskort">(() =>
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null)
       ? "maalepunkter"
       : "portefoelje",
@@ -146,8 +150,16 @@ function PortfolioPage() {
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
   // Salgssupport har ikke bonusordning — skjul bonusfanen for dem.
   const visBonus = visMaalepunkter && auth.role !== "salgssupport";
+  const visSalgskort = auth.role === "admin";
+  const tilladte = new Set<string>(["portefoelje", ...(visAnalyse ? ["analyse"] : []), ...(visMaalepunkter ? ["maalepunkter"] : []), ...(visBonus ? ["bonus"] : []), ...(visSalgskort ? ["salgskort"] : [])]);
+  const tab = (urlFane && tilladte.has(urlFane) ? urlFane : tabState) as typeof tabState;
+  const setTab = (v: typeof tabState) => {
+    setTabState(v);
+    navigate({ to: "/min-portefoelje", search: { fane: v }, replace: true });
+  };
+  const erSalgskort = tab === "salgskort";
   useEffect(() => {
-    if (!tabValgt && visMaalepunkter) setTab("maalepunkter");
+    if (!tabValgt && visMaalepunkter) setTabState("maalepunkter");
   }, [tabValgt, visMaalepunkter]);
 
 
@@ -860,7 +872,7 @@ function PortfolioPage() {
 
   return (
     <SignalMapContext.Provider value={signalMap}>
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8">
+    <div className={erSalgskort ? "px-4 md:px-6 py-4 md:py-6" : "px-4 md:px-8 py-6 md:py-8 max-w-7xl mx-auto pb-24 md:pb-8"}>
 
       <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
         <div>
@@ -870,7 +882,7 @@ function PortfolioPage() {
           </p>
           <DataOpdateret className="mt-0.5" />
         </div>
-        {maaVaelgeSaelger && (
+        {maaVaelgeSaelger && !erSalgskort && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Sælger:</span>
             <Select value={sellerId} onValueChange={(v) => setSellerId(v as any)}>
@@ -891,7 +903,7 @@ function PortfolioPage() {
 
       </div>
 
-      {visAnalyse || visMaalepunkter || visBonus ? (
+      {visAnalyse || visMaalepunkter || visBonus || visSalgskort ? (
         <Tabs
           value={tab}
           onValueChange={(v) => {
@@ -905,6 +917,7 @@ function PortfolioPage() {
             <TabsTrigger value="portefoelje">Portefølje</TabsTrigger>
             {visAnalyse && <TabsTrigger value="analyse">Analyse</TabsTrigger>}
             {visBonus && <TabsTrigger value="bonus">Bonus</TabsTrigger>}
+            {visSalgskort && <TabsTrigger value="salgskort">Salgskort</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="portefoelje">{portefoeljeIndhold}</TabsContent>
@@ -930,6 +943,11 @@ function PortfolioPage() {
           {visBonus && (
             <TabsContent value="bonus">
               <BonusFane saelgerId={maalepunkterSaelgerId} />
+            </TabsContent>
+          )}
+          {visSalgskort && tab === "salgskort" && (
+            <TabsContent value="salgskort">
+              <SalgskortFane />
             </TabsContent>
           )}
         </Tabs>
