@@ -4999,6 +4999,19 @@ export type Database = {
           match_type: string
         }[]
       }
+      cvr_match_crm: {
+        Args: { cvr_rows: Json }
+        Returns: {
+          company_id: string
+          company_name: string
+          cvr: string
+          ikke_kontakt: boolean
+          kundenr: string
+          match_type: string
+          score: number
+          sikker: boolean
+        }[]
+      }
       derive_agreement_type: {
         Args: { _name: string }
         Returns: Database["public"]["Enums"]["agreement_type"]
@@ -5517,6 +5530,8 @@ export type Database = {
         }[]
       }
       my_afdelinger: { Args: never; Returns: number[] }
+      navn_norm: { Args: { _n: string }; Returns: string }
+      navn_ord: { Args: { _n: string }; Returns: string[] }
       penhed_sync_candidates: {
         Args: never
         Returns: {
