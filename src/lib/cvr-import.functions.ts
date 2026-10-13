@@ -47,12 +47,12 @@ export const importCompaniesFromCvr = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     if (!(await isAdmin(context.userId))) throw new Error("Forbidden");
 
-    // Dublet-tjek: CVR (normaliseret) og P-enhedskobling via cvr_findes_i_crm.
+    // Dublet-tjek: CVR (normaliseret) og P-enhedskobling via cvr_match_crm.
     const existingMap = new Map<string, string>();
     const ikkeKontakt = new Set<string>();
     for (let i = 0; i < data.companies.length; i += 500) {
       const slice = data.companies.slice(i, i + 500).map((c) => ({ cvr: c.cvr, pnumre: c.pnumre ?? [] }));
-      const { data: m, error } = await context.supabase.rpc("cvr_findes_i_crm", { cvr_rows: slice as any });
+      const { data: m, error } = await context.supabase.rpc("cvr_match_crm", { cvr_rows: slice as any });
       if (error) throw new Error(error.message);
       for (const r of (m ?? []) as any[]) {
         if (r.match_type !== "cvr" && r.match_type !== "penhed") continue;
