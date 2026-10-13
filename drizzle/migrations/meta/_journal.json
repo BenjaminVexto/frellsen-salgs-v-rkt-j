@@ -687,6 +687,13 @@
       "when": 1791918553652,
       "tag": "0097_kontaktliste_udfald_status",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1791918597259,
+      "tag": "0098_registrer_udfald",
+      "breakpoints": true
     }
   ]
 }

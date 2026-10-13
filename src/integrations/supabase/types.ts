@@ -5745,6 +5745,19 @@ export type Database = {
         Returns: number
       }
       region_for_postnr: { Args: { _zip: string }; Returns: string }
+      registrer_udfald: {
+        Args: {
+          _aarsag?: string
+          _company: string
+          _contact_id?: string
+          _list: string
+          _moede_at?: string
+          _note?: string
+          _ring_igen_at?: string
+          _udfald: string
+        }
+        Returns: Json
+      }
       relink_sales_locations: { Args: never; Returns: Json }
       reservedele_til_betaling: {
         Args: { _saelger: string }
