@@ -776,7 +776,7 @@ function bbox(fc: any): [number, number, number, number] | null {
   return a[0] > a[2] ? null : (a as any);
 }
 
-function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: any }; onKlik: (f: number) => void; redigerer?: boolean; onMal?: (f: number) => void; zoom?: { flade: number; n: number } | null }) {
+function Kort({ geo, onKlik, redigerer, onMal, zoom, fitKey }: { geo: { main: any; bh: any }; onKlik: (f: number) => void; redigerer?: boolean; onMal?: (f: number) => void; zoom?: { flade: number; n: number } | null; fitKey?: string }) {
   const redRef = useRef(!!redigerer); redRef.current = !!redigerer;
   const malRef = useRef(onMal); malRef.current = onMal;
   const maler = useRef<{ on: boolean; sidst: number | null }>({ on: false, sidst: null });
@@ -788,6 +788,12 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
   const geoRef = useRef(geo); geoRef.current = geo;
   const fitted = useRef([false, false]);
   const flyttet = useRef([false, false]);
+  const fitAlle = () => maps.current.forEach((m, i) => {
+    m.resize();
+    if (!m.getSource?.("f") || flyttet.current[i]) return;
+    const b = bbox(i ? geoRef.current.bh : geoRef.current.main);
+    if (b) m.fitBounds(b, { padding: i ? 6 : 16, duration: 0 });
+  });
 
   useEffect(() => {
     let dead = false;
@@ -833,11 +839,8 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
       };
       if (!mainRef.current || !bhRef.current) return;
       maps.current = [make(mainRef.current, 0, false), make(bhRef.current, 1, true)];
-      ro = new ResizeObserver(() => maps.current.forEach((m, i) => {
-        m.resize();
-        const s = m.getSource?.("f");
-        if (s && !flyttet.current[i]) { const b = bbox(i ? geoRef.current.bh : geoRef.current.main); if (b) m.fitBounds(b, { padding: i ? 6 : 12, duration: 0 }); }
-      }));
+      let raf = 0;
+      ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => fitAlle()); });
       ro.observe(mainRef.current); ro.observe(bhRef.current);
       if (bhRef.current) {
         // tillad hover/klik i indsat boks
@@ -859,6 +862,9 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
     });
   }, [geo]);
 
+  // Refit ved visningsskift / layoutændring (respekterer brugerens egen zoom/panorering)
+  useEffect(() => { const t = setTimeout(fitAlle, 50); return () => clearTimeout(t); }, [fitKey]);
+
   useEffect(() => {
     if (!zoom) return;
     [geo.main, geo.bh].forEach((d, i) => {
@@ -872,6 +878,8 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
   return (
     <>
       <div className="absolute inset-0"><div ref={mainRef} style={{ width: "100%", height: "100%" }} /></div>
+      <button type="button" onClick={() => { flyttet.current = [false, false]; fitAlle(); }}
+        className="absolute top-2 left-2 z-10 rounded-md border border-border bg-background/90 px-2 py-0.5 text-xs hover:bg-muted">Tilpas</button>
       <div className="absolute top-2 right-2 h-[90px] w-[110px] border border-border rounded bg-background overflow-hidden">
         <div className="absolute inset-0"><div ref={bhRef} style={{ width: "100%", height: "100%" }} /></div>
         <div className="absolute top-0.5 left-1 text-[10px] text-muted-foreground pointer-events-none">Bornholm</div>
