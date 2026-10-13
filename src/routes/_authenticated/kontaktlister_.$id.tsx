@@ -615,7 +615,7 @@ function KontaktlisteDetalje() {
                       r.next_followup_date && r.next_followup_date < today;
                     return (
                       <TableRow key={r.id}>
-                        <TableCell className="font-medium max-w-[240px]">
+                        <TableCell className="font-medium max-w-[220px]">
                           <Link
                             to="/virksomheder/$id"
                             params={{ id: r.company_id }}
@@ -646,7 +646,7 @@ function KontaktlisteDetalje() {
                           </div>
 
                         </TableCell>
-                        <TableCell className="text-sm max-w-[220px]">
+                        <TableCell className="text-sm max-w-[190px]">
                           {(() => {
                             const n = telefonNumre(r.location_phone, r.company.phone);
                             if (!n.length) return <div className="text-xs text-muted-foreground">—</div>;
@@ -660,7 +660,7 @@ function KontaktlisteDetalje() {
                             <a href={`mailto:${r.company.email}`} className="block truncate text-xs text-muted-foreground hover:underline" title={r.company.email}>{r.company.email}</a>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm max-w-[180px]">
+                        <TableCell className="text-sm max-w-[170px]">
                           {r.kontakt ? (
                             <div title={`${r.kontakt.name}${r.kontakt.title ? ` · ${r.kontakt.title}` : ""}`}>
                               <div className="truncate">{r.kontakt.name}</div>
@@ -674,7 +674,7 @@ function KontaktlisteDetalje() {
                         <TableCell className="text-sm">{r.company.employees ?? "—"}</TableCell>
 
 
-                        <TableCell className="text-sm whitespace-nowrap">{r.seller_name}</TableCell>
+                        <TableCell className="text-sm max-w-[120px]">{r.seller_name}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             <Badge variant={r.status === "møde_booket" || r.status === "tilbud_oensket" ? "default" : "outline"} className="text-xs whitespace-nowrap">
