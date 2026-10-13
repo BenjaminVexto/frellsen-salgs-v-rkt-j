@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Phone } from "lucide-react";
 import { toast } from "sonner";
-import { AARSAGER, UDFALD_LABEL, VALGBARE_UDFALD, type Udfald } from "@/lib/telemarketing";
+import { AARSAGER, UDFALD_LABEL, VALGBARE_UDFALD, ringIgenHurtigvalg, type Udfald } from "@/lib/telemarketing";
 import { formatTelefon, telHref } from "@/lib/telefon";
 
 export type UdfaldKontakt = { id: string; navn: string; titel: string | null };
@@ -18,7 +18,7 @@ export type UdfaldVirksomhed = { company_id: string; navn: string; telefon: stri
 export async function registrerUdfald(listId: string, companyId: string, udfald: Udfald, extra: Record<string, unknown> = {}) {
   const { data, error } = await (supabase as any).rpc("registrer_udfald", { _list: listId, _company: companyId, _udfald: udfald, ...extra });
   if (error) { toast.error(error.message); return null; }
-  toast.success(udfald === "moede_booket" ? `Møde booket – sendt til ${data?.saelger ?? "sælger"}` : `Registreret: ${UDFALD_LABEL[udfald]}`);
+  toast.success(udfald === "note" ? "Note gemt" : udfald === "moede_booket" ? `Møde booket – sendt til ${data?.saelger ?? "sælger"}` : `Registreret: ${UDFALD_LABEL[udfald]}`);
   return data as { id: string; status: string; saelger: string | null };
 }
 
@@ -50,6 +50,7 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
     }
     if (udfald === "ikke_interesseret") {
       if (!aarsag) return toast.error("Vælg en årsag");
+      if (aarsag === "andet" && !note.trim()) return toast.error("Skriv en note ved \"Andet\"");
       extra._aarsag = aarsag;
     }
     setBusy(true);
@@ -99,6 +100,15 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
           <div className="space-y-3">
             {(udfald === "ring_igen" || udfald === "moede_booket") && (
               <div><Label>{udfald === "moede_booket" ? "Mødetidspunkt" : "Ring igen"}</Label>
+                {udfald === "ring_igen" && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {ringIgenHurtigvalg().map((h) => {
+                      const v = tilLokal(h.d);
+                      return <Button key={h.l} type="button" size="sm" variant={tid === v ? "default" : "outline"} className="h-7 text-xs" onClick={() => setTid(v)}>{h.l}</Button>;
+                    })}
+                    <span className="text-xs text-muted-foreground self-center">eller vælg selv:</span>
+                  </div>
+                )}
                 <Input type="datetime-local" value={tid} onChange={(e) => setTid(e.target.value)} /></div>
             )}
             {udfald === "ikke_interesseret" && (
@@ -120,7 +130,7 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
                 {kontakt === "ny" && <Input className="mt-2" placeholder="Navn" value={nyKontakt} onChange={(e) => setNyKontakt(e.target.value)} />}
               </div>
             )}
-            <div><Label>Note{udfald === "moede_booket" ? " (påkrævet)" : ""}</Label>
+            <div><Label>Note{udfald === "moede_booket" || (udfald === "ikke_interesseret" && aarsag === "andet") ? " (påkrævet)" : " (valgfri)"}</Label>
               <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></div>
           </div>
         )}
@@ -131,4 +141,9 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
       </DialogContent>
     </Dialog>
   );
+}
+
+function tilLokal(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
