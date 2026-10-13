@@ -97,6 +97,13 @@ function AuthenticatedShell() {
     }
   }, [auth.loading, auth.session, isAdmin, location.pathname, navigate]);
 
+  const isTm = auth.role === "telemarketing";
+  useEffect(() => {
+    if (!auth.loading && auth.session && isTm && !location.pathname.startsWith("/kontaktlister") && !location.pathname.startsWith("/profil")) {
+      navigate({ to: "/kontaktlister", replace: true });
+    }
+  }, [auth.loading, auth.session, isTm, location.pathname, navigate]);
+
   const handleLogoutEarly = async () => {
     await supabase.auth.signOut();
     navigate({ to: "/login" });
@@ -106,6 +113,29 @@ function AuthenticatedShell() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isTm) {
+    const tilladt = location.pathname.startsWith("/kontaktlister") || location.pathname.startsWith("/profil");
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <header className="flex items-center gap-4 px-4 py-2 bg-red-900 text-primary-foreground">
+          <img src={frellsenLogo} alt="Frellsen" className="h-8 w-auto object-contain" />
+          <Link to="/kontaktlister" className="flex items-center gap-2 text-sm font-medium px-2 py-1 rounded-md bg-primary-foreground/10">
+            <ListChecks className="h-4 w-4" /> Kontaktlister
+          </Link>
+          <div className="ml-auto flex items-center gap-3 text-sm">
+            <span className="text-primary-foreground/80">{auth.fullName || auth.user?.email} · Telemarketing</span>
+            <Button size="sm" variant="ghost" className="text-primary-foreground hover:bg-primary-foreground/10" onClick={handleLogoutEarly}>
+              <LogOut className="h-4 w-4 mr-1" /> Log ud
+            </Button>
+          </div>
+        </header>
+        <main className="flex-1 p-4 md:p-6">
+          {tilladt ? <Outlet /> : <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+        </main>
       </div>
     );
   }

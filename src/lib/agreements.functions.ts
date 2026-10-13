@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -36,7 +37,7 @@ const baseInput = {
 
 // Henter alle agreements + tæller virksomheder via customer_segment_1 KP-kode prefix
 export const listAgreements = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async () => {
     const { data: agreements, error } = await supabaseAdmin
       .from("agreements")
@@ -74,7 +75,7 @@ export const listAgreements = createServerFn({ method: "GET" })
   });
 
 export const createAgreement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) => z.object(baseInput).parse(input))
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
@@ -111,7 +112,7 @@ export const createAgreement = createServerFn({ method: "POST" })
   });
 
 export const updateAgreement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ id: z.string().uuid(), ...baseInput }).parse(input),
   )
@@ -138,7 +139,7 @@ export const updateAgreement = createServerFn({ method: "POST" })
   });
 
 export const deleteAgreement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ id: z.string().uuid() }).parse(input),
   )
@@ -161,7 +162,7 @@ export const deleteAgreement = createServerFn({ method: "POST" })
   });
 
 export const uploadAgreementDocument = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -208,7 +209,7 @@ export const uploadAgreementDocument = createServerFn({ method: "POST" })
   });
 
 export const getAgreementDocumentUrl = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ agreement_id: z.string().uuid() }).parse(input),
   )
@@ -227,7 +228,7 @@ export const getAgreementDocumentUrl = createServerFn({ method: "POST" })
   });
 
 export const downloadAgreementDocument = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ agreement_id: z.string().uuid() }).parse(input),
   )
@@ -261,7 +262,7 @@ export const downloadAgreementDocument = createServerFn({ method: "POST" })
 // ============================================================
 
 export const getAgreement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ id: z.string().uuid() }).parse(input),
   )
@@ -277,7 +278,7 @@ export const getAgreement = createServerFn({ method: "POST" })
   });
 
 export const listAgreementCompanies = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ id: z.string().uuid() }).parse(input),
   )
@@ -334,7 +335,7 @@ export const listAgreementCompanies = createServerFn({ method: "POST" })
 // på maskineniveau.
 // ============================================================
 export const getMasterAgreementSuppression = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ companyIds: z.array(z.string().uuid()).max(5000) }).parse(input),
   )
@@ -382,7 +383,7 @@ export const getMasterAgreementSuppression = createServerFn({ method: "POST" })
   });
 
 export const getAgreementByKp1 = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ kp1: z.string().trim().min(1).max(50) }).parse(input),
   )
@@ -408,7 +409,7 @@ function normCvr(v: unknown): string | null {
 }
 
 export const previewAgreementProspects = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       cvrs: z.array(z.string()).min(1).max(20000),
@@ -439,7 +440,7 @@ export const previewAgreementProspects = createServerFn({ method: "POST" })
   });
 
 export const importAgreementProspects = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       agreement_id: z.string().uuid(),
@@ -580,7 +581,7 @@ export function deriveAgreementTypeFromName(name: string | null | undefined): Ag
 }
 
 export const setAgreementType = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({
       id: z.string().uuid(),

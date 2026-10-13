@@ -29,3 +29,11 @@
   - [ ] 4) Konkurrentaftale pr. lokation med historik; migrér eksisterende
   - [ ] 5) Send digitalt katalog (mail.frellsen.dk, afsender "Frellsen", reply-to sælger); DNS-liste
   - [ ] Maskinbonus/maskintal: lokationens sælger når maskinen har lokation; rapportér antal uden lokation
+- [x] Telemarketing-rolle (godkendt plan + 3 tilføjelser):
+  - [x] Rolle + er_telemarketing(); RESTRICTIVE policy NOT er_telemarketing() på alle tabeller undtagen bureau-tabeller; regel i AGENTS.md
+  - [x] Alle server functions, views (security_invoker) og storage-buckets afviser telemarketing
+  - [x] tm_virksomheder/tm_book_moede kræver kontaktliste_ringer for listen
+  - [x] Navigation/redirect til /kontaktlister; brugerstyring (opret/deaktivér/sidste login)
+  - [x] Liste-felter (ringes af, møder går til), ringevisning, opkaldslog, ønsker ikke kontakt-flag
+  - [x] Admin-overblik + CSV
+  - [x] Test: testbruger, salgsdata/server function/view/storage afvises; sælger uændret; møde til rigtig sælger; slet testdata

@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -204,7 +205,7 @@ async function fetchPricingForCompany(
 }
 
 export const listPricingByKp2 = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ kp2: z.string().trim().min(1).max(50) }).parse(input),
   )
@@ -237,7 +238,7 @@ async function fetchPricingByKp1(code: string): Promise<PricingRow[]> {
 }
 
 export const listPricingByKp1 = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ kp1: z.string().trim().min(1).max(50) }).parse(input),
   )
@@ -246,7 +247,7 @@ export const listPricingByKp1 = createServerFn({ method: "POST" })
   });
 
 export const listPricingForCompany = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ company_id: z.string().uuid() }).parse(input),
   )
@@ -328,7 +329,7 @@ function summarize(rows: PricingRow[]): {
 }
 
 export const getCompanyPricingSummary = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ company_id: z.string().uuid() }).parse(input),
   )
@@ -376,7 +377,7 @@ export const getCompanyPricingSummary = createServerFn({ method: "POST" })
   });
 
 export const listPricingKp2Groups = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async () => {
     const PAGE = 1000;
     const rows: any[] = [];
@@ -487,7 +488,7 @@ export function erBrugbarRabat(r: Pick<PricingRow, "rab_kr" | "rab_pct" | "saerp
  * KP-koder med navn og hvilke rabatlinjer der rammer varer købt seneste 12 hele mdr.
  */
 export const getPrismatrixOverblik = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({

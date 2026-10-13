@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -106,7 +107,7 @@ async function crmForCvrs(supabase: any, cvrs: string[]) {
 }
 
 export const cvrAdresseSoeg = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((i: unknown) =>
     z
       .object({
@@ -250,7 +251,7 @@ export type KoncernSelskab = {
  * datterselskaber (= søsterselskaber) fra CVR.
  */
 export const cvrKoncern = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((i: unknown) => z.object({ cvr: z.string().regex(/^\d{8}$/) }).parse(i))
   .handler(async ({ data, context }) => {
     // Find aktuelle ejere i Ejerregistret

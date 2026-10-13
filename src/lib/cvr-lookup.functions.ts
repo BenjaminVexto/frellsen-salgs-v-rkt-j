@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -205,7 +206,7 @@ const InputSchema = z.discriminatedUnion("type", [
 ]);
 
 export const cvrLookup = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<CvrResponse> => {
     try {
@@ -392,7 +393,7 @@ const TwinsInput = z.object({
 });
 
 export const cvrSearchTwins = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) => TwinsInput.parse(input))
   .handler(async ({ data }): Promise<CvrResponse> => {
     try {

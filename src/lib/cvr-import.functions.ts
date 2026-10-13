@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -38,7 +39,7 @@ function intervalToNumber(interval: string | null | undefined): number | null {
 }
 
 export const importCompaniesFromCvr = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z.object({ companies: z.array(CompanySchema).min(1).max(25000) }).parse(input),
   )
@@ -48,11 +49,14 @@ export const importCompaniesFromCvr = createServerFn({ method: "POST" })
     const cvrs = data.companies.map((c) => c.cvr);
     const { data: existing } = await supabaseAdmin
       .from("companies")
-      .select("id, cvr")
+      .select("id, cvr, ikke_kontakt")
       .in("cvr", cvrs);
-    const existingMap = new Map((existing ?? []).map((r) => [r.cvr as string, r.id as string]));
+    const ikkeKontakt = new Set((existing ?? []).filter((r: any) => r.ikke_kontakt).map((r) => r.cvr as string));
+    const existingMap = new Map(
+      (existing ?? []).filter((r: any) => !r.ikke_kontakt).map((r) => [r.cvr as string, r.id as string]),
+    );
 
-    const toInsert = data.companies.filter((c) => !existingMap.has(c.cvr));
+    const toInsert = data.companies.filter((c) => !existingMap.has(c.cvr) && !ikkeKontakt.has(c.cvr));
     const insertedIds: string[] = [];
     if (toInsert.length) {
       const rows = toInsert.map((c) => ({
@@ -96,7 +100,7 @@ export const importCompaniesFromCvr = createServerFn({ method: "POST" })
   });
 
 export const checkCvrConnection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     if (!(await isAdmin(context.userId))) throw new Error("Forbidden");
     const user = process.env.CVR_USERNAME;

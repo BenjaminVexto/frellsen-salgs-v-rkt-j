@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import crypto from "node:crypto";
@@ -197,7 +198,7 @@ function computeSalesSignal(
 }
 
 export const importMachines = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({

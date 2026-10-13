@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -15,7 +16,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * at vælte selve importen.
  */
 export const recomputeAllCompanyStatuses = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     // Authoriser: kun admin må kalde RPC'en
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
@@ -60,7 +61,7 @@ export const recomputeAllCompanyStatuses = createServerFn({ method: "POST" })
  * følger med nyoprettede lokationer — ikke kun fremtidige fakturaer.
  */
 export const relinkSalesLocations = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,

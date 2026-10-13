@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -61,7 +62,7 @@ const pivotInput = z.object({
  * RLS gælder uændret: funktionen i databasen er SECURITY INVOKER.
  */
 export const getAnalysePivot = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) => pivotInput.parse(input))
   .handler(async ({ data, context }): Promise<AnalysePivotResultat> => {
     const limit = data.limit ?? 200;
@@ -119,7 +120,7 @@ export const getAnalysePivot = createServerFn({ method: "POST" })
 
 
 export const getAnalyseFiltre = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: unknown) =>
     z
       .object({

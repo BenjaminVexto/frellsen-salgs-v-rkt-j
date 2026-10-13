@@ -42,10 +42,20 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Ringevisning } from "@/components/telemarketing/ringevisning";
+import { BureauPanel } from "@/components/telemarketing/bureau-panel";
 
 export const Route = createFileRoute("/_authenticated/kontaktlister_/$id")({
-  component: KontaktlisteDetalje,
+  component: KontaktlisteSide,
 });
+
+function KontaktlisteSide() {
+  const auth = useAuth();
+  const { id } = Route.useParams();
+  if (auth.loading) return <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />;
+  if (auth.role === "telemarketing") return <Ringevisning listId={id} />;
+  return <KontaktlisteDetalje />;
+}
 
 const STATUS_OPTIONS: { value: AssignmentStatus; label: string }[] = [
   { value: "ny", label: "Ny" },
@@ -408,6 +418,8 @@ function KontaktlisteDetalje() {
       >
         <ArrowLeft className="h-4 w-4 mr-1" /> Tilbage til kontaktlister
       </Button>
+
+      {isAdmin && list && <BureauPanel listId={id} />}
 
       {loading ? (
         <div className="p-12 flex justify-center">

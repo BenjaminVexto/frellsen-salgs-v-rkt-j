@@ -52,7 +52,7 @@ export const Route = createFileRoute("/_authenticated/admin/brugere")({
   component: BrugerStyringSide,
 });
 
-type AppRoleX = "admin" | "saelger" | "salgssupport";
+type AppRoleX = "admin" | "saelger" | "salgssupport" | "telemarketing";
 type Row = {
   id: string;
   full_name: string;
@@ -65,6 +65,7 @@ type Row = {
   maa_se_afdelingspotentiale?: boolean;
   is_active: boolean;
   created_at: string;
+  last_sign_in_at?: string | null;
 };
 type Afdeling = { afdeling_nr: number; navn: string };
 
@@ -134,7 +135,7 @@ function BrugerStyringSide() {
   };
 
   const sortedRows = useMemo(() => {
-    const roleRank: Record<string, number> = { admin: 0, salgssupport: 1, saelger: 2 };
+    const roleRank: Record<string, number> = { admin: 0, salgssupport: 1, saelger: 2, telemarketing: 3 };
     const num = (r: Row): number | null => {
       switch (sortKey) {
         case "created_at":
@@ -510,6 +511,8 @@ function BrugerStyringSide() {
                   <TableCell>
                     {r.role === "admin" ? (
                       <Badge variant="default">Admin</Badge>
+                    ) : r.role === "telemarketing" ? (
+                      <Badge variant="outline">Telemarketing</Badge>
                     ) : r.role === "salgssupport" ? (
                       <Badge className="bg-amber-500 hover:bg-amber-500/90 text-white">Salgssupport</Badge>
                     ) : (
@@ -527,7 +530,15 @@ function BrugerStyringSide() {
                   <TableCell>{r.region || "—"}</TableCell>
                   <TableCell className="font-mono text-xs">{r.salesperson_no || "—"}</TableCell>
 
-                  <TableCell>{new Date(r.created_at).toLocaleDateString("da-DK")}</TableCell>
+                  <TableCell>
+                    {new Date(r.created_at).toLocaleDateString("da-DK")}
+                    <div className="text-xs text-muted-foreground whitespace-nowrap">
+                      Sidste login:{" "}
+                      {r.last_sign_in_at
+                        ? new Date(r.last_sign_in_at).toLocaleString("da-DK", { dateStyle: "short", timeStyle: "short" })
+                        : "aldrig"}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Switch
                       checked={r.is_active}
@@ -588,6 +599,7 @@ function BrugerStyringSide() {
                 <SelectContent>
                   <SelectItem value="saelger">Sælger</SelectItem>
                   <SelectItem value="salgssupport">Salgssupport</SelectItem>
+                  <SelectItem value="telemarketing">Telemarketing (bureau)</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
@@ -705,6 +717,7 @@ function BrugerStyringSide() {
                   <SelectContent>
                     <SelectItem value="saelger">Sælger</SelectItem>
                     <SelectItem value="salgssupport">Salgssupport</SelectItem>
+                    <SelectItem value="telemarketing">Telemarketing (bureau)</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
@@ -879,6 +892,9 @@ function AfdelingCell({
 }) {
   if (role === "admin") {
     return <Badge variant="outline">Alle afdelinger (admin)</Badge>;
+  }
+  if (role === "telemarketing") {
+    return <span className="text-muted-foreground">Kun tildelte kontaktlister</span>;
   }
   if (access.length === 0) {
     return (

@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -17,7 +18,7 @@ async function ensureAdmin(userId: string) {
 
 // Læg alle relevante kunde-CVR-numre i kø til P-enhedssynkronisering.
 export const queuePenhedSync = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -49,7 +50,7 @@ export const queuePenhedSync = createServerFn({ method: "POST" })
 
 // Status for de seneste jobs (til admin-overblik).
 export const getPenhedSyncStatus = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

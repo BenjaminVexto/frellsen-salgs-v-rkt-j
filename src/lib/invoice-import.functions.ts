@@ -1,3 +1,4 @@
+import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -19,7 +20,7 @@ async function assertAdmin(supabase: any, userId: string) {
  * mellem salgsrækker og lokation sker i databasen ved aggregeringen.
  */
 export const resolveDeliveryNos = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator((input: { pairs: Array<{ afdeling_nr: number; visma_delivery_no: string }> }) => {
     if (!Array.isArray(input?.pairs)) throw new Error("pairs skal være array");
     return input;
@@ -69,7 +70,7 @@ export const resolveDeliveryNos = createServerFn({ method: "POST" })
  * kobler salgsrækker til lokationer.
  */
 export const enqueueInvoiceImport = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([kraevIntern])
   .inputValidator(
     (input: {
       jobId: string;
