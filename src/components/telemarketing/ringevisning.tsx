@@ -131,12 +131,6 @@ export function Ringevisning({ listId }: { listId: string }) {
               )}
             </div>
 
-            {ingenSvar >= 3 && (
-              <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm flex items-center gap-3">
-                <span className="flex-1">{ingenSvar} × ingen svar. Foreslået status: Ikke opnået.</span>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => registrer("ikke_opnaaet")}>Sæt Ikke opnået</Button>
-              </div>
-            )}
 
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" disabled={busy} onClick={() => registrer("ingen_svar")}>Ingen svar</Button>
