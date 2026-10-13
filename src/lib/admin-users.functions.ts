@@ -23,7 +23,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
         full_name: z.string().trim().min(1).max(120),
         email: z.string().trim().email().max(255),
         password: z.string().min(8).max(128),
-        role: z.enum(["admin", "saelger", "salgssupport"]),
+        role: z.enum(["admin", "saelger", "salgssupport", "telemarketing"]),
         region: z.string().trim().max(120).optional().nullable(),
         salesperson_no: z.string().trim().max(32).optional().nullable(),
       })
@@ -74,7 +74,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       .object({
         user_id: z.string().uuid(),
         full_name: z.string().trim().min(1).max(120),
-        role: z.enum(["admin", "saelger", "salgssupport"]),
+        role: z.enum(["admin", "saelger", "salgssupport", "telemarketing"]),
         region: z.string().trim().max(120).optional().nullable(),
         salesperson_no: z.string().trim().max(32).optional().nullable(),
         maa_se_db: z.boolean().optional(),
@@ -199,9 +199,13 @@ export const adminListUsers = createServerFn({ method: "GET" })
     if (authErr) throw new Error(authErr.message);
 
     const emailMap = new Map<string, string>();
-    for (const u of authList.users) emailMap.set(u.id, u.email ?? "");
+    const loginMap = new Map<string, string | null>();
+    for (const u of authList.users) {
+      emailMap.set(u.id, u.email ?? "");
+      loginMap.set(u.id, u.last_sign_in_at ?? null);
+    }
 
-    type R = "admin" | "saelger" | "salgssupport";
+    type R = "admin" | "saelger" | "salgssupport" | "telemarketing";
     const roleMap = new Map<string, R>();
     for (const r of roles ?? []) {
       // admin wins if multiple rows exist
@@ -219,6 +223,7 @@ export const adminListUsers = createServerFn({ method: "GET" })
       salesperson_no: p.salesperson_no ?? null,
       is_active: p.is_active,
       created_at: p.created_at,
+      last_sign_in_at: loginMap.get(p.id) ?? null,
       maa_se_db: p.maa_se_db === true,
       maa_se_analyse: p.maa_se_analyse === true,
       maa_se_afdelingspotentiale: p.maa_se_afdelingspotentiale === true,
