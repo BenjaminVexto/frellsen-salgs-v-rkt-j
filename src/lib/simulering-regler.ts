@@ -21,13 +21,29 @@ export type Betingelse = {
   alternativ?: "behold" | "saelger";
   /** Sælgernøgle (bruger-id eller "f:<fiktiv id>") ved alternativ "saelger" */
   alternativSaelger?: string | null;
+  /** Hvor: valgfri geografisk afgrænsning (OG med Hvad). Mangler = hele landet. */
+  omraade?: Omraade | null;
 };
+export type Omraade = { type: "land" | "landsdel" | "distrikt" | "region"; vaerdier: string[] };
 export type Regel = { id: string; type: RegelType; saelger: string; b: Betingelse; aktiv: boolean };
 
-export type RegelLok = { kpg1: string; kpg2: string; kpg3: string; ansatte: number | null };
+export type RegelLok = {
+  kpg1: string; kpg2: string; kpg3: string; ansatte: number | null;
+  /** Fladens landsdel, scenariedistrikt-id og region (til regelens område) */
+  landsdel?: string | null; distrikt?: string | null; region?: string | null;
+};
+
+export function iOmraade(l: RegelLok, o: Omraade | null | undefined): boolean {
+  if (!o || o.type === "land" || !o.vaerdier?.length) return true;
+  const v = o.type === "landsdel" ? l.landsdel : o.type === "distrikt" ? l.distrikt : l.region;
+  return v != null && o.vaerdier.includes(v);
+}
 
 /** Matcher lokationen betingelsen? Flere valgte værdier/kriterier i samme regel = ELLER. */
 export function regelMatcher(l: RegelLok, b: Betingelse, type: RegelType): boolean {
+  return iOmraade(l, b.omraade) && hvadMatcher(l, b, type);
+}
+function hvadMatcher(l: RegelLok, b: Betingelse, type: RegelType): boolean {
   if (b.kpg1?.includes(l.kpg1)) return true;
   if (type === "tildel" && b.kpg2?.includes(l.kpg1 + "||" + l.kpg2)) return true;
   if (b.kpg3?.includes(l.kpg3)) return true;
@@ -63,14 +79,27 @@ export function bestemSaelger(o: {
 
 const kode = (s: string) => s.replace(/[[\]]/g, "").trim();
 
+/** Tekst for området, fx " · i landsdel Vest" (tom ved hele landet). */
+export function omraadeTekst(o: Omraade | null | undefined, distriktNavn: (id: string) => string = (x) => x): string {
+  if (!o || o.type === "land" || !o.vaerdier?.length) return "";
+  if (o.type === "landsdel") return ` · i landsdel ${o.vaerdier.join(", ")}`;
+  if (o.type === "region") return ` · i ${o.vaerdier.join(", ")}`;
+  return ` · i ${o.vaerdier.map(distriktNavn).join(", ")}`;
+}
+
+/** Alle aktive tildel-regler der matcher lokationen, i rækkefølge (første vinder). */
+export function tildelMatches(l: RegelLok, regler: Regel[]): string[] {
+  return regler.filter((r) => r.aktiv && r.type === "tildel" && regelMatcher(l, r.b, "tildel")).map((r) => r.id);
+}
+
 /** Kort sætning til visning, fx "Jes Højgaard får: 69 Regions aftale". */
-export function regelTekst(r: Regel, navn: (k: string) => string): string {
+export function regelTekst(r: Regel, navn: (k: string) => string, distriktNavn?: (id: string) => string): string {
   const dele: string[] = [];
   if (r.b.kpg1?.length) dele.push((r.type === "udeluk" ? "KPG1 " : "") + r.b.kpg1.map(kode).join(", "));
   if (r.type === "tildel" && r.b.kpg2?.length) dele.push(r.b.kpg2.map((k) => kode(k.split("||")[1] ?? k)).join(", "));
   if (r.b.kpg3?.length) dele.push("KPG3 " + r.b.kpg3.map(kode).join(", "));
   if (r.type === "udeluk" && r.b.ansatteOver != null) dele.push(`over ${r.b.ansatteOver.toLocaleString("da-DK")} ansatte`);
-  const bet = dele.join(" · ") || "(ingen betingelse)";
+  const bet = (dele.join(" · ") || "(ingen betingelse)") + omraadeTekst(r.b.omraade, distriktNavn);
   if (r.type === "tildel") return `${navn(r.saelger)} får: ${bet}`;
   const alt = r.b.alternativ === "saelger" && r.b.alternativSaelger ? `går til ${navn(r.b.alternativSaelger)}` : "beholder nuværende sælger";
   return `${navn(r.saelger)} må ikke have: ${bet} → ${alt}`;
