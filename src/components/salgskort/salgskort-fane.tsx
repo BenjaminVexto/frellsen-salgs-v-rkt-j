@@ -10,7 +10,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Loader2, Search, X } from "lucide-reac
 import { Input } from "@/components/ui/input";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { toast } from "sonner";
-import { AfvigelsesListe, DistriktPanel, distriktSaelger, hentDistriktData, initialer, kpg3Kode, type AfvigRow, type DistriktData, type DistriktStat } from "@/components/salgskort/distrikt";
+import { AfvigelsesListe, DistriktPanel, distriktSaelger, hentDistriktData, initialer, type AfvigRow, type DistriktData, type DistriktStat } from "@/components/salgskort/distrikt";
 import { SimuleringPanel, scSaelgerKey, tomAgg, useScenarie, type KamRow, type KonsekvensRow, type SimRow } from "@/components/salgskort/simulering";
 import { bestemSaelger, kamMatcher, kamPortefoelje, type KamAftale, type Regel } from "@/lib/simulering-regler";
 
@@ -192,7 +192,7 @@ export function SalgskortFane() {
   const pNavn = (id: string | null) => (id ? profilNavn.get(id) ?? "Ukendt" : "—");
   const distriktMap = useMemo(() => new Map((dd?.distrikter ?? []).map((d) => [d.id, d])), [dd]);
 
-  // Overensstemmelse pr. flade (kun geografiske lokationer under filtrene)
+  // Overensstemmelse pr. flade (alle lokationer undtagen Frellsen 199, under filtrene)
   const overens = useMemo(() => {
     const m = new Map<number, { n: number; match: number; db: number; oms: number }>();
     if (!dd) return m;
@@ -349,7 +349,7 @@ export function SalgskortFane() {
             if (d) { color = d.farve; opacity = d.saelger_user_id ? 0.8 : 0.35; ubesat = !d.saelger_user_id; lc = ubesat ? "#333333" : "#ffffff"; lw = ubesat ? 1 : 0.5; }
             tip = d ? `${d.navn} · ${d.saelger_user_id ? pNavn(d.saelger_user_id) : "NY – dækkes af " + (d.daekkes_af_user_id ? pNavn(d.daekkes_af_user_id) : "ingen")}` : "Intet distrikt";
           } else {
-            if (!o || !o.n) { color = "#cccccc"; tip = (d ? d.navn + " · " : "") + "Ingen geografiske lokationer"; }
+            if (!o || !o.n) { color = "#cccccc"; tip = (d ? d.navn + " · " : "") + "Ingen lokationer"; }
             else {
               const pct = o.match / o.n;
               color = pct >= 0.995 ? "#2e9e48" : pct >= 0.7 ? "#e8c330" : "#d62728"; opacity = 0.8;
