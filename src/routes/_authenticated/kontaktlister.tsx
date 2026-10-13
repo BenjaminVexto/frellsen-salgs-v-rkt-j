@@ -1,3 +1,4 @@
+import { CvrBulkSoegningDialog } from "@/components/cvr-bulk-soegning-dialog";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,7 +63,7 @@ function KontaktlisterOversigt() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  
+  const [cvrSearchOpen, setCvrSearchOpen] = useState(false);
   const [preselectedIds, setPreselectedIds] = useState<string[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ListRow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -184,6 +185,11 @@ function KontaktlisterOversigt() {
               <Plus className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Opret ny kontaktliste</span>
               <span className="md:hidden">Ny liste</span>
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setCvrSearchOpen(true)}>
+              <Search className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Opret liste fra CVR</span>
+              <span className="md:hidden">Fra CVR</span>
             </Button>
           </div>
         )}
@@ -397,9 +403,17 @@ function KontaktlisterOversigt() {
         />
       )}
 
-
-
-
+      {isAdmin && (
+        <CvrBulkSoegningDialog
+          open={cvrSearchOpen}
+          onOpenChange={setCvrSearchOpen}
+          onImported={(ids) => {
+            setCvrSearchOpen(false);
+            setPreselectedIds(ids);
+            setCreateOpen(true);
+          }}
+        />
+      )}
 
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <DialogContent>

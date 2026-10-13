@@ -1,4 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { KOMMUNE_KODER, REGION_KOMMUNER } from "@/lib/cvr-kommuner";
 import {
   Dialog,
   DialogContent,
@@ -52,8 +64,8 @@ const BRANCH_CATEGORIES: { label: string; prefixes: string[] }[] = [
 
 // Svarer til CVR's intervalkoder efter ANTAL_-prefix er fjernet
 const EMPLOYEE_BUCKETS: { label: string; codes: string[] }[] = [
-  { label: "0",       codes: ["0"]       },
-  { label: "1",       codes: ["1"]       },
+  { label: "0",       codes: ["0", "0_0"] },
+  { label: "1",       codes: ["1", "1_1"] },
   { label: "2-4",     codes: ["2_4"]     },
   { label: "5-9",     codes: ["5_9"]     },
   { label: "10-19",   codes: ["10_19"]   },
@@ -111,6 +123,11 @@ type CvrRow = {
   company_form: string | null;
   existing: boolean;
   zip: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  penheder: number;
 };
 
 // Filtrer på ansatte client-side. employees-værdien er ANTAL_-prefix fjernet,
@@ -118,13 +135,14 @@ type CvrRow = {
 function matchesEmployeeFilter(
   employees: string | null,
   selectedBuckets: string[],
+  includeUnknown: boolean,
 ): boolean {
+  if (!employees) return includeUnknown;
   if (!selectedBuckets.length) return true;
-  if (!employees) return true;
   const selectedCodes = EMPLOYEE_BUCKETS
     .filter((b) => selectedBuckets.includes(b.label))
     .flatMap((b) => b.codes);
-  return selectedCodes.includes(employees);
+  return selectedCodes.some((c) => (c.endsWith("_") ? employees.startsWith(c) : employees === c));
 }
 
 export function CvrBulkSoegningDialog({
@@ -171,7 +189,16 @@ export function CvrBulkSoegningDialog({
   }, [open]);
 
   // Filtre
-  const [kommune, setKommune] = useState("");
+  const [kommuner, setKommuner] = useState<string[]>([]);
+  const [kommuneQ, setKommuneQ] = useState("");
+  const [regioner, setRegioner] = useState<string[]>([]);
+  const [branchQuery, setBranchQuery] = useState("");
+  const [includeNoEmp, setIncludeNoEmp] = useState(true);
+  const [includeExisting, setIncludeExisting] = useState(false);
+  const [includeCeased, setIncludeCeased] = useState(false);
+  const [hideProtected, setHideProtected] = useState(true);
+  const [onlyPhone, setOnlyPhone] = useState(false);
+  const [confirmProtected, setConfirmProtected] = useState(false);
   const [zipFrom, setZipFrom] = useState("");
   const [zipTo, setZipTo] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
@@ -179,7 +206,7 @@ export function CvrBulkSoegningDialog({
   const [companyForms, setCompanyForms] = useState<string[]>([]);
 
   // Resultater
-  const [filteredRows, setFilteredRows] = useState<CvrRow[]>([]);
+  const [allRows, setAllRows] = useState<CvrRow[]>([]);
   const [selectedCvrs, setSelectedCvrs] = useState<Set<string>>(new Set());
   const [esTotalBeforeEmpFilter, setEsTotalBeforeEmpFilter] = useState(0);
   const [page, setPage] = useState(0);
@@ -196,14 +223,55 @@ export function CvrBulkSoegningDialog({
   }
 
   function getBranchCodes(): string[] {
-    return BRANCH_CATEGORIES
+    const fromCats = BRANCH_CATEGORIES
       .filter((c) => categories.includes(c.label))
       .flatMap((c) => c.prefixes);
+    const typed = branchQuery.split(/[\s,;]+/).map((x) => x.trim()).filter((x) => /^\d{2,6}$/.test(x));
+    return Array.from(new Set([...fromCats, ...typed]));
   }
 
-  function applyEmployeeFilter(items: CvrRow[]): CvrRow[] {
-    return items.filter((r) => matchesEmployeeFilter(r.employees, employeeBuckets));
+  function getMunicipalityCodes(): string[] {
+    const codes = new Set<string>();
+    kommuner.forEach((k) => KOMMUNE_KODER[k] && codes.add(KOMMUNE_KODER[k]));
+    regioner.forEach((r) => (REGION_KOMMUNER[r] ?? []).forEach((c) => codes.add(c)));
+    return Array.from(codes);
   }
+
+  // Lokale filtre (ansatte, eksisterende, reklamebeskyttelse, telefon)
+  const empPassed = useMemo(
+    () => allRows.filter((r) => matchesEmployeeFilter(r.employees, employeeBuckets, includeNoEmp)),
+    [allRows, employeeBuckets, includeNoEmp],
+  );
+  const noEmpCount = useMemo(() => allRows.filter((r) => !r.employees).length, [allRows]);
+  const existingCount = useMemo(() => empPassed.filter((r) => r.existing).length, [empPassed]);
+  const afterExisting = useMemo(
+    () => (includeExisting ? empPassed : empPassed.filter((r) => !r.existing)),
+    [empPassed, includeExisting],
+  );
+  const protectedCount = useMemo(() => afterExisting.filter((r) => r.ad_protection).length, [afterExisting]);
+  const afterProtected = useMemo(
+    () => (hideProtected ? afterExisting.filter((r) => !r.ad_protection) : afterExisting),
+    [afterExisting, hideProtected],
+  );
+  const noPhoneCount = useMemo(() => afterProtected.filter((r) => !r.phone).length, [afterProtected]);
+  const filteredRows = useMemo(
+    () => (onlyPhone ? afterProtected.filter((r) => !!r.phone) : afterProtected),
+    [afterProtected, onlyPhone],
+  );
+
+  function defaultSelection(rows: CvrRow[]): Set<string> {
+    return new Set(rows.filter((r) => !r.existing && !r.ad_protection).map((r) => r.cvr));
+  }
+
+  // Ved ændring af lokale filtre: fjern valg der ikke længere er synlige
+  useEffect(() => {
+    const visible = new Set(filteredRows.map((r) => r.cvr));
+    setSelectedCvrs((prev) => {
+      const next = new Set([...prev].filter((c) => visible.has(c)));
+      return next.size === prev.size ? prev : next;
+    });
+    setPage(0);
+  }, [filteredRows]);
 
   function applyZipFilter(items: CvrRow[]): CvrRow[] {
     if (!zipFrom || !zipTo) return items;
@@ -234,7 +302,8 @@ export function CvrBulkSoegningDialog({
   function buildRequestFilters() {
     const branchCodes = getBranchCodes();
     return {
-      ...(kommune ? { municipality: kommune } : {}),
+      ...(getMunicipalityCodes().length ? { municipality_codes: getMunicipalityCodes() } : {}),
+      ...(includeCeased ? { include_ceased: true } : {}),
       ...(branchCodes.length ? { branch_codes: branchCodes } : {}),
       ...(companyForms.length ? { company_forms: companyForms } : {}),
     };
@@ -262,18 +331,23 @@ export function CvrBulkSoegningDialog({
       company_form: c.company_form,
       existing: false,
       zip: c.zip,
+      address: c.address ?? null,
+      phone: c.phone ?? null,
+      email: c.email ?? null,
+      website: c.website ?? null,
+      penheder: c.penheder_count ?? 0,
     };
   }
 
   async function runSearch() {
-    if (!kommune && !(zipFrom && zipTo)) {
-      toast.error("Vælg en kommune eller postnummer-interval");
+    if (!getMunicipalityCodes().length && !(zipFrom && zipTo)) {
+      toast.error("Vælg kommune(r), region(er) eller et postnummer-interval");
       return;
     }
 
     setSearching(true);
     setHasSearched(true);
-    setFilteredRows([]);
+    setAllRows([]);
     setSelectedCvrs(new Set());
     setPage(0);
     setEsTotalBeforeEmpFilter(0);
@@ -290,11 +364,10 @@ export function CvrBulkSoegningDialog({
       const list = Array.isArray(res.data) ? res.data : [];
       const mapped = list.map(mapToRow);
       const zipFiltered = applyZipFilter(mapped);
-      const empFiltered = applyEmployeeFilter(zipFiltered);
-      const annotated = await annotateExisting(empFiltered);
+      const annotated = await annotateExisting(zipFiltered);
 
-      setFilteredRows(annotated);
-      setSelectedCvrs(new Set(annotated.filter((r) => !r.existing).map((r) => r.cvr)));
+      setAllRows(annotated);
+      setSelectedCvrs(defaultSelection(annotated.filter((r) => matchesEmployeeFilter(r.employees, employeeBuckets, includeNoEmp) && (!onlyPhone || r.phone))));
     } finally {
       setSearching(false);
     }
@@ -317,8 +390,7 @@ export function CvrBulkSoegningDialog({
         const list = Array.isArray(res.data) ? res.data : [];
         const mapped = list.map(mapToRow);
         const zipFiltered = applyZipFilter(mapped);
-        const empFiltered = applyEmployeeFilter(zipFiltered);
-        for (const r of empFiltered) {
+        for (const r of zipFiltered) {
           if (!seen.has(r.cvr)) {
             seen.add(r.cvr);
             aggregated.push(r);
@@ -331,11 +403,11 @@ export function CvrBulkSoegningDialog({
       }
 
       const annotated = await annotateExisting(aggregated);
-      setFilteredRows(annotated);
-      setSelectedCvrs(new Set(annotated.filter((r) => !r.existing).map((r) => r.cvr)));
+      setAllRows(annotated);
+      setSelectedCvrs(defaultSelection(annotated.filter((r) => matchesEmployeeFilter(r.employees, employeeBuckets, includeNoEmp) && (!onlyPhone || r.phone))));
       setPage(0);
       toast.success(
-        `${annotated.length.toLocaleString("da")} virksomheder matcher ALLE filtre inkl. ansatte` +
+        `${annotated.length.toLocaleString("da")} virksomheder hentet` +
         ` (hentet og filtreret fra ${esTotalBeforeEmpFilter.toLocaleString("da")} i CVR)`,
       );
     } finally {
@@ -343,10 +415,14 @@ export function CvrBulkSoegningDialog({
     }
   }
 
-  async function doImport() {
+  async function doImport(force = false) {
     const chosen = filteredRows.filter((r) => selectedCvrs.has(r.cvr));
     if (!chosen.length) {
       toast.error("Vælg mindst én virksomhed");
+      return;
+    }
+    if (!force && chosen.some((r) => r.ad_protection)) {
+      setConfirmProtected(true);
       return;
     }
     setImporting(true);
@@ -357,6 +433,11 @@ export function CvrBulkSoegningDialog({
           cvr: r.cvr,
           name: r.name!,
           city: r.city,
+          address: r.address,
+          zip: r.zip,
+          phone: r.phone,
+          email: r.email,
+          website: r.website,
           municipality: r.municipality,
           industry: r.industry,
           employees_interval: r.employees,
@@ -367,8 +448,9 @@ export function CvrBulkSoegningDialog({
       if (newIds.length) {
         try {
           const labelBits: string[] = [];
-          if (kommune) labelBits.push(kommune);
-          else if (zipFrom || zipTo) labelBits.push(`postnr ${zipFrom || "…"}–${zipTo || "…"}`);
+          if (regioner.length) labelBits.push(regioner.join(", "));
+          if (kommuner.length) labelBits.push(kommuner.join(", "));
+          if (zipFrom || zipTo) labelBits.push(`postnr ${zipFrom || "…"}–${zipTo || "…"}`);
           const dateLabel = new Date().toLocaleDateString("da-DK", {
             day: "numeric",
             month: "short",
@@ -386,7 +468,10 @@ export function CvrBulkSoegningDialog({
           console.error("Kunne ikke registrere CVR-import-batch", e);
         }
       }
-      toast.success(`Importeret: ${res.inserted} nye, ${res.already_existed} fandtes allerede`);
+      const withPhone = chosen.filter((r) => r.phone).length;
+      toast.success(
+        `Importeret: ${res.inserted} nye, ${res.already_existed} fandtes allerede · ${withPhone} af ${chosen.length} med telefonnummer`,
+      );
       const allIds: string[] = res.company_ids ?? [];
       if (selectedSellerId && allIds.length) {
         try {
@@ -430,22 +515,43 @@ export function CvrBulkSoegningDialog({
           <div className="space-y-5">
             <div className="space-y-2">
               <Label>Geografi *</Label>
-              <p className="text-xs text-muted-foreground">Vælg én kommune ELLER postnummer-interval</p>
-              <div className="max-h-48 overflow-y-auto border rounded p-2 space-y-1">
-                {KOMMUNER.map((k) => (
+              <p className="text-xs text-muted-foreground">Regioner og/eller kommuner – eller et postnummer-interval</p>
+              <div className="flex flex-wrap gap-1">
+                {Object.keys(REGION_KOMMUNER).map((rg) => (
+                  <Button
+                    key={rg}
+                    type="button"
+                    size="sm"
+                    variant={regioner.includes(rg) ? "default" : "outline"}
+                    className="h-7 px-2 text-xs"
+                    onClick={() => toggleItem(regioner, rg, setRegioner)}
+                  >
+                    {rg}
+                  </Button>
+                ))}
+              </div>
+              <Input
+                placeholder="Søg kommune…"
+                value={kommuneQ}
+                onChange={(e) => setKommuneQ(e.target.value)}
+                className="h-8"
+              />
+              <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-1">
+                {KOMMUNER.filter((k) => k.toLowerCase().includes(kommuneQ.toLowerCase()))
+                  .sort((a, b) => Number(kommuner.includes(b)) - Number(kommuner.includes(a)))
+                  .map((k) => (
                   <label key={k} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="radio"
-                      name="kommune"
-                      checked={kommune === k}
-                      onChange={() => setKommune(kommune === k ? "" : k)}
-                      onClick={() => setKommune(kommune === k ? "" : k)}
-                      className="accent-primary"
+                    <Checkbox
+                      checked={kommuner.includes(k)}
+                      onCheckedChange={() => toggleItem(kommuner, k, setKommuner)}
                     />
                     {k}
                   </label>
                 ))}
               </div>
+              {kommuner.length > 0 && (
+                <p className="text-xs text-muted-foreground">{kommuner.length} kommuner valgt</p>
+              )}
               <div className="flex gap-2">
                 <Input
                   placeholder="Postnr. fra"
@@ -473,11 +579,22 @@ export function CvrBulkSoegningDialog({
                   </label>
                 ))}
               </div>
+              <Input
+                placeholder="DB07-koder/præfikser, fx 56, 862100"
+                value={branchQuery}
+                onChange={(e) => setBranchQuery(e.target.value)}
+                className="h-8"
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Antal ansatte</Label>
               <p className="text-xs text-muted-foreground">Filtreres efter søgning baseret på aktuelle tal</p>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch checked={includeNoEmp} onCheckedChange={setIncludeNoEmp} />
+                Medtag virksomheder uden ansatte-data
+                {hasSearched && <span className="text-xs text-muted-foreground">({noEmpCount})</span>}
+              </label>
               <div className="space-y-1">
                 {EMPLOYEE_BUCKETS.map((b) => (
                   <label key={b.label} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -504,6 +621,19 @@ export function CvrBulkSoegningDialog({
                   </label>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Udeluk</Label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch checked={includeExisting} onCheckedChange={setIncludeExisting} />
+                Medtag virksomheder der allerede findes
+                {hasSearched && <span className="text-xs text-muted-foreground">({existingCount})</span>}
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch checked={includeCeased} onCheckedChange={setIncludeCeased} />
+                Medtag ophørte (kræver ny søgning)
+              </label>
             </div>
 
             <Button onClick={runSearch} disabled={searching || fetchingAll} className="w-full">
@@ -547,15 +677,30 @@ export function CvrBulkSoegningDialog({
               </div>
             )}
 
+            {hasSearched && (
+              <div className="flex flex-wrap gap-4 items-center text-sm">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch checked={hideProtected} onCheckedChange={setHideProtected} />
+                  Skjul reklamebeskyttede
+                  <span className="text-xs text-muted-foreground">
+                    ({protectedCount} {hideProtected ? "skjult" : "vist"})
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch checked={onlyPhone} onCheckedChange={setOnlyPhone} />
+                  Kun med telefonnummer
+                  <span className="text-xs text-muted-foreground">({noPhoneCount} uden)</span>
+                </label>
+              </div>
+            )}
+
             {hasSearched && filteredRows.length > 0 && (
               <div className="flex flex-wrap gap-2 items-center">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    setSelectedCvrs(
-                      new Set(filteredRows.filter((r) => !r.existing).map((r) => r.cvr)),
-                    )
+                    setSelectedCvrs(defaultSelection(filteredRows))
                   }
                 >
                   Vælg alle nye
@@ -600,7 +745,8 @@ export function CvrBulkSoegningDialog({
                   <TableRow>
                     <TableHead className="w-10"></TableHead>
                     <TableHead>Navn</TableHead>
-                    <TableHead>By</TableHead>
+                    <TableHead>Telefon</TableHead>
+                    <TableHead>Adresse</TableHead>
                     <TableHead>Branche</TableHead>
                     <TableHead>Ansatte</TableHead>
                     <TableHead>I systemet</TableHead>
@@ -610,7 +756,7 @@ export function CvrBulkSoegningDialog({
                 <TableBody>
                   {pagedRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
                         {searching
                           ? "Søger…"
                           : hasSearched
@@ -635,7 +781,11 @@ export function CvrBulkSoegningDialog({
                           />
                         </TableCell>
                         <TableCell>{r.name ?? "—"}</TableCell>
-                        <TableCell>{r.city ?? "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap tabular-nums">{r.phone ?? "—"}</TableCell>
+                        <TableCell className="text-xs">
+                          {r.address ?? "—"}
+                          <div className="text-muted-foreground">{[r.zip, r.city].filter(Boolean).join(" ")}</div>
+                        </TableCell>
                         <TableCell>{r.industry ?? "—"}</TableCell>
                         <TableCell>{r.employees ?? "—"}</TableCell>
                         <TableCell>
@@ -645,7 +795,7 @@ export function CvrBulkSoegningDialog({
                         </TableCell>
                         <TableCell>
                           {r.ad_protection && (
-                            <ShieldAlert className="h-4 w-4 text-amber-500" />
+                            <span title="Reklamebeskyttet"><ShieldAlert className="h-4 w-4 text-destructive" /></span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -706,12 +856,29 @@ export function CvrBulkSoegningDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annullér
           </Button>
-          <Button onClick={doImport} disabled={importing || selectedCvrs.size === 0}>
+          <Button onClick={() => doImport()} disabled={importing || selectedCvrs.size === 0}>
             {importing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Importér {selectedCvrs.size} valgte til systemet
           </Button>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={confirmProtected} onOpenChange={setConfirmProtected}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reklamebeskyttede virksomheder valgt</AlertDialogTitle>
+            <AlertDialogDescription>
+              {filteredRows.filter((r) => selectedCvrs.has(r.cvr) && r.ad_protection).length} af de valgte
+              virksomheder er reklamebeskyttede og må ikke kontaktes med telemarketing. Vil du importere dem alligevel?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annullér</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmProtected(false); doImport(true); }}>
+              Importér alligevel
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

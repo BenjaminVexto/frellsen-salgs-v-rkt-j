@@ -30,6 +30,7 @@ export type CvrCompany = {
   sub_branch_2_text: string | null;
   sub_branch_3_code: string | null;
   sub_branch_3_text: string | null;
+  penheder_count: number;
 };
 
 export type CvrResponse =
@@ -54,6 +55,13 @@ const SOURCE_FIELDS = [
   "Vrvirksomhed.aarsbeskaeftigelse",
   "Vrvirksomhed.kvartalsbeskaeftigelse",
   "Vrvirksomhed.maanedsbeskaeftigelse",
+  "Vrvirksomhed.telefonNummer",
+  "Vrvirksomhed.elektroniskPost",
+  "Vrvirksomhed.hjemmeside",
+  "Vrvirksomhed.virksomhedMetadata.nyesteMaanedsbeskaeftigelse",
+  "Vrvirksomhed.virksomhedMetadata.nyesteKvartalsbeskaeftigelse",
+  "Vrvirksomhed.virksomhedMetadata.nyesteAarsbeskaeftigelse",
+  "Vrvirksomhed.penheder.pNummer",
 ];
 
 function pickLatest<T extends { periode?: { gyldigFra?: string | null; gyldigTil?: string | null } }>(
@@ -90,9 +98,17 @@ function mapVirksomhed(v: any): CvrCompany {
   const bi2 = pickLatest<any>(v?.bibranche2);
   const bi3 = pickLatest<any>(v?.bibranche3);
 
-  const mnd = pickLatest<any>(v?.maanedsbeskaeftigelse);
-  const kvt = pickLatest<any>(v?.kvartalsbeskaeftigelse);
-  const aar = pickLatest<any>(v?.aarsbeskaeftigelse);
+  const mnd = meta?.nyesteMaanedsbeskaeftigelse ?? null;
+  const kvt = meta?.nyesteKvartalsbeskaeftigelse ?? null;
+  const aar = meta?.nyesteAarsbeskaeftigelse ?? null;
+  // Kontaktoplysninger: kun gældende (uden gyldigTil) og ikke hemmelige
+  const currentContact = (arr: any): string | null => {
+    if (!Array.isArray(arr)) return null;
+    const hit = arr
+      .filter((x: any) => x && !x.hemmelig && !x?.periode?.gyldigTil && x.kontaktoplysning)
+      .sort((a: any, b: any) => String(b?.periode?.gyldigFra ?? "").localeCompare(String(a?.periode?.gyldigFra ?? "")))[0];
+    return hit ? String(hit.kontaktoplysning) : null;
+  };
   let employees_interval: string | null = null;
   let employees_source: string | null = null;
   if (mnd?.intervalKodeAntalAnsatte) {
@@ -113,9 +129,9 @@ function mapVirksomhed(v: any): CvrCompany {
     zip: addr?.postnummer != null ? String(addr.postnummer) : null,
     city: addr?.postdistrikt ?? null,
     municipality: addr?.kommune?.kommuneNavn ?? null,
-    phone: meta?.nyesteTelefonnummer?.kontaktoplysning ?? null,
-    email: meta?.nyesteElektroniskPost?.kontaktoplysning ?? null,
-    website: meta?.nyesteHjemmeside?.kontaktoplysning ?? null,
+    phone: currentContact(v?.telefonNummer) ?? meta?.nyesteTelefonnummer?.kontaktoplysning ?? null,
+    email: currentContact(v?.elektroniskPost) ?? meta?.nyesteElektroniskPost?.kontaktoplysning ?? null,
+    website: currentContact(v?.hjemmeside) ?? meta?.nyesteHjemmeside?.kontaktoplysning ?? null,
     company_form: form?.kortBeskrivelse ?? form?.virksomhedsformkode ?? null,
     status: meta?.sammensatStatus ?? "UKENDT",
     start_date: liv?.periode?.gyldigFra ?? null,
@@ -130,6 +146,7 @@ function mapVirksomhed(v: any): CvrCompany {
     sub_branch_2_text: bi2?.branchetekst ?? null,
     sub_branch_3_code: bi3?.branchekode ?? null,
     sub_branch_3_text: bi3?.branchetekst ?? null,
+    penheder_count: Array.isArray(v?.penheder) ? v.penheder.length : 0,
   };
 }
 
@@ -178,6 +195,8 @@ const InputSchema = z.discriminatedUnion("type", [
     filters: z.object({
       municipality: z.string().min(1).max(60).optional(),
       municipality_code: z.string().regex(/^\d{3,4}$/).optional(),
+      municipality_codes: z.array(z.string().regex(/^\d{3,4}$/)).max(110).optional(),
+      include_ceased: z.boolean().optional(),
       branch_codes: z.array(z.string().min(2).max(10)).max(50).optional(),
       company_forms: z.array(z.string().min(1).max(40)).max(20).optional(),
     }),
@@ -277,8 +296,8 @@ export const cvrLookup = createServerFn({ method: "POST" })
       const must: any[] = [];
       const filter: any[] = [];
 
-      // Status: aktiv + normal
-      must.push({
+      // Status: aktiv + normal (medmindre ophørte skal medtages)
+      if (!f.include_ceased) must.push({
         bool: {
           should: [
             { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv" } },
@@ -295,7 +314,14 @@ export const cvrLookup = createServerFn({ method: "POST" })
       if (f.municipality && !kommuneKode) {
         return { success: false, error: `UNKNOWN_MUNICIPALITY: ${f.municipality}` };
       }
-      if (kommuneKode) {
+      if (f.municipality_codes && f.municipality_codes.length) {
+        filter.push({
+          terms: {
+            "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.kommune.kommuneKode":
+              f.municipality_codes.map((k) => k.padStart(4, "0")),
+          },
+        });
+      } else if (kommuneKode) {
         filter.push({
           term: {
             "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.kommune.kommuneKode":
