@@ -589,6 +589,20 @@
       "when": 1791874804075,
       "tag": "0083_distrikt_scenarier",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1791884317944,
+      "tag": "0084_scenarie_regler",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1791884338544,
+      "tag": "0085_scenarie_kopier_regler",
+      "breakpoints": true
     }
   ]
 }
