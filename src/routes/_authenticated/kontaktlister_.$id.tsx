@@ -603,7 +603,7 @@ function KontaktlisteDetalje() {
                 {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={11}
+                      colSpan={9}
                       className="text-center text-sm text-muted-foreground py-12"
                     >
                       Ingen virksomheder matcher filtrene.
