@@ -112,6 +112,7 @@ export function SalgskortFane() {
   const [dd, setDd] = useState<DistriktData | null>(null);
   const [redigerer, setRedigerer] = useState(false);
   const [valgtDistrikt, setValgtDistrikt] = useState<string | null>(null);
+  const [hoverDistr, setHoverDistr] = useState<string | null>(null);
   const st = useScenarie(visning === "sim");
   const [zoom, setZoom] = useState<{ flade: number; n: number } | null>(null);
   const [fane, setFane] = useState<"saelgere" | "afvig">("saelgere");
@@ -298,7 +299,8 @@ export function SalgskortFane() {
     const afviger: SimRow[] = [];
     const regelStat = new Map<string, { n: number; oms: number }>();
     const overlap = new Map<string, Map<string, number>>();
-    if (visning !== "sim" || !st.sc || !data || !dd) return { kons: [] as KonsekvensRow[], flyt, afviger, regelStat, overlap, ukendte: 0, penhed: 0, kam: [] as KamRow[], scKamStat: new Map<string, { n: number; oms: number }>() };
+    const dStat = new Map<string, { n: number; oms: number }>();
+    if (visning !== "sim" || !st.sc || !data || !dd) return { kons: [] as KonsekvensRow[], flyt, afviger, regelStat, overlap, ukendte: 0, penhed: 0, kam: [] as KamRow[], scKamStat: new Map<string, { n: number; oms: number }>(), dStat };
     const fn = new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]));
     const gDistr = new Map(dd.distrikter.map((d) => [d.id, d]));
     const get = (k: string) => { let e = kons.get(k); if (!e) kons.set(k, (e = { key: k, foer: tomAgg(), efter: tomAgg() })); return e; };
@@ -320,6 +322,7 @@ export function SalgskortFane() {
       for (const [k, side] of [[r.sKey, "foer"], [til, "efter"]] as const) {
         const a = get(k)[side]; a.n++; a.aktive += aktiv ? 1 : 0; a.oms += r.omsaetning_12m; a.db += r.db_12m;
       }
+      if (scD && til === scSaelgerKey(scD)) { const e = dStat.get(scD.id) ?? { n: 0, oms: 0 }; e.n++; e.oms += r.omsaetning_12m; dStat.set(scD.id, e); }
       if (b.aarsag && b.aarsag !== "geo") { const s = regelStat.get(b.aarsag) ?? { n: 0, oms: 0 }; s.n++; s.oms += r.omsaetning_12m; regelStat.set(b.aarsag, s); }
       const basis = { location_id: r.location_id, company_id: r.company_id, virksomhed: r.virksomhedsnavn ?? "", postnr: r.zip_norm ?? "",
         by: r.flade != null ? fn.get(r.flade) ?? "" : "", aktiv, oms: r.omsaetning_12m, db: r.db_12m, nu: r.sKey };
@@ -334,7 +337,7 @@ export function SalgskortFane() {
     for (const a of scKam) scKamStat.set(a.id, taelKam(a, true));
     const tom = { aftaler: 0, n: 0, oms: 0, db: 0 };
     const kam: KamRow[] = [...new Set([...kf.keys(), ...ke.keys()])].map((k) => ({ key: k, foer: kf.get(k) ?? tom, efter: ke.get(k) ?? tom })).sort((a, b) => b.efter.oms - a.efter.oms);
-    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt, afviger, regelStat, overlap, ukendte, penhed, kam, scKamStat };
+    return { kons: [...kons.values()].sort((a, b) => b.efter.oms - a.efter.oms), flyt, afviger, regelStat, overlap, ukendte, penhed, kam, scKamStat, dStat };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visning, st.sc, data, dd, filtrerede, simLoks, scMap, regler, scKam]);
   const regelValg = useMemo(() => ({
@@ -380,6 +383,7 @@ export function SalgskortFane() {
           else {
             color = d.farve; const fiktiv = !!d.saelger_fiktiv_id; const besat = !!(d.saelger_user_id || d.saelger_fiktiv_id);
             opacity = besat ? 0.8 : 0.35; ubesat = !d.saelger_user_id; lc = ubesat ? "#333333" : "#ffffff"; lw = ubesat ? 1 : 0.5;
+            if (hoverDistr) opacity = hoverDistr === d.id ? 0.95 : 0.12;
             tip = `${d.navn} · ${d.saelger_user_id ? pNavn(d.saelger_user_id) : fiktiv ? (fiktivMap.get(d.saelger_fiktiv_id!)?.navn ?? "?") + " (fiktiv)" : "NY – dækkes af " + (d.daekkes_af_user_id ? pNavn(d.daekkes_af_user_id) : "ingen")}`;
           }
         } else if (visning !== "virk") {
@@ -415,7 +419,7 @@ export function SalgskortFane() {
     });
     return { main: mk(false), bh: mk(true) };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, pFlade, farver, fremhaevAktiv, visning, overens, dd, distriktMap, profilNavn, st.sc, scMap, fiktivMap]);
+  }, [data, pFlade, farver, fremhaevAktiv, visning, overens, dd, distriktMap, profilNavn, st.sc, scMap, fiktivMap, hoverDistr]);
 
   if (auth.loading) return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Indlæser…</div>;
   if (auth.role !== "admin") return null;
@@ -534,6 +538,18 @@ export function SalgskortFane() {
                 {fremhaev && <button type="button" className="inline-flex items-center gap-1 text-muted-foreground hover:underline" onClick={() => setFremhaev(null)}><X className="h-3 w-3" /> Fjern fremhævning</button>}
               </div>
             )}
+            {visning === "sim" && st.sc && st.sc.distrikter.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b border-border px-3 py-1.5 text-xs" onMouseLeave={() => setHoverDistr(null)}>
+                {st.sc.distrikter.map((d) => (
+                  <button key={d.id} type="button" onMouseEnter={() => setHoverDistr(d.id)}
+                    onClick={() => { setValgtDistrikt(d.id); if (st.scenarier.find((s) => s.id === st.valgtId)?.status === "kladde") setRedigerer(true); }}
+                    className={"inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 hover:bg-muted " + (valgtDistrikt === d.id && redigerer ? "bg-muted font-medium" : "")}>
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.farve, outline: d.saelger_user_id ? undefined : "1px dashed currentColor" }} />
+                    <span className="whitespace-nowrap">{d.navn} – {simNavn(scSaelgerKey(d))}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {chips.length > 0 && (
               <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-2">
                 {chips.map((c) => (
@@ -546,7 +562,8 @@ export function SalgskortFane() {
               </div>
             )}
             <div className="relative flex-1 min-h-0">
-              <Kort geo={geo} onKlik={(f) => (redigerer ? tildel(f) : setValgtFlade(f))} redigerer={redigerer && !!valgtDistrikt} onMal={tildel} zoom={zoom} />
+              <Kort geo={geo} onKlik={(f) => (redigerer ? tildel(f) : setValgtFlade(f))} redigerer={redigerer && !!valgtDistrikt} onMal={tildel} zoom={zoom}
+                fitKey={`${visning}|${!!flade}|${st.valgtId ?? ""}|${chips.length > 0}|${saelgerBjaelke.length > 0}`} />
               {(visning === "distr" || visning === "over") && dd && dd.distrikter.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/70 pointer-events-none">
                   <div className="rounded-lg border border-border bg-card p-6 text-center shadow">
@@ -568,7 +585,7 @@ export function SalgskortFane() {
             ) : visning === "sim" ? (
               dd ? <SimuleringPanel st={st} dd={dd} navn={simNavn} farve={simFarve} konsekvens={sim.kons} flytninger={sim.flyt}
                 afviger={sim.afviger} regler={regler} regelStat={sim.regelStat} overlap={sim.overlap} taelRegel={taelRegel} regioner={regioner} ukendteAnsatte={sim.ukendte} penhedAnsatte={sim.penhed}
-                antalLok={filtrerede.length} regelValg={regelValg} kamPort={sim.kam} kamTael={(a) => taelKam(a, true)} kamStat={sim.scKamStat}
+                antalLok={filtrerede.length} regelValg={regelValg} kamPort={sim.kam} kamTael={(a) => taelKam(a, true)} kamStat={sim.scKamStat} dStatSc={sim.dStat}
                 redigerer={redigerer} setRedigerer={setRedigerer}
                 valgt={valgtDistrikt} setValgt={setValgtDistrikt} fladeNavn={new Map(data.flader.map((f) => [f.flade, f.navn ?? ""]))} /> : null
             ) : (
@@ -776,7 +793,7 @@ function bbox(fc: any): [number, number, number, number] | null {
   return a[0] > a[2] ? null : (a as any);
 }
 
-function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: any }; onKlik: (f: number) => void; redigerer?: boolean; onMal?: (f: number) => void; zoom?: { flade: number; n: number } | null }) {
+function Kort({ geo, onKlik, redigerer, onMal, zoom, fitKey }: { geo: { main: any; bh: any }; onKlik: (f: number) => void; redigerer?: boolean; onMal?: (f: number) => void; zoom?: { flade: number; n: number } | null; fitKey?: string }) {
   const redRef = useRef(!!redigerer); redRef.current = !!redigerer;
   const malRef = useRef(onMal); malRef.current = onMal;
   const maler = useRef<{ on: boolean; sidst: number | null }>({ on: false, sidst: null });
@@ -788,6 +805,12 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
   const geoRef = useRef(geo); geoRef.current = geo;
   const fitted = useRef([false, false]);
   const flyttet = useRef([false, false]);
+  const fitAlle = () => maps.current.forEach((m, i) => {
+    m.resize();
+    if (!m.getSource?.("f") || flyttet.current[i]) return;
+    const b = bbox(i ? geoRef.current.bh : geoRef.current.main);
+    if (b) m.fitBounds(b, { padding: i ? 6 : 16, duration: 0 });
+  });
 
   useEffect(() => {
     let dead = false;
@@ -833,11 +856,8 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
       };
       if (!mainRef.current || !bhRef.current) return;
       maps.current = [make(mainRef.current, 0, false), make(bhRef.current, 1, true)];
-      ro = new ResizeObserver(() => maps.current.forEach((m, i) => {
-        m.resize();
-        const s = m.getSource?.("f");
-        if (s && !flyttet.current[i]) { const b = bbox(i ? geoRef.current.bh : geoRef.current.main); if (b) m.fitBounds(b, { padding: i ? 6 : 12, duration: 0 }); }
-      }));
+      let raf = 0;
+      ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => fitAlle()); });
       ro.observe(mainRef.current); ro.observe(bhRef.current);
       if (bhRef.current) {
         // tillad hover/klik i indsat boks
@@ -859,6 +879,9 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
     });
   }, [geo]);
 
+  // Refit ved visningsskift / layoutændring (respekterer brugerens egen zoom/panorering)
+  useEffect(() => { const t = setTimeout(fitAlle, 50); return () => clearTimeout(t); }, [fitKey]);
+
   useEffect(() => {
     if (!zoom) return;
     [geo.main, geo.bh].forEach((d, i) => {
@@ -872,6 +895,8 @@ function Kort({ geo, onKlik, redigerer, onMal, zoom }: { geo: { main: any; bh: a
   return (
     <>
       <div className="absolute inset-0"><div ref={mainRef} style={{ width: "100%", height: "100%" }} /></div>
+      <button type="button" onClick={() => { flyttet.current = [false, false]; fitAlle(); }}
+        className="absolute top-2 left-2 z-10 rounded-md border border-border bg-background/90 px-2 py-0.5 text-xs hover:bg-muted">Tilpas</button>
       <div className="absolute top-2 right-2 h-[90px] w-[110px] border border-border rounded bg-background overflow-hidden">
         <div className="absolute inset-0"><div ref={bhRef} style={{ width: "100%", height: "100%" }} /></div>
         <div className="absolute top-0.5 left-1 text-[10px] text-muted-foreground pointer-events-none">Bornholm</div>
