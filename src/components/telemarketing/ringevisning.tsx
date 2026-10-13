@@ -178,7 +178,7 @@ export function Ringevisning({ listId }: { listId: string }) {
                 <SH k="ansatte" l="Ansatte" />
                 <SH k="status" l="Status" />
                 <SH k="note" l="Seneste note" />
-                <SH k="ring" l="Ring igen" />
+                <SH k="ring" l="Ring igen" className="whitespace-nowrap" />
                 <TableHead />
               </TableRow>
             </TableHeader>
