@@ -1,3 +1,4 @@
+import { dekomprimerJson } from "@/lib/komprimer-json";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { DataOpdateret } from "@/components/data-opdateret";
 import { useAuth } from "@/hooks/useAuth";

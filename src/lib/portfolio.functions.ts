@@ -1,3 +1,4 @@
+import { komprimerJson } from "./komprimer-json";
 import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { harGyldigtSammenligningsvindue } from "./kunde-status";
