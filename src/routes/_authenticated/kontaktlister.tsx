@@ -405,6 +405,7 @@ function KontaktlisterOversigt() {
           onCreated={() => {
             setCreateOpen(false);
             setPreselectedIds(null);
+            setNavnForslag("");
             load();
           }}
         />
