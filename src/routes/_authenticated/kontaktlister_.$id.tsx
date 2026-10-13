@@ -114,6 +114,7 @@ type Row = {
   seller_name: string;
   last_activity_at: string | null;
   last_activity_type: string | null;
+  seneste_note: { note: string; at: string; bruger: string } | null;
 };
 
 function KontaktlisteDetalje() {
@@ -167,10 +168,16 @@ function KontaktlisteDetalje() {
       ).catch((e) => { toast.error("Kunne ikke hente listen: " + (e?.message ?? e)); return [] as any[]; }),
     ]);
     setList(listData as any);
+    const noter = await hentAlle<any>((f, t) =>
+      (supabase as any).from("kontaktliste_opkald").select("company_id, note, created_at, user_id")
+        .eq("contact_list_id", id).not("note", "is", null).order("created_at", { ascending: false }).order("id").range(f, t),
+    ).catch(() => [] as any[]);
+    const noteMap = new Map<string, any>();
+    for (const n of noter) if (!noteMap.has(n.company_id)) noteMap.set(n.company_id, n);
 
     const userIds = Array.from(
       new Set(
-        (assigns ?? []).map((a) => a.assigned_to).filter(Boolean) as string[],
+        [...(assigns ?? []).map((a) => a.assigned_to), ...[...noteMap.values()].map((n) => n.user_id)].filter(Boolean) as string[],
       ),
     );
     const companyIds = (assigns ?? []).map((a) => a.company_id);
@@ -275,6 +282,10 @@ function KontaktlisteDetalje() {
       seller_name: a.assigned_to ? pMap.get(a.assigned_to) ?? "Ukendt" : "—",
       last_activity_at: lastActMap.get(a.company_id)?.at ?? null,
       last_activity_type: lastActMap.get(a.company_id)?.type ?? null,
+      seneste_note: (() => {
+        const n = noteMap.get(a.company_id);
+        return n ? { note: n.note, at: n.created_at, bruger: pMap.get(n.user_id) ?? "" } : null;
+      })(),
     }));
     setRows(result);
     setLoading(false);
@@ -590,7 +601,7 @@ function KontaktlisteDetalje() {
                   <TableHead>Status</TableHead>
                   <TableHead>Prioritet</TableHead>
                   <SortableHead
-                    label="Opfølgning"
+                    label="Opfølgning / note"
                     k="followup"
                     sortKey={sortKey}
                     sortDir={sortDir}
@@ -718,7 +729,13 @@ function KontaktlisteDetalje() {
                               {r.last_activity_type ? ` · ${r.last_activity_type.replace(/_/g, " ")}` : ""}
                             </div>
                           ) : null}
-                          {!r.next_followup_date && !r.last_activity_at && (
+                          {r.seneste_note && (
+                            <div className="max-w-[200px] whitespace-normal" title={`${r.seneste_note.note}\n— ${new Date(r.seneste_note.at).toLocaleString("da-DK")}${r.seneste_note.bruger ? ` · ${r.seneste_note.bruger}` : ""}`}>
+                              <div className="truncate italic">“{r.seneste_note.note}”</div>
+                              <div className="text-muted-foreground truncate">{new Date(r.seneste_note.at).toLocaleDateString("da-DK")}{r.seneste_note.bruger ? ` · ${r.seneste_note.bruger}` : ""}</div>
+                            </div>
+                          )}
+                          {!r.next_followup_date && !r.last_activity_at && !r.seneste_note && (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>

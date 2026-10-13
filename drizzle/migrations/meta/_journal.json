@@ -694,6 +694,13 @@
       "when": 1791918597259,
       "tag": "0098_registrer_udfald",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1791921109397,
+      "tag": "0099_kontaktliste_noter",
+      "breakpoints": true
     }
   ]
 }

@@ -98,6 +98,7 @@ import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktper
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { KoncernSektion } from "@/components/koncern-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
+import { ListeNoterSektion } from "@/components/kontaktliste/liste-noter-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion, useCompanyBriefing } from "@/components/ai-briefing-sektion";
 import { KundeSalgstal } from "@/components/sales/kunde-salgstal";
@@ -932,6 +933,7 @@ function VirksomhedsKort() {
 
             {/* FANE: Aktivitet */}
             <TabsContent value="aktivitet" className="mt-4">
+              <ListeNoterSektion companyId={id} />
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-semibold flex items-center gap-2">

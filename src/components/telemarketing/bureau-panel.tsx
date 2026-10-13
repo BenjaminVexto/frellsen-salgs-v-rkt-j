@@ -72,7 +72,7 @@ export function BureauPanel({ listId, refreshKey = 0 }: { listId: string; refres
     opkald.filter((o) => o.udfald === "ikke_interesseret").forEach((o) => { aarsag[o.aarsag ?? "andet"] = (aarsag[o.aarsag ?? "andet"] ?? 0) + 1; });
     const pr: Record<string, { opkald: number; succes: number; rolle: string | null }> = {};
     const dag: Record<string, { opkald: number; succes: number }> = {};
-    for (const o of opkald) {
+    for (const o of opkald.filter((x) => x.udfald !== "note")) {
       const d = o.created_at.slice(0, 10);
       (pr[o.user_id] ??= { opkald: 0, succes: 0, rolle: o.rolle }).opkald++;
       (dag[d] ??= { opkald: 0, succes: 0 }).opkald++;
