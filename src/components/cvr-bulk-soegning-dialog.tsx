@@ -131,11 +131,15 @@ type CvrRow = {
   penheder: number;
 };
 
-type MatchType = "cvr" | "parent_cvr" | "penhed" | "adresse" | "telefon";
-type CrmMatch = { type: MatchType; company_id: string; company_name: string | null; kundenr: string | null };
-const USIKKER: MatchType[] = ["adresse", "telefon"];
+type MatchType =
+  | "cvr" | "parent_cvr" | "penhed" | "adresse_navn" | "adresse_telefon" | "telefon_navn" | "adresse" | "telefon";
+type CrmMatch = {
+  type: MatchType; sikker: boolean; score: number | null;
+  company_id: string; company_name: string | null; kundenr: string | null;
+};
 const MATCH_LABEL: Record<MatchType, string> = {
-  cvr: "CVR", parent_cvr: "moder-CVR", penhed: "P-enhed", adresse: "adresse", telefon: "telefon",
+  cvr: "CVR", parent_cvr: "moder-CVR", penhed: "P-enhed", adresse_navn: "adresse+navn",
+  adresse_telefon: "adresse+telefon", telefon_navn: "telefon+navn", adresse: "samme adresse", telefon: "samme telefon",
 };
 const FIRST_PAGE = 100;
 const FETCH_PAGE = 1000;
@@ -191,7 +195,7 @@ export function CvrBulkSoegningDialog({
   const [regioner, setRegioner] = useState<string[]>([]);
   const [branchQuery, setBranchQuery] = useState("");
   const [includeNoEmp, setIncludeNoEmp] = useState(false);
-  const [showShaky, setShowShaky] = useState(false);
+  const [hideMaybe, setHideMaybe] = useState(false);
   const [includeExisting, setIncludeExisting] = useState(false);
   const [includeCeased, setIncludeCeased] = useState(false);
   const [hideProtected, setHideProtected] = useState(true);
@@ -249,25 +253,20 @@ export function CvrBulkSoegningDialog({
   const noEmpCount = useMemo(() => allRows.filter((r) => !r.employees).length, [allRows]);
   const excludedByType = useMemo(() => {
     const m: Partial<Record<MatchType, number>> = {};
-    for (const r of empPassed) {
-      if (!r.existing) continue;
-      if (includeExisting) continue;
-      if (showShaky && USIKKER.includes(r.existing.type)) continue;
-      m[r.existing.type] = (m[r.existing.type] ?? 0) + 1;
-    }
+    if (includeExisting) return m;
+    for (const r of empPassed) if (r.existing?.sikker) m[r.existing.type] = (m[r.existing.type] ?? 0) + 1;
     return m;
-  }, [empPassed, includeExisting, showShaky]);
-  const existingCount = useMemo(() => empPassed.filter((r) => r.existing).length, [empPassed]);
-  const shakyCount = useMemo(
-    () => empPassed.filter((r) => r.existing && USIKKER.includes(r.existing.type)).length,
-    [empPassed],
-  );
+  }, [empPassed, includeExisting]);
+  const existingCount = useMemo(() => empPassed.filter((r) => r.existing?.sikker).length, [empPassed]);
+  const maybeCount = useMemo(() => empPassed.filter((r) => r.existing && !r.existing.sikker).length, [empPassed]);
   const afterExisting = useMemo(
     () =>
-      includeExisting
-        ? empPassed
-        : empPassed.filter((r) => !r.existing || (showShaky && USIKKER.includes(r.existing.type))),
-    [empPassed, includeExisting, showShaky],
+      empPassed.filter((r) => {
+        if (!r.existing) return true;
+        if (r.existing.sikker) return includeExisting;
+        return !hideMaybe;
+      }),
+    [empPassed, includeExisting, hideMaybe],
   );
   const protectedCount = useMemo(() => afterExisting.filter((r) => r.ad_protection).length, [afterExisting]);
   const afterProtected = useMemo(
@@ -281,7 +280,7 @@ export function CvrBulkSoegningDialog({
   );
 
   function defaultSelection(rows: CvrRow[]): Set<string> {
-    return new Set(rows.filter((r) => !r.existing && !r.ad_protection).map((r) => r.cvr));
+    return new Set(rows.filter((r) => !r.existing?.sikker && !r.ad_protection).map((r) => r.cvr));
   }
 
   // Ved ændring af lokale filtre: fjern valg der ikke længere er synlige
@@ -300,12 +299,12 @@ export function CvrBulkSoegningDialog({
     const ikkeKontakt = new Set<string>();
     for (let i = 0; i < items.length; i += 500) {
       const slice = items.slice(i, i + 500).map((r) => ({
-        cvr: r.cvr, pnumre: r.pnumre, address: r.address, zip: r.zip, phone: r.phone,
+        cvr: r.cvr, name: r.name, city: r.city, pnumre: r.pnumre, address: r.address, zip: r.zip, phone: r.phone,
       }));
-      const { data, error } = await supabase.rpc("cvr_findes_i_crm", { cvr_rows: slice as any });
+      const { data, error } = await supabase.rpc("cvr_match_crm", { cvr_rows: slice as any });
       if (error) throw new Error(error.message);
       (data ?? []).forEach((m: any) => {
-        matches.set(m.cvr, { type: m.match_type, company_id: m.company_id, company_name: m.company_name, kundenr: m.kundenr });
+        matches.set(m.cvr, { type: m.match_type, sikker: !!m.sikker, score: m.score ?? null, company_id: m.company_id, company_name: m.company_name, kundenr: m.kundenr });
         if (m.ikke_kontakt) ikkeKontakt.add(m.cvr);
       });
     }
@@ -646,13 +645,11 @@ export function CvrBulkSoegningDialog({
                 Medtag virksomheder der allerede findes
                 {hasSearched && <span className="text-xs text-muted-foreground">({existingCount})</span>}
               </label>
-              {!includeExisting && (
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Switch checked={showShaky} onCheckedChange={setShowShaky} />
-                  Vis usikre match (adresse/telefon)
-                  {hasSearched && <span className="text-xs text-muted-foreground">({shakyCount})</span>}
-                </label>
-              )}
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch checked={hideMaybe} onCheckedChange={setHideMaybe} />
+                Skjul mulige kunder (kun samme adresse/telefon)
+                {hasSearched && <span className="text-xs text-muted-foreground">({maybeCount})</span>}
+              </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Switch checked={includeCeased} onCheckedChange={setIncludeCeased} />
                 Medtag ophørte (kræver ny søgning)
@@ -689,12 +686,13 @@ export function CvrBulkSoegningDialog({
                     </span>
                   )}
                 </div>
-                {Object.keys(excludedByType).length > 0 && (
+                {(Object.keys(excludedByType).length > 0 || maybeCount > 0) && (
                   <p className="text-xs text-muted-foreground">
-                    {Object.values(excludedByType).reduce((a, b) => a + (b ?? 0), 0).toLocaleString("da")} udeladt (findes i CRM):{" "}
+                    {Object.values(excludedByType).reduce((a, b) => a + (b ?? 0), 0).toLocaleString("da")} udeladt (sikre match:{" "}
                     {(Object.entries(excludedByType) as [MatchType, number][])
                       .map(([t, n]) => `${n.toLocaleString("da")} ${MATCH_LABEL[t]}`)
-                      .join(" · ")}
+                      .join(" · ") || "ingen"}
+                    ) · {maybeCount.toLocaleString("da")} mulige kunder {hideMaybe ? "skjult" : "markeret"}
                   </p>
                 )}
                 {empFilterActive && includeNoEmp && (
@@ -821,14 +819,21 @@ export function CvrBulkSoegningDialog({
                               href={`/virksomheder/${r.existing.company_id}`}
                               target="_blank"
                               rel="noreferrer"
-                              title={`Matchet på ${MATCH_LABEL[r.existing.type]}: ${r.existing.company_name ?? ""}${r.existing.kundenr ? ` (kundenr. ${r.existing.kundenr})` : ""} – åbn kundekortet`}
+                              title={`Matchet på ${MATCH_LABEL[r.existing.type]}: ${r.existing.company_name ?? ""}${r.existing.kundenr ? ` (kundenr. ${r.existing.kundenr})` : ""}${r.existing.score != null ? ` · navnelighed ${r.existing.score.toFixed(2).replace(".", ",")}` : ""} – åbn kundekortet`}
                             >
-                              <Badge variant={USIKKER.includes(r.existing.type) ? "outline" : "secondary"} className="whitespace-nowrap">
-                                Ja · {MATCH_LABEL[r.existing.type]}
-                                {USIKKER.includes(r.existing.type) && r.existing.company_name
-                                  ? ` (${r.existing.company_name}${r.existing.kundenr ? `, ${r.existing.kundenr}` : ""})`
-                                  : ""}
-                              </Badge>
+                              {r.existing.sikker ? (
+                                <Badge variant="secondary" className="whitespace-nowrap">
+                                  Ja · {MATCH_LABEL[r.existing.type]}
+                                  {!["cvr", "parent_cvr", "penhed"].includes(r.existing.type) && r.existing.company_name
+                                    ? ` (${r.existing.company_name}${r.existing.kundenr ? `, ${r.existing.kundenr}` : ""})`
+                                    : ""}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-dashed text-left font-normal">
+                                  Mulig kunde – {MATCH_LABEL[r.existing.type]} som {r.existing.company_name ?? "ukendt"}
+                                  {r.existing.kundenr ? `, ${r.existing.kundenr}` : ""}
+                                </Badge>
+                              )}
                             </a>
                           ) : (
                             <Badge variant="outline">Nej</Badge>
