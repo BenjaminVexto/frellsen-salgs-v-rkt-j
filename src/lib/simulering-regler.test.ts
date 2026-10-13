@@ -45,8 +45,19 @@ describe("simulering-regler", () => {
 });
 
 describe("KAM-portefølje", () => {
-  const a1: KamAftale = { id: "1", navn: "Region", kodetype: "kpg1", koder: ["69 [Regions aftale]"], ansvarlige: ["jes"], aktiv: true };
-  const a2: KamAftale = { id: "2", navn: "Udbud", kodetype: "kpg3", koder: ["40 [Offentlige Udbud]"], ansvarlige: ["jes", "ole"], aktiv: true };
+  const a1: KamAftale = { id: "1", navn: "Region", kpg1: ["69 [Regions aftale]"], kpg2: [], kpg3: [], ansvarlige: ["jes"], aktiv: true };
+  const a2: KamAftale = { id: "2", navn: "Udbud", kpg1: [], kpg2: [], kpg3: ["40 [Offentlige Udbud]"], ansvarlige: ["jes", "ole"], aktiv: true };
+  it("blandede koder matcher med ELLER", () => {
+    const m: KamAftale = { id: "m", navn: "M", kpg1: ["22 [A]"], kpg2: [], kpg3: ["15 [K]"], ansvarlige: [], aktiv: true };
+    expect(kamMatcher(m, lok({ kpg1: "22 [A]" }))).toBe(true);
+    expect(kamMatcher(m, lok({ kpg3: "15 [K]" }))).toBe(true);
+    expect(kamMatcher(m, lok())).toBe(false);
+  });
+  it("område på KAM-aftale begrænser", () => {
+    const m: KamAftale = { id: "m", navn: "M", kpg1: [], kpg2: [], kpg3: ["15 [K]"], omraade: { type: "landsdel", vaerdier: ["Vest"] }, ansvarlige: [], aktiv: true };
+    expect(kamMatcher(m, { ...lok({ kpg3: "15 [K]" }), landsdel: "Øst" })).toBe(false);
+    expect(kamMatcher(m, { ...lok({ kpg3: "15 [K]" }), landsdel: "Vest" })).toBe(true);
+  });
   const rows = [
     { id: "L1", lok: lok({ kpg1: "69 [Regions aftale]", kpg3: "40 [Offentlige Udbud]" }), oms: 100, db: 10 },
     { id: "L2", lok: lok({ kpg3: "40 [Offentlige Udbud]" }), oms: 50, db: 5 },
