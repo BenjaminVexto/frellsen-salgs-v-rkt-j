@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAfdeling } from "@/contexts/afdeling-context";
@@ -13,7 +14,7 @@ import {
 } from "./types";
 
 const COMPANY_COLS =
-  "id,name,visma_enhed,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,afdeling_nr,last_purchase_date,last_sales_date,last_consumable_sales_date,has_active_equipment,employees,is_public,binding_status,customer_segment_3,customer_category,afloest_af_company_id,assigned_to,visma_id,visma_delivery_id,koeber_paa_konto";
+  "id,name,visma_enhed,cvr,address,city,zip,municipality,customer_type,sources,customer_segment_2,afdeling_nr,last_purchase_date,last_sales_date,last_consumable_sales_date,has_active_equipment,employees,is_public,binding_status,customer_segment_3,customer_category,afloest_af_company_id,assigned_to,visma_id,visma_delivery_id,koeber_paa_konto,phone";
 
 function matchesMachines(eq: EquipmentSummary | undefined, modes: string[]) {
   if (!modes.length) return true;
@@ -124,12 +125,21 @@ export function useCompanyFilter({
     (async () => {
       setLoading(true);
       if (restrictToIds && restrictToIds.length) {
-        const { data } = await supabase
-          .from("companies")
-          .select(COMPANY_COLS)
-          .in("id", restrictToIds)
-          .order("name");
-        if (!cancelled) setRows((data ?? []) as any);
+        // Portioner á 200 id'er – ellers bliver URL'en for lang og kaldet fejler stille.
+        const all: any[] = [];
+        for (let i = 0; i < restrictToIds.length; i += 200) {
+          const { data, error } = await supabase
+            .from("companies")
+            .select(COMPANY_COLS)
+            .in("id", restrictToIds.slice(i, i + 200));
+          if (error) {
+            toast.error("Kunne ikke hente de valgte virksomheder: " + error.message);
+            break;
+          }
+          all.push(...(data ?? []));
+        }
+        all.sort((x, y) => String(x.name ?? "").localeCompare(String(y.name ?? ""), "da"));
+        if (!cancelled) setRows(all as any);
         if (!cancelled) setLoading(false);
         return;
       }
@@ -186,8 +196,8 @@ export function useCompanyFilter({
       const ids = rows.map((r) => r.id);
       const m = new Map<string, LocationLite[]>();
       const byLocId = new Map<string, LocationLite>();
-      for (let i = 0; i < ids.length; i += 500) {
-        const slice = ids.slice(i, i + 500);
+      for (let i = 0; i < ids.length; i += 200) {
+        const slice = ids.slice(i, i + 200);
         const { data } = await (supabase as any)
           .from("locations")
           .select("id, company_id, city, address, zip, visma_delivery_no, saelger_user_id")
@@ -246,8 +256,8 @@ export function useCompanyFilter({
     (async () => {
       const ids = rows.map((r) => r.id);
       const locToCompany = new Map<string, string>();
-      for (let i = 0; i < ids.length; i += 500) {
-        const slice = ids.slice(i, i + 500);
+      for (let i = 0; i < ids.length; i += 200) {
+        const slice = ids.slice(i, i + 200);
         const { data: locs } = await (supabase as any)
           .from("locations")
           .select("id, company_id")
@@ -258,8 +268,8 @@ export function useCompanyFilter({
       }
       const locIds = Array.from(locToCompany.keys());
       const summary = new Map<string, EquipmentSummary>();
-      for (let i = 0; i < locIds.length; i += 500) {
-        const slice = locIds.slice(i, i + 500);
+      for (let i = 0; i < locIds.length; i += 200) {
+        const slice = locIds.slice(i, i + 200);
         const { data: eq } = await (supabase as any)
           .from("location_equipment_units")
           .select(

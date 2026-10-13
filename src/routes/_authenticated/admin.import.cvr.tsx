@@ -43,8 +43,8 @@ function ImportCvrSide() {
     }
     // Hent kommuner for sælger-fordeling
     const all: CompanyRegion[] = [];
-    for (let i = 0; i < companyIds.length; i += 500) {
-      const slice = companyIds.slice(i, i + 500);
+    for (let i = 0; i < companyIds.length; i += 200) {
+      const slice = companyIds.slice(i, i + 200);
       const { data } = await supabase
         .from("companies")
         .select("id, municipality")
