@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
@@ -42,7 +42,8 @@ import {
 import { Loader2, Search, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { cvrLookup } from "@/lib/cvr-lookup.functions";
+import { cvrBulkSide } from "@/lib/cvr-lookup.functions";
+import { matchesEmployeeCodes } from "@/lib/cvr-bulk-query";
 import { importCompaniesFromCvr } from "@/lib/cvr-import.functions";
 import {
   createImportBatch,
@@ -64,8 +65,8 @@ const BRANCH_CATEGORIES: { label: string; prefixes: string[] }[] = [
 
 // Svarer til CVR's intervalkoder efter ANTAL_-prefix er fjernet
 const EMPLOYEE_BUCKETS: { label: string; codes: string[] }[] = [
-  { label: "0",       codes: ["0", "0_0"] },
-  { label: "1",       codes: ["1", "1_1"] },
+  { label: "0",       codes: ["0_0"] },
+  { label: "1",       codes: ["1_1"] },
   { label: "2-4",     codes: ["2_4"]     },
   { label: "5-9",     codes: ["5_9"]     },
   { label: "10-19",   codes: ["10_19"]   },
@@ -74,7 +75,7 @@ const EMPLOYEE_BUCKETS: { label: string; codes: string[] }[] = [
   { label: "100-199", codes: ["100_199"] },
   { label: "200-499", codes: ["200_499"] },
   { label: "500-999", codes: ["500_999"] },
-  { label: "1000+",   codes: ["1000_"]   },
+  { label: "1000+",   codes: ["1000_999999"] },
 ];
 
 const COMPANY_FORMS: { label: string; value: string }[] = [
@@ -109,7 +110,6 @@ const KOMMUNER = [
   "Vesthimmerlands","Viborg","Vordingborg","Ærø",
 ].sort((a, b) => a.localeCompare(b, "da"));
 
-const PAGE_SIZE = 100;
 const ROWS_PER_PAGE = 100;
 
 type CvrRow = {
@@ -121,7 +121,8 @@ type CvrRow = {
   employees: string | null;
   ad_protection: boolean;
   company_form: string | null;
-  existing: boolean;
+  existing: CrmMatch | null;
+  pnumre: string[];
   zip: string | null;
   address: string | null;
   phone: string | null;
@@ -130,20 +131,15 @@ type CvrRow = {
   penheder: number;
 };
 
-// Filtrer på ansatte client-side. employees-værdien er ANTAL_-prefix fjernet,
-// fx "20_49", "5_9", "1000_", null. Virksomheder med null passerer filteret.
-function matchesEmployeeFilter(
-  employees: string | null,
-  selectedBuckets: string[],
-  includeUnknown: boolean,
-): boolean {
-  if (!employees) return includeUnknown;
-  if (!selectedBuckets.length) return true;
-  const selectedCodes = EMPLOYEE_BUCKETS
-    .filter((b) => selectedBuckets.includes(b.label))
-    .flatMap((b) => b.codes);
-  return selectedCodes.some((c) => (c.endsWith("_") ? employees.startsWith(c) : employees === c));
-}
+type MatchType = "cvr" | "parent_cvr" | "penhed" | "adresse" | "telefon";
+type CrmMatch = { type: MatchType; company_id: string; company_name: string | null; kundenr: string | null };
+const USIKKER: MatchType[] = ["adresse", "telefon"];
+const MATCH_LABEL: Record<MatchType, string> = {
+  cvr: "CVR", parent_cvr: "moder-CVR", penhed: "P-enhed", adresse: "adresse", telefon: "telefon",
+};
+const FIRST_PAGE = 100;
+const FETCH_PAGE = 1000;
+const STOR_LISTE = 3000;
 
 export function CvrBulkSoegningDialog({
   open,
@@ -154,7 +150,8 @@ export function CvrBulkSoegningDialog({
   onOpenChange: (v: boolean) => void;
   onImported: (companyIds: string[]) => void;
 }) {
-  const lookupFn = useServerFn(cvrLookup);
+  const bulkFn = useServerFn(cvrBulkSide);
+  const abortRef = useRef(false);
   const importFn = useServerFn(importCompaniesFromCvr);
   const createBatch = useServerFn(createImportBatch);
   const assignSellersFn = useServerFn(importAssignSellersToCompanies);
@@ -193,7 +190,8 @@ export function CvrBulkSoegningDialog({
   const [kommuneQ, setKommuneQ] = useState("");
   const [regioner, setRegioner] = useState<string[]>([]);
   const [branchQuery, setBranchQuery] = useState("");
-  const [includeNoEmp, setIncludeNoEmp] = useState(true);
+  const [includeNoEmp, setIncludeNoEmp] = useState(false);
+  const [showShaky, setShowShaky] = useState(false);
   const [includeExisting, setIncludeExisting] = useState(false);
   const [includeCeased, setIncludeCeased] = useState(false);
   const [hideProtected, setHideProtected] = useState(true);
@@ -209,6 +207,8 @@ export function CvrBulkSoegningDialog({
   const [allRows, setAllRows] = useState<CvrRow[]>([]);
   const [selectedCvrs, setSelectedCvrs] = useState<Set<string>>(new Set());
   const [esTotalBeforeEmpFilter, setEsTotalBeforeEmpFilter] = useState(0);
+  const [nextKey, setNextKey] = useState<string | null>(null);
+  const [fetchSecs, setFetchSecs] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -237,16 +237,37 @@ export function CvrBulkSoegningDialog({
     return Array.from(codes);
   }
 
-  // Lokale filtre (ansatte, eksisterende, reklamebeskyttelse, telefon)
+  function selectedEmpCodes(): string[] {
+    return EMPLOYEE_BUCKETS.filter((b) => employeeBuckets.includes(b.label)).flatMap((b) => b.codes);
+  }
+  // Lokale efterfiltre (samme ansatte-prioritet som ES), eksisterende, reklamebeskyttelse, telefon
   const empPassed = useMemo(
-    () => allRows.filter((r) => matchesEmployeeFilter(r.employees, employeeBuckets, includeNoEmp)),
+    () => allRows.filter((r) => matchesEmployeeCodes(r.employees, selectedEmpCodes(), includeNoEmp)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [allRows, employeeBuckets, includeNoEmp],
   );
   const noEmpCount = useMemo(() => allRows.filter((r) => !r.employees).length, [allRows]);
+  const excludedByType = useMemo(() => {
+    const m: Partial<Record<MatchType, number>> = {};
+    for (const r of empPassed) {
+      if (!r.existing) continue;
+      if (includeExisting) continue;
+      if (showShaky && USIKKER.includes(r.existing.type)) continue;
+      m[r.existing.type] = (m[r.existing.type] ?? 0) + 1;
+    }
+    return m;
+  }, [empPassed, includeExisting, showShaky]);
   const existingCount = useMemo(() => empPassed.filter((r) => r.existing).length, [empPassed]);
+  const shakyCount = useMemo(
+    () => empPassed.filter((r) => r.existing && USIKKER.includes(r.existing.type)).length,
+    [empPassed],
+  );
   const afterExisting = useMemo(
-    () => (includeExisting ? empPassed : empPassed.filter((r) => !r.existing)),
-    [empPassed, includeExisting],
+    () =>
+      includeExisting
+        ? empPassed
+        : empPassed.filter((r) => !r.existing || (showShaky && USIKKER.includes(r.existing.type))),
+    [empPassed, includeExisting, showShaky],
   );
   const protectedCount = useMemo(() => afterExisting.filter((r) => r.ad_protection).length, [afterExisting]);
   const afterProtected = useMemo(
@@ -273,58 +294,47 @@ export function CvrBulkSoegningDialog({
     setPage(0);
   }, [filteredRows]);
 
-  function applyZipFilter(items: CvrRow[]): CvrRow[] {
-    if (!zipFrom || !zipTo) return items;
-    const from = parseInt(zipFrom, 10);
-    const to = parseInt(zipTo, 10);
-    if (isNaN(from) || isNaN(to)) return items;
-    return items.filter((r) => {
-      if (!r.zip) return true;
-      const z = parseInt(r.zip, 10);
-      return !isNaN(z) && z >= from && z <= to;
-    });
-  }
-
   async function annotateExisting(items: CvrRow[]): Promise<CvrRow[]> {
-    const cvrs = items.map((r) => r.cvr);
-    if (!cvrs.length) return items;
-    const existingSet = new Set<string>();
+    if (!items.length) return items;
+    const matches = new Map<string, CrmMatch>();
     const ikkeKontakt = new Set<string>();
-    for (let i = 0; i < cvrs.length; i += 500) {
-      const { data } = await supabase
-        .from("companies")
-        .select("cvr, ikke_kontakt")
-        .in("cvr", cvrs.slice(i, i + 500));
-      (data ?? []).forEach((r: any) => {
-        if (!r.cvr) return;
-        existingSet.add(r.cvr);
-        if (r.ikke_kontakt) ikkeKontakt.add(r.cvr);
+    for (let i = 0; i < items.length; i += 500) {
+      const slice = items.slice(i, i + 500).map((r) => ({
+        cvr: r.cvr, pnumre: r.pnumre, address: r.address, zip: r.zip, phone: r.phone,
+      }));
+      const { data, error } = await supabase.rpc("cvr_findes_i_crm", { cvr_rows: slice as any });
+      if (error) throw new Error(error.message);
+      (data ?? []).forEach((m: any) => {
+        matches.set(m.cvr, { type: m.match_type, company_id: m.company_id, company_name: m.company_name, kundenr: m.kundenr });
+        if (m.ikke_kontakt) ikkeKontakt.add(m.cvr);
       });
     }
     // "Ønsker ikke kontakt" fjernes altid fra CVR-søgninger.
     return items
       .filter((r) => !ikkeKontakt.has(r.cvr))
-      .map((r) => ({ ...r, existing: existingSet.has(r.cvr) }));
+      .map((r) => ({ ...r, existing: matches.get(r.cvr) ?? null }));
   }
 
   function buildRequestFilters() {
     const branchCodes = getBranchCodes();
+    const zf = parseInt(zipFrom, 10);
+    const zt = parseInt(zipTo, 10);
+    const emp = selectedEmpCodes();
     return {
       ...(getMunicipalityCodes().length ? { municipality_codes: getMunicipalityCodes() } : {}),
       ...(includeCeased ? { include_ceased: true } : {}),
       ...(branchCodes.length ? { branch_codes: branchCodes } : {}),
       ...(companyForms.length ? { company_forms: companyForms } : {}),
+      ...(emp.length ? { employee_codes: emp, include_unknown_employees: includeNoEmp } : {}),
+      ...(onlyPhone ? { only_phone: true } : {}),
+      ...(!isNaN(zf) ? { zip_from: zf } : {}),
+      ...(!isNaN(zt) ? { zip_to: zt } : {}),
     };
   }
 
-  async function fetchOnePage(from: number) {
-    return lookupFn({
-      data: {
-        type: "bulk",
-        filters: buildRequestFilters() as any,
-        from,
-      } as any,
-    });
+  async function fetchPage(after: string | null, size: number) {
+    const raw = await bulkFn({ data: { filters: buildRequestFilters(), search_after: after, size } });
+    return JSON.parse(raw) as { success: boolean; error?: string; data?: any[]; total?: number; next?: string | null };
   }
 
   function mapToRow(c: any): CvrRow {
@@ -337,7 +347,8 @@ export function CvrBulkSoegningDialog({
       employees: c.employees_interval,
       ad_protection: !!c.ad_protection,
       company_form: c.company_form,
-      existing: false,
+      existing: null,
+      pnumre: c.pnumre ?? [],
       zip: c.zip,
       address: c.address ?? null,
       phone: c.phone ?? null,
@@ -352,72 +363,68 @@ export function CvrBulkSoegningDialog({
       toast.error("Vælg kommune(r), region(er) eller et postnummer-interval");
       return;
     }
-
     setSearching(true);
     setHasSearched(true);
     setAllRows([]);
     setSelectedCvrs(new Set());
     setPage(0);
     setEsTotalBeforeEmpFilter(0);
-
+    setFetchSecs(null);
     try {
-      const res = await fetchOnePage(0);
+      const res = await fetchPage(null, FIRST_PAGE);
       if (!res.success) {
         toast.error("CVR-søgning fejlede: " + (res.error ?? "ukendt"));
         return;
       }
-      const esTotal = res.total ?? 0;
-      setEsTotalBeforeEmpFilter(esTotal);
-
-      const list = Array.isArray(res.data) ? res.data : [];
-      const mapped = list.map(mapToRow);
-      const zipFiltered = applyZipFilter(mapped);
-      const annotated = await annotateExisting(zipFiltered);
-
+      setEsTotalBeforeEmpFilter(res.total ?? 0);
+      setNextKey(res.next ?? null);
+      const annotated = await annotateExisting((res.data ?? []).map(mapToRow));
       setAllRows(annotated);
-      setSelectedCvrs(defaultSelection(annotated.filter((r) => matchesEmployeeFilter(r.employees, employeeBuckets, includeNoEmp) && (!onlyPhone || r.phone))));
+      setSelectedCvrs(defaultSelection(annotated.filter((r) => matchesEmployeeCodes(r.employees, selectedEmpCodes(), includeNoEmp) && (!onlyPhone || r.phone))));
+    } catch (e: any) {
+      toast.error("CVR-søgning fejlede: " + (e?.message ?? "ukendt"));
     } finally {
       setSearching(false);
     }
   }
 
   async function fetchAndSelectAll() {
+    const total = esTotalBeforeEmpFilter;
+    abortRef.current = false;
     setFetchingAll(true);
-    setFetchProgress({ current: 0, total: esTotalBeforeEmpFilter });
-    const aggregated: CvrRow[] = [];
-    const seen = new Set<string>();
-    const pages = Math.ceil(esTotalBeforeEmpFilter / PAGE_SIZE);
-
+    const t0 = performance.now();
+    const seen = new Set(allRows.map((r) => r.cvr));
+    const aggregated: CvrRow[] = [...allRows];
+    let after = nextKey;
+    let fetched = allRows.length;
+    setFetchProgress({ current: fetched, total });
     try {
-      for (let p = 0; p < pages; p++) {
-        const res = await fetchOnePage(p * PAGE_SIZE);
+      while (after && !abortRef.current) {
+        const res = await fetchPage(after, FETCH_PAGE);
         if (!res.success) {
           toast.error("Fejl under hentning: " + (res.error ?? "ukendt"));
           break;
         }
-        const list = Array.isArray(res.data) ? res.data : [];
-        const mapped = list.map(mapToRow);
-        const zipFiltered = applyZipFilter(mapped);
-        for (const r of zipFiltered) {
-          if (!seen.has(r.cvr)) {
-            seen.add(r.cvr);
-            aggregated.push(r);
-          }
-        }
-        setFetchProgress({
-          current: Math.min((p + 1) * PAGE_SIZE, esTotalBeforeEmpFilter),
-          total: esTotalBeforeEmpFilter,
-        });
+        const list = res.data ?? [];
+        fetched += list.length;
+        const fresh = list.map(mapToRow).filter((r) => !seen.has(r.cvr));
+        fresh.forEach((r) => seen.add(r.cvr));
+        aggregated.push(...(await annotateExisting(fresh)));
+        after = list.length ? (res.next ?? null) : null;
+        setFetchProgress({ current: Math.min(fetched, total), total });
       }
-
-      const annotated = await annotateExisting(aggregated);
-      setAllRows(annotated);
-      setSelectedCvrs(defaultSelection(annotated.filter((r) => matchesEmployeeFilter(r.employees, employeeBuckets, includeNoEmp) && (!onlyPhone || r.phone))));
+      setNextKey(after);
+      setAllRows([...aggregated]);
+      setSelectedCvrs(defaultSelection(aggregated.filter((r) => matchesEmployeeCodes(r.employees, selectedEmpCodes(), includeNoEmp) && (!onlyPhone || r.phone))));
       setPage(0);
+      const secs = Math.round((performance.now() - t0) / 100) / 10;
+      setFetchSecs(secs);
       toast.success(
-        `${annotated.length.toLocaleString("da")} virksomheder hentet` +
-        ` (hentet og filtreret fra ${esTotalBeforeEmpFilter.toLocaleString("da")} i CVR)`,
+        `${aggregated.length.toLocaleString("da")} af ${total.toLocaleString("da")} hentet på ${secs.toLocaleString("da")} sek.` +
+          (abortRef.current ? " (afbrudt)" : ""),
       );
+    } catch (e: any) {
+      toast.error("Fejl under hentning: " + (e?.message ?? "ukendt"));
     } finally {
       setFetchingAll(false);
     }
@@ -450,6 +457,7 @@ export function CvrBulkSoegningDialog({
           industry: r.industry,
           employees_interval: r.employees,
           company_form: r.company_form,
+          pnumre: r.pnumre.slice(0, 500),
         }));
       const res = await importFn({ data: { companies: payload } });
       const newIds: string[] = (res as any).inserted_ids ?? [];
@@ -597,7 +605,7 @@ export function CvrBulkSoegningDialog({
 
             <div className="space-y-2">
               <Label>Antal ansatte</Label>
-              <p className="text-xs text-muted-foreground">Filtreres efter søgning baseret på aktuelle tal</p>
+              <p className="text-xs text-muted-foreground">Filtreres i CVR på nyeste tal (måned → kvartal → år) – kræver ny søgning</p>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Switch checked={includeNoEmp} onCheckedChange={setIncludeNoEmp} />
                 Medtag virksomheder uden ansatte-data
@@ -638,6 +646,13 @@ export function CvrBulkSoegningDialog({
                 Medtag virksomheder der allerede findes
                 {hasSearched && <span className="text-xs text-muted-foreground">({existingCount})</span>}
               </label>
+              {!includeExisting && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Switch checked={showShaky} onCheckedChange={setShowShaky} />
+                  Vis usikre match (adresse/telefon)
+                  {hasSearched && <span className="text-xs text-muted-foreground">({shakyCount})</span>}
+                </label>
+              )}
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Switch checked={includeCeased} onCheckedChange={setIncludeCeased} />
                 Medtag ophørte (kræver ny søgning)
@@ -665,22 +680,25 @@ export function CvrBulkSoegningDialog({
               <div className="space-y-1">
                 <div className="text-sm">
                   <strong>{esTotalBeforeEmpFilter.toLocaleString("da")}</strong>{" "}
-                  virksomheder fundet i CVR
-                  {empFilterActive && (
-                    <span className="text-muted-foreground font-normal">
-                      {" "}(antal ansatte filtreres separat)
-                    </span>
-                  )}
+                  virksomheder fundet i CVR efter filtre
+                  {` · ${allRows.length.toLocaleString("da")} hentet`}
+                  {fetchSecs != null && ` på ${fetchSecs.toLocaleString("da")} sek.`}
                   {filteredRows.length > 0 && (
                     <span className="text-muted-foreground font-normal">
                       {` · viser ${filteredRows.length.toLocaleString("da")} efter lokale filtre · ${selectedCvrs.size} valgt`}
                     </span>
                   )}
                 </div>
-                {empFilterActive && (
+                {Object.keys(excludedByType).length > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    * Ansatte-filteret bruger aktuelle tal — virksomheder uden ansatte-data vises også
+                    {Object.values(excludedByType).reduce((a, b) => a + (b ?? 0), 0).toLocaleString("da")} udeladt (findes i CRM):{" "}
+                    {(Object.entries(excludedByType) as [MatchType, number][])
+                      .map(([t, n]) => `${n.toLocaleString("da")} ${MATCH_LABEL[t]}`)
+                      .join(" · ")}
                   </p>
+                )}
+                {empFilterActive && includeNoEmp && (
+                  <p className="text-xs text-muted-foreground">* Virksomheder uden ansatte-data er medtaget</p>
                 )}
               </div>
             )}
@@ -696,7 +714,7 @@ export function CvrBulkSoegningDialog({
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Switch checked={onlyPhone} onCheckedChange={setOnlyPhone} />
-                  Kun med telefonnummer
+                  Kun med telefonnummer (kræver ny søgning)
                   <span className="text-xs text-muted-foreground">({noPhoneCount} uden)</span>
                 </label>
               </div>
@@ -716,16 +734,14 @@ export function CvrBulkSoegningDialog({
                 <Button size="sm" variant="outline" onClick={() => setSelectedCvrs(new Set())}>
                   Ryd
                 </Button>
-                {esTotalBeforeEmpFilter > filteredRows.length &&
-                  esTotalBeforeEmpFilter <= 5000 &&
-                  !fetchingAll && (
-                    <Button size="sm" onClick={fetchAndSelectAll}>
-                      Hent og vælg alle {esTotalBeforeEmpFilter} →
-                    </Button>
-                  )}
-                {esTotalBeforeEmpFilter > 5000 && (
+                {nextKey && allRows.length < esTotalBeforeEmpFilter && !fetchingAll && (
+                  <Button size="sm" onClick={fetchAndSelectAll}>
+                    Hent og vælg alle {esTotalBeforeEmpFilter.toLocaleString("da")} →
+                  </Button>
+                )}
+                {esTotalBeforeEmpFilter > STOR_LISTE && (
                   <span className="text-xs text-destructive">
-                    Over 5.000 resultater — indsnævr filtrene
+                    Stor liste – overvej at indsnævre filtrene
                   </span>
                 )}
               </div>
@@ -742,7 +758,10 @@ export function CvrBulkSoegningDialog({
                 />
                 <p className="text-xs text-muted-foreground">
                   Henter… {fetchProgress.current.toLocaleString("da")} af{" "}
-                  {fetchProgress.total.toLocaleString("da")}
+                  {fetchProgress.total.toLocaleString("da")}{" "}
+                  <button type="button" className="underline ml-2" onClick={() => (abortRef.current = true)}>
+                    Afbryd
+                  </button>
                 </p>
               </div>
             )}
@@ -797,9 +816,23 @@ export function CvrBulkSoegningDialog({
                         <TableCell>{r.industry ?? "—"}</TableCell>
                         <TableCell>{r.employees ?? "—"}</TableCell>
                         <TableCell>
-                          <Badge variant={r.existing ? "secondary" : "outline"}>
-                            {r.existing ? "Ja" : "Nej"}
-                          </Badge>
+                          {r.existing ? (
+                            <a
+                              href={`/virksomheder/${r.existing.company_id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={`Matchet på ${MATCH_LABEL[r.existing.type]}: ${r.existing.company_name ?? ""}${r.existing.kundenr ? ` (kundenr. ${r.existing.kundenr})` : ""} – åbn kundekortet`}
+                            >
+                              <Badge variant={USIKKER.includes(r.existing.type) ? "outline" : "secondary"} className="whitespace-nowrap">
+                                Ja · {MATCH_LABEL[r.existing.type]}
+                                {USIKKER.includes(r.existing.type) && r.existing.company_name
+                                  ? ` (${r.existing.company_name}${r.existing.kundenr ? `, ${r.existing.kundenr}` : ""})`
+                                  : ""}
+                              </Badge>
+                            </a>
+                          ) : (
+                            <Badge variant="outline">Nej</Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           {r.ad_protection && (

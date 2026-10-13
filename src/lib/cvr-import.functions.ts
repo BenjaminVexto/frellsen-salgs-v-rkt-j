@@ -27,6 +27,7 @@ const CompanySchema = z.object({
   industry: z.string().max(500).nullable().optional(),
   employees_interval: z.string().max(40).nullable().optional(),
   company_form: z.string().max(80).nullable().optional(),
+  pnumre: z.array(z.string().regex(/^\d{1,12}$/)).max(500).optional(),
 });
 
 function intervalToNumber(interval: string | null | undefined): number | null {
@@ -46,15 +47,19 @@ export const importCompaniesFromCvr = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     if (!(await isAdmin(context.userId))) throw new Error("Forbidden");
 
-    const cvrs = data.companies.map((c) => c.cvr);
-    const { data: existing } = await supabaseAdmin
-      .from("companies")
-      .select("id, cvr, ikke_kontakt")
-      .in("cvr", cvrs);
-    const ikkeKontakt = new Set((existing ?? []).filter((r: any) => r.ikke_kontakt).map((r) => r.cvr as string));
-    const existingMap = new Map(
-      (existing ?? []).filter((r: any) => !r.ikke_kontakt).map((r) => [r.cvr as string, r.id as string]),
-    );
+    // Dublet-tjek: CVR (normaliseret) og P-enhedskobling via cvr_findes_i_crm.
+    const existingMap = new Map<string, string>();
+    const ikkeKontakt = new Set<string>();
+    for (let i = 0; i < data.companies.length; i += 500) {
+      const slice = data.companies.slice(i, i + 500).map((c) => ({ cvr: c.cvr, pnumre: c.pnumre ?? [] }));
+      const { data: m, error } = await context.supabase.rpc("cvr_findes_i_crm", { cvr_rows: slice as any });
+      if (error) throw new Error(error.message);
+      for (const r of (m ?? []) as any[]) {
+        if (r.match_type !== "cvr" && r.match_type !== "penhed") continue;
+        if (r.ikke_kontakt) ikkeKontakt.add(r.cvr);
+        else existingMap.set(r.cvr, r.company_id);
+      }
+    }
 
     const toInsert = data.companies.filter((c) => !existingMap.has(c.cvr) && !ikkeKontakt.has(c.cvr));
     const insertedIds: string[] = [];
