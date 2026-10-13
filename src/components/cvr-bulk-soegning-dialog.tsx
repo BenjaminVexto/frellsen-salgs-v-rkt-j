@@ -152,7 +152,7 @@ export function CvrBulkSoegningDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onImported: (companyIds: string[]) => void;
+  onImported: (companyIds: string[], meta?: { navnForslag: string }) => void;
 }) {
   const bulkFn = useServerFn(cvrBulkSide);
   const abortRef = useRef(false);
@@ -188,6 +188,45 @@ export function CvrBulkSoegningDialog({
       );
     })();
   }, [open]);
+
+  // Distrikter fra det gældende distriktskort
+  type Distrikt = { id: string; navn: string; farve: string | null; saelger: string | null; flader: number[] };
+  const [distrikter, setDistrikter] = useState<Distrikt[]>([]);
+  const [fladePn, setFladePn] = useState<Map<number, number[]>>(new Map());
+  const [valgteDistrikter, setValgteDistrikter] = useState<string[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const [{ data: d }, { data: df }, { data: pf }] = await Promise.all([
+        supabase.from("distrikter").select("id, navn, farve, sort, saelger_user_id, daekkes_af_user_id").eq("aktiv", true).order("sort"),
+        supabase.from("distrikt_flade").select("flade, distrikt_id"),
+        supabase.from("postnummer_flader").select("flade, postnumre"),
+      ]);
+      const uids = [...new Set((d ?? []).flatMap((x: any) => [x.saelger_user_id, x.daekkes_af_user_id]).filter(Boolean))];
+      const { data: profs } = uids.length
+        ? await supabase.from("profiles").select("id, full_name").in("id", uids as string[])
+        : { data: [] as any[] };
+      const navn = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
+      setFladePn(new Map((pf ?? []).map((x: any) => [x.flade, x.postnumre ?? []])));
+      setDistrikter(
+        (d ?? []).map((x: any) => ({
+          id: x.id,
+          navn: x.navn,
+          farve: x.farve,
+          saelger: x.saelger_user_id
+            ? (navn.get(x.saelger_user_id) ?? null)
+            : x.daekkes_af_user_id ? `NY – dækkes af ${navn.get(x.daekkes_af_user_id) ?? "?"}` : "NY",
+          flader: (df ?? []).filter((f: any) => f.distrikt_id === x.id).map((f: any) => f.flade),
+        })),
+      );
+    })();
+  }, [open]);
+  const distriktInfo = useMemo(() => {
+    const valgte = distrikter.filter((d) => valgteDistrikter.includes(d.id));
+    const flader = valgte.flatMap((d) => d.flader);
+    const pn = new Set(flader.flatMap((f) => fladePn.get(f) ?? []));
+    return { n: valgte.length, flader: flader.length, postnumre: pn.size, navne: valgte.map((d) => d.navn) };
+  }, [distrikter, valgteDistrikter, fladePn]);
 
   // Filtre
   const [kommuner, setKommuner] = useState<string[]>([]);
@@ -321,6 +360,7 @@ export function CvrBulkSoegningDialog({
     const emp = selectedEmpCodes();
     return {
       ...(getMunicipalityCodes().length ? { municipality_codes: getMunicipalityCodes() } : {}),
+      ...(valgteDistrikter.length ? { distrikt_ids: valgteDistrikter } : {}),
       ...(includeCeased ? { include_ceased: true } : {}),
       ...(branchCodes.length ? { branch_codes: branchCodes } : {}),
       ...(companyForms.length ? { company_forms: companyForms } : {}),
@@ -358,8 +398,8 @@ export function CvrBulkSoegningDialog({
   }
 
   async function runSearch() {
-    if (!getMunicipalityCodes().length && !(zipFrom && zipTo)) {
-      toast.error("Vælg kommune(r), region(er) eller et postnummer-interval");
+    if (!getMunicipalityCodes().length && !valgteDistrikter.length && !(zipFrom && zipTo)) {
+      toast.error("Vælg distrikt(er), kommune(r), region(er) eller et postnummer-interval");
       return;
     }
     setSearching(true);
@@ -429,6 +469,20 @@ export function CvrBulkSoegningDialog({
     }
   }
 
+  function listeNavnForslag(): string {
+    const geo = [...distriktInfo.navne, ...regioner, ...kommuner];
+    if (zipFrom || zipTo) geo.push(`postnr ${zipFrom || "…"}–${zipTo || "…"}`);
+    const valgte = EMPLOYEE_BUCKETS.filter((b) => employeeBuckets.includes(b.label));
+    let ans = "";
+    if (valgte.length) {
+      const min = valgte[0]!.label.split(/[-+]/)[0];
+      const sidste = valgte[valgte.length - 1]!.label;
+      ans = sidste === "1000+" ? `${min}+ ansatte` : `${min}–${sidste.split("-").pop()} ansatte`;
+    }
+    const dato = new Date().toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" });
+    return ["CVR", geo.join(", ") || "alle", ans, dato].filter(Boolean).join(" · ");
+  }
+
   async function doImport(force = false) {
     const chosen = filteredRows.filter((r) => selectedCvrs.has(r.cvr));
     if (!chosen.length) {
@@ -463,6 +517,7 @@ export function CvrBulkSoegningDialog({
       if (newIds.length) {
         try {
           const labelBits: string[] = [];
+          if (distriktInfo.navne.length) labelBits.push(distriktInfo.navne.join(", "));
           if (regioner.length) labelBits.push(regioner.join(", "));
           if (kommuner.length) labelBits.push(kommuner.join(", "));
           if (zipFrom || zipTo) labelBits.push(`postnr ${zipFrom || "…"}–${zipTo || "…"}`);
@@ -505,7 +560,7 @@ export function CvrBulkSoegningDialog({
           toast.error("Sælger-tildeling fejlede: " + (e?.message ?? "ukendt"));
         }
       }
-      onImported(res.company_ids);
+      onImported(res.company_ids, { navnForslag: listeNavnForslag() });
       onOpenChange(false);
     } catch (e: any) {
       toast.error("Import fejlede: " + (e?.message ?? "ukendt"));
@@ -530,7 +585,32 @@ export function CvrBulkSoegningDialog({
           <div className="space-y-5">
             <div className="space-y-2">
               <Label>Geografi *</Label>
-              <p className="text-xs text-muted-foreground">Regioner og/eller kommuner – eller et postnummer-interval</p>
+              <p className="text-xs text-muted-foreground">Distrikter, regioner og/eller kommuner (lægges sammen) – eller et postnummer-interval</p>
+              {distrikter.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs font-medium">Distrikt</div>
+                  <div className="flex flex-wrap gap-1">
+                    {distrikter.map((d) => (
+                      <Button
+                        key={d.id}
+                        type="button"
+                        size="sm"
+                        variant={valgteDistrikter.includes(d.id) ? "default" : "outline"}
+                        className="h-auto min-h-7 px-2 py-1 text-xs text-left whitespace-normal"
+                        onClick={() => toggleItem(valgteDistrikter, d.id, setValgteDistrikter)}
+                      >
+                        <span className="inline-block h-2 w-2 rounded-full mr-1 shrink-0" style={{ background: d.farve ?? "currentColor" }} />
+                        {d.navn}{d.saelger ? ` · ${d.saelger}` : ""}
+                      </Button>
+                    ))}
+                  </div>
+                  {distriktInfo.n > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {distriktInfo.n} {distriktInfo.n === 1 ? "distrikt" : "distrikter"} · {distriktInfo.flader} flader · {distriktInfo.postnumre} postnumre
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex flex-wrap gap-1">
                 {Object.keys(REGION_KOMMUNER).map((rg) => (
                   <Button

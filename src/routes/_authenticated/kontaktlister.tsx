@@ -67,6 +67,7 @@ function KontaktlisterOversigt() {
   const [createOpen, setCreateOpen] = useState(false);
   const [cvrSearchOpen, setCvrSearchOpen] = useState(false);
   const [preselectedIds, setPreselectedIds] = useState<string[] | null>(null);
+  const [navnForslag, setNavnForslag] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ListRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -399,10 +400,12 @@ function KontaktlisterOversigt() {
       {createOpen && (
         <OpretListeDialog
           preselectedCompanyIds={preselectedIds}
-          onClose={() => { setCreateOpen(false); setPreselectedIds(null); }}
+          navnForslag={navnForslag}
+          onClose={() => { setCreateOpen(false); setPreselectedIds(null); setNavnForslag(""); }}
           onCreated={() => {
             setCreateOpen(false);
             setPreselectedIds(null);
+            setNavnForslag("");
             load();
           }}
         />
@@ -412,8 +415,9 @@ function KontaktlisterOversigt() {
         <CvrBulkSoegningDialog
           open={cvrSearchOpen}
           onOpenChange={setCvrSearchOpen}
-          onImported={(ids) => {
+          onImported={(ids, meta) => {
             setCvrSearchOpen(false);
+            setNavnForslag(meta?.navnForslag ?? "");
             setPreselectedIds(ids);
             setCreateOpen(true);
           }}
@@ -453,12 +457,14 @@ function OpretListeDialog({
   onClose,
   onCreated,
   preselectedCompanyIds,
+  navnForslag,
 }: {
   onClose: () => void;
   onCreated: () => void;
   preselectedCompanyIds?: string[] | null;
+  navnForslag?: string;
 }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(navnForslag ?? "");
   const [purpose, setPurpose] = useState("");
   const [ringere, setRingere] = useState<string[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);

@@ -13,6 +13,8 @@ const ADDR = "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse";
 
 export type BulkFilters = {
   municipality_codes?: string[];
+  /** Postnumre (fx fra distrikter); kombineres med kommuner som ELLER */
+  postnumre?: number[];
   include_ceased?: boolean;
   branch_codes?: string[];
   company_forms?: string[];
@@ -52,9 +54,12 @@ export function buildBulkQuery(f: BulkFilters): any {
       },
     });
   }
+  const geo: any[] = [];
   if (f.municipality_codes?.length) {
-    filter.push({ terms: { [`${ADDR}.kommune.kommuneKode`]: f.municipality_codes.map((k) => k.padStart(4, "0")) } });
+    geo.push({ terms: { [`${ADDR}.kommune.kommuneKode`]: f.municipality_codes.map((k) => k.padStart(4, "0")) } });
   }
+  if (f.postnumre?.length) geo.push({ terms: { [`${ADDR}.postnummer`]: f.postnumre } });
+  if (geo.length) filter.push({ bool: { should: geo, minimum_should_match: 1 } });
   if (f.zip_from != null || f.zip_to != null) {
     const r: any = {};
     if (f.zip_from != null) r.gte = f.zip_from;
