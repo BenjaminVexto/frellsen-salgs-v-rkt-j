@@ -363,29 +363,27 @@ function Konsekvens({ rows, navn, farve, valgt, onVaelg }: { rows: KonsekvensRow
     <div className="overflow-x-auto">
       <table className="w-full text-[11px] [&_td]:px-0.5 [&_th]:px-0.5">
         <thead className="text-muted-foreground">
-          <tr className="text-right"><th className="text-left font-medium px-1">Sælger</th><th className="font-medium px-1">Lok.</th><th className="font-medium px-1">Aktive</th><th className="font-medium px-1">Oms.</th><th className="font-medium px-1">Δ oms.</th><th className="font-medium px-1">DB</th><th className="font-medium px-1">Δ DB</th></tr>
+          <tr className="text-right"><th className="text-left font-medium px-1">Sælger</th><th className="font-medium px-1">Lok.</th><th className="font-medium px-1">Aktive</th><th className="font-medium px-1">Oms. · Δ</th><th className="font-medium px-1">DB · Δ</th></tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.key} onClick={() => onVaelg(r.key)} className={"border-t border-border cursor-pointer hover:bg-muted/40 text-right tabular-nums " + (valgt === r.key ? "bg-muted/60" : "")}>
-              <td className="text-left px-1 py-1 max-w-[80px]"><div className="flex items-center gap-1 min-w-0">
+              <td className="text-left px-1 py-1 max-w-[96px]"><div className="flex items-center gap-1 min-w-0">
                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: farve(r.key), outline: r.key.startsWith("f:") ? "1px dashed currentColor" : undefined }} />
                 <span className="truncate" title={navn(r.key)}>{navn(r.key)}</span></div></td>
               <td className="px-1">{fe(r.foer.n, r.efter.n)}</td>
               <td className="px-1">{fe(r.foer.aktive, r.efter.aktive)}</td>
-              <td className="px-1">{fe(r.foer.oms, r.efter.oms, k)}</td>
-              <td className="px-1 whitespace-nowrap leading-tight">{fortegn(r.efter.oms - r.foer.oms, k)}<div className="text-muted-foreground">{pct(r.foer.oms, r.efter.oms)}</div></td>
-              <td className="px-1">{fe(r.foer.db, r.efter.db, k)}</td>
-              <td className="px-1 whitespace-nowrap">{fortegn(r.efter.db - r.foer.db, k)}</td>
+              <td className="px-1 leading-tight">{fe(r.foer.oms, r.efter.oms, k)}<div className="text-muted-foreground whitespace-nowrap">{fortegn(r.efter.oms - r.foer.oms, k)} · {pct(r.foer.oms, r.efter.oms)}</div></td>
+              <td className="px-1 leading-tight">{fe(r.foer.db, r.efter.db, k)}<div className="text-muted-foreground whitespace-nowrap">{fortegn(r.efter.db - r.foer.db, k)}</div></td>
             </tr>
           ))}
           <tr className="border-t-2 border-border font-medium text-right tabular-nums">
             <td className="text-left px-1 py-1">I alt</td><td className="px-1">{fe(t.foer.n, t.efter.n)}</td><td className="px-1">{fe(t.foer.aktive, t.efter.aktive)}</td>
-            <td className="px-1">{fe(t.foer.oms, t.efter.oms, k)}</td><td className="px-1">{fortegn(t.efter.oms - t.foer.oms, k)}</td><td className="px-1">{fe(t.foer.db, t.efter.db, k)}</td><td className="px-1">{fortegn(t.efter.db - t.foer.db, k)}</td>
+            <td className="px-1 leading-tight">{fe(t.foer.oms, t.efter.oms, k)}<div className="text-muted-foreground">{fortegn(t.efter.oms - t.foer.oms, k)}</div></td><td className="px-1 leading-tight">{fe(t.foer.db, t.efter.db, k)}<div className="text-muted-foreground">{fortegn(t.efter.db - t.foer.db, k)}</div></td>
           </tr>
         </tbody>
       </table>
-      <div className="text-[11px] text-muted-foreground mt-1">Før → efter. Oms. og DB 12 mdr. i 1.000 kr. Klik på en sælger for at filtrere flyttelisten.</div>
+      <div className="text-[11px] text-muted-foreground mt-1">Før → efter, med Δ under. Oms. og DB 12 mdr. i 1.000 kr. Klik på en sælger for at filtrere flyttelisten.</div>
     </div>
   );
 }
