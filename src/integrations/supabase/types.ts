@@ -4988,6 +4988,17 @@ export type Database = {
         }
         Returns: string
       }
+      cvr_findes_i_crm: {
+        Args: { cvr_rows: Json }
+        Returns: {
+          company_id: string
+          company_name: string
+          cvr: string
+          ikke_kontakt: boolean
+          kundenr: string
+          match_type: string
+        }[]
+      }
       derive_agreement_type: {
         Args: { _name: string }
         Returns: Database["public"]["Enums"]["agreement_type"]
