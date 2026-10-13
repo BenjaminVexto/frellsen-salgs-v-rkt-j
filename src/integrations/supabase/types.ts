@@ -1637,6 +1637,36 @@ export type Database = {
         }
         Relationships: []
       }
+      distrikt_scenarie: {
+        Row: {
+          beskrivelse: string | null
+          id: string
+          navn: string
+          opdateret_at: string
+          oprettet_af: string | null
+          oprettet_at: string
+          status: string
+        }
+        Insert: {
+          beskrivelse?: string | null
+          id?: string
+          navn: string
+          opdateret_at?: string
+          oprettet_af?: string | null
+          oprettet_at?: string
+          status?: string
+        }
+        Update: {
+          beskrivelse?: string | null
+          id?: string
+          navn?: string
+          opdateret_at?: string
+          oprettet_af?: string | null
+          oprettet_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       distrikter: {
         Row: {
           aktiv: boolean
@@ -3975,6 +4005,135 @@ export type Database = {
         }
         Relationships: []
       }
+      scenarie_distrikt: {
+        Row: {
+          daekkes_af_user_id: string | null
+          farve: string
+          id: string
+          kilde_distrikt_id: string | null
+          landsdel: string | null
+          navn: string
+          saelger_fiktiv_id: string | null
+          saelger_user_id: string | null
+          scenarie_id: string
+          sort: number
+        }
+        Insert: {
+          daekkes_af_user_id?: string | null
+          farve?: string
+          id?: string
+          kilde_distrikt_id?: string | null
+          landsdel?: string | null
+          navn: string
+          saelger_fiktiv_id?: string | null
+          saelger_user_id?: string | null
+          scenarie_id: string
+          sort?: number
+        }
+        Update: {
+          daekkes_af_user_id?: string | null
+          farve?: string
+          id?: string
+          kilde_distrikt_id?: string | null
+          landsdel?: string | null
+          navn?: string
+          saelger_fiktiv_id?: string | null
+          saelger_user_id?: string | null
+          scenarie_id?: string
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenarie_distrikt_saelger_fiktiv_id_fkey"
+            columns: ["saelger_fiktiv_id"]
+            isOneToOne: false
+            referencedRelation: "scenarie_saelger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scenarie_distrikt_scenarie_id_fkey"
+            columns: ["scenarie_id"]
+            isOneToOne: false
+            referencedRelation: "distrikt_scenarie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scenarie_flade: {
+        Row: {
+          distrikt_id: string
+          flade: number
+          scenarie_id: string
+        }
+        Insert: {
+          distrikt_id: string
+          flade: number
+          scenarie_id: string
+        }
+        Update: {
+          distrikt_id?: string
+          flade?: number
+          scenarie_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenarie_flade_distrikt_id_fkey"
+            columns: ["distrikt_id"]
+            isOneToOne: false
+            referencedRelation: "scenarie_distrikt"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scenarie_flade_flade_fkey"
+            columns: ["flade"]
+            isOneToOne: false
+            referencedRelation: "postnummer_flader"
+            referencedColumns: ["flade"]
+          },
+          {
+            foreignKeyName: "scenarie_flade_scenarie_id_fkey"
+            columns: ["scenarie_id"]
+            isOneToOne: false
+            referencedRelation: "distrikt_scenarie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scenarie_saelger: {
+        Row: {
+          farve: string
+          id: string
+          navn: string
+          oprettet_at: string
+          profil_id: string | null
+          scenarie_id: string
+        }
+        Insert: {
+          farve?: string
+          id?: string
+          navn: string
+          oprettet_at?: string
+          profil_id?: string | null
+          scenarie_id: string
+        }
+        Update: {
+          farve?: string
+          id?: string
+          navn?: string
+          oprettet_at?: string
+          profil_id?: string | null
+          scenarie_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenarie_saelger_scenarie_id_fkey"
+            columns: ["scenarie_id"]
+            isOneToOne: false
+            referencedRelation: "distrikt_scenarie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tmp_crm_nord: {
         Row: {
           afdeling_nr: number | null
@@ -5281,6 +5440,12 @@ export type Database = {
           seneste: string
           visma_delivery_no: string
         }[]
+      }
+      scenarie_gor_gaeldende: { Args: { _id: string }; Returns: string }
+      scenarie_kopier: { Args: { _id: string; _navn: string }; Returns: string }
+      scenarie_opret: {
+        Args: { _beskrivelse?: string; _navn: string; _status?: string }
+        Returns: string
       }
       sektorfordeling: {
         Args: { _afdeling_nr?: number; _fra: string; _til: string }

@@ -40,11 +40,11 @@ const kr = (n: number) => Math.round(n).toLocaleString("da-DK") + " kr.";
 export type DistriktStat = { flader: number; n: number; match: number; db: number; oms: number };
 
 export function DistriktPanel({
-  data, stats, navn, redigerer, setRedigerer, valgt, setValgt, kanFortryde, onFortryd, onGemt, kpg3Koder,
+  data, stats, navn, redigerer, setRedigerer, valgt, setValgt, kanFortryde, onFortryd, onGemt, kpg3Koder, kunVisning,
 }: {
   data: DistriktData; stats: Map<string, DistriktStat>; navn: (id: string | null) => string;
   redigerer: boolean; setRedigerer: (b: boolean) => void; valgt: string | null; setValgt: (id: string | null) => void;
-  kanFortryde: boolean; onFortryd: () => void; onGemt: () => void; kpg3Koder: { kode: string; label: string; n: number }[];
+  kanFortryde: boolean; onFortryd: () => void; onGemt: () => void; kpg3Koder: { kode: string; label: string; n: number }[]; kunVisning?: boolean;
 }) {
   const [edit, setEdit] = useState<Partial<Distrikt> | null>(null);
   const [visKam, setVisKam] = useState(false);
@@ -54,15 +54,15 @@ export function DistriktPanel({
         <span className="font-medium">Distrikter</span>
         <div className="flex gap-1">
           <Button size="sm" variant="outline" onClick={() => setVisKam(true)}>KAM-koder</Button>
-          <Button size="sm" variant="outline" onClick={() => setEdit({ navn: "", farve: "#3b5b92", landsdel: "Vest", sort: data.distrikter.length + 1 })}>Nyt distrikt</Button>
+          {!kunVisning && <Button size="sm" variant="outline" onClick={() => setEdit({ navn: "", farve: "#3b5b92", landsdel: "Vest", sort: data.distrikter.length + 1 })}>Nyt distrikt</Button>}
         </div>
       </div>
-      {data.distrikter.length > 0 && (
+      {!kunVisning && data.distrikter.length > 0 && (
         <Button size="sm" variant={redigerer ? "default" : "outline"} className="w-full" onClick={() => setRedigerer(!redigerer)}>
           {redigerer ? "Afslut redigering" : "Redigér grænser"}
         </Button>
       )}
-      {redigerer && (
+      {!kunVisning && redigerer && (
         <div className="rounded border-2 border-primary bg-primary/5 p-2 text-xs space-y-2">
           <div className="font-medium">Redigeringstilstand</div>
           <div>{valgt ? <>Klik eller træk hen over flader for at flytte dem til <b>{data.distrikter.find((d) => d.id === valgt)?.navn}</b>.</> : "Vælg et distrikt i listen herunder."}</div>
@@ -84,7 +84,7 @@ export function DistriktPanel({
               <div className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-sm shrink-0" style={{ background: d.farve, outline: d.saelger_user_id ? undefined : "1px dashed currentColor" }} />
                 <span className="font-medium flex-1 truncate">{d.navn}</span>
-                <button type="button" className="text-muted-foreground hover:underline" onClick={(e) => { e.stopPropagation(); setEdit(d); }}>Rediger</button>
+                {!kunVisning && <button type="button" className="text-muted-foreground hover:underline" onClick={(e) => { e.stopPropagation(); setEdit(d); }}>Rediger</button>}
               </div>
               <div className="text-muted-foreground mt-0.5">{saelger}{d.landsdel ? ` · ${d.landsdel}` : ""}</div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 tabular-nums">
