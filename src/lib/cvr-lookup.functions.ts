@@ -32,6 +32,7 @@ export type CvrCompany = {
   sub_branch_3_code: string | null;
   sub_branch_3_text: string | null;
   penheder_count: number;
+  pnumre: string[];
 };
 
 export type CvrResponse =
@@ -148,8 +149,60 @@ function mapVirksomhed(v: any): CvrCompany {
     sub_branch_3_code: bi3?.branchekode ?? null,
     sub_branch_3_text: bi3?.branchetekst ?? null,
     penheder_count: Array.isArray(v?.penheder) ? v.penheder.length : 0,
+    pnumre: Array.isArray(v?.penheder)
+      ? v.penheder.filter((p: any) => p?.pNummer && !p?.periode?.gyldigTil).map((p: any) => String(p.pNummer))
+      : [],
   };
 }
+
+const BulkPageInput = z.object({
+  filters: z.object({
+    municipality_codes: z.array(z.string().regex(/^\d{3,4}$/)).max(110).optional(),
+    include_ceased: z.boolean().optional(),
+    branch_codes: z.array(z.string().regex(/^\d{2,6}$/)).max(80).optional(),
+    company_forms: z.array(z.string().min(1).max(40)).max(20).optional(),
+    employee_codes: z.array(z.string().regex(/^\d+_\d+$/)).max(20).optional(),
+    include_unknown_employees: z.boolean().optional(),
+    only_phone: z.boolean().optional(),
+    zip_from: z.number().int().min(0).max(9999).optional(),
+    zip_to: z.number().int().min(0).max(9999).optional(),
+  }),
+  search_after: z.string().regex(/^\d{1,10}$/).nullable().optional(),
+  size: z.number().int().min(0).max(1000).optional(),
+});
+
+/**
+ * Én side af bulk-søgningen via search_after sorteret på cvrNummer (ingen 10.000-grænse).
+ * Svaret sendes som én JSON-streng pga. serialiseringsgrænsen.
+ */
+export const cvrBulkSide = createServerFn({ method: "POST" })
+  .middleware([kraevIntern])
+  .inputValidator((input: unknown) => BulkPageInput.parse(input))
+  .handler(async ({ data }): Promise<string> => {
+    const { buildBulkQuery } = await import("./cvr-bulk-query");
+    try {
+      const payload: any = {
+        _source: SOURCE_FIELDS,
+        query: buildBulkQuery(data.filters),
+        sort: [{ "Vrvirksomhed.cvrNummer": "asc" }],
+        size: data.size ?? 1000,
+      };
+      if (data.search_after) payload.search_after = [Number(data.search_after)];
+      const json = await callCvr(payload);
+      const hits = json?.hits?.hits ?? [];
+      const companies = hits.map((h: any) => h?._source?.Vrvirksomhed).filter(Boolean).map(mapVirksomhed);
+      const last = hits.length ? hits[hits.length - 1]?.sort?.[0] : null;
+      return JSON.stringify({
+        success: true,
+        data: companies,
+        total: json?.hits?.total?.value ?? json?.hits?.total ?? 0,
+        next: last != null ? String(last) : null,
+      });
+    } catch (e: any) {
+      console.error("cvrBulkSide error:", e?.message ?? e);
+      return JSON.stringify({ success: false, error: e?.code ?? "HTTP_ERROR" });
+    }
+  });
 
 async function callCvr(payload: unknown): Promise<any> {
   const user = process.env.CVR_USERNAME;
