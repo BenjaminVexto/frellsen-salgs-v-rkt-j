@@ -350,7 +350,6 @@ function SalgskortPage() {
   });
   const total = saelgerBjaelke.reduce((a, [, e]) => ({ n: a.n + e.n, oms: a.oms + e.oms, db: a.db + e.db }), { n: 0, oms: 0, db: 0 });
   const flade = valgtFlade != null ? data?.flader.find((f) => f.flade === valgtFlade) : null;
-  const visPanel = (visning !== "virk" && !!dd) || (visning === "virk" && !!flade);
   const nulstil = () => { setFilters(tomFiltre()); setFremhaev(null); };
   const chips: { key: string; label: string; fjern: () => void }[] = [];
   (Object.keys(filters) as Dim[]).forEach((d) => filters[d].forEach((v) => {
@@ -377,8 +376,8 @@ function SalgskortPage() {
       )}
 
       {data && data.flader.length > 0 && geo && (
-        <div className={"grid gap-4 items-start " + (visPanel ? "lg:grid-cols-[260px_1fr_380px]" : "lg:grid-cols-[260px_1fr]")}>
-          <Card className="p-3 space-y-4 h-[78vh] overflow-y-auto text-sm">
+        <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_420px] lg:h-[calc(100vh-9.5rem)]">
+          <Card className="p-3 space-y-4 lg:h-full max-h-[80vh] lg:max-h-none overflow-y-auto text-sm">
             <div className="flex items-center justify-between">
               <span className="font-medium">Filtre</span>
               <Button size="sm" variant="outline" onClick={nulstil}>Nulstil filtre</Button>
@@ -448,7 +447,7 @@ function SalgskortPage() {
             })}
           </Card>
 
-          <Card className={"flex flex-col h-[78vh] overflow-hidden " + (redigerer ? "ring-2 ring-primary" : "")}>
+          <Card className={"flex flex-col lg:h-full h-[70vh] overflow-hidden " + (redigerer ? "ring-2 ring-primary" : "")}>
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
               <div className="flex rounded-md border border-border text-xs overflow-hidden">
                 {([["virk", "Virkelighed"], ["distr", "Distrikter"], ["over", "Overensstemmelse"]] as const).map(([k, l]) => (
@@ -460,6 +459,18 @@ function SalgskortPage() {
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setVisIkkePlaceret(true)}>Ikke placeret ({ikkePlaceret.length})</Button>
               </div>
             </div>
+            {visning === "virk" && saelgerBjaelke.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b border-border px-3 py-1.5 text-xs" onMouseLeave={() => setHoverSaelger(null)}>
+                {saelgerBjaelke.map(([k]) => (
+                  <button key={k} type="button" onMouseEnter={() => setHoverSaelger(k)} onClick={() => setFremhaev(fremhaev === k ? null : k)}
+                    className={"inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 hover:bg-muted " + (fremhaev === k ? "bg-muted font-medium" : "")}>
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: farver.get(k) }} />
+                    <span className="whitespace-nowrap">{saelgerNavn.get(k)}</span>
+                  </button>
+                ))}
+                {fremhaev && <button type="button" className="inline-flex items-center gap-1 text-muted-foreground hover:underline" onClick={() => setFremhaev(null)}><X className="h-3 w-3" /> Fjern fremhævning</button>}
+              </div>
+            )}
             {chips.length > 0 && (
               <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-2">
                 {chips.map((c) => (
@@ -484,73 +495,63 @@ function SalgskortPage() {
               {visning === "virk" && !flade && (
                 <div className="absolute top-2 right-2 rounded-md bg-background/90 border border-border px-2 py-1 text-xs text-muted-foreground pointer-events-none">Klik på en flade for detaljer</div>
               )}
-              {visning === "virk" && saelgerBjaelke.length > 0 && (
-                <div className="absolute top-2 left-2 z-10 max-h-[60%] overflow-y-auto rounded-md border border-border bg-background/90 p-2 text-xs space-y-0.5" onMouseLeave={() => setHoverSaelger(null)}>
-                  {saelgerBjaelke.map(([k]) => (
-                    <button key={k} type="button" onMouseEnter={() => setHoverSaelger(k)} onClick={() => setFremhaev(fremhaev === k ? null : k)}
-                      className={"flex w-full items-center gap-1.5 rounded px-1 text-left hover:bg-muted " + (fremhaev === k ? "bg-muted font-medium" : "")}>
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: farver.get(k) }} />
-                      <span className="truncate max-w-[140px]">{saelgerNavn.get(k)}</span>
-                    </button>
-                  ))}
-                  {fremhaev && <button type="button" className="mt-1 flex items-center gap-1 text-muted-foreground hover:underline" onClick={() => setFremhaev(null)}><X className="h-3 w-3" /> Fjern fremhævning</button>}
-                </div>
-              )}
               <div className="absolute bottom-1 left-2 text-[10px] text-muted-foreground">Kilde: DAGI, Klimadatastyrelsen · Kystlinje © OpenStreetMap-bidragydere</div>
             </div>
           </Card>
 
-          {visPanel && (
-          <Card className={"h-[78vh] text-sm animate-in slide-in-from-right-4 fade-in " + (visning !== "virk" ? "p-3 overflow-y-auto" : "flex flex-col overflow-hidden")}>
-            {visning !== "virk" && dd ? (
-              <DistriktPanel data={dd} stats={distriktStats} navn={pNavn} redigerer={redigerer} setRedigerer={setRedigerer}
-                valgt={valgtDistrikt} setValgt={setValgtDistrikt} kanFortryde={fortryd.length > 0} onFortryd={fortrydSeneste}
-                onGemt={genhentDistrikt} kpg3Koder={kpg3Koder} />
-            ) : flade ? (
+          <Card className="lg:h-full min-h-[60vh] text-sm flex flex-col overflow-hidden">
+            {visning === "virk" && flade ? (
               <FladePanel flade={flade} fordeling={pFlade.get(flade.flade)} lok={filtrerede.filter((r) => r.flade === flade.flade)} navne={saelgerNavn} farver={farver} onLuk={() => setValgtFlade(null)} />
-            ) : null}
+            ) : (
+              <>
+                {visning !== "virk" && dd && (
+                  <div className="p-3 overflow-y-auto max-h-[50%] shrink-0">
+                    <DistriktPanel data={dd} stats={distriktStats} navn={pNavn} redigerer={redigerer} setRedigerer={setRedigerer}
+                      valgt={valgtDistrikt} setValgt={setValgtDistrikt} kanFortryde={fortryd.length > 0} onFortryd={fortrydSeneste}
+                      onGemt={genhentDistrikt} kpg3Koder={kpg3Koder} />
+                  </div>
+                )}
+              <div className={"flex flex-col min-h-0 " + (visning !== "virk" ? "flex-1 border-t border-border" : "flex-1")}>
+                <div className="flex gap-2 p-3 pb-2">
+                  <Button size="sm" variant={fane === "saelgere" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setFane("saelgere")}>Sælgere</Button>
+                  <Button size="sm" variant={fane === "afvig" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setFane("afvig")}>Afvigelser fra distrikt ({afvigelser.length})</Button>
+                </div>
+                <div className="flex-1 min-h-0 overflow-auto px-3 pb-3">
+                {fane === "afvig" ? (
+                  (dd?.distrikter.length ?? 0) === 0 ? <div className="text-sm text-muted-foreground p-4">Distriktskortet er ikke oprettet endnu.</div> :
+                  <AfvigelsesListe rows={afvigelser} onZoom={(fl) => setZoom({ flade: fl, n: Date.now() })} />
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-card text-muted-foreground">
+                      <tr><th className="text-left px-2 py-1 font-medium">Sælger</th>
+                        <SortTh label="Lok." aktiv={sSort.k === "n"} asc={sSort.asc} onClick={() => setSSort({ k: "n", asc: sSort.k === "n" ? !sSort.asc : false })} />
+                        <SortTh label="Oms. 12 mdr." aktiv={sSort.k === "oms"} asc={sSort.asc} onClick={() => setSSort({ k: "oms", asc: sSort.k === "oms" ? !sSort.asc : false })} />
+                        <SortTh label="DB" aktiv={sSort.k === "db"} asc={sSort.asc} onClick={() => setSSort({ k: "db", asc: sSort.k === "db" ? !sSort.asc : false })} /></tr>
+                    </thead>
+                    <tbody>
+                      {sorteretSaelgere.map(([k, e]) => (
+                        <tr key={k} onClick={() => setFremhaev(fremhaev === k ? null : k)} className={"border-t border-border cursor-pointer hover:bg-muted/40 " + (fremhaev === k ? "bg-muted/60" : "")}>
+                          <td className="px-2 py-1 max-w-[150px]"><div className="flex items-center gap-1.5 min-w-0"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: farver.get(k) }} /><span className="truncate" title={saelgerNavn.get(k)}>{saelgerNavn.get(k)}</span></div></td>
+                          <td className="text-right px-2 tabular-nums">{e.n}</td>
+                          <td className="text-right px-2 tabular-nums whitespace-nowrap">{kr(e.oms)}</td>
+                          <td className="text-right px-2 tabular-nums whitespace-nowrap text-muted-foreground">{kr(e.db)}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 border-border font-medium">
+                        <td className="px-2 py-1">I alt</td><td className="text-right px-2 tabular-nums">{total.n}</td>
+                        <td className="text-right px-2 tabular-nums whitespace-nowrap">{kr(total.oms)}</td><td className="text-right px-2 tabular-nums whitespace-nowrap text-muted-foreground">{kr(total.db)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                )}
+                </div>
+              </div>
+              </>
+            )}
           </Card>
-          )}
         </div>
       )}
 
-      {data && data.flader.length > 0 && (
-        <Card className="p-3">
-          <div className="flex gap-2 mb-2">
-            <Button size="sm" variant={fane === "saelgere" ? "default" : "outline"} onClick={() => setFane("saelgere")}>Sælgere</Button>
-            <Button size="sm" variant={fane === "afvig" ? "default" : "outline"} onClick={() => setFane("afvig")}>Afvigelser fra distrikt ({afvigelser.length})</Button>
-          </div>
-          {fane === "afvig" ? (
-            (dd?.distrikter.length ?? 0) === 0 ? <div className="text-sm text-muted-foreground p-4">Distriktskortet er ikke oprettet endnu.</div> :
-            <AfvigelsesListe rows={afvigelser} onZoom={(fl) => setZoom({ flade: fl, n: Date.now() })} />
-          ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-xs uppercase tracking-wider text-muted-foreground">
-                <tr><th className="text-left px-2 py-1">Sælger</th>
-                  <SortTh label="Lokationer" aktiv={sSort.k === "n"} asc={sSort.asc} onClick={() => setSSort({ k: "n", asc: sSort.k === "n" ? !sSort.asc : false })} />
-                  <SortTh label="Omsætning 12 mdr." aktiv={sSort.k === "oms"} asc={sSort.asc} onClick={() => setSSort({ k: "oms", asc: sSort.k === "oms" ? !sSort.asc : false })} />
-                  <SortTh label="DB 12 mdr." aktiv={sSort.k === "db"} asc={sSort.asc} onClick={() => setSSort({ k: "db", asc: sSort.k === "db" ? !sSort.asc : false })} /></tr>
-              </thead>
-              <tbody>
-                {sorteretSaelgere.map(([k, e]) => (
-                  <tr key={k} onClick={() => setFremhaev(fremhaev === k ? null : k)} className={"border-t border-border cursor-pointer hover:bg-muted/40 " + (fremhaev === k ? "bg-muted/60" : "")}>
-                    <td className="px-2 py-1"><span className="inline-block h-3 w-3 rounded-sm mr-2 align-middle" style={{ background: farver.get(k) }} />{saelgerNavn.get(k)}</td>
-                    <td className="text-right px-2 tabular-nums">{e.n}</td>
-                    <td className="text-right px-2 tabular-nums">{kr(e.oms)}</td>
-                    <td className="text-right px-2 tabular-nums text-muted-foreground">{kr(e.db)}</td>
-                  </tr>
-                ))}
-                <tr className="border-t-2 border-border font-medium">
-                  <td className="px-2 py-1">I alt</td><td className="text-right px-2 tabular-nums">{total.n}</td>
-                  <td className="text-right px-2 tabular-nums">{kr(total.oms)}</td><td className="text-right px-2 tabular-nums text-muted-foreground">{kr(total.db)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          )}
-        </Card>
-      )}
 
       <Dialog open={visIkkePlaceret} onOpenChange={setVisIkkePlaceret}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -572,10 +573,10 @@ function SalgskortPage() {
   );
 }
 
-function SortTh({ label, aktiv, asc, onClick, left }: { label: string; aktiv: boolean; asc: boolean; onClick: () => void; left?: boolean }) {
+function SortTh({ label, aktiv, asc, onClick, left, w }: { label: string; aktiv: boolean; asc: boolean; onClick: () => void; left?: boolean; w?: string }) {
   const Ic = !aktiv ? ArrowUpDown : asc ? ArrowUp : ArrowDown;
   return (
-    <th className={"px-2 py-1 font-medium " + (left ? "text-left" : "text-right")}>
+    <th className={"px-2 py-1 font-medium whitespace-nowrap " + (w ?? "") + " " + (left ? "text-left" : "text-right")}>
       <button type="button" onClick={onClick} className={"inline-flex items-center gap-1 hover:text-foreground " + (aktiv ? "text-foreground" : "")}>
         {label}<Ic className="h-3 w-3" />
       </button>
@@ -672,23 +673,19 @@ function FladePanel({ flade, fordeling, lok, navne, farver, onLuk }: {
             <thead className="sticky top-0 bg-card text-muted-foreground shadow-[0_1px_0_var(--border)]">
               <tr>
                 <SortTh left label="Lokation" aktiv={sort.k === "navn"} asc={sort.asc} onClick={() => s("navn")} />
-                <SortTh left label="Sælger" aktiv={sort.k === "saelger"} asc={sort.asc} onClick={() => s("saelger")} />
-                <SortTh label="Oms. 12 mdr." aktiv={sort.k === "oms"} asc={sort.asc} onClick={() => s("oms")} />
-                <SortTh label="DB 12 mdr." aktiv={sort.k === "db"} asc={sort.asc} onClick={() => s("db")} />
+                <SortTh left w="w-[32%]" label="Sælger" aktiv={sort.k === "saelger"} asc={sort.asc} onClick={() => s("saelger")} />
+                <SortTh w="w-[110px]" label="Oms. 12 mdr." aktiv={sort.k === "oms"} asc={sort.asc} onClick={() => s("oms")} />
               </tr>
             </thead>
             <tbody>
               {vis.map((r) => {
-                const i = info.get(r.location_id);
                 return (
                   <tr key={r.location_id} className="border-t border-border hover:bg-muted/40">
-                    <td className="px-2 py-1 w-[38%]">
+                    <td className="px-2 py-1">
                       <Link to="/virksomheder/$id" params={{ id: r.company_id }} target="_blank" className="block truncate hover:underline" title={r.virksomhedsnavn ?? ""}>{r.virksomhedsnavn}</Link>
-                      {(i?.address || i?.city) && <div className="truncate text-muted-foreground">{[i?.address, i?.city].filter(Boolean).join(", ")}</div>}
                     </td>
-                    <td className="px-2 w-[24%]"><div className="flex items-center gap-1.5 min-w-0"><span className="h-2 w-2 rounded-full shrink-0" style={{ background: farver.get(r.sKey) }} /><span className="truncate" title={r.sNavn}>{r.sNavn}</span></div></td>
+                    <td className="px-2 w-[32%]"><div className="flex items-center gap-1.5 min-w-0"><span className="h-2 w-2 rounded-full shrink-0" style={{ background: farver.get(r.sKey) }} /><span className="truncate" title={r.sNavn}>{r.sNavn}</span></div></td>
                     <td className="px-2 text-right tabular-nums whitespace-nowrap">{kr(r.omsaetning_12m)}</td>
-                    <td className="px-2 text-right tabular-nums whitespace-nowrap text-muted-foreground">{kr(r.db_12m)}</td>
                   </tr>
                 );
               })}
