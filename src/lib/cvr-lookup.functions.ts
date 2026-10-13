@@ -158,6 +158,8 @@ function mapVirksomhed(v: any): CvrCompany {
 const BulkPageInput = z.object({
   filters: z.object({
     municipality_codes: z.array(z.string().regex(/^\d{3,4}$/)).max(110).optional(),
+    postnumre: z.array(z.number().int().min(100).max(9999)).max(2000).optional(),
+    distrikt_ids: z.array(z.string().uuid()).max(50).optional(),
     include_ceased: z.boolean().optional(),
     branch_codes: z.array(z.string().regex(/^\d{2,6}$/)).max(80).optional(),
     company_forms: z.array(z.string().min(1).max(40)).max(20).optional(),
@@ -178,12 +180,31 @@ const BulkPageInput = z.object({
 export const cvrBulkSide = createServerFn({ method: "POST" })
   .middleware([kraevIntern])
   .inputValidator((input: unknown) => BulkPageInput.parse(input))
-  .handler(async ({ data }): Promise<string> => {
+  .handler(async ({ data, context }): Promise<string> => {
     const { buildBulkQuery } = await import("./cvr-bulk-query");
     try {
+      const { distrikt_ids, ...filters } = data.filters;
+      if (distrikt_ids?.length) {
+        // Distrikt → flader → postnumre (distrikttabellerne er admin-only via RLS)
+        const { data: fl, error } = await context.supabase
+          .from("distrikt_flade").select("flade").in("distrikt_id", distrikt_ids);
+        if (error) throw new Error(error.message);
+        const flader = (fl ?? []).map((r) => r.flade);
+        const pn = new Set<number>(filters.postnumre ?? []);
+        if (flader.length) {
+          const { data: pf, error: e2 } = await context.supabase
+            .from("postnummer_flader").select("postnumre").in("flade", flader);
+          if (e2) throw new Error(e2.message);
+          (pf ?? []).forEach((r: any) => (r.postnumre ?? []).forEach((p: number) => pn.add(p)));
+        }
+        if (!pn.size && !filters.municipality_codes?.length) {
+          return JSON.stringify({ success: true, data: [], total: 0, next: null });
+        }
+        filters.postnumre = [...pn];
+      }
       const payload: any = {
         _source: SOURCE_FIELDS,
-        query: buildBulkQuery(data.filters),
+        query: buildBulkQuery(filters),
         sort: [{ "Vrvirksomhed.cvrNummer": "asc" }],
         size: data.size ?? 1000,
       };
