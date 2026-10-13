@@ -240,6 +240,8 @@ export function CvrBulkSoegningDialog({
   const [hideProtected, setHideProtected] = useState(true);
   const [onlyPhone, setOnlyPhone] = useState(false);
   const [confirmProtected, setConfirmProtected] = useState(false);
+  const [confirmIncomplete, setConfirmIncomplete] = useState(false);
+  const [fetchedCount, setFetchedCount] = useState(0);
   const [zipFrom, setZipFrom] = useState("");
   const [zipTo, setZipTo] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
@@ -408,6 +410,8 @@ export function CvrBulkSoegningDialog({
     setSelectedCvrs(new Set());
     setPage(0);
     setEsTotalBeforeEmpFilter(0);
+    setFetchedCount(0);
+    setNextKey(null);
     setFetchSecs(null);
     try {
       const res = await fetchPage(null, FIRST_PAGE);
@@ -415,9 +419,18 @@ export function CvrBulkSoegningDialog({
         toast.error("CVR-søgning fejlede: " + (res.error ?? "ukendt"));
         return;
       }
-      setEsTotalBeforeEmpFilter(res.total ?? 0);
+      const total = res.total ?? 0;
+      setEsTotalBeforeEmpFilter(total);
       setNextKey(res.next ?? null);
-      const annotated = await annotateExisting((res.data ?? []).map(mapToRow));
+      setFetchedCount((res.data ?? []).length);
+      const firstRows = (res.data ?? []).map(mapToRow);
+      if (total <= STOR_LISTE && res.next && firstRows.length < total) {
+        // Hent automatisk resten; genkendelse køres på hele resultatet
+        setSearching(false);
+        await fetchAndSelectAll({ rows: firstRows, after: res.next, total, t0: performance.now(), annotated: false });
+        return;
+      }
+      const annotated = await annotateExisting(firstRows);
       setAllRows(annotated);
       setSelectedCvrs(defaultSelection(annotated.filter((r) => matchesEmployeeCodes(r.employees, selectedEmpCodes(), includeNoEmp) && (!onlyPhone || r.phone))));
     } catch (e: any) {
@@ -427,15 +440,19 @@ export function CvrBulkSoegningDialog({
     }
   }
 
-  async function fetchAndSelectAll() {
-    const total = esTotalBeforeEmpFilter;
+  async function fetchAndSelectAll(
+    base?: { rows: CvrRow[]; after: string | null; total: number; t0: number; annotated: boolean },
+  ) {
+    const total = base?.total ?? esTotalBeforeEmpFilter;
     abortRef.current = false;
     setFetchingAll(true);
-    const t0 = performance.now();
-    const seen = new Set(allRows.map((r) => r.cvr));
-    const aggregated: CvrRow[] = [...allRows];
-    let after = nextKey;
-    let fetched = allRows.length;
+    const t0 = base?.t0 ?? performance.now();
+    const startRows = base?.rows ?? allRows;
+    const seen = new Set(startRows.map((r) => r.cvr));
+    let pending: CvrRow[] = base && !base.annotated ? [...startRows] : [];
+    const aggregated: CvrRow[] = base && !base.annotated ? [] : [...startRows];
+    let after = base ? base.after : nextKey;
+    let fetched = startRows.length;
     setFetchProgress({ current: fetched, total });
     try {
       while (after && !abortRef.current) {
@@ -448,10 +465,15 @@ export function CvrBulkSoegningDialog({
         fetched += list.length;
         const fresh = list.map(mapToRow).filter((r) => !seen.has(r.cvr));
         fresh.forEach((r) => seen.add(r.cvr));
-        aggregated.push(...(await annotateExisting(fresh)));
+        pending.push(...fresh);
         after = list.length ? (res.next ?? null) : null;
         setFetchProgress({ current: Math.min(fetched, total), total });
       }
+      for (let i = 0; i < pending.length; i += 2000) {
+        aggregated.push(...(await annotateExisting(pending.slice(i, i + 2000))));
+      }
+      pending = [];
+      setFetchedCount(fetched);
       setNextKey(after);
       setAllRows([...aggregated]);
       setSelectedCvrs(defaultSelection(aggregated.filter((r) => matchesEmployeeCodes(r.employees, selectedEmpCodes(), includeNoEmp) && (!onlyPhone || r.phone))));
@@ -459,7 +481,7 @@ export function CvrBulkSoegningDialog({
       const secs = Math.round((performance.now() - t0) / 100) / 10;
       setFetchSecs(secs);
       toast.success(
-        `${aggregated.length.toLocaleString("da")} af ${total.toLocaleString("da")} hentet på ${secs.toLocaleString("da")} sek.` +
+        `${fetched.toLocaleString("da")} af ${total.toLocaleString("da")} hentet på ${secs.toLocaleString("da")} sek.` +
           (abortRef.current ? " (afbrudt)" : ""),
       );
     } catch (e: any) {
@@ -483,10 +505,16 @@ export function CvrBulkSoegningDialog({
     return ["CVR", geo.join(", ") || "alle", ans, dato].filter(Boolean).join(" · ");
   }
 
-  async function doImport(force = false) {
+  const allFetched = !nextKey || fetchedCount >= esTotalBeforeEmpFilter;
+
+  async function doImport(force = false, incompleteOk = false) {
     const chosen = filteredRows.filter((r) => selectedCvrs.has(r.cvr));
     if (!chosen.length) {
       toast.error("Vælg mindst én virksomhed");
+      return;
+    }
+    if (!incompleteOk && !allFetched) {
+      setConfirmIncomplete(true);
       return;
     }
     if (!force && chosen.some((r) => r.ad_protection)) {
@@ -758,14 +786,16 @@ export function CvrBulkSoegningDialog({
                 <div className="text-sm">
                   <strong>{esTotalBeforeEmpFilter.toLocaleString("da")}</strong>{" "}
                   virksomheder fundet i CVR efter filtre
-                  {` · ${allRows.length.toLocaleString("da")} hentet`}
-                  {fetchSecs != null && ` på ${fetchSecs.toLocaleString("da")} sek.`}
-                  {filteredRows.length > 0 && (
-                    <span className="text-muted-foreground font-normal">
-                      {` · viser ${filteredRows.length.toLocaleString("da")} efter lokale filtre · ${selectedCvrs.size} valgt`}
-                    </span>
-                  )}
+                  {fetchSecs != null && ` · alle hentet på ${fetchSecs.toLocaleString("da")} sek.`}
+                  <span className="text-muted-foreground font-normal">
+                    {` · Viser ${filteredRows.length.toLocaleString("da")} af ${esTotalBeforeEmpFilter.toLocaleString("da")} · ${selectedCvrs.size} valgt`}
+                  </span>
                 </div>
+                {!allFetched && !fetchingAll && !searching && (
+                  <p className="text-xs rounded border border-warning/40 bg-warning/15 text-warning-foreground px-2 py-1">
+                    Kun de første {fetchedCount.toLocaleString("da")} af {esTotalBeforeEmpFilter.toLocaleString("da")} er hentet – listen er ufuldstændig
+                  </p>
+                )}
                 {(Object.keys(excludedByType).length > 0 || maybeCount > 0) && (
                   <p className="text-xs text-muted-foreground">
                     {Object.values(excludedByType).reduce((a, b) => a + (b ?? 0), 0).toLocaleString("da")} udeladt (sikre match:{" "}
@@ -812,9 +842,9 @@ export function CvrBulkSoegningDialog({
                 <Button size="sm" variant="outline" onClick={() => setSelectedCvrs(new Set())}>
                   Ryd
                 </Button>
-                {nextKey && allRows.length < esTotalBeforeEmpFilter && !fetchingAll && (
-                  <Button size="sm" onClick={fetchAndSelectAll}>
-                    Hent og vælg alle {esTotalBeforeEmpFilter.toLocaleString("da")} →
+                {!allFetched && !fetchingAll && (
+                  <Button size="sm" onClick={() => fetchAndSelectAll()}>
+                    Hent alle ({esTotalBeforeEmpFilter.toLocaleString("da")})
                   </Button>
                 )}
                 {esTotalBeforeEmpFilter > STOR_LISTE && (
@@ -988,6 +1018,23 @@ export function CvrBulkSoegningDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={confirmIncomplete} onOpenChange={setConfirmIncomplete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ikke alle resultater er hentet</AlertDialogTitle>
+            <AlertDialogDescription>
+              Kun {fetchedCount.toLocaleString("da")} af {esTotalBeforeEmpFilter.toLocaleString("da")} virksomheder fra CVR er hentet.
+              Listen bliver ufuldstændig. Vil du importere de valgte alligevel?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annullér</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmIncomplete(false); doImport(false, true); }}>
+              Importér alligevel
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={confirmProtected} onOpenChange={setConfirmProtected}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -999,7 +1046,7 @@ export function CvrBulkSoegningDialog({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annullér</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setConfirmProtected(false); doImport(true); }}>
+            <AlertDialogAction onClick={() => { setConfirmProtected(false); doImport(true, true); }}>
               Importér alligevel
             </AlertDialogAction>
           </AlertDialogFooter>
