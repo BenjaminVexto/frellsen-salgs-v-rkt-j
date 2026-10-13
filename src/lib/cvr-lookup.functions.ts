@@ -30,6 +30,7 @@ export type CvrCompany = {
   sub_branch_2_text: string | null;
   sub_branch_3_code: string | null;
   sub_branch_3_text: string | null;
+  penheder_count: number;
 };
 
 export type CvrResponse =
@@ -54,6 +55,7 @@ const SOURCE_FIELDS = [
   "Vrvirksomhed.aarsbeskaeftigelse",
   "Vrvirksomhed.kvartalsbeskaeftigelse",
   "Vrvirksomhed.maanedsbeskaeftigelse",
+  "Vrvirksomhed.penheder.pNummer",
 ];
 
 function pickLatest<T extends { periode?: { gyldigFra?: string | null; gyldigTil?: string | null } }>(
@@ -130,6 +132,7 @@ function mapVirksomhed(v: any): CvrCompany {
     sub_branch_2_text: bi2?.branchetekst ?? null,
     sub_branch_3_code: bi3?.branchekode ?? null,
     sub_branch_3_text: bi3?.branchetekst ?? null,
+    penheder_count: Array.isArray(v?.penheder) ? v.penheder.length : 0,
   };
 }
 
@@ -178,6 +181,8 @@ const InputSchema = z.discriminatedUnion("type", [
     filters: z.object({
       municipality: z.string().min(1).max(60).optional(),
       municipality_code: z.string().regex(/^\d{3,4}$/).optional(),
+      municipality_codes: z.array(z.string().regex(/^\d{3,4}$/)).max(110).optional(),
+      include_ceased: z.boolean().optional(),
       branch_codes: z.array(z.string().min(2).max(10)).max(50).optional(),
       company_forms: z.array(z.string().min(1).max(40)).max(20).optional(),
     }),
@@ -277,8 +282,8 @@ export const cvrLookup = createServerFn({ method: "POST" })
       const must: any[] = [];
       const filter: any[] = [];
 
-      // Status: aktiv + normal
-      must.push({
+      // Status: aktiv + normal (medmindre ophørte skal medtages)
+      if (!f.include_ceased) must.push({
         bool: {
           should: [
             { match: { "Vrvirksomhed.virksomhedMetadata.sammensatStatus": "Aktiv" } },
@@ -295,7 +300,14 @@ export const cvrLookup = createServerFn({ method: "POST" })
       if (f.municipality && !kommuneKode) {
         return { success: false, error: `UNKNOWN_MUNICIPALITY: ${f.municipality}` };
       }
-      if (kommuneKode) {
+      if (f.municipality_codes && f.municipality_codes.length) {
+        filter.push({
+          terms: {
+            "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.kommune.kommuneKode":
+              f.municipality_codes.map((k) => k.padStart(4, "0")),
+          },
+        });
+      } else if (kommuneKode) {
         filter.push({
           term: {
             "Vrvirksomhed.virksomhedMetadata.nyesteBeliggenhedsadresse.kommune.kommuneKode":

@@ -67,6 +67,7 @@ export const importCompaniesFromCvr = createServerFn({ method: "POST" })
         website: c.website ?? null,
         industry: c.industry ?? null,
         employees: intervalToNumber(c.employees_interval ?? null),
+        customer_type: "nyt_emne" as const,
         sources: ["cvr"],
         source_created_by: context.userId,
         source_updated_at: new Date().toISOString(),
