@@ -2151,7 +2151,11 @@ export type Database = {
           kam_ansvarlige: string[]
           koder: string[]
           kodetype: string
+          kpg1: string[]
+          kpg2: string[]
+          kpg3: string[]
           navn: string
+          omraade: Json | null
           opdateret_at: string
           oprettet_at: string
         }
@@ -2161,7 +2165,11 @@ export type Database = {
           kam_ansvarlige?: string[]
           koder?: string[]
           kodetype?: string
+          kpg1?: string[]
+          kpg2?: string[]
+          kpg3?: string[]
           navn: string
+          omraade?: Json | null
           opdateret_at?: string
           oprettet_at?: string
         }
@@ -2171,7 +2179,11 @@ export type Database = {
           kam_ansvarlige?: string[]
           koder?: string[]
           kodetype?: string
+          kpg1?: string[]
+          kpg2?: string[]
+          kpg3?: string[]
           navn?: string
+          omraade?: Json | null
           opdateret_at?: string
           oprettet_at?: string
         }
@@ -4141,7 +4153,12 @@ export type Database = {
           kilde_kam_id: string | null
           koder: string[]
           kodetype: string
+          kpg1: string[]
+          kpg2: string[]
+          kpg3: string[]
           navn: string
+          ny_i_scenarie: boolean
+          omraade: Json | null
           scenarie_id: string
         }
         Insert: {
@@ -4151,8 +4168,13 @@ export type Database = {
           kam_fiktive?: string[]
           kilde_kam_id?: string | null
           koder?: string[]
-          kodetype: string
+          kodetype?: string
+          kpg1?: string[]
+          kpg2?: string[]
+          kpg3?: string[]
           navn: string
+          ny_i_scenarie?: boolean
+          omraade?: Json | null
           scenarie_id: string
         }
         Update: {
@@ -4163,7 +4185,12 @@ export type Database = {
           kilde_kam_id?: string | null
           koder?: string[]
           kodetype?: string
+          kpg1?: string[]
+          kpg2?: string[]
+          kpg3?: string[]
           navn?: string
+          ny_i_scenarie?: boolean
+          omraade?: Json | null
           scenarie_id?: string
         }
         Relationships: [
@@ -4644,6 +4671,7 @@ export type Database = {
         }[]
       }
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
+      _remap_omraade: { Args: { m: Json; o: Json }; Returns: Json }
       _skm_refresh_keys: { Args: never; Returns: undefined }
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }

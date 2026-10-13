@@ -610,6 +610,13 @@
       "when": 1791885241330,
       "tag": "0086_kam_aftaler",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1791892796596,
+      "tag": "0087_kam_blandede_koder_omraade",
+      "breakpoints": true
     }
   ]
 }

@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
-import type { KamAftale } from "@/lib/simulering-regler";
+import { kodeOversigt, parseKoder, type KamAftale, type Omraade } from "@/lib/simulering-regler";
 
 export type Distrikt = {
   id: string; navn: string; saelger_user_id: string | null; daekkes_af_user_id: string | null;
@@ -34,7 +34,7 @@ export async function hentDistriktData(): Promise<DistriktData> {
   for (const r of [d, f, i, p]) if (r.error) throw r.error;
   const m = new Map<number, string>();
   (f.data ?? []).forEach((r: any) => m.set(r.flade, r.distrikt_id));
-  const kamAftaler: KamAftale[] = (i.data ?? []).map((a: any) => ({ id: a.id, navn: a.navn, kodetype: a.kodetype, koder: a.koder ?? [], ansvarlige: a.kam_ansvarlige ?? [], aktiv: a.aktiv }));
+  const kamAftaler: KamAftale[] = (i.data ?? []).map((a: any) => ({ id: a.id, navn: a.navn, kpg1: a.kpg1 ?? [], kpg2: a.kpg2 ?? [], kpg3: a.kpg3 ?? [], omraade: a.omraade ?? null, ansvarlige: a.kam_ansvarlige ?? [], aktiv: a.aktiv }));
   return { distrikter: d.data ?? [], fladeDistrikt: m, kamAftaler, profiler: p.data ?? [] };
 }
 
@@ -43,11 +43,12 @@ const kr = (n: number) => Math.round(n).toLocaleString("da-DK") + " kr.";
 export type DistriktStat = { flader: number; n: number; match: number; db: number; oms: number };
 
 export function DistriktPanel({
-  data, stats, navn, redigerer, setRedigerer, valgt, setValgt, kanFortryde, onFortryd, onGemt, kamValg, kamStat, kunVisning,
+  data, stats, navn, redigerer, setRedigerer, valgt, setValgt, kanFortryde, onFortryd, onGemt, kamValg, kamStat, kunVisning, kamTael, regioner,
 }: {
   data: DistriktData; stats: Map<string, DistriktStat>; navn: (id: string | null) => string;
   redigerer: boolean; setRedigerer: (b: boolean) => void; valgt: string | null; setValgt: (id: string | null) => void;
   kanFortryde: boolean; onFortryd: () => void; onGemt: () => void; kamValg: KamValg; kamStat: Map<string, { n: number; oms: number }>; kunVisning?: boolean;
+  kamTael: (a: KamAftale) => { n: number; oms: number }; regioner: string[];
 }) {
   const [edit, setEdit] = useState<Partial<Distrikt> | null>(null);
   const [visKam, setVisKam] = useState(false);
@@ -101,7 +102,7 @@ export function DistriktPanel({
         })}
       </ul>
       {edit && <DistriktDialog d={edit} profiler={data.profiler} onLuk={() => setEdit(null)} onGemt={() => { setEdit(null); onGemt(); }} />}
-      {visKam && <KamAftalerDialog aftaler={data.kamAftaler} profiler={data.profiler} valg={kamValg} stat={kamStat} navn={navn} onLuk={() => setVisKam(false)} onGemt={onGemt} />}
+      {visKam && <KamAftalerDialog aftaler={data.kamAftaler} profiler={data.profiler} valg={kamValg} stat={kamStat} navn={navn} distrikter={data.distrikter} regioner={regioner} tael={kamTael} onLuk={() => setVisKam(false)} onGemt={onGemt} />}
     </div>
   );
 }
@@ -160,11 +161,11 @@ function DistriktDialog({ d, profiler, onLuk, onGemt }: { d: Partial<Distrikt>; 
 }
 
 export type KamValg = { kpg1: [string, number][]; kpg2: [string, number][]; kpg3: [string, number][] };
-const KODETYPE = { kpg1: "Aftale (KPG1)", kpg2: "Underaftale (KPG2)", kpg3: "Segment (KPG3)" } as const;
 export const kodeVis = (kodetype: string, k: string) => kodetype === "kpg2" ? `${k.split("||")[1]} (${k.split("||")[0]})` : k;
 
-function KamAftalerDialog({ aftaler, profiler, valg, stat, navn, onLuk, onGemt }: {
-  aftaler: KamAftale[]; profiler: Profil[]; valg: KamValg; stat: Map<string, { n: number; oms: number }>; navn: (id: string | null) => string; onLuk: () => void; onGemt: () => void;
+function KamAftalerDialog({ aftaler, profiler, valg, stat, navn, distrikter, regioner, tael, onLuk, onGemt }: {
+  aftaler: KamAftale[]; profiler: Profil[]; valg: KamValg; stat: Map<string, { n: number; oms: number }>; navn: (id: string | null) => string;
+  distrikter: { id: string; navn: string }[]; regioner: string[]; tael: (a: KamAftale) => { n: number; oms: number }; onLuk: () => void; onGemt: () => void;
 }) {
   const [edit, setEdit] = useState<Partial<KamAftale> | null>(null);
   const slet = async (a: KamAftale) => {
@@ -178,7 +179,7 @@ function KamAftalerDialog({ aftaler, profiler, valg, stat, navn, onLuk, onGemt }
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] [&>*]:min-w-0">
         <DialogHeader><DialogTitle>KAM-aftaler</DialogTitle></DialogHeader>
         <p className="text-xs text-muted-foreground">KAM går på tværs af distrikterne. Lokationerne beholder deres distriktssælger og tæller stadig i distriktsanalysen.</p>
-        <div className="flex justify-end"><Button size="sm" onClick={() => setEdit({ navn: "", kodetype: "kpg1", koder: [], ansvarlige: [], aktiv: true })}>Ny KAM-aftale</Button></div>
+        <div className="flex justify-end"><Button size="sm" onClick={() => setEdit({ navn: "", kpg1: [], kpg2: [], kpg3: [], ansvarlige: [], aktiv: true })}>Ny KAM-aftale</Button></div>
         {!aftaler.length && <div className="text-sm text-muted-foreground">Ingen KAM-aftaler endnu.</div>}
         <ul className="space-y-1">
           {aftaler.map((a) => {
@@ -190,14 +191,22 @@ function KamAftalerDialog({ aftaler, profiler, valg, stat, navn, onLuk, onGemt }
                   <button type="button" className="text-muted-foreground hover:underline" onClick={() => setEdit(a)}>Rediger</button>
                   <button type="button" className="text-muted-foreground hover:underline" onClick={() => slet(a)}>Slet</button>
                 </div>
-                <div className="text-muted-foreground truncate" title={a.koder.map((k) => kodeVis(a.kodetype, k)).join(", ")}>{KODETYPE[a.kodetype]}: {a.koder.length} {a.koder.length === 1 ? "kode" : "koder"} · {a.ansvarlige.length ? a.ansvarlige.map((x) => navn(x)).join(", ") : "ingen ansvarlig"}</div>
+                <div className="text-muted-foreground truncate" title={kodeOversigt(a)}>{kodeOversigt(a)}{omrKort(a.omraade, distrikter)} · {a.ansvarlige.length ? a.ansvarlige.map((x) => navn(x)).join(", ") : "ingen ansvarlig"}</div>
                 <div className="tabular-nums">{st.n.toLocaleString("da-DK")} lokationer · {kr(st.oms)} oms.</div>
               </li>
             );
           })}
         </ul>
         <DialogFooter><Button variant="outline" onClick={onLuk}>Luk</Button></DialogFooter>
-        {edit && <KamAftaleDialog a={edit} profiler={profiler} valg={valg} onLuk={() => setEdit(null)} onGemt={() => { setEdit(null); onGemt(); }} />}
+        {edit && <KamFormDialog start={edit} valg={valg} personer={profiler.filter((p) => p.is_active !== false && p.full_name).map((p) => [p.id, p.full_name!] as [string, string])}
+          distrikter={distrikter} distriktTitel="Distrikter" regioner={regioner} tael={tael} onLuk={() => setEdit(null)}
+          onGem={async (f) => {
+            const row = { navn: f.navn, kpg1: f.kpg1, kpg2: f.kpg2, kpg3: f.kpg3, omraade: f.omraade, kam_ansvarlige: f.ansvarlige, aktiv: f.aktiv, opdateret_at: new Date().toISOString() };
+            const sb = supabase as any;
+            const { error } = edit.id ? await sb.from("kam_aftale").update(row).eq("id", edit.id) : await sb.from("kam_aftale").insert(row);
+            if (error) { toast.error(error.message); return; }
+            toast.success("KAM-aftale gemt"); setEdit(null); onGemt();
+          }} />}
       </DialogContent>
     </Dialog>
   );
@@ -229,37 +238,108 @@ function SoegListe({ titel, valg, valgte, setValgte, vis }: { titel: string; val
 }
 export { SoegListe };
 
-function KamAftaleDialog({ a, profiler, valg, onLuk, onGemt }: { a: Partial<KamAftale>; profiler: Profil[]; valg: KamValg; onLuk: () => void; onGemt: () => void }) {
-  const [f, setF] = useState<Partial<KamAftale>>(a);
-  const kt = f.kodetype ?? "kpg1";
-  const personer: [string, null][] = profiler.filter((p) => p.is_active !== false && p.full_name).map((p) => [p.id, null]);
-  const pn = new Map(profiler.map((p) => [p.id, p.full_name ?? "?"]));
+export function omrKort(o: Omraade | null | undefined, distrikter: { id: string; navn: string }[]) {
+  if (!o || o.type === "land" || !o.vaerdier?.length) return "";
+  if (o.type === "distrikt") return " · i " + o.vaerdier.map((v) => distrikter.find((d) => d.id === v)?.navn ?? "?").join(", ");
+  return (o.type === "landsdel" ? " · i landsdel " : " · i ") + o.vaerdier.join(", ");
+}
+
+/** Valgfrit område: Hele landet / Landsdel / Distrikter / Regioner. Bruges af regler og KAM-aftaler. */
+export function OmraadeValg({ omr, setOmr, distrikter, distriktTitel, regioner, hjaelp }: {
+  omr: Omraade; setOmr: (o: Omraade) => void; distrikter: { id: string; navn: string }[]; distriktTitel: string; regioner: string[]; hjaelp: string;
+}) {
+  return (
+    <div className="space-y-1 border-t border-border pt-2">
+      <div className="font-medium">Område</div>
+      <p className="text-[11px] text-muted-foreground">{hjaelp}</p>
+      <div className="flex flex-wrap gap-3 text-xs">
+        {([["land", "Hele landet"], ["landsdel", "Landsdel"], ["distrikt", "Distrikter"], ...(regioner.length ? [["region", "Regioner"]] : [])] as [Omraade["type"], string][]).map(([t, l]) => (
+          <label key={t} className="flex items-center gap-1 cursor-pointer">
+            <input type="radio" checked={omr.type === t} onChange={() => setOmr({ type: t, vaerdier: [] })} />{l}
+          </label>
+        ))}
+      </div>
+      {omr.type === "landsdel" && <SoegListe titel="Landsdel" valg={[["Vest", null], ["Øst", null]]} valgte={omr.vaerdier} setValgte={(v) => setOmr({ ...omr, vaerdier: v })} />}
+      {omr.type === "distrikt" && <SoegListe titel={distriktTitel} valg={distrikter.map((d) => [d.id, null] as [string, null])} valgte={omr.vaerdier}
+        setValgte={(v) => setOmr({ ...omr, vaerdier: v })} vis={(x) => distrikter.find((d) => d.id === x)?.navn ?? "?"} />}
+      {omr.type === "region" && <SoegListe titel="Regioner" valg={regioner.map((x) => [x, null] as [string, null])} valgte={omr.vaerdier} setValgte={(v) => setOmr({ ...omr, vaerdier: v })} />}
+    </div>
+  );
+}
+
+type KodeType = "kpg1" | "kpg2" | "kpg3";
+/** "Indsæt koder" kopieret fra Excel; fundne koder lægges til den valgte liste. */
+export function IndsaetKoder({ valg, typer = ["kpg1", "kpg2", "kpg3"], onTilfoej }: { valg: KamValg; typer?: KodeType[]; onTilfoej: (t: KodeType, koder: string[]) => void }) {
+  const [aaben, setAaben] = useState(false);
+  const [tekst, setTekst] = useState("");
+  const [type, setType] = useState<KodeType>(typer[0]);
+  const [res, setRes] = useState<{ fundet: string[]; ikke: string[] } | null>(null);
+  if (!aaben) return <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAaben(true)}>Indsæt koder</Button>;
+  const kør = () => {
+    const r = parseKoder(tekst, valg[type].map(([k]) => k), type);
+    setRes(r);
+    if (r.fundet.length) onTilfoej(type, r.fundet);
+  };
+  return (
+    <div className="rounded border border-border p-2 space-y-2 text-xs min-w-0" data-testid="indsaet-koder">
+      <div className="font-medium">Indsæt koder</div>
+      <textarea className="w-full min-h-[64px] rounded border border-input bg-background p-1.5 text-xs" value={tekst} onChange={(e) => setTekst(e.target.value)}
+        placeholder={"Fx\n60\n61 [FKS kunder]\n22, 33; 40"} />
+      <div className="flex flex-wrap items-center gap-2">
+        <span>Indsæt som:</span>
+        {typer.map((t) => <Button key={t} size="sm" variant={type === t ? "default" : "outline"} className="h-6 px-2 text-xs" onClick={() => setType(t)}>{t.toUpperCase()}</Button>)}
+        <Button size="sm" className="h-6 px-2 text-xs ml-auto" onClick={kør} disabled={!tekst.trim()}>Tilføj</Button>
+        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => { setAaben(false); setRes(null); setTekst(""); }}>Luk</Button>
+      </div>
+      {res && <div className="space-y-0.5">
+        <div>{res.fundet.length} fundet</div>
+        {res.ikke.length > 0 && <div className="text-destructive">Ikke fundet: {res.ikke.join(", ")}</div>}
+      </div>}
+    </div>
+  );
+}
+
+export type KamForm = { navn: string; kpg1: string[]; kpg2: string[]; kpg3: string[]; omraade: Omraade | null; ansvarlige: string[]; aktiv: boolean };
+const kpg2Vis = (k: string) => { const [a, c] = k.split("||"); return `${c} (${a})`; };
+
+/** Fælles dialog for KAM-aftaler (gældende kort og scenarie). Ansvarlige er nøgler fra `personer`. */
+export function KamFormDialog({ start, valg, personer, distrikter, distriktTitel, regioner, tael, onGem, onLuk }: {
+  start: Partial<KamAftale>; valg: KamValg; personer: [string, string][]; distrikter: { id: string; navn: string }[]; distriktTitel: string;
+  regioner: string[]; tael: (a: KamAftale) => { n: number; oms: number }; onGem: (f: KamForm) => Promise<void>; onLuk: () => void;
+}) {
+  const [f, setF] = useState<KamForm>({ navn: start.navn ?? "", kpg1: start.kpg1 ?? [], kpg2: start.kpg2 ?? [], kpg3: start.kpg3 ?? [],
+    omraade: start.omraade ?? null, ansvarlige: start.ansvarlige ?? [], aktiv: start.aktiv ?? true });
+  const [gemmer, setGemmer] = useState(false);
+  const omr: Omraade = f.omraade ?? { type: "land", vaerdier: [] };
+  const pn = new Map(personer);
+  const tom = !f.kpg1.length && !f.kpg2.length && !f.kpg3.length;
+  const live = tom ? { n: 0, oms: 0 } : tael({ id: "_", ...f, omraade: omr.type === "land" ? null : omr, ansvarlige: [], aktiv: true });
   const gem = async () => {
-    if (!f.navn?.trim()) return toast.error("Navn mangler");
-    if (!f.koder?.length) return toast.error("Vælg mindst én kode");
-    const row = { navn: f.navn.trim(), kodetype: kt, koder: f.koder, kam_ansvarlige: f.ansvarlige ?? [], aktiv: f.aktiv ?? true, opdateret_at: new Date().toISOString() };
-    const sb = supabase as any;
-    const { error } = f.id ? await sb.from("kam_aftale").update(row).eq("id", f.id) : await sb.from("kam_aftale").insert(row);
-    if (error) return toast.error(error.message);
-    toast.success("KAM-aftale gemt");
-    onGemt();
+    if (!f.navn.trim()) return toast.error("Navn mangler");
+    if (tom) return toast.error("Vælg mindst én kode");
+    if (omr.type !== "land" && !omr.vaerdier.length) return toast.error("Vælg mindst ét område, eller vælg Hele landet");
+    setGemmer(true);
+    await onGem({ ...f, navn: f.navn.trim(), omraade: omr.type === "land" ? null : omr });
+    setGemmer(false);
   };
   return (
     <Dialog open onOpenChange={(o) => !o && onLuk()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] [&>*]:min-w-0">
-        <DialogHeader><DialogTitle>{f.id ? "Rediger KAM-aftale" : "Ny KAM-aftale"}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{start.id ? "Rediger KAM-aftale" : "Ny KAM-aftale"}</DialogTitle></DialogHeader>
         <div className="space-y-3 text-sm min-w-0">
-          <label className="block">Navn<Input value={f.navn ?? ""} onChange={(e) => setF({ ...f, navn: e.target.value })} /></label>
-          <div className="flex flex-wrap gap-1">
-            {(Object.keys(KODETYPE) as (keyof typeof KODETYPE)[]).map((k) => (
-              <Button key={k} size="sm" variant={kt === k ? "default" : "outline"} className="h-7 text-xs" onClick={() => setF({ ...f, kodetype: k, koder: kt === k ? f.koder : [] })}>{KODETYPE[k]}</Button>
-            ))}
-          </div>
-          <SoegListe titel="Koder" valg={valg[kt]} valgte={f.koder ?? []} setValgte={(v) => setF({ ...f, koder: v })} vis={(x) => kodeVis(kt, x)} />
-          <SoegListe titel="KAM-ansvarlige" valg={personer} valgte={f.ansvarlige ?? []} setValgte={(v) => setF({ ...f, ansvarlige: v })} vis={(x) => pn.get(x) ?? "Ukendt"} />
-          <label className="flex items-center gap-2 text-xs cursor-pointer"><Checkbox checked={f.aktiv ?? true} onCheckedChange={(v) => setF({ ...f, aktiv: !!v })} />Aktiv</label>
+          <label className="block">Navn<Input value={f.navn} onChange={(e) => setF({ ...f, navn: e.target.value })} /></label>
+          <p className="text-[11px] text-muted-foreground">Lokationen er på aftalen, hvis den har én af de valgte koder (KPG1, KPG2 eller KPG3).</p>
+          <IndsaetKoder valg={valg} onTilfoej={(t, k) => setF((x) => ({ ...x, [t]: [...new Set([...x[t], ...k])] }))} />
+          <SoegListe titel="Aftale (KPG1)" valg={valg.kpg1} valgte={f.kpg1} setValgte={(v) => setF({ ...f, kpg1: v })} />
+          <SoegListe titel="Underaftale (KPG2)" valg={valg.kpg2} valgte={f.kpg2} setValgte={(v) => setF({ ...f, kpg2: v })} vis={kpg2Vis} />
+          <SoegListe titel="Segment (KPG3)" valg={valg.kpg3} valgte={f.kpg3} setValgte={(v) => setF({ ...f, kpg3: v })} />
+          <OmraadeValg omr={omr} setOmr={(o) => setF({ ...f, omraade: o })} distrikter={distrikter} distriktTitel={distriktTitel} regioner={regioner}
+            hjaelp="Valgfrit: lokationen skal også ligge i området." />
+          <SoegListe titel="KAM-ansvarlige" valg={personer.map(([k]) => [k, null] as [string, null])} valgte={f.ansvarlige} setValgte={(v) => setF({ ...f, ansvarlige: v })} vis={(x) => pn.get(x) ?? "Ukendt"} />
+          <label className="flex items-center gap-2 text-xs cursor-pointer"><Checkbox checked={f.aktiv} onCheckedChange={(v) => setF({ ...f, aktiv: !!v })} />Aktiv</label>
         </div>
-        <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button onClick={gem}>Gem</Button></DialogFooter>
+        <div className="text-xs tabular-nums text-muted-foreground" data-testid="kam-live">Rammer {live.n.toLocaleString("da-DK")} lokationer · {kr(live.oms)}</div>
+        <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button disabled={gemmer} onClick={gem}>Gem</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
