@@ -1,46 +1,28 @@
-# Pakke 3 – kundestatus, statistik, konkurrenter og katalog
+# Telemarketing-rolle (eksternt bureau)
 
-Pakke 2 er færdig (adressesøgning, lokation via P-nr., lokationssøgning, koncern). Pakke 3 bygges i rækkefølgen nedenfor. Før hvert punkt, der ændrer status, gemmes et øjebliksbillede af antallene, så før/efter kan rapporteres. Ingen salgsdata ændres.
+## Mål
+Bureaubrugere logger ind og kan kun bruge Kontaktlister – kun de lister, de er sat på. Adgangen styres i databasen, ikke kun i menuen. Eksisterende brugere beholder præcis deres adgang.
 
-## 1) Sovende med hensyn til egen købsrytme
-- Ny databaseberegning af rytme pr. lokation og pr. virksomhed: måneder med forbrugskøb (samme forbrugsgrupper som status bruger i dag), gennemsnitligt interval mellem dem, kun når der er mindst 3 købsmåneder.
-- Statusregel: aktiv hvis måneder siden sidste forbrugskøb ≤ max(3, 1,5 × interval); ellers gælder den nuværende sovende/tidligere/servicekunde-logik uændret.
-- `forventet_interval_mdr` fra forbrugssignalet bruges kun, hvis den viser sig at være beregnet på samme måde; ellers bruges den nye beregning (afgøres ved kontrol, rapporteres).
-- Kundekortet: "Køber typisk hver ~X. måned · næste køb forventet ca. [måned år]", og diskret "Forventet køb er overskredet", når kunden er over rytmen men endnu ikke sovende.
-- Genberegning for alle afdelinger; rapport: aktive/sovende før og efter pr. afdeling (forventet ca. 1.063 færre sovende i afd. 11).
+## Trin
+1. **Gennemgang først (kun læsning):** jeg laver en tjekliste over alle tabeller, views og funktioner med adgang for indloggede brugere og deres nuværende policies. Den kommer med i svaret.
+2. **Rolle:** `telemarketing` tilføjes til rolle-listen. Hjælpefunktionen `er_telemarketing()` bliver security definer.
+3. **Lukning af databasen:** alle policies, der i dag giver "alle indloggede" adgang, får `AND NOT er_telemarketing()`. Det gælder bl.a. salg, faktura, priser, bonus, maskiner, aftaler, tilbud, aktiviteter, profiler, salgskort og distrikter. Security-definer-funktioner, der returnerer salgs- eller kundedata, afviser telemarketing øverst. Admin og sælgere får ikke ændret noget.
+4. **Bureauets adgang:**
+   - Ny tabel `kontaktliste_ringer` (liste ↔ bureaubruger).
+   - Nye felter på `contact_lists`: `moede_modtager` ('distrikt'|'fast'), `moede_saelger_user_id` (fast sælger eller den sælger, der bruges, når distriktet ikke giver en).
+   - Bureauet kan læse egne lister og deres rækker via RLS.
+   - Virksomhedsdata hentes kun gennem funktionen `tm_virksomheder(liste_id)`. Den giver navn, CVR, adresse, postnr./by, telefon, e-mail, hjemmeside, branche og ansatte. Bureauet får ingen direkte adgang til `companies`.
+   - Kontaktpersoner: bureauet kan læse, oprette og rette kontaktpersoner på virksomheder på deres lister, via policies på `contacts`.
+5. **Opkald:** ny tabel `kontaktliste_opkald` (liste, virksomhed, bruger, tidspunkt, udfald, årsag, note, ring_igen_at, mødedata). Bureauet læser og opretter kun sine egne opkald.
+   - "Møde booket" går gennem funktionen `tm_book_moede`. Den finder sælgeren via det gældende distriktskort (postnr → flade → distrikt → sælger/dækkes af). Findes der ingen, bruges den valgte sælger. Funktionen opretter en opfølgningsaktivitet og en notifikation til sælgeren og returnerer kun sælgerens navn.
+6. **Ønsker ikke kontakt:** nyt flag `ikke_kontakt` (+ tidspunkt og hvem) på `companies`. Det sættes via en funktion. Kun admin kan fjerne det. Virksomheder med flaget udelukkes i CVR-søgning og CVR-import og skjules i bureauets kø.
+7. **Brugerstyring:** admin kan oprette telemarketing-brugere (servervalidering af admin), deaktivere dem (ban) og se sidste login.
+8. **Navigation:** telemarketing-brugere ser kun "Kontaktlister" og ingen afdelingsvælger. Alle andre sider sender dem til /kontaktlister, også efter login.
+9. **Kontaktliste (admin):** felterne "Ringes af", "Møder går til" og formålet som manus. "Opret liste fra CVR" kan sættes direkte til et bureau. Admin får også et overblik: ringet, opnået, møder, årsager til "ikke interesseret", antal pr. bureaubruger og pr. dag, samt CSV-eksport.
+10. **Ringevisning:** kø ("Ring igen", der er forfaldne, først, derefter ikke-kontaktede), virksomhedskort med tel:-link, kontaktpersoner, tidligere opkald og udfaldsknapper. Efter 3× "Ingen svar" foreslås "Ikke opnået".
+11. **Test:** testbruger, en liste med 3 virksomheder, menu og redirects. Direkte forespørgsler med bureauets login mod bl.a. sales_monthly, invoice_lines, companies, profiles og activities skal give 0 rækker eller fejl. Jeg tjekker også, at en sælger ser det samme som før, og at et booket møde lander hos den rigtige sælger. Bagefter slettes alt testdata.
 
-## 2) Lokationsniveau for alt der er "mit"
-- Status beregnes pr. lokation (nyt felt på lokationen); virksomhedens status = den bedste af lokationerne.
-- Gennemgang af resterende "min"-visninger, der stadig regner på virksomhed: faldende kunder/forbrugssignal, sovende-lister, kontaktlister, salgsmuligheder. Portefølje, målepunkter og bonus er allerede pr. lokation fra tidligere.
-- Visning i lister: "National Oilwell Varco – Kalundborg (2 af 4 lokationer)".
-- Kundekortet: fordeling pr. lokation med sælgernavn, omsætning seneste 12 mdr., udvikling og status, så faldet kan ses (kontrol: Brøndby hos Claus Wolsing).
-- Maskinbonus og maskintal: lokationens sælger, når maskinen har en lokation; ellers virksomhedens sælger. Antal maskiner uden lokation rapporteres.
-
-## 3) Søsterkonti med samme CVR og adresse
-- Ny databasevisning over par: sovende konto/lokation + aktiv konto med samme CVR og samme normaliserede adresse (eller samme postnr., når adressen mangler), i samme afdeling.
-- Disse holdes ude af sovende-/"køber ikke"-lister og får markeringen "Køber på konto [nr.]".
-- Kundekortet viser søsterkontoen tydeligt på begge konti.
-- Admin-side "Søsterkonti" med parrene og en knap til den eksisterende dubletsammenlægning. Ingen automatisk sammenlægning. Rapport: antal par (forventet ca. 17 i afd. 11).
-
-## 4) Konkurrentaftale pr. lokation med historik
-- Nye felter på konkurrentaftalen: lokation, start og afsluttet. Nyt valg på samme lokation afslutter den gamle; der slettes intet.
-- De 6 eksisterende aftaler flyttes til virksomhedens primære lokation.
-- Kundekortet: aktuel konkurrent og udløb pr. lokation, og samlet historik. Dialogen får lokationsvalg (forvalgt, når der kun er én).
-
-## 5) "Send digitalt katalog"
-- Knap ved siden af "Besøgt" (kortets top og pr. lokation). Felter: e-mail, navn (valgfrit), "Send" og hjælpeteksten.
-- Admin-indstilling for katalogets link og forsidebillede (billedet hentes automatisk fra katalogsidens og:image, kan overskrives).
-- Ved afsendelse: kontakten oprettes/opdateres på lokationen, aktiviteten "Katalog sendt" med lokation og modtager oprettes, og en opfølgning om 7 dage hos sælgeren.
-- Mail med emne "Frellsen kaffekatalog", hilsen med sælgerens navn/telefon/mail, forsidebillede og knap. Mailen indeholder et lille afmeldingslink nederst (påkrævet af systemet).
-- **Status for mail:** Projektet kan ikke sende mails endnu. Der mangler et afsenderdomæne, som Frellsen ejer (fx frellsen.dk). Det sættes op i én dialog, hvorefter der skal tilføjes nogle DNS-poster hos domæneudbyderen. Indtil det er gjort, bygges alt andet, og knappen gemmer kontakt, aktivitet og opfølgning, men viser "Mail kan ikke sendes endnu".
-
-## Antagelser (ret mig, hvis de er forkerte)
-- Rytmen beregnes på de seneste 24 måneders forbrugskøb, så gamle mønstre ikke holder en kunde kunstigt aktiv.
-- "Samme adresse" i punkt 3 kræver også samme afdeling.
-- Kataloglinket gælder alle afdelinger (én fælles indstilling).
-
-## Teknisk
-- Rytme og lokationsstatus i en SQL-funktion, der kaldes fra `recompute_company_statuses_batch` og fakturaimportens statustrin. Ny kolonne `locations.customer_type` og en tabel/visning til rytme (`kunde_rytme`: niveau, id, interval, sidste forbrugskøb, næste forventede).
-- `competitor_assignments`: + `location_id`, `start_dato`, `afsluttet_dato`; delvis unik indeks på aktiv aftale pr. lokation; trigger afslutter den forrige aftale.
-- `app_settings` (nøgle/værdi, kun admin skriver) til katalog-link/-billede.
-- Mail via den indbyggede mailtjeneste (skabelon + kø), først aktiv når domænet er verificeret.
+## Antagelser
+- "Opnået" = udfaldene ikke interesseret, ønsker ikke kontakt og møde booket.
+- Bureauet ser ikke kundestatus. Profiler ser de kun som sælgerens navn, og kun via funktionen til mødebooking.
+- Arbejdet leveres i 2–3 omgange: først database og sikkerhed med test, derefter ringevisning og overblik.
