@@ -354,7 +354,7 @@ export function SimuleringPanel({
 
 function Konsekvens({ rows, navn, farve, valgt, onVaelg }: { rows: KonsekvensRow[]; navn: (k: string) => string; farve: (k: string) => string; valgt: string | null; onVaelg: (k: string) => void }) {
   const fe = (a: number, b: number, f: (n: number) => string = (n) => n.toLocaleString("da-DK")) => (
-    <span className="whitespace-nowrap"><span className="text-muted-foreground">{f(a)}→</span>{f(b)}</span>
+    <span><span className="text-muted-foreground whitespace-nowrap">{f(a)}→</span><wbr /><span className="whitespace-nowrap">{f(b)}</span></span>
   );
   const k = (n: number) => Math.round(n / 1000).toLocaleString("da-DK");
   const pct = (a: number, b: number) => (a ? fortegn(Math.round(((b - a) / Math.abs(a)) * 100), (n) => n + " %") : "—");
