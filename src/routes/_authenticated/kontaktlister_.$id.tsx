@@ -361,7 +361,39 @@ function KontaktlisteDetalje() {
       return 0;
     });
     return arr;
-  }, [rows, fStatus, fPriority, fSeller, fOnlyMine, fOverdue, sortKey, sortDir, isAdmin, auth.user?.id, today]);
+  }, [rows, fStatus, fPriority, fSeller, fOnlyMine, fOverdue, fKunTlf, sortKey, sortDir, isAdmin, auth.user?.id, today]);
+
+  const eksporterCsv = () => {
+    const STATUS = new Map(STATUS_OPTIONS.map((s) => [s.value, s.label]));
+    const hoved = ["Virksomhed", "Telefon", "E-mail", "Hjemmeside", "Adresse", "Postnr.", "By", "Kontaktperson", "Kontaktperson titel", "Ansatte", "Sælger", "Status", "Prioritet", "Næste opfølgning"];
+    const linjer = filtered.map((r) => [
+      r.company.name,
+      telefonNumre(r.location_phone, r.company.phone).map(formatTelefon).join(" / "),
+      r.company.email ?? r.kontakt?.email ?? "",
+      r.company.website ?? "",
+      r.location_address ?? r.company.address ?? "",
+      r.location_zip ?? r.company.zip ?? "",
+      r.location_city ?? r.company.city ?? "",
+      r.kontakt?.name ?? "",
+      r.kontakt?.title ?? "",
+      r.company.employees ?? "",
+      r.seller_name,
+      STATUS.get(r.status) ?? r.status,
+      r.priority,
+      r.next_followup_date ?? "",
+    ]);
+    const esc = (v: unknown) => {
+      const t = String(v ?? "");
+      return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    };
+    const csv = "\ufeff" + [hoved, ...linjer].map((l) => l.map(esc).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(list?.name ?? "kontaktliste").replace(/[^\wæøåÆØÅ ,.-]/g, "_")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const total = rows.length;
   const kontaktet = rows.filter(
@@ -516,7 +548,7 @@ function KontaktlisteDetalje() {
           </Card>
 
           <Card className="p-4 mb-4">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-3 items-end">
               <div>
                 <Label className="text-xs">Status</Label>
                 <Select value={fStatus} onValueChange={setFStatus}>
@@ -577,6 +609,16 @@ function KontaktlisteDetalje() {
                 <Switch checked={fOverdue} onCheckedChange={setFOverdue} />
                 Kun overskredet
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch checked={fKunTlf} onCheckedChange={setFKunTlf} />
+                Kun med telefon
+              </label>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {filtered.length} af {rows.length}
+                <Button size="sm" variant="outline" className="ml-auto" onClick={eksporterCsv}>
+                  <Download className="h-4 w-4 mr-1" /> CSV
+                </Button>
+              </div>
             </div>
           </Card>
 
@@ -591,6 +633,9 @@ function KontaktlisteDetalje() {
                     sortDir={sortDir}
                     onSort={toggleSort}
                   />
+                  <TableHead>Telefon</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>Kontaktperson</TableHead>
                   <SortableHead
                     label="By"
                     k="city"
@@ -641,7 +686,7 @@ function KontaktlisteDetalje() {
                 {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={9}
+                      colSpan={12}
                       className="text-center text-sm text-muted-foreground py-12"
                     >
                       Ingen virksomheder matcher filtrene.
@@ -661,10 +706,49 @@ function KontaktlisteDetalje() {
                           >
                             {r.company.name}
                           </Link>
+                          {r.company.website && (
+                            <a
+                              href={webHref(r.company.website)}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={r.company.website}
+                              className="ml-1.5 inline-flex align-middle text-muted-foreground hover:text-primary"
+                            >
+                              <Globe className="h-3.5 w-3.5" />
+                            </a>
+                          )}
                           {r.location_city && (
                             <div className="text-xs text-muted-foreground font-normal">
                               📍 {r.location_city}
                             </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {(() => {
+                            const n = telefonNumre(r.location_phone, r.company.phone);
+                            if (!n.length) return <span className="text-xs text-muted-foreground">—</span>;
+                            return n.map((t, i) => (
+                              <div key={t} className={i ? "text-xs text-muted-foreground" : ""}>
+                                <a href={telHref(t)} className="hover:underline">{formatTelefon(t)}</a>
+                              </div>
+                            ));
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[220px] truncate">
+                          {r.company.email ? (
+                            <a href={`mailto:${r.company.email}`} className="hover:underline" title={r.company.email}>{r.company.email}</a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {r.kontakt ? (
+                            <div>
+                              <div>{r.kontakt.name}</div>
+                              {r.kontakt.title && <div className="text-xs text-muted-foreground">{r.kontakt.title}</div>}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell>{r.company.city ?? "—"}</TableCell>
