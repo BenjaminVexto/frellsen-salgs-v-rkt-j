@@ -133,13 +133,13 @@ type CvrRow = {
 };
 
 type MatchType =
-  | "cvr" | "parent_cvr" | "penhed" | "adresse_navn" | "adresse_telefon" | "telefon_navn" | "adresse" | "telefon";
+  | "cvr" | "parent_cvr" | "penhed" | "penhed_indirekte" | "adresse_navn" | "adresse_telefon" | "telefon_navn" | "adresse" | "telefon";
 type CrmMatch = {
   type: MatchType; sikker: boolean; score: number | null;
   company_id: string; company_name: string | null; kundenr: string | null;
 };
 const MATCH_LABEL: Record<MatchType, string> = {
-  cvr: "CVR", parent_cvr: "moder-CVR", penhed: "P-enhed", adresse_navn: "adresse+navn",
+  cvr: "CVR", parent_cvr: "moder-CVR", penhed: "P-enhed", penhed_indirekte: "sikkert match · via forhandler", adresse_navn: "adresse+navn",
   adresse_telefon: "adresse+telefon", telefon_navn: "telefon+navn", adresse: "samme adresse", telefon: "samme telefon",
 };
 const FIRST_PAGE = 100;
