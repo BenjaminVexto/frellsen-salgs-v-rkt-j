@@ -27,7 +27,7 @@ const SIDE = 200;
 
 function Side() {
   const [soeg, setSoeg] = useState("");
-  const [kunSammeCvr, setKunSammeCvr] = useState(false);
+  const [visUsikre, setVisUsikre] = useState(false);
   const [vis, setVis] = useState(SIDE);
   const q = useQuery({
     queryKey: ["penhed-koblingsforslag-alle"],
@@ -46,7 +46,7 @@ function Side() {
     const t = soeg.trim().toLowerCase();
     const m = new Map<string, Koblingsforslag[]>();
     for (const f of q.data ?? []) {
-      if (kunSammeCvr && !f.samme_cvr) continue;
+      if (!visUsikre && !f.samme_cvr) continue;
       if (
         t &&
         ![f.penhed_adresse, f.penhed_city, f.company_name, f.visma_delivery_no, f.cvr, f.p_nummer, f.lokation_adresse]
@@ -60,7 +60,7 @@ function Side() {
     return [...m.values()].sort(
       (a, b) => Number(b[0].samme_cvr) - Number(a[0].samme_cvr) || (b[0].ansatte ?? -1) - (a[0].ansatte ?? -1),
     );
-  }, [q.data, soeg, kunSammeCvr]);
+  }, [q.data, soeg, visUsikre]);
 
   const total = q.data?.length ?? 0;
   const sammeCvr = (q.data ?? []).filter((f) => f.samme_cvr).length;
@@ -77,8 +77,8 @@ function Side() {
       <div className="flex flex-wrap items-center gap-3">
         <Input className="max-w-xs" placeholder="Søg adresse, kunde, kundenr., CVR" value={soeg} onChange={(e) => { setSoeg(e.target.value); setVis(SIDE); }} />
         <label className="flex items-center gap-1.5 text-sm">
-          <input type="checkbox" checked={kunSammeCvr} onChange={(e) => { setKunSammeCvr(e.target.checked); setVis(SIDE); }} />
-          Kun samme CVR
+          <input type="checkbox" checked={visUsikre} onChange={(e) => { setVisUsikre(e.target.checked); setVis(SIDE); }} />
+          Vis også usikre (uden CVR)
         </label>
         {q.data && (
           <span className="text-sm text-muted-foreground">

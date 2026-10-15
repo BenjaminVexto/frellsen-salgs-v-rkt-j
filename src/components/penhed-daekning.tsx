@@ -258,7 +258,7 @@ export function PenhedDaekning({
         .then((fs) => {
           const m = new Map<string, Koblingsforslag[]>();
           for (const f of fs) {
-            if (f.afdeling_nr !== afdelingNr) continue;
+            if (f.afdeling_nr !== afdelingNr || !f.samme_cvr) continue;
             if (!m.has(f.p_nummer)) m.set(f.p_nummer, []);
             m.get(f.p_nummer)!.push(f);
           }
