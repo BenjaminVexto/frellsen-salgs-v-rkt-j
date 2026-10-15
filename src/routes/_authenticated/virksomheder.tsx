@@ -1,5 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { CvrGruppeRaekke, cvrNorm, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
@@ -161,8 +163,52 @@ function VirksomhederListe() {
     setPage(0);
   }, [filters, q, recentIds, mobileMineActive]);
 
-  const totalPages = Math.max(1, Math.ceil(displayed.length / PAGE_SIZE));
-  const pageRows = displayed.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  // CVR-grupper: konti med samme (normaliserede) CVR vises som én række.
+  const grupperQ = useQuery({
+    queryKey: ["cvr-grupper"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("cvr_grupper");
+      if (error) throw error;
+      return new Map<string, CvrGruppeInfo>(((data ?? []) as CvrGruppeInfo[]).map((g) => [g.cvr, g]));
+    },
+  });
+  const [aabneGrupper, setAabneGrupper] = useState<Set<string>>(new Set());
+  const items = useMemo(() => {
+    const alleIGruppe = new Map<string, typeof rows>();
+    for (const r of rows) {
+      if ((r as any).afloest_af_company_id) continue;
+      const n = cvrNorm(r.cvr);
+      if (!n) continue;
+      const a = alleIGruppe.get(n);
+      a ? a.push(r) : alleIGruppe.set(n, [r]);
+    }
+    const soeg = q.trim().length > 0;
+    const ud: ListeItem[] = [];
+    const set = new Map<string, Extract<ListeItem, { kind: "gruppe" }>>();
+    for (const r of displayed) {
+      const n = cvrNorm(r.cvr);
+      const alle = n ? alleIGruppe.get(n) : undefined;
+      if (!n || !alle || alle.length < 2 || (r as any).afloest_af_company_id) {
+        ud.push({ kind: "en", row: r });
+        continue;
+      }
+      let g = set.get(n);
+      if (!g) {
+        g = { kind: "gruppe", cvr: n, konti: [], hits: new Set(), tvungen: soeg };
+        set.set(n, g);
+        ud.push(g);
+      }
+      g.konti.push(r);
+      if (soeg) g.hits.add(r.id);
+    }
+    // Ved søgning vises hele gruppen med de ramte konti markeret.
+    if (soeg) for (const g of set.values()) g.konti = [...alleIGruppe.get(g.cvr)!].sort((a, b) => Number(g.hits.has(b.id)) - Number(g.hits.has(a.id)));
+    return ud;
+  }, [rows, displayed, q]);
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageRows = pageItems.flatMap((it) => (it.kind === "en" ? [it.row] : it.konti));
 
   const clearRecent = () => {
     sessionStorage.removeItem(RECENT_KEY);
@@ -445,7 +491,7 @@ function VirksomhederListe() {
         )}
       </Card>
 
-      {displayed.length > PAGE_SIZE && (
+      {items.length > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-3 text-sm">
           <Button
             variant="outline"
