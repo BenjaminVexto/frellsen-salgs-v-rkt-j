@@ -4881,6 +4881,7 @@ export type Database = {
         }[]
       }
       _import_type_label: { Args: { _t: string }; Returns: string }
+      _maa_se_kontosalg: { Args: { _company_id: string }; Returns: boolean }
       _maalepunkt_db_detaljer_raw: {
         Args: {
           _afdeling_nr?: number
@@ -4901,6 +4902,7 @@ export type Database = {
       _map_kategori_from_pg2: { Args: { _pg2: string }; Returns: string }
       _remap_omraade: { Args: { m: Json; o: Json }; Returns: Json }
       _skm_refresh_keys: { Args: never; Returns: undefined }
+      _status_rang: { Args: { _t: string }; Returns: number }
       addr_base: { Args: { _addr: string }; Returns: string }
       addr_husnr: { Args: { _addr: string }; Returns: string }
       addr_n_del: { Args: { _addr: string }; Returns: string[] }
@@ -5130,6 +5132,31 @@ export type Database = {
           match_type: string
         }[]
       }
+      cvr_gruppe_konti: {
+        Args: { _cvr: string }
+        Returns: {
+          address: string
+          city: string
+          company_id: string
+          customer_type: string
+          maa_se_salg: boolean
+          name: string
+          oms_12m: number
+          saelger_navn: string
+          visma_id: string
+          zip: string
+        }[]
+      }
+      cvr_grupper: {
+        Args: never
+        Returns: {
+          aktive: number
+          antal_konti: number
+          bedste_status: string
+          cvr: string
+          oms_12m: number
+        }[]
+      }
       cvr_match_crm: {
         Args: { cvr_rows: Json }
         Returns: {
@@ -5141,6 +5168,29 @@ export type Database = {
           match_type: string
           score: number
           sikker: boolean
+        }[]
+      }
+      cvr_norm: { Args: { _cvr: string }; Returns: string }
+      cvr_penhed_oversigt: {
+        Args: { _afdeling_nr: number; _cvr: string }
+        Returns: {
+          address: string
+          ansatte: number
+          ansatte_interval: string
+          city: string
+          company_id: string
+          company_name: string
+          customer_type: string
+          location_id: string
+          note: string
+          oms_12m: number
+          p_number: string
+          saelger_navn: string
+          status: string
+          via_company_id: string
+          via_company_name: string
+          visma_delivery_no: string
+          zip: string
         }[]
       }
       derive_agreement_type: {

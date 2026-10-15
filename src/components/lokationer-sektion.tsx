@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
+import { CvrPenhedOversigt } from "@/components/cvr-gruppe";
 import { AdressePenhedKobling } from "@/components/adresse-penhed-kobling";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
@@ -504,6 +505,9 @@ export function LokationerSektion({
 
   return (
     <Card className="p-5">
+      {cvr && afdelingNr != null && (
+        <CvrPenhedOversigt cvr={cvr} afdelingNr={afdelingNr} companyId={companyId} refreshKey={pnrQ.dataUpdatedAt} />
+      )}
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
           <MapPin className="h-4 w-4" />

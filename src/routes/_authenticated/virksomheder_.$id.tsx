@@ -102,6 +102,7 @@ import { ListeNoterSektion } from "@/components/kontaktliste/liste-noter-sektion
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion, useCompanyBriefing } from "@/components/ai-briefing-sektion";
 import { KundeSalgstal } from "@/components/sales/kunde-salgstal";
+import { SammeCvrLink, HeleCvrLinje } from "@/components/cvr-gruppe";
 import { SaelgereLinje, DineLokationer } from "@/components/saelgere-linje";
 import { adresseValg, lokAdresse, gyldigAktivitetsTid, tilLokalInput, MAKS_DAGE_TILBAGE } from "@/lib/adresse-grupper";
 import { SortimentKort } from "@/components/sortiment-kort";
@@ -472,6 +473,7 @@ function VirksomhedsKort() {
               <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
             </div>
           </div>
+          <SammeCvrLink cvr={company.cvr} companyId={company.id} />
           <KundeRytmeLinje companyId={company.id} />
           <div className="grid grid-cols-2 gap-2">
             <BesoegtKnap companyId={company.id} locations={locations as any} onSaved={() => void load(true)} />
@@ -567,6 +569,7 @@ function VirksomhedsKort() {
                 </span>
               )}
             </h1>
+            <SammeCvrLink cvr={company.cvr} companyId={company.id} />
           </div>
           <SourceBadges sources={(company as any).sources} />
           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -848,6 +851,7 @@ function VirksomhedsKort() {
                   egneLokIds={locations.filter((l: any) => visUserId && l.saelger_user_id === visUserId).map((l) => l.id)}
                 />
               )}
+              <HeleCvrLinje cvr={company.cvr} />
               <KonkurrentaftaleSektion companyId={company.id} />
 
               {!afloestAf && (
