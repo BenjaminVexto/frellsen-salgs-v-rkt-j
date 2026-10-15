@@ -356,19 +356,21 @@ export function LokationerSektion({
       // Antal P-enheder på CVR'et, der ikke er koblet til nogen lokation i afdelingen (ikke-relevante skjules som i listen).
       let ikkeHos = 0;
       let irAntal = 0;
+      let indAntal = 0;
       const pnrs = ((penRes.data ?? []) as any[]).map((p) => p.p_number);
       if (pnrs.length && afdelingNr != null) {
         const [{ data: dk }, { data: ir }] = await Promise.all([
-          sb.from("location_pnr_link").select("p_nummer").in("p_nummer", pnrs).eq("afdeling_nr", afdelingNr).in("kilde", ["auto", "manuel"]),
+          sb.from("location_pnr_link").select("p_nummer, kilde").in("p_nummer", pnrs).eq("afdeling_nr", afdelingNr).in("kilde", ["auto", "manuel", "indirekte"]),
           sb.from("penhed_ikke_relevant").select("p_nummer").in("p_nummer", pnrs),
         ]);
         const skjul = new Set([...((dk ?? []) as any[]), ...((ir ?? []) as any[])].map((x) => x.p_nummer));
         ikkeHos = pnrs.filter((p) => !skjul.has(p)).length;
         const daekketSet = new Set(((dk ?? []) as any[]).map((x) => x.p_nummer));
         irAntal = ((ir ?? []) as any[]).filter((x) => !daekketSet.has(x.p_nummer)).length;
+        indAntal = new Set(((dk ?? []) as any[]).filter((x) => x.kilde === "indirekte").map((x) => x.p_nummer)).size;
       }
       const penListe = ((penRes.data ?? []) as any[]) as (PenhedInfo & { p_number: string })[];
-      return { linkByLoc, linkInfo, pInfo, ikkeHos, irAntal, penListe };
+      return { linkByLoc, linkInfo, pInfo, ikkeHos, irAntal, indAntal, penListe };
     },
   });
 
@@ -731,7 +733,7 @@ export function LokationerSektion({
         </>
       )}
 
-      {cvr && afdelingNr != null && ((pnrQ.data?.ikkeHos ?? 0) > 0 || (pnrQ.data?.irAntal ?? 0) > 0) && (
+      {cvr && afdelingNr != null && ((pnrQ.data?.ikkeHos ?? 0) > 0 || (pnrQ.data?.irAntal ?? 0) > 0 || (pnrQ.data?.indAntal ?? 0) > 0) && (
         <div className="mt-4 border-t pt-3">
           {(pnrQ.data?.ikkeHos ?? 0) > 0 && (
             <button
