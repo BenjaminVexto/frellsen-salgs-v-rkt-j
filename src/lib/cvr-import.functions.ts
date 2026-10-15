@@ -55,7 +55,7 @@ export const importCompaniesFromCvr = createServerFn({ method: "POST" })
       const { data: m, error } = await context.supabase.rpc("cvr_match_crm", { cvr_rows: slice as any });
       if (error) throw new Error(error.message);
       for (const r of (m ?? []) as any[]) {
-        if (r.match_type !== "cvr" && r.match_type !== "penhed") continue;
+        if (r.match_type !== "cvr" && r.match_type !== "penhed" && r.match_type !== "penhed_indirekte") continue;
         if (r.ikke_kontakt) ikkeKontakt.add(r.cvr);
         else existingMap.set(r.cvr, r.company_id);
       }

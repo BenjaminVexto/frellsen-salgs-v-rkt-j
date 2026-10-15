@@ -701,6 +701,20 @@
       "when": 1791921109397,
       "tag": "0099_kontaktliste_noter",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1792066274505,
+      "tag": "0100_penhed_indirekte_og_koblingsforslag",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1792066457158,
+      "tag": "0101_cvr_match_crm_via_forhandler",
+      "breakpoints": true
     }
   ]
 }

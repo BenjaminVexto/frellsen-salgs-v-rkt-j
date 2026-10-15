@@ -26,6 +26,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  ForhandlerDialog,
+  ForslagLinje,
+  ViaForhandler,
+  fjernIndirekte,
+  hentKoblingsforslag,
+  type Koblingsforslag,
+} from "@/components/penhed-forhandler";
 
 export const STADIE_LABEL: Record<string, string> = {
   emne: "Emne",
@@ -64,8 +72,11 @@ export type PenhedDaekningRow = {
   ansatte_interval: string | null;
   ansatte_praecis: number | null;
   ansatte_estimat: number | null;
-  kilde: "auto" | "manuel" | "afvist" | null;
+  kilde: "auto" | "manuel" | "afvist" | "indirekte" | null;
   link_delivery_no: string | null;
+  via_company_id: string | null;
+  via_company_name: string | null;
+  via_note: string | null;
   daekket: boolean;
 };
 
@@ -101,11 +112,22 @@ export async function hentPenhedDaekning(cvr: string, afdelingNr: number) {
   if (pnrs.length) {
     const { data: lk, error: lErr } = await (supabase as any)
       .from("location_pnr_link")
-      .select("p_nummer, kilde, visma_delivery_no")
+      .select("p_nummer, kilde, visma_delivery_no, via_company_id, note")
       .eq("afdeling_nr", afdelingNr)
       .in("p_nummer", pnrs);
     if (lErr) throw new Error(lErr.message);
-    for (const l of lk ?? []) links.set(l.p_nummer, l);
+    // Én kobling pr. P-enhed: manuel > auto > indirekte > afvist
+    const pri: Record<string, number> = { manuel: 1, auto: 2, indirekte: 3, afvist: 4 };
+    for (const l of lk ?? []) {
+      const cur = links.get(l.p_nummer);
+      if (!cur || (pri[l.kilde] ?? 9) < (pri[cur.kilde] ?? 9)) links.set(l.p_nummer, l);
+    }
+    const viaIds = Array.from(new Set([...links.values()].map((l: any) => l.via_company_id).filter(Boolean)));
+    if (viaIds.length) {
+      const { data: vc } = await supabase.from("companies").select("id, name").in("id", viaIds);
+      const nm = new Map((vc ?? []).map((c: any) => [c.id, c.name]));
+      for (const l of links.values()) if (l.via_company_id) l.via_company_name = nm.get(l.via_company_id) ?? null;
+    }
   }
   const rows: PenhedDaekningRow[] = (pen ?? []).map((p: any) => {
     const l = links.get(p.p_number);
@@ -114,7 +136,10 @@ export async function hentPenhedDaekning(cvr: string, afdelingNr: number) {
       ...p,
       kilde,
       link_delivery_no: l?.visma_delivery_no ?? null,
-      daekket: kilde === "auto" || kilde === "manuel",
+      via_company_id: kilde === "indirekte" ? l?.via_company_id ?? null : null,
+      via_company_name: kilde === "indirekte" ? l?.via_company_name ?? null : null,
+      via_note: kilde === "indirekte" ? l?.note ?? null : null,
+      daekket: kilde === "auto" || kilde === "manuel" || kilde === "indirekte",
     };
   });
   rows.sort((a, b) => (b.ansatte_estimat ?? -1) - (a.ansatte_estimat ?? -1));
@@ -190,6 +215,8 @@ export function PenhedDaekning({
   const [visDaekket, setVisDaekket] = useState(false);
   const [visMindre, setVisMindre] = useState(false);
   const [visMarkerede, setVisMarkerede] = useState(false);
+  const [forhFor, setForhFor] = useState<PenhedDaekningRow | null>(null);
+  const [forslag, setForslag] = useState<Map<string, Koblingsforslag[]>>(new Map());
 
   useEffect(() => {
     (supabase as any)
@@ -227,6 +254,17 @@ export function PenhedDaekning({
       ]);
       setRows(r);
       setLocs(l);
+      hentKoblingsforslag(cvr)
+        .then((fs) => {
+          const m = new Map<string, Koblingsforslag[]>();
+          for (const f of fs) {
+            if (f.afdeling_nr !== afdelingNr) continue;
+            if (!m.has(f.p_nummer)) m.set(f.p_nummer, []);
+            m.get(f.p_nummer)!.push(f);
+          }
+          setForslag(m);
+        })
+        .catch(() => setForslag(new Map()));
       const pnrs = r.map((x) => x.p_number);
       if (pnrs.length) {
         const [{ data: opp }, { data: ir }] = await Promise.all([
@@ -321,6 +359,24 @@ export function PenhedDaekning({
     await load();
     onChanged?.();
   }
+
+  async function fortrydIndirekte(p: PenhedDaekningRow) {
+    setBusy(p.p_number);
+    try {
+      await fjernIndirekte(p.p_number, afdelingNr);
+      toast.success("Markering fortrudt");
+    } catch (e: any) {
+      toast.error("Kunne ikke fortryde: " + (e?.message ?? String(e)));
+    }
+    setBusy(null);
+    await load();
+    onChanged?.();
+  }
+
+  const genindlaes = async () => {
+    await load();
+    onChanged?.();
+  };
 
   async function opretMulighed(p: PenhedDaekningRow) {
     if (!companyId) return toast.error("Mangler virksomhed");
@@ -452,6 +508,12 @@ export function PenhedDaekning({
           {visNavn && (
             <div className="truncate text-[11px] text-muted-foreground" title={p.name ?? undefined}>{p.name}</div>
           )}
+          {p.kilde === "indirekte" && p.via_company_id && (
+            <div className="text-[11px] text-muted-foreground" title={p.via_note ?? undefined}>
+              <ViaForhandler id={p.via_company_id} navn={p.via_company_name} />
+            </div>
+          )}
+          {!dk && <ForslagLinje forslag={forslag.get(p.p_number) ?? []} onDone={genindlaes} />}
           {aabneInfo.has(p.p_number) ? (
             <span className="ml-2 text-[11px] text-muted-foreground">
               {initialer(aabneInfo.get(p.p_number)!.saelger)} ·{" "}
@@ -476,7 +538,7 @@ export function PenhedDaekning({
         <td className="py-1 pr-3 text-muted-foreground tabular-nums">{p.p_number}</td>
         <td className="py-1 pr-3 text-right tabular-nums">{formatAnsatte(p)}</td>
         <td className="py-1 pr-3 text-muted-foreground tabular-nums">
-          {dk ? (p.link_delivery_no ?? "–") : ""}
+          {dk ? (p.kilde === "indirekte" ? "via forhandler" : p.link_delivery_no ?? "–") : ""}
         </td>
         <td className="py-1 text-right whitespace-nowrap w-40">
           {busy === p.p_number ? (
@@ -510,7 +572,14 @@ export function PenhedDaekning({
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 p-1 max-h-72 overflow-y-auto" align="end">
-                  {p.daekket ? (
+                  {p.kilde === "indirekte" ? (
+                    <button
+                      className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
+                      onClick={() => fortrydIndirekte(p)}
+                    >
+                      Fortryd "Leveres via forhandler"
+                    </button>
+                  ) : p.daekket ? (
                     <button
                       className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
                       onClick={() => fjern(p)}
@@ -519,6 +588,14 @@ export function PenhedDaekning({
                     </button>
                   ) : (
                     <>
+                      {companyId && (
+                        <button
+                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
+                          onClick={() => setForhFor(p)}
+                        >
+                          Leveres via forhandler…
+                        </button>
+                      )}
                       {kanStyre && !ikkeRel.has(p.p_number) && (
                         <button
                           className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
@@ -584,6 +661,16 @@ export function PenhedDaekning({
 
   const dialoger = (
     <>
+    <ForhandlerDialog
+      penhed={forhFor}
+      afdelingNr={afdelingNr}
+      companyId={companyId}
+      onClose={() => setForhFor(null)}
+      onSaved={() => {
+        setForhFor(null);
+        genindlaes();
+      }}
+    />
     <Dialog open={!!tildelFor} onOpenChange={(o) => !o && setTildelFor(null)}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -676,6 +763,7 @@ export function PenhedDaekning({
 
   if (kunIkkeKunde) {
     const markerede = rows.filter((r) => !r.daekket && ikkeRel.has(r.p_number));
+    const indirekte = rows.filter((r) => r.kilde === "indirekte");
     const begrundelse = (pn: string) => {
       const x = ikkeRel.get(pn);
       if (!x || x.aarsag === "uden_aarsag") return null;
@@ -729,11 +817,40 @@ export function PenhedDaekning({
                   >
                     Markér ikke relevant
                   </button>
+                  {companyId && (
+                    <button
+                      className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                      onClick={() => setForhFor(p)}
+                    >
+                      Leveres via forhandler…
+                    </button>
+                  )}
                 </div>
               )}
+              <ForslagLinje forslag={forslag.get(p.p_number) ?? []} onDone={genindlaes} />
             </li>
           ))}
         </ul>
+        )}
+        {indirekte.length > 0 && (
+          <ul className="divide-y mt-2">
+            {indirekte.map((p) => (
+              <li key={p.p_number} className="py-2 text-sm text-muted-foreground">
+                {linje(p)}
+                <div className="text-xs mt-0.5 flex flex-wrap gap-x-2">
+                  {p.via_company_id && <ViaForhandler id={p.via_company_id} navn={p.via_company_name} />}
+                  {p.via_note && <span>· {p.via_note}</span>}
+                  {busy === p.p_number ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <button className="hover:text-foreground hover:underline" onClick={() => fortrydIndirekte(p)}>
+                      Fortryd
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
         {markerede.length > 0 && (
           <div className="mt-2">

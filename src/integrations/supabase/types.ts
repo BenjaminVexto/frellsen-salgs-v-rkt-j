@@ -2626,32 +2626,44 @@ export type Database = {
       location_pnr_link: {
         Row: {
           afdeling_nr: number
+          company_id: string | null
           id: string
           kilde: string
           location_id: string | null
+          note: string | null
           oprettet_af: string | null
           oprettet_dato: string
           p_nummer: string
+          relation_oprettet: boolean
+          via_company_id: string | null
           visma_delivery_no: string | null
         }
         Insert: {
           afdeling_nr: number
+          company_id?: string | null
           id?: string
           kilde: string
           location_id?: string | null
+          note?: string | null
           oprettet_af?: string | null
           oprettet_dato?: string
           p_nummer: string
+          relation_oprettet?: boolean
+          via_company_id?: string | null
           visma_delivery_no?: string | null
         }
         Update: {
           afdeling_nr?: number
+          company_id?: string | null
           id?: string
           kilde?: string
           location_id?: string | null
+          note?: string | null
           oprettet_af?: string | null
           oprettet_dato?: string
           p_nummer?: string
+          relation_oprettet?: boolean
+          via_company_id?: string | null
           visma_delivery_no?: string | null
         }
         Relationships: [
@@ -2663,11 +2675,39 @@ export type Database = {
             referencedColumns: ["afdeling_nr"]
           },
           {
+            foreignKeyName: "location_pnr_link_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_pnr_link_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "location_pnr_link_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_pnr_link_via_company_id_fkey"
+            columns: ["via_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_pnr_link_via_company_id_fkey"
+            columns: ["via_company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -3205,6 +3245,38 @@ export type Database = {
           sender_id?: string
         }
         Relationships: []
+      }
+      penhed_forslag_afvist: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          location_id: string
+          p_nummer: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id: string
+          p_nummer: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id?: string
+          p_nummer?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "penhed_forslag_afvist_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       penhed_handling_log: {
         Row: {
@@ -5627,6 +5699,39 @@ export type Database = {
       my_afdelinger: { Args: never; Returns: number[] }
       navn_norm: { Args: { _n: string }; Returns: string }
       navn_ord: { Args: { _n: string }; Returns: string[] }
+      penhed_fjern_indirekte: {
+        Args: { _afdeling_nr: number; _p_nummer: string }
+        Returns: undefined
+      }
+      penhed_koblingsforslag: {
+        Args: { _cvr?: string }
+        Returns: {
+          afdeling_nr: number
+          ansatte: number
+          company_id: string
+          company_name: string
+          cvr: string
+          husnr_afstand: number
+          location_id: string
+          lokation_adresse: string
+          p_nummer: string
+          penhed_adresse: string
+          penhed_city: string
+          penhed_zip: string
+          samme_cvr: boolean
+          visma_delivery_no: string
+        }[]
+      }
+      penhed_saet_indirekte: {
+        Args: {
+          _afdeling_nr: number
+          _company_id: string
+          _note?: string
+          _p_nummer: string
+          _via_company_id: string
+        }
+        Returns: undefined
+      }
       penhed_sync_candidates: {
         Args: never
         Returns: {

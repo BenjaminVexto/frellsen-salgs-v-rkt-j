@@ -33,6 +33,7 @@ import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminDubletterRouteImport } from './routes/_authenticated/admin.dubletter'
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
 import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_authenticated/admin.importhistorik'
+import { Route as AuthenticatedAdminKoblingsforslagRouteImport } from './routes/_authenticated/admin.koblingsforslag'
 import { Route as AuthenticatedAdminMaskinerUdenAftaleRouteImport } from './routes/_authenticated/admin.maskiner-uden-aftale'
 import { Route as AuthenticatedAdminMaskinerUdenLokationRouteImport } from './routes/_authenticated/admin.maskiner-uden-lokation'
 import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
@@ -196,6 +197,12 @@ const AuthenticatedAdminImporthistorikRoute =
   AuthenticatedAdminImporthistorikRouteImport.update({
     id: '/admin/importhistorik',
     path: '/admin/importhistorik',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminKoblingsforslagRoute =
+  AuthenticatedAdminKoblingsforslagRouteImport.update({
+    id: '/admin/koblingsforslag',
+    path: '/admin/koblingsforslag',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminMaskinerUdenAftaleRoute =
@@ -399,6 +406,7 @@ export interface FileRoutesByFullPath {
   '/admin/dubletter': typeof AuthenticatedAdminDubletterRoute
   '/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
+  '/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   '/admin/maskiner-uden-lokation': typeof AuthenticatedAdminMaskinerUdenLokationRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
@@ -453,6 +461,7 @@ export interface FileRoutesByTo {
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/admin/dubletter': typeof AuthenticatedAdminDubletterRoute
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
+  '/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   '/admin/maskiner-uden-lokation': typeof AuthenticatedAdminMaskinerUdenLokationRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
@@ -510,6 +519,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/dubletter': typeof AuthenticatedAdminDubletterRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
   '/_authenticated/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
+  '/_authenticated/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/_authenticated/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   '/_authenticated/admin/maskiner-uden-lokation': typeof AuthenticatedAdminMaskinerUdenLokationRoute
   '/_authenticated/admin/overblik': typeof AuthenticatedAdminOverblikRoute
@@ -567,6 +577,7 @@ export interface FileRouteTypes {
     | '/admin/dubletter'
     | '/admin/import'
     | '/admin/importhistorik'
+    | '/admin/koblingsforslag'
     | '/admin/maskiner-uden-aftale'
     | '/admin/maskiner-uden-lokation'
     | '/admin/overblik'
@@ -621,6 +632,7 @@ export interface FileRouteTypes {
     | '/admin/cvr-debug'
     | '/admin/dubletter'
     | '/admin/importhistorik'
+    | '/admin/koblingsforslag'
     | '/admin/maskiner-uden-aftale'
     | '/admin/maskiner-uden-lokation'
     | '/admin/overblik'
@@ -677,6 +689,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/dubletter'
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/importhistorik'
+    | '/_authenticated/admin/koblingsforslag'
     | '/_authenticated/admin/maskiner-uden-aftale'
     | '/_authenticated/admin/maskiner-uden-lokation'
     | '/_authenticated/admin/overblik'
@@ -895,6 +908,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/importhistorik'
       fullPath: '/admin/importhistorik'
       preLoaderRoute: typeof AuthenticatedAdminImporthistorikRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/koblingsforslag': {
+      id: '/_authenticated/admin/koblingsforslag'
+      path: '/admin/koblingsforslag'
+      fullPath: '/admin/koblingsforslag'
+      preLoaderRoute: typeof AuthenticatedAdminKoblingsforslagRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/maskiner-uden-aftale': {
@@ -1155,6 +1175,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminDubletterRoute: typeof AuthenticatedAdminDubletterRoute
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRouteWithChildren
   AuthenticatedAdminImporthistorikRoute: typeof AuthenticatedAdminImporthistorikRoute
+  AuthenticatedAdminKoblingsforslagRoute: typeof AuthenticatedAdminKoblingsforslagRoute
   AuthenticatedAdminMaskinerUdenAftaleRoute: typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   AuthenticatedAdminMaskinerUdenLokationRoute: typeof AuthenticatedAdminMaskinerUdenLokationRoute
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
@@ -1189,6 +1210,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminDubletterRoute: AuthenticatedAdminDubletterRoute,
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRouteWithChildren,
   AuthenticatedAdminImporthistorikRoute: AuthenticatedAdminImporthistorikRoute,
+  AuthenticatedAdminKoblingsforslagRoute:
+    AuthenticatedAdminKoblingsforslagRoute,
   AuthenticatedAdminMaskinerUdenAftaleRoute:
     AuthenticatedAdminMaskinerUdenAftaleRoute,
   AuthenticatedAdminMaskinerUdenLokationRoute:
