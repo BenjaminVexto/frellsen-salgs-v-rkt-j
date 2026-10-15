@@ -13,6 +13,8 @@ export type ConfirmedRelation = {
   other_company_city: string | null;
   other_visma_id: string | null;
   created_at: string;
+  /** P-enheder leveret via forhandleren (fra "Leveres via forhandler"), fx "Dalgas Alle 1, Herning". */
+  penheder?: string[];
 };
 
 export type RelationSuggestion = {
@@ -127,6 +129,30 @@ export const getCompanyRelations = createServerFn({ method: "GET" })
       // If the corresponding out-side exists, skip this in-side row.
       return !outKeys.has(`${r.other_company_id}|${inverse}`);
     });
+
+    // P-enheder markeret "Leveres via forhandler" mellem de to virksomheder.
+    const { data: ind } = await (supabase as any)
+      .from("location_pnr_link")
+      .select("p_nummer, company_id, via_company_id")
+      .eq("kilde", "indirekte")
+      .or(`company_id.eq.${companyId},via_company_id.eq.${companyId}`);
+    if (ind?.length) {
+      const pn = Array.from(new Set((ind as any[]).map((x) => x.p_nummer)));
+      const { data: pen } = await (supabase as any).from("cvr_penheder").select("p_number, address, city").in("p_number", pn);
+      const adr = new Map<string, string>(
+        ((pen ?? []) as any[]).map((p) => [p.p_number, [p.address, p.city].filter(Boolean).join(", ")]),
+      );
+      for (const r of deduped) {
+        const other = r.other_company_id;
+        const liste = (ind as any[])
+          .filter((x) =>
+            (r.relation_type === "forsynes_af" && x.company_id === companyId && x.via_company_id === other) ||
+            (r.relation_type === "leverer_til" && x.via_company_id === companyId && x.company_id === other),
+          )
+          .map((x) => adr.get(x.p_nummer) ?? `P-nr. ${x.p_nummer}`);
+        if (liste.length) r.penheder = liste;
+      }
+    }
 
 
     // Enrich suggestions: when no direct company match on visma_id, try locations.visma_delivery_no

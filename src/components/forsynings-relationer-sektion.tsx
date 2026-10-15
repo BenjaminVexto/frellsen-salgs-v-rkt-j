@@ -137,6 +137,9 @@ export function ForsyningsRelationerSektion({ companyId }: { companyId: string }
                     {r.other_company_name}
                     <ExternalLink className="h-3 w-3" />
                   </Link>
+                  {r.penheder?.length ? (
+                    <span className="text-sm text-muted-foreground"> – {r.penheder.join("; ")}</span>
+                  ) : null}
                   <div className="text-xs text-muted-foreground">
                     {r.other_company_city ?? ""}
                     {r.other_visma_id ? ` · Kundenr ${r.other_visma_id}` : ""}
