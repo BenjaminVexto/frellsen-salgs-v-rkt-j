@@ -37,3 +37,5 @@
   - [x] Liste-felter (ringes af, møder går til), ringevisning, opkaldslog, ønsker ikke kontakt-flag
   - [x] Admin-overblik + CSV
   - [x] Test: testbruger, salgsdata/server function/view/storage afvises; sælger uændret; møde til rigtig sælger; slet testdata
+
+- [x] Lokationer: samlet aktiv tabel, sammenfoldet øvrige, kommune-normalisering og kontrol af BEC/en konto/Region Hovedstaden (kun visning).

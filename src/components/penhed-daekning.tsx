@@ -184,7 +184,10 @@ export function PenhedDaekning({
   visIkkeRelevante = false,
   kunIkkeKunde = false,
   visIkkeHosListe = true,
+  skjulIndirekte = false,
 }: {
+  /** Skjul listen over P-enheder via forhandler (vises andetsteds). */
+  skjulIndirekte?: boolean;
   cvr: string;
   afdelingNr: number;
   companyId?: string | null;
@@ -207,6 +210,7 @@ export function PenhedDaekning({
   const [irFor, setIrFor] = useState<PenhedDaekningRow | null>(null);
   const [irAarsag, setIrAarsag] = useState<string>("");
   const [irTekst, setIrTekst] = useState("");
+  const [visAntal, setVisAntal] = useState(25);
   const [rows, setRows] = useState<PenhedDaekningRow[] | null>(null);
   const [locs, setLocs] = useState<Loc[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -783,7 +787,7 @@ export function PenhedDaekning({
       <>
         {visIkkeHosListe && (
         <ul className="divide-y">
-          {ikke.map((p) => (
+          {ikke.slice(0, visAntal).map((p) => (
             <li key={p.p_number} className="py-2 text-sm">
               {linje(p)}
               {busy === p.p_number ? (
@@ -832,7 +836,8 @@ export function PenhedDaekning({
           ))}
         </ul>
         )}
-        {indirekte.length > 0 && (
+        {visIkkeHosListe && ikke.length > visAntal && <Button variant="ghost" size="sm" onClick={() => setVisAntal((n) => n + 25)}>Vis flere ({ikke.length - visAntal} tilbage)</Button>}
+        {!skjulIndirekte && indirekte.length > 0 && (
           <ul className="divide-y mt-2">
             {indirekte.map((p) => (
               <li key={p.p_number} className="py-2 text-sm text-muted-foreground">

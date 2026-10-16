@@ -1,0 +1,1 @@
+- The customer Locations tab merges CVR coverage, account locations and account summaries in presentation only; load other-account details on expansion and paginate rows — so large CVR groups stay responsive.

@@ -19,3 +19,4 @@
 - Contact-list status comes only from the latest outcome via SQL `registrer_udfald` (logs to kontaktliste_opkald); udfald 'note' never changes status or counts as a call; labels/stats in src/lib/telemarketing.ts — so status and statistics cannot drift apart.
 - CVR groups (accounts sharing cvr_norm) are an overlay only: SQL cvr_grupper/cvr_gruppe_konti/cvr_penhed_oversigt; per-account sales only where _maa_se_kontosalg — so sellers see other sellers' accounts but only group totals.
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
+- Subdirectories have their own AGENTS.md; read it before changing files there.

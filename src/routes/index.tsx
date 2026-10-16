@@ -5,6 +5,14 @@ import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => ({ meta: [
+    { title: "Frellsen CRM | Overblik" },
+    { name: "description", content: "Frellsens interne overblik over kunder og salg." },
+    { property: "og:title", content: "Frellsen CRM | Overblik" },
+    { property: "og:description", content: "Frellsens interne kunde- og salgsarbejde." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
 });
 
 function Index() {
