@@ -206,6 +206,43 @@ function VirksomhederListe() {
     if (soeg) for (const g of set.values()) g.konti = [...alleIGruppe.get(g.cvr)!].sort((a, b) => Number(g.hits.has(b.id)) - Number(g.hits.has(a.id)));
     return ud;
   }, [rows, displayed, q]);
+
+  // Omsætning 12 mdr. pr. konto (kun hvor brugeren må se kontosalg).
+  const omsQ = useQuery({
+    queryKey: ["konto-oms-12m", rows.length],
+    enabled: rows.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const ids = rows.map((r) => r.id);
+      const m = new Map<string, number>();
+      const bidder = [];
+      for (let i = 0; i < ids.length; i += 1000) bidder.push(ids.slice(i, i + 1000));
+      const svar = await Promise.all(bidder.map((b) => (supabase as any).rpc("konto_oms_12m", { _ids: b })));
+      for (const { data, error } of svar) {
+        if (error) throw error;
+        for (const x of data ?? []) m.set(x.company_id, Number(x.oms_12m));
+      }
+      return m;
+    },
+  });
+
+  const [sort, setSort] = useState<Sort>(null);
+  const items = useMemo(() => {
+    if (!sort) return grundItems;
+    const navn = (it: ListeItem) => (it.kind === "en" ? it.row.name : it.konti[0]?.name ?? "");
+    const oms = (it: ListeItem) =>
+      it.kind === "en"
+        ? omsQ.data?.get(it.row.id) ?? -1
+        : grupperQ.data?.get(it.cvr)?.oms_12m ?? it.konti.reduce((s, k) => s + (omsQ.data?.get(k.id) ?? 0), 0);
+    const status = (it: ListeItem) =>
+      it.kind === "en" ? statusRang(it.row.customer_type) : Math.min(...it.konti.map((k) => statusRang(k.customer_type)));
+    return [...grundItems].sort((a, b) => {
+      const v =
+        sort.key === "navn" ? navn(a).localeCompare(navn(b), "da") : sort.key === "oms" ? oms(a) - oms(b) : status(a) - status(b);
+      return v * sort.dir;
+    });
+  }, [grundItems, sort, omsQ.data, grupperQ.data]);
+  const antalKonti = useMemo(() => items.reduce((s, it) => s + (it.kind === "en" ? 1 : it.konti.length), 0), [items]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const pageRows = pageItems.flatMap((it) => (it.kind === "en" ? [it.row] : it.konti));
@@ -213,15 +250,6 @@ function VirksomhederListe() {
   const clearRecent = () => {
     sessionStorage.removeItem(RECENT_KEY);
     setRecentIds(null);
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   };
 
   const selectAllOnPage = (check: boolean) => {
@@ -233,7 +261,7 @@ function VirksomhederListe() {
   };
 
   const selectAllFiltered = () => {
-    setSelected(new Set(displayed.map((r) => r.id)));
+    setSelected(new Set(items.flatMap((it) => (it.kind === "en" ? [it.row.id] : it.konti.map((k) => k.id)))));
   };
 
   const allOnPageSelected =
