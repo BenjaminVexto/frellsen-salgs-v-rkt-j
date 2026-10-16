@@ -145,7 +145,7 @@ export function VirksomhedListe(p: Props) {
         <div className="hidden md:block tabular-nums text-muted-foreground">{r.visma_id ?? "—"}</div>
         <div className="hidden md:block truncate">{saelger ?? <span className="text-muted-foreground">—</span>}</div>
         <div className="hidden md:block text-right tabular-nums"><OmsTekst v={oms} nyt={nyt} /></div>
-        <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+        <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap [&>*]:shrink-0">
           {p.ikkeTildelt(r) && (
             <Badge variant="outline" className="border-warning/40 text-warning text-[10px]">Ikke tildelt</Badge>
           )}
@@ -237,7 +237,7 @@ function GruppeRaekke({
         <div className="min-w-0 leading-tight">
           <div className="flex items-center gap-1.5 min-w-0">
             {udfoldet ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-            <span className="font-semibold truncate">{bedste.name}</span>
+            <span className="font-semibold truncate min-w-[6rem]">{bedste.name}</span>
             <span className="shrink-0 rounded-full border bg-background px-1.5 py-px text-[11px] text-muted-foreground">
               {antal} konti · {aktive} aktive
             </span>
