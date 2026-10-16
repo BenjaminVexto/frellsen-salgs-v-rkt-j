@@ -426,17 +426,11 @@ function VirksomhederListe() {
       </div>
 
       <div className="text-sm text-muted-foreground mb-2">
-        <strong className="text-foreground">{displayed.length}</strong>{" "}
-        virksomheder matcher
-        {displayed.length > 0 && (
-          <>
-            {" "}
-            · Side {page + 1} af {totalPages}
-          </>
-        )}
+        <strong className="text-foreground">{items.length.toLocaleString("da-DK")}</strong> virksomheder ({antalKonti.toLocaleString("da-DK")} konti)
+        {items.length > 0 && <> · Side {page + 1} af {totalPages}</>}
       </div>
 
-      <Card className="divide-y">
+      <Card className="overflow-hidden">
         {loading ? (
           <p className="p-4 text-sm text-muted-foreground">Indlæser…</p>
         ) : displayed.length === 0 ? (
@@ -446,47 +440,45 @@ function VirksomhederListe() {
         ) : (
           <>
             {isAdmin && (
-              <div className="flex items-center justify-between gap-3 px-4 py-2 bg-muted/30 text-sm">
+              <div className="flex items-center justify-between gap-3 px-3 md:px-4 py-2 border-b text-sm">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Checkbox
                     checked={allOnPageSelected}
                     onCheckedChange={(v) => selectAllOnPage(!!v)}
                   />
-                  Vælg alle på denne side ({pageRows.length})
+                  Vælg alle på siden ({pageRows.length.toLocaleString("da-DK")} konti)
                 </label>
-                {selected.size < displayed.length && (
+                {selected.size < antalKonti && (
                   <button
                     className="text-primary hover:underline text-xs"
                     onClick={selectAllFiltered}
                   >
-                    Vælg alle {displayed.length} resultater der matcher filteret
+                    Vælg alle {antalKonti.toLocaleString("da-DK")} konti, der matcher
                   </button>
                 )}
               </div>
             )}
-            {pageItems.map((it) =>
-              it.kind === "en" ? rowEl(it.row) : (
-                <CvrGruppeRaekke
-                  key={"g" + it.cvr}
-                  cvr={it.cvr}
-                  konti={it.konti}
-                  hits={it.hits}
-                  info={grupperQ.data?.get(it.cvr)}
-                  udfoldet={it.tvungen || aabneGrupper.has(it.cvr)}
-                  onToggle={() =>
-                    setAabneGrupper((prev) => {
-                      const n = new Set(prev);
-                      n.has(it.cvr) ? n.delete(it.cvr) : n.add(it.cvr);
-                      return n;
-                    })
-                  }
-                  isAdmin={isAdmin}
-                  selected={selected}
-                  setSelected={setSelected}
-                  rowEl={rowEl}
-                />
-              ),
-            )}
+            <VirksomhedListe
+              items={pageItems}
+              isAdmin={isAdmin}
+              selected={selected}
+              setSelected={setSelected}
+              omsMap={omsQ.data}
+              saelgerNavn={saelgerNavn}
+              ikkeTildelt={(r) => isAdmin && (assignmentMap.get(r.id) ?? []).length === 0}
+              ekstraLinje={lokHitLinje}
+              grupper={grupperQ.data}
+              aabne={aabneGrupper}
+              toggleGruppe={(cvr) =>
+                setAabneGrupper((prev) => {
+                  const n = new Set(prev);
+                  n.has(cvr) ? n.delete(cvr) : n.add(cvr);
+                  return n;
+                })
+              }
+              sort={sort}
+              setSort={setSort}
+            />
           </>
         )}
       </Card>
