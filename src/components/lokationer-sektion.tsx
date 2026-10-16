@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
 import { Link } from "@tanstack/react-router";
 import { cvrNorm, cvrGrupperQuery, useGruppeKonti, type CvrPenhedRow } from "@/components/cvr-gruppe";
+import { visSomAktivLokation } from "@/lib/lokation-visning";
 import { hentAlle } from "@/lib/hent-alle";
 import { fjernIndirekte } from "@/components/penhed-forhandler";
 import { paenBy } from "@/components/virksomhed-liste";
@@ -566,7 +567,6 @@ export function LokationerSektion({
     primary: boolean;
     gruppe: AdresseGruppe | null;
   };
-  const aktivStatus = (s: string | null | undefined) => s === "aktiv_kunde" || s === "servicekunde";
   const adrKey = (adr: string | null, zip: string | null) => {
     const nk = adresseNoegle(adr);
     return nk ? `${(zip ?? "").trim()}|${nk}` : null;
@@ -657,7 +657,7 @@ export function LokationerSektion({
       gruppe: null,
     });
   }
-  const erAktiv = (r: Raekke) => r.konto === "via" || aktivStatus(r.status) || (!["sovende_kunde", "tidligere_kunde"].includes(r.status ?? "") && (r.oms ?? 0) > 0);
+  const erAktiv = (r: Raekke) => visSomAktivLokation(r.status, r.oms, r.konto === "via");
   const omsSort = (a: Raekke, b: Raekke) => (b.oms ?? -1) - (a.oms ?? -1);
   const aktive = [
     ...egneRaekker.filter(erAktiv).sort((a, b) => Number(b.primary) - Number(a.primary) || omsSort(a, b)),
