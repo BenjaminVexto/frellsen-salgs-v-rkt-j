@@ -102,7 +102,7 @@ import { ListeNoterSektion } from "@/components/kontaktliste/liste-noter-sektion
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion, useCompanyBriefing } from "@/components/ai-briefing-sektion";
 import { KundeSalgstal } from "@/components/sales/kunde-salgstal";
-import { SammeCvrLink, HeleCvrLinje } from "@/components/cvr-gruppe";
+import { SammeCvrLink, HeleCvrLinje, useCvrEnhed, cvrGrupperQuery, cvrNorm } from "@/components/cvr-gruppe";
 import { SaelgereLinje, DineLokationer } from "@/components/saelgere-linje";
 import { adresseValg, lokAdresse, gyldigAktivitetsTid, tilLokalInput, MAKS_DAGE_TILBAGE } from "@/lib/adresse-grupper";
 import { SortimentKort } from "@/components/sortiment-kort";
@@ -176,6 +176,8 @@ function VirksomhedsKort() {
   const isAdmin = role === "admin";
   const canWriteDocs = role === "admin" || role === "salgssupport";
   const [company, setCompany] = useState<Company | null>(null);
+  const cvrEnhedQ = useCvrEnhed(company?.cvr);
+  const cvrGrupperQ = useQuery({ ...cvrGrupperQuery, enabled: !!cvrNorm(company?.cvr) });
   // Afløst debitorpost (Visma-post erstattet af en nyere) → banner + skjulte signaler.
   const [afloestAf, setAfloestAf] = useState<{
     id: string;
@@ -569,8 +571,8 @@ function VirksomhedsKort() {
                 </span>
               )}
             </h1>
-            <SammeCvrLink cvr={company.cvr} companyId={company.id} />
           </div>
+          <SammeCvrLink cvr={company.cvr} companyId={company.id} />
           <SourceBadges sources={(company as any).sources} />
           <div className="flex flex-wrap gap-1.5 mt-2">
             <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
@@ -579,7 +581,7 @@ function VirksomhedsKort() {
           </div>
           <KundeRytmeLinje companyId={company.id} className="mt-2" />
           {company.cvr ? (
-            <p className="text-xs text-muted-foreground mb-4 mt-1">CVR {company.cvr}</p>
+            <div className="mb-4" />
           ) : ((company as any).binding_status === "offentlig_aftale") ? (
             <div className="mt-2 mb-4 space-y-1 text-xs text-muted-foreground">
               {(company as any).ean_number && <div>EAN {(company as any).ean_number}</div>}
@@ -645,15 +647,20 @@ function VirksomhedsKort() {
               const addr = firstFilled(primary?.address, company.address);
               const zip = firstFilled(primary?.zip, company.zip);
               const city = firstFilled(primary?.city, company.city);
-              if (!addr && !zip && !city && !company.municipality) return null;
+              // Kommune kommer fra CVR-hovedadressen — vis den kun, når kontoens postnr. er det samme.
+              const e = cvrEnhedQ.data;
+              const kommune = e?.kommune && e.postnr && String(zip ?? "").trim() === e.postnr ? e.kommune : null;
+              if (!addr && !zip && !city) return null;
               return (
                 <Row icon={<MapPin className="h-4 w-4" />}>
                   {addr && <div>{addr}</div>}
                   <div className="text-muted-foreground">
                     {[zip, city].filter(Boolean).join(" ")}
                   </div>
-                  {company.municipality && (
-                    <div className="text-xs text-muted-foreground">{company.municipality} Kommune</div>
+                  {kommune && (
+                    <div className="text-xs text-muted-foreground">
+                      {/kommune$/i.test(kommune) ? kommune : `${kommune} Kommune`}
+                    </div>
                   )}
                 </Row>
               );
@@ -678,12 +685,24 @@ function VirksomhedsKort() {
           </div>
 
           <div className="border-t mt-4 pt-4 space-y-2 text-sm">
-            {(company as any).main_branch_text ? (
-              <KV label="Branche" value={(company as any).main_branch_text} />
-            ) : (company as any).main_branch_code ? (
-              <KV label="Branchekode" value={(company as any).main_branch_code} />
-            ) : null}
-            {company.employees != null && <KV label="Medarbejdere" value={String(company.employees)} />}
+            {(() => {
+              const e = cvrEnhedQ.data;
+              const hele = (cvrGrupperQ.data?.get(cvrNorm(company.cvr) ?? "")?.antal_konti ?? 1) > 1 ? " (hele CVR)" : "";
+              const branche = e?.fundet ? e.branchetekst : (company as any).main_branch_text;
+              const kode = e?.fundet ? e.branchekode : (company as any).main_branch_code;
+              const ansatte = e?.fundet ? e.ansatte : company.employees;
+              return (
+                <>
+                  {e?.cvr_navn && <KV label="CVR-navn" value={e.cvr_navn} />}
+                  {branche ? (
+                    <KV label="Branche" value={branche + hele} />
+                  ) : kode ? (
+                    <KV label="Branchekode" value={kode + hele} />
+                  ) : null}
+                  {ansatte != null && <KV label="Medarbejdere" value={ansatte.toLocaleString("da-DK") + hele} />}
+                </>
+              );
+            })()}
             {company.turnover_12m != null && (
               <KV label="Omsætning (12 mdr.)" value={`${Number(company.turnover_12m).toLocaleString("da-DK")} kr.`} />
             )}

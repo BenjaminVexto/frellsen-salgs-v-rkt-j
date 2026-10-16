@@ -736,6 +736,13 @@
       "when": 1792130626728,
       "tag": "0104_konto_oms_12m_hurtig",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1792138795337,
+      "tag": "0105_cvr_enhed",
+      "breakpoints": true
     }
   ]
 }

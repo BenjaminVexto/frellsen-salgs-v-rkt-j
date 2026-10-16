@@ -1511,6 +1511,54 @@ export type Database = {
         }
         Relationships: []
       }
+      cvr_enhed: {
+        Row: {
+          adresse: string | null
+          ansatte: number | null
+          branchekode: string | null
+          branchetekst: string | null
+          by: string | null
+          cvr: string
+          cvr_navn: string | null
+          cvr_status: string | null
+          fundet: boolean
+          hentet_at: string
+          kommune: string | null
+          postnr: string | null
+          virksomhedsform: string | null
+        }
+        Insert: {
+          adresse?: string | null
+          ansatte?: number | null
+          branchekode?: string | null
+          branchetekst?: string | null
+          by?: string | null
+          cvr: string
+          cvr_navn?: string | null
+          cvr_status?: string | null
+          fundet?: boolean
+          hentet_at?: string
+          kommune?: string | null
+          postnr?: string | null
+          virksomhedsform?: string | null
+        }
+        Update: {
+          adresse?: string | null
+          ansatte?: number | null
+          branchekode?: string | null
+          branchetekst?: string | null
+          by?: string | null
+          cvr?: string
+          cvr_navn?: string | null
+          cvr_status?: string | null
+          fundet?: boolean
+          hentet_at?: string
+          kommune?: string | null
+          postnr?: string | null
+          virksomhedsform?: string | null
+        }
+        Relationships: []
+      }
       cvr_enrichment_jobs: {
         Row: {
           attempts: number
@@ -5121,6 +5169,7 @@ export type Database = {
         }
         Returns: string
       }
+      cvr_enhed_til_konti: { Args: { _cvrs: string[] }; Returns: number }
       cvr_findes_i_crm: {
         Args: { cvr_rows: Json }
         Returns: {
@@ -5154,6 +5203,8 @@ export type Database = {
           antal_konti: number
           bedste_status: string
           cvr: string
+          cvr_navn: string
+          cvr_status: string
           oms_12m: number
         }[]
       }
@@ -5193,6 +5244,7 @@ export type Database = {
           zip: string
         }[]
       }
+      cvr_til_opdatering: { Args: { _n: number }; Returns: string[] }
       derive_agreement_type: {
         Args: { _name: string }
         Returns: Database["public"]["Enums"]["agreement_type"]

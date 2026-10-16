@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { cvrNorm, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
+import { cvrNorm, cvrGrupperQuery, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
 import { VirksomhedListe, paenBy, statusRang, type Sort } from "@/components/virksomhed-liste";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -166,15 +166,7 @@ function VirksomhederListe() {
   }, [filters, q, recentIds, mobileMineActive, sort]);
 
   // CVR-grupper: konti med samme (normaliserede) CVR vises som én række.
-  const grupperQ = useQuery({
-    queryKey: ["cvr-grupper"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("cvr_grupper");
-      if (error) throw error;
-      return new Map<string, CvrGruppeInfo>(((data ?? []) as CvrGruppeInfo[]).map((g) => [g.cvr, g]));
-    },
-  });
+  const grupperQ = useQuery(cvrGrupperQuery);
   const [aabneGrupper, setAabneGrupper] = useState<Set<string>>(new Set());
   const grundItems = useMemo(() => {
     const alleIGruppe = new Map<string, typeof rows>();
@@ -230,7 +222,7 @@ function VirksomhederListe() {
 
   const items = useMemo(() => {
     if (!sort) return grundItems;
-    const navn = (it: ListeItem) => (it.kind === "en" ? it.row.name : it.konti[0]?.name ?? "");
+    const navn = (it: ListeItem) => (it.kind === "en" ? it.row.name : grupperQ.data?.get(it.cvr)?.cvr_navn || it.konti[0]?.name || "");
     const oms = (it: ListeItem) =>
       it.kind === "en"
         ? omsQ.data?.get(it.row.id) ?? -1

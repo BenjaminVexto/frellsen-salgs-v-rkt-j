@@ -9,7 +9,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { enrichCompaniesByIds } from "@/lib/cvr-enrichment.server";
+import { enrichCompaniesByIds, enrichCvrNumre } from "@/lib/cvr-enrichment.server";
 
 const MAX_ATTEMPTS = 3;
 const BATCH_PER_TICK = 3;
@@ -44,7 +44,12 @@ export const Route = createFileRoute("/api/public/hooks/process-cvr-enrichment")
           );
         }
         if (!candidates?.length) {
-          return Response.json({ processed: 0, message: "ingen pending jobs" });
+          // Løbende opdatering: hent manglende/forældede (> 30 dage) CVR-numre, ét opslag pr. CVR.
+          const { data: stale, error: sErr } = await (supabaseAdmin as any).rpc("cvr_til_opdatering", { _n: 1000 });
+          if (sErr) return Response.json({ error: sErr.message }, { status: 500 });
+          if (!stale?.length) return Response.json({ processed: 0, message: "ingen pending jobs" });
+          const r = await enrichCvrNumre((stale as any[]).map((x) => (typeof x === "string" ? x : Object.values(x)[0] as string)));
+          return Response.json({ processed: 0, cvr_opdatering: r }, { status: r.error ? 500 : 200 });
         }
         const ids = candidates.map((c: any) => c.id as string);
 

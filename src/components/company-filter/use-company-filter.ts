@@ -1,6 +1,8 @@
 import { toast } from "sonner";
 import { hentAlle } from "@/lib/hent-alle";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { cvrGrupperQuery, cvrNorm } from "@/components/cvr-gruppe";
 import { supabase } from "@/integrations/supabase/client";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import {
@@ -320,7 +322,10 @@ export function useCompanyFilter({
     setMunicipalities(Array.from(set).sort());
   }, [rows]);
 
+  // CVR-navne (juridisk navn) for grupper, så fritekst også rammer fx "Region Hovedstaden".
+  const cvrGrupperQ = useQuery(cvrGrupperQuery);
   const filtered = useMemo(() => {
+    const grupper = cvrGrupperQ.data;
     return rows.filter((r) => {
       // Afløste debitorposter er som standard skjult (kun synlige via "Vis afløste").
       if (!filters.visAfloeste && (r as any).afloest_af_company_id) return false;
@@ -332,6 +337,7 @@ export function useCompanyFilter({
           const hit =
             r.name.toLowerCase().includes(qq) ||
             (r.cvr ?? "").includes(rawQuery) ||
+            (grupper?.get(cvrNorm(r.cvr) ?? "")?.cvr_navn ?? "").toLowerCase().includes(qq) ||
             (r.address ?? "").toLowerCase().includes(qq) ||
             (r.city ?? "").toLowerCase().includes(qq) ||
             (r.zip ?? "").includes(rawQuery) ||
@@ -423,7 +429,7 @@ export function useCompanyFilter({
       }
       return true;
     });
-  }, [rows, q, filters, assignmentMap, locationMap, equipmentMap, userId]);
+  }, [rows, q, filters, assignmentMap, locationMap, equipmentMap, userId, cvrGrupperQ.data]);
 
   const isActive = useMemo(() => computeIsFilterActive(filters), [filters]);
 
