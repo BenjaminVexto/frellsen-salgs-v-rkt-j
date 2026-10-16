@@ -21,7 +21,76 @@ export type CvrGruppeInfo = {
   aktive: number;
   bedste_status: string;
   oms_12m: number;
+  cvr_navn: string | null;
+  cvr_status: string | null;
 };
+
+/** Delt opslag af CVR-grupper (≥2 konti) — samme cache overalt. */
+export const cvrGrupperQuery = {
+  queryKey: ["cvr-grupper"],
+  staleTime: 5 * 60 * 1000,
+  queryFn: async () => {
+    const { data, error } = await (supabase as any).rpc("cvr_grupper");
+    if (error) throw error;
+    return new Map<string, CvrGruppeInfo>(((data ?? []) as CvrGruppeInfo[]).map((g) => [g.cvr, g]));
+  },
+};
+
+const STATUS_TEKST: Record<string, string> = {
+  OPHOERT: "Ophørt",
+  UNDERKONKURS: "Under konkurs",
+  OPLOESTEFTERKONKURS: "Opløst efter konkurs",
+  OPLOESTEFTERFUSION: "Opløst efter fusion",
+  OPLOESTEFTERERKLAERING: "Opløst efter erklæring",
+  OPLOESTEFTERFRIVILLIGLIKVIDATION: "Opløst efter frivillig likvidation",
+  OPLOESTEFTERSPALTNING: "Opløst efter spaltning",
+  OPLOESTEFTERGRAENSEOVERSKRIDENDEFUSION: "Opløst efter grænseoverskridende fusion",
+  UNDERFRIVILLIGLIKVIDATION: "Under frivillig likvidation",
+  UNDERTVANGSOPLOESNING: "Under tvangsopløsning",
+  TVANGSOPLOEST: "Tvangsopløst",
+  SLETTET: "Slettet",
+  FREMTID: "Fremtid",
+};
+/** Visningstekst for CVR-status; null når status er normal/aktiv/ukendt. */
+export function cvrStatusTekst(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const k = s.toUpperCase().replace(/Ø/g, "OE").replace(/Æ/g, "AE").replace(/Å/g, "AA").replace(/\s/g, "");
+  if (k === "NORMAL" || k === "AKTIV") return null;
+  return STATUS_TEKST[k] ?? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+export function CvrStatusMaerke({ status }: { status: string | null | undefined }) {
+  const t = cvrStatusTekst(status);
+  if (!t) return null;
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-destructive/40 px-1.5 py-px text-[10px] font-medium text-destructive">
+      CVR: {t}
+    </span>
+  );
+}
+
+export type CvrEnhed = {
+  cvr: string;
+  cvr_navn: string | null;
+  cvr_status: string | null;
+  postnr: string | null;
+  kommune: string | null;
+  branchekode: string | null;
+  branchetekst: string | null;
+  ansatte: number | null;
+  fundet: boolean;
+};
+export function useCvrEnhed(cvr: string | null | undefined) {
+  const n = cvrNorm(cvr);
+  return useQuery({
+    enabled: !!n,
+    queryKey: ["cvr-enhed", n],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("cvr_enhed").select("*").eq("cvr", n).maybeSingle();
+      if (error) throw error;
+      return (data as CvrEnhed | null) ?? null;
+    },
+  });
+}
 
 export type ListeItem =
   | { kind: "en"; row: CompanyRow }
@@ -138,18 +207,39 @@ export function useGruppeKonti(cvr: string | null | undefined) {
   });
 }
 
-/** "Samme CVR: 5 konti" med popover over de andre konti. */
+/** "CVR-navn · CVR xxx · N konti" — hele linjen åbner CVR-gruppens konti. */
 export function SammeCvrLink({ cvr, companyId }: { cvr: string | null | undefined; companyId: string }) {
   const q = useGruppeKonti(cvr);
+  const e = useCvrEnhed(cvr);
+  const n = cvrNorm(cvr);
   const konti = q.data ?? [];
-  if (konti.length < 2) return null;
+  if (!cvr) return null;
+  const navn = e.data?.cvr_navn;
+  const indhold = (
+    <>
+      <Building2 className="h-3 w-3 shrink-0" />
+      {navn && <span className="font-semibold">{navn}</span>}
+      {navn && " · "}CVR {n ?? cvr}
+      {konti.length > 1 && ` · ${konti.length} konti`}
+    </>
+  );
+  if (konti.length < 2)
+    return (
+      <div className="text-xs text-muted-foreground inline-flex flex-wrap items-center gap-1">
+        {indhold}
+        <CvrStatusMaerke status={e.data?.cvr_status} />
+      </div>
+    );
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
-          <Building2 className="h-3 w-3" /> Samme CVR: {konti.length} konti
-        </button>
-      </PopoverTrigger>
+      <div className="inline-flex flex-wrap items-center gap-1">
+        <PopoverTrigger asChild>
+          <button type="button" className="text-xs text-primary hover:underline inline-flex items-center gap-1 text-left">
+            {indhold}
+          </button>
+        </PopoverTrigger>
+        <CvrStatusMaerke status={e.data?.cvr_status} />
+      </div>
       <PopoverContent className="w-96 p-1 max-h-80 overflow-y-auto" align="start">
         {konti.map((k) => (
           <Link

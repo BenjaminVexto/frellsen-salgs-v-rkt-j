@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
 import { SegmentBadge } from "@/components/binding-status-badge";
 import { adresseNoegle } from "@/lib/adresse-grupper";
-import { kr, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
+import { kr, CvrStatusMaerke, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
+import { parseSegment3 } from "@/lib/customer-segment-mapping";
 import type { CompanyRow } from "@/components/company-filter/types";
 
 /** Kun visning: "ROSKILDE" → "Roskilde", "HØJE-TAASTRUP" → "Høje-Taastrup". Blandet skrivemåde bevares. */
@@ -90,15 +91,13 @@ export function VirksomhedListe(p: Props) {
     );
   };
 
-  const kontoRaekke = (r: CompanyRow, opts: { under?: boolean; gruppeNavn?: string; hit?: boolean } = {}) => {
+  const kontoRaekke = (r: CompanyRow, opts: { under?: boolean; skjulSegment?: boolean; hit?: boolean } = {}) => {
     const checked = p.selected.has(r.id);
     const oms = kontoOms(r, p.omsMap);
     const nyt = r.customer_type === "nyt_emne";
     const saelger = p.saelgerNavn(r);
-    const enhed = r.visma_enhed;
-    const sammeNavn = opts.under && opts.gruppeNavn === r.name;
-    const primaer = sammeNavn ? r.address?.split(",")[0] || enhed || r.name : r.name;
-    const sekundaer = sammeNavn ? [r.name, enhed].filter(Boolean).join(" · ") : enhed;
+    const primaer = r.name;
+    const sekundaer = r.visma_enhed;
     const navnCelle = (
       <div className="min-w-0 leading-tight">
         <div className="truncate">
@@ -149,7 +148,7 @@ export function VirksomhedListe(p: Props) {
           {p.ikkeTildelt(r) && (
             <Badge variant="outline" className="border-warning/40 text-warning text-[10px]">Ikke tildelt</Badge>
           )}
-          <SegmentBadge segment3={r.customer_segment_3} size="sm" />
+          {!opts.skjulSegment && <SegmentBadge segment3={r.customer_segment_3} size="sm" />}
           <CustomerStatusBadge type={r.customer_type as any} />
         </div>
       </div>
@@ -196,7 +195,7 @@ function GruppeRaekke({
   p: Props;
   cols: string;
   udfoldet: boolean;
-  kontoRaekke: (r: CompanyRow, o?: { under?: boolean; gruppeNavn?: string; hit?: boolean }) => ReactNode;
+  kontoRaekke: (r: CompanyRow, o?: { under?: boolean; skjulSegment?: boolean; hit?: boolean }) => ReactNode;
 }) {
   const [vis, setVis] = useState(VIS_ANTAL);
   const info = p.grupper?.get(it.cvr);
@@ -204,6 +203,12 @@ function GruppeRaekke({
     (a, b) => statusRang(a.customer_type) - statusRang(b.customer_type) || (kontoOms(b, p.omsMap) ?? -1) - (kontoOms(a, p.omsMap) ?? -1),
   );
   const bedste = konti[0]!;
+  const gruppeNavn = info?.cvr_navn || bedste.name;
+  // Udbud/Offentlig aftale: vises én gang på gruppen, hvis alle konti har samme mærke.
+  const segKode = (s: string | null | undefined) => parseSegment3(s).code;
+  const fællesSeg = ["40", "45"].includes(segKode(bedste.customer_segment_3) ?? "") && konti.every((k) => segKode(k.customer_segment_3) === segKode(bedste.customer_segment_3))
+    ? bedste.customer_segment_3
+    : null;
   const antal = info?.antal_konti ?? konti.length;
   const aktive = info?.aktive ?? konti.filter((k) => k.customer_type === "aktiv_kunde").length;
   const adresser = new Set(konti.map((k) => `${k.zip ?? ""}|${adresseNoegle(k.address) ?? k.id}`)).size;
@@ -237,13 +242,14 @@ function GruppeRaekke({
         <div className="min-w-0 leading-tight">
           <div className="flex items-center gap-1.5 min-w-0">
             {udfoldet ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-            <span className="font-semibold truncate min-w-[6rem]">{bedste.name}</span>
+            <span className="font-semibold truncate min-w-[6rem]">{gruppeNavn}</span>
             <span className="shrink-0 rounded-full border bg-background px-1.5 py-px text-[11px] text-muted-foreground">
               {antal} konti · {aktive} aktive
             </span>
           </div>
-          <div className="text-xs text-muted-foreground pl-5">
-            CVR {it.cvr}
+          <div className="text-xs text-muted-foreground pl-5 flex flex-wrap items-center gap-x-1.5">
+            <span>CVR {it.cvr}</span>
+            <CvrStatusMaerke status={info?.cvr_status} />
             <span className="md:hidden"> · {adresser} adresser · {kr(oms)}</span>
           </div>
         </div>
@@ -253,13 +259,14 @@ function GruppeRaekke({
           {saelgere.size === 0 ? <span className="text-muted-foreground">—</span> : saelgere.size === 1 ? [...saelgere][0] : `${saelgere.size} sælgere`}
         </div>
         <div className="hidden md:block text-right tabular-nums">{kr(oms)}</div>
-        <div className="flex justify-end">
+        <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap [&>*]:shrink-0">
+          {fællesSeg && <SegmentBadge segment3={fællesSeg} size="sm" />}
           <CustomerStatusBadge type={(info?.bedste_status ?? bedste.customer_type) as any} />
         </div>
       </div>
       {udfoldet && (
         <div className="divide-y divide-border/60">
-          {konti.slice(0, vis).map((k) => kontoRaekke(k, { under: true, gruppeNavn: bedste.name, hit: it.hits.has(k.id) && it.hits.size < konti.length }))}
+          {konti.slice(0, vis).map((k) => kontoRaekke(k, { under: true, skjulSegment: !!fællesSeg, hit: it.hits.has(k.id) && it.hits.size < konti.length }))}
           {konti.length > vis && (
             <div className="pl-10 py-1.5">
               <Button size="sm" variant="ghost" onClick={() => setVis((v) => v + VIS_ANTAL * 2)}>
