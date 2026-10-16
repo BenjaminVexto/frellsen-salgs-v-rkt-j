@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
 import { Link } from "@tanstack/react-router";
 import { cvrNorm, cvrGrupperQuery, useGruppeKonti, type CvrPenhedRow } from "@/components/cvr-gruppe";
+import { hentAlle } from "@/lib/hent-alle";
 import { fjernIndirekte } from "@/components/penhed-forhandler";
 import { paenBy } from "@/components/virksomhed-liste";
 import { AdressePenhedKobling } from "@/components/adresse-penhed-kobling";
@@ -395,6 +396,33 @@ export function LokationerSektion({
     },
   });
 
+  // Fuld lokationsinfo hentes kun for de andre konti, brugeren folder ud.
+  const aabenKontoIds = [...aabneAndre].map((key) => {
+    if (key.startsWith("k:")) return key.slice(2);
+    return (oversigtQ.data ?? []).find((r) => `p:${r.p_number}` === key)?.company_id;
+  }).filter((id): id is string => !!id);
+  const andreLokQ = useQuery({
+    enabled: aabenKontoIds.length > 0,
+    queryKey: ["andre-konti-lokationer", [...aabenKontoIds].sort().join(",")],
+    queryFn: () => hentAlle<Location>((fra, til) => (supabase as any).from("locations")
+      .select("*, saelger:profiles!locations_saelger_user_id_fkey(full_name)")
+      .in("company_id", aabenKontoIds).order("id").range(fra, til)),
+  });
+  const andreSynligeIds = (oversigtQ.data ?? []).map((r) => r.location_id).filter((id): id is string => !!id);
+  const andreTalQ = useQuery({
+    enabled: andreSynligeIds.length > 0,
+    queryKey: ["andre-lokationer-salg-maskiner", [...andreSynligeIds].sort().join(",")],
+    queryFn: async () => {
+      const salg = await summaryFn({ data: { locationIds: andreSynligeIds } });
+      const units = await hentAlle<{ location_id: string }>((fra, til) => (supabase as any)
+        .from("location_equipment_units").select("id, location_id")
+        .in("location_id", andreSynligeIds).eq("is_filter", false).order("id").range(fra, til));
+      const maskiner: Record<string, number> = {};
+      for (const u of units) maskiner[u.location_id] = (maskiner[u.location_id] ?? 0) + 1;
+      return { salg, maskiner };
+    },
+  });
+
   const sortedLocations = useMemo(() => {
     if (sortMode === "street") {
       return [...locations].sort((a, b) => {
@@ -598,8 +626,8 @@ export function LokationerSektion({
       viaNavn: p.via_company_name,
       saelger: p.status === "indirekte" ? null : p.saelger_navn,
       oms: p.status === "indirekte" ? null : p.oms_12m,
-      maskiner: null,
-      sidsteKoeb: null,
+      maskiner: p.location_id && andreTalQ.data ? andreTalQ.data.maskiner[p.location_id] ?? 0 : null,
+      sidsteKoeb: p.location_id ? andreTalQ.data?.salg[p.location_id]?.lastPurchase ?? null : null,
       status: p.status === "indirekte" ? "via" : p.customer_type,
       primary: false,
       gruppe: null,
@@ -689,8 +717,8 @@ export function LokationerSektion({
             location={l}
             isPrimary={l.is_primary}
             isAdmin={isAdmin}
-            open={openId === l.id}
-            onToggle={() => setOpenId(openId === l.id ? null : l.id)}
+            open
+            onToggle={() => setAabneLok((prev) => { const n = new Set(prev); g.locs.forEach((x) => n.delete(x.id)); return n; })}
             contacts={contactsByLocation?.get(l.id) ?? []}
             fallbackAddress={l.is_primary ? companyFallbackAddress : null}
             fallbackZip={l.is_primary ? companyFallbackZip : null}
@@ -792,7 +820,21 @@ export function LokationerSektion({
                   catch (e) { toast.error(e instanceof Error ? e.message : "Kunne ikke fortryde"); }
                 }}>Fortryd "Leveres via forhandler"</Button>
               </>
-            ) : r.kontoId ? <Link to="/virksomheder/$id" params={{ id: r.kontoId }} className="text-primary hover:underline">Åbn kontoens lokationer og maskiner</Link> : null}
+            ) : (
+              <>
+                {andreLokQ.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                  <ul className="divide-y">
+                    {(andreLokQ.data ?? []).filter((l) => l.company_id === r.kontoId && adrKey(l.address, l.zip) === adrKey(r.address, r.zip)).map((l) => (
+                      <LokationRow key={l.id} location={l} isPrimary={l.is_primary} isAdmin={isAdmin}
+                        open onToggle={() => toggle()} onRegister={() => { if (r.kontoId) window.location.href = `/virksomheder/${r.kontoId}#aktivitet`; }}
+                        companyId={r.kontoId ?? undefined} visBesoeg={false}
+                        kontoVisning={{ revenue12m: r.oms }} />
+                    ))}
+                  </ul>
+                )}
+                {r.kontoId && <Link to="/virksomheder/$id" params={{ id: r.kontoId }} className="text-primary hover:underline">Åbn kontoens kundekort</Link>}
+              </>
+            )}
           </div>
         )}
       </li>
@@ -823,6 +865,11 @@ export function LokationerSektion({
 
   return (
     <section className="py-1">
+      <p className="text-xs text-muted-foreground mb-3">
+        {aktive.length} {aktive.length === 1 ? "aktiv lokation" : "aktive lokationer"} · {kroner(samletOms)} / 12 mdr.
+        {heleCvr ? " (hele CVR)" : ""}
+        {antalPenheder > 0 ? ` · ${antalPenheder} P-enheder i alt` : ""}
+      </p>
       <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
           <MapPin className="h-4 w-4" /> Aktive lokationer
@@ -848,11 +895,7 @@ export function LokationerSektion({
           )}
         </div>
       </div>
-      <p className="text-xs text-muted-foreground mb-3">
-        {aktive.length} {aktive.length === 1 ? "aktiv lokation" : "aktive lokationer"} · {kroner(samletOms)} / 12 mdr.
-        {heleCvr ? " (hele CVR)" : ""}
-        {antalPenheder > 0 ? ` · ${antalPenheder} P-enheder i alt` : ""}
-      </p>
+
 
       {expiringTotal > 0 && (
         <div className="mb-3 rounded-md border border-amber-300 bg-amber-50">
@@ -898,7 +941,11 @@ export function LokationerSektion({
         </div>
       )}
 
-      {aktive.length === 0 ? (
+      {summaryQ.isLoading || (cvr && oversigtQ.isLoading) ? (
+        <div role="status" className="flex items-center gap-2 py-3 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Henter lokationer…</div>
+      ) : summaryQ.error || oversigtQ.error ? (
+        <p role="alert" className="text-sm text-destructive">Lokationsoplysninger kunne ikke hentes.</p>
+      ) : aktive.length === 0 ? (
         <p className="text-sm text-muted-foreground">Ingen aktive lokationer.</p>
       ) : (
         tabel(aktive, vis1, setVis1)
