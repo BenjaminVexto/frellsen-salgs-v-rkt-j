@@ -84,6 +84,7 @@ import { SourceBadges } from "@/components/source-badges";
 import { AfdelingBadge } from "@/components/afdeling-badge";
 import { SegmentBadge } from "@/components/binding-status-badge";
 import { CustomerCategoryBadge } from "@/components/customer-category-badge";
+import { paenBy } from "@/components/virksomhed-liste";
 import { LokationerSektion, type Location, type LocationContact } from "@/components/lokationer-sektion";
 import { CompanySalesTab } from "@/components/sales/company-sales-tab";
 import { CompanyUdviklingTab } from "@/components/sales/company-udvikling-tab";
@@ -659,7 +660,7 @@ function VirksomhedsKort() {
                   </div>
                   {kommune && (
                     <div className="text-xs text-muted-foreground">
-                      {/kommune$/i.test(kommune) ? kommune : `${kommune} Kommune`}
+                      {paenBy(/kommune$/i.test(kommune) ? kommune : `${kommune} Kommune`)}
                     </div>
                   )}
                 </Row>

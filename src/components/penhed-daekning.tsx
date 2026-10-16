@@ -184,7 +184,10 @@ export function PenhedDaekning({
   visIkkeRelevante = false,
   kunIkkeKunde = false,
   visIkkeHosListe = true,
+  skjulIndirekte = false,
 }: {
+  /** Skjul listen over P-enheder via forhandler (vises andetsteds). */
+  skjulIndirekte?: boolean;
   cvr: string;
   afdelingNr: number;
   companyId?: string | null;
@@ -832,7 +835,7 @@ export function PenhedDaekning({
           ))}
         </ul>
         )}
-        {indirekte.length > 0 && (
+        {!skjulIndirekte && indirekte.length > 0 && (
           <ul className="divide-y mt-2">
             {indirekte.map((p) => (
               <li key={p.p_number} className="py-2 text-sm text-muted-foreground">

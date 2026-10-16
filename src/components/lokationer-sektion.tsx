@@ -20,7 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
-import { CvrPenhedOversigt } from "@/components/cvr-gruppe";
+import { Link } from "@tanstack/react-router";
+import { cvrNorm, cvrGrupperQuery, useGruppeKonti, type CvrPenhedRow } from "@/components/cvr-gruppe";
+import { paenBy } from "@/components/virksomhed-liste";
 import { AdressePenhedKobling } from "@/components/adresse-penhed-kobling";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
@@ -169,7 +171,10 @@ export function LokationerSektion({
   const [openId, setOpenId] = useState<string | null>(null);
   // Åbne adressegrupper registreres via deres lokations-id'er (robust mod at nøglen skifter).
   const [aabneLok, setAabneLok] = useState<Set<string>>(new Set());
-  const [visIkkeHos, setVisIkkeHos] = useState(false);
+  const [vis2, setVis2] = useState(false);
+  const [vis1, setVis1] = useState(25);
+  const [visSov, setVisSov] = useState(25);
+  const [visUden, setVisUden] = useState(25);
   const [addOpen, setAddOpen] = useState(false);
   const [sortMode, setSortMode] = useState<
     "default" | "revenue" | "street" | "lastPurchase" | "machines"
@@ -375,6 +380,18 @@ export function LokationerSektion({
     },
   });
 
+  const cvrGrupperQ = useQuery({ ...cvrGrupperQuery, enabled: !!cvrNorm(cvr) });
+  const gruppeKontiQ = useGruppeKonti(cvr);
+  const oversigtQ = useQuery({
+    enabled: !!cvr && afdelingNr != null,
+    queryKey: ["cvr-penhed-oversigt", cvr, afdelingNr],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("cvr_penhed_oversigt", { _cvr: cvr, _afdeling_nr: afdelingNr });
+      if (error) throw error;
+      return (data ?? []) as CvrPenhedRow[];
+    },
+  });
+
   const sortedLocations = useMemo(() => {
     if (sortMode === "street") {
       return [...locations].sort((a, b) => {
@@ -499,24 +516,299 @@ export function LokationerSektion({
     );
   }
 
-  const GRUPPER_VIST = 5;
-  const visibleGrupper = expanded ? grupper : grupper.slice(0, GRUPPER_VIST);
-  const enGruppe = grupper.length === 1;
+  // ---- Samlet visning: aktive lokationer + øvrige (kun visning) ----
+  type Raekke = {
+    key: string;
+    address: string | null;
+    zip: string | null;
+    city: string | null;
+    meta: string | null;
+    konto: "egen" | "anden" | "via";
+    kontoId: string | null;
+    kontoNr: string | null;
+    viaNavn: string | null;
+    saelger: string | null;
+    oms: number | null;
+    maskiner: number | null;
+    sidsteKoeb: string | null;
+    status: string | null;
+    primary: boolean;
+    gruppe: AdresseGruppe | null;
+  };
+  const aktivStatus = (s: string | null | undefined) => s === "aktiv_kunde" || s === "servicekunde";
+  const adrKey = (adr: string | null, zip: string | null) => {
+    const nk = adresseNoegle(adr);
+    return nk ? `${(zip ?? "").trim()}|${nk}` : null;
+  };
+  const summary = summaryQ.data ?? {};
+  const brugtPnr = new Set<string>();
+  const brugtAdr = new Set<string>();
+  const egneRaekker: Raekke[] = grupper.map((g) => {
+    if (g.pnr) brugtPnr.add(g.pnr);
+    const k = adrKey(g.address, g.zip);
+    if (k) brugtAdr.add(k);
+    const bedst = g.locs
+      .map((l) => ((l as any).kreditspaerret ? "spaerret" : ((l as any).customer_type as string)))
+      .sort((x, y) => (STATUS_RANG[x] ?? 9) - (STATUS_RANG[y] ?? 9))[0] ?? null;
+    const saelgere = Array.from(new Set(g.locs.map((l) => (l as any).saelger?.full_name ?? ((l as any).i_aktoer === false ? "Ikke i Aktør" : null)).filter(Boolean)));
+    const koeb = g.locs.map((l) => summary[l.id]?.lastPurchase ?? "").sort().pop() || null;
+    return {
+      key: `g:${g.key}`,
+      address: g.key === "uden" ? "Uden adresse" : g.address,
+      zip: g.zip,
+      city: g.city,
+      meta: [g.ansatteTekst ? `${g.ansatteTekst} ansatte` : null, g.pnr ? `P-nr. ${g.pnr}` : null].filter(Boolean).join(" · ") || null,
+      konto: "egen",
+      kontoId: companyId,
+      kontoNr: g.locs.map((l) => l.visma_delivery_no).filter(Boolean).join(", ") || null,
+      viaNavn: null,
+      saelger: saelgere.join(", ") || null,
+      oms: g.revenue,
+      maskiner: g.locs.reduce((n, l) => n + (machineCountQ.data?.[l.id] ?? 0), 0),
+      sidsteKoeb: koeb,
+      status: bedst,
+      primary: g.primary,
+      gruppe: g,
+    };
+  });
+  const andreRaekker: Raekke[] = [];
+  const brugtKonto = new Set<string>([companyId]);
+  for (const p of oversigtQ.data ?? []) {
+    if (brugtPnr.has(p.p_number)) continue;
+    if (p.status === "ikke") continue;
+    if (p.status === "direkte" && (!p.company_id || p.company_id === companyId)) continue;
+    const k = adrKey(p.address, p.zip);
+    if (k && brugtAdr.has(k)) continue;
+    if (k) brugtAdr.add(k);
+    brugtPnr.add(p.p_number);
+    if (p.company_id) brugtKonto.add(p.company_id);
+    const ans = p.ansatte != null ? p.ansatte.toLocaleString("da-DK") : p.ansatte_interval?.replace("-", "–") ?? null;
+    andreRaekker.push({
+      key: `p:${p.p_number}`,
+      address: p.address,
+      zip: p.zip,
+      city: p.city,
+      meta: [ans ? `${ans} ansatte` : null, `P-nr. ${p.p_number}`].filter(Boolean).join(" · "),
+      konto: p.status === "indirekte" ? "via" : "anden",
+      kontoId: p.status === "indirekte" ? p.via_company_id : p.company_id,
+      kontoNr: p.visma_delivery_no,
+      viaNavn: p.via_company_name,
+      saelger: p.status === "indirekte" ? null : p.saelger_navn,
+      oms: p.status === "indirekte" ? null : p.oms_12m,
+      maskiner: null,
+      sidsteKoeb: null,
+      status: p.status === "indirekte" ? "via" : p.customer_type,
+      primary: false,
+      gruppe: null,
+    });
+  }
+  for (const k of gruppeKontiQ.data ?? []) {
+    if (brugtKonto.has(k.company_id)) continue;
+    const ak = adrKey(k.address, k.zip);
+    if (ak && brugtAdr.has(ak)) continue;
+    if (ak) brugtAdr.add(ak);
+    andreRaekker.push({
+      key: `k:${k.company_id}`,
+      address: k.address,
+      zip: k.zip,
+      city: k.city,
+      meta: null,
+      konto: "anden",
+      kontoId: k.company_id,
+      kontoNr: k.visma_id,
+      viaNavn: null,
+      saelger: k.saelger_navn,
+      oms: k.maa_se_salg ? k.oms_12m : null,
+      maskiner: null,
+      sidsteKoeb: null,
+      status: k.customer_type,
+      primary: false,
+      gruppe: null,
+    });
+  }
+  const erAktiv = (r: Raekke) => r.konto === "via" || aktivStatus(r.status) || (r.oms ?? 0) > 0;
+  const omsSort = (a: Raekke, b: Raekke) => (b.oms ?? -1) - (a.oms ?? -1);
+  const aktive = [
+    ...egneRaekker.filter(erAktiv).sort((a, b) => Number(b.primary) - Number(a.primary) || omsSort(a, b)),
+    ...andreRaekker.filter(erAktiv).sort((a, b) => Number(a.konto === "via") - Number(b.konto === "via") || omsSort(a, b)),
+  ];
+  const sovende = [
+    ...egneRaekker.filter((r) => !erAktiv(r) && r.gruppe?.pnr),
+    ...andreRaekker.filter((r) => !erAktiv(r)),
+  ].sort(omsSort);
+  const udenKobling = egneRaekker.filter((r) => !erAktiv(r) && !r.gruppe?.pnr);
+  const ikkeHos = cvr && afdelingNr != null ? pnrQ.data?.ikkeHos ?? 0 : 0;
+  const harIkkeRel = cvr && afdelingNr != null && (pnrQ.data?.irAntal ?? 0) > 0;
+  const antal2 = sovende.length + udenKobling.length + ikkeHos;
+  const cvrInfo = cvrNorm(cvr) ? cvrGrupperQ.data?.get(cvrNorm(cvr)!) : undefined;
+  const heleCvr = !!cvrInfo && cvrInfo.antal_konti > 1;
+  const samletOms = heleCvr ? cvrInfo!.oms_12m : egneRaekker.reduce((s, r) => s + (r.oms ?? 0), 0);
+  const antalPenheder = oversigtQ.data?.length ?? 0;
+  const tvungen2 = [...sovende, ...udenKobling].some((r) => r.gruppe?.locs.some((l) => aabneLok.has(l.id)));
+  const aaben2 = vis2 || tvungen2;
+  const VIS = 25;
+  const KOLS = "grid-cols-[minmax(0,1fr)_1.25rem] @xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_6.5rem_4rem_5.5rem_1.25rem]";
+  const kroner = (n: number | null) => (n == null ? "—" : `${Math.round(n).toLocaleString("da-DK")} kr.`);
+  const dato = (d: string | null) => (d ? new Date(d).toLocaleDateString("da-DK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—");
+
+  const detaljer = (g: AdresseGruppe) => (
+    <div className="pl-6 pr-3 pb-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs text-muted-foreground">
+          {g.locs.length} {g.locs.length === 1 ? "konto" : "konti"} på adressen: {g.locs.map((l) => l.visma_delivery_no ?? "–").join(", ")}
+        </div>
+        {g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0) && (
+          <UdskrivMaskinlisteKnap
+            lille
+            label="Maskinliste for denne adresse"
+            company={{ id: companyId, name: companyName ?? "", cvr }}
+            locationIds={g.locs.map((l) => l.id)}
+          />
+        )}
+      </div>
+      {cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
+        <AdressePenhedKobling
+          pnr={g.pnr}
+          pnrAdresse={g.address}
+          locs={g.locs.filter((l) => l.visma_delivery_no || g.pnr)}
+          linkInfo={pnrQ.data?.linkInfo ?? {}}
+          afdelingNr={afdelingNr}
+          penListe={pnrQ.data?.penListe ?? []}
+          zip={g.zip}
+          onChanged={() => { pnrQ.refetch(); oversigtQ.refetch(); }}
+        />
+      )}
+      <ul className="divide-y mt-1 rounded-md border bg-background px-3">
+        {g.locs.map((l) => (
+          <LokationRow
+            key={l.id}
+            location={l}
+            isPrimary={l.is_primary}
+            isAdmin={isAdmin}
+            open={openId === l.id}
+            onToggle={() => setOpenId(openId === l.id ? null : l.id)}
+            contacts={contactsByLocation?.get(l.id) ?? []}
+            fallbackAddress={l.is_primary ? companyFallbackAddress : null}
+            fallbackZip={l.is_primary ? companyFallbackZip : null}
+            fallbackCity={l.is_primary ? companyFallbackCity : null}
+            onRegister={() => onRegisterActivity(l.id)}
+            companyId={companyId}
+            visBesoeg={locations.length > 1}
+            lastPurchase={summary[l.id]?.lastPurchase ?? null}
+            showLastPurchase={false}
+            machineCount={machineCountQ.data?.[l.id] ?? 0}
+            showMachineCount={false}
+            kontoVisning={{ revenue12m: summary[l.id]?.revenue12m ?? null }}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+
+  const raekkeEl = (r: Raekke, nedtonet = false) => {
+    const g = r.gruppe;
+    const aaben = !!g && g.locs.some((l) => aabneLok.has(l.id));
+    const egen = !!g && !!mitId && g.locs.some((l) => (l as any).saelger_user_id === mitId);
+    const toggle = () =>
+      g &&
+      setAabneLok((prev) => {
+        const n = new Set(prev);
+        if (aaben) g.locs.forEach((l) => n.delete(l.id));
+        else g.locs.forEach((l) => n.add(l.id));
+        return n;
+      });
+    const by = [r.zip, paenBy(r.city)].filter(Boolean).join(" ");
+    const kontoCelle =
+      r.konto === "egen" ? (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <span className="tabular-nums">{r.kontoNr ?? "–"}</span>
+          <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-normal">Denne konto</Badge>
+        </span>
+      ) : r.kontoId ? (
+        <Link
+          to="/virksomheder/$id"
+          params={{ id: r.kontoId }}
+          onClick={(e) => e.stopPropagation()}
+          className="text-primary hover:underline"
+        >
+          {r.konto === "via" ? `Via ${r.viaNavn ?? "forhandler"}` : `Anden konto ${r.kontoNr ?? ""}`}
+        </Link>
+      ) : (
+        "—"
+      );
+    const statusTekst = r.status && r.status !== "via" && r.status !== "aktiv_kunde" ? (r.status === "spaerret" ? "Spærret" : KONTO_STATUS[r.status] ?? null) : null;
+    const indhold = (
+      <>
+        <span className="min-w-0 text-sm">
+          <span className="font-semibold break-words">{r.address || "Ukendt adresse"}</span>
+          {r.primary && (
+            <Badge variant="outline" className="ml-1.5 h-4 px-1.5 text-[10px] font-normal align-middle">Primær</Badge>
+          )}
+          {by && <span className="block text-xs">{by}</span>}
+          {r.meta && <span className="block text-[11px] text-muted-foreground">{r.meta}</span>}
+          <span className="@xl:hidden block text-xs text-muted-foreground mt-0.5">
+            {[r.konto === "egen" ? `Denne konto ${r.kontoNr ?? ""}`.trim() : null, statusTekst, r.saelger, r.konto === "via" ? null : kroner(r.oms)].filter(Boolean).join(" · ")}
+          </span>
+          {r.konto !== "egen" && <span className="@xl:hidden block text-xs">{kontoCelle}</span>}
+        </span>
+        <span className="hidden @xl:block text-xs min-w-0">
+          {kontoCelle}
+          {statusTekst && <span className="block text-muted-foreground">{statusTekst}</span>}
+        </span>
+        <span className="hidden @xl:block text-xs truncate" title={r.saelger ?? undefined}>{r.saelger ?? "—"}</span>
+        <span className="hidden @xl:block text-xs text-right tabular-nums">{kroner(r.oms)}</span>
+        <span className="hidden @xl:block text-xs text-right tabular-nums">{r.maskiner ?? "—"}</span>
+        <span className="hidden @xl:block text-xs text-right tabular-nums">{dato(r.sidsteKoeb)}</span>
+        {g ? (aaben ? <ChevronUp className="h-4 w-4 shrink-0 justify-self-end" /> : <ChevronDown className="h-4 w-4 shrink-0 justify-self-end" />) : <span />}
+      </>
+    );
+    return (
+      <li
+        key={r.key}
+        className={`border-l-4 ${egen ? "border-l-primary" : "border-l-transparent"} ${aaben ? "bg-muted/40" : ""} ${nedtonet ? "text-muted-foreground" : ""}`}
+      >
+        {g ? (
+          <button type="button" aria-expanded={aaben} onClick={toggle} className={`w-full grid ${KOLS} gap-x-2 gap-y-0.5 items-center px-3 py-2 text-left hover:bg-muted/40`}>
+            {indhold}
+          </button>
+        ) : (
+          <div className={`grid ${KOLS} gap-x-2 gap-y-0.5 items-center px-3 py-2`}>{indhold}</div>
+        )}
+        {aaben && g && detaljer(g)}
+      </li>
+    );
+  };
+
+  const tabel = (rows: Raekke[], vis: number, setVis: (n: number) => void, nedtonet = false, header = true) => (
+    <>
+      <ul className="@container divide-y rounded-md border">
+        {header && (
+          <li className={`hidden @xl:grid ${KOLS} gap-x-2 px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30`}>
+            <span>Lokation</span><span>Konto</span><span>Sælger</span><span className="text-right">Oms. 12 mdr.</span><span className="text-right">Maskiner</span><span className="text-right">Sidste køb</span><span />
+          </li>
+        )}
+        {rows.slice(0, vis).map((r) => raekkeEl(r, nedtonet))}
+      </ul>
+      {rows.length > vis && (
+        <Button variant="ghost" size="sm" className="w-full mt-1 text-muted-foreground" onClick={() => setVis(vis + VIS * 2)}>
+          <ChevronDown className="h-4 w-4 mr-1" /> Vis flere ({rows.length - vis} tilbage)
+        </Button>
+      )}
+    </>
+  );
+
+  const underOverskrift = (t: string) => (
+    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mt-3 mb-1">{t}</div>
+  );
 
   return (
     <Card className="p-5">
-      {cvr && afdelingNr != null && (
-        <CvrPenhedOversigt cvr={cvr} afdelingNr={afdelingNr} companyId={companyId} refreshKey={pnrQ.dataUpdatedAt} />
-      )}
-      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+      <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
-          <MapPin className="h-4 w-4" />
-          {locations.length > 0
-            ? `${grupper.length} ${grupper.length === 1 ? "adresse" : "adresser"} · ${locations.length} ${locations.length === 1 ? "konto" : "konti"}`
-            : "Lokationer"}
+          <MapPin className="h-4 w-4" /> Aktive lokationer
         </h2>
         <div className="flex items-center gap-2">
-          {grupper.some((g) => (machineCountQ.data && g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0))) && (
+          {grupper.some((g) => g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0)) && (
             <UdskrivMaskinlisteKnap
               company={{ id: companyId, name: companyName ?? "", cvr }}
               adresser={grupper
@@ -529,238 +821,112 @@ export function LokationerSektion({
                 }))}
             />
           )}
-          {locations.length > 1 && (
-            <Select value={sortMode} onValueChange={(v) => setSortMode(v as any)}>
-              <SelectTrigger className="h-8 text-xs w-auto min-w-[180px]">
-                <SelectValue placeholder="Sortering" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Primær / by</SelectItem>
-                <SelectItem value="street">Vejnavn</SelectItem>
-                <SelectItem value="revenue">Omsætning (høj→lav)</SelectItem>
-                <SelectItem value="lastPurchase">Sidst købt (nyest→ældst)</SelectItem>
-                <SelectItem value="machines">Antal maskiner (flest→færrest)</SelectItem>
-
-
-              </SelectContent>
-            </Select>
-          )}
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Tilføj
+              <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
             </Button>
           )}
         </div>
       </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        {aktive.length} {aktive.length === 1 ? "aktiv lokation" : "aktive lokationer"} · {kroner(samletOms)} / 12 mdr.
+        {heleCvr ? " (hele CVR)" : ""}
+        {antalPenheder > 0 ? ` · ${antalPenheder} P-enheder i alt` : ""}
+      </p>
 
-      {locations.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Ingen lokationer registreret.</p>
+      {expiringTotal > 0 && (
+        <div className="mb-3 rounded-md border border-amber-300 bg-amber-50">
+          <button
+            type="button"
+            onClick={() => setExpiringOpen((v) => !v)}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-amber-100/60 rounded-md"
+          >
+            <span className="flex items-center gap-2 text-sm text-amber-900">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="font-medium">
+                {expiringTotal} {expiringTotal === 1 ? "maskine udløber snart" : "maskiner udløber snart"}
+              </span>
+              <span className="text-xs text-amber-800/80">(inden for 90 dage)</span>
+            </span>
+            {expiringOpen ? <ChevronUp className="h-4 w-4 text-amber-900" /> : <ChevronDown className="h-4 w-4 text-amber-900" />}
+          </button>
+          {expiringOpen && (
+            <ul className="border-t border-amber-200 divide-y divide-amber-200">
+              {sortedLocations
+                .filter((l) => (expiringByLoc.get(l.id) ?? 0) > 0)
+                .map((l) => {
+                  const n = expiringByLoc.get(l.id) ?? 0;
+                  const label = [l.address, [l.zip, paenBy(l.city)].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "Lokation";
+                  return (
+                    <li key={l.id}>
+                      <button
+                        type="button"
+                        onClick={() => openLocation(l.id)}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs text-amber-900 hover:bg-amber-100/60"
+                      >
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{label}</span>
+                        </span>
+                        <span className="font-medium shrink-0">{n} {n === 1 ? "maskine" : "maskiner"}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {aktive.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Ingen aktive lokationer.</p>
       ) : (
-        <>
-          {expiringTotal > 0 && (
-            <div className="mb-3 rounded-md border border-amber-300 bg-amber-50">
-              <button
-                type="button"
-                onClick={() => setExpiringOpen((v) => !v)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-amber-100/60 rounded-md"
-              >
-                <span className="flex items-center gap-2 text-sm text-amber-900">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span className="font-medium">
-                    {expiringTotal} {expiringTotal === 1 ? "maskine udløber snart" : "maskiner udløber snart"}
-                  </span>
-                  <span className="text-xs text-amber-800/80">(inden for 90 dage)</span>
-                </span>
-                {expiringOpen ? (
-                  <ChevronUp className="h-4 w-4 text-amber-900" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-amber-900" />
-                )}
-              </button>
-              {expiringOpen && (
-                <ul className="border-t border-amber-200 divide-y divide-amber-200">
-                  {sortedLocations
-                    .filter((l) => (expiringByLoc.get(l.id) ?? 0) > 0)
-                    .map((l) => {
-                      const n = expiringByLoc.get(l.id) ?? 0;
-                      const label =
-                        [l.address, [l.zip, l.city].filter(Boolean).join(" ")]
-                          .filter(Boolean)
-                          .join(", ") || "Lokation";
-                      return (
-                        <li key={l.id}>
-                          <button
-                            type="button"
-                            onClick={() => openLocation(l.id)}
-                            className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs text-amber-900 hover:bg-amber-100/60"
-                          >
-                            <span className="flex items-center gap-1.5 min-w-0">
-                              <MapPin className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{label}</span>
-                            </span>
-                            <span className="font-medium shrink-0">
-                              {n} {n === 1 ? "maskine" : "maskiner"}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                </ul>
+        tabel(aktive, vis1, setVis1)
+      )}
+
+      {(antal2 > 0 || harIkkeRel) && (
+        <div className="mt-4 border-t pt-3">
+          <button
+            type="button"
+            aria-expanded={aaben2}
+            onClick={() => setVis2((v) => !v)}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            {aaben2 ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            Øvrige lokationer og P-enheder ({antal2})
+          </button>
+          {aaben2 && (
+            <div className="mt-1">
+              {sovende.length > 0 && (
+                <>
+                  {underOverskrift("Sovende og tidligere konti")}
+                  {tabel(sovende, visSov, setVisSov, true)}
+                </>
+              )}
+              {cvr && afdelingNr != null && (ikkeHos > 0 || harIkkeRel) && (
+                <>
+                  {ikkeHos > 0 && underOverskrift("P-enheder uden kunde (ikke dækket)")}
+                  <PenhedDaekning
+                    cvr={cvr}
+                    afdelingNr={afdelingNr}
+                    companyId={companyId}
+                    companyName={companyName ?? null}
+                    assignedTo={assignedTo ?? null}
+                    kunIkkeKunde
+                    skjulIndirekte
+                    visIkkeHosListe={ikkeHos > 0}
+                    onChanged={() => { pnrQ.refetch(); oversigtQ.refetch(); }}
+                  />
+                </>
+              )}
+              {udenKobling.length > 0 && (
+                <>
+                  {underOverskrift("Lokationer uden P-enhedskobling på denne konto")}
+                  {tabel(udenKobling, visUden, setVisUden, true)}
+                </>
               )}
             </div>
           )}
-          <ul className="@container divide-y rounded-md border">
-            <li className="hidden @xl:grid grid-cols-[minmax(0,1fr)_5.5rem_7.5rem_6.5rem_3.5rem_1.25rem] gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30">
-              <span>Adresse</span><span>Status</span><span>Sælger</span><span className="text-right">Omsætning 12 mdr.</span><span className="text-right">Maskiner</span><span />
-            </li>
-            {visibleGrupper.map((g) => {
-              const aaben = enGruppe || g.locs.some((l) => aabneLok.has(l.id));
-              const titel = g.key === "uden" ? "Uden adresse" : g.address || "Lokation";
-              const byTekst = g.key === "uden" ? null : [g.zip, g.city].filter(Boolean).join(" ") || null;
-              const meta = [
-                g.ansatteTekst ? `${g.ansatteTekst} ansatte` : null,
-                g.pnr ? `P-nr. ${g.pnr}` : null,
-                `${g.locs.length} ${g.locs.length === 1 ? "konto" : "konti"}: ${g.locs.map((l) => l.visma_delivery_no ?? "–").join(", ")}`,
-              ].filter(Boolean).join(" · ");
-              const bedst = g.locs
-                .map((l) => ((l as any).kreditspaerret ? "spaerret" : ((l as any).customer_type as string)))
-                .sort((x, y) => (STATUS_RANG[x] ?? 9) - (STATUS_RANG[y] ?? 9))[0];
-              const status = bedst === "spaerret" ? "Spærret" : KONTO_STATUS[bedst] ?? "—";
-              const saelgere = Array.from(new Set(g.locs.map((l) => (l as any).saelger?.full_name ?? ((l as any).i_aktoer === false ? "Ikke i Aktør" : "Ingen"))));
-              const maskiner = g.locs.reduce((n, l) => n + (machineCountQ.data?.[l.id] ?? 0), 0);
-              const egen = !!mitId && g.locs.some((l) => (l as any).saelger_user_id === mitId);
-              const toggle = () =>
-                setAabneLok((prev) => {
-                  const n = new Set(prev);
-                  if (aaben) g.locs.forEach((l) => n.delete(l.id));
-                  else g.locs.forEach((l) => n.add(l.id));
-                  return n;
-                });
-              return (
-                <li key={g.key} className={`relative ${egen ? "border-l-4 border-l-primary" : "border-l-4 border-l-transparent"} ${aaben ? "bg-muted/40" : ""}`}>
-                  <button
-                    type="button"
-                    aria-expanded={aaben}
-                    onClick={enGruppe ? undefined : toggle}
-                    className="w-full grid grid-cols-[minmax(0,1fr)_1.25rem] @xl:grid-cols-[minmax(0,1fr)_5.5rem_7.5rem_6.5rem_3.5rem_1.25rem] gap-x-2 gap-y-0.5 items-center px-3 py-2.5 text-left hover:bg-muted/40"
-                  >
-                    <span className="min-w-0 text-sm">
-                      {byTekst && <span className="block font-semibold">{byTekst}</span>}
-                      <span className="break-words">{titel}</span>
-                      {g.primary && (
-                        <Badge variant="outline" className="ml-1.5 h-4 px-1.5 text-[10px] font-normal align-middle">Primær</Badge>
-                      )}
-                      <span className="@xl:hidden block text-xs text-muted-foreground mt-0.5">
-                        {[status, saelgere.join(", "), `${Math.round(g.revenue).toLocaleString("da-DK")} kr.`, `${maskiner} maskiner`].join(" · ")}
-                      </span>
-                    </span>
-                    <span className="hidden @xl:block text-xs">{status}</span>
-                    <span className="hidden @xl:block text-xs truncate" title={saelgere.join(", ")}>{saelgere.join(", ")}</span>
-                    <span className="hidden @xl:block text-xs text-right tabular-nums">{Math.round(g.revenue).toLocaleString("da-DK")} kr.</span>
-                    <span className="hidden @xl:block text-xs text-right tabular-nums">{maskiner}</span>
-                    {enGruppe ? <span /> : aaben ? <ChevronUp className="h-4 w-4 shrink-0 justify-self-end" /> : <ChevronDown className="h-4 w-4 shrink-0 justify-self-end" />}
-                  </button>
-                  {aaben && (
-                    <div className="pl-6 pr-3 pb-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs text-muted-foreground">{meta}</div>
-                        {maskiner > 0 && (
-                          <UdskrivMaskinlisteKnap
-                            lille
-                            label="Maskinliste for denne adresse"
-                            company={{ id: companyId, name: companyName ?? "", cvr }}
-                            locationIds={g.locs.map((l) => l.id)}
-                          />
-                        )}
-                      </div>
-                      {cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
-                        <AdressePenhedKobling
-                          pnr={g.pnr}
-                          pnrAdresse={g.address}
-                          locs={g.locs.filter((l) => l.visma_delivery_no || g.pnr)}
-                          linkInfo={pnrQ.data?.linkInfo ?? {}}
-                          afdelingNr={afdelingNr}
-                          penListe={pnrQ.data?.penListe ?? []}
-                          zip={g.zip}
-                          onChanged={() => pnrQ.refetch()}
-                        />
-                      )}
-                      <ul className="divide-y mt-1 rounded-md border bg-background px-3">
-                        {g.locs.map((l) => (
-                          <LokationRow
-                            key={l.id}
-                            location={l}
-                            isPrimary={l.is_primary}
-                            isAdmin={isAdmin}
-                            open={openId === l.id}
-                            onToggle={() => setOpenId(openId === l.id ? null : l.id)}
-                            contacts={contactsByLocation?.get(l.id) ?? []}
-                            fallbackAddress={l.is_primary ? companyFallbackAddress : null}
-                            fallbackZip={l.is_primary ? companyFallbackZip : null}
-                            fallbackCity={l.is_primary ? companyFallbackCity : null}
-                            onRegister={() => onRegisterActivity(l.id)}
-                            companyId={companyId}
-                            visBesoeg={locations.length > 1}
-                            lastPurchase={summaryQ.data?.[l.id]?.lastPurchase ?? null}
-                            showLastPurchase={sortMode === "lastPurchase"}
-                            machineCount={machineCountQ.data?.[l.id] ?? 0}
-                            showMachineCount={sortMode === "machines"}
-                            kontoVisning={{ revenue12m: summaryQ.data?.[l.id]?.revenue12m ?? null }}
-                          />
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {grupper.length > GRUPPER_VIST && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full mt-2 text-muted-foreground"
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded ? (
-                <>
-                  <ChevronUp className="h-4 w-4 mr-1" /> Vis færre
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-4 w-4 mr-1" />
-                  Vis alle {grupper.length} adresser
-                </>
-              )}
-            </Button>
-          )}
-        </>
-      )}
-
-      {cvr && afdelingNr != null && ((pnrQ.data?.ikkeHos ?? 0) > 0 || (pnrQ.data?.irAntal ?? 0) > 0 || (pnrQ.data?.indAntal ?? 0) > 0) && (
-        <div className="mt-4 border-t pt-3">
-          {(pnrQ.data?.ikkeHos ?? 0) > 0 && (
-            <button
-              type="button"
-              aria-expanded={visIkkeHos}
-              onClick={() => setVisIkkeHos((v) => !v)}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
-            >
-              {pnrQ.data!.ikkeHos} P-enhed{pnrQ.data!.ikkeHos === 1 ? "" : "er"} vi ikke er hos {visIkkeHos ? "▾" : "▸"}
-            </button>
-          )}
-          <div className={visIkkeHos ? "mt-2" : ""}>
-            <PenhedDaekning
-              cvr={cvr}
-              afdelingNr={afdelingNr}
-              companyId={companyId}
-              companyName={companyName ?? null}
-              assignedTo={assignedTo ?? null}
-              kunIkkeKunde
-              visIkkeHosListe={visIkkeHos && (pnrQ.data?.ikkeHos ?? 0) > 0}
-              onChanged={() => pnrQ.refetch()}
-            />
-          </div>
         </div>
       )}
 
