@@ -25,9 +25,9 @@ export type SortKey = "navn" | "oms" | "status";
 export type Sort = { key: SortKey; dir: 1 | -1 } | null;
 
 const COLS_ADMIN =
-  "grid-cols-[1.25rem_minmax(0,1fr)_auto] md:grid-cols-[1.25rem_minmax(0,2.2fr)_minmax(0,1.6fr)_5.5rem_minmax(0,1fr)_7.5rem_9rem]";
+  "grid-cols-[1.25rem_minmax(0,1fr)_auto] md:grid-cols-[1.25rem_minmax(0,2.2fr)_minmax(0,1.6fr)_5.5rem_minmax(0,1fr)_7.5rem_13rem]";
 const COLS =
-  "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_5.5rem_minmax(0,1fr)_7.5rem_9rem]";
+  "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_5.5rem_minmax(0,1fr)_7.5rem_13rem]";
 
 const VIS_ANTAL = 25;
 
@@ -145,7 +145,7 @@ export function VirksomhedListe(p: Props) {
         <div className="hidden md:block tabular-nums text-muted-foreground">{r.visma_id ?? "—"}</div>
         <div className="hidden md:block truncate">{saelger ?? <span className="text-muted-foreground">—</span>}</div>
         <div className="hidden md:block text-right tabular-nums"><OmsTekst v={oms} nyt={nyt} /></div>
-        <div className="flex items-center justify-end gap-1 flex-wrap">
+        <div className="flex items-center justify-end gap-1 whitespace-nowrap">
           {p.ikkeTildelt(r) && (
             <Badge variant="outline" className="border-warning/40 text-warning text-[10px]">Ikke tildelt</Badge>
           )}
