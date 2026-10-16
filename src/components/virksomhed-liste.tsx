@@ -242,13 +242,11 @@ function GruppeRaekke({
         <div className="min-w-0 leading-tight">
           <div className="flex items-center gap-1.5 min-w-0">
             {udfoldet ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-            <span className="font-semibold truncate min-w-[6rem]">{gruppeNavn}</span>
-            <span className="shrink-0 rounded-full border bg-background px-1.5 py-px text-[11px] text-muted-foreground">
-              {antal} konti · {aktive} aktive
-            </span>
+            <span className="font-semibold truncate" title={gruppeNavn}>{gruppeNavn}</span>
           </div>
           <div className="text-xs text-muted-foreground pl-5 flex flex-wrap items-center gap-x-1.5">
             <span>CVR {it.cvr}</span>
+            <span className="rounded-full border bg-background px-1.5 py-px text-[11px]">{antal} konti · {aktive} aktive</span>
             <CvrStatusMaerke status={info?.cvr_status} />
             <span className="md:hidden"> · {adresser} adresser · {kr(oms)}</span>
           </div>
