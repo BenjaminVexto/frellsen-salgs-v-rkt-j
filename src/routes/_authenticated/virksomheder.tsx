@@ -267,95 +267,36 @@ function VirksomhederListe() {
     }
   };
 
-  const rowEl = (r: (typeof displayed)[number], indent = false, hit = false) => {
-              const assigns = assignmentMap.get(r.id) ?? [];
-              const unassigned = isAdmin && assigns.length === 0;
-              const checked = selected.has(r.id);
-              return (
-                <div
-                  key={r.id}
-                  className={`flex items-start gap-3 ${indent ? "pl-8 md:pl-12 pr-3 md:pr-4 py-2 bg-muted/20" : "px-3 md:px-4 py-3"} ${hit ? "ring-1 ring-inset ring-primary/40" : ""} hover:bg-muted/50 transition-colors ${checked ? "bg-primary/5" : ""}`}
-                >
-                  {isAdmin && (
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={() => toggleSelect(r.id)}
-                      className="mt-1 shrink-0"
-                    />
-                  )}
-                  <Link
-                    to="/virksomheder/$id"
-                    params={{ id: r.id }}
-                    className="flex flex-col md:flex-row md:items-center md:justify-between flex-1 min-w-0 gap-1.5 md:gap-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm md:text-base">
-                          {r.name}
-                        </span>
-                        {(r as any).visma_enhed && (
-                          <span className="text-xs text-muted-foreground">
-                            · {(r as any).visma_enhed}
-                          </span>
-                        )}
-                      </div>
+  const saelgerMap = useMemo(() => new Map(sellers.map((s) => [s.id, s.full_name])), [sellers]);
+  const saelgerNavn = (r: (typeof displayed)[number]) => {
+    const id = (r as any).assigned_to ?? (locationMap.get(r.id) ?? []).find((l) => l.saelger_user_id)?.saelger_user_id;
+    return id ? saelgerMap.get(id) ?? null : null;
+  };
 
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        CVR {r.cvr ?? "—"}
-                        {r.city ? ` · ${r.city}` : ""}
-                        {r.municipality ? ` · ${r.municipality}` : ""}
-                      </div>
-                      {(() => {
-                        if (!q) return null;
-                        const rawQuery = q.trim();
-                        if (!rawQuery) return null;
-                        const qq = rawQuery.toLowerCase();
-                        const nameHit = r.name.toLowerCase().includes(qq);
-                        const cvrHit = (r.cvr ?? "").includes(rawQuery);
-                        const addrHit = (r.address ?? "")
-                          .toLowerCase()
-                          .includes(qq);
-                        const cityHit = (r.city ?? "")
-                          .toLowerCase()
-                          .includes(qq);
-                        const zipHit = (r.zip ?? "").includes(rawQuery);
-                        if (nameHit || cvrHit || addrHit || cityHit || zipHit)
-                          return null;
-                        const locs = locationMap.get(r.id) ?? [];
-                        const match = locs.find((l) => lokationMatcher(l, rawQuery));
-                        if (!match) return null;
-                        const parts = [
-                          firstFilled(match.address),
-                          [firstFilled(match.zip), firstFilled(match.city)]
-                            .filter(Boolean)
-                            .join(" "),
-                        ]
-                          .filter((p) => p && p.trim())
-                          .join(", ");
-                        const penhed = (match.penhed_navne ?? []).find((n) => n.toLowerCase().includes(qq));
-                        return (
-                          <div className="text-xs text-primary mt-0.5">
-                            📍 Lokation: {penhed ? `${penhed}, ` : ""}{parts || "uden adresse"} – under {r.name}
-                            {r.city ? `, ${r.city}` : ""}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap md:shrink-0">
-                      {unassigned && (
-                        <Badge
-                          variant="outline"
-                          className="border-warning/40 text-warning text-[10px] md:text-xs"
-                        >
-                          Ikke tildelt
-                        </Badge>
-                      )}
-                      <SegmentBadge segment3={r.customer_segment_3} size="sm" />
-                      <CustomerStatusBadge type={r.customer_type} />
-                    </div>
-                  </Link>
-                </div>
-              );
+  const lokHitLinje = (r: (typeof displayed)[number]) => {
+    const rawQuery = q.trim();
+    if (!rawQuery) return null;
+    const qq = rawQuery.toLowerCase();
+    if (
+      r.name.toLowerCase().includes(qq) ||
+      (r.cvr ?? "").includes(rawQuery) ||
+      (r.address ?? "").toLowerCase().includes(qq) ||
+      (r.city ?? "").toLowerCase().includes(qq) ||
+      (r.zip ?? "").includes(rawQuery)
+    )
+      return null;
+    const match = (locationMap.get(r.id) ?? []).find((l) => lokationMatcher(l, rawQuery));
+    if (!match) return null;
+    const parts = [firstFilled(match.address), [firstFilled(match.zip), paenBy(match.city)].filter(Boolean).join(" ")]
+      .filter((x) => x && x.trim())
+      .join(", ");
+    const penhed = (match.penhed_navne ?? []).find((n) => n.toLowerCase().includes(qq));
+    return (
+      <div className="text-xs text-primary truncate">
+        Lokation: {penhed ? `${penhed}, ` : ""}
+        {parts || "uden adresse"}
+      </div>
+    );
   };
 
   return (
