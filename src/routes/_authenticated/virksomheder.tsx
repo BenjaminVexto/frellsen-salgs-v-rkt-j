@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CvrGruppeRaekke, cvrNorm, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
+import { cvrNorm, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
+import { VirksomhedListe, paenBy, statusRang, type Sort } from "@/components/virksomhed-liste";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
@@ -161,7 +162,7 @@ function VirksomhederListe() {
 
   useEffect(() => {
     setPage(0);
-  }, [filters, q, recentIds, mobileMineActive]);
+  }, [filters, q, recentIds, mobileMineActive, sort]);
 
   // CVR-grupper: konti med samme (normaliserede) CVR vises som én række.
   const grupperQ = useQuery({
@@ -174,7 +175,7 @@ function VirksomhederListe() {
     },
   });
   const [aabneGrupper, setAabneGrupper] = useState<Set<string>>(new Set());
-  const items = useMemo(() => {
+  const grundItems = useMemo(() => {
     const alleIGruppe = new Map<string, typeof rows>();
     for (const r of rows) {
       if ((r as any).afloest_af_company_id) continue;
