@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
 import { Link } from "@tanstack/react-router";
 import { cvrNorm, cvrGrupperQuery, useGruppeKonti, type CvrPenhedRow } from "@/components/cvr-gruppe";
+import { fjernIndirekte } from "@/components/penhed-forhandler";
 import { paenBy } from "@/components/virksomhed-liste";
 import { AdressePenhedKobling } from "@/components/adresse-penhed-kobling";
 import { useAuth } from "@/hooks/useAuth";
@@ -167,7 +168,7 @@ export function LokationerSektion({
   const mitId = useViewAs().effectiveUserId ?? authUser?.id ?? null;
   const [locations, setLocations] = useState<Location[]>([]);
   const [hentet, setHentet] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [aabneAndre, setAabneAndre] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
   // Åbne adressegrupper registreres via deres lokations-id'er (robust mod at nøglen skifter).
   const [aabneLok, setAabneLok] = useState<Set<string>>(new Set());
@@ -209,7 +210,9 @@ export function LokationerSektion({
 
   // Åbn + scroll til en bestemt lokation
   const openLocation = (locationId: string) => {
-    setExpanded(true);
+    setVis1(10000);
+    setVisSov(10000);
+    setVisUden(10000);
     setAabneLok((prev) => new Set(prev).add(locationId));
     setOpenId(locationId);
     requestAnimationFrame(() => {
@@ -626,7 +629,7 @@ export function LokationerSektion({
       gruppe: null,
     });
   }
-  const erAktiv = (r: Raekke) => r.konto === "via" || aktivStatus(r.status) || (r.oms ?? 0) > 0;
+  const erAktiv = (r: Raekke) => r.konto === "via" || aktivStatus(r.status) || (!["sovende_kunde", "tidligere_kunde"].includes(r.status ?? "") && (r.oms ?? 0) > 0);
   const omsSort = (a: Raekke, b: Raekke) => (b.oms ?? -1) - (a.oms ?? -1);
   const aktive = [
     ...egneRaekker.filter(erAktiv).sort((a, b) => Number(b.primary) - Number(a.primary) || omsSort(a, b)),
@@ -640,9 +643,10 @@ export function LokationerSektion({
   const ikkeHos = cvr && afdelingNr != null ? pnrQ.data?.ikkeHos ?? 0 : 0;
   const harIkkeRel = cvr && afdelingNr != null && (pnrQ.data?.irAntal ?? 0) > 0;
   const antal2 = sovende.length + udenKobling.length + ikkeHos;
-  const cvrInfo = cvrNorm(cvr) ? cvrGrupperQ.data?.get(cvrNorm(cvr)!) : undefined;
+  const normalCvr = cvrNorm(cvr);
+  const cvrInfo = normalCvr ? cvrGrupperQ.data?.get(normalCvr) : undefined;
   const heleCvr = !!cvrInfo && cvrInfo.antal_konti > 1;
-  const samletOms = heleCvr ? cvrInfo!.oms_12m : egneRaekker.reduce((s, r) => s + (r.oms ?? 0), 0);
+  const samletOms = heleCvr && cvrInfo ? cvrInfo.oms_12m : egneRaekker.reduce((s, r) => s + (r.oms ?? 0), 0);
   const antalPenheder = oversigtQ.data?.length ?? 0;
   const tvungen2 = [...sovende, ...udenKobling].some((r) => r.gruppe?.locs.some((l) => aabneLok.has(l.id)));
   const aaben2 = vis2 || tvungen2;
@@ -707,16 +711,20 @@ export function LokationerSektion({
 
   const raekkeEl = (r: Raekke, nedtonet = false) => {
     const g = r.gruppe;
-    const aaben = !!g && g.locs.some((l) => aabneLok.has(l.id));
+    const aaben = g ? g.locs.some((l) => aabneLok.has(l.id)) : aabneAndre.has(r.key);
     const egen = !!g && !!mitId && g.locs.some((l) => (l as any).saelger_user_id === mitId);
-    const toggle = () =>
-      g &&
+    const toggle = () => {
+      if (!g) {
+        setAabneAndre((prev) => { const n = new Set(prev); if (n.has(r.key)) n.delete(r.key); else n.add(r.key); return n; });
+        return;
+      }
       setAabneLok((prev) => {
         const n = new Set(prev);
         if (aaben) g.locs.forEach((l) => n.delete(l.id));
         else g.locs.forEach((l) => n.add(l.id));
         return n;
       });
+    };
     const by = [r.zip, paenBy(r.city)].filter(Boolean).join(" ");
     const kontoCelle =
       r.konto === "egen" ? (
@@ -759,7 +767,7 @@ export function LokationerSektion({
         <span className="hidden @xl:block text-xs text-right tabular-nums">{kroner(r.oms)}</span>
         <span className="hidden @xl:block text-xs text-right tabular-nums">{r.maskiner ?? "—"}</span>
         <span className="hidden @xl:block text-xs text-right tabular-nums">{dato(r.sidsteKoeb)}</span>
-        {g ? (aaben ? <ChevronUp className="h-4 w-4 shrink-0 justify-self-end" /> : <ChevronDown className="h-4 w-4 shrink-0 justify-self-end" />) : <span />}
+        {aaben ? <ChevronUp className="h-4 w-4 shrink-0 justify-self-end" /> : <ChevronDown className="h-4 w-4 shrink-0 justify-self-end" />}
       </>
     );
     return (
@@ -767,14 +775,26 @@ export function LokationerSektion({
         key={r.key}
         className={`border-l-4 ${egen ? "border-l-primary" : "border-l-transparent"} ${aaben ? "bg-muted/40" : ""} ${nedtonet ? "text-muted-foreground" : ""}`}
       >
-        {g ? (
-          <button type="button" aria-expanded={aaben} onClick={toggle} className={`w-full grid ${KOLS} gap-x-2 gap-y-0.5 items-center px-3 py-2 text-left hover:bg-muted/40`}>
-            {indhold}
-          </button>
-        ) : (
-          <div className={`grid ${KOLS} gap-x-2 gap-y-0.5 items-center px-3 py-2`}>{indhold}</div>
-        )}
+        <div role="button" tabIndex={0} aria-expanded={aaben} onClick={toggle} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggle(); } }} className={`w-full grid ${KOLS} gap-x-2 gap-y-0.5 items-center px-3 py-2 text-left hover:bg-muted/40 cursor-pointer`}>
+          {indhold}
+        </div>
         {aaben && g && detaljer(g)}
+        {aaben && !g && (
+          <div className="px-6 pb-3 text-xs">
+            {r.konto === "via" ? (
+              <>
+                {r.meta && <p className="text-muted-foreground mb-2">{(oversigtQ.data ?? []).find((p) => `p:${p.p_number}` === r.key)?.note}</p>}
+                <Button variant="outline" size="sm" onClick={async () => {
+                  if (afdelingNr == null) return;
+                  const p = (oversigtQ.data ?? []).find((p) => `p:${p.p_number}` === r.key);
+                  if (!p) return;
+                  try { await fjernIndirekte(p.p_number, afdelingNr); pnrQ.refetch(); oversigtQ.refetch(); toast.success("Markering fortrudt"); }
+                  catch (e) { toast.error(e instanceof Error ? e.message : "Kunne ikke fortryde"); }
+                }}>Fortryd "Leveres via forhandler"</Button>
+              </>
+            ) : r.kontoId ? <Link to="/virksomheder/$id" params={{ id: r.kontoId }} className="text-primary hover:underline">Åbn kontoens lokationer og maskiner</Link> : null}
+          </div>
+        )}
       </li>
     );
   };
@@ -802,7 +822,7 @@ export function LokationerSektion({
   );
 
   return (
-    <Card className="p-5">
+    <section className="py-1">
       <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
           <MapPin className="h-4 w-4" /> Aktive lokationer
@@ -942,7 +962,7 @@ export function LokationerSektion({
           }}
         />
       )}
-    </Card>
+    </section>
   );
 }
 

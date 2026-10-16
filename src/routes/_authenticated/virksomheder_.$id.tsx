@@ -120,6 +120,14 @@ type AssignmentStatus = Database["public"]["Enums"]["assignment_status"];
 
 export const Route = createFileRoute("/_authenticated/virksomheder_/$id")({
   component: VirksomhedsKort,
+  head: () => ({ meta: [
+    { title: "Kundekort | Frellsen CRM" },
+    { name: "description", content: "Kundeoplysninger, lokationer, P-enheder og aktiviteter i Frellsen CRM." },
+    { property: "og:title", content: "Kundekort | Frellsen CRM" },
+    { property: "og:description", content: "Kundeoplysninger og lokationer i Frellsen CRM." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
 });
 
 const customerTypeLabel: Record<string, string> = {
@@ -549,7 +557,7 @@ function VirksomhedsKort() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_300px] gap-6">
+      <div className={tab === "lokationer" ? "grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6" : "grid grid-cols-1 lg:grid-cols-[320px_1fr_300px] gap-6"}>
         {/* VENSTRE — Stamdata (rykkes ned på mobil; brief'en dækker top) */}
         <Card className="p-5 h-fit order-3 lg:order-1">
           <div className="flex items-start justify-between mb-3">
@@ -660,7 +668,7 @@ function VirksomhedsKort() {
                   </div>
                   {kommune && (
                     <div className="text-xs text-muted-foreground">
-                      {paenBy(/kommune$/i.test(kommune) ? kommune : `${kommune} Kommune`)}
+                      {`${paenBy(kommune.replace(/\s+kommune$/i, "").toUpperCase())} Kommune`}
                     </div>
                   )}
                 </Row>
@@ -1065,7 +1073,7 @@ function VirksomhedsKort() {
 
 
         {/* HØJRE — Handlingspanel (kun pc; mobil bruger brief'en + "Flere") */}
-        <Card className="p-5 h-fit lg:sticky lg:top-6 hidden lg:block order-4 lg:order-3">
+        <Card className={`p-5 h-fit lg:sticky lg:top-6 hidden lg:block order-4 lg:order-3 ${tab === "lokationer" ? "lg:col-start-1" : ""}`}>
 
           <h2 className="font-semibold mb-4">Handlinger</h2>
           <div className="space-y-2">
