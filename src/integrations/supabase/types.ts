@@ -5338,6 +5338,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      konto_oms_12m: {
+        Args: { _ids: string[] }
+        Returns: {
+          company_id: string
+          oms_12m: number
+        }[]
+      }
       kunde_db_rang: {
         Args: { _company: string }
         Returns: {

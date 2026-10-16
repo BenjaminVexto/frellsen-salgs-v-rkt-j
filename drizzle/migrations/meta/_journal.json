@@ -722,6 +722,13 @@
       "when": 1792066977862,
       "tag": "0102_cvr_grupper",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1792130291920,
+      "tag": "0103_konto_oms_12m",
+      "breakpoints": true
     }
   ]
 }
