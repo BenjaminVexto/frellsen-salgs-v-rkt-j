@@ -136,6 +136,7 @@ function VirksomhederListe() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
+  const [sort, setSort] = useState<Sort>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [templates, setTemplates] = useState<FilterTemplate[]>([]);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
@@ -227,7 +228,6 @@ function VirksomhederListe() {
     },
   });
 
-  const [sort, setSort] = useState<Sort>(null);
   const items = useMemo(() => {
     if (!sort) return grundItems;
     const navn = (it: ListeItem) => (it.kind === "en" ? it.row.name : it.konti[0]?.name ?? "");
