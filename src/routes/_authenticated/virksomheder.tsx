@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CvrGruppeRaekke, cvrNorm, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
+import { cvrNorm, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
+import { VirksomhedListe, paenBy, statusRang, type Sort } from "@/components/virksomhed-liste";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
@@ -135,6 +136,7 @@ function VirksomhederListe() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
+  const [sort, setSort] = useState<Sort>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [templates, setTemplates] = useState<FilterTemplate[]>([]);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
@@ -161,7 +163,7 @@ function VirksomhederListe() {
 
   useEffect(() => {
     setPage(0);
-  }, [filters, q, recentIds, mobileMineActive]);
+  }, [filters, q, recentIds, mobileMineActive, sort]);
 
   // CVR-grupper: konti med samme (normaliserede) CVR vises som én række.
   const grupperQ = useQuery({
@@ -174,7 +176,7 @@ function VirksomhederListe() {
     },
   });
   const [aabneGrupper, setAabneGrupper] = useState<Set<string>>(new Set());
-  const items = useMemo(() => {
+  const grundItems = useMemo(() => {
     const alleIGruppe = new Map<string, typeof rows>();
     for (const r of rows) {
       if ((r as any).afloest_af_company_id) continue;
@@ -206,6 +208,42 @@ function VirksomhederListe() {
     if (soeg) for (const g of set.values()) g.konti = [...alleIGruppe.get(g.cvr)!].sort((a, b) => Number(g.hits.has(b.id)) - Number(g.hits.has(a.id)));
     return ud;
   }, [rows, displayed, q]);
+
+  // Omsætning 12 mdr. pr. konto (kun hvor brugeren må se kontosalg).
+  const omsQ = useQuery({
+    queryKey: ["konto-oms-12m", rows.length],
+    enabled: rows.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const ids = rows.map((r) => r.id);
+      const m = new Map<string, number>();
+      const bidder = [];
+      for (let i = 0; i < ids.length; i += 1000) bidder.push(ids.slice(i, i + 1000));
+      const svar = await Promise.all(bidder.map((b) => (supabase as any).rpc("konto_oms_12m", { _ids: b })));
+      for (const { data, error } of svar) {
+        if (error) throw error;
+        for (const x of data ?? []) m.set(x.company_id, Number(x.oms_12m));
+      }
+      return m;
+    },
+  });
+
+  const items = useMemo(() => {
+    if (!sort) return grundItems;
+    const navn = (it: ListeItem) => (it.kind === "en" ? it.row.name : it.konti[0]?.name ?? "");
+    const oms = (it: ListeItem) =>
+      it.kind === "en"
+        ? omsQ.data?.get(it.row.id) ?? -1
+        : grupperQ.data?.get(it.cvr)?.oms_12m ?? it.konti.reduce((s, k) => s + (omsQ.data?.get(k.id) ?? 0), 0);
+    const status = (it: ListeItem) =>
+      it.kind === "en" ? statusRang(it.row.customer_type) : Math.min(...it.konti.map((k) => statusRang(k.customer_type)));
+    return [...grundItems].sort((a, b) => {
+      const v =
+        sort.key === "navn" ? navn(a).localeCompare(navn(b), "da") : sort.key === "oms" ? oms(a) - oms(b) : status(a) - status(b);
+      return v * sort.dir;
+    });
+  }, [grundItems, sort, omsQ.data, grupperQ.data]);
+  const antalKonti = useMemo(() => items.reduce((s, it) => s + (it.kind === "en" ? 1 : it.konti.length), 0), [items]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const pageRows = pageItems.flatMap((it) => (it.kind === "en" ? [it.row] : it.konti));
@@ -213,15 +251,6 @@ function VirksomhederListe() {
   const clearRecent = () => {
     sessionStorage.removeItem(RECENT_KEY);
     setRecentIds(null);
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   };
 
   const selectAllOnPage = (check: boolean) => {
@@ -233,7 +262,7 @@ function VirksomhederListe() {
   };
 
   const selectAllFiltered = () => {
-    setSelected(new Set(displayed.map((r) => r.id)));
+    setSelected(new Set(items.flatMap((it) => (it.kind === "en" ? [it.row.id] : it.konti.map((k) => k.id)))));
   };
 
   const allOnPageSelected =
@@ -267,95 +296,36 @@ function VirksomhederListe() {
     }
   };
 
-  const rowEl = (r: (typeof displayed)[number], indent = false, hit = false) => {
-              const assigns = assignmentMap.get(r.id) ?? [];
-              const unassigned = isAdmin && assigns.length === 0;
-              const checked = selected.has(r.id);
-              return (
-                <div
-                  key={r.id}
-                  className={`flex items-start gap-3 ${indent ? "pl-8 md:pl-12 pr-3 md:pr-4 py-2 bg-muted/20" : "px-3 md:px-4 py-3"} ${hit ? "ring-1 ring-inset ring-primary/40" : ""} hover:bg-muted/50 transition-colors ${checked ? "bg-primary/5" : ""}`}
-                >
-                  {isAdmin && (
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={() => toggleSelect(r.id)}
-                      className="mt-1 shrink-0"
-                    />
-                  )}
-                  <Link
-                    to="/virksomheder/$id"
-                    params={{ id: r.id }}
-                    className="flex flex-col md:flex-row md:items-center md:justify-between flex-1 min-w-0 gap-1.5 md:gap-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm md:text-base">
-                          {r.name}
-                        </span>
-                        {(r as any).visma_enhed && (
-                          <span className="text-xs text-muted-foreground">
-                            · {(r as any).visma_enhed}
-                          </span>
-                        )}
-                      </div>
+  const saelgerMap = useMemo(() => new Map(sellers.map((s) => [s.id, s.full_name])), [sellers]);
+  const saelgerNavn = (r: (typeof displayed)[number]) => {
+    const id = (r as any).assigned_to ?? (locationMap.get(r.id) ?? []).find((l) => l.saelger_user_id)?.saelger_user_id;
+    return id ? saelgerMap.get(id) ?? null : null;
+  };
 
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        CVR {r.cvr ?? "—"}
-                        {r.city ? ` · ${r.city}` : ""}
-                        {r.municipality ? ` · ${r.municipality}` : ""}
-                      </div>
-                      {(() => {
-                        if (!q) return null;
-                        const rawQuery = q.trim();
-                        if (!rawQuery) return null;
-                        const qq = rawQuery.toLowerCase();
-                        const nameHit = r.name.toLowerCase().includes(qq);
-                        const cvrHit = (r.cvr ?? "").includes(rawQuery);
-                        const addrHit = (r.address ?? "")
-                          .toLowerCase()
-                          .includes(qq);
-                        const cityHit = (r.city ?? "")
-                          .toLowerCase()
-                          .includes(qq);
-                        const zipHit = (r.zip ?? "").includes(rawQuery);
-                        if (nameHit || cvrHit || addrHit || cityHit || zipHit)
-                          return null;
-                        const locs = locationMap.get(r.id) ?? [];
-                        const match = locs.find((l) => lokationMatcher(l, rawQuery));
-                        if (!match) return null;
-                        const parts = [
-                          firstFilled(match.address),
-                          [firstFilled(match.zip), firstFilled(match.city)]
-                            .filter(Boolean)
-                            .join(" "),
-                        ]
-                          .filter((p) => p && p.trim())
-                          .join(", ");
-                        const penhed = (match.penhed_navne ?? []).find((n) => n.toLowerCase().includes(qq));
-                        return (
-                          <div className="text-xs text-primary mt-0.5">
-                            📍 Lokation: {penhed ? `${penhed}, ` : ""}{parts || "uden adresse"} – under {r.name}
-                            {r.city ? `, ${r.city}` : ""}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap md:shrink-0">
-                      {unassigned && (
-                        <Badge
-                          variant="outline"
-                          className="border-warning/40 text-warning text-[10px] md:text-xs"
-                        >
-                          Ikke tildelt
-                        </Badge>
-                      )}
-                      <SegmentBadge segment3={r.customer_segment_3} size="sm" />
-                      <CustomerStatusBadge type={r.customer_type} />
-                    </div>
-                  </Link>
-                </div>
-              );
+  const lokHitLinje = (r: (typeof displayed)[number]) => {
+    const rawQuery = q.trim();
+    if (!rawQuery) return null;
+    const qq = rawQuery.toLowerCase();
+    if (
+      r.name.toLowerCase().includes(qq) ||
+      (r.cvr ?? "").includes(rawQuery) ||
+      (r.address ?? "").toLowerCase().includes(qq) ||
+      (r.city ?? "").toLowerCase().includes(qq) ||
+      (r.zip ?? "").includes(rawQuery)
+    )
+      return null;
+    const match = (locationMap.get(r.id) ?? []).find((l) => lokationMatcher(l, rawQuery));
+    if (!match) return null;
+    const parts = [firstFilled(match.address), [firstFilled(match.zip), paenBy(match.city)].filter(Boolean).join(" ")]
+      .filter((x) => x && x.trim())
+      .join(", ");
+    const penhed = (match.penhed_navne ?? []).find((n) => n.toLowerCase().includes(qq));
+    return (
+      <div className="text-xs text-primary truncate">
+        Lokation: {penhed ? `${penhed}, ` : ""}
+        {parts || "uden adresse"}
+      </div>
+    );
   };
 
   return (
@@ -426,17 +396,11 @@ function VirksomhederListe() {
       </div>
 
       <div className="text-sm text-muted-foreground mb-2">
-        <strong className="text-foreground">{displayed.length}</strong>{" "}
-        virksomheder matcher
-        {displayed.length > 0 && (
-          <>
-            {" "}
-            · Side {page + 1} af {totalPages}
-          </>
-        )}
+        <strong className="text-foreground">{items.length.toLocaleString("da-DK")}</strong> virksomheder ({antalKonti.toLocaleString("da-DK")} konti)
+        {items.length > 0 && <> · Side {page + 1} af {totalPages}</>}
       </div>
 
-      <Card className="divide-y">
+      <Card className="overflow-hidden">
         {loading ? (
           <p className="p-4 text-sm text-muted-foreground">Indlæser…</p>
         ) : displayed.length === 0 ? (
@@ -446,47 +410,45 @@ function VirksomhederListe() {
         ) : (
           <>
             {isAdmin && (
-              <div className="flex items-center justify-between gap-3 px-4 py-2 bg-muted/30 text-sm">
+              <div className="flex items-center justify-between gap-3 px-3 md:px-4 py-2 border-b text-sm">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Checkbox
                     checked={allOnPageSelected}
                     onCheckedChange={(v) => selectAllOnPage(!!v)}
                   />
-                  Vælg alle på denne side ({pageRows.length})
+                  Vælg alle på siden ({pageRows.length.toLocaleString("da-DK")} konti)
                 </label>
-                {selected.size < displayed.length && (
+                {selected.size < antalKonti && (
                   <button
                     className="text-primary hover:underline text-xs"
                     onClick={selectAllFiltered}
                   >
-                    Vælg alle {displayed.length} resultater der matcher filteret
+                    Vælg alle {antalKonti.toLocaleString("da-DK")} konti, der matcher
                   </button>
                 )}
               </div>
             )}
-            {pageItems.map((it) =>
-              it.kind === "en" ? rowEl(it.row) : (
-                <CvrGruppeRaekke
-                  key={"g" + it.cvr}
-                  cvr={it.cvr}
-                  konti={it.konti}
-                  hits={it.hits}
-                  info={grupperQ.data?.get(it.cvr)}
-                  udfoldet={it.tvungen || aabneGrupper.has(it.cvr)}
-                  onToggle={() =>
-                    setAabneGrupper((prev) => {
-                      const n = new Set(prev);
-                      n.has(it.cvr) ? n.delete(it.cvr) : n.add(it.cvr);
-                      return n;
-                    })
-                  }
-                  isAdmin={isAdmin}
-                  selected={selected}
-                  setSelected={setSelected}
-                  rowEl={rowEl}
-                />
-              ),
-            )}
+            <VirksomhedListe
+              items={pageItems}
+              isAdmin={isAdmin}
+              selected={selected}
+              setSelected={setSelected}
+              omsMap={omsQ.data}
+              saelgerNavn={saelgerNavn}
+              ikkeTildelt={(r) => isAdmin && (assignmentMap.get(r.id) ?? []).length === 0}
+              ekstraLinje={lokHitLinje}
+              grupper={grupperQ.data}
+              aabne={aabneGrupper}
+              toggleGruppe={(cvr) =>
+                setAabneGrupper((prev) => {
+                  const n = new Set(prev);
+                  n.has(cvr) ? n.delete(cvr) : n.add(cvr);
+                  return n;
+                })
+              }
+              sort={sort}
+              setSort={setSort}
+            />
           </>
         )}
       </Card>
