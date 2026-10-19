@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar, Download, Loader2 } from "lucide-react";
+import { Calendar, Download, Info, Loader2 } from "lucide-react";
+import { BonusRegler, ReglerInfo, type ReglerAfsnit } from "./bonus-regler";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
@@ -125,6 +126,13 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
     const ids = new Set(rows.map((r) => r.ordning_id).filter(Boolean) as string[]);
     return (ordningerQ.data ?? []).filter((o) => ids.has(o.id));
   }, [rows, ordningerQ.data]);
+  const [regler, setRegler] = useState<ReglerAfsnit | null>(null);
+  const aabnRegler = (a: ReglerAfsnit) => setRegler(a);
+  const aktuelOrdning = useMemo(() => {
+    const alle = ordningerQ.data ?? [];
+    const idag = new Date().toISOString().slice(0, 10);
+    return alle.filter((o) => o.gyldig_fra <= idag && (!o.gyldig_til || o.gyldig_til >= idag)).at(-1) ?? alle.at(-1) ?? null;
+  }, [ordningerQ.data]);
   const manglerOrdning = rows.filter((r) => !r.ordning_id).map((r) => r.maaned);
 
   const total = useMemo(
@@ -276,7 +284,10 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
             </p>
           </PopoverContent>
         </Popover>
-        <Button variant="outline" size="sm" className="ml-auto" onClick={csv}>
+        <Button variant="ghost" size="sm" className="ml-auto" onClick={() => aabnRegler("top")}>
+          <Info className="h-4 w-4 mr-2" /> Sådan beregnes din bonus
+        </Button>
+        <Button variant="outline" size="sm" onClick={csv}>
           <Download className="h-4 w-4 mr-2" /> CSV
         </Button>
       </div>
@@ -298,12 +309,12 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                   <th className="text-left py-2 pr-3 font-medium">Måned</th>
                   <th className="text-right py-2 px-2 font-medium">DB-grundlag</th>
                   <th className="text-right py-2 px-2 font-medium">Sats</th>
-                  <th className="text-right py-2 px-2 font-medium">DB-bonus</th>
+                  <th className="text-right py-2 px-2 font-medium whitespace-nowrap">DB-bonus<ReglerInfo afsnit="db" onAabn={aabnRegler} /></th>
                   <th className="text-right py-2 px-2 font-medium">Wittenborg</th>
                   <th className="text-right py-2 px-2 font-medium">Animo</th>
                   <th className="text-right py-2 px-2 font-medium">Rex</th>
-                  <th className="text-right py-2 px-2 font-medium">Maskinbonus</th>
-                  <th className="text-right py-2 px-2 font-medium whitespace-nowrap">Ny kunde</th>
+                  <th className="text-right py-2 px-2 font-medium whitespace-nowrap">Maskinbonus<ReglerInfo afsnit="maskiner" onAabn={aabnRegler} /></th>
+                  <th className="text-right py-2 px-2 font-medium whitespace-nowrap">Ny kunde<ReglerInfo afsnit="nykunde" onAabn={aabnRegler} /></th>
                   <th className="text-right py-2 pl-3 font-semibold">Bonus i alt</th>
                 </tr>
               </thead>
@@ -408,7 +419,8 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
         </div>
       </Card>
 
-      <BonusDetaljer key={`${saelgerId}-${drill?.maaned}-${drill?.visning}-${drill?.filter}`} saelgerId={saelgerId} drill={drill} onClose={() => setDrill(null)} />
+      <BonusDetaljer key={`${saelgerId}-${drill?.maaned}-${drill?.visning}-${drill?.filter}`} saelgerId={saelgerId} drill={drill} onClose={() => setDrill(null)} onRegler={() => aabnRegler("maskiner")} />
+      <BonusRegler open={regler !== null} afsnit={regler ?? "top"} ordning={aktuelOrdning} onOpenChange={(o) => { if (!o) setRegler(null); }} />
     </div>
   );
 }

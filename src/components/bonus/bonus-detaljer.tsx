@@ -28,7 +28,7 @@ function DetailRows({ rows, cols }: { rows: any[]; cols: Kol[] }) {
     <div className="md:hidden divide-y">{sorted.map((r, i) => <article key={i} className="py-4 space-y-2"><div className="font-medium break-words">{cols[0]?.cell(r)}</div><dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">{cols.slice(1).map((c) => <div key={c.key} className="min-w-0"><dt className="text-xs text-muted-foreground">{c.label}</dt><dd className="break-words tabular-nums">{c.cell(r)}</dd></div>)}</dl></article>)}</div>
   </>;
 }
-export function BonusDetaljer({ drill, saelgerId, onClose }: { drill: BonusDrill | null; saelgerId: string; onClose: () => void }) {
+export function BonusDetaljer({ drill, saelgerId, onClose, onRegler }: { drill: BonusDrill | null; saelgerId: string; onClose: () => void }) {
   const [filter, setFilter] = useState<MaskinFilter>(drill?.filter ?? "alle");
   const [visKunder, setVisKunder] = useState(false);
   const kunderQ = useQuery({
@@ -78,7 +78,7 @@ export function BonusDetaljer({ drill, saelgerId, onClose }: { drill: BonusDrill
     { key: "antal", label: "Antal", num: true, val: (r) => Number(r.antal), cell: (r) => tal(r.antal) },
     { key: "faktura_dato", label: "Fakturadato", cell: (r) => dato(r.faktura_dato) },
     { key: "beloeb", label: "Beløb", num: true, val: (r) => Number(r.beloeb), cell: (r) => `${tal(r.beloeb)} kr.` },
-    { key: "udeladt", label: "Tæller med", cell: (r) => r.udeladt ? `Nej — ${r.aarsag || "udeladt"}` : "Ja" },
+    { key: "udeladt", label: "Tæller med", cell: (r) => r.udeladt ? <span>Nej{r.aarsag && <span className="block text-xs text-muted-foreground">{r.aarsag}</span>}</span> : "Ja" },
   ];
   const title = drill?.visning === "db" ? "DB-bonus" : drill?.visning === "rangliste" ? "Nye kunder · månedens rangliste" : filter === "alle" ? "Maskinbonus" : MASKIN_LABEL[filter];
   return <Dialog open={!!drill} onOpenChange={(open) => { if (!open) onClose(); }}><DialogContent className="w-[calc(100%-1.5rem)] max-w-6xl max-h-[90dvh] overflow-y-auto p-4 sm:p-6"><DialogHeader className="text-left pr-6"><DialogTitle>{title} — {drill ? maanedNavn(drill.maaned) : ""}</DialogTitle><DialogDescription>{drill?.visning === "rangliste" ? "DB på nye kunder · afdeling 11" : `Optjent ${drill?.visning === "db" ? "DB-bonus" : "maskinbonus"}: ${tal(drill?.bonus ?? 0)} kr.`}</DialogDescription></DialogHeader>

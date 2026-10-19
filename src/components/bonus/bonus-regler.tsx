@@ -16,7 +16,7 @@ export function dbProvisionTekst(o: BonusOrdning | null | undefined): string {
   if (o.flatrate != null) return `Du er på fast månedlig provision på ${tal(Number(o.flatrate))} kr.`;
   const pct = Number(o.db_provision_pct) || 0;
   if (pct <= 0) return "Din ordning giver ingen DB-provision.";
-  let s = `${tal(pct, pct % 1 ? 2 : 0).replace(/,?0+$/, (m) => (m.startsWith(",") ? "" : m))} % af DB på dine kunder`;
+  let s = `${pct.toLocaleString("da-DK", { maximumFractionDigits: 2 })} % af DB på dine kunder`;
   if (o.db_fradrag != null && Number(o.db_fradrag) > 0) s += `, minus ${tal(Number(o.db_fradrag))} kr. pr. måned`;
   if (o.db_bund != null && Number(o.db_bund) > 0) s += ` – mindst ${tal(Number(o.db_bund))} kr. pr. måned`;
   return s + ".";
