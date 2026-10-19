@@ -757,6 +757,13 @@
       "when": 1792436729491,
       "tag": "0107_bonus_nykunde_rangliste",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1792437281638,
+      "tag": "0108_bonus_maskin_grundlag_positiv_linje",
+      "breakpoints": true
     }
   ]
 }
