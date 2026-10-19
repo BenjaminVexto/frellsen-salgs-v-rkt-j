@@ -16,7 +16,7 @@ const dato = (s: string) => s ? new Date(s).toLocaleDateString("da-DK") : "—";
 const maanedNavn = (s: string) => new Date(`${s}-01`).toLocaleDateString("da-DK", { month: "short", year: "numeric" }).replace(".", "");
 type Kol = { key: string; label: string; num?: boolean; cell: (r: any) => React.ReactNode; val?: (r: any) => string | number };
 function DetailRows({ rows, cols }: { rows: any[]; cols: Kol[] }) {
-  const [sort, setSort] = useState<{ key: string; dir: number } | null>(null);
+  const [sort, setSort] = useState<{ key: string; dir: number } | null>(cols.some((c) => c.key === "db") ? { key: "db", dir: -1 } : null);
   const col = cols.find((c) => c.key === sort?.key);
   const sorted = col && sort ? [...rows].sort((a, b) => {
     const av = col.val?.(a) ?? a[col.key] ?? ""; const bv = col.val?.(b) ?? b[col.key] ?? "";
