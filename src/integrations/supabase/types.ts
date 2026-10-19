@@ -5093,6 +5093,16 @@ export type Database = {
           navn: string
         }[]
       }
+      bonus_nykunde_detaljer: {
+        Args: { _maaned: string; _saelger: string }
+        Returns: {
+          by: string
+          company_id: string
+          db: number
+          navn: string
+          omsaetning: number
+        }[]
+      }
       bonus_nykunde_rangliste: {
         Args: { _maaned: string }
         Returns: {
