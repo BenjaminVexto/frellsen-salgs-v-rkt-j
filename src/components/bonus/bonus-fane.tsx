@@ -41,6 +41,9 @@ type Rk = {
   antal_animo: number;
   antal_rex: number;
   maskinbonus: number;
+  ny_kunde_db: number | null;
+  ny_kunde_rang: number | null;
+  ny_kunde_bonus: number;
   samlet_bonus: number;
 };
 
@@ -92,6 +95,9 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
         antal_animo: Number(r.antal_animo) || 0,
         antal_rex: Number(r.antal_rex) || 0,
         maskinbonus: Number(r.maskinbonus) || 0,
+        ny_kunde_db: r.ny_kunde_db == null ? null : Number(r.ny_kunde_db),
+        ny_kunde_rang: r.ny_kunde_rang == null ? null : Number(r.ny_kunde_rang),
+        ny_kunde_bonus: Number(r.ny_kunde_bonus) || 0,
         samlet_bonus: Number(r.samlet_bonus) || 0,
       })) as Rk[];
     },
@@ -128,6 +134,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
           antal_animo: t.antal_animo + r.antal_animo,
           antal_rex: t.antal_rex + r.antal_rex,
           maskinbonus: t.maskinbonus + r.maskinbonus,
+          ny_kunde_bonus: t.ny_kunde_bonus + r.ny_kunde_bonus,
           samlet_bonus: t.samlet_bonus + r.samlet_bonus,
         }),
         {
@@ -137,6 +144,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
           antal_animo: 0,
           antal_rex: 0,
           maskinbonus: 0,
+          ny_kunde_bonus: 0,
           samlet_bonus: 0,
         },
       ),
@@ -153,6 +161,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
       "Animo",
       "Rex-Royal",
       "Maskinbonus",
+      "Ny kunde",
       "Bonus i alt",
     ];
     const num = (n: number, dec = 2) => n.toFixed(dec).replace(".", ",");
@@ -162,12 +171,13 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
         [
           maanedNavn(r.maaned) + (r.ordning_id ? "" : " (ingen ordning)"),
           num(r.db_grundlag),
-          num(r.db_provision_pct, 1),
+          num(r.db_provision_pct, 2),
           num(r.db_bonus),
           num(r.antal_wittenborg, 0),
           num(r.antal_animo, 0),
           num(r.antal_rex, 0),
           num(r.maskinbonus),
+          num(r.ny_kunde_bonus),
           num(r.samlet_bonus),
         ].join(";"),
       ),
@@ -182,6 +192,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
         num(total.antal_animo, 0),
         num(total.antal_rex, 0),
         num(total.maskinbonus),
+        num(total.ny_kunde_bonus),
         num(total.samlet_bonus),
       ].join(";"),
     );
@@ -288,6 +299,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                   <th className="text-right py-2 px-2 font-medium">Animo</th>
                   <th className="text-right py-2 px-2 font-medium">Rex</th>
                   <th className="text-right py-2 px-2 font-medium">Maskinbonus</th>
+                  <th className="text-right py-2 px-2 font-medium whitespace-nowrap">Ny kunde</th>
                   <th className="text-right py-2 pl-3 font-semibold">Bonus i alt</th>
                 </tr>
               </thead>
@@ -295,26 +307,34 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                 {rows.map((r) => (
                   <tr key={r.maaned} className="border-b last:border-0">
                     <td className="py-1.5 pr-3 whitespace-nowrap">
-                      <button
-                        type="button"
-                        className="hover:underline"
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 font-normal text-foreground"
                         onClick={() => setDrillMaaned(r.maaned)}
                       >
                         {maanedNavn(r.maaned)}
-                      </button>
+                      </Button>
                       {!r.ordning_id && (
                         <span className="ml-2 text-xs text-muted-foreground">ingen ordning</span>
                       )}
                     </td>
                     <td className="text-right py-1.5 px-2">{fmtTal(r.db_grundlag)}</td>
                     <td className="text-right py-1.5 px-2">
-                      {r.ordning_id ? `${fmtTal(r.db_provision_pct, 1)} %` : "—"}
+                      {r.ordning_id ? `${fmtTal(r.db_provision_pct, 2)} %` : "—"}
                     </td>
                     <td className="text-right py-1.5 px-2">{fmtTal(r.db_bonus)}</td>
                     <td className="text-right py-1.5 px-2">{fmtTal(r.antal_wittenborg)}</td>
                     <td className="text-right py-1.5 px-2">{fmtTal(r.antal_animo)}</td>
                     <td className="text-right py-1.5 px-2">{fmtTal(r.antal_rex)}</td>
                     <td className="text-right py-1.5 px-2">{fmtTal(r.maskinbonus)}</td>
+                    <td className="text-right py-1.5 px-2">
+                      {fmtTal(r.ny_kunde_bonus)}
+                      {r.ny_kunde_db != null && r.ny_kunde_rang != null && (
+                        <span className="block text-xs text-muted-foreground whitespace-nowrap">
+                          DB nye kunder: {fmtTal(r.ny_kunde_db)} kr. · plads {r.ny_kunde_rang}
+                        </span>
+                      )}
+                    </td>
                     <td className="text-right py-1.5 pl-3 font-semibold">
                       {fmtTal(r.samlet_bonus)}
                     </td>
@@ -329,6 +349,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                   <td className="text-right py-1.5 px-2">{fmtTal(total.antal_animo)}</td>
                   <td className="text-right py-1.5 px-2">{fmtTal(total.antal_rex)}</td>
                   <td className="text-right py-1.5 px-2">{fmtTal(total.maskinbonus)}</td>
+                  <td className="text-right py-1.5 px-2">{fmtTal(total.ny_kunde_bonus)}</td>
                   <td className="text-right py-1.5 pl-3">{fmtTal(total.samlet_bonus)}</td>
                 </tr>
               </tbody>
@@ -342,6 +363,9 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
               {beskrivOrdning(o)}
             </p>
           ))}
+          <p className="text-xs text-muted-foreground">
+            Ny kunde-provision fra sep. 2026: største DB på nye kunder (ingen omsætning de seneste 24 mdr., ekskl. offentlige udbudskunder KPG3 40) får 1.000 kr., næststørste 600 kr. · Animo OptiVend giver Animo-bonus fra sep. 2026.
+          </p>
           {manglerOrdning.length > 0 && (
             <p className="text-xs text-muted-foreground">
               Ingen bonusordning for {manglerOrdning.map(maanedNavn).join(", ")}.
@@ -375,7 +399,8 @@ function BonusPanel({
     queryKey: ["bonus-detaljer", saelgerId, maaned],
     enabled: !!maaned,
     queryFn: async () => {
-      const args = { _saelger: saelgerId, _fra: firstDay(maaned!), _til: firstDay(maaned!) };
+      if (!maaned) return { db: [], maskiner: [] };
+      const args = { _saelger: saelgerId, _fra: firstDay(maaned), _til: firstDay(maaned) };
       const [db, mask] = await Promise.all([
         (supabase as any).rpc("bonus_db_detaljer", args),
         (supabase as any).rpc("bonus_maskin_detaljer", args),

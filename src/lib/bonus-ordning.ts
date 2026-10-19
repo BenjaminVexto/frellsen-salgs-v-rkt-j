@@ -80,7 +80,7 @@ export function beskrivOrdning(o: BonusOrdning): string {
       : "";
   const dbDel =
     Number(o.db_provision_pct) > 0 && dbKunder.length > 0
-      ? `${tal(o.db_provision_pct, 1)} % af DB på ${dbKunder.join(" og ")} kunder${fradrag}${graense(o.db_bund, o.db_top)}`
+      ? `${Number(o.db_provision_pct).toLocaleString("da-DK", { maximumFractionDigits: 2 })} % af DB på ${dbKunder.join(" og ")} kunder${fradrag}${graense(o.db_bund, o.db_top)}`
       : "ingen DB-provision";
 
   const satser: string[] = [];
