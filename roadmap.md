@@ -1,4 +1,5 @@
 # Roadmap
+- [ ] Bonus-finish: tæt tabel uden faste understregninger, mobiloverblik, separate DB/maskindetaljer og delt nykunde-rangliste med afstand til toppen.
 - [x] Bonus: klik på maskintal pr. sælger/måned viser kunder og maskindetaljer; kontrollér Malene september 2026.
 - [x] Bonus oktober 2026: uændrede SQL-funktioner, fire satsrettelser, Ny kunde i tabel/Total/CSV, korrekt ordningstekst og kontrol.
 - [x] Salgsintelligens P-enheder: ansatte, dækning (location_pnr_link), UI, kundekort — plan med 5 rettelser
