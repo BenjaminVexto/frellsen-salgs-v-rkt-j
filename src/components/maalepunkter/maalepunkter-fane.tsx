@@ -600,6 +600,7 @@ export function MaalepunkterFane({
     periodeTotal,
     totaler,
     visTotalRaekke = true,
+    visTotalKolonne = true,
   }: {
     nummer: number;
     titel: string;
@@ -625,6 +626,8 @@ export function MaalepunkterFane({
     totaler?: { rows: (number | undefined)[]; total: number | undefined };
     /** Skjul Total-rækken nederst, når månedssummerne ikke betyder noget. */
     visTotalRaekke?: boolean;
+    /** Skjul Total-kolonnen til højre, når periodetotalen ikke betyder noget. */
+    visTotalKolonne?: boolean;
   }) => {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
@@ -867,7 +870,9 @@ export function MaalepunkterFane({
                       {maanedNavn(m)}
                     </th>
                   ))}
-                  <th className="text-right py-2 pl-3 font-semibold">Total</th>
+                  {visTotalKolonne && (
+                    <th className="text-right py-2 pl-3 font-semibold">Total</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -899,9 +904,11 @@ export function MaalepunkterFane({
                         </button>
                       </td>
                     ))}
-                    <td className="text-right py-1.5 pl-3 font-semibold">
-                      {fmtTal(totaler ? (totaler.rows[i] ?? 0) : rowTotal(r.per), dec)}
-                    </td>
+                    {visTotalKolonne && (
+                      <td className="text-right py-1.5 pl-3 font-semibold">
+                        {fmtTal(totaler ? (totaler.rows[i] ?? 0) : rowTotal(r.per), dec)}
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {visTotalRaekke && (
@@ -912,9 +919,11 @@ export function MaalepunkterFane({
                         {fmtTal(tot.get(m) ?? 0, dec)}
                       </td>
                     ))}
-                    <td className="text-right py-1.5 pl-3">
-                      {fmtTal(totaler ? (totaler.total ?? 0) : rowTotal(tot), dec)}
-                    </td>
+                    {visTotalKolonne && (
+                      <td className="text-right py-1.5 pl-3">
+                        {fmtTal(totaler ? (totaler.total ?? 0) : rowTotal(tot), dec)}
+                      </td>
+                    )}
                   </tr>
                 )}
               </tbody>
@@ -934,7 +943,7 @@ export function MaalepunkterFane({
         {afd.afdelingFilter == null
           ? `Målepunkter vises for afdeling 11 ${afd.navnFor(11)}.`
           : `afdeling ${valgtAfd} ${afd.navnFor(valgtAfd)}.`}{" "}
-        Total i kundetabellen er unikke aktive kunder i perioden. Klik på et tal eller en kategori for at se hvilke virksomheder det består af.
+        Klik på et tal eller en kategori for at se hvilke virksomheder det består af.
       </p>
 
 
@@ -1074,7 +1083,7 @@ export function MaalepunkterFane({
         nummer={3}
         titel="Antal kunder pr. måned (aktive kunder)"
         visKey="kunder"
-        visTotalRaekke={false}
+        visTotalKolonne={false}
         rows={kunderTabel}
         totaler={
           kunderUnikkeQ.data
@@ -1088,7 +1097,7 @@ export function MaalepunkterFane({
         loading={kunderQ.isPending}
         error={kunderQ.error ? (kunderQ.error as Error).message : null}
         onRetry={() => kunderQ.refetch()}
-        fodnote="Aktiv = kunden har købt forbrugsvarer i måneden eller de to foregående måneder. Total er antal forskellige aktive kunder i perioden."
+        fodnote="Aktiv = kunden har købt forbrugsvarer i måneden eller de to foregående måneder. Total-rækken viser antal kunder pr. måned for de to kategorier tilsammen."
         onRow={(i) =>
           setDrill({
             slags: "kunder",
