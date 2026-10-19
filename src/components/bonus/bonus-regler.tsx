@@ -3,7 +3,7 @@ import { Info } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import type { BonusOrdning } from "@/lib/bonus-ordning";
+import { beskrivOrdning, type BonusOrdning } from "@/lib/bonus-ordning";
 
 export type ReglerAfsnit = "top" | "db" | "maskiner" | "nykunde";
 
@@ -59,6 +59,12 @@ export function BonusRegler({ open, afsnit, ordning, onOpenChange }: { open: boo
           <SheetDescription>Bonus opgøres pr. hel måned ud fra fakturaer og maskinregistret i Visma. Visma er altid grundlaget.</SheetDescription>
         </SheetHeader>
         <div className="mt-6 space-y-6 text-sm">
+          {ordning && (
+            <section className="space-y-2">
+              <h3 className="font-semibold">Din bonusordning</h3>
+              <p>{beskrivOrdning(ordning)}</p>
+            </section>
+          )}
           <section id="bonusregel-db" className="space-y-2 scroll-mt-4">
             <h3 className="font-semibold">DB-provision</h3>
             <p>{dbProvisionTekst(ordning)}</p>
