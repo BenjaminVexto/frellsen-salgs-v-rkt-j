@@ -40,7 +40,7 @@ export function BonusDetaljer({ drill, saelgerId, onClose }: { drill: BonusDrill
         return (data ?? []).map((r) => ({ ...r, db: Number(r.db), rang: Number(r.rang), beloeb: Number(r.beloeb) }));
       }
       const rpc = drill.visning === "db" ? "bonus_db_detaljer" : "bonus_maskin_detaljer";
-      return hentAlle<any>(() => (supabase as any).rpc(rpc, { _saelger: saelgerId, _fra: `${drill.maaned}-01`, _til: `${drill.maaned}-01` }));
+      return hentAlle<any>((fra, til) => (supabase as any).rpc(rpc, { _saelger: saelgerId, _fra: `${drill.maaned}-01`, _til: `${drill.maaned}-01` }).order("company_id").order(drill.visning === "db" ? "kategori" : "serienr").range(fra, til));
     },
   });
   const rows = q.data ?? [];
