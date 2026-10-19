@@ -402,21 +402,11 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
           <div className="py-4 space-y-2"><div className="flex justify-between font-semibold"><span>Total</span><span>{fmtTal(total.samlet_bonus)} kr.</span></div><dl className="grid grid-cols-2 gap-3 text-xs">{[["DB-grundlag",total.db_grundlag],["DB-bonus",total.db_bonus],["Maskinbonus",total.maskinbonus],["Ny kunde",total.ny_kunde_bonus],["Wittenborg",total.antal_wittenborg],["Animo",total.antal_animo],["Rex-Royal",total.antal_rex]].map(([label,value])=><div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="tabular-nums">{fmtTal(Number(value))}</dd></div>)}</dl></div>
         </div>}
 
-        <div className="space-y-1 pt-1">
-          {brugteOrdninger.map((o) => (
-            <p key={o.id} className="text-xs text-muted-foreground">
-              {beskrivOrdning(o)}
-            </p>
-          ))}
-          <p className="text-xs text-muted-foreground">
-            Ny kunde-provision fra sep. 2026: største DB på nye kunder (ingen omsætning de seneste 24 mdr., ekskl. offentlige udbudskunder KPG3 40) får 1.000 kr., næststørste 600 kr. · Animo OptiVend giver Animo-bonus fra sep. 2026.
+        {manglerOrdning.length > 0 && (
+          <p className="text-xs text-muted-foreground pt-1">
+            Ingen bonusordning for {manglerOrdning.map(maanedNavn).join(", ")}.
           </p>
-          {manglerOrdning.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Ingen bonusordning for {manglerOrdning.map(maanedNavn).join(", ")}.
-            </p>
-          )}
-        </div>
+        )}
       </Card>
 
       <BonusDetaljer key={`${saelgerId}-${drill?.maaned}-${drill?.visning}-${drill?.filter}`} saelgerId={saelgerId} drill={drill} onClose={() => setDrill(null)} onRegler={() => aabnRegler("maskiner")} />
