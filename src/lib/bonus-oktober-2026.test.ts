@@ -20,7 +20,7 @@ describe.skipIf(!session)("October 2026 bonus — live read-only regressions", (
     ]);
     expect(board.error).toBeNull(); expect(payout.error).toBeNull();
     expect(board.data?.length).toBeGreaterThan(1);
-    for (const r of payout.data ?? []) expect(board.data?.find((b) => b.saelger === r.saelger)).toMatchObject({ db: r.db, rang: r.rang, beloeb: r.beloeb });
+    for (const r of payout.data ?? []) expect(board.data?.find((b: { saelger: string }) => b.saelger === r.saelger)).toMatchObject({ db: r.db, rang: r.rang, beloeb: r.beloeb });
     expect(Object.keys(board.data?.[0] ?? {}).sort()).toEqual(["beloeb", "db", "navn", "rang", "saelger"]);
   });
   it("anonymous callers cannot read the competition", async () => {
