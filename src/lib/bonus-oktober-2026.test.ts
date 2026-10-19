@@ -13,6 +13,22 @@ const client = createClient(config.VITE_SUPABASE_URL, config.VITE_SUPABASE_PUBLI
 });
 
 describe.skipIf(!session)("October 2026 bonus — live read-only regressions", () => {
+  it("shared leaderboard matches payout ranks and shares seller aggregates only", async () => {
+    const [board, payout] = await Promise.all([
+      client.rpc("bonus_nykunde_rangliste", { _maaned: "2026-09-01" }),
+      client.rpc("ny_kunde_bonus_maaned", { _fra: "2026-09-01", _til: "2026-09-01" }),
+    ]);
+    expect(board.error).toBeNull(); expect(payout.error).toBeNull();
+    expect(board.data?.length).toBeGreaterThan(1);
+    for (const r of payout.data ?? []) expect(board.data?.find((b) => b.saelger === r.saelger)).toMatchObject({ db: r.db, rang: r.rang, beloeb: r.beloeb });
+    expect(Object.keys(board.data?.[0] ?? {}).sort()).toEqual(["beloeb", "db", "navn", "rang", "saelger"]);
+  });
+  it("anonymous callers cannot read the competition", async () => {
+    const anonymous = createClient(config.VITE_SUPABASE_URL, config.VITE_SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
+    const { data, error } = await anonymous.rpc("bonus_nykunde_rangliste", { _maaned: "2026-09-01" });
+    expect(data).toBeNull(); expect(error).not.toBeNull();
+  });
+
   it("OptiVend earns no bonus before September 2026", async () => {
     const { data, error } = await client.rpc("maskin_bonusklasse", { _type: "Animo OptiVend", _maaned: "2026-08-01" });
     expect(error).toBeNull();

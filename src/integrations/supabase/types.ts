@@ -5093,6 +5093,16 @@ export type Database = {
           navn: string
         }[]
       }
+      bonus_nykunde_rangliste: {
+        Args: { _maaned: string }
+        Returns: {
+          beloeb: number
+          db: number
+          navn: string
+          rang: number
+          saelger: string
+        }[]
+      }
       bonus_pr_maaned: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {

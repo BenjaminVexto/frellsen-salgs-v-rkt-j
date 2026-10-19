@@ -1,19 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { beskrivOrdning, type BonusOrdning } from "@/lib/bonus-ordning";
-import { filtrerBonusMaskiner, MASKIN_LABEL, type MaskinFilter } from "@/lib/bonus-maskin-visning";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MASKIN_LABEL, type MaskinFilter } from "@/lib/bonus-maskin-visning";
+import { BonusDetaljer, type BonusDrill } from "./bonus-detaljer";
 
 const mKey = (y: number, m0: number) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
 const parseM = (s: string) => ({ y: Number(s.slice(0, 4)), m0: Number(s.slice(5, 7)) - 1 });
@@ -75,12 +73,10 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
   const [fra, setFra] = useState(mKey(now.getUTCFullYear(), 0));
   const [tilRaw, setTilRaw] = useState(sidsteHele);
   const til = tilRaw > sidsteHele ? sidsteHele : tilRaw;
-  const [drillMaaned, setDrillMaaned] = useState<string | null>(null);
-  const [maskinFilter, setMaskinFilter] = useState<MaskinFilter>("alle");
-  const aabnMaskiner = (maaned: string, filter: MaskinFilter) => {
-    setMaskinFilter(filter);
-    setDrillMaaned(maaned);
-  };
+  const [drill, setDrill] = useState<BonusDrill | null>(null);
+  const aabn = (r: Rk, visning: BonusDrill["visning"], filter: MaskinFilter = "alle") =>
+    setDrill({ maaned: r.maaned, visning, filter, bonus: visning === "db" ? r.db_bonus : r.maskinbonus });
+  const klik = "h-auto min-h-8 p-0 font-normal text-foreground tabular-nums no-underline hover:underline focus-visible:underline underline-offset-4";
 
   const q = useQuery({
     queryKey: ["bonus-pr-maaned", saelgerId, fra, til],
@@ -232,7 +228,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
     <div className="space-y-4 max-w-full">
       <p className="text-sm text-muted-foreground">
         Optjent bonus pr. hel måned — afdeling 11. Satserne følger den bonusordning, der gjaldt i
-        netop den måned. Klik på en måned for at se grundlaget.
+        netop den måned.
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -294,8 +290,9 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
             <Loader2 className="h-4 w-4 animate-spin" /> Henter…
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm tabular-nums">
+              <colgroup><col className="w-24" /><col /><col className="w-20" /><col /><col className="w-24" /><col className="w-16" /><col className="w-16" /><col /><col className="w-40" /><col /></colgroup>
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 pr-3 font-medium">Måned</th>
@@ -316,8 +313,8 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                     <td className="py-1.5 pr-3 whitespace-nowrap">
                       <Button
                         variant="link"
-                        className="h-auto p-0 font-normal text-foreground"
-                        onClick={() => aabnMaskiner(r.maaned, "alle")}
+                        className={klik}
+                        onClick={() => aabn(r, "db")}
                       >
                         {maanedNavn(r.maaned)}
                       </Button>
@@ -325,35 +322,35 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                         <span className="ml-2 text-xs text-muted-foreground">ingen ordning</span>
                       )}
                     </td>
-                    <td className="text-right py-1.5 px-2">{fmtTal(r.db_grundlag)}</td>
+                    <td className="text-right py-1.5 px-2"><Button variant="link" className={klik} aria-label={`DB-grundlag — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_grundlag)}</Button></td>
                     <td className="text-right py-1.5 px-2">
                       {r.ordning_id ? `${fmtTal(r.db_provision_pct, 2)} %` : "—"}
                     </td>
-                    <td className="text-right py-1.5 px-2">{fmtTal(r.db_bonus)}</td>
+                    <td className="text-right py-1.5 px-2"><Button variant="link" className={klik} aria-label={`DB-bonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_bonus)}</Button></td>
                     {([
                       ["wittenborg", r.antal_wittenborg],
                       ["animo", r.antal_animo],
                       ["rex", r.antal_rex],
                     ] as const).map(([klasse, antal]) => (
                       <td key={klasse} className="text-right py-1.5 px-2">
-                        <Button variant="link" className="h-8 min-w-8 p-0 tabular-nums underline underline-offset-4"
+                        <Button variant="link" className={klik}
                           aria-label={`${MASKIN_LABEL[klasse]} — ${maanedNavn(r.maaned)}: ${fmtTal(antal)} maskiner`}
-                          onClick={() => aabnMaskiner(r.maaned, klasse)}>
+                          onClick={() => aabn(r, "maskiner", klasse)}>
                           {fmtTal(antal)}
                         </Button>
                       </td>
                     ))}
                     <td className="text-right py-1.5 px-2">
-                      <Button variant="link" className="h-8 min-w-8 p-0 tabular-nums underline underline-offset-4"
+                      <Button variant="link" className={klik}
                         aria-label={`Maskinbonus — ${maanedNavn(r.maaned)}`}
-                        onClick={() => aabnMaskiner(r.maaned, "alle")}>{fmtTal(r.maskinbonus)}</Button>
+                        onClick={() => aabn(r, "maskiner")}>{fmtTal(r.maskinbonus)}</Button>
                     </td>
                     <td className="text-right py-1.5 px-2">
                       {fmtTal(r.ny_kunde_bonus)}
                       {r.ny_kunde_db != null && r.ny_kunde_rang != null && (
-                        <span className="block text-xs text-muted-foreground whitespace-nowrap">
+                        <Button variant="link" className="block h-auto w-full p-0 text-xs text-muted-foreground whitespace-normal text-right no-underline hover:underline focus-visible:underline" onClick={() => aabn(r, "rangliste")}>
                           DB nye kunder: {fmtTal(r.ny_kunde_db)} kr. · plads {r.ny_kunde_rang}
-                        </span>
+                        </Button>
                       )}
                     </td>
                     <td className="text-right py-1.5 pl-3 font-semibold">
@@ -378,6 +375,22 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
           </div>
         )}
 
+        {!q.isLoading && !q.error && <div className="md:hidden divide-y">
+          {rows.map((r) => <article key={r.maaned} className="py-4 space-y-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"><h3 className="font-medium">{maanedNavn(r.maaned)}</h3><span className="font-semibold tabular-nums">{fmtTal(r.samlet_bonus)} kr.</span></div>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <div><dt className="text-xs text-muted-foreground">DB-grundlag</dt><dd><Button variant="link" className={klik} onClick={() => aabn(r, "db")}>{fmtTal(r.db_grundlag)} kr.</Button></dd></div>
+              <div><dt className="text-xs text-muted-foreground">DB-bonus · {fmtTal(r.db_provision_pct, 2)} %</dt><dd><Button variant="link" className={klik} aria-label={`DB-bonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_bonus)} kr.</Button></dd></div>
+              <div><dt className="text-xs text-muted-foreground">Maskinbonus</dt><dd><Button variant="link" className={klik} aria-label={`Maskinbonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "maskiner")}>{fmtTal(r.maskinbonus)} kr.</Button></dd></div>
+              <div><dt className="text-xs text-muted-foreground">Ny kunde-bonus</dt><dd>{fmtTal(r.ny_kunde_bonus)} kr.</dd></div>
+            </dl>
+            <div className="grid grid-cols-3 gap-2 text-sm">{([["wittenborg", r.antal_wittenborg], ["animo", r.antal_animo], ["rex", r.antal_rex]] as const).map(([k,n]) => <Button key={k} variant="ghost" className="h-11 p-1 font-normal justify-start" aria-label={`${MASKIN_LABEL[k]} — ${maanedNavn(r.maaned)}: ${fmtTal(n)} maskiner`} onClick={() => aabn(r, "maskiner", k)}><span className="text-muted-foreground text-xs">{MASKIN_LABEL[k]}</span><span className="tabular-nums">{fmtTal(n)}</span></Button>)}</div>
+            {r.ny_kunde_db != null && r.ny_kunde_rang != null && <Button variant="link" className="h-auto min-h-11 w-full p-0 justify-start whitespace-normal text-left text-xs text-muted-foreground no-underline hover:underline" onClick={() => aabn(r, "rangliste")}>DB nye kunder: {fmtTal(r.ny_kunde_db)} kr. · plads {r.ny_kunde_rang}</Button>}
+            {!r.ordning_id && <p className="text-xs text-muted-foreground">Ingen bonusordning</p>}
+          </article>)}
+          <div className="py-4 space-y-2"><div className="flex justify-between font-semibold"><span>Total</span><span>{fmtTal(total.samlet_bonus)} kr.</span></div><dl className="grid grid-cols-2 gap-3 text-xs">{[["DB-grundlag",total.db_grundlag],["DB-bonus",total.db_bonus],["Maskinbonus",total.maskinbonus],["Ny kunde",total.ny_kunde_bonus],["Wittenborg",total.antal_wittenborg],["Animo",total.antal_animo],["Rex-Royal",total.antal_rex]].map(([label,value])=><div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="tabular-nums">{fmtTal(Number(value))}</dd></div>)}</dl></div>
+        </div>}
+
         <div className="space-y-1 pt-1">
           {brugteOrdninger.map((o) => (
             <p key={o.id} className="text-xs text-muted-foreground">
@@ -395,276 +408,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
         </div>
       </Card>
 
-      <BonusPanel
-        saelgerId={saelgerId}
-        maaned={drillMaaned}
-        maskinFilter={maskinFilter}
-        onFilterChange={setMaskinFilter}
-        onClose={() => setDrillMaaned(null)}
-      />
+      <BonusDetaljer key={`${saelgerId}-${drill?.maaned}-${drill?.visning}-${drill?.filter}`} saelgerId={saelgerId} drill={drill} onClose={() => setDrill(null)} />
     </div>
-  );
-}
-
-type Kol = { key: string; label: string; num?: boolean; val: (r: any) => any; cell: (r: any) => React.ReactNode };
-
-/** Grundlaget bag én måned: virksomheder med DB og de maskiner der er talt med. */
-function BonusPanel({
-  saelgerId,
-  maaned,
-  maskinFilter,
-  onFilterChange,
-  onClose,
-}: {
-  saelgerId: string;
-  maaned: string | null;
-  maskinFilter: MaskinFilter;
-  onFilterChange: (filter: MaskinFilter) => void;
-  onClose: () => void;
-}) {
-  const q = useQuery({
-    queryKey: ["bonus-detaljer", saelgerId, maaned],
-    enabled: !!maaned,
-    queryFn: async () => {
-      if (!maaned) return { db: [], maskiner: [] };
-      const args = { _saelger: saelgerId, _fra: firstDay(maaned), _til: firstDay(maaned) };
-      const [db, mask] = await Promise.all([
-        (supabase as any).rpc("bonus_db_detaljer", args),
-        (supabase as any).rpc("bonus_maskin_detaljer", args),
-      ]);
-      if (db.error) throw new Error(db.error.message);
-      if (mask.error) throw new Error(mask.error.message);
-      return { db: (db.data ?? []) as any[], maskiner: (mask.data ?? []) as any[] };
-    },
-  });
-
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [maskSortKey, setMaskSortKey] = useState<string | null>(null);
-  const [maskSortDir, setMaskSortDir] = useState<"asc" | "desc">("asc");
-  const maskiner = filtrerBonusMaskiner(q.data?.maskiner ?? [], maskinFilter);
-  const antalMaskiner = maskiner.filter((r) => !r.udeladt).reduce((sum, r) => sum + (Number(r.antal) || 0), 0);
-  const antalKunder = new Set(maskiner.filter((r) => !r.udeladt).map((r) => r.company_id)).size;
-  useEffect(() => {
-    setSortKey(null);
-    setMaskSortKey(null);
-    setSortDir("asc");
-    setMaskSortDir("asc");
-  }, [maaned]);
-
-  const navn = (r: any) => (
-    <Link to="/virksomheder/$id" params={{ id: r.company_id }} className="text-primary hover:underline">
-      {r.navn}
-    </Link>
-  );
-
-  const dbKol: Kol[] = [
-    { key: "navn", label: "Virksomhed", val: (r) => r.navn ?? "", cell: (r) => navn(r) },
-    { key: "by", label: "By", val: (r) => r.by ?? "", cell: (r) => r.by ?? "—" },
-    {
-      key: "kategori",
-      label: "Kundetype",
-      val: (r) => r.kategori ?? "",
-      cell: (r) => (r.kategori === "offentlig" ? "Udbudskunder" : "Forhandlingskunder"),
-    },
-    { key: "db", label: "DB", num: true, val: (r) => Number(r.db) || 0, cell: (r) => fmtTal(Number(r.db) || 0) },
-    {
-      key: "omsaetning",
-      label: "Omsætning",
-      num: true,
-      val: (r) => Number(r.omsaetning) || 0,
-      cell: (r) => fmtTal(Number(r.omsaetning) || 0),
-    },
-  ];
-
-  const KLASSE_LABEL: Record<string, string> = {
-    wittenborg: "Wittenborg",
-    animo: "Animo",
-    rex: "Rex-Royal",
-    ingen: "Ingen bonus",
-    uklassificeret: "Uklassificeret",
-  };
-
-  const maskKol: Kol[] = [
-    { key: "navn", label: "Virksomhed", val: (r) => r.navn ?? "", cell: (r) => navn(r) },
-    { key: "by", label: "By", val: (r) => r.by ?? "", cell: (r) => r.by ?? "—" },
-    {
-      key: "serienr",
-      label: "Serienr.",
-      val: (r) => r.serienr ?? "",
-      cell: (r) => <span className="font-mono text-xs">{r.serienr ?? "—"}</span>,
-    },
-    { key: "maerke", label: "Mærke", val: (r) => r.maerke ?? "", cell: (r) => r.maerke ?? "—" },
-    { key: "model", label: "Model", val: (r) => r.model ?? "", cell: (r) => r.model ?? "—" },
-    {
-      key: "bonusklasse",
-      label: "Bonusklasse",
-      val: (r) => r.bonusklasse ?? "",
-      cell: (r) => KLASSE_LABEL[r.bonusklasse ?? ""] ?? "—",
-    },
-    {
-      key: "udeladt",
-      label: "Tæller med",
-      val: (r) => (r.udeladt ? 1 : 0),
-      cell: (r) =>
-        r.udeladt ? (
-          <span className="text-muted-foreground">Nej — {r.aarsag ?? "udeladt"}</span>
-        ) : (
-          "Ja"
-        ),
-    },
-
-    {
-      key: "kilde",
-      label: "Type",
-      val: (r) => r.kilde ?? "",
-      cell: (r) => (r.kilde === "leje" ? "Leje/udlån" : "Salg"),
-    },
-    { key: "brugt", label: "Stand", val: (r) => (r.brugt ? 1 : 0), cell: (r) => (r.brugt ? "Brugt" : "Ny") },
-    {
-      key: "antal",
-      label: "Antal",
-      num: true,
-      val: (r) => Number(r.antal) || 0,
-      cell: (r) => fmtTal(Number(r.antal) || 0),
-    },
-    {
-      key: "faktura_dato",
-      label: "Fakturadato",
-      val: (r) => r.faktura_dato ?? "",
-      cell: (r) => fmtDato(r.faktura_dato),
-    },
-    {
-      key: "beloeb",
-      label: "Beløb",
-      num: true,
-      val: (r) => Number(r.beloeb) || 0,
-      cell: (r) => fmtTal(Number(r.beloeb) || 0),
-    },
-  ];
-
-  const sorter = (liste: any[], kolonner: Kol[], key: string | null, dir: "asc" | "desc") => {
-    if (!key) return liste;
-    const kol = kolonner.find((k) => k.key === key);
-    if (!kol) return liste;
-    const f = dir === "asc" ? 1 : -1;
-    return [...liste].sort((a, b) => {
-      const av = kol.val(a);
-      const bv = kol.val(b);
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * f;
-      return String(av).localeCompare(String(bv), "da-DK") * f;
-    });
-  };
-
-  const Tabel = ({
-    titel,
-    rows,
-    kolonner,
-    sk,
-    sd,
-    onSort,
-  }: {
-    titel: string;
-    rows: any[];
-    kolonner: Kol[];
-    sk: string | null;
-    sd: "asc" | "desc";
-    onSort: (k: string) => void;
-  }) => (
-    <div className="space-y-2 min-w-0">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titel}</h3>
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Ingen linjer.</p>
-      ) : (
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm tabular-nums">
-          <thead>
-            <tr className="border-b text-left">
-              {kolonner.map((k) => (
-                <th key={k.key} className={`py-2 pr-3 font-medium ${k.num ? "text-right" : ""}`}>
-                  <Button variant="ghost" className="h-auto p-0 font-medium hover:underline" onClick={() => onSort(k.key)}>
-                    {k.label}
-                    {sk === k.key ? (sd === "asc" ? " ▲" : " ▼") : ""}
-                  </Button>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sorter(rows, kolonner, sk, sd).map((r, i) => (
-              <tr key={`${r.company_id}-${i}`} className="border-b last:border-0">
-                {kolonner.map((k) => (
-                  <td key={k.key} className={`py-1.5 pr-3 ${k.num ? "text-right" : ""}`}>
-                    {k.cell(r)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      )}
-    </div>
-  );
-
-  return (
-    <Dialog open={!!maaned} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-5xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{maskinFilter === "alle" ? "Bonusgrundlag" : MASKIN_LABEL[maskinFilter]} — {maaned ? maanedNavn(maaned) : ""}</DialogTitle>
-        </DialogHeader>
-        {q.isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
-            <Loader2 className="h-4 w-4 animate-spin" /> Henter…
-          </div>
-        ) : q.error ? (
-          <p className="text-sm text-destructive">{(q.error as Error).message}</p>
-        ) : (
-          <div className="space-y-6 min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <Select value={maskinFilter} onValueChange={(value) => {
-                if (value === "alle" || value === "wittenborg" || value === "animo" || value === "rex") onFilterChange(value);
-              }}>
-                <SelectTrigger className="w-48" aria-label="Maskintype"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(MASKIN_LABEL) as MaskinFilter[]).map((key) => <SelectItem key={key} value={key}>{MASKIN_LABEL[key]}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-muted-foreground">{fmtTal(antalMaskiner)} maskiner · {antalKunder} kunder</p>
-            </div>
-            {maskinFilter === "alle" && (
-            <Tabel
-              titel="Dækningsbidrag"
-              rows={q.data?.db ?? []}
-              kolonner={dbKol}
-              sk={sortKey}
-              sd={sortDir}
-              onSort={(k) => {
-                if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                else {
-                  setSortKey(k);
-                  setSortDir("asc");
-                }
-              }}
-            />
-            )}
-            <Tabel
-              titel={maskinFilter === "alle" ? "Maskiner i måneden (udeladte vises med årsag)" : `${MASKIN_LABEL[maskinFilter]} — medregnede maskiner`}
-              rows={maskiner}
-              kolonner={maskKol}
-              sk={maskSortKey}
-              sd={maskSortDir}
-              onSort={(k) => {
-                if (maskSortKey === k) setMaskSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                else {
-                  setMaskSortKey(k);
-                  setMaskSortDir("asc");
-                }
-              }}
-            />
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
   );
 }
