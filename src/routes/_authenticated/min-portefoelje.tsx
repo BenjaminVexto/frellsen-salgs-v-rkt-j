@@ -70,7 +70,14 @@ export const Route = createFileRoute("/_authenticated/min-portefoelje")({
   component: PortfolioPage,
   validateSearch: (s: Record<string, unknown>): { fane?: string } =>
     typeof s.fane === "string" ? { fane: s.fane } : {},
-  head: () => ({ meta: [{ title: "Min salgsstatistik — Frellsen" }] }),
+  head: () => ({ meta: [
+    { title: "Min salgsstatistik — Frellsen" },
+    { name: "description", content: "Din salgsstatistik, portefølje og månedlige bonus hos Frellsen." },
+    { property: "og:title", content: "Min salgsstatistik — Frellsen" },
+    { property: "og:description", content: "Overblik over din portefølje, salg og bonus hos Frellsen." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
 });
 
 type SortKey =

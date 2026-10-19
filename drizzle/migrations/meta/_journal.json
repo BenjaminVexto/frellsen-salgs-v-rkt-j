@@ -743,6 +743,13 @@
       "when": 1792138795337,
       "tag": "0105_cvr_enhed",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1792420428670,
+      "tag": "0106_bonus_rettelser_oktober_2026",
+      "breakpoints": true
     }
   ]
 }

@@ -5104,6 +5104,9 @@ export type Database = {
           db_provision_pct: number
           maaned: string
           maskinbonus: number
+          ny_kunde_bonus: number
+          ny_kunde_db: number
+          ny_kunde_rang: number
           ordning_id: string
           samlet_bonus: number
         }[]
@@ -5739,6 +5742,10 @@ export type Database = {
               vaerdi: number
             }[]
           }
+      maskin_bonusklasse: {
+        Args: { _maaned: string; _type: string }
+        Returns: string
+      }
       maskin_er_tilvalg: { Args: { _txt: string }; Returns: boolean }
       maskin_maerke: { Args: { _txt: string }; Returns: string }
       maskin_modelfamilie: { Args: { _txt: string }; Returns: string }
@@ -5808,6 +5815,16 @@ export type Database = {
       my_afdelinger: { Args: never; Returns: number[] }
       navn_norm: { Args: { _n: string }; Returns: string }
       navn_ord: { Args: { _n: string }; Returns: string[] }
+      ny_kunde_bonus_maaned: {
+        Args: { _fra: string; _til: string }
+        Returns: {
+          beloeb: number
+          db: number
+          maaned: string
+          rang: number
+          saelger: string
+        }[]
+      }
       penhed_fjern_indirekte: {
         Args: { _afdeling_nr: number; _p_nummer: string }
         Returns: undefined
