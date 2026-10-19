@@ -1,4 +1,5 @@
 # Roadmap
+- [ ] Bonus oktober 2026: uændrede SQL-funktioner, fire satsrettelser, Ny kunde i tabel/Total/CSV, korrekt ordningstekst og kontrol.
 - [x] Salgsintelligens P-enheder: ansatte, dækning (location_pnr_link), UI, kundekort — plan med 5 rettelser
 - [x] Min salgsstatistik: stabil sælgervælger, indlæsning/fejl pr. tabel, forudberegnede tabeller, korrekt "Data opdateret til"
 - [ ] Sælger pr. lokation (godkendt plan + tilføjelser):
