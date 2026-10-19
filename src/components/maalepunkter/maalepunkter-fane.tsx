@@ -599,6 +599,7 @@ export function MaalepunkterFane({
     fodnote,
     periodeTotal,
     totaler,
+    visTotalRaekke = true,
   }: {
     nummer: number;
     titel: string;
@@ -622,6 +623,8 @@ export function MaalepunkterFane({
     periodeTotal?: { ly: Map<string, number> | null };
     /** Overstyrer Total-kolonnen (fx unikke kunder i stedet for sum af måneder). */
     totaler?: { rows: (number | undefined)[]; total: number | undefined };
+    /** Skjul Total-rækken nederst, når månedssummerne ikke betyder noget. */
+    visTotalRaekke?: boolean;
   }) => {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
@@ -901,15 +904,19 @@ export function MaalepunkterFane({
                     </td>
                   </tr>
                 ))}
-                <tr className="border-t-2 font-semibold">
-                  <td className="py-1.5 pr-3">Total</td>
-                  {maaneder.map((m) => (
-                    <td key={m} className="text-right py-1.5 px-2">
-                      {fmtTal(tot.get(m) ?? 0, dec)}
+                {visTotalRaekke && (
+                  <tr className="border-t-2 font-semibold">
+                    <td className="py-1.5 pr-3">Total</td>
+                    {maaneder.map((m) => (
+                      <td key={m} className="text-right py-1.5 px-2">
+                        {fmtTal(tot.get(m) ?? 0, dec)}
+                      </td>
+                    ))}
+                    <td className="text-right py-1.5 pl-3">
+                      {fmtTal(totaler ? (totaler.total ?? 0) : rowTotal(tot), dec)}
                     </td>
-                  ))}
-                  <td className="text-right py-1.5 pl-3">{fmtTal(totaler ? (totaler.total ?? 0) : rowTotal(tot), dec)}</td>
-                </tr>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -1067,6 +1074,7 @@ export function MaalepunkterFane({
         nummer={3}
         titel="Antal kunder pr. måned (aktive kunder)"
         visKey="kunder"
+        visTotalRaekke={false}
         rows={kunderTabel}
         totaler={
           kunderUnikkeQ.data
