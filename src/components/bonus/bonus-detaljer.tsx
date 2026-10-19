@@ -30,6 +30,15 @@ function DetailRows({ rows, cols }: { rows: any[]; cols: Kol[] }) {
 }
 export function BonusDetaljer({ drill, saelgerId, onClose }: { drill: BonusDrill | null; saelgerId: string; onClose: () => void }) {
   const [filter, setFilter] = useState<MaskinFilter>(drill?.filter ?? "alle");
+  const [visKunder, setVisKunder] = useState(false);
+  const kunderQ = useQuery({
+    queryKey: ["bonus-nykunde-detaljer", saelgerId, drill?.maaned], enabled: !!drill && drill.visning === "rangliste" && visKunder,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("bonus_nykunde_detaljer", { _saelger: saelgerId, _maaned: `${drill!.maaned}-01` });
+      if (error) throw error;
+      return (data ?? []).map((r) => ({ ...r, db: Number(r.db), omsaetning: Number(r.omsaetning) }));
+    },
+  });
   const q = useQuery({
     queryKey: ["bonus-separated-details", saelgerId, drill?.maaned, drill?.visning], enabled: !!drill,
     queryFn: async () => {
@@ -54,6 +63,11 @@ export function BonusDetaljer({ drill, saelgerId, onClose }: { drill: BonusDrill
     { key: "db", label: "DB", num: true, val: (r) => Number(r.db), cell: (r) => `${tal(r.db)} kr.` },
     { key: "omsaetning", label: "Omsætning", num: true, val: (r) => Number(r.omsaetning), cell: (r) => `${tal(r.omsaetning)} kr.` },
   ];
+  const nyCols: Kol[] = [
+    { key: "navn", label: "Virksomhed", cell: navn }, { key: "by", label: "By", cell: (r) => r.by || "—" },
+    { key: "db", label: "DB", num: true, val: (r) => Number(r.db), cell: (r) => `${tal(r.db)} kr.` },
+    { key: "omsaetning", label: "Omsætning", num: true, val: (r) => Number(r.omsaetning), cell: (r) => `${tal(r.omsaetning)} kr.` },
+  ];
   const maskCols: Kol[] = [
     { key: "navn", label: "Virksomhed", cell: navn }, { key: "by", label: "By", cell: (r) => r.by || "—" },
     { key: "model", label: "Model", cell: (r) => r.model || "—" }, { key: "serienr", label: "Serienr.", cell: (r) => <span className="font-mono text-xs">{r.serienr || "—"}</span> },
@@ -72,8 +86,8 @@ export function BonusDetaljer({ drill, saelgerId, onClose }: { drill: BonusDrill
       {drill?.visning === "db" && <><p className="text-sm text-muted-foreground">{new Set(rows.map((r) => r.company_id)).size} virksomheder · DB-grundlag {tal(rows.reduce((sum, r) => sum + Number(r.db), 0))} kr.</p><DetailRows rows={rows} cols={dbCols} /></>}
       {drill?.visning === "maskiner" && <><div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center"><Select value={filter} onValueChange={(v) => { if (v === "alle" || v === "wittenborg" || v === "animo" || v === "rex") setFilter(v); }}><SelectTrigger className="w-48" aria-label="Maskintype"><SelectValue /></SelectTrigger><SelectContent>{(Object.keys(MASKIN_LABEL) as MaskinFilter[]).map((k) => <SelectItem key={k} value={k}>{MASKIN_LABEL[k]}</SelectItem>)}</SelectContent></Select><p className="text-sm text-muted-foreground">{tal(machines.filter((r) => !r.udeladt).reduce((sum, r) => sum + Number(r.antal), 0))} maskiner · {new Set(machines.filter((r) => !r.udeladt).map((r) => r.company_id)).size} kunder</p></div><DetailRows rows={machines} cols={maskCols} /></>}
       {drill?.visning === "rangliste" && <>
-        {own && <div className="bg-muted rounded-md p-4 space-y-1"><p className="font-medium">{own.navn} · plads {own.rang} · {tal(own.db)} kr. i DB</p><div className="text-sm text-muted-foreground space-y-1">{gaps.map((g) => <p key={g.rang}>{tal(g.afstand)} kr. i DB op til {g.rang}. plads</p>)}{own.rang === 1 && <p className="flex items-center gap-2"><Trophy className="h-4 w-4 shrink-0" />Månedens vinder</p>}</div></div>}
-        {rows.length === 0 ? <p className="text-muted-foreground text-sm">Ingen bonusberettigede sælgere med positivt DB på nye kunder i denne måned.</p> : <div className="divide-y">{(rows as BonusPlacering[]).map((r) => <div key={r.saelger} className={`grid grid-cols-[2rem_minmax(0,1fr)_auto] gap-3 items-center py-4 px-2 ${r.saelger === saelgerId ? "bg-accent rounded-md" : ""}`}><span className="font-semibold tabular-nums">{r.rang === 1 ? <Trophy aria-label="Førsteplads" className="h-5 w-5 text-primary" /> : r.rang}</span><div className="min-w-0"><p className="font-medium break-words">{r.navn}</p><p className="text-xs text-muted-foreground">{r.beloeb ? `${tal(r.beloeb)} kr. i nykunde-bonus` : "Ingen nykunde-bonus"}</p></div><span className="font-semibold text-sm tabular-nums whitespace-nowrap">{tal(r.db)} kr.</span></div>)}</div>}
+        {own && <div className="bg-muted rounded-md p-4 space-y-1"><p className="font-medium">{own.navn} · plads {own.rang} · {tal(own.db)} kr. i DB</p><p className="text-xs text-muted-foreground">Tryk på dit tal i listen for at se kunderne bag.</p><div className="text-sm text-muted-foreground space-y-1">{gaps.map((g) => <p key={g.rang}>{tal(g.afstand)} kr. i DB op til {g.rang}. plads</p>)}{own.rang === 1 && <p className="flex items-center gap-2"><Trophy className="h-4 w-4 shrink-0" />Månedens vinder</p>}</div></div>}
+        {rows.length === 0 ? <p className="text-muted-foreground text-sm">Ingen bonusberettigede sælgere med positivt DB på nye kunder i denne måned.</p> : <div className="divide-y">{(rows as BonusPlacering[]).map((r) => <div key={r.saelger} className={`grid grid-cols-[2rem_minmax(0,1fr)_auto] gap-3 items-center py-4 px-2 ${r.saelger === saelgerId ? "bg-accent rounded-md" : ""}`}><span className="font-semibold tabular-nums">{r.rang === 1 ? <Trophy aria-label="Førsteplads" className="h-5 w-5 text-primary" /> : r.rang}</span><div className="min-w-0"><p className="font-medium break-words">{r.navn}</p><p className="text-xs text-muted-foreground">{r.beloeb ? `${tal(r.beloeb)} kr. i nykunde-bonus` : "Ingen nykunde-bonus"}</p></div>{r.saelger === saelgerId ? <Button variant="ghost" className="h-auto p-0 font-semibold text-sm tabular-nums whitespace-nowrap hover:underline underline-offset-4" aria-expanded={visKunder} onClick={() => setVisKunder((v) => !v)}>{tal(r.db)} kr.</Button> : <span className="font-semibold text-sm tabular-nums whitespace-nowrap">{tal(r.db)} kr.</span>}{r.saelger === saelgerId && visKunder && <div className="col-span-3 pt-2">{kunderQ.isLoading ? <div className="flex gap-2 items-center text-muted-foreground text-sm"><Loader2 className="h-4 w-4 animate-spin" />Henter kunder…</div> : kunderQ.error ? <p className="text-destructive text-sm">{kunderQ.error.message}</p> : <><p className="text-sm text-muted-foreground pb-1">{kunderQ.data?.length ?? 0} nye kunder · DB {tal((kunderQ.data ?? []).reduce((s, k) => s + k.db, 0))} kr.</p><DetailRows rows={kunderQ.data ?? []} cols={nyCols} /></>}</div>}</div>)}</div>}
       </>}
     </div>}
   </DialogContent></Dialog>;
