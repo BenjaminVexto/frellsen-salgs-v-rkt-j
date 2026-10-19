@@ -620,7 +620,7 @@ function BonusPanel({
         ) : q.error ? (
           <p className="text-sm text-destructive">{(q.error as Error).message}</p>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             <div className="flex flex-wrap items-center gap-3">
               <Select value={maskinFilter} onValueChange={(value) => {
                 if (value === "alle" || value === "wittenborg" || value === "animo" || value === "rex") onFilterChange(value);
