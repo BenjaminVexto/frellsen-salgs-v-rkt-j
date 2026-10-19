@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { beskrivOrdning, type BonusOrdning } from "@/lib/bonus-ordning";
+import { filtrerBonusMaskiner, MASKIN_LABEL, type MaskinFilter } from "@/lib/bonus-maskin-visning";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const mKey = (y: number, m0: number) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
 const parseM = (s: string) => ({ y: Number(s.slice(0, 4)), m0: Number(s.slice(5, 7)) - 1 });
@@ -74,6 +76,11 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
   const [tilRaw, setTilRaw] = useState(sidsteHele);
   const til = tilRaw > sidsteHele ? sidsteHele : tilRaw;
   const [drillMaaned, setDrillMaaned] = useState<string | null>(null);
+  const [maskinFilter, setMaskinFilter] = useState<MaskinFilter>("alle");
+  const aabnMaskiner = (maaned: string, filter: MaskinFilter) => {
+    setMaskinFilter(filter);
+    setDrillMaaned(maaned);
+  };
 
   const q = useQuery({
     queryKey: ["bonus-pr-maaned", saelgerId, fra, til],
@@ -310,7 +317,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                       <Button
                         variant="link"
                         className="h-auto p-0 font-normal text-foreground"
-                        onClick={() => setDrillMaaned(r.maaned)}
+                        onClick={() => aabnMaskiner(r.maaned, "alle")}
                       >
                         {maanedNavn(r.maaned)}
                       </Button>
@@ -323,10 +330,24 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                       {r.ordning_id ? `${fmtTal(r.db_provision_pct, 2)} %` : "—"}
                     </td>
                     <td className="text-right py-1.5 px-2">{fmtTal(r.db_bonus)}</td>
-                    <td className="text-right py-1.5 px-2">{fmtTal(r.antal_wittenborg)}</td>
-                    <td className="text-right py-1.5 px-2">{fmtTal(r.antal_animo)}</td>
-                    <td className="text-right py-1.5 px-2">{fmtTal(r.antal_rex)}</td>
-                    <td className="text-right py-1.5 px-2">{fmtTal(r.maskinbonus)}</td>
+                    {([
+                      ["wittenborg", r.antal_wittenborg],
+                      ["animo", r.antal_animo],
+                      ["rex", r.antal_rex],
+                    ] as const).map(([klasse, antal]) => (
+                      <td key={klasse} className="text-right py-1.5 px-2">
+                        <Button variant="link" className="h-8 min-w-8 p-0 tabular-nums underline underline-offset-4"
+                          aria-label={`${MASKIN_LABEL[klasse]} — ${maanedNavn(r.maaned)}: ${fmtTal(antal)} maskiner`}
+                          onClick={() => aabnMaskiner(r.maaned, klasse)}>
+                          {fmtTal(antal)}
+                        </Button>
+                      </td>
+                    ))}
+                    <td className="text-right py-1.5 px-2">
+                      <Button variant="link" className="h-8 min-w-8 p-0 tabular-nums underline underline-offset-4"
+                        aria-label={`Maskinbonus — ${maanedNavn(r.maaned)}`}
+                        onClick={() => aabnMaskiner(r.maaned, "alle")}>{fmtTal(r.maskinbonus)}</Button>
+                    </td>
                     <td className="text-right py-1.5 px-2">
                       {fmtTal(r.ny_kunde_bonus)}
                       {r.ny_kunde_db != null && r.ny_kunde_rang != null && (
@@ -377,6 +398,8 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
       <BonusPanel
         saelgerId={saelgerId}
         maaned={drillMaaned}
+        maskinFilter={maskinFilter}
+        onFilterChange={setMaskinFilter}
         onClose={() => setDrillMaaned(null)}
       />
     </div>
@@ -389,10 +412,14 @@ type Kol = { key: string; label: string; num?: boolean; val: (r: any) => any; ce
 function BonusPanel({
   saelgerId,
   maaned,
+  maskinFilter,
+  onFilterChange,
   onClose,
 }: {
   saelgerId: string;
   maaned: string | null;
+  maskinFilter: MaskinFilter;
+  onFilterChange: (filter: MaskinFilter) => void;
   onClose: () => void;
 }) {
   const q = useQuery({
@@ -415,6 +442,9 @@ function BonusPanel({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [maskSortKey, setMaskSortKey] = useState<string | null>(null);
   const [maskSortDir, setMaskSortDir] = useState<"asc" | "desc">("asc");
+  const maskiner = filtrerBonusMaskiner(q.data?.maskiner ?? [], maskinFilter);
+  const antalMaskiner = maskiner.filter((r) => !r.udeladt).reduce((sum, r) => sum + (Number(r.antal) || 0), 0);
+  const antalKunder = new Set(maskiner.filter((r) => !r.udeladt).map((r) => r.company_id)).size;
   useEffect(() => {
     setSortKey(null);
     setMaskSortKey(null);
@@ -541,20 +571,21 @@ function BonusPanel({
     sd: "asc" | "desc";
     onSort: (k: string) => void;
   }) => (
-    <div className="space-y-2">
+    <div className="space-y-2 min-w-0">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titel}</h3>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">Ingen linjer.</p>
       ) : (
+        <div className="overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
           <thead>
             <tr className="border-b text-left">
               {kolonner.map((k) => (
                 <th key={k.key} className={`py-2 pr-3 font-medium ${k.num ? "text-right" : ""}`}>
-                  <button type="button" className="hover:underline" onClick={() => onSort(k.key)}>
+                  <Button variant="ghost" className="h-auto p-0 font-medium hover:underline" onClick={() => onSort(k.key)}>
                     {k.label}
                     {sk === k.key ? (sd === "asc" ? " ▲" : " ▼") : ""}
-                  </button>
+                  </Button>
                 </th>
               ))}
             </tr>
@@ -571,15 +602,16 @@ function BonusPanel({
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );
 
   return (
     <Dialog open={!!maaned} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-5xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Bonusgrundlag — {maaned ? maanedNavn(maaned) : ""}</DialogTitle>
+          <DialogTitle>{maskinFilter === "alle" ? "Bonusgrundlag" : MASKIN_LABEL[maskinFilter]} — {maaned ? maanedNavn(maaned) : ""}</DialogTitle>
         </DialogHeader>
         {q.isLoading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
@@ -589,6 +621,18 @@ function BonusPanel({
           <p className="text-sm text-destructive">{(q.error as Error).message}</p>
         ) : (
           <div className="space-y-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={maskinFilter} onValueChange={(value) => {
+                if (value === "alle" || value === "wittenborg" || value === "animo" || value === "rex") onFilterChange(value);
+              }}>
+                <SelectTrigger className="w-48" aria-label="Maskintype"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(MASKIN_LABEL) as MaskinFilter[]).map((key) => <SelectItem key={key} value={key}>{MASKIN_LABEL[key]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">{fmtTal(antalMaskiner)} maskiner · {antalKunder} kunder</p>
+            </div>
+            {maskinFilter === "alle" && (
             <Tabel
               titel="Dækningsbidrag"
               rows={q.data?.db ?? []}
@@ -603,9 +647,10 @@ function BonusPanel({
                 }
               }}
             />
+            )}
             <Tabel
-              titel="Maskiner i måneden (udeladte vises med årsag)"
-              rows={q.data?.maskiner ?? []}
+              titel={maskinFilter === "alle" ? "Maskiner i måneden (udeladte vises med årsag)" : `${MASKIN_LABEL[maskinFilter]} — medregnede maskiner`}
+              rows={maskiner}
               kolonner={maskKol}
               sk={maskSortKey}
               sd={maskSortDir}
