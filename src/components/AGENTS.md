@@ -1,1 +1,2 @@
 - The customer Locations tab merges CVR coverage, account locations and account summaries in presentation only; load other-account details on expansion and paginate rows — so large CVR groups stay responsive.
+- Shared Calendar defaults to native month/year dropdowns and a future navigation horizon, with larger touch targets on mobile; callers retain explicit bounds and disabled-date rules — so distant dates are easy to reach without changing date validation.
