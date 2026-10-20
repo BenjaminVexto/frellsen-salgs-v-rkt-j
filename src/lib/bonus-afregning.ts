@@ -30,8 +30,8 @@ export function loenfilRaekker(
 ): LoenfilRaekke[] {
   const date = loenfilDato(maaned);
   return saelgere.flatMap((s) => [
-    { CVR: LOENFIL_CVR, Name: "Provision 1", "Employee Number": s.loennr ?? "", Date: date, "Project ID": "", "Type ID": 1561, Number: 1, Amount: r2(s.loen_1561) },
-    { CVR: LOENFIL_CVR, Name: "Provision 2", "Employee Number": s.loennr ?? "", Date: date, "Project ID": "", "Type ID": 1563, Number: 1, Amount: r2(s.loen_1563) },
+    { CVR: LOENFIL_CVR, Name: "Provision 1", "Employee Number": s.loennr ?? "", Date: date, "Project ID": "Provision 1", "Type ID": 1561, Number: 1, Amount: r2(s.loen_1561) },
+    { CVR: LOENFIL_CVR, Name: "Provision 2", "Employee Number": s.loennr ?? "", Date: date, "Project ID": "Provision 2", "Type ID": 1563, Number: 1, Amount: r2(s.loen_1563) },
   ]);
 }
 

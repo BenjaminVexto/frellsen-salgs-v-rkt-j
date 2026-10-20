@@ -806,6 +806,13 @@
       "when": 1792479771829,
       "tag": "0114_loennr_kun_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1792480213254,
+      "tag": "0115_bonus_efterregulering_kun_db_og_maskiner",
+      "breakpoints": true
     }
   ]
 }
