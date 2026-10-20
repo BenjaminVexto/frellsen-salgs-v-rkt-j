@@ -17,6 +17,10 @@ const tomSatser = (): Satser => ({
   bonus_wittenborg: 500,
   bonus_animo: 500,
   bonus_rex: 750,
+  bonus_kalerm: 500,
+  bonus_espresso: 500,
+  bonus_brugt: 250,
+  ombytning_mdr: 24,
   maskin_privat: true,
   maskin_offentlig: true,
   maskin_salg: true,
@@ -100,6 +104,10 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
       bonus_wittenborg: Number(o.bonus_wittenborg),
       bonus_animo: Number(o.bonus_animo),
       bonus_rex: Number(o.bonus_rex),
+      bonus_kalerm: Number(o.bonus_kalerm ?? 500),
+      bonus_espresso: Number(o.bonus_espresso ?? 500),
+      bonus_brugt: Number(o.bonus_brugt ?? 250),
+      ombytning_mdr: Number(o.ombytning_mdr ?? 24),
       maskin_privat: o.maskin_privat,
       maskin_offentlig: o.maskin_offentlig,
       maskin_salg: o.maskin_salg,
@@ -311,6 +319,9 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
               ["bonus_wittenborg", "Wittenborg"],
               ["bonus_animo", "Animo"],
               ["bonus_rex", "Rex-Royal"],
+              ["bonus_kalerm", "Kalerm"],
+              ["bonus_espresso", "Espresso"],
+              ["bonus_brugt", "Brugt maskine"],
             ] as const
           ).map(([key, label]) => (
             <div key={key}>
@@ -339,6 +350,14 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
             {label}
           </label>
         ))}
+        <div className="flex items-center gap-2">
+          <Input
+            className="w-20"
+            value={String(form.ombytning_mdr)}
+            onChange={(e) => setForm({ ...form, ombytning_mdr: Math.round(num(e.target.value)) })}
+          />
+          <span className="text-sm text-muted-foreground">måneder — ombytning inden for denne periode giver ikke bonus</span>
+        </div>
         {bundTop("maskin_bund", "maskin_top")}
       </div>
 

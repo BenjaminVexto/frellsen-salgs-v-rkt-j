@@ -10,6 +10,12 @@ export type BonusOrdning = {
   bonus_wittenborg: number;
   bonus_animo: number;
   bonus_rex: number;
+  bonus_kalerm: number;
+  bonus_espresso: number;
+  /** Fast beløb for en brugt maskine uanset model. */
+  bonus_brugt: number;
+  /** Måneder bagud hvor en erstattet maskine gør en ny placering til mulig ombytning. */
+  ombytning_mdr: number;
   maskin_privat: boolean;
   maskin_offentlig: boolean;
   maskin_salg: boolean;
@@ -93,6 +99,9 @@ export function beskrivOrdning(o: BonusOrdning): string {
     if (a > 0) satser.push(`${tal(a)} kr. pr. Animo`);
   }
   if (r > 0) satser.push(`${tal(r)} kr. pr. Rex-Royal`);
+  if (Number(o.bonus_kalerm) > 0) satser.push(`${tal(Number(o.bonus_kalerm))} kr. pr. Kalerm`);
+  if (Number(o.bonus_espresso) > 0) satser.push(`${tal(Number(o.bonus_espresso))} kr. pr. espressomaskine`);
+  if (o.maskin_brugt && Number(o.bonus_brugt) > 0) satser.push(`${tal(Number(o.bonus_brugt))} kr. pr. brugt maskine`);
 
   const typer: string[] = [];
   if (o.maskin_salg) typer.push("salg");
