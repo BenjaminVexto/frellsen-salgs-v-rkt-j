@@ -486,7 +486,7 @@ function KontaktlisteDetalje() {
                 <p className="whitespace-pre-wrap">{list.purpose}</p>
               </div>
             )}
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
               <Progress value={pct} className="h-2 flex-1 max-w-md" />
               <span className="text-sm text-muted-foreground whitespace-nowrap">
                 {kontaktet} af {total} kontaktet ({pct}%)
