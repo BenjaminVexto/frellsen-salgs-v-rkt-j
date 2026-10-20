@@ -35,7 +35,7 @@ Beregningen (bonus_pr_maaned, bonus_maskin_grundlag, ny kunde-funktionerne) og r
 - Lønart-regel: flatrate → 1561 = flatrate, 1563 = 0 + reguleringer; ellers 1561 = DB-provision + 1561-reguleringer, 1563 = maskiner + ny kunde + 1563-reguleringer.
 - Klik på sælger → åbner Bonus-fanen for sælgeren.
 - Reguleringsliste under tabellen + "Tilføj regulering" (sælger, lønart, beløb ±, tekst) og slet.
-- Knapper "Lås [måned]" / "Lås op" (med begrundelse) og "Hent lønfil" (xlsx og csv, kun låste måneder): CVR 25340604 | Name | Employee Number | Date (1. i næste måned, dd-mm-åååå; i xlsx en rigtig dato-celle) | Project ID ("Provision 1"/"Provision 2") | Type ID | Number 1 | Amount (2 decimaler); to rækker pr. sælger "Provision 1"/1561 og "Provision 2"/1563, også ved 0.
+- Knapper "Lås [måned]" / "Lås op" (med begrundelse) og "Hent lønfil" (xlsx og csv, kun låste måneder): CVR 25340604 | Name (sælgerens fulde navn) | Employee Number | Date (1. i næste måned, dd-mm-åååå; i xlsx en rigtig dato-celle) | Project ID ("Provision 1"/"Provision 2") | Type ID | Number 1 | Amount (2 decimaler); to rækker pr. sælger "Provision 1"/1561 og "Provision 2"/1563, også ved 0.
 
 ## 5. Lønnummer
 - Ny kolonne profiles.loennr; sættes for Jes 5707, Mads 5830, Malene 5883, Anders 5863, Claus 5806, Ole 5725 (som dataopdatering). Redigerbart for admin på brugersiden og direkte i Afregning.
