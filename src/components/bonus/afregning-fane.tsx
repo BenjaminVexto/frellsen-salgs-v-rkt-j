@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,10 +24,18 @@ const kr = (n: number, dec = 2) => n.toLocaleString("da-DK", { minimumFractionDi
 const N = (v: unknown) => Number(v) || 0;
 
 type Raekke = {
-  user_id: string; navn: string; loennr: string | null; laast: boolean;
+  user_id: string; navn: string; loennr: string | null; laast: boolean; beregnes?: boolean;
   db_grundlag: number; db_bonus: number; w: number; a: number; r: number; maskinbonus: number;
   ny_kunde_bonus: number; regulering: number; i_alt: number; loen_1561: number; loen_1563: number;
 };
+
+let aktive = 0;
+const venter: (() => void)[] = [];
+async function begraens<T>(fn: () => Promise<T>): Promise<T> {
+  if (aktive >= 2) await new Promise<void>((r) => venter.push(r));
+  aktive++;
+  try { return await fn(); } finally { aktive--; venter.shift()?.(); }
+}
 
 export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => void }) {
   const qc = useQueryClient();
@@ -76,29 +84,23 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
   const saelgere = saelgereQ.data ?? [];
   const laastIds = new Set(laasRows.map((l) => l.user_id));
 
-  // Live-beregning tager ~7 sek. pr. sælger; kør højst to ad gangen, så databasen ikke når sin tidsgrænse.
+  // Live-beregning tager ~7 sek. pr. sælger; højst to ad gangen, og rækkerne fyldes ud efterhånden.
   const aabne = saelgere.filter((s) => !laastIds.has(s.user_id)).map((s) => s.user_id);
-  const liveQ = useQuery({
-    queryKey: ["afregning-live", maaned, aabne.join(",")],
-    enabled: !laasQ.isLoading && aabne.length > 0,
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const ud = new Map<string, any>();
-      const koe = [...aabne];
-      const arbejder = async () => {
-        while (koe.length) {
-          const id = koe.shift()!;
-          const { data, error } = await (supabase as any).rpc("bonus_pr_maaned", { _saelger: id, _fra: m1, _til: m1 });
-          if (error) throw new Error(error.message);
-          ud.set(id, (data ?? [])[0] ?? null);
-        }
-      };
-      await Promise.all([arbejder(), arbejder()]);
-      return ud;
-    },
+  const liveQs = useQueries({
+    queries: aabne.map((id) => ({
+      queryKey: ["bonus-pr-maaned", id, maaned, maaned],
+      enabled: !laasQ.isLoading,
+      staleTime: 5 * 60_000,
+      queryFn: () => begraens(async () => {
+        const { data, error } = await (supabase as any).rpc("bonus_pr_maaned", { _saelger: id, _fra: m1, _til: m1 });
+        if (error) throw new Error(error.message);
+        return ((data ?? [])[0] ?? null) as any;
+      }),
+    })),
   });
-  const liveMap = liveQ.data ?? new Map<string, any>();
-  const liveLoading = liveQ.isFetching;
+  const liveMap = new Map<string, any>(aabne.flatMap((id, i) => (liveQs[i]?.data !== undefined ? [[id, liveQs[i].data]] : [])));
+  const liveLoading = liveQs.some((q) => q.isFetching);
+  const liveFejl = liveQs.find((q) => q.error)?.error;
 
   const rows: Raekke[] = useMemo(() => saelgere.map((s) => {
     const l = laasRows.find((x) => x.user_id === s.user_id);
@@ -109,13 +111,14 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
       i_alt: N(l.samlet_bonus) + N(l.regulering), loen_1561: N(l.loen_1561), loen_1563: N(l.loen_1563),
     };
     const b = liveMap.get(s.user_id);
+    const beregnes = !liveMap.has(s.user_id);
     const regs = (regQ.data ?? []).filter((r) => r.user_id === s.user_id);
     const r1 = regs.filter((r) => r.loenart === 1561).reduce((t, r) => t + N(r.beloeb), 0);
     const r3 = regs.filter((r) => r.loenart === 1563).reduce((t, r) => t + N(r.beloeb), 0);
     const samlet = N(b?.samlet_bonus);
     const g = loenartGrundlag({ db_bonus: N(b?.db_bonus), samlet_bonus: samlet }, s.flatrate == null ? null : N(s.flatrate));
     return {
-      user_id: s.user_id, navn: s.navn ?? "—", loennr: s.loennr, laast: false,
+      user_id: s.user_id, navn: s.navn ?? "—", loennr: s.loennr, laast: false, beregnes,
       db_grundlag: N(b?.db_grundlag), db_bonus: N(b?.db_bonus), w: N(b?.antal_wittenborg), a: N(b?.antal_animo), r: N(b?.antal_rex),
       maskinbonus: N(b?.maskinbonus), ny_kunde_bonus: N(b?.ny_kunde_bonus), regulering: r1 + r3,
       i_alt: samlet + r1 + r3, loen_1561: g.l1561 + r1, loen_1563: g.l1563 + r3,
@@ -204,7 +207,7 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
   };
 
   const indlaeser = saelgereQ.isLoading || laasQ.isLoading || logQ.isLoading;
-  const fejl = saelgereQ.error || laasQ.error || regQ.error || liveQ.error;
+  const fejl = saelgereQ.error || laasQ.error || regQ.error || liveFejl;
   const delvis = laasRows.length > 0 && !faerdigLaast;
   const naeste = addM(maaned, 1);
 
@@ -265,7 +268,7 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
                     <td className="py-1.5 px-2 text-right font-semibold">{kr(r.i_alt)}</td>
                     <td className="py-1.5 px-2 text-right">{kr(r.loen_1561)}</td>
                     <td className="py-1.5 px-2 text-right">{kr(r.loen_1563)}</td>
-                    <td className="py-1.5 pl-2">{r.laast ? <span className="inline-flex items-center gap-1"><Lock className="h-3 w-3" />Låst</span> : "Åben"}</td>
+                    <td className="py-1.5 pl-2">{r.laast ? <span className="inline-flex items-center gap-1"><Lock className="h-3 w-3" />Låst</span> : r.beregnes ? <span className="inline-flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Beregner</span> : "Åben"}</td>
                   </tr>
                 ))}
                 <tr className="border-t-2 font-semibold">
