@@ -190,7 +190,7 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
   };
 
   const hentLoenfil = (type: "xlsx" | "csv") => {
-    const data = loenfilRaekker(maaned, rows.map((r) => ({ loennr: r.loennr, loen_1561: r.loen_1561, loen_1563: r.loen_1563 })));
+    const data = loenfilRaekker(maaned, rows.map((r) => ({ navn: r.navn, loennr: r.loennr, loen_1561: r.loen_1561, loen_1563: r.loen_1563 })));
     const filnavn = `loenfil-bonus-${maaned}`;
     if (type === "xlsx") {
       // Date som rigtig dato-celle (dd-mm-åååå), ikke tekst.
