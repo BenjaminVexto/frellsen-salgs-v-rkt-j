@@ -501,9 +501,93 @@ export type Database = {
         }
         Relationships: []
       }
+      bonus_maskin_vurdering: {
+        Row: {
+          aarsag: string | null
+          besluttet_af: string | null
+          besluttet_at: string
+          godkendt: boolean | null
+          id: string
+          maaned: string
+          ny_brugt: string | null
+          serienr: string
+          tjekliste: Json
+          user_id: string
+        }
+        Insert: {
+          aarsag?: string | null
+          besluttet_af?: string | null
+          besluttet_at?: string
+          godkendt?: boolean | null
+          id?: string
+          maaned: string
+          ny_brugt?: string | null
+          serienr: string
+          tjekliste?: Json
+          user_id: string
+        }
+        Update: {
+          aarsag?: string | null
+          besluttet_af?: string | null
+          besluttet_at?: string
+          godkendt?: boolean | null
+          id?: string
+          maaned?: string
+          ny_brugt?: string | null
+          serienr?: string
+          tjekliste?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bonus_maskin_vurdering_log: {
+        Row: {
+          aarsag: string | null
+          godkendt: boolean | null
+          handling: string
+          id: number
+          maaned: string
+          ny_brugt: string | null
+          serienr: string
+          tjekliste: Json | null
+          udfoert_af: string | null
+          udfoert_at: string
+          user_id: string
+        }
+        Insert: {
+          aarsag?: string | null
+          godkendt?: boolean | null
+          handling: string
+          id?: number
+          maaned: string
+          ny_brugt?: string | null
+          serienr: string
+          tjekliste?: Json | null
+          udfoert_af?: string | null
+          udfoert_at?: string
+          user_id: string
+        }
+        Update: {
+          aarsag?: string | null
+          godkendt?: boolean | null
+          handling?: string
+          id?: number
+          maaned?: string
+          ny_brugt?: string | null
+          serienr?: string
+          tjekliste?: Json | null
+          udfoert_af?: string | null
+          udfoert_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bonus_ordning: {
         Row: {
           bonus_animo: number
+          bonus_brugt: number
+          bonus_espresso: number
+          bonus_kalerm: number
           bonus_rex: number
           bonus_wittenborg: number
           created_at: string
@@ -525,6 +609,7 @@ export type Database = {
           maskin_privat: boolean
           maskin_salg: boolean
           maskin_top: number | null
+          ombytning_mdr: number
           overtagelse_mdr: number
           total_bund: number | null
           total_top: number | null
@@ -532,6 +617,9 @@ export type Database = {
         }
         Insert: {
           bonus_animo?: number
+          bonus_brugt?: number
+          bonus_espresso?: number
+          bonus_kalerm?: number
           bonus_rex?: number
           bonus_wittenborg?: number
           created_at?: string
@@ -553,6 +641,7 @@ export type Database = {
           maskin_privat?: boolean
           maskin_salg?: boolean
           maskin_top?: number | null
+          ombytning_mdr?: number
           overtagelse_mdr?: number
           total_bund?: number | null
           total_top?: number | null
@@ -560,6 +649,9 @@ export type Database = {
         }
         Update: {
           bonus_animo?: number
+          bonus_brugt?: number
+          bonus_espresso?: number
+          bonus_kalerm?: number
           bonus_rex?: number
           bonus_wittenborg?: number
           created_at?: string
@@ -581,6 +673,7 @@ export type Database = {
           maskin_privat?: boolean
           maskin_salg?: boolean
           maskin_top?: number | null
+          ombytning_mdr?: number
           overtagelse_mdr?: number
           total_bund?: number | null
           total_top?: number | null
@@ -5156,6 +5249,15 @@ export type Database = {
         Returns: undefined
       }
       bonus_laas_start: { Args: { _maaned: string }; Returns: string[] }
+      bonus_maskin_advarsler: {
+        Args: { _maaned: string }
+        Returns: {
+          navn: string
+          til_vurdering: number
+          uklassificeret: number
+          user_id: string
+        }[]
+      }
       bonus_maskin_detaljer: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
@@ -5164,15 +5266,23 @@ export type Database = {
           beloeb: number
           bonusklasse: string
           brugt: boolean
+          brugt_kilde: string
           by: string
           company_id: string
           faktura_dato: string
+          forgaenger_dato: string
+          forgaenger_serienr: string
+          godkendt: boolean
           kilde: string
+          maaned: string
           maerke: string
           model: string
           navn: string
+          sats: number
           serienr: string
+          status: string
           udeladt: boolean
+          vurdering: string
         }[]
       }
       bonus_maskin_grundlag: {
@@ -5183,17 +5293,24 @@ export type Database = {
           beloeb: number
           bonusklasse: string
           brugt: boolean
+          brugt_kilde: string
           by: string
           company_id: string
           faktura_dato: string
+          forgaenger_dato: string
+          forgaenger_serienr: string
+          godkendt: boolean
           kategori: string
           kilde: string
+          lev_kundenr: string
           maaned: string
           maerke: string
           model: string
           navn: string
           serienr: string
+          status: string
           udeladt: boolean
+          vurdering: string
         }[]
       }
       bonus_maskin_grundlag_faktura: {
@@ -5237,6 +5354,9 @@ export type Database = {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
           antal_animo: number
+          antal_brugt: number
+          antal_espresso: number
+          antal_kalerm: number
           antal_rex: number
           antal_wittenborg: number
           db_bonus: number

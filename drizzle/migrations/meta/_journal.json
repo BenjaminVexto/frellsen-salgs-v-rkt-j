@@ -820,6 +820,13 @@
       "when": 1792480479862,
       "tag": "0116_bonus_regulering_aaben_pr_saelger",
       "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1792493839674,
+      "tag": "0117_maskinbonus_regler_2026_10_20",
+      "breakpoints": true
     }
   ]
 }
