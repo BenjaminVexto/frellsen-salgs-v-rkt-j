@@ -755,7 +755,7 @@ export function LokationerSektion({
   const detaljer = (g: AdresseGruppe) => (
     <div className="pl-6 pr-3 pb-3">
       {adresseFaelles(g)}
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center flex-wrap justify-between gap-2 [&>div]:px-0">
         {g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0) && (
           <UdskrivMaskinlisteKnap
             lille
@@ -764,7 +764,6 @@ export function LokationerSektion({
             locationIds={g.locs.map((l) => l.id)}
           />
         )}
-      </div>
       {cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
         <AdressePenhedKobling
           pnr={g.pnr}
@@ -777,6 +776,7 @@ export function LokationerSektion({
           onChanged={() => { pnrQ.refetch(); oversigtQ.refetch(); }}
         />
       )}
+      </div>
       <ul className="divide-y mt-1 rounded-md border bg-background px-3">
         {g.locs.map((l) => (
           <LokationRow
