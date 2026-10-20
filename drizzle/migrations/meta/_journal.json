@@ -813,6 +813,13 @@
       "when": 1792480213254,
       "tag": "0115_bonus_efterregulering_kun_db_og_maskiner",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1792480479862,
+      "tag": "0116_bonus_regulering_aaben_pr_saelger",
+      "breakpoints": true
     }
   ]
 }
