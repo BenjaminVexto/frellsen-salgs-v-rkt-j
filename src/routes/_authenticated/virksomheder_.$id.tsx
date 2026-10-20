@@ -1,3 +1,4 @@
+import { gemSenestAabnet } from "@/lib/senest-aabnet";
 import { useViewAs, useEffektivRolle } from "@/contexts/view-as-context";
 import { KundeVaerdiLinje } from "@/components/sales/kunde-vaerdi";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -300,6 +301,7 @@ function VirksomhedsKort() {
         .eq("company_id", id),
     ]);
     setCompany(c ?? null);
+    if (c) gemSenestAabnet(user?.id, { id: (c as any).id, name: (c as any).name, city: (c as any).city ?? null });
     setContacts(ct ?? []);
     setActivities(a ?? []);
     setAssignments(asg ?? []);
