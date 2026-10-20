@@ -834,6 +834,13 @@
       "when": 1792493898974,
       "tag": "0118_maskin_bonusklasse_ukendt_til_vare",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1792494027629,
+      "tag": "0119_maskin_bonusklasse_friskvand",
+      "breakpoints": true
     }
   ]
 }
