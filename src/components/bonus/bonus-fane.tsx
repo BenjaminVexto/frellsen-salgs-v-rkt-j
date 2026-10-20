@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar, Download, Info, Loader2 } from "lucide-react";
+import { Calendar, Download, Info, Loader2, Lock } from "lucide-react";
 import { BonusRegler, ReglerInfo, type ReglerAfsnit } from "./bonus-regler";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -46,6 +46,8 @@ type Rk = {
   ny_kunde_rang: number | null;
   ny_kunde_bonus: number;
   samlet_bonus: number;
+  laast_at?: string | null;
+  maskiner?: any[] | null;
 };
 
 /**
@@ -76,7 +78,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
   const til = tilRaw > sidsteHele ? sidsteHele : tilRaw;
   const [drill, setDrill] = useState<BonusDrill | null>(null);
   const aabn = (r: Rk, visning: BonusDrill["visning"], filter: MaskinFilter = "alle") =>
-    setDrill({ maaned: r.maaned, visning, filter, bonus: visning === "db" ? r.db_bonus : r.maskinbonus });
+    setDrill({ maaned: r.maaned, visning, filter, bonus: visning === "db" ? r.db_bonus : r.maskinbonus, snapshot: r.maskiner ?? null });
   const klik = "h-auto min-h-8 p-0 font-normal text-foreground tabular-nums no-underline hover:underline focus-visible:underline underline-offset-4";
 
   const q = useQuery({
@@ -121,7 +123,29 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
     },
   });
 
-  const rows = q.data ?? [];
+  // Låste (udbetalte) måneder vises med de gemte tal — ikke en ny beregning.
+  const laasQ = useQuery({
+    queryKey: ["bonus-laas", saelgerId, fra, til],
+    enabled: !!saelgerId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("bonus_laas").select("*").eq("user_id", saelgerId)
+        .gte("maaned", firstDay(fra)).lte("maaned", firstDay(til));
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const rows = useMemo(() => (q.data ?? []).map((r): Rk => {
+    const l = (laasQ.data ?? []).find((x) => String(x.maaned).slice(0, 7) === r.maaned);
+    if (!l) return r;
+    return {
+      ...r, ordning_id: l.ordning_id, db_grundlag: Number(l.db_grundlag), db_provision_pct: Number(l.db_provision_pct),
+      db_bonus: Number(l.db_bonus), antal_wittenborg: Number(l.antal_wittenborg), antal_animo: Number(l.antal_animo),
+      antal_rex: Number(l.antal_rex), maskinbonus: Number(l.maskinbonus),
+      ny_kunde_db: l.ny_kunde_db == null ? null : Number(l.ny_kunde_db), ny_kunde_rang: l.ny_kunde_rang,
+      ny_kunde_bonus: Number(l.ny_kunde_bonus), samlet_bonus: Number(l.samlet_bonus),
+      laast_at: l.laast_at, maskiner: Array.isArray(l.maskiner) ? (l.maskiner as any[]) : [],
+    };
+  }), [q.data, laasQ.data]);
   const brugteOrdninger = useMemo(() => {
     const ids = new Set(rows.map((r) => r.ordning_id).filter(Boolean) as string[]);
     return (ordningerQ.data ?? []).filter((o) => ids.has(o.id));
@@ -329,6 +353,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                       >
                         {maanedNavn(r.maaned)}
                       </Button>
+                      {r.laast_at && <LaasIkon dato={r.laast_at} />}
                       {!r.ordning_id && (
                         <span className="ml-2 text-xs text-muted-foreground">ingen ordning</span>
                       )}
@@ -388,7 +413,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
 
         {!q.isLoading && !q.error && <div className="md:hidden divide-y">
           {rows.map((r) => <article key={r.maaned} className="py-4 space-y-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"><h3 className="font-medium">{maanedNavn(r.maaned)}</h3><span className="font-semibold tabular-nums">{fmtTal(r.samlet_bonus)} kr.</span></div>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"><h3 className="font-medium">{maanedNavn(r.maaned)}{r.laast_at && <LaasIkon dato={r.laast_at} />}</h3><span className="font-semibold tabular-nums">{fmtTal(r.samlet_bonus)} kr.</span></div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <div><dt className="text-xs text-muted-foreground">DB-grundlag</dt><dd><Button variant="link" className={klik} onClick={() => aabn(r, "db")}>{fmtTal(r.db_grundlag)} kr.</Button></dd></div>
               <div><dt className="text-xs text-muted-foreground">DB-bonus · {fmtTal(r.db_provision_pct, 2)} %</dt><dd><Button variant="link" className={klik} aria-label={`DB-bonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_bonus)} kr.</Button></dd></div>
@@ -412,5 +437,14 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
       <BonusDetaljer key={`${saelgerId}-${drill?.maaned}-${drill?.visning}-${drill?.filter}`} saelgerId={saelgerId} drill={drill} onClose={() => setDrill(null)} onRegler={() => aabnRegler("maskiner")} />
       <BonusRegler open={regler !== null} afsnit={regler ?? "top"} ordning={aktuelOrdning} onOpenChange={(o) => { if (!o) setRegler(null); }} />
     </div>
+  );
+}
+
+function LaasIkon({ dato }: { dato: string }) {
+  const t = `Låst og udbetalt ${fmtDato(dato)}`;
+  return (
+    <span title={t} aria-label={t} role="img" className="ml-1.5 inline-flex align-middle text-muted-foreground">
+      <Lock className="h-3.5 w-3.5" />
+    </span>
   );
 }

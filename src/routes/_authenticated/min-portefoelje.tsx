@@ -42,6 +42,7 @@ import { AnalyseFane } from "@/components/analyse/analyse-fane";
 import { MaalepunkterFane } from "@/components/maalepunkter/maalepunkter-fane";
 import { BonusFane } from "@/components/bonus/bonus-fane";
 import { SalgskortFane } from "@/components/salgskort/salgskort-fane";
+import { AfregningFane } from "@/components/bonus/afregning-fane";
 import { getPortfolioKontakter } from "@/lib/portfolio-kontakter.functions";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
@@ -134,7 +135,7 @@ function PortfolioPage() {
   const [visibleCount, setVisibleCount] = useState(FOERSTE_VISNING);
   const [rankingsExpanded, setRankingsExpanded] = useState(false);
   const urlFane = Route.useSearch().fane;
-  const [tabState, setTabState] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus" | "salgskort">(() =>
+  const [tabState, setTabState] = useState<"portefoelje" | "analyse" | "maalepunkter" | "bonus" | "salgskort" | "afregning">(() =>
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null)
       ? "maalepunkter"
       : "portefoelje",
@@ -159,7 +160,7 @@ function PortfolioPage() {
   // Salgssupport har ikke bonusordning — skjul bonusfanen for dem.
   const visBonus = visMaalepunkter && auth.role !== "salgssupport";
   const visSalgskort = auth.role === "admin";
-  const tilladte = new Set<string>(["portefoelje", ...(visAnalyse ? ["analyse"] : []), ...(visMaalepunkter ? ["maalepunkter"] : []), ...(visBonus ? ["bonus"] : []), ...(visSalgskort ? ["salgskort"] : [])]);
+  const tilladte = new Set<string>(["portefoelje", ...(visAnalyse ? ["analyse"] : []), ...(visMaalepunkter ? ["maalepunkter"] : []), ...(visBonus ? ["bonus"] : []), ...(visSalgskort ? ["salgskort", "afregning"] : [])]);
   const tab = (urlFane && tilladte.has(urlFane) ? urlFane : tabState) as typeof tabState;
   const setTab = (v: typeof tabState) => {
     setTabState(v);
@@ -926,6 +927,7 @@ function PortfolioPage() {
             {visAnalyse && <TabsTrigger value="analyse">Analyse</TabsTrigger>}
             {visBonus && <TabsTrigger value="bonus">Bonus</TabsTrigger>}
             {visSalgskort && <TabsTrigger value="salgskort">Salgskort</TabsTrigger>}
+            {visSalgskort && <TabsTrigger value="afregning">Afregning</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="portefoelje">{portefoeljeIndhold}</TabsContent>
@@ -956,6 +958,11 @@ function PortfolioPage() {
           {visSalgskort && tab === "salgskort" && (
             <TabsContent value="salgskort">
               <SalgskortFane />
+            </TabsContent>
+          )}
+          {visSalgskort && tab === "afregning" && (
+            <TabsContent value="afregning">
+              <AfregningFane onVisSaelger={(id) => { setSellerId(id); setTabValgt(true); setTab("bonus"); }} />
             </TabsContent>
           )}
         </Tabs>
