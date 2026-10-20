@@ -1355,7 +1355,18 @@ function pickTaellerstand(data: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function EquipmentBox({ location }: { location: Location }) {
+function EquipmentBox({
+  location,
+  locationIds,
+  skjulSortering = false,
+}: {
+  location: Location;
+  /** Samlet visning for flere konti på samme adresse (mobil). */
+  locationIds?: string[];
+  skjulSortering?: boolean;
+}) {
+  const ids = locationIds ?? [location.id];
+  const idsKey = ids.join(",");
   const suppressionFn = useServerFn(getMasterAgreementSuppression);
   const suppressionQ = useQuery({
     queryKey: ["master-agreement-suppression", location.company_id],
@@ -1392,18 +1403,30 @@ function EquipmentBox({ location }: { location: Location }) {
       const { data } = await (supabase as any)
         .from("location_equipment_units")
         .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, udstyr_type, afdeling_nr")
-        .eq("location_id", location.id)
+        .in("location_id", ids)
         .order("is_filter", { ascending: true })
         .order("machine_type", { ascending: true });
       if (!cancelled) {
-        setUnits((data ?? []) as EquipmentUnit[]);
+        let liste = (data ?? []) as EquipmentUnit[];
+        // Samlet adressevisning: én række pr. serienr. på tværs af konti.
+        if (locationIds) {
+          const set = new Set<string>();
+          liste = liste.filter((u) => {
+            const sn = !u.is_filter ? u.serial_no?.trim() : null;
+            if (!sn) return true;
+            if (set.has(sn)) return false;
+            set.add(sn);
+            return true;
+          });
+        }
+        setUnits(liste);
         setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [location.id]);
+  }, [idsKey]);
 
   // Hent enrichment for de serienr-bærende maskiner
   useEffect(() => {
@@ -1430,7 +1453,7 @@ function EquipmentBox({ location }: { location: Location }) {
         .in("serienr", serials);
       const [{ data: mData }, { data: lejeData }] = await Promise.all([
         (supabase as any).from("machines").select("serienr, udlanstype").eq("record_status", "aktiv").in("serienr", serials),
-        (supabase as any).rpc("lokationer_med_leje", { _location_ids: [location.id] }),
+        (supabase as any).rpc("lokationer_med_leje", { _location_ids: ids }),
       ]);
       if (cancelled) return;
       const u = new Map<string, string>();
@@ -1858,7 +1881,7 @@ null
 
       {machines.length > 0 ? (
         <>
-          {machines.length > 0 && (
+          {machines.length > 0 && !skjulSortering && (
             <div className="flex items-center justify-end mb-1.5">
               <select
                 value={sortMode}
