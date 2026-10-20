@@ -146,6 +146,8 @@ const BONUSKLASSE_LABEL: Record<string, string> = {
   wittenborg: "Wittenborg",
   animo: "Animo",
   rex: "Rex-Royal",
+  kalerm: "Kalerm",
+  espresso: "Espresso",
   ingen: "Ingen bonus",
 };
 
