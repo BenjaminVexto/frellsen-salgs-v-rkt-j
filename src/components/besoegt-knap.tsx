@@ -48,7 +48,11 @@ export function BesoegtKnap({
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [vaelgOpen, setVaelgOpen] = useState(false);
-  const valg = !locationId && locations ? adresseValg(locations, user?.id) : [];
+  const primIds = new Set((locations ?? []).filter((l) => l.is_primary).map((l) => l.id));
+  // Primær adresse øverst; resten som adresseValg sorterer dem (egne først).
+  const valg = !locationId && locations
+    ? [...adresseValg(locations, user?.id)].sort((a, b) => Number(b.locIds.some((i) => primIds.has(i))) - Number(a.locIds.some((i) => primIds.has(i))))
+    : [];
   const flereAdresser = valg.length > 1;
 
   // Find lokation (primær hvis ikke angivet) og om der allerede er registreret besøg i dag.

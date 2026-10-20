@@ -34,8 +34,6 @@ import { useViewAs } from "@/contexts/view-as-context";
 import { maskinAftale, reservedeleStatus } from "@/lib/maskinliste";
 import { PlaceringFelt, hentPlaceringer, type PlaceringInfo } from "@/components/placering-felt";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
-import { BesoegtKnap } from "@/components/besoegt-knap";
-import { KatalogKnap } from "@/components/katalog-knap";
 import { getLocationSalesSummary } from "@/lib/sales.functions";
 import { getMasterAgreementSuppression } from "@/lib/agreements.functions";
 import {
@@ -239,6 +237,7 @@ export function LokationerSektion({
     setVisSov(10000);
     setVisUden(10000);
     setAabneLok((prev) => new Set(prev).add(locationId));
+    setAabneKonti((prev) => new Set(prev).add(locationId));
     setOpenId(locationId);
     requestAnimationFrame(() => {
       const el = document.getElementById(`location-${locationId}`);
@@ -715,12 +714,48 @@ export function LokationerSektion({
   const kroner = (n: number | null) => (n == null ? "—" : `${Math.round(n).toLocaleString("da-DK")} kr.`);
   const dato = (d: string | null) => (d ? new Date(d).toLocaleDateString("da-DK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—");
 
+  const kontaktListe = (l: Location): LocationContact[] =>
+    contactsByLocation?.get(l.id)?.length
+      ? contactsByLocation!.get(l.id)!
+      : l.contact_person || l.phone || l.email
+        ? [{ id: l.id, name: l.contact_person ?? "", phone: l.phone, email: l.email }]
+        : [];
+  const kNoegle = (c: LocationContact) => `${c.name}|${c.phone ?? ""}`.toLowerCase().replace(/\s+/g, "");
+  /** Kontakter, hvis de er ens på alle konti på adressen (ellers null). */
+  const faellesKontakter = (g: AdresseGruppe): LocationContact[] | null => {
+    const lister = g.locs.map(kontaktListe);
+    const sig = lister.map((x) => x.map(kNoegle).sort().join(";"));
+    if (!sig[0] || sig.some((x) => x !== sig[0])) return null;
+    return lister.find((x) => x.some((c) => c.email)) ?? lister[0]!;
+  };
+  const saelgerNavn = (l: Location) =>
+    (l as any).saelger?.full_name ?? ((l as any).saelger_no ? `Ukendt sælger (${(l as any).saelger_no})` : (l as any).i_aktoer === false ? "Ikke i Aktør" : "Ingen");
+  const faellesSaelger = (g: AdresseGruppe): string | null => {
+    const n = new Set(g.locs.map(saelgerNavn));
+    return n.size === 1 ? Array.from(n)[0]! : null;
+  };
+  const adresseFaelles = (g: AdresseGruppe) => {
+    const s = faellesSaelger(g);
+    const k = faellesKontakter(g);
+    if (!s && !k) return null;
+    return (
+      <div className="text-xs text-muted-foreground space-y-0.5 mb-1">
+        {s && <div className="flex items-center gap-1"><User className="h-3 w-3" /> Sælger: {s}</div>}
+        {k?.map((c) => (
+          <div key={c.id} className="flex flex-wrap items-center gap-x-1.5">
+            {c.name && <span className="font-medium text-foreground">{c.name}</span>}
+            {c.phone && <a href={`tel:${c.phone}`} className="text-primary hover:underline">{c.phone}</a>}
+            {c.email && <a href={`mailto:${c.email}`} className="text-primary hover:underline break-all">{c.email}</a>}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const detaljer = (g: AdresseGruppe) => (
     <div className="pl-6 pr-3 pb-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-xs text-muted-foreground">
-          {g.locs.length} {g.locs.length === 1 ? "konto" : "konti"} på adressen: {g.locs.map((l) => l.visma_delivery_no ?? "–").join(", ")}
-        </div>
+      {adresseFaelles(g)}
+      <div className="flex items-center flex-wrap gap-x-4 gap-y-1 [&>div]:px-0">
         {g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0) && (
           <UdskrivMaskinlisteKnap
             lille
@@ -729,7 +764,6 @@ export function LokationerSektion({
             locationIds={g.locs.map((l) => l.id)}
           />
         )}
-      </div>
       {cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
         <AdressePenhedKobling
           pnr={g.pnr}
@@ -742,6 +776,7 @@ export function LokationerSektion({
           onChanged={() => { pnrQ.refetch(); oversigtQ.refetch(); }}
         />
       )}
+      </div>
       <ul className="divide-y mt-1 rounded-md border bg-background px-3">
         {g.locs.map((l) => (
           <LokationRow
@@ -749,15 +784,16 @@ export function LokationerSektion({
             location={l}
             isPrimary={l.is_primary}
             isAdmin={isAdmin}
-            open
-            onToggle={() => setAabneLok((prev) => { const n = new Set(prev); g.locs.forEach((x) => n.delete(x.id)); return n; })}
+            open={aabneKonti.has(l.id)}
+            onToggle={() => setAabneKonti((p) => { const n = new Set(p); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })}
             contacts={contactsByLocation?.get(l.id) ?? []}
+            skjulSaelger={faellesSaelger(g) != null}
+            skjulKontakt={faellesKontakter(g) != null}
             fallbackAddress={l.is_primary ? companyFallbackAddress : null}
             fallbackZip={l.is_primary ? companyFallbackZip : null}
             fallbackCity={l.is_primary ? companyFallbackCity : null}
             onRegister={() => onRegisterActivity(l.id)}
             companyId={companyId}
-            visBesoeg={locations.length > 1}
             lastPurchase={summary[l.id]?.lastPurchase ?? null}
             showLastPurchase={false}
             machineCount={machineCountQ.data?.[l.id] ?? 0}
@@ -816,6 +852,7 @@ export function LokationerSektion({
     const rep =
       g.locs.find((l) => l.is_primary) ?? g.locs.find((l) => (l as any).customer_type === "aktiv_kunde") ?? g.locs[0]!;
     const harMaskiner = g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0);
+    const harAdrMenu = harMaskiner || (!!cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && afdelingNr != null);
     const kontaktSet = new Set<string>();
     const kontakter: LocationContact[] = [];
     for (const l of g.locs) {
@@ -839,7 +876,8 @@ export function LokationerSektion({
         key={r.key}
         className={`border-l-4 ${egen ? "border-l-primary" : "border-l-transparent"} ${aaben ? "bg-muted/40" : ""} ${nedtonet ? "text-muted-foreground" : ""}`}
       >
-        <button type="button" aria-expanded={aaben} onClick={toggle} className="w-full min-h-11 flex items-start gap-2 px-3 pt-3 pb-2 text-left">
+        <div className="flex items-start">
+        <button type="button" aria-expanded={aaben} onClick={toggle} className="flex-1 min-w-0 min-h-11 flex items-start gap-2 pl-3 pr-1 py-3 text-left">
           <span className="min-w-0 flex-1 space-y-0.5">
             <span className="flex items-center gap-1.5 min-w-0">
               <span className="font-semibold truncate">{adresse}</span>
@@ -869,19 +907,15 @@ export function LokationerSektion({
           </span>
           {aaben ? <ChevronUp className="h-4 w-4 shrink-0 mt-1" /> : <ChevronDown className="h-4 w-4 shrink-0 mt-1" />}
         </button>
-        <div className="flex gap-2 px-3 pb-3">
-          <BesoegtKnap companyId={companyId} locationId={rep.id} size="sm" compact className="h-11 flex-1 min-w-0" />
-          <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0" aria-label="Flere handlinger for adressen" onClick={() => setAdrSheet(g.key)}>
+        {harAdrMenu && (
+          <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0 mt-1 mr-1" aria-label="Flere handlinger for adressen" onClick={() => setAdrSheet(g.key)}>
             <MoreHorizontal className="h-5 w-5" />
           </Button>
+        )}
         </div>
         <Sheet open={adrSheet === g.key} onOpenChange={(o) => !o && setAdrSheet(null)}>
           <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg space-y-3 [&_button]:min-h-11" aria-describedby={undefined}>
             <SheetHeader><SheetTitle className="truncate pr-6">{adresse}</SheetTitle></SheetHeader>
-            <KatalogKnap companyId={companyId} locationId={rep.id} size="sm" className="h-11 w-full justify-start" />
-            <Button variant="outline" className="w-full justify-start" onClick={() => { setAdrSheet(null); onRegisterActivity(rep.id); }}>
-              Registrér aktivitet her
-            </Button>
             {harMaskiner && (
               <div className="[&_button]:w-full [&_button]:justify-start">
                 <UdskrivMaskinlisteKnap
@@ -1285,7 +1319,12 @@ function LokationRow({
   companyId,
   visBesoeg,
   kontoVisning,
+  skjulSaelger = false,
+  skjulKontakt = false,
 }: {
+  /** Sælger/kontakt vises én gang på adresseniveau, når de er ens på alle konti. */
+  skjulSaelger?: boolean;
+  skjulKontakt?: boolean;
   companyId?: string;
   visBesoeg?: boolean;
   location: Location;
@@ -1318,7 +1357,9 @@ function LokationRow({
     ? [
         `Kundenr. ${location.visma_delivery_no ?? "–"}`,
         kontoStatus,
-        kontoSaelger,
+        `${Math.round(kontoVisning.revenue12m ?? 0).toLocaleString("da-DK")} kr. / 12 mdr.`,
+        lastPurchase ? `Sidst købt ${new Date(lastPurchase + "T00:00:00Z").toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" })}` : "Intet køb",
+        skjulSaelger ? null : kontoSaelger,
         (location as any).koeber_paa?.visma_delivery_no && (location as any).customer_type !== "aktiv_kunde"
           ? `Køber på konto ${(location as any).koeber_paa.visma_delivery_no}`
           : null,
@@ -1333,7 +1374,7 @@ function LokationRow({
     : "Intet køb registreret";
 
   const metaLabel = kontoVisning && !showLastPurchase && !showMachineCount
-    ? `${Math.round(kontoVisning.revenue12m ?? 0).toLocaleString("da-DK")} kr. / 12 mdr.`
+    ? null
     : showLastPurchase
     ? (lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel)
     : showMachineCount
@@ -1384,6 +1425,7 @@ function LokationRow({
       </button>
       {open && (
         <div className="pl-6 pb-3 pt-1 space-y-1 text-sm">
+          {!skjulKontakt && (<>
           {contacts.length > 0 ? (
             contacts.map((c) => (
               <div key={c.id}>
@@ -1444,13 +1486,14 @@ function LokationRow({
               </a>
             </div>
           )}
+          </>)}
           {location.visma_delivery_no && (
             <div className="text-xs text-muted-foreground">
               Lev.nr. {location.visma_delivery_no}
             </div>
           )}
           <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span>
+            {!skjulSaelger && <span>
               Sælger:{" "}
               {(location as any).saelger?.full_name ??
                 ((location as any).saelger_no
@@ -1458,7 +1501,7 @@ function LokationRow({
                   : (location as any).i_aktoer === false
                     ? "Ikke i Aktør"
                     : "Ingen")}
-            </span>
+            </span>}
             {(location as any).kreditspaerret && (
               <span className="rounded bg-destructive/15 px-1.5 text-destructive">Spærret</span>
             )}
@@ -1471,17 +1514,7 @@ function LokationRow({
           </div>
           <LocationSalesStrip locationId={location.id} isAdmin={!!isAdmin} />
           <EquipmentBox location={location} />
-          <div className="pt-2 flex flex-wrap gap-2">
-            {visBesoeg && companyId && (
-              <BesoegtKnap companyId={companyId} locationId={location.id} size="sm" />
-            )}
-            {visBesoeg && companyId && (
-              <KatalogKnap companyId={companyId} locationId={location.id} size="sm" />
-            )}
-            <Button size="sm" variant="outline" onClick={onRegister}>
-              Registrér aktivitet her
-            </Button>
-          </div>
+
         </div>
       )}
     </li>
