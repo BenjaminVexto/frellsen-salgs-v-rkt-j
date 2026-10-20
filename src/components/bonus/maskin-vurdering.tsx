@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -14,24 +14,23 @@ import { AFVIS_AARSAGER, OPGRADERING_TJEKLISTE, opsummerMaskintjek, type MaskinR
 
 type Saelger = { user_id: string; navn: string };
 
-/** Henter månedens maskinrækker pr. sælger (deles af vurderingskortet og låsedialogen). */
+/** Ét lazy kald for hele måneden, delt med låsedialogen. */
 export function useMaskinTjek(maaned: string, saelgere: Saelger[], enabled: boolean) {
-  const m1 = `${maaned}-01`;
-  const qs = useQueries({
-    queries: saelgere.map((s) => ({
-      queryKey: ["afregning-maskiner", maaned, s.user_id],
-      enabled,
-      staleTime: 60_000,
-      queryFn: async () => {
-        const { data, error } = await (supabase as any).rpc("bonus_maskin_detaljer", { _saelger: s.user_id, _fra: m1, _til: m1 });
-        if (error) throw error;
-        return (data ?? []) as MaskinRaekke[];
-      },
-    })),
+  const q = useQuery({
+    queryKey: ["afregning-maskiner", maaned],
+    enabled: enabled && saelgere.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("bonus_maskin_afregning", { _maaned: `${maaned}-01` });
+      if (error) throw error;
+      return (data ?? []) as unknown as { user_id: string; raekker: MaskinRaekke[] }[];
+    },
   });
-  const loading = qs.some((q) => q.isLoading || q.isFetching);
-  const pr = saelgere.map((s, i) => ({ ...s, rows: qs[i]?.data ?? [], ...opsummerMaskintjek(qs[i]?.data ?? []) }));
-  return { loading, pr, loaded: enabled && qs.every((q) => q.isSuccess) };
+  const pr = saelgere.map((s) => {
+    const rows = q.data?.find((x) => x.user_id === s.user_id)?.raekker ?? [];
+    return { ...s, rows, ...opsummerMaskintjek(rows) };
+  });
+  return { loading: enabled && q.isFetching, pr, loaded: enabled && q.isSuccess, error: q.error, retry: q.refetch };
 }
 
 type Handling = { type: "godkend" | "afvis" | "stand"; saelger: string; row: MaskinRaekke } | null;
@@ -40,7 +39,7 @@ export function MaskinVurderingKort({ maaned, saelgere, laaste, onVisSaelger }: 
   const qc = useQueryClient();
   const [aktiv, setAktiv] = useState(false);
   const [visAlle, setVisAlle] = useState(false);
-  const { loading, pr } = useMaskinTjek(maaned, saelgere, aktiv);
+  const { loading, pr, loaded, error, retry } = useMaskinTjek(maaned, saelgere, aktiv);
   const [h, setH] = useState<Handling>(null);
   const [tjek, setTjek] = useState<Record<string, boolean>>({});
   const [aarsag, setAarsag] = useState<string>(AFVIS_AARSAGER[0]);
@@ -51,7 +50,7 @@ export function MaskinVurderingKort({ maaned, saelgere, laaste, onVisSaelger }: 
   const aabn = (type: "godkend" | "afvis" | "stand", saelger: string, row: MaskinRaekke) => {
     setH({ type, saelger, row }); setTjek({}); setAarsag(AFVIS_AARSAGER[0]); setTekst(""); setStand(row.brugt ? "ny" : "brugt");
   };
-  const opdater = (saelger: string) => qc.invalidateQueries({ predicate: (q) => (q.queryKey[0] === "afregning-maskiner" && q.queryKey[2] === saelger) || String(q.queryKey[0]).startsWith("afregning-live") || q.queryKey[0] === "bonus-pr-maaned" });
+  const opdater = () => qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "afregning-maskiner" || String(q.queryKey[0]).startsWith("afregning-live") || q.queryKey[0] === "bonus-pr-maaned" });
 
   const gem = async () => {
     if (!h) return;
@@ -73,13 +72,13 @@ export function MaskinVurderingKort({ maaned, saelgere, laaste, onVisSaelger }: 
     setGemmer(false);
     if (error) return toast.error(error.message);
     toast.success("Vurdering gemt");
-    setH(null); opdater(h.saelger);
+    setH(null); opdater();
   };
   const nulstil = async (saelger: string, row: MaskinRaekke) => {
     const { error } = await (supabase as any).from("bonus_maskin_vurdering").delete()
       .eq("user_id", saelger).eq("maaned", `${maaned}-01`).eq("serienr", row.serienr);
     if (error) return toast.error(error.message);
-    toast.success("Vurdering fjernet"); opdater(saelger);
+    toast.success("Vurdering fjernet"); opdater();
   };
 
   return (
@@ -94,7 +93,8 @@ export function MaskinVurderingKort({ maaned, saelgere, laaste, onVisSaelger }: 
         )}
       </div>
       {aktiv && loading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Henter maskiner…</div>}
-      {aktiv && !loading && pr.map((s) => {
+      {aktiv && error && <div className="text-sm text-destructive">Maskinerne kunne ikke hentes. <Button variant="link" onClick={() => retry()}>Prøv igen</Button></div>}
+      {aktiv && loaded && !loading && !error && pr.map((s) => {
         const rows = visAlle ? s.rows : s.rows.filter((r) => r.status === "vurdering" || r.godkendt != null || r.brugt_kilde === "admin");
         const laast = laaste.has(s.user_id);
         return (
@@ -176,8 +176,9 @@ export function MaskinVurderingKort({ maaned, saelgere, laaste, onVisSaelger }: 
 
 /** Advarsel i låsedialogen. */
 export function LaasMaskinAdvarsel({ maaned, saelgere, aaben }: { maaned: string; saelgere: Saelger[]; aaben: boolean }) {
-  const { loading, pr, loaded } = useMaskinTjek(maaned, saelgere, aaben);
+  const { loading, pr, loaded, error, retry } = useMaskinTjek(maaned, saelgere, aaben);
   if (loading) return <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Tjekker maskiner…</p>;
+  if (error) return <p className="text-sm text-destructive">Maskintjekket mislykkedes. <Button variant="link" onClick={() => retry()}>Prøv igen</Button></p>;
   if (!loaded) return null;
   const problemer = pr.filter((s) => s.tilVurdering + s.uklassificeret > 0);
   if (!problemer.length) return <p className="text-sm text-muted-foreground">Alle maskiner i måneden er klassificeret og vurderet.</p>;

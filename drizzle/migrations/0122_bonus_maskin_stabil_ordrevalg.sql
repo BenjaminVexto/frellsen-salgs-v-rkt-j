@@ -1,0 +1,1 @@
+DO $fix$ DECLARE f text; BEGIN f:=pg_get_functiondef('public.bonus_maskin_grundlag(uuid,date,date)'::regprocedure); f:=replace(f,'ORDER BY mk.serienr, mk.maaned, abs(s.fdato - mk.dato)','ORDER BY mk.serienr, mk.maaned, abs(s.fdato - mk.dato), s.ordre_nr'); EXECUTE f; END $fix$;

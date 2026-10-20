@@ -252,6 +252,11 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
                 recomputeErr,
               );
             }
+            for (let i = 0; i < 50; i++) {
+              const { data: refreshed, error: bonusError } = await supabaseAdmin.rpc("bonus_maskin_opdater_ko", { _maks: 20 });
+              if (bonusError) throw new Error("Maskinbonus kunne ikke opdateres: " + bonusError.message);
+              if (!refreshed || refreshed < 20) break;
+            }
             // Ryd chunk-filerne op.
             const linesCount = Math.ceil((job.total_lines ?? 0) / LINES_CHUNK_SIZE);
             const allChunks: string[] = [];
