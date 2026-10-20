@@ -34,8 +34,6 @@ import { useViewAs } from "@/contexts/view-as-context";
 import { maskinAftale, reservedeleStatus } from "@/lib/maskinliste";
 import { PlaceringFelt, hentPlaceringer, type PlaceringInfo } from "@/components/placering-felt";
 import { LocationSalesStrip } from "@/components/sales/location-sales-strip";
-import { BesoegtKnap } from "@/components/besoegt-knap";
-import { KatalogKnap } from "@/components/katalog-knap";
 import { getLocationSalesSummary } from "@/lib/sales.functions";
 import { getMasterAgreementSuppression } from "@/lib/agreements.functions";
 import {
@@ -239,6 +237,7 @@ export function LokationerSektion({
     setVisSov(10000);
     setVisUden(10000);
     setAabneLok((prev) => new Set(prev).add(locationId));
+    setAabneKonti((prev) => new Set(prev).add(locationId));
     setOpenId(locationId);
     requestAnimationFrame(() => {
       const el = document.getElementById(`location-${locationId}`);
@@ -1502,7 +1501,7 @@ function LokationRow({
                   : (location as any).i_aktoer === false
                     ? "Ikke i Aktør"
                     : "Ingen")}
-            </span>
+            </span>}
             {(location as any).kreditspaerret && (
               <span className="rounded bg-destructive/15 px-1.5 text-destructive">Spærret</span>
             )}

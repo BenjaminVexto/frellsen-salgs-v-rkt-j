@@ -1493,7 +1493,10 @@ function RegistrerAktivitetDialog({
       setAssignmentId(assignments[0]?.id ?? "");
       {
         const g = presetLocationId ? adresseValg(locations as any, userId).find((v) => v.locIds.includes(presetLocationId)) : null;
-        setLocationId(g ? g.kontoId : "__general");
+        // Standard: primær adresse (kan skiftes i feltet nedenfor).
+        const prim = locations.find((l) => l.is_primary) ?? (locations.length === 1 ? locations[0] : null);
+        const pg = prim ? adresseValg(locations as any, userId).find((v) => v.locIds.includes(prim.id)) : null;
+        setLocationId(g ? g.kontoId : pg ? pg.kontoId : "__general");
       }
       setTid(tilLokalInput(new Date()));
       fetchMentionableUsers(userId).then(setUsers);
