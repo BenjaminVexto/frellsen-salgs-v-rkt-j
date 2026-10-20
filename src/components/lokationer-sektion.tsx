@@ -1,5 +1,7 @@
 import { UdskrivMaskinlisteKnap } from "@/components/maskinliste-print";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
+import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench, MoreHorizontal, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
 import { Link } from "@tanstack/react-router";
@@ -182,6 +184,27 @@ export function LokationerSektion({
   const [sortMode, setSortMode] = useState<
     "default" | "revenue" | "street" | "lastPurchase" | "machines"
   >("default");
+  const isMobile = useIsMobile();
+  const [topSheet, setTopSheet] = useState(false);
+  const [adrSheet, setAdrSheet] = useState<string | null>(null);
+  const [aabneKonti, setAabneKonti] = useState<Set<string>>(new Set());
+  // Mobil: maskiner pr. lokation til chips på adressekortet.
+  const chipsIds = locations.map((l) => l.id).sort();
+  const chipsQ = useQuery({
+    enabled: isMobile && chipsIds.length > 0,
+    queryKey: ["lok-maskinchips", chipsIds.join(",")],
+    queryFn: async () => {
+      const units = await hentAlle<{ id: string; location_id: string; machine_type: string | null; serial_no: string | null; udstyr_type: EquipmentUnit["udstyr_type"] }>(
+        (fra, til) => (supabase as any)
+          .from("location_equipment_units")
+          .select("id, location_id, machine_type, serial_no, udstyr_type")
+          .in("location_id", chipsIds).eq("is_filter", false).order("id").range(fra, til),
+      );
+      const m: Record<string, typeof units> = {};
+      for (const u of units) (m[u.location_id] ??= []).push(u);
+      return m;
+    },
+  });
 
 
 
@@ -525,6 +548,15 @@ export function LokationerSektion({
   const expiringByLoc = expiringQ.data ?? new Map<string, number>();
   const expiringTotal = Array.from(expiringByLoc.values()).reduce((n, v) => n + v, 0);
   const [expiringOpen, setExpiringOpen] = useState(false);
+  // Mobil: én adresse foldes ud som standard (kun første gang).
+  const autoAabnet = useRef(false);
+  useEffect(() => {
+    if (!isMobile || autoAabnet.current || !hentet || !grupper.length) return;
+    autoAabnet.current = true;
+    if (grupper.length === 1) {
+      setAabneLok((prev) => { const n = new Set(prev); grupper[0]!.locs.forEach((l) => n.add(l.id)); return n; });
+    }
+  }, [isMobile, hentet, grupper]);
 
 
   // Always render the section (header) when admin; hide entirely if no data and no write
