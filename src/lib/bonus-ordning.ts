@@ -94,15 +94,12 @@ export function beskrivOrdning(o: BonusOrdning): string {
   }
   if (r > 0) satser.push(`${tal(r)} kr. pr. Rex-Royal`);
 
-  const maskinKunder: string[] = [];
-  if (o.maskin_privat) maskinKunder.push("private");
-  if (o.maskin_offentlig) maskinKunder.push("offentlige");
   const typer: string[] = [];
   if (o.maskin_salg) typer.push("salg");
-  if (o.maskin_leje) typer.push("leje/udlån");
+  if (o.maskin_leje) typer.push("leje");
   const vilkaar =
     satser.length > 0
-      ? ` (${maskinKunder.join(" og ")} kunder, ${typer.join(" og ")}${o.maskin_brugt ? ", brugte tæller med" : ", kun nye"})${graense(o.maskin_bund, o.maskin_top)}`
+      ? ` (${typer.join(" og ")}${graense(o.maskin_bund, o.maskin_top)})`
       : "";
 
   const total = graense(o.total_bund, o.total_top);
