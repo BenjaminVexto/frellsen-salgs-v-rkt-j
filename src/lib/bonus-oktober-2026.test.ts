@@ -35,10 +35,10 @@ describe.skipIf(!session)("October 2026 bonus — live read-only regressions", (
     expect(data).toBe("ingen");
   });
 
-  it("OptiVend earns Animo bonus from September 2026", async () => {
+  it("OptiVend (instant) earns no bonus under the 20/10-2026 rules", async () => {
     const { data, error } = await client.rpc("maskin_bonusklasse", { _type: "Animo OptiVend", _maaned: "2026-09-01" });
     expect(error).toBeNull();
-    expect(data).toBe("animo");
+    expect(data).toBe("ingen");
   });
 
   it("new-customer bonus starts in September, not August", async () => {
