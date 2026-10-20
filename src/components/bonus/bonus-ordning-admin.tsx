@@ -327,7 +327,7 @@ export function BonusOrdningAdmin({ userId }: { userId: string }) {
             ["maskin_privat", "Forhandlingskunder"],
             ["maskin_offentlig", "Udbudskunder"],
             ["maskin_salg", "Salg tæller med"],
-            ["maskin_leje", "Leje/udlån tæller med"],
+            ["maskin_leje", "Leje tæller med"],
             ["maskin_brugt", "Brugte maskiner tæller med"],
           ] as const
         ).map(([key, label]) => (
