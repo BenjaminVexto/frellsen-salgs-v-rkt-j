@@ -510,11 +510,11 @@ function KontaktlisteDetalje() {
           </Card>
 
           <Card className="p-4 mb-4">
-            <div className="grid grid-cols-2 md:grid-cols-7 gap-3 items-end">
+            <div className="flex flex-wrap items-end gap-3">
               <div>
                 <Label className="text-xs">Status</Label>
                 <Select value={fStatus} onValueChange={setFStatus}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-[170px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -530,7 +530,7 @@ function KontaktlisteDetalje() {
               <div>
                 <Label className="text-xs">Prioritet</Label>
                 <Select value={fPriority} onValueChange={setFPriority}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-[170px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -547,7 +547,7 @@ function KontaktlisteDetalje() {
                 <div>
                   <Label className="text-xs">Sælger</Label>
                   <Select value={fSeller} onValueChange={setFSeller}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-[170px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -562,22 +562,22 @@ function KontaktlisteDetalje() {
                 </div>
               )}
               {isAdmin && (
-                <label className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2 text-sm whitespace-nowrap">
                   <Switch checked={fOnlyMine} onCheckedChange={setFOnlyMine} />
                   Kun mine
                 </label>
               )}
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm whitespace-nowrap">
                 <Switch checked={fOverdue} onCheckedChange={setFOverdue} />
                 Kun overskredet
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm whitespace-nowrap">
                 <Switch checked={fKunTlf} onCheckedChange={setFKunTlf} />
                 Kun med telefon
               </label>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
                 {filtered.length} af {rows.length}
-                <Button size="sm" variant="outline" className="ml-auto" onClick={eksporterCsv}>
+                <Button size="sm" variant="outline" onClick={eksporterCsv}>
                   <Download className="h-4 w-4 mr-1" /> CSV
                 </Button>
               </div>
