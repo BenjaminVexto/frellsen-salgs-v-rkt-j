@@ -2,8 +2,9 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowDown, ArrowUp, Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Loader2 } from "lucide-react";
 import { getSalesForCompany, getSalesForLocations } from "@/lib/sales.functions";
 import {
   currentMonthStart,
@@ -81,10 +82,12 @@ export function KundeSalgstal({
   companyId,
   egneLokIds,
   alleLokIds,
+  onMachinesClick,
 }: {
   companyId: string;
   egneLokIds: string[];
   alleLokIds: string[];
+  onMachinesClick?: () => void;
 }) {
   const harEgne = egneLokIds.length > 0 && egneLokIds.length < alleLokIds.length;
   const compFn = useServerFn(getSalesForCompany);
@@ -167,6 +170,7 @@ export function KundeSalgstal({
             }
           />
           <Tal
+            onClick={onMachinesClick}
             label="Aktive maskiner"
             vaerdi={hovedMask.isLoading ? "…" : String(hovedMask.data?.antal ?? 0)}
             under={
@@ -184,12 +188,11 @@ export function KundeSalgstal({
   );
 }
 
-function Tal({ label, vaerdi, under }: { label: string; vaerdi: React.ReactNode; under?: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground leading-tight">{label}</div>
-      <div className="text-base font-semibold tabular-nums mt-0.5 break-words">{vaerdi}</div>
-      {under}
-    </div>
-  );
+function Tal({ label, vaerdi, under, onClick }: { label: string; vaerdi: React.ReactNode; under?: React.ReactNode; onClick?: () => void }) {
+  const content = <>
+    <div className="text-[11px] uppercase tracking-wide text-muted-foreground leading-tight">{label}</div>
+    <div className="text-base font-semibold tabular-nums mt-0.5 break-words">{vaerdi}{onClick && <ChevronRight className="inline-block ml-2 h-4 w-4 text-muted-foreground" />}</div>
+    {under}
+  </>;
+  return onClick ? <Button variant="ghost" onClick={onClick} aria-label="Aktive maskiner – vis lokationer" className="min-w-0 h-auto min-h-11 p-0 block text-left whitespace-normal cursor-pointer font-normal">{content}</Button> : <div className="min-w-0">{content}</div>;
 }

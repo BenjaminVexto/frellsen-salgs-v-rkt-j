@@ -1,5 +1,6 @@
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Calendar, Coffee, Cpu, TrendingUp, Wallet } from "lucide-react";
+import { Calendar, ChevronRight, Coffee, Cpu, TrendingUp, Wallet } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { da } from "date-fns/locale";
 import {
@@ -24,11 +25,13 @@ export function SalesFactsStrip({
   isAdmin,
   antalMaskiner,
   visEgne,
+  onMachinesClick,
 }: {
   visEgne?: boolean;
   rows: SalesMonthlyRow[];
   isAdmin: boolean;
   antalMaskiner?: number | null;
+  onMachinesClick?: () => void;
 }) {
   const nuMdr = currentMonthStart();
   const last12 = filterByPeriod(rows, monthsAgo(12), nuMdr);
@@ -75,6 +78,7 @@ export function SalesFactsStrip({
       )}
       <Fact
         icon={<Cpu className="h-4 w-4" />}
+        onClick={onMachinesClick}
         label="Maskiner i alt"
         value={antalMaskiner == null ? "…" : `${antalMaskiner} stk.`}
         note={visEgne ? "Opstillet på dine lokationer" : "Opstillet på alle lokationer"}
@@ -95,15 +99,17 @@ function Fact({
   value,
   note,
   admin,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   note?: string;
   admin?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <Card className={`p-4 relative ${admin ? "border-dashed" : ""}`}>
+  const content = (
+    <>
       {admin && (
         <span className="absolute top-2 right-2 text-[10px] font-medium tracking-wider uppercase bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
           Admin
@@ -113,8 +119,9 @@ function Fact({
         {icon}
         <span>{label}</span>
       </div>
-      <div className="text-xl font-semibold tabular-nums">{value}</div>
+      <div className="text-xl font-semibold tabular-nums break-words">{value}{onClick && <ChevronRight className="inline-block ml-2 h-4 w-4 text-muted-foreground" />}</div>
       {note && <div className="text-xs text-muted-foreground mt-1">{note}</div>}
-    </Card>
+    </>
   );
+  return onClick ? <Button variant="outline" onClick={onClick} aria-label="Maskiner i alt – vis lokationer" className="p-4 h-auto min-h-11 min-w-0 block relative text-left whitespace-normal cursor-pointer bg-card text-card-foreground font-normal rounded-xl shadow-sm">{content}</Button> : <Card className={`p-4 min-w-0 relative ${admin ? "border-dashed" : ""}`}>{content}</Card>;
 }

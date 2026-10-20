@@ -1,6 +1,6 @@
 
-- Målepunkter, portefølje og bonus læser salg fra sales_kunde_maaned/company_mp_info, som holdes ajour af triggere på sales_monthly og companies — så tallene er hurtige og aldrig skal genberegnes manuelt.
-- Portefølje-svar sendes gzip+base64 via src/lib/komprimer-json.ts, fordi TanStack Start begrænser poster og bytes pr. svar.
+- Metrics, portfolio and bonus read trigger-maintained sales_kunde_maaned/company_mp_info — no manual recalculation.
+- Portfolio replies use gzip+base64 via komprimer-json.ts — Start limits response rows/bytes.
 - Sælgertilskrivning sker pr. lokation (locations.saelger_user_id, sat af Aktør-importen via aktoer_anvend_saelgere på serveren); companies.assigned_to er kun hovedkontoens ansvarlige sælger — because one company can have locations with several sellers.
 - DB/DG visibility is decided by the database function maa_se_db (admin or profiles.maa_se_db), never by the admin role alone — so it can be switched off per person.
 - Address search and group (parent/sister) data come live from the CVR Elasticsearch distribution (produktionsenhed/virksomhed indexes) merged with cvr_penheder — because our local copy only covers CVRs already in the CRM.
@@ -20,4 +20,5 @@
 - CVR groups (accounts sharing cvr_norm) are an overlay only: SQL cvr_grupper/cvr_gruppe_konti/cvr_penhed_oversigt; per-account sales only where _maa_se_kontosalg — so sellers see other sellers' accounts but only group totals.
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
 - Read nested AGENTS.md; bonus competition shows seller totals only.
+- Company mobile master data reuses the desktop content in More; machine metrics use one Locations callback — to keep presentation consistent.
 - Paid bonus months freeze in bonus_laas; later changes only via bonus_regulering — so nothing is paid twice.
