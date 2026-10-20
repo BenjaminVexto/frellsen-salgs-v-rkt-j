@@ -211,6 +211,7 @@ export function PenhedDaekning({
   const [irAarsag, setIrAarsag] = useState<string>("");
   const [irTekst, setIrTekst] = useState("");
   const [visAntal, setVisAntal] = useState(25);
+  const [mobilMatch, setMobilMatch] = useState<Set<string>>(new Set());
   const [rows, setRows] = useState<PenhedDaekningRow[] | null>(null);
   const [locs, setLocs] = useState<Loc[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -787,13 +788,28 @@ export function PenhedDaekning({
       <>
         {visIkkeHosListe && (
         <ul className="divide-y">
-          {ikke.slice(0, visAntal).map((p) => (
+          {ikke.slice(0, visAntal).map((p) => {
+            const mOpen = mobilMatch.has(p.p_number);
+            const nForslag = (forslag.get(p.p_number) ?? []).length;
+            return (
             <li key={p.p_number} className="py-2 text-sm">
-              {linje(p)}
+              <div className="hidden md:block">{linje(p)}</div>
+              <div className="md:hidden truncate">
+                {[p.address ?? "Ukendt adresse", `P-nr. ${p.p_number}`, `${formatAnsatte(p)} ansatte`].join(" · ")}
+              </div>
+              <button
+                type="button"
+                className="md:hidden min-h-11 text-xs text-primary inline-flex items-center"
+                aria-expanded={mOpen}
+                onClick={() => setMobilMatch((s) => { const n = new Set(s); if (n.has(p.p_number)) n.delete(p.p_number); else n.add(p.p_number); return n; })}
+              >
+                {mOpen ? "Skjul mulige match" : `Vis mulige match (${nForslag})`}
+              </button>
+              <div className={mOpen ? "" : "max-md:hidden"}>
               {busy === p.p_number ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin mt-1" />
               ) : (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 max-md:[&_button]:min-h-11">
                   {aabneInfo.has(p.p_number) ? (
                     <span className="text-xs text-muted-foreground">
                       Salgsmulighed: {aabneInfo.get(p.p_number)!.saelger ?? "uden sælger"} ·{" "}
@@ -832,8 +848,10 @@ export function PenhedDaekning({
                 </div>
               )}
               <ForslagLinje forslag={forslag.get(p.p_number) ?? []} onDone={genindlaes} />
+              </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
         )}
         {visIkkeHosListe && ikke.length > visAntal && <Button variant="ghost" size="sm" onClick={() => setVisAntal((n) => n + 25)}>Vis flere ({ikke.length - visAntal} tilbage)</Button>}
