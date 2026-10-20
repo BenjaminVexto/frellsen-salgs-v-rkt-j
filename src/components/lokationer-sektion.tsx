@@ -755,7 +755,7 @@ export function LokationerSektion({
   const detaljer = (g: AdresseGruppe) => (
     <div className="pl-6 pr-3 pb-3">
       {adresseFaelles(g)}
-      <div className="flex items-center flex-wrap justify-between gap-2 [&>div]:px-0">
+      <div className="flex items-center flex-wrap gap-x-4 gap-y-1 [&>div]:px-0">
         {g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0) && (
           <UdskrivMaskinlisteKnap
             lille
