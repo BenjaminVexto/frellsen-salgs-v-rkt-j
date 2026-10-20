@@ -825,10 +825,12 @@ export function LokationerSektion({
           ? [{ id: l.id, name: l.contact_person ?? "", phone: l.phone, email: l.email }]
           : [];
       for (const c of liste) {
-        const k = `${c.name}|${c.phone ?? ""}|${c.email ?? ""}`.toLowerCase().replace(/\s+/g, "");
-        if (kontaktSet.has(k)) continue;
+        // Samme person (navn + telefon) vises én gang; mail flettes ind.
+        const k = `${c.name}|${c.phone ?? ""}`.toLowerCase().replace(/\s+/g, "");
+        const eks = kontakter.find((x) => `${x.name}|${x.phone ?? ""}`.toLowerCase().replace(/\s+/g, "") === k);
+        if (eks) { if (!eks.email && c.email) eks.email = c.email; continue; }
         kontaktSet.add(k);
-        kontakter.push(c);
+        kontakter.push({ ...c });
       }
     }
     const adresse = r.address || "Ukendt adresse";
@@ -876,7 +878,7 @@ export function LokationerSektion({
         <Sheet open={adrSheet === g.key} onOpenChange={(o) => !o && setAdrSheet(null)}>
           <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg space-y-3 [&_button]:min-h-11" aria-describedby={undefined}>
             <SheetHeader><SheetTitle className="truncate pr-6">{adresse}</SheetTitle></SheetHeader>
-            <KatalogKnap companyId={companyId} locationId={rep.id} size="lg" className="w-full" />
+            <KatalogKnap companyId={companyId} locationId={rep.id} size="sm" className="h-11 w-full justify-start" />
             <Button variant="outline" className="w-full justify-start" onClick={() => { setAdrSheet(null); onRegisterActivity(rep.id); }}>
               Registrér aktivitet her
             </Button>
@@ -951,7 +953,7 @@ export function LokationerSektion({
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5 min-w-0 text-sm">
                             <span className="truncate tabular-nums">
-                              {[l.visma_delivery_no ?? "–", ct === "servicekunde" ? null : st, kroner(summary[l.id]?.revenue12m ?? null), dageSiden(summary[l.id]?.lastPurchase ?? null)].filter(Boolean).join(" · ")}
+                              {[l.visma_delivery_no ?? "–", ct === "servicekunde" ? null : st, kroner(summary[l.id]?.revenue12m ?? 0), dageSiden(summary[l.id]?.lastPurchase ?? null)].filter(Boolean).join(" · ")}
                             </span>
                             {ct === "servicekunde" && <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-normal shrink-0">Service</Badge>}
                           </span>
