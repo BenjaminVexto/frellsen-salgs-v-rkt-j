@@ -1,28 +1,50 @@
-# Telemarketing-rolle (eksternt bureau)
+# Bonusafregning i CRM: låsning, efterregulering og lønfil
 
-## Mål
-Bureaubrugere logger ind og kan kun bruge Kontaktlister – kun de lister, de er sat på. Adgangen styres i databasen, ikke kun i menuen. Eksisterende brugere beholder præcis deres adgang.
+Beregningen (bonus_pr_maaned, bonus_maskin_grundlag, ny kunde-funktionerne) og reglerne i "Sådan beregnes din bonus" røres ikke. Alt nyt bygges ovenpå.
 
-## Trin
-1. **Gennemgang først (kun læsning):** jeg laver en tjekliste over alle tabeller, views og funktioner med adgang for indloggede brugere og deres nuværende policies. Den kommer med i svaret.
-2. **Rolle:** `telemarketing` tilføjes til rolle-listen. Hjælpefunktionen `er_telemarketing()` bliver security definer.
-3. **Lukning af databasen:** alle policies, der i dag giver "alle indloggede" adgang, får `AND NOT er_telemarketing()`. Det gælder bl.a. salg, faktura, priser, bonus, maskiner, aftaler, tilbud, aktiviteter, profiler, salgskort og distrikter. Security-definer-funktioner, der returnerer salgs- eller kundedata, afviser telemarketing øverst. Admin og sælgere får ikke ændret noget.
-4. **Bureauets adgang:**
-   - Ny tabel `kontaktliste_ringer` (liste ↔ bureaubruger).
-   - Nye felter på `contact_lists`: `moede_modtager` ('distrikt'|'fast'), `moede_saelger_user_id` (fast sælger eller den sælger, der bruges, når distriktet ikke giver en).
-   - Bureauet kan læse egne lister og deres rækker via RLS.
-   - Virksomhedsdata hentes kun gennem funktionen `tm_virksomheder(liste_id)`. Den giver navn, CVR, adresse, postnr./by, telefon, e-mail, hjemmeside, branche og ansatte. Bureauet får ingen direkte adgang til `companies`.
-   - Kontaktpersoner: bureauet kan læse, oprette og rette kontaktpersoner på virksomheder på deres lister, via policies på `contacts`.
-5. **Opkald:** ny tabel `kontaktliste_opkald` (liste, virksomhed, bruger, tidspunkt, udfald, årsag, note, ring_igen_at, mødedata). Bureauet læser og opretter kun sine egne opkald.
-   - "Møde booket" går gennem funktionen `tm_book_moede`. Den finder sælgeren via det gældende distriktskort (postnr → flade → distrikt → sælger/dækkes af). Findes der ingen, bruges den valgte sælger. Funktionen opretter en opfølgningsaktivitet og en notifikation til sælgeren og returnerer kun sælgerens navn.
-6. **Ønsker ikke kontakt:** nyt flag `ikke_kontakt` (+ tidspunkt og hvem) på `companies`. Det sættes via en funktion. Kun admin kan fjerne det. Virksomheder med flaget udelukkes i CVR-søgning og CVR-import og skjules i bureauets kø.
-7. **Brugerstyring:** admin kan oprette telemarketing-brugere (servervalidering af admin), deaktivere dem (ban) og se sidste login.
-8. **Navigation:** telemarketing-brugere ser kun "Kontaktlister" og ingen afdelingsvælger. Alle andre sider sender dem til /kontaktlister, også efter login.
-9. **Kontaktliste (admin):** felterne "Ringes af", "Møder går til" og formålet som manus. "Opret liste fra CVR" kan sættes direkte til et bureau. Admin får også et overblik: ringet, opnået, møder, årsager til "ikke interesseret", antal pr. bureaubruger og pr. dag, samt CSV-eksport.
-10. **Ringevisning:** kø ("Ring igen", der er forfaldne, først, derefter ikke-kontaktede), virksomhedskort med tel:-link, kontaktpersoner, tidligere opkald og udfaldsknapper. Efter 3× "Ingen svar" foreslås "Ikke opnået".
-11. **Test:** testbruger, en liste med 3 virksomheder, menu og redirects. Direkte forespørgsler med bureauets login mod bl.a. sales_monthly, invoice_lines, companies, profiles og activities skal give 0 rækker eller fejl. Jeg tjekker også, at en sælger ser det samme som før, og at et booket møde lander hos den rigtige sælger. Bagefter slettes alt testdata.
+## 1. Låsning af bonusmåned
+- bonus_laas (findes, én række pr. sælger/måned) udvides med: ny_kunde_db, ny_kunde_rang, ny_kunde_bonus, regulering, loen_1561, loen_1563, maskiner (jsonb øjebliksbillede inkl. udeladte med årsag), laast_note.
+- Ny log-tabel bonus_laas_log (måned, handling 'laas'/'laas_op', begrundelse, bruger, tidspunkt).
+- Databasefunktion `bonus_laas_maaned(_maaned, _note)`: kun admin, kun afsluttede måneder. I én transaktion for alle sælgere med gyldig bonus_ordning i måneden:
+  1. beregner efterreguleringer (afsnit 2) med udbetalingsmåned = M,
+  2. gemmer bonus_pr_maaned-rækken + bonus_maskin_grundlag-rækker som øjebliksbillede,
+  3. lægger reguleringer til lønarterne og logger låsningen.
+- `bonus_laas_op(_maaned, _begrundelse)`: kun admin, begrundelse påkrævet; sletter månedens låse-rækker og dens automatiske efterreguleringer (manuelle bevares), logger handlingen. Oplåsning kun af seneste låste måned, så efterreguleringer i senere måneder ikke bliver forkerte.
+- Advarsel i UI før den 10. i næste måned med den ønskede tekst.
 
-## Antagelser
-- "Opnået" = udfaldene ikke interesseret, ønsker ikke kontakt og møde booket.
-- Bureauet ser ikke kundestatus. Profiler ser de kun som sælgerens navn, og kun via funktionen til mødebooking.
-- Arbejdet leveres i 2–3 omgange: først database og sikkerhed med test, derefter ringevisning og overblik.
+## 2. Automatisk efterregulering
+- Ny tabel bonus_regulering (som specificeret; type og lønart begrænset til de tilladte værdier).
+- Ved låsning af M: for hver sælger og hver låst måned K de seneste 6 måneder før M:
+  - DB-diff = live db_bonus(K) − låst db_bonus(K) − sum tidligere efterreguleringer for K på 1561
+  - Rest-diff = live (maskinbonus + ny kunde)(K) − låst tilsvarende − sum tidligere efterreguleringer for K på 1563
+  - Afrundet til hele kroner; ≠ 0 → række "Efterregulering [måned]: sene fakturaer/maskiner".
+- Fordi tidligere reguleringer trækkes fra, dukker samme difference ikke op igen ved næste låsning.
+- Fast provision: alt fra flatrate-sælgere går på 1561 = flatrate; deres diff vil normalt være 0.
+- Manuelle reguleringer: oprettes/slettes af admin, kun mens udbetalingsmåneden er åben (håndhæves med trigger).
+
+## 3. Bonus-fanen (sælgerens visning)
+- bonus_pr_maaned-kaldet suppleres med læsning af bonus_laas for perioden; låste måneder vises med de låste tal og et låse-ikon med "Låst og udbetalt [dato]".
+- Maskin-detaljevinduet viser det gemte øjebliksbillede for låste måneder. DB-detaljer og rangliste forbliver live (der gemmes ikke kundeliste); en lille note angiver det.
+- Ingen ændring i regeltekster.
+
+## 4. Fanen "Afregning" (kun admin)
+- Ny fane i Min salgsstatistik ved siden af Salgskort, skjult for alle andre.
+- Månedsvælger; tabel pr. sælger: Sælger, Lønnr., DB-grundlag, DB-provision, Maskinbonus (W/A/R), Ny kunde, Reguleringer, I alt, Lønart 1561, Lønart 1563, Status. Åbne måneder viser live tal + åbne reguleringer; låste viser låste tal. Total-række.
+- Lønart-regel: flatrate → 1561 = flatrate, 1563 = 0 + reguleringer; ellers 1561 = DB-provision + 1561-reguleringer, 1563 = maskiner + ny kunde + 1563-reguleringer.
+- Klik på sælger → åbner Bonus-fanen for sælgeren.
+- Reguleringsliste under tabellen + "Tilføj regulering" (sælger, lønart, beløb ±, tekst) og slet.
+- Knapper "Lås [måned]" / "Lås op" (med begrundelse) og "Hent lønfil" (xlsx og csv, kun låste måneder): CVR 25340604 | Name | Employee Number | Date (1. i næste måned, dd-mm-åååå) | Project ID (tom) | Type ID | Number 1 | Amount (2 decimaler); to rækker pr. sælger "Provision 1"/1561 og "Provision 2"/1563, også ved 0.
+
+## 5. Lønnummer
+- Ny kolonne profiles.loennr; sættes for Jes 5707, Mads 5830, Malene 5883, Anders 5863, Claus 5806, Ole 5725 (som dataopdatering). Redigerbart for admin på brugersiden og direkte i Afregning.
+
+## Test og verifikation
+- Kontroller live-tal september 2026: Jes 11.325,06, Mads 12.751,25, Malene 9.000, Anders 10.500, Claus 17.000, Ole 9.298,52; lønfil Jes 6.575,06/4.750, Malene 9.000/0.
+- Efterregulering testes i en transaktion der rulles tilbage (lås sep., indsæt testfaktura dateret sep., lås okt. → regulering; lås nov. → ingen ny). Ingen testdata efterlades. Spørg før en rigtig låsning af september.
+- Små tests for lønart-fordeling og lønfil-rækker (dato, to rækker, afrunding).
+
+## Teknisk
+- Nye tabeller får GRANT, RLS (læs: admin + egen række; skriv kun via SECURITY DEFINER-funktioner), tm_spaerret-politik.
+- Lønfil genereres i browseren (xlsx via eksisterende/ny pakke `xlsx`), ud fra låste rækker.
+- Ny komponent `src/components/bonus/afregning-fane.tsx`; logik for lønarter/lønfil i `src/lib/bonus-afregning.ts` med test.
+- AGENTS.md: regel om at udbetalte måneder kun ændres via bonus_regulering.
