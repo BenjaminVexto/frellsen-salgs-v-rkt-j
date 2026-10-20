@@ -961,7 +961,7 @@ function VirksomhedsKort() {
 
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
-              {!afloestAf && <div className="text-muted-foreground [&_p]:text-xs md:text-foreground md:[&_p]:text-sm"><KundeVaerdiLinje companyId={company.id} /></div>}
+              {!afloestAf && <div className="hidden md:block text-muted-foreground md:[&_p]:text-sm"><KundeVaerdiLinje companyId={company.id} /></div>}
               {!afloestAf && (
                 <KundeSalgstal
                   companyId={company.id}
