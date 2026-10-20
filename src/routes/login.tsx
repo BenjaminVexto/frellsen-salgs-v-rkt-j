@@ -33,7 +33,7 @@ function LoginPage() {
       if (!data.session) return;
       const target = safeNext(next);
       if (target) window.location.replace(target);
-      else navigate({ to: "/dashboard" });
+      else navigate({ to: window.matchMedia("(max-width: 767px)").matches ? "/virksomheder" : "/dashboard" });
     });
   }, [navigate, next]);
 
@@ -48,7 +48,7 @@ function LoginPage() {
     }
     const target = safeNext(next);
     if (target) window.location.replace(target);
-    else navigate({ to: "/dashboard" });
+    else navigate({ to: window.matchMedia("(max-width: 767px)").matches ? "/virksomheder" : "/dashboard" });
   };
 
   return (

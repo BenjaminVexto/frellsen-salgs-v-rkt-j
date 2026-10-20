@@ -12,10 +12,13 @@ export function SegmentBadge({
   segment3,
   size = "default",
   className,
+  kompakt,
 }: {
   segment3: string | null | undefined;
   size?: "default" | "sm";
   className?: string;
+  /** Under md vises Udbud kun som lås-ikon. */
+  kompakt?: boolean;
 }) {
   const { code } = parseSegment3(segment3);
   if (code !== "40" && code !== "45") return null;
@@ -35,9 +38,9 @@ export function SegmentBadge({
     <TooltipProvider delayDuration={150}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge variant="outline" className={cn(cls, "bg-secondary text-secondary-foreground cursor-help")}>
+          <Badge variant="outline" aria-label="Udbud" className={cn(cls, "bg-secondary text-secondary-foreground cursor-help")}>
             <Lock className={size === "sm" ? "h-2.5 w-2.5" : "h-3 w-3"} />
-            Udbud
+            <span className={kompakt ? "hidden md:inline" : undefined}>Udbud</span>
           </Badge>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">

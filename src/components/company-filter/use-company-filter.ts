@@ -343,7 +343,12 @@ export function useCompanyFilter({
             (r.zip ?? "").includes(rawQuery) ||
             ((r as any).visma_id ?? "").toLowerCase().includes(qq) ||
             ((r as any).visma_delivery_id ?? "").toLowerCase().includes(qq) ||
-            locs.some((l) => lokationMatcher(l, rawQuery));
+            locs.some((l) => lokationMatcher(l, rawQuery)) ||
+            // Telefon: sammenlign kun cifre, så "40 86 91 01" og "+4540869101" rammer.
+            (() => {
+              const d = rawQuery.replace(/\D/g, "");
+              return d.length >= 4 && ((r as any).phone ?? "").replace(/\D/g, "").includes(d);
+            })();
           if (!hit) return false;
         }
       }

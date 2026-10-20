@@ -29,7 +29,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Loader2, SlidersHorizontal, Search, Clock } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { hentSenestAabnet, type SenestAabnet } from "@/lib/senest-aabnet";
 import { OpretVirksomhedDialog } from "@/components/opret-virksomhed-dialog";
 import { AssignToListDialog } from "@/components/assign-to-list-dialog";
 import {
@@ -47,6 +49,7 @@ import {
   Hurtigvalg,
   FlereFiltre,
   FilterChips,
+  filterChips,
 } from "@/components/company-filter";
 import { toast } from "sonner";
 
@@ -148,6 +151,10 @@ function VirksomhederListe() {
   // Aktiveres KUN når søgefeltet er tomt og ingen filtre er sat — så søgning rammer hele basen.
   // Salgssupport har ingen egen portefølje → filteret giver ikke mening og deaktiveres.
   const mobileMineActive = false;
+  const [mobilFiltre, setMobilFiltre] = useState(false);
+  const [mobilAntal, setMobilAntal] = useState(PAGE_SIZE);
+  const [senest, setSenest] = useState<SenestAabnet[]>([]);
+  useEffect(() => setSenest(hentSenestAabnet(userId)), [userId]);
   const displayed = filtered;
 
   const loadTemplates = async () => {
@@ -163,6 +170,7 @@ function VirksomhederListe() {
 
   useEffect(() => {
     setPage(0);
+    setMobilAntal(PAGE_SIZE);
   }, [filters, q, recentIds, mobileMineActive, sort]);
 
   // CVR-grupper: konti med samme (normaliserede) CVR vises som én række.
@@ -237,7 +245,9 @@ function VirksomhederListe() {
   }, [grundItems, sort, omsQ.data, grupperQ.data]);
   const antalKonti = useMemo(() => items.reduce((s, it) => s + (it.kind === "en" ? 1 : it.konti.length), 0), [items]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  // Mobil: "Vis flere" i stedet for sidetal.
+  const pageItems = isMobile ? items.slice(0, mobilAntal) : items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const aktiveChips = filterChips(filters, setFilters, sellers, defaultSaelger);
   const pageRows = pageItems.flatMap((it) => (it.kind === "en" ? [it.row] : it.konti));
 
   const clearRecent = () => {
@@ -321,7 +331,7 @@ function VirksomhederListe() {
   };
 
   return (
-    <div className="px-3 md:px-8 py-4 md:py-8 max-w-7xl mx-auto pb-32 md:pb-32">
+    <div className="px-4 md:px-8 py-4 md:py-8 max-w-7xl mx-auto pb-32 md:pb-32">
       <div className="flex items-center justify-between mb-4 md:mb-6 gap-2">
         <h1 className="text-xl md:text-3xl font-semibold">Virksomheder</h1>
         <OpretVirksomhedDialog
@@ -348,7 +358,76 @@ function VirksomhederListe() {
 
 
 
-      <div className="sticky top-12 md:static z-10 -mx-3 md:mx-0 px-3 md:px-0 py-2 md:py-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:bg-transparent md:backdrop-blur-none border-b md:border-0 mb-3">
+      {/* Mobil: søgning først, filtre i bottom sheet */}
+      <div className="md:hidden sticky top-12 z-10 -mx-4 px-4 py-2 bg-background/95 backdrop-blur border-b mb-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Navn, CVR, by, kundenr., telefon…"
+              className="h-11 pl-9 text-base"
+              aria-label="Søg virksomheder"
+            />
+          </div>
+          <Button variant="outline" className="h-11 shrink-0 relative" onClick={() => setMobilFiltre(true)}>
+            <SlidersHorizontal className="h-4 w-4 mr-1" /> Filtre
+            {aktiveChips.length > 0 && (
+              <span className="ml-1 rounded-full bg-primary text-primary-foreground text-[11px] min-w-5 h-5 px-1 inline-flex items-center justify-center">
+                {aktiveChips.length}
+              </span>
+            )}
+          </Button>
+        </div>
+        {aktiveChips.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {aktiveChips.map((c, i) => (
+              <span key={i} className="inline-flex items-center rounded-full bg-muted pl-2.5 text-xs">
+                {c.l}
+                <button type="button" onClick={c.clear} aria-label={`Fjern ${c.l}`} className="px-2 py-1.5 text-muted-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <Sheet open={mobilFiltre} onOpenChange={setMobilFiltre}>
+        <SheetContent side="bottom" className="md:hidden rounded-t-2xl max-h-[85vh] flex flex-col p-0">
+          <SheetHeader className="px-4 pt-4">
+            <SheetTitle>Filtre</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3">
+            <FilterLinje filters={filters} setFilters={setFilters} sellers={sellers} defaultSaelger={defaultSaelger} />
+            <Hurtigvalg setFilters={setFilters} base={baseFilters} />
+            <FlereFiltre filters={filters} setFilters={setFilters} isAdmin={isAdmin} />
+          </div>
+          <SheetFooter className="flex-row gap-2 border-t px-4 py-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+            <Button variant="outline" className="h-11 flex-1" onClick={() => setFilters(baseFilters)}>Nulstil</Button>
+            <Button className="h-11 flex-1" onClick={() => setMobilFiltre(false)}>
+              Vis {items.length.toLocaleString("da-DK")} virksomheder
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {!q.trim() && senest.length > 0 && (
+        <div className="md:hidden mb-3">
+          <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Senest åbnet</div>
+          <Card className="divide-y overflow-hidden">
+            {senest.map((f) => (
+              <Link key={f.id} to="/virksomheder/$id" params={{ id: f.id }} className="flex min-h-11 flex-col justify-center px-3 py-1.5">
+                <span className="text-sm font-medium line-clamp-1">{f.name}</span>
+                {f.city && <span className="text-xs text-muted-foreground">{paenBy(f.city)}</span>}
+              </Link>
+            ))}
+          </Card>
+        </div>
+      )}
+
+      <div className="hidden md:block sticky top-12 md:static z-10 -mx-3 md:mx-0 px-3 md:px-0 py-2 md:py-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:bg-transparent md:backdrop-blur-none border-b md:border-0 mb-3">
         <CompanyFilterBar
           q={q}
           onQChange={setQ}
@@ -378,7 +457,7 @@ function VirksomhederListe() {
         </div>
       </div>
 
-      <div className="mb-2 flex flex-wrap items-center gap-2">
+      <div className="mb-2 hidden md:flex flex-wrap items-center gap-2">
         <FilterChips filters={filters} setFilters={setFilters} sellers={sellers} defaultSaelger={defaultSaelger} onReset={() => setFilters(baseFilters)} />
         {isFilterActive && (
           <Button size="sm" variant="outline" className="h-7 text-xs hidden sm:inline-flex" onClick={() => setSaveTemplateOpen(true)}>
@@ -387,7 +466,10 @@ function VirksomhederListe() {
         )}
       </div>
 
-      <div className="text-sm text-muted-foreground mb-2">
+      <div className="md:hidden text-sm text-muted-foreground mb-2">
+        <strong className="text-foreground">{items.length.toLocaleString("da-DK")}</strong> {items.length === 1 ? "kunde" : "kunder"}
+      </div>
+      <div className="hidden md:block text-sm text-muted-foreground mb-2">
         <strong className="text-foreground">{items.length.toLocaleString("da-DK")}</strong> virksomheder ({antalKonti.toLocaleString("da-DK")} konti)
         {items.length > 0 && <> · Side {page + 1} af {totalPages}</>}
       </div>
@@ -401,7 +483,7 @@ function VirksomhederListe() {
           </p>
         ) : (
           <>
-            {isAdmin && (
+            {isAdmin && !isMobile && (
               <div className="flex items-center justify-between gap-3 px-3 md:px-4 py-2 border-b text-sm">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Checkbox
@@ -422,7 +504,7 @@ function VirksomhederListe() {
             )}
             <VirksomhedListe
               items={pageItems}
-              isAdmin={isAdmin}
+              isAdmin={isAdmin && !isMobile}
               selected={selected}
               setSelected={setSelected}
               omsMap={omsQ.data}
@@ -445,7 +527,13 @@ function VirksomhederListe() {
         )}
       </Card>
 
-      {items.length > PAGE_SIZE && (
+      {isMobile && items.length > mobilAntal && (
+        <Button variant="outline" className="w-full h-11 mt-3" onClick={() => setMobilAntal((n) => n + PAGE_SIZE)}>
+          Vis flere ({(items.length - mobilAntal).toLocaleString("da-DK")} tilbage)
+        </Button>
+      )}
+
+      {!isMobile && items.length > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-3 text-sm">
           <Button
             variant="outline"
@@ -469,7 +557,7 @@ function VirksomhederListe() {
         </div>
       )}
 
-      {isAdmin && selected.size > 0 && (
+      {isAdmin && !isMobile && selected.size > 0 && (
         <div
           className="fixed left-2 right-2 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-16 md:bottom-4 z-50 bg-background border shadow-lg rounded-2xl md:rounded-full px-3 md:px-4 py-2 flex flex-wrap items-center justify-center gap-2 md:gap-3"
           style={{ marginBottom: "env(safe-area-inset-bottom)" }}

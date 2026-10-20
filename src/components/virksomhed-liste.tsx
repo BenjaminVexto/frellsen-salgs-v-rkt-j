@@ -100,14 +100,13 @@ export function VirksomhedListe(p: Props) {
     const sekundaer = r.visma_enhed;
     const navnCelle = (
       <div className="min-w-0 leading-tight">
-        <div className="truncate">
+        <div className="line-clamp-2 md:line-clamp-none md:truncate">
           <span className={opts.under ? "font-medium" : "font-semibold"}>{primaer}</span>
           {sekundaer && <span className="text-muted-foreground text-xs"> · {sekundaer}</span>}
         </div>
-        {!opts.under && r.cvr && <div className="text-xs text-muted-foreground">CVR {r.cvr}</div>}
+        {!opts.under && r.cvr && <div className="hidden md:block text-xs text-muted-foreground">CVR {r.cvr}</div>}
         <div className="md:hidden text-xs text-muted-foreground truncate">
           {[r.address?.split(",")[0], [r.zip, paenBy(r.city)].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
-          {oms != null && !(nyt && !oms) ? ` · ${kr(oms)}` : ""}
         </div>
         {p.ekstraLinje(r)}
       </div>
@@ -119,7 +118,7 @@ export function VirksomhedListe(p: Props) {
         tabIndex={0}
         onClick={() => aaben(r.id)}
         onKeyDown={(e) => e.key === "Enter" && aaben(r.id)}
-        className={`grid ${cols} items-center gap-x-3 px-3 md:px-4 py-1.5 text-sm cursor-pointer hover:bg-muted/50 ${checked ? "bg-primary/5" : ""} ${opts.hit ? "bg-primary/[0.04]" : ""}`}
+        className={`grid ${cols} items-center gap-x-3 px-3 md:px-4 py-2 md:py-1.5 min-h-14 md:min-h-0 text-sm cursor-pointer hover:bg-muted/50 ${checked ? "bg-primary/5" : ""} ${opts.hit ? "bg-primary/[0.04]" : ""}`}
       >
         {p.isAdmin && (
           <div onClick={(e) => e.stopPropagation()}>
@@ -148,7 +147,7 @@ export function VirksomhedListe(p: Props) {
           {p.ikkeTildelt(r) && (
             <Badge variant="outline" className="border-warning/40 text-warning text-[10px]">Ikke tildelt</Badge>
           )}
-          {!opts.skjulSegment && <SegmentBadge segment3={r.customer_segment_3} size="sm" />}
+          {!opts.skjulSegment && <SegmentBadge segment3={r.customer_segment_3} size="sm" kompakt />}
           <CustomerStatusBadge type={r.customer_type as any} />
         </div>
       </div>
@@ -222,7 +221,7 @@ function GruppeRaekke({
         tabIndex={0}
         onClick={() => p.toggleGruppe(it.cvr)}
         onKeyDown={(e) => e.key === "Enter" && p.toggleGruppe(it.cvr)}
-        className={`grid ${cols} items-center gap-x-3 px-3 md:px-4 py-1.5 text-sm cursor-pointer bg-muted/40 hover:bg-muted/70`}
+        className={`grid ${cols} items-center gap-x-3 px-3 md:px-4 py-2 md:py-1.5 min-h-14 md:min-h-0 text-sm cursor-pointer bg-muted/40 hover:bg-muted/70`}
       >
         {p.isAdmin && (
           <div onClick={(e) => e.stopPropagation()}>
@@ -242,13 +241,15 @@ function GruppeRaekke({
         <div className="min-w-0 leading-tight">
           <div className="flex items-center gap-1.5 min-w-0">
             {udfoldet ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-            <span className="font-semibold truncate" title={gruppeNavn}>{gruppeNavn}</span>
+            <span className="font-semibold line-clamp-2 md:line-clamp-none md:truncate" title={gruppeNavn}>{gruppeNavn}</span>
           </div>
-          <div className="text-xs text-muted-foreground pl-5 flex flex-wrap items-center gap-x-1.5">
+          <div className="md:hidden text-xs text-muted-foreground pl-5 truncate">
+            {antal} konti · {aktive} aktive · {adresser} adresser · {kr(oms)}
+          </div>
+          <div className="hidden md:flex text-xs text-muted-foreground pl-5 flex-wrap items-center gap-x-1.5">
             <span>CVR {it.cvr}</span>
             <span className="rounded-full border bg-background px-1.5 py-px text-[11px]">{antal} konti · {aktive} aktive</span>
             <CvrStatusMaerke status={info?.cvr_status} />
-            <span className="md:hidden"> · {adresser} adresser · {kr(oms)}</span>
           </div>
         </div>
         <div className="hidden md:block text-muted-foreground">{adresser} adresser</div>
@@ -258,7 +259,7 @@ function GruppeRaekke({
         </div>
         <div className="hidden md:block text-right tabular-nums">{kr(oms)}</div>
         <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap [&>*]:shrink-0">
-          {fællesSeg && <SegmentBadge segment3={fællesSeg} size="sm" />}
+          {fællesSeg && <SegmentBadge segment3={fællesSeg} size="sm" kompakt />}
           <CustomerStatusBadge type={(info?.bedste_status ?? bedste.customer_type) as any} />
         </div>
       </div>

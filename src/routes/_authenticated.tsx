@@ -339,7 +339,7 @@ function AuthenticatedShell() {
         </div>
       </div>
 
-      <main className="flex-1 md:ml-0 pt-12 md:pt-0">
+      <main className="flex-1 min-w-0 md:ml-0 pt-12 md:pt-0">
         <ViewAsBanner />
         <Outlet />
         {/* Mobile bottom nav — kun mark-relevante faner; resten under "Mere" */}
@@ -360,14 +360,15 @@ function MobileBottomNav({
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   // Mark-prioritet: virksomhedssøgning er primær, dernæst overblik og aftaler.
-  const primaryTo = new Set(["/virksomheder", "/dashboard", "/aftaler"]);
-  const primary = navItems.filter((i) => primaryTo.has(i.to));
+  // Mobil: Firmaer (standard) · Aftaler · Mere. Overblik ligger øverst i Mere.
+  const primaryTo = new Set(["/virksomheder", "/aftaler"]);
+  const primary = ["/virksomheder", "/aftaler"].map((t) => navItems.find((i) => i.to === t)!).filter(Boolean);
   const secondary = navItems.filter((i) => !primaryTo.has(i.to));
   const moreActive = secondary.some((i) => pathname.startsWith(i.to));
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-4 z-20"
+      className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border grid grid-cols-3 z-20"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {primary.map((item) => {
@@ -376,7 +377,7 @@ function MobileBottomNav({
           <Link
             key={item.to}
             to={item.to}
-            className={`flex flex-col items-center justify-center py-1.5 text-[10px] leading-tight ${
+            className={`flex min-h-[52px] flex-col items-center justify-center py-1.5 text-[10px] leading-tight ${
               active ? "text-primary" : "text-muted-foreground"
             }`}
           >
@@ -389,7 +390,7 @@ function MobileBottomNav({
         <SheetTrigger asChild>
           <button
             type="button"
-            className={`flex flex-col items-center justify-center py-1.5 text-[10px] leading-tight ${
+            className={`flex min-h-[52px] flex-col items-center justify-center py-1.5 text-[10px] leading-tight ${
               moreActive ? "text-primary" : "text-muted-foreground"
             }`}
           >

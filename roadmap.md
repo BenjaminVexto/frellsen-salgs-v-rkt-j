@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Mobil: start på Virksomheder, bundmenu Firmaer/Aftaler/Mere, søgning først med Filtre-sheet, Senest åbnet, enklere liste; testet som admin ved 360/390 px (sælger ikke testet).
 - [x] Firmaside: enkel mobilheader, Stamdata under Mere, sammenfoldede ekstra oplysninger og maskinklik til Lokationer; kontrolleret på PTF-Arkadens Isbod ved 360/390 px og desktop, 12 tests bestået.
 - [x] Bonus-finish: tæt tabel uden faste understregninger, mobiloverblik, separate DB/maskindetaljer og delt nykunde-rangliste med afstand til toppen; testet som admin og Mads på mobil.
 - [x] Bonus: klik på maskintal pr. sælger/måned viser kunder og maskindetaljer; kontrollér Malene september 2026.
