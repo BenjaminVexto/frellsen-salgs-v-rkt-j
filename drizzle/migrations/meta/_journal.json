@@ -841,6 +841,55 @@
       "when": 1792494027629,
       "tag": "0119_maskin_bonusklasse_friskvand",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1792495766619,
+      "tag": "0120_bonus_maskin_opslag_indeks",
+      "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1792496072713,
+      "tag": "0121_bonus_maskin_kandidat_historik",
+      "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1792496220281,
+      "tag": "0122_bonus_maskin_stabil_ordrevalg",
+      "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1792496311889,
+      "tag": "0123_bonus_maskin_forudberegnet",
+      "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1792496463570,
+      "tag": "0124_bonus_maskin_vedligeholdelse",
+      "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1792496536220,
+      "tag": "0125_bonus_maskin_cache_laesning",
+      "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1792496615372,
+      "tag": "0126_bonus_maskin_maanedsskifte",
+      "breakpoints": true
     }
   ]
 }

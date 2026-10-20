@@ -85,7 +85,7 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
   const saelgere = saelgereQ.data ?? [];
   const laastIds = new Set(laasRows.map((l) => l.user_id));
 
-  // Live-beregning tager ~7 sek. pr. sælger; højst to ad gangen, og rækkerne fyldes ud efterhånden.
+  // Månedssummer læser det vedligeholdte maskingrundlag; detaljer hentes kun ved maskintjek.
   const aabne = saelgere.filter((s) => !laastIds.has(s.user_id)).map((s) => s.user_id);
   const liveQs = useQueries({
     queries: aabne.map((id) => ({

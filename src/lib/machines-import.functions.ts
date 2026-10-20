@@ -1148,6 +1148,11 @@ export const importMachines = createServerFn({ method: "POST" })
         enrichmentAktivPrKilde[k] = count ?? 0;
       }
 
+      for (let i = 0; i < 50; i++) {
+        const { data: refreshed, error: bonusError } = await supabaseAdmin.rpc("bonus_maskin_opdater_ko", { _maks: 20 });
+        if (bonusError) throw new Error("Maskinbonus kunne ikke opdateres: " + bonusError.message);
+        if (!refreshed || refreshed < 20) break;
+      }
       console.log(`[machines-import] FÆRDIG: machines=${machinesUpserted} enrichment=${enrichmentUpserted} udgaaet=${JSON.stringify(enrichmentUdgaaetPrKilde)} aktiv=${JSON.stringify(enrichmentAktivPrKilde)}`);
       return {
         needsConfirmation: false as const,

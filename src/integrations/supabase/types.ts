@@ -501,6 +501,48 @@ export type Database = {
         }
         Relationships: []
       }
+      bonus_maskin_maaned: {
+        Row: {
+          detaljer: Json
+          grundlag: Json
+          maaned: string
+          opdateret_at: string
+          user_id: string
+        }
+        Insert: {
+          detaljer?: Json
+          grundlag?: Json
+          maaned: string
+          opdateret_at?: string
+          user_id: string
+        }
+        Update: {
+          detaljer?: Json
+          grundlag?: Json
+          maaned?: string
+          opdateret_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bonus_maskin_refresh_ko: {
+        Row: {
+          maaned: string
+          oprettet_at: string
+          user_id: string
+        }
+        Insert: {
+          maaned: string
+          oprettet_at?: string
+          user_id: string
+        }
+        Update: {
+          maaned?: string
+          oprettet_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bonus_maskin_vurdering: {
         Row: {
           aarsag: string | null
@@ -5115,6 +5157,39 @@ export type Database = {
         }
         Returns: undefined
       }
+      _bonus_maskin_afsluttet_maaned: { Args: never; Returns: undefined }
+      _bonus_maskin_beregn: {
+        Args: { _fra: string; _saelger: string; _til: string }
+        Returns: {
+          aarsag: string
+          antal: number
+          beloeb: number
+          bonusklasse: string
+          brugt: boolean
+          brugt_kilde: string
+          by: string
+          company_id: string
+          faktura_dato: string
+          forgaenger_dato: string
+          forgaenger_serienr: string
+          godkendt: boolean
+          kategori: string
+          kilde: string
+          lev_kundenr: string
+          maaned: string
+          maerke: string
+          model: string
+          navn: string
+          serienr: string
+          status: string
+          udeladt: boolean
+          vurdering: string
+        }[]
+      }
+      _bonus_maskin_refresh: {
+        Args: { _maaned: string; _saelger: string }
+        Returns: undefined
+      }
       _distrikt_saelger: {
         Args: { _postnr: string }
         Returns: {
@@ -5258,6 +5333,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      bonus_maskin_afregning: {
+        Args: { _maaned: string }
+        Returns: {
+          navn: string
+          raekker: Json
+          user_id: string
+        }[]
+      }
       bonus_maskin_detaljer: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
@@ -5285,6 +5368,7 @@ export type Database = {
           vurdering: string
         }[]
       }
+      bonus_maskin_genberegn: { Args: never; Returns: number }
       bonus_maskin_grundlag: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
@@ -5330,6 +5414,7 @@ export type Database = {
           navn: string
         }[]
       }
+      bonus_maskin_opdater_ko: { Args: { _maks?: number }; Returns: number }
       bonus_nykunde_detaljer: {
         Args: { _maaned: string; _saelger: string }
         Returns: {
@@ -6537,7 +6622,55 @@ export type Database = {
       relation_suggestion_status: "pending" | "confirmed" | "rejected"
     }
     CompositeTypes: {
-      [_ in never]: never
+      bonus_maskin_detalje_row: {
+        company_id: string | null
+        navn: string | null
+        by: string | null
+        model: string | null
+        maerke: string | null
+        kilde: string | null
+        brugt: boolean | null
+        antal: number | null
+        faktura_dato: string | null
+        beloeb: number | null
+        serienr: string | null
+        bonusklasse: string | null
+        udeladt: boolean | null
+        aarsag: string | null
+        status: string | null
+        vurdering: string | null
+        brugt_kilde: string | null
+        forgaenger_serienr: string | null
+        forgaenger_dato: string | null
+        godkendt: boolean | null
+        sats: number | null
+        maaned: string | null
+      }
+      bonus_maskin_grundlag_row: {
+        maaned: string | null
+        company_id: string | null
+        navn: string | null
+        by: string | null
+        kategori: string | null
+        maerke: string | null
+        brugt: boolean | null
+        kilde: string | null
+        model: string | null
+        antal: number | null
+        faktura_dato: string | null
+        beloeb: number | null
+        serienr: string | null
+        bonusklasse: string | null
+        udeladt: boolean | null
+        aarsag: string | null
+        status: string | null
+        vurdering: string | null
+        brugt_kilde: string | null
+        forgaenger_serienr: string | null
+        forgaenger_dato: string | null
+        godkendt: boolean | null
+        lev_kundenr: string | null
+      }
     }
   }
 }

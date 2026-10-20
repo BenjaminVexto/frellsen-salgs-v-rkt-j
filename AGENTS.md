@@ -3,7 +3,7 @@
 - Portfolio replies use gzip+base64 via komprimer-json.ts — Start limits response rows/bytes.
 - Sales attribution uses locations.saelger_user_id, set server-side by Aktør's aktoer_anvend_saelgere; companies.assigned_to owns only the main account — locations may have different sellers.
 - DB/DG visibility is decided by the database function maa_se_db (admin or profiles.maa_se_db), never by the admin role alone — so it can be switched off per person.
-- Address search and group (parent/sister) data come live from the CVR Elasticsearch distribution (produktionsenhed/virksomhed indexes) merged with cvr_penheder — because our local copy only covers CVRs already in the CRM.
+- Address search and group (parent/sister) data come live from the CVR Elasticsearch distribution (produktionsenhed/virksomhed indexes) merged with cvr_penheder.
 - P-enheder link via location_pnr_link; auto-link only on exact normalized street/no.+zip; near matches only suggested (penhed_koblingsforslag, rejections in penhed_forslag_afvist); kilde 'indirekte' (dealer, penhed_saet/fjern_indirekte) counts as covered — uncertain matches never auto-link.
 - Activities display/sort by trigger-validated udfoert_at (user-selected, at most 14 days back); created_at stays the registration time — both remain comparable.
 - Machine placement lives in maskine_placering per serial no.; import writes only via import_maskine_placering (ignores blanks, never overwrites CRM input) — so user input survives imports.
@@ -11,7 +11,7 @@
 - Salgskort is an admin-only tab (?fane=salgskort) in Min salgsstatistik; /admin/salgskort only redirects — because the map belongs with the sales statistics.
 - Distriktsscenarier (distrikt_scenarie, scenarie_distrikt, scenarie_flade, scenarie_saelger) are edited only in Salgskort → Simulering; the current map (distrikter/distrikt_flade) changes only via scenarie_gor_gaeldende, which first archives the old map as a scenario — so the current map can always be restored.
 - Simulation assignment rules (scenarie_regel) are evaluated client-side in src/lib/simulering-regler.ts (Frellsen → KAM → assign → geography → exclude) — so the order is tested in one place.
-- KAM-aftaler (kam_aftale/scenarie_kam) match on separate kpg1/kpg2/kpg3 lists (OR) plus optional omraade; kodetype/koder are deprecated, and scenarie_gor_gaeldende creates/updates/deletes kam_aftale from the scenario — so a scenario fully describes the KAM setup.
+- KAM-aftaler (kam_aftale/scenarie_kam) match on separate kpg1/kpg2/kpg3 lists (OR) plus optional omraade; kodetype/koder are deprecated, and scenarie_gor_gaeldende creates/updates/deletes kam_aftale from the scenario.
 - Telemarketing (role `telemarketing`) is locked out in the DB: every public table gets a RESTRICTIVE policy `tm_spaerret` USING/WITH CHECK (NOT (SELECT er_telemarketing())) — except contact_lists, contact_list_assignments, kontaktliste_ringer, kontaktliste_opkald. NEW TABLES MUST GET THIS POLICY. All server functions use `kraevIntern` middleware (src/lib/kraev-intern.ts), never bare requireSupabaseAuth; views must be security_invoker; the PostgREST pre-request `tm_pre_request` only lets telemarketing call the tm_* RPCs (add new agency RPCs to its allowlist). Agency data flows only through tm_virksomheder/tm_registrer_opkald/tm_gem_kontakt, which require a kontaktliste_ringer row — so a forgotten policy cannot leak sales data.
 - CVR-emnesøgning filtrerer ansatte/telefon/postnr i ES (src/lib/cvr-bulk-query.ts, nyeste måned→kvartal→år) og pager med search_after på cvrNummer; 'findes i CRM' afgøres kun af cvr_match_crm — ~40 % lack CVR.
 - Reads that can exceed 1,000 rows page via `hentAlle` (src/lib/hent-alle.ts), and postcode → district seller is resolved only in SQL (`_distrikt_saelger` and its wrappers) — because PostgREST silently caps responses at 1,000 rows.
@@ -21,4 +21,4 @@
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
 - Read nested AGENTS.md; bonus competition shows seller totals only.
 - Company mobile master data reuses the desktop content in More; machine metrics use one Locations callback — to keep presentation consistent.
-- Paid bonus months freeze in bonus_laas; later changes only via bonus_regulering — so nothing is paid twice.
+- Machine bonus reads cached seller/month rows; changes queue keys, imports drain, reviews refresh. Locked bonus_laas snapshots stay separate from live reconciliation. Equal-distance orders use order number.
