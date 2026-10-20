@@ -907,7 +907,7 @@ function VirksomhedsKort() {
                 { v: "relationer", label: "Relationer" },
                 { v: "aftaler", label: "Aftaler" },
               ];
-              const mobilePrimary = ["oversigt", "salg", "aftaler"];
+              const mobilePrimary = ["oversigt", "salg", "lokationer", "aftaler"];
               const mobileMore = [...allTabs.filter((t) => !mobilePrimary.includes(t.v)), { v: "stamdata", label: "Stamdata" }];
               const triggerCls =
                 "flex-shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-3 md:px-4 min-h-11 md:min-h-0 py-2";
@@ -924,20 +924,21 @@ function VirksomhedsKort() {
                   </TabsList>
                   {/* Mobil: 3 primære + Mere */}
                   <TabsList className="md:hidden bg-transparent p-0 h-auto border-b w-full justify-start rounded-none flex-nowrap flex">
-                    {allTabs
-                      .filter((t) => mobilePrimary.includes(t.v))
+                    {mobilePrimary
+                      .map((v) => allTabs.find((t) => t.v === v)!)
                       .map((t) => (
-                        <TabsTrigger key={t.v} value={t.v} className={triggerCls}>
+                        <TabsTrigger key={t.v} value={t.v} className={`${triggerCls} flex-1 min-w-0 basis-0 !px-0.5 text-sm justify-center text-center`}>
                           {t.label}
                         </TabsTrigger>
                       ))}
                     <DropdownMenu>
                       <DropdownMenuTrigger
-                        className={`${triggerCls} inline-flex items-center gap-1 text-sm font-medium ${
+                        aria-label="Flere visninger"
+                        className={`${triggerCls} !px-0 w-10 shrink-0 inline-flex items-center justify-center ${
                           activeInMore ? "border-primary text-primary" : "text-muted-foreground"
                         }`}
                       >
-                        Mere <MoreHorizontal className="h-4 w-4" />
+                        <MoreHorizontal className="h-5 w-5" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {mobileMore.map((t) => (
