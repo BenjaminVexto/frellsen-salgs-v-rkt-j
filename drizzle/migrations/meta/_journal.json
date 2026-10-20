@@ -778,6 +778,34 @@
       "when": 1792439914372,
       "tag": "0110_bonus_maskin_udskiftningsregel",
       "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1792479168523,
+      "tag": "0111_bonus_afregning",
+      "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1792479512118,
+      "tag": "0112_bonus_afregning_pr_saelger",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1792479559520,
+      "tag": "0113_bonus_laas_saelger_alias",
+      "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1792479771829,
+      "tag": "0114_loennr_kun_admin",
+      "breakpoints": true
     }
   ]
 }

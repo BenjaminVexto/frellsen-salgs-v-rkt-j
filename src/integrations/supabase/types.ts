@@ -412,9 +412,17 @@ export type Database = {
           db_provision_pct: number | null
           laast_af: string | null
           laast_at: string
+          laast_note: string | null
+          loen_1561: number
+          loen_1563: number
           maaned: string
           maskinbonus: number | null
+          maskiner: Json
+          ny_kunde_bonus: number
+          ny_kunde_db: number | null
+          ny_kunde_rang: number | null
           ordning_id: string | null
+          regulering: number
           samlet_bonus: number | null
           user_id: string
         }
@@ -427,9 +435,17 @@ export type Database = {
           db_provision_pct?: number | null
           laast_af?: string | null
           laast_at?: string
+          laast_note?: string | null
+          loen_1561?: number
+          loen_1563?: number
           maaned: string
           maskinbonus?: number | null
+          maskiner?: Json
+          ny_kunde_bonus?: number
+          ny_kunde_db?: number | null
+          ny_kunde_rang?: number | null
           ordning_id?: string | null
+          regulering?: number
           samlet_bonus?: number | null
           user_id: string
         }
@@ -442,11 +458,46 @@ export type Database = {
           db_provision_pct?: number | null
           laast_af?: string | null
           laast_at?: string
+          laast_note?: string | null
+          loen_1561?: number
+          loen_1563?: number
           maaned?: string
           maskinbonus?: number | null
+          maskiner?: Json
+          ny_kunde_bonus?: number
+          ny_kunde_db?: number | null
+          ny_kunde_rang?: number | null
           ordning_id?: string | null
+          regulering?: number
           samlet_bonus?: number | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      bonus_laas_log: {
+        Row: {
+          begrundelse: string | null
+          bruger: string | null
+          handling: string
+          id: string
+          maaned: string
+          tidspunkt: string
+        }
+        Insert: {
+          begrundelse?: string | null
+          bruger?: string | null
+          handling: string
+          id?: string
+          maaned: string
+          tidspunkt?: string
+        }
+        Update: {
+          begrundelse?: string | null
+          bruger?: string | null
+          handling?: string
+          id?: string
+          maaned?: string
+          tidspunkt?: string
         }
         Relationships: []
       }
@@ -551,6 +602,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      bonus_regulering: {
+        Row: {
+          beloeb: number
+          id: string
+          kilde_maaned: string | null
+          loenart: number
+          oprettet_af: string | null
+          oprettet_at: string
+          tekst: string
+          type: string
+          udbetalingsmaaned: string
+          user_id: string
+        }
+        Insert: {
+          beloeb: number
+          id?: string
+          kilde_maaned?: string | null
+          loenart: number
+          oprettet_af?: string | null
+          oprettet_at?: string
+          tekst?: string
+          type: string
+          udbetalingsmaaned: string
+          user_id: string
+        }
+        Update: {
+          beloeb?: number
+          id?: string
+          kilde_maaned?: string | null
+          loenart?: number
+          oprettet_af?: string | null
+          oprettet_at?: string
+          tekst?: string
+          type?: string
+          udbetalingsmaaned?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       churn_dismissals: {
         Row: {
@@ -3646,6 +3736,7 @@ export type Database = {
           full_name: string
           id: string
           is_active: boolean
+          loennr: string | null
           maa_se_afdelingspotentiale: boolean
           maa_se_analyse: boolean
           maa_se_db: boolean
@@ -3658,6 +3749,7 @@ export type Database = {
           full_name?: string
           id: string
           is_active?: boolean
+          loennr?: string | null
           maa_se_afdelingspotentiale?: boolean
           maa_se_analyse?: boolean
           maa_se_db?: boolean
@@ -3670,6 +3762,7 @@ export type Database = {
           full_name?: string
           id?: string
           is_active?: boolean
+          loennr?: string | null
           maa_se_afdelingspotentiale?: boolean
           maa_se_analyse?: boolean
           maa_se_db?: boolean
@@ -4920,6 +5013,15 @@ export type Database = {
       }
     }
     Functions: {
+      _bonus_laas_saelger: {
+        Args: {
+          _admin: string
+          _maaned: string
+          _note?: string
+          _saelger: string
+        }
+        Returns: undefined
+      }
       _distrikt_saelger: {
         Args: { _postnr: string }
         Returns: {
@@ -5025,6 +5127,15 @@ export type Database = {
         }[]
       }
       auto_link_penheder: { Args: { _cvrs?: string[] }; Returns: number }
+      bonus_afregning_saelgere: {
+        Args: { _maaned: string }
+        Returns: {
+          flatrate: number
+          loennr: string
+          navn: string
+          user_id: string
+        }[]
+      }
       bonus_db_detaljer: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {
@@ -5036,6 +5147,15 @@ export type Database = {
           omsaetning: number
         }[]
       }
+      bonus_laas_afslut: {
+        Args: { _maaned: string; _note?: string }
+        Returns: undefined
+      }
+      bonus_laas_op: {
+        Args: { _begrundelse: string; _maaned: string }
+        Returns: undefined
+      }
+      bonus_laas_start: { Args: { _maaned: string }; Returns: string[] }
       bonus_maskin_detaljer: {
         Args: { _fra: string; _saelger: string; _til: string }
         Returns: {

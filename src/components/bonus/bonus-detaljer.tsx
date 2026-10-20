@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Trophy } from "lucide-react";
 
-export type BonusDrill = { maaned: string; visning: "db" | "maskiner" | "rangliste"; filter: MaskinFilter; bonus: number };
+export type BonusDrill = { maaned: string; visning: "db" | "maskiner" | "rangliste"; filter: MaskinFilter; bonus: number; snapshot?: any[] | null };
 const tal = (n: number) => Number(n).toLocaleString("da-DK", { maximumFractionDigits: 0 });
 const dato = (s: string) => s ? new Date(s).toLocaleDateString("da-DK") : "—";
 const maanedNavn = (s: string) => new Date(`${s}-01`).toLocaleDateString("da-DK", { month: "short", year: "numeric" }).replace(".", "");
@@ -40,9 +40,10 @@ export function BonusDetaljer({ drill, saelgerId, onClose, onRegler }: { drill: 
     },
   });
   const q = useQuery({
-    queryKey: ["bonus-separated-details", saelgerId, drill?.maaned, drill?.visning], enabled: !!drill,
+    queryKey: ["bonus-separated-details", saelgerId, drill?.maaned, drill?.visning, !!drill?.snapshot], enabled: !!drill,
     queryFn: async () => {
       if (!drill) return [];
+      if (drill.visning === "maskiner" && drill.snapshot) return drill.snapshot;
       if (drill.visning === "rangliste") {
         const { data, error } = await supabase.rpc("bonus_nykunde_rangliste", { _maaned: `${drill.maaned}-01` });
         if (error) throw error;
