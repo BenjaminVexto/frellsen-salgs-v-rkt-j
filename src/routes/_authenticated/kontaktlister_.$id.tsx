@@ -585,7 +585,7 @@ function KontaktlisteDetalje() {
           </Card>
 
           <Card>
-            <div className="overflow-x-auto [overflow-y:clip]">
+            <div className="overflow-x-auto [overflow-y:clip] [&>div]:overflow-visible">
               <Table
                 className="table-fixed"
                 style={{ minWidth: skjulSaelgerKolonne ? 980 : 1090 }}
