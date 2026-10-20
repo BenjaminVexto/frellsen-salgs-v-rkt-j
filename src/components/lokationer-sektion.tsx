@@ -1,5 +1,7 @@
 import { UdskrivMaskinlisteKnap } from "@/components/maskinliste-print";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench } from "lucide-react";
+import { MapPin, Loader2, Plus, ChevronDown, ChevronUp, User, AlertTriangle, Wrench, MoreHorizontal, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { PenhedDaekning } from "@/components/penhed-daekning";
 import { Link } from "@tanstack/react-router";
@@ -182,6 +184,27 @@ export function LokationerSektion({
   const [sortMode, setSortMode] = useState<
     "default" | "revenue" | "street" | "lastPurchase" | "machines"
   >("default");
+  const isMobile = useIsMobile();
+  const [topSheet, setTopSheet] = useState(false);
+  const [adrSheet, setAdrSheet] = useState<string | null>(null);
+  const [aabneKonti, setAabneKonti] = useState<Set<string>>(new Set());
+  // Mobil: maskiner pr. lokation til chips på adressekortet.
+  const chipsIds = locations.map((l) => l.id).sort();
+  const chipsQ = useQuery({
+    enabled: isMobile && chipsIds.length > 0,
+    queryKey: ["lok-maskinchips", chipsIds.join(",")],
+    queryFn: async () => {
+      const units = await hentAlle<{ id: string; location_id: string; machine_type: string | null; serial_no: string | null; udstyr_type: EquipmentUnit["udstyr_type"] }>(
+        (fra, til) => (supabase as any)
+          .from("location_equipment_units")
+          .select("id, location_id, machine_type, serial_no, udstyr_type")
+          .in("location_id", chipsIds).eq("is_filter", false).order("id").range(fra, til),
+      );
+      const m: Record<string, typeof units> = {};
+      for (const u of units) (m[u.location_id] ??= []).push(u);
+      return m;
+    },
+  });
 
 
 
@@ -525,6 +548,15 @@ export function LokationerSektion({
   const expiringByLoc = expiringQ.data ?? new Map<string, number>();
   const expiringTotal = Array.from(expiringByLoc.values()).reduce((n, v) => n + v, 0);
   const [expiringOpen, setExpiringOpen] = useState(false);
+  // Mobil: én adresse foldes ud som standard (kun første gang).
+  const autoAabnet = useRef(false);
+  useEffect(() => {
+    if (!isMobile || autoAabnet.current || !hentet || !grupper.length) return;
+    autoAabnet.current = true;
+    if (grupper.length === 1) {
+      setAabneLok((prev) => { const n = new Set(prev); grupper[0]!.locs.forEach((l) => n.add(l.id)); return n; });
+    }
+  }, [isMobile, hentet, grupper]);
 
 
   // Always render the section (header) when admin; hide entirely if no data and no write
@@ -737,6 +769,215 @@ export function LokationerSektion({
     </div>
   );
 
+  const harMaskinerTotal = grupper.some((g) => g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0));
+  const maskinlisteTop = (
+    <UdskrivMaskinlisteKnap
+      company={{ id: companyId, name: companyName ?? "", cvr }}
+      adresser={grupper
+        .filter((g) => g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0))
+        .map((g) => ({
+          key: g.key,
+          label: [g.city, g.address].filter(Boolean).join(" · ") || "Uden adresse",
+          locIds: g.locs.map((l) => l.id),
+          egen: !!mitId && g.locs.some((l) => (l as any).saelger_user_id === mitId),
+        }))}
+    />
+  );
+  const dageSiden = (d: string | null) => {
+    if (!d) return "Intet køb";
+    const n = Math.max(0, Math.floor((Date.now() - new Date(d.slice(0, 10) + "T00:00:00Z").getTime()) / 86400000));
+    return n === 0 ? "i dag" : n === 1 ? "1 dag siden" : `${n.toLocaleString("da-DK")} dage siden`;
+  };
+  const maskinChips = (g: AdresseGruppe) => {
+    const set = new Set<string>();
+    const m = new Map<string, { label: string; kind: Ownership; n: number }>();
+    for (const l of g.locs) {
+      for (const u of chipsQ.data?.[l.id] ?? []) {
+        const k = u.serial_no?.trim() || `id:${u.id}`;
+        if (set.has(k)) continue;
+        set.add(k);
+        const o = deriveOwnership(u);
+        const label = `${(u.machine_type ?? "Ukendt").trim() || "Ukendt"} · ${o.label}`;
+        const x = m.get(label) ?? { label, kind: o.kind, n: 0 };
+        x.n += 1;
+        m.set(label, x);
+      }
+    }
+    return Array.from(m.values());
+  };
+
+  const mobilKort = (r: Raekke, g: AdresseGruppe, aaben: boolean, toggle: () => void, egen: boolean, nedtonet: boolean) => {
+    const by = [g.zip, paenBy(g.city)].filter(Boolean).join(" ");
+    const navne = new Set(
+      g.locs.map((l) => (l as any).saelger?.full_name ?? ((l as any).i_aktoer === false ? "Ikke i Aktør" : "Ingen sælger")),
+    );
+    const saelgerTekst = navne.size > 1 ? "Flere sælgere" : Array.from(navne)[0] ?? null;
+    const chips = maskinChips(g);
+    const rep =
+      g.locs.find((l) => l.is_primary) ?? g.locs.find((l) => (l as any).customer_type === "aktiv_kunde") ?? g.locs[0]!;
+    const harMaskiner = g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0);
+    const kontaktSet = new Set<string>();
+    const kontakter: LocationContact[] = [];
+    for (const l of g.locs) {
+      const liste = contactsByLocation?.get(l.id)?.length
+        ? contactsByLocation!.get(l.id)!
+        : l.contact_person || l.phone || l.email
+          ? [{ id: l.id, name: l.contact_person ?? "", phone: l.phone, email: l.email }]
+          : [];
+      for (const c of liste) {
+        // Samme person (navn + telefon) vises én gang; mail flettes ind.
+        const k = `${c.name}|${c.phone ?? ""}`.toLowerCase().replace(/\s+/g, "");
+        const eks = kontakter.find((x) => `${x.name}|${x.phone ?? ""}`.toLowerCase().replace(/\s+/g, "") === k);
+        if (eks) { if (!eks.email && c.email) eks.email = c.email; continue; }
+        kontaktSet.add(k);
+        kontakter.push({ ...c });
+      }
+    }
+    const adresse = r.address || "Ukendt adresse";
+    return (
+      <li
+        key={r.key}
+        className={`border-l-4 ${egen ? "border-l-primary" : "border-l-transparent"} ${aaben ? "bg-muted/40" : ""} ${nedtonet ? "text-muted-foreground" : ""}`}
+      >
+        <button type="button" aria-expanded={aaben} onClick={toggle} className="w-full min-h-11 flex items-start gap-2 px-3 pt-3 pb-2 text-left">
+          <span className="min-w-0 flex-1 space-y-0.5">
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className="font-semibold truncate">{adresse}</span>
+              {r.primary && <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-normal shrink-0">Primær</Badge>}
+            </span>
+            <span className="block text-xs text-muted-foreground truncate">
+              {[by, `${kroner(r.oms)} / 12 mdr.`, dageSiden(r.sidsteKoeb)].filter(Boolean).join(" · ")}
+            </span>
+            {saelgerTekst && (
+              <span className="flex items-center gap-1 text-xs min-w-0">
+                <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <span className="truncate">{saelgerTekst}</span>
+              </span>
+            )}
+            {chips.length > 0 && (
+              <span className="flex flex-wrap gap-1 pt-1">
+                {chips.slice(0, 3).map((c) => (
+                  <span key={c.label} className="rounded-full border bg-background px-2 py-0.5 text-[11px] max-w-full truncate">
+                    {c.n > 1 ? `${c.n}× ` : ""}{c.label}
+                  </span>
+                ))}
+                {chips.length > 3 && (
+                  <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">+{chips.length - 3}</span>
+                )}
+              </span>
+            )}
+          </span>
+          {aaben ? <ChevronUp className="h-4 w-4 shrink-0 mt-1" /> : <ChevronDown className="h-4 w-4 shrink-0 mt-1" />}
+        </button>
+        <div className="flex gap-2 px-3 pb-3">
+          <BesoegtKnap companyId={companyId} locationId={rep.id} size="sm" compact className="h-11 flex-1 min-w-0" />
+          <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0" aria-label="Flere handlinger for adressen" onClick={() => setAdrSheet(g.key)}>
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </div>
+        <Sheet open={adrSheet === g.key} onOpenChange={(o) => !o && setAdrSheet(null)}>
+          <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg space-y-3 [&_button]:min-h-11" aria-describedby={undefined}>
+            <SheetHeader><SheetTitle className="truncate pr-6">{adresse}</SheetTitle></SheetHeader>
+            <KatalogKnap companyId={companyId} locationId={rep.id} size="sm" className="h-11 w-full justify-start" />
+            <Button variant="outline" className="w-full justify-start" onClick={() => { setAdrSheet(null); onRegisterActivity(rep.id); }}>
+              Registrér aktivitet her
+            </Button>
+            {harMaskiner && (
+              <div className="[&_button]:w-full [&_button]:justify-start">
+                <UdskrivMaskinlisteKnap
+                  label="Maskinliste for denne adresse"
+                  company={{ id: companyId, name: companyName ?? "", cvr }}
+                  locationIds={g.locs.map((l) => l.id)}
+                />
+              </div>
+            )}
+            {cvr && g.key !== "uden" && g.locs.some((l) => l.visma_delivery_no) && (
+              <div className="rounded-md border [&_button]:text-sm">
+                <AdressePenhedKobling
+                  pnr={g.pnr}
+                  pnrAdresse={g.address}
+                  locs={g.locs.filter((l) => l.visma_delivery_no || g.pnr)}
+                  linkInfo={pnrQ.data?.linkInfo ?? {}}
+                  afdelingNr={afdelingNr}
+                  penListe={pnrQ.data?.penListe ?? []}
+                  zip={g.zip}
+                  onChanged={() => { pnrQ.refetch(); oversigtQ.refetch(); }}
+                />
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
+        {aaben && (
+          <div className="px-3 pb-3 space-y-3">
+            <EquipmentBox location={rep} locationIds={g.locs.map((l) => l.id)} skjulSortering />
+            {kontakter.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Kontakt</div>
+                {kontakter.map((c) => (
+                  <div key={c.id} className="text-sm min-w-0">
+                    {c.name && <div className="font-medium truncate">{c.name}</div>}
+                    <div className="flex flex-wrap gap-2">
+                      {c.phone && (
+                        <a href={`tel:${c.phone}`} className="inline-flex min-h-11 items-center gap-1.5 text-primary">
+                          <Phone className="h-4 w-4" /> {c.phone}
+                        </a>
+                      )}
+                      {c.email && (
+                        <a href={`mailto:${c.email}`} className="inline-flex min-h-11 items-center gap-1.5 text-primary min-w-0">
+                          <Mail className="h-4 w-4 shrink-0" /> <span className="truncate">{c.email}</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">
+                {g.locs.length === 1 ? "Konto" : `Konti (${g.locs.length})`}
+              </div>
+              <ul className="divide-y rounded-md border bg-background">
+                {g.locs.map((l) => {
+                  const ab = aabneKonti.has(l.id);
+                  const ct = (l as any).customer_type as string;
+                  const st = (l as any).kreditspaerret ? "Spærret" : KONTO_STATUS[ct] ?? null;
+                  const koeberPaa = (l as any).koeber_paa?.visma_delivery_no && ct !== "aktiv_kunde" ? (l as any).koeber_paa.visma_delivery_no : null;
+                  return (
+                    <li key={l.id} id={`location-${l.id}`} className="scroll-mt-20">
+                      <button
+                        type="button"
+                        aria-expanded={ab}
+                        onClick={() => setAabneKonti((p) => { const n = new Set(p); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })}
+                        className="w-full min-h-11 flex items-center gap-2 px-3 py-2 text-left"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1.5 min-w-0 text-sm">
+                            <span className="truncate tabular-nums">
+                              {[l.visma_delivery_no ?? "–", ct === "servicekunde" ? null : st, kroner(summary[l.id]?.revenue12m ?? 0), dageSiden(summary[l.id]?.lastPurchase ?? null)].filter(Boolean).join(" · ")}
+                            </span>
+                            {ct === "servicekunde" && <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-normal shrink-0">Service</Badge>}
+                          </span>
+                          {koeberPaa && <span className="block text-xs text-muted-foreground truncate">Køber på konto {koeberPaa}</span>}
+                        </span>
+                        {ab ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+                      </button>
+                      {ab && (
+                        <div className="px-3 pb-3 space-y-2">
+                          <LocationSalesStrip locationId={l.id} isAdmin={!!isAdmin} />
+                          {l.visma_delivery_no && <div className="text-xs text-muted-foreground">Lev.nr. {l.visma_delivery_no}</div>}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        )}
+      </li>
+    );
+  };
+
   const raekkeEl = (r: Raekke, nedtonet = false) => {
     const g = r.gruppe;
     const aaben = g ? g.locs.some((l) => aabneLok.has(l.id)) : aabneAndre.has(r.key);
@@ -753,6 +994,7 @@ export function LokationerSektion({
         return n;
       });
     };
+    if (isMobile && g) return mobilKort(r, g, aaben, toggle, egen, nedtonet);
     const by = [r.zip, paenBy(r.city)].filter(Boolean).join(" ");
     const kontoCelle =
       r.konto === "egen" ? (
@@ -870,24 +1112,35 @@ export function LokationerSektion({
         {heleCvr ? " (hele CVR)" : ""}
         {antalPenheder > 0 ? ` · ${antalPenheder} P-enheder i alt` : ""}
       </p>
+      {isMobile ? (
+        <div className="flex items-center justify-between mb-1 gap-2">
+          <h2 className="font-semibold flex items-center gap-2 min-w-0">
+            <MapPin className="h-4 w-4 shrink-0" /> Aktive lokationer
+          </h2>
+          {(harMaskinerTotal || isAdmin) && (
+            <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" aria-label="Flere handlinger for lokationer" onClick={() => setTopSheet(true)}>
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          )}
+          <Sheet open={topSheet} onOpenChange={setTopSheet}>
+            <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg space-y-3 [&_button]:min-h-11 [&_button]:w-full [&_button]:justify-start" aria-describedby={undefined}>
+              <SheetHeader><SheetTitle>Lokationer</SheetTitle></SheetHeader>
+              {harMaskinerTotal && maskinlisteTop}
+              {isAdmin && (
+                <Button variant="outline" onClick={() => { setTopSheet(false); setAddOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
+                </Button>
+              )}
+            </SheetContent>
+          </Sheet>
+        </div>
+      ) : (
       <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
           <MapPin className="h-4 w-4" /> Aktive lokationer
         </h2>
         <div className="flex items-center gap-2">
-          {grupper.some((g) => g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0)) && (
-            <UdskrivMaskinlisteKnap
-              company={{ id: companyId, name: companyName ?? "", cvr }}
-              adresser={grupper
-                .filter((g) => g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0))
-                .map((g) => ({
-                  key: g.key,
-                  label: [g.city, g.address].filter(Boolean).join(" · ") || "Uden adresse",
-                  locIds: g.locs.map((l) => l.id),
-                  egen: !!mitId && g.locs.some((l) => (l as any).saelger_user_id === mitId),
-                }))}
-            />
-          )}
+          {harMaskinerTotal && maskinlisteTop}
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
@@ -895,6 +1148,7 @@ export function LokationerSektion({
           )}
         </div>
       </div>
+      )}
 
 
       {expiringTotal > 0 && (
@@ -1355,7 +1609,18 @@ function pickTaellerstand(data: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function EquipmentBox({ location }: { location: Location }) {
+function EquipmentBox({
+  location,
+  locationIds,
+  skjulSortering = false,
+}: {
+  location: Location;
+  /** Samlet visning for flere konti på samme adresse (mobil). */
+  locationIds?: string[];
+  skjulSortering?: boolean;
+}) {
+  const ids = locationIds ?? [location.id];
+  const idsKey = ids.join(",");
   const suppressionFn = useServerFn(getMasterAgreementSuppression);
   const suppressionQ = useQuery({
     queryKey: ["master-agreement-suppression", location.company_id],
@@ -1392,18 +1657,30 @@ function EquipmentBox({ location }: { location: Location }) {
       const { data } = await (supabase as any)
         .from("location_equipment_units")
         .select("id, source, is_filter, machine_type, serial_no, sub_location, agreement_type, is_free_loan, has_service_contract, udstyr_type, afdeling_nr")
-        .eq("location_id", location.id)
+        .in("location_id", ids)
         .order("is_filter", { ascending: true })
         .order("machine_type", { ascending: true });
       if (!cancelled) {
-        setUnits((data ?? []) as EquipmentUnit[]);
+        let liste = (data ?? []) as EquipmentUnit[];
+        // Samlet adressevisning: én række pr. serienr. på tværs af konti.
+        if (locationIds) {
+          const set = new Set<string>();
+          liste = liste.filter((u) => {
+            const sn = !u.is_filter ? u.serial_no?.trim() : null;
+            if (!sn) return true;
+            if (set.has(sn)) return false;
+            set.add(sn);
+            return true;
+          });
+        }
+        setUnits(liste);
         setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [location.id]);
+  }, [idsKey]);
 
   // Hent enrichment for de serienr-bærende maskiner
   useEffect(() => {
@@ -1430,7 +1707,7 @@ function EquipmentBox({ location }: { location: Location }) {
         .in("serienr", serials);
       const [{ data: mData }, { data: lejeData }] = await Promise.all([
         (supabase as any).from("machines").select("serienr, udlanstype").eq("record_status", "aktiv").in("serienr", serials),
-        (supabase as any).rpc("lokationer_med_leje", { _location_ids: [location.id] }),
+        (supabase as any).rpc("lokationer_med_leje", { _location_ids: ids }),
       ]);
       if (cancelled) return;
       const u = new Map<string, string>();
@@ -1858,7 +2135,7 @@ null
 
       {machines.length > 0 ? (
         <>
-          {machines.length > 0 && (
+          {machines.length > 0 && !skjulSortering && (
             <div className="flex items-center justify-end mb-1.5">
               <select
                 value={sortMode}
