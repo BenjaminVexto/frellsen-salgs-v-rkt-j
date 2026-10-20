@@ -74,7 +74,7 @@ export function BonusDetaljer({ drill, saelgerId, onClose, onRegler }: { drill: 
     { key: "model", label: "Model", cell: (r) => r.model || "—" }, { key: "serienr", label: "Serienr.", cell: (r) => <span className="font-mono text-xs">{r.serienr || "—"}</span> },
     { key: "maerke", label: "Mærke", cell: (r) => r.maerke || "—" },
     { key: "bonusklasse", label: "Bonusklasse", cell: (r) => MASKIN_LABEL[r.bonusklasse as MaskinFilter] || r.bonusklasse || "—" },
-    { key: "kilde", label: "Type", cell: (r) => r.kilde === "leje" ? "Leje/udlån" : "Salg" },
+    { key: "kilde", label: "Type", cell: (r) => r.kilde === "leje" ? "Leje" : "Salg" },
     { key: "brugt", label: "Stand", cell: (r) => r.brugt ? "Brugt" : "Ny" },
     { key: "antal", label: "Antal", num: true, val: (r) => Number(r.antal), cell: (r) => tal(r.antal) },
     { key: "faktura_dato", label: "Fakturadato", cell: (r) => dato(r.faktura_dato) },
