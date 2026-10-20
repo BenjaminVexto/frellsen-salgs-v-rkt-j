@@ -585,181 +585,203 @@ function KontaktlisteDetalje() {
           </Card>
 
           <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortableHead
-                    label="Virksomhed"
-                    k="company"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={toggleSort}
-                  />
-                  <TableHead>Telefon / e-mail</TableHead>
-                  <TableHead>Kontaktperson</TableHead>
-
-                  <SortableHead
-                    label="Ansatte"
-                    k="employees"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={toggleSort}
-                  />
-                  <SortableHead
-                    label="Sælger"
-                    k="seller"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={toggleSort}
-                  />
-                  <TableHead>Status</TableHead>
-                  <TableHead>Prioritet</TableHead>
-                  <SortableHead
-                    label="Opfølgning / note"
-                    k="followup"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={toggleSort}
-                  />
-
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
+            <div className="overflow-x-auto [overflow-y:clip]">
+              <Table
+                className="table-fixed"
+                style={{ minWidth: skjulSaelgerKolonne ? 980 : 1090 }}
+              >
+                <colgroup>
+                  <col className="w-[240px]" />
+                  <col className="w-[170px]" />
+                  <col className="w-[170px]" />
+                  <col className="w-[80px]" />
+                  {!skjulSaelgerKolonne && <col className="w-[110px]" />}
+                  <col className="w-[220px]" />
+                  <col className="w-[100px]" />
+                  <col />
+                </colgroup>
+                <TableHeader className="sticky top-0 z-10 bg-card [&_th]:bg-card">
                   <TableRow>
-                    <TableCell
-                      colSpan={9}
-                      className="text-center text-sm text-muted-foreground py-12"
-                    >
-                      Ingen virksomheder matcher filtrene.
-                    </TableCell>
+                    <SortableHead
+                      label="Virksomhed"
+                      k="company"
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                      onSort={toggleSort}
+                    />
+                    <TableHead>Telefon / e-mail</TableHead>
+                    <TableHead>Kontaktperson</TableHead>
+                    <SortableHead
+                      label="Ansatte"
+                      k="employees"
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                      onSort={toggleSort}
+                    />
+                    {!skjulSaelgerKolonne && (
+                      <SortableHead
+                        label="Sælger"
+                        k="seller"
+                        sortKey={sortKey}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
+                      />
+                    )}
+                    <TableHead>Status</TableHead>
+                    <TableHead>Prioritet</TableHead>
+                    <SortableHead
+                      label="Opfølgning / note"
+                      k="followup"
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                      onSort={toggleSort}
+                    />
                   </TableRow>
-                ) : (
-                  filtered.map((r) => {
-                    const overdue =
-                      r.next_followup_date && r.next_followup_date < today;
-                    return (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-medium max-w-[220px]">
-                          <Link
-                            to="/virksomheder/$id"
-                            params={{ id: r.company_id }}
-                            className="hover:underline text-primary"
-                          >
-                            {r.company.name}
-                          </Link>
-                          {r.company.website && (
-                            <a
-                              href={webHref(r.company.website)}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={r.company.website}
-                              className="ml-1.5 inline-flex align-middle text-muted-foreground hover:text-primary"
-                            >
-                              <Globe className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground font-normal min-w-0">
-                            <span className="truncate">
-                              {r.location_city && r.location_city !== r.company.city ? `📍 ${r.location_city}` : (r.company.city ?? "")}
-                            </span>
-                            <CustomerStatusBadge
-                              type={r.company.customer_type}
-                              variant="outline"
-                              className="text-[10px] px-1.5 py-0 whitespace-nowrap shrink-0"
-                            />
-                          </div>
-
-                        </TableCell>
-                        <TableCell className="text-sm max-w-[190px]">
-                          {(() => {
-                            const n = telefonNumre(r.location_phone, r.company.phone);
-                            if (!n.length) return <div className="text-xs text-muted-foreground">—</div>;
-                            return n.map((t, i) => (
-                              <div key={t} className={`whitespace-nowrap ${i ? "text-xs text-muted-foreground" : ""}`}>
-                                <a href={telHref(t)} className="hover:underline">{formatTelefon(t)}</a>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={skjulSaelgerKolonne ? 8 : 9}
+                        className="text-center text-sm text-muted-foreground py-12"
+                      >
+                        Ingen virksomheder matcher filtrene.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filtered.map((r) => {
+                      const overdue =
+                        r.next_followup_date && r.next_followup_date < today;
+                      const statusTekstFull = statusTekst(r.status, r.status_aarsag, r.antal_forsoeg);
+                      return (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-medium align-top">
+                            <div className="line-clamp-2" title={r.company.name}>
+                              <Link
+                                to="/virksomheder/$id"
+                                params={{ id: r.company_id }}
+                                className="hover:underline text-primary"
+                              >
+                                {r.company.name}
+                              </Link>
+                              {r.company.website && (
+                                <a
+                                  href={webHref(r.company.website)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title={r.company.website}
+                                  className="ml-1.5 inline-flex align-middle text-muted-foreground hover:text-primary"
+                                >
+                                  <Globe className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground font-normal min-w-0">
+                              <span className="truncate">
+                                {r.location_city && r.location_city !== r.company.city ? `📍 ${r.location_city}` : (r.company.city ?? "")}
+                              </span>
+                              <CustomerStatusBadge
+                                type={r.company.customer_type}
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 whitespace-nowrap shrink-0"
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm align-top">
+                            {(() => {
+                              const n = telefonNumre(r.location_phone, r.company.phone);
+                              if (!n.length) return <div className="text-xs text-muted-foreground">—</div>;
+                              return n.map((t, i) => (
+                                <div key={t} className={`whitespace-nowrap ${i ? "text-xs text-muted-foreground" : ""}`}>
+                                  <a href={telHref(t)} className="hover:underline">{formatTelefon(t)}</a>
+                                </div>
+                              ));
+                            })()}
+                            {r.company.email && (
+                              <a href={`mailto:${r.company.email}`} className="block truncate text-xs text-muted-foreground hover:underline" title={r.company.email}>{r.company.email}</a>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm align-top">
+                            {r.kontakt ? (
+                              <div title={`${r.kontakt.name}${r.kontakt.title ? ` · ${r.kontakt.title}` : ""}`}>
+                                <div className="truncate">{r.kontakt.name}</div>
+                                {r.kontakt.title && <div className="text-xs text-muted-foreground truncate">{r.kontakt.title}</div>}
                               </div>
-                            ));
-                          })()}
-                          {r.company.email && (
-                            <a href={`mailto:${r.company.email}`} className="block truncate text-xs text-muted-foreground hover:underline" title={r.company.email}>{r.company.email}</a>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm align-top">{r.company.employees ?? "—"}</TableCell>
+                          {!skjulSaelgerKolonne && (
+                            <TableCell className="text-sm align-top">
+                              <span className="block truncate" title={r.seller_name}>{r.seller_name}</span>
+                            </TableCell>
                           )}
-                        </TableCell>
-                        <TableCell className="text-sm max-w-[170px]">
-                          {r.kontakt ? (
-                            <div title={`${r.kontakt.name}${r.kontakt.title ? ` · ${r.kontakt.title}` : ""}`}>
-                              <div className="truncate">{r.kontakt.name}</div>
-                              {r.kontakt.title && <div className="text-xs text-muted-foreground truncate">{r.kontakt.title}</div>}
+                          <TableCell className="align-top">
+                            <div className="flex flex-col items-start gap-1">
+                              <Badge
+                                variant={r.status === "møde_booket" || r.status === "tilbud_oensket" ? "default" : "outline"}
+                                className="text-xs max-w-full truncate"
+                                title={statusTekstFull}
+                              >
+                                {statusTekstFull}
+                              </Badge>
+                              <Button size="sm" variant="ghost" className="h-6 px-1 text-xs" onClick={() => setUdfaldRow(r)}>
+                                Registrér udfald
+                              </Button>
                             </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-
-                        <TableCell className="text-sm">{r.company.employees ?? "—"}</TableCell>
-
-
-                        <TableCell className="text-sm max-w-[120px]">{r.seller_name}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 whitespace-nowrap">
-                            <Badge variant={r.status === "møde_booket" || r.status === "tilbud_oensket" ? "default" : "outline"} className="text-xs whitespace-nowrap">
-                              {statusTekst(r.status, r.status_aarsag, r.antal_forsoeg)}
-                            </Badge>
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setUdfaldRow(r)}>
-                              Registrér udfald
-                            </Button>
-                          </div>
-                        </TableCell>
-
-                        <TableCell>
-                          <Select
-                            value={r.priority}
-                            onValueChange={(v) =>
-                              onPriorityChange(r, v as PriorityLevel)
-                            }
-                          >
-                            <SelectTrigger className="h-8 w-[96px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PRIORITY_OPTIONS.map((p) => (
-                                <SelectItem key={p.value} value={p.value}>
-                                  {p.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">
-                          {r.next_followup_date ? (
-                            <div className={`inline-flex items-center gap-1 ${overdue ? "text-destructive font-medium" : ""}`}>
-                              {overdue && <AlertTriangle className="h-3 w-3" />}
-                              Næste: {new Date(r.next_followup_date).toLocaleDateString("da-DK")}
-                            </div>
-                          ) : null}
-                          {r.last_activity_at ? (
-                            <div className="text-muted-foreground">
-                              {new Date(r.last_activity_at).toLocaleDateString("da-DK")}
-                              {r.last_activity_type ? ` · ${r.last_activity_type.replace(/_/g, " ")}` : ""}
-                            </div>
-                          ) : null}
-                          {r.seneste_note && (
-                            <div className="max-w-[200px] whitespace-normal" title={`${r.seneste_note.note}\n— ${new Date(r.seneste_note.at).toLocaleString("da-DK")}${r.seneste_note.bruger ? ` · ${r.seneste_note.bruger}` : ""}`}>
-                              <div className="truncate italic">“{r.seneste_note.note}”</div>
-                              <div className="text-muted-foreground truncate">{new Date(r.seneste_note.at).toLocaleDateString("da-DK")}{r.seneste_note.bruger ? ` · ${r.seneste_note.bruger}` : ""}</div>
-                            </div>
-                          )}
-                          {!r.next_followup_date && !r.last_activity_at && !r.seneste_note && (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <Select
+                              value={r.priority}
+                              onValueChange={(v) =>
+                                onPriorityChange(r, v as PriorityLevel)
+                              }
+                            >
+                              <SelectTrigger className="h-8 w-[96px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PRIORITY_OPTIONS.map((p) => (
+                                  <SelectItem key={p.value} value={p.value}>
+                                    {p.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-xs align-top">
+                            {r.next_followup_date ? (
+                              <div className={`inline-flex items-center gap-1 whitespace-nowrap ${overdue ? "text-destructive font-medium" : ""}`}>
+                                {overdue && <AlertTriangle className="h-3 w-3" />}
+                                Næste: {new Date(r.next_followup_date).toLocaleDateString("da-DK")}
+                              </div>
+                            ) : null}
+                            {r.last_activity_at ? (
+                              <div className="text-muted-foreground whitespace-nowrap">
+                                {new Date(r.last_activity_at).toLocaleDateString("da-DK")}
+                                {r.last_activity_type ? ` · ${r.last_activity_type.replace(/_/g, " ")}` : ""}
+                              </div>
+                            ) : null}
+                            {r.seneste_note && (
+                              <div title={`${r.seneste_note.note}\n— ${new Date(r.seneste_note.at).toLocaleString("da-DK")}${r.seneste_note.bruger ? ` · ${r.seneste_note.bruger}` : ""}`}>
+                                <div className="line-clamp-2 italic">“{r.seneste_note.note}”</div>
+                                <div className="text-muted-foreground">
+                                  {new Date(r.seneste_note.at).toLocaleDateString("da-DK")}{r.seneste_note.bruger ? ` · ${r.seneste_note.bruger}` : ""}
+                                </div>
+                              </div>
+                            )}
+                            {!r.next_followup_date && !r.last_activity_at && !r.seneste_note && (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </Card>
         </>
       )}
