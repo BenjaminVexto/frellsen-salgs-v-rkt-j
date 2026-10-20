@@ -870,24 +870,35 @@ export function LokationerSektion({
         {heleCvr ? " (hele CVR)" : ""}
         {antalPenheder > 0 ? ` · ${antalPenheder} P-enheder i alt` : ""}
       </p>
+      {isMobile ? (
+        <div className="flex items-center justify-between mb-1 gap-2">
+          <h2 className="font-semibold flex items-center gap-2 min-w-0">
+            <MapPin className="h-4 w-4 shrink-0" /> Aktive lokationer
+          </h2>
+          {(harMaskinerTotal || isAdmin) && (
+            <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" aria-label="Flere handlinger for lokationer" onClick={() => setTopSheet(true)}>
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          )}
+          <Sheet open={topSheet} onOpenChange={setTopSheet}>
+            <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg space-y-3 [&_button]:min-h-11 [&_button]:w-full [&_button]:justify-start" aria-describedby={undefined}>
+              <SheetHeader><SheetTitle>Lokationer</SheetTitle></SheetHeader>
+              {harMaskinerTotal && maskinlisteTop}
+              {isAdmin && (
+                <Button variant="outline" onClick={() => { setTopSheet(false); setAddOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
+                </Button>
+              )}
+            </SheetContent>
+          </Sheet>
+        </div>
+      ) : (
       <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
           <MapPin className="h-4 w-4" /> Aktive lokationer
         </h2>
         <div className="flex items-center gap-2">
-          {grupper.some((g) => g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0)) && (
-            <UdskrivMaskinlisteKnap
-              company={{ id: companyId, name: companyName ?? "", cvr }}
-              adresser={grupper
-                .filter((g) => g.locs.some((l) => (machineCountQ.data?.[l.id] ?? 0) > 0))
-                .map((g) => ({
-                  key: g.key,
-                  label: [g.city, g.address].filter(Boolean).join(" · ") || "Uden adresse",
-                  locIds: g.locs.map((l) => l.id),
-                  egen: !!mitId && g.locs.some((l) => (l as any).saelger_user_id === mitId),
-                }))}
-            />
-          )}
+          {harMaskinerTotal && maskinlisteTop}
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
@@ -895,6 +906,7 @@ export function LokationerSektion({
           )}
         </div>
       </div>
+      )}
 
 
       {expiringTotal > 0 && (
