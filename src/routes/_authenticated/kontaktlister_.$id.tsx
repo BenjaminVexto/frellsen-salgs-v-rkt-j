@@ -304,6 +304,15 @@ function KontaktlisteDetalje() {
     return Array.from(m, ([id, name]) => ({ id, name }));
   }, [rows]);
 
+  // Hvis alle rækker har samme sælger (eller ingen), skjules Sælger-kolonnen.
+  const ensSaelgerId = useMemo<string | null | undefined>(() => {
+    if (!rows.length) return undefined;
+    const first = rows[0].assigned_to ?? null;
+    return rows.every((r) => (r.assigned_to ?? null) === first) ? first : undefined;
+  }, [rows]);
+  const skjulSaelgerKolonne = ensSaelgerId !== undefined;
+  const ensSaelgerNavn = skjulSaelgerKolonne && ensSaelgerId ? rows[0].seller_name : null;
+
   const today = new Date().toISOString().slice(0, 10);
 
   const filtered = useMemo(() => {
@@ -440,7 +449,7 @@ function KontaktlisteDetalje() {
   };
 
   return (
-    <div className="px-4 md:px-8 py-8 max-w-7xl mx-auto pb-24 md:pb-8">
+    <div className="px-4 md:px-8 py-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
       <Button
         variant="ghost"
         size="sm"
@@ -482,6 +491,11 @@ function KontaktlisteDetalje() {
               <span className="text-sm text-muted-foreground whitespace-nowrap">
                 {kontaktet} af {total} kontaktet ({pct}%)
               </span>
+              {ensSaelgerNavn && (
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  Sælger: {ensSaelgerNavn}
+                </span>
+              )}
               {isAdmin && (
                 <Button
                   variant="ghost"
