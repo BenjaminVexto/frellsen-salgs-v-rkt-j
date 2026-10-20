@@ -44,3 +44,4 @@
   - [x] Test: testbruger, salgsdata/server function/view/storage afvises; sælger uændret; møde til rigtig sælger; slet testdata
 
 - [x] Lokationer: samlet aktiv tabel, sammenfoldet øvrige, kommune-normalisering og kontrol af BEC/en konto/Region Hovedstaden (kun visning).
+- [ ] Nye maskinbonusregler 20/10-2026 (kalerm/espresso 500, brugt 250 via "brugt"-tekst, én gang pr. lokation, ombytning 24 mdr, vurderinger, regelboks) + september før/efter pr. sælger (lås ikke)
