@@ -753,6 +753,7 @@ export function LokationerSektion({
         return n;
       });
     };
+    if (isMobile && g) return mobilKort(r, g, aaben, toggle, egen, nedtonet);
     const by = [r.zip, paenBy(r.city)].filter(Boolean).join(" ");
     const kontoCelle =
       r.konto === "egen" ? (
