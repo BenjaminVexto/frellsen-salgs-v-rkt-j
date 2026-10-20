@@ -193,7 +193,11 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
     const data = loenfilRaekker(maaned, rows.map((r) => ({ loennr: r.loennr, loen_1561: r.loen_1561, loen_1563: r.loen_1563 })));
     const filnavn = `loenfil-bonus-${maaned}`;
     if (type === "xlsx") {
-      const ws = XLSX.utils.json_to_sheet(data);
+      // Date som rigtig dato-celle (dd-mm-åååå), ikke tekst.
+      const ws = XLSX.utils.json_to_sheet(data.map((d) => {
+        const [dd, mm, yyyy] = d.Date.split("-").map(Number);
+        return { ...d, Date: new Date(Date.UTC(yyyy, mm - 1, dd, 12)) };
+      }), { cellDates: true, dateNF: "dd-mm-yyyy" });
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Lønfil");
       XLSX.writeFile(wb, `${filnavn}.xlsx`);
