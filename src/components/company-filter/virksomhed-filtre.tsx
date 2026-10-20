@@ -275,6 +275,27 @@ export function FilterChips({
   defaultSaelger: string;
   onReset: () => void;
 }) {
+  const chips = filterChips(filters, setFilters, sellers, defaultSaelger);
+  if (!chips.length) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {chips.map((c, i) => (
+        <span key={i} className="inline-flex items-center gap-1 rounded-full bg-muted pl-2.5 text-xs">
+          {c.l}
+          <button type="button" onClick={c.clear} aria-label={`Fjern ${c.l}`} className="text-muted-foreground hover:text-foreground px-2 py-1.5">
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onReset}>
+        Nulstil
+      </Button>
+    </div>
+  );
+}
+
+/** Aktive filtre som chips (også brugt til tal-badget på mobilens Filtre-knap). */
+export function filterChips(filters: FilterState, setFilters: SetF, sellers: Seller[], defaultSaelger: string) {
   const chips: { l: string; clear: () => void }[] = [];
   const lbl = (opts: { v: string; l: string }[], v: string) => opts.find((o) => o.v === v)?.l ?? v;
   if (filters.saelger !== defaultSaelger)
@@ -306,20 +327,5 @@ export function FilterChips({
   if (filters.lastPurchase.length) chips.push({ l: "Seneste varekøb", clear: () => setFilters((f) => ({ ...f, lastPurchase: [] })) });
   if (filters.assignment !== "all") chips.push({ l: "Tildeling (gammel)", clear: () => setFilters((f) => ({ ...f, assignment: "all", assignedToUserId: "" })) });
 
-  if (!chips.length) return null;
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {chips.map((c, i) => (
-        <span key={i} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs">
-          {c.l}
-          <button type="button" onClick={c.clear} aria-label={`Fjern ${c.l}`} className="text-muted-foreground hover:text-foreground">
-            <X className="h-3 w-3" />
-          </button>
-        </span>
-      ))}
-      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onReset}>
-        Nulstil
-      </Button>
-    </div>
-  );
+  return chips;
 }
