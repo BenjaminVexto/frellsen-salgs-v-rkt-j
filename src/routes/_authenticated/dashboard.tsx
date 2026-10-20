@@ -306,7 +306,7 @@ function DashboardPage() {
       </div>
 
       {/* 2. DAGENS OPFØLGNINGER — personlige for sælgere, team-brede for admin/support */}
-      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8">
         <PanelCard
           title={isAdmin ? "Dagens fokus (team)" : "Dagens fokus"}
           icon={<CalendarCheck className="h-5 w-5" />}
@@ -351,13 +351,13 @@ function DashboardPage() {
       </div>
 
       {/* 3. ARBEJDSLISTE + TIDLIG ADVARSEL */}
-      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
         <ChurningCustomersCard teamScope={isAdmin} />
         <PasseretRytmeCard teamScope={isAdmin} />
       </div>
 
       {/* 4. AFTALER UDLØBER */}
-      <div className="grid gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-4 md:gap-6 md:grid-cols-2 mb-6 md:mb-8 items-start">
         <ExpiringCustomersCard
           customers={expiringMachines}
           loading={expiringMachinesQuery.isLoading}
