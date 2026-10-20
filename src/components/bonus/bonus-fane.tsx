@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar, Download, Info, Loader2, Lock } from "lucide-react";
-import { BonusRegler, ReglerInfo, type ReglerAfsnit } from "./bonus-regler";
+import { BonusRegler, MaskinbonusBoks, ReglerInfo, type ReglerAfsnit } from "./bonus-regler";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
@@ -435,6 +435,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
       </Card>
 
       <BonusDetaljer key={`${saelgerId}-${drill?.maaned}-${drill?.visning}-${drill?.filter}`} saelgerId={saelgerId} drill={drill} onClose={() => setDrill(null)} onRegler={() => aabnRegler("maskiner")} />
+      <MaskinbonusBoks />
       <BonusRegler open={regler !== null} afsnit={regler ?? "top"} ordning={aktuelOrdning} onOpenChange={(o) => { if (!o) setRegler(null); }} />
     </div>
   );

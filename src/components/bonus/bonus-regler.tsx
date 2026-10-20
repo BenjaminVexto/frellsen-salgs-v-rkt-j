@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Info } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -24,7 +26,7 @@ export function dbProvisionTekst(o: BonusOrdning | null | undefined): string {
 
 const RESUME: Record<"db" | "maskiner" | "nykunde", string> = {
   db: "Provision af DB på dine lokationer i Visma. Leje tæller med 100 % DB; maskinbelastning trækkes fra.",
-  maskiner: "500 kr. pr. Wittenborg/Animo og 750 kr. pr. Rex-Royal sat ud på salg eller leje. Udskiftning tæller kun ved salg uden tilbagekøb eller ny lejekontrakt med min. 2 års binding.",
+  maskiner: "Bonus når du vinder en ny aftale via en maskine: fuld bonus for en ny maskine, 250 kr. for en brugt. Samme maskine hos samme kunde giver kun bonus én gang.",
   nykunde: "Største DB på nye kunder i måneden giver 1.000 kr., nummer to 600 kr.",
 };
 
@@ -74,30 +76,7 @@ export function BonusRegler({ open, afsnit, ordning, onOpenChange }: { open: boo
             <>
               <section id="bonusregel-maskiner" className="space-y-2 scroll-mt-4">
                 <h3 className="font-semibold">Maskinbonus</h3>
-                <p>Du får bonus for hver kaffemaskine, der sættes ud på en af dine lokationer – på salg eller leje:</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {(
-                    [
-                      ["Wittenborg / Gaggia G300", "500 kr."],
-                      ["Animo (inkl. OptiVend fra sep. 2026)", "500 kr."],
-                      ["Rex-Royal", "750 kr."],
-                    ] as const
-                  ).map(([navn, sats]) => (
-                    <div key={navn} className="rounded-md border bg-muted/40 px-2 py-2 text-xs leading-snug text-center">
-                      <span className="block font-medium">{navn}</span>
-                      <span className="block tabular-nums">{sats}</span>
-                    </div>
-                  ))}
-                </div>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>Maskinen tilhører sælgeren på lokationen – også ved kæde- og koncernaftaler.</li>
-                  <li>
-                    <span className="font-semibold">Udskiftning:</span> Salg giver bonus, medmindre Frellsen betaler for den gamle maskine. Leje giver kun bonus ved ny lejekontrakt med min. 2 års binding.
-                  </li>
-                  <li>
-                    <span className="font-semibold">Tæller ikke:</span> tilbehør, vandkølere, andre mærker og maskiner, kunden overtager efter leje.
-                  </li>
-                </ul>
+                <MaskinbonusRegler />
               </section>
               <section id="bonusregel-nykunde" className="space-y-2 scroll-mt-4">
                 <h3 className="font-semibold">Ny kunde-provision <span className="font-normal text-muted-foreground">(fra sep. 2026)</span></h3>
@@ -109,5 +88,46 @@ export function BonusRegler({ open, afsnit, ordning, onOpenChange }: { open: boo
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+export const MASKINBONUS_PUNKTER = [
+  "Ny maskine på salg eller leje: fuld bonus efter maskintype.",
+  "Brugt maskine på salg eller leje: 250 kr., uanset model.",
+  "Bonus gives for Wittenborg, Animo (bønne), Kalerm, Rex og espressomaskiner, der kører på Frellsens hele bønner eller VAC og har maskinservicekontrakt.",
+  "Ingen bonus for instantmaskiner (inkl. OptiVend), friskvand, fritstående friskbryg, brygindsatser, fødevareautomater og udlånsmaskiner. Andre maskintyper giver kun bonus, hvis Benjamin har godkendt det, før aftalen indgås.",
+  "Samme maskine hos samme kunde giver kun bonus én gang — også hvis en lejemaskine bliver solgt.",
+  "Ombytning inden for 24 måneder, reklamationer og tekniske ombytninger giver ikke bonus. Det gør tilbagekøb heller ikke, hvor Frellsen betaler for den gamle maskine.",
+  "Opgradering efter 24 måneder til en anden/større model på en ny aftale med mindst 2 års binding kan give bonus efter godkendelse.",
+  "Bonus følger lokationen — ikke hvem der forhandlede aftalen.",
+];
+
+/** Fast regeltekst for maskinbonus (besluttet 20/10-2026). */
+export function MaskinbonusRegler() {
+  return (
+    <>
+      <p className="font-medium">Maskinbonus — sådan virker det</p>
+      <p>Du får maskinbonus, når du vinder en ny aftale med kunden via en maskine.</p>
+      <ul className="list-disc pl-5 space-y-1">
+        {MASKINBONUS_PUNKTER.map((p) => <li key={p}>{p}</li>)}
+      </ul>
+    </>
+  );
+}
+
+export function MaskinbonusBoks() {
+  const [aaben, setAaben] = useState(false);
+  return (
+    <Collapsible open={aaben} onOpenChange={setAaben} className="rounded-md border">
+      <CollapsibleTrigger asChild>
+        <button type="button" className="flex w-full min-h-11 items-center justify-between px-3 py-2 text-sm font-medium">
+          Sådan beregnes maskinbonus
+          <ChevronDown className={`h-4 w-4 transition-transform ${aaben ? "rotate-180" : ""}`} />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-2 px-3 pb-3 text-sm">
+        <MaskinbonusRegler />
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

@@ -820,6 +820,27 @@
       "when": 1792480479862,
       "tag": "0116_bonus_regulering_aaben_pr_saelger",
       "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1792493839674,
+      "tag": "0117_maskinbonus_regler_2026_10_20",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1792493898974,
+      "tag": "0118_maskin_bonusklasse_ukendt_til_vare",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1792494027629,
+      "tag": "0119_maskin_bonusklasse_friskvand",
+      "breakpoints": true
     }
   ]
 }

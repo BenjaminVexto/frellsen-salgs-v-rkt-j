@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, Download, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import { laasBonusSaelger } from "@/lib/bonus-afregning.functions";
+import { LaasMaskinAdvarsel, MaskinVurderingKort } from "./maskin-vurdering";
 import { loenartGrundlag, loenfilRaekker, tidligLaasning } from "@/lib/bonus-afregning";
 
 const MDR = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"];
@@ -317,6 +318,8 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
         )}
       </Card>
 
+      <MaskinVurderingKort maaned={maaned} saelgere={saelgere} laaste={new Set(laasRows.map((l: any) => l.user_id))} onVisSaelger={onVisSaelger} />
+
       <Dialog open={laasOpen} onOpenChange={(o) => { if (!fremdrift) setLaasOpen(o); }}>
         <DialogContent>
           <DialogHeader>
@@ -329,6 +332,7 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
               <p>Fakturaer bagudateret til {navnM(maaned)} kan stadig komme. Anbefalet låsedato er den 10. {navnM(naeste)}. De vil i så fald blive efterreguleret automatisk.</p>
             </div>
           )}
+          <LaasMaskinAdvarsel maaned={maaned} saelgere={saelgere} aaben={laasOpen} />
           <div className="space-y-1"><Label>Note (valgfri)</Label><Textarea value={note} onChange={(e) => setNote(e.target.value)} /></div>
           {fremdrift && <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Låser sælger {fremdrift.i + 1} af {fremdrift.n}… (ca. 15 sek. pr. sælger)</p>}
           <DialogFooter>

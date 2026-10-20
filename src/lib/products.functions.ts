@@ -52,7 +52,7 @@ export const TE_TYPE_VALUES = [
 ] as const;
 
 /** Bonusklasse på maskinvarer — styrer maskinbonussens sats. */
-export const BONUSKLASSE_VALUES = ["wittenborg", "animo", "rex", "ingen"] as const;
+export const BONUSKLASSE_VALUES = ["wittenborg", "animo", "rex", "kalerm", "espresso", "ingen"] as const;
 
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
