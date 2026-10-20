@@ -890,6 +890,13 @@
       "when": 1792496615372,
       "tag": "0126_bonus_maskin_maanedsskifte",
       "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1792498463517,
+      "tag": "0127_bonus_laas_delete_where_true",
+      "breakpoints": true
     }
   ]
 }
