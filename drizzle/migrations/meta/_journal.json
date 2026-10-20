@@ -827,6 +827,13 @@
       "when": 1792493839674,
       "tag": "0117_maskinbonus_regler_2026_10_20",
       "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1792493898974,
+      "tag": "0118_maskin_bonusklasse_ukendt_til_vare",
+      "breakpoints": true
     }
   ]
 }
