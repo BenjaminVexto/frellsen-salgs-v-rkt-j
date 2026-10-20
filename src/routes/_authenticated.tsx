@@ -339,7 +339,7 @@ function AuthenticatedShell() {
         </div>
       </div>
 
-      <main className="flex-1 md:ml-0 pt-12 md:pt-0">
+      <main className="flex-1 min-w-0 md:ml-0 pt-12 md:pt-0">
         <ViewAsBanner />
         <Outlet />
         {/* Mobile bottom nav — kun mark-relevante faner; resten under "Mere" */}
