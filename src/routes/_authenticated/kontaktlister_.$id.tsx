@@ -780,7 +780,7 @@ function KontaktlisteDetalje() {
                   )}
                 </TableBody>
               </Table>
-            </div>
+
           </Card>
         </>
       )}
