@@ -28,9 +28,11 @@ export function BesoegtKnap({
   className,
   onSaved,
   locations,
+  compact = false,
 }: {
   /** Virksomhedens lokationer: ved flere adresser vælges adressen ved tryk (egne øverst). */
   locations?: LokLite[];
+  compact?: boolean;
   companyId: string;
   locationId?: string | null;
   size?: "lg" | "sm";
@@ -165,7 +167,7 @@ export function BesoegtKnap({
         ) : (
           <MapPinCheck className={cn(stor ? "h-5 w-5" : "h-4 w-4", "mr-2")} />
         )}
-        {alleredeId && !flereAdresser ? "Allerede registreret i dag" : "Besøgt"}
+        {alleredeId && !flereAdresser ? (compact ? "Besøgt" : "Allerede registreret i dag") : "Besøgt"}
       </Button>
       <Dialog open={vaelgOpen} onOpenChange={setVaelgOpen}>
         <DialogContent>

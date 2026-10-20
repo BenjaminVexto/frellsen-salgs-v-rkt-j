@@ -112,6 +112,7 @@ import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 import { getActivityType, labelFor } from "@/lib/activity-types";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Target } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 
 
@@ -164,7 +165,7 @@ type Activity = Database["public"]["Tables"]["activities"]["Row"];
 type Assignment = Database["public"]["Tables"]["contact_list_assignments"]["Row"];
 type Opportunity = Database["public"]["Tables"]["sales_opportunities"]["Row"];
 
-type TabKey = "oversigt" | "aktivitet" | "salg" | "udvikling" | "lokationer" | "relationer" | "aftaler";
+type TabKey = "oversigt" | "aktivitet" | "salg" | "udvikling" | "lokationer" | "relationer" | "aftaler" | "stamdata";
 
 
 const firstFilled = (...values: Array<string | null | undefined>) => {
@@ -211,6 +212,8 @@ function VirksomhedsKort() {
   const [mailOpen, setMailOpen] = useState(false);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>("oversigt");
   const [vismaExpanded, setVismaExpanded] = useState(() => {
     try {
@@ -436,130 +439,15 @@ function VirksomhedsKort() {
     );
   }
 
-  return (
-    <div className="px-4 md:px-6 py-6 max-w-[1600px] mx-auto pb-24 md:pb-6">
-      <div className="mb-4">
-        <Link
-          to="/virksomheder"
-          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Alle virksomheder
-        </Link>
-      </div>
-
-      {afloestAf && (
-        <Card className="mb-4 p-3 bg-muted/50 border-border">
-          <p className="text-sm text-muted-foreground">
-            Afløst af{" "}
-            <Link
-              to="/virksomheder/$id"
-              params={{ id: afloestAf.id }}
-              className="font-medium text-foreground hover:underline"
-            >
-              {afloestAf.name}
-            </Link>
-            {afloestAf.visma_id ? ` · ${afloestAf.visma_id}` : ""}
-          </p>
-        </Card>
-      )}
-
-      {/* MOBIL møde-brief — vises kun på telefon, øverst, så sælgeren straks ser
-          firma, status, AI-brief og kan starte aktivitet/mail uden at scrolle. */}
-      <div className="lg:hidden mb-4">
-        <Card className="p-4 space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <h1 className="text-lg font-semibold leading-tight min-w-0 break-words">
-              {company.name}
-              {(company as any).visma_enhed && (
-                <span className="ml-1.5 text-sm font-normal text-muted-foreground">
-                  · {(company as any).visma_enhed}
-                </span>
-              )}
-            </h1>
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              <CustomerStatusBadge
-                type={company.customer_type}
-                variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
-              />
-              <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
-            </div>
-          </div>
-          <SammeCvrLink cvr={company.cvr} companyId={company.id} />
-          <KundeRytmeLinje companyId={company.id} />
-          <div className="grid grid-cols-2 gap-2">
-            <BesoegtKnap companyId={company.id} locations={locations as any} onSaved={() => void load(true)} />
-            <KatalogKnap companyId={company.id} onSaved={() => void load(true)} />
-          </div>
-          <KundeStop companyId={company.id} onChanged={() => void load(true)} />
-          <div className="grid grid-cols-3 gap-2">
-            <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
-              <PlusCircle className="h-4 w-4 mr-1.5" /> Aktivitet
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setMailOpen(true)}>
-              <Mail className="h-4 w-4 mr-1.5" /> Mail
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline">
-                  <MoreHorizontal className="h-4 w-4 mr-1.5" /> Flere
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setOpportunityOpen(true)}>
-                  <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    navigate({ to: "/tilbud/ny", search: { companyId: company.id } })
-                  }
-                >
-                  <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={openDeleteDialog}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" /> Slet virksomhed
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <div className="grid grid-cols-1 gap-1.5 text-sm border-t pt-3">
-            {(() => {
-              const c = contacts.find((c) => c.is_primary) ?? contacts[0];
-              return c ? (
-                <div className="flex items-start gap-2">
-                  <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{c.name}</div>
-                    <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
-                      {c.phone && <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a>}
-                      {c.email && <a href={`mailto:${c.email}`} className="hover:underline break-all">{c.email}</a>}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs text-muted-foreground">Ingen kontaktperson registreret</div>
-              );
-            })()}
-            {company.phone && (
-              <div className="flex items-center gap-2 text-xs">
-                <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <a href={`tel:${company.phone}`} className="hover:underline">{company.phone}</a>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <div className={tab === "lokationer" ? "grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6" : "grid grid-cols-1 lg:grid-cols-[320px_1fr_300px] gap-6"}>
-        {/* VENSTRE — Stamdata (rykkes ned på mobil; brief'en dækker top) */}
-        <Card className="p-5 h-fit order-3 lg:order-1">
+  const primaryContact = contacts.find((c) => c.is_primary) ?? contacts[0];
+  const primaryLocation = locations.find((l) => l.is_primary) ?? locations[0];
+  const phone = firstFilled(primaryContact?.phone, company.phone);
+  const mapAddress = [firstFilled(primaryLocation?.address, company.address), firstFilled(primaryLocation?.zip, company.zip), firstFilled(primaryLocation?.city, company.city)].filter(Boolean).join(", ");
+  const showLocations = () => {
+    setTab("lokationer");
+    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById("company-locations")?.scrollIntoView({ block: "start", behavior: "instant" })));
+  };
+  const stamdata = <Card className="p-5 h-fit min-w-0">
           <div className="flex items-start justify-between mb-3">
             <div className="bg-muted rounded-md p-2">
               <Building2 className="h-5 w-5" />
@@ -572,7 +460,7 @@ function VirksomhedsKort() {
 
           </div>
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h1 className="text-xl font-semibold leading-tight">
+            <h1 className="hidden md:block text-xl font-semibold leading-tight">
               {company.name}
               {(company as any).visma_enhed && (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
@@ -624,7 +512,7 @@ function VirksomhedsKort() {
                     onValueChange={(v) => reassignSeller(v === "__none" ? null : v)}
                     disabled={savingAssignee}
                   >
-                    <SelectTrigger className="h-8 text-sm">
+                    <SelectTrigger className="h-11 md:h-8 text-sm">
                       <SelectValue placeholder="Vælg sælger" />
                     </SelectTrigger>
                     <SelectContent>
@@ -666,6 +554,7 @@ function VirksomhedsKort() {
                   <div className="text-muted-foreground">
                     {[zip, city].filter(Boolean).join(" ")}
                   </div>
+                  {firstFilled(company.visma_enhed) && <div className="md:hidden text-xs text-muted-foreground break-words">{company.visma_enhed}</div>}
                   {kommune && (
                     <div className="text-xs text-muted-foreground">
                       {`${paenBy(kommune.replace(/\s+kommune$/i, "").toUpperCase())} Kommune`}
@@ -805,7 +694,205 @@ function VirksomhedsKort() {
             </div>
           )}
 
+        </Card>;
+  const opportunityCard = <Card className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-semibold flex items-center gap-2">
+                    <Target className="h-4 w-4" /> Åbne salgsmuligheder
+                  </h2>
+                  {opportunities.length > 3 && (
+                    <Link
+                      to="/salgsmuligheder"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Se alle →
+                    </Link>
+                  )}
+                </div>
+                {opportunities.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Ingen åbne salgsmuligheder.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {opportunities.slice(0, 3).map((o) => (
+                      <div
+                        key={o.id}
+                        className="flex items-center justify-between text-sm border-b last:border-0 py-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{o.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {o.status}
+                            {o.expected_close_date &&
+                              ` · lukker ${format(new Date(o.expected_close_date), "d. MMM yyyy", { locale: da })}`}
+                          </div>
+                        </div>
+                        {o.estimated_value != null && (
+                          <span className="text-sm font-medium shrink-0 ml-3">
+                            {Number(o.estimated_value).toLocaleString("da-DK")} kr.
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>;
+
+  return (
+    <div className="px-4 md:px-6 py-6 max-w-[1600px] mx-auto pb-24 md:pb-6">
+      <div className="mb-4">
+        <Link
+          to="/virksomheder"
+          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" /> Alle virksomheder
+        </Link>
+      </div>
+
+      {afloestAf && (
+        <Card className="mb-4 p-3 bg-muted/50 border-border">
+          <p className="text-sm text-muted-foreground">
+            Afløst af{" "}
+            <Link
+              to="/virksomheder/$id"
+              params={{ id: afloestAf.id }}
+              className="font-medium text-foreground hover:underline"
+            >
+              {afloestAf.name}
+            </Link>
+            {afloestAf.visma_id ? ` · ${afloestAf.visma_id}` : ""}
+          </p>
         </Card>
+      )}
+
+      <div className="md:hidden mb-4" data-testid="company-mobile-header">
+        <div className="space-y-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+            <h1 className="min-w-0 break-words text-lg font-semibold leading-tight">{company.name}</h1>
+            <CustomerStatusBadge type={company.customer_type} variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"} />
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{company.cvr ? `CVR ${company.cvr}` : "Ingen CVR"}</p>
+          {primaryContact && <div className="flex min-w-0 items-center gap-2 text-sm"><User className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="min-w-0 break-words">{primaryContact.name}</span></div>}
+          {phone && <a href={`tel:${phone}`} className="block text-xs text-muted-foreground">{phone}</a>}
+          <div className={`grid ${phone ? "grid-cols-3" : "grid-cols-2"} gap-2 min-w-0`}>
+            <BesoegtKnap companyId={company.id} locations={locations as any} compact className="h-11 min-w-0 w-full px-2 gap-1 text-sm [&_svg]:mr-0 [&_svg]:h-4 [&_svg]:w-4" onSaved={() => void load(true)} />
+            {phone && <Button asChild variant="outline" className="h-11 min-w-0 px-2 gap-1"><a href={`tel:${phone}`}><Phone className="h-4 w-4 shrink-0" />Ring</a></Button>}
+            <Button asChild variant="outline" className="h-11 min-w-0 px-2 gap-1"><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapAddress)}`} target="_blank" rel="noreferrer"><MapPin className="h-4 w-4 shrink-0" />Navigér</a></Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" className="h-11 min-w-0" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}><PlusCircle className="h-4 w-4 shrink-0" />Aktivitet</Button>
+            <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+              <SheetTrigger asChild><Button variant="outline" className="h-11 min-w-0">Flere <MoreHorizontal className="h-4 w-4 shrink-0" /></Button></SheetTrigger>
+              <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg space-y-3 [&_button]:min-h-11" aria-describedby={undefined}>
+                <SheetHeader><SheetTitle>Flere handlinger</SheetTitle></SheetHeader>
+                <Button variant="outline" className="w-full justify-start" onClick={() => { setMoreOpen(false); setMailOpen(true); }}><Mail className="h-4 w-4" />Mail</Button>
+                <KatalogKnap companyId={company.id} onSaved={() => void load(true)} className="text-sm" />
+                <KundeStop companyId={company.id} onChanged={() => void load(true)} />
+                <KundeRytmeLinje companyId={company.id} />
+                <Button variant="outline" className="w-full justify-start" onClick={() => { setMoreOpen(false); setOpportunityOpen(true); }}><PlusCircle className="h-4 w-4" />Opret salgsmulighed</Button>
+                <Button variant="outline" className="w-full justify-start" onClick={() => navigate({ to: "/tilbud/ny", search: { companyId: company.id } })}><FileText className="h-4 w-4" />Registrér tilbud</Button>
+                {isAdmin && <Button variant="destructive" className="w-full justify-start" onClick={() => { setMoreOpen(false); void openDeleteDialog(); }}><Trash2 className="h-4 w-4" />Slet virksomhed</Button>}
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+      </div>
+      {/* MOBIL møde-brief — vises kun på telefon, øverst, så sælgeren straks ser
+          firma, status, AI-brief og kan starte aktivitet/mail uden at scrolle. */}
+      <div className="hidden md:block lg:hidden mb-4">
+        <Card className="p-4 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="text-lg font-semibold leading-tight min-w-0 break-words">
+              {company.name}
+              {(company as any).visma_enhed && (
+                <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                  · {(company as any).visma_enhed}
+                </span>
+              )}
+            </h1>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <CustomerStatusBadge
+                type={company.customer_type}
+                variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
+              />
+              <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
+            </div>
+          </div>
+          <SammeCvrLink cvr={company.cvr} companyId={company.id} />
+          <KundeRytmeLinje companyId={company.id} />
+          <div className="grid grid-cols-2 gap-2">
+            <BesoegtKnap companyId={company.id} locations={locations as any} onSaved={() => void load(true)} />
+            <KatalogKnap companyId={company.id} onSaved={() => void load(true)} />
+          </div>
+          <KundeStop companyId={company.id} onChanged={() => void load(true)} />
+          <div className="grid grid-cols-3 gap-2">
+            <Button size="sm" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}>
+              <PlusCircle className="h-4 w-4 mr-1.5" /> Aktivitet
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setMailOpen(true)}>
+              <Mail className="h-4 w-4 mr-1.5" /> Mail
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <MoreHorizontal className="h-4 w-4 mr-1.5" /> Flere
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setOpportunityOpen(true)}>
+                  <PlusCircle className="h-4 w-4 mr-2" /> Opret salgsmulighed
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    navigate({ to: "/tilbud/ny", search: { companyId: company.id } })
+                  }
+                >
+                  <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={openDeleteDialog}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" /> Slet virksomhed
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="grid grid-cols-1 gap-1.5 text-sm border-t pt-3">
+            {(() => {
+              const c = contacts.find((c) => c.is_primary) ?? contacts[0];
+              return c ? (
+                <div className="flex items-start gap-2">
+                  <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{c.name}</div>
+                    <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
+                      {c.phone && <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a>}
+                      {c.email && <a href={`mailto:${c.email}`} className="hover:underline break-all">{c.email}</a>}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">Ingen kontaktperson registreret</div>
+              );
+            })()}
+            {company.phone && (
+              <div className="flex items-center gap-2 text-xs">
+                <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <a href={`tel:${company.phone}`} className="hover:underline">{company.phone}</a>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className={tab === "lokationer" ? "grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6" : "grid grid-cols-1 lg:grid-cols-[320px_1fr_300px] gap-6"}>
+        {/* VENSTRE — Stamdata (rykkes ned på mobil; brief'en dækker top) */}
+        <div className="hidden md:block order-3 lg:order-1 min-w-0">{stamdata}</div>
 
         {/* MIDTEN — Faner */}
         <div className="space-y-4 min-w-0 order-2 lg:order-2">
@@ -821,9 +908,9 @@ function VirksomhedsKort() {
                 { v: "aftaler", label: "Aftaler" },
               ];
               const mobilePrimary = ["oversigt", "salg", "aftaler"];
-              const mobileMore = allTabs.filter((t) => !mobilePrimary.includes(t.v));
+              const mobileMore = [...allTabs.filter((t) => !mobilePrimary.includes(t.v)), { v: "stamdata", label: "Stamdata" }];
               const triggerCls =
-                "flex-shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2";
+                "flex-shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-3 md:px-4 min-h-11 md:min-h-0 py-2";
               const activeInMore = mobileMore.some((t) => t.v === tab);
               return (
                 <>
@@ -871,22 +958,23 @@ function VirksomhedsKort() {
 
             {/* FANE: Oversigt */}
             <TabsContent value="oversigt" className="space-y-4 mt-4">
-              {!afloestAf && <KundeVaerdiLinje companyId={company.id} />}
+              {!afloestAf && <div className="text-muted-foreground [&_p]:text-xs md:text-foreground md:[&_p]:text-sm"><KundeVaerdiLinje companyId={company.id} /></div>}
               {!afloestAf && (
                 <KundeSalgstal
                   companyId={company.id}
+                  onMachinesClick={showLocations}
                   alleLokIds={locations.map((l) => l.id)}
                   egneLokIds={locations.filter((l: any) => visUserId && l.saelger_user_id === visUserId).map((l) => l.id)}
                 />
               )}
-              <HeleCvrLinje cvr={company.cvr} />
-              <KonkurrentaftaleSektion companyId={company.id} />
+              <div className="hidden md:block"><HeleCvrLinje cvr={company.cvr} /></div>
+              <div className="hidden md:block"><KonkurrentaftaleSektion companyId={company.id} /></div>
 
               {!afloestAf && (
-                <SortimentKort
+                <div className="hidden md:block"><SortimentKort
                   companyId={company.id}
                   afdelingNr={(company as any).afdeling_nr}
-                />
+                /></div>
               )}
 
 
@@ -917,49 +1005,13 @@ function VirksomhedsKort() {
                 )}
               </Card>
 
-              <Card className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-semibold flex items-center gap-2">
-                    <Target className="h-4 w-4" /> Åbne salgsmuligheder
-                  </h2>
-                  {opportunities.length > 3 && (
-                    <Link
-                      to="/salgsmuligheder"
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Se alle →
-                    </Link>
-                  )}
-                </div>
-                {opportunities.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Ingen åbne salgsmuligheder.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {opportunities.slice(0, 3).map((o) => (
-                      <div
-                        key={o.id}
-                        className="flex items-center justify-between text-sm border-b last:border-0 py-2"
-                      >
-                        <div className="min-w-0">
-                          <div className="font-medium truncate">{o.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {o.status}
-                            {o.expected_close_date &&
-                              ` · lukker ${format(new Date(o.expected_close_date), "d. MMM yyyy", { locale: da })}`}
-                          </div>
-                        </div>
-                        {o.estimated_value != null && (
-                          <span className="text-sm font-medium shrink-0 ml-3">
-                            {Number(o.estimated_value).toLocaleString("da-DK")} kr.
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
+              <div className="hidden md:block">{opportunityCard}</div>
 
-              {!afloestAf && <AiBriefingSektion state={briefingState} />}
+              {!afloestAf && <div className="hidden md:block"><AiBriefingSektion state={briefingState} /></div>}
+              <div className="md:hidden border-t pt-3">
+                <Button variant="ghost" className="w-full h-11 justify-between px-0" aria-expanded={extraOpen} onClick={() => setExtraOpen((v) => !v)}>Flere oplysninger<ChevronRight className={cn("h-4 w-4", extraOpen && "rotate-90")} /></Button>
+                {extraOpen && <div className="space-y-4 pt-3"><HeleCvrLinje cvr={company.cvr} /><KonkurrentaftaleSektion companyId={company.id} />{!afloestAf && <SortimentKort companyId={company.id} afdelingNr={(company as any).afdeling_nr} />}{opportunityCard}{!afloestAf && <AiBriefingSektion state={briefingState} />}</div>}
+              </div>
             </TabsContent>
 
 
@@ -991,6 +1043,7 @@ function VirksomhedsKort() {
             <TabsContent value="salg" className="space-y-4 mt-4">
               <CompanySalesTab
                 companyId={company.id}
+                onMachinesClick={showLocations}
                 totalLocations={locations.length}
                 locationIds={locations.map((l) => l.id)}
                 egneLokIds={locations.filter((l: any) => visUserId && l.saelger_user_id === visUserId).map((l) => l.id)}
@@ -1009,7 +1062,7 @@ function VirksomhedsKort() {
             </TabsContent>}
 
             {/* FANE: Lokationer */}
-            <TabsContent value="lokationer" className="space-y-4 mt-4">
+            <TabsContent value="lokationer" id="company-locations" className="space-y-4 mt-4 scroll-mt-16">
               <LokationerSektion
                 companyId={company.id}
                 isAdmin={isAdmin}
@@ -1066,6 +1119,7 @@ function VirksomhedsKort() {
               <KonkurrentaftaleSektion companyId={company.id} />
             </TabsContent>
 
+            <TabsContent value="stamdata" className="md:hidden mt-4">{stamdata}</TabsContent>
           </Tabs>
         </div>
 
@@ -1357,9 +1411,9 @@ function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactN
 
 function KV({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">{value}</span>
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:flex md:justify-between gap-3">
+      <span className="min-w-0 text-muted-foreground break-words">{label}</span>
+      <span className="min-w-0 font-medium text-right break-words">{value}</span>
     </div>
   );
 }

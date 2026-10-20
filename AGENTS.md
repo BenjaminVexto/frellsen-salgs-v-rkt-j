@@ -1,11 +1,11 @@
 
-- Målepunkter, portefølje og bonus læser salg fra sales_kunde_maaned/company_mp_info, som holdes ajour af triggere på sales_monthly og companies — så tallene er hurtige og aldrig skal genberegnes manuelt.
-- Portefølje-svar sendes gzip+base64 via src/lib/komprimer-json.ts, fordi TanStack Start begrænser poster og bytes pr. svar.
-- Sælgertilskrivning sker pr. lokation (locations.saelger_user_id, sat af Aktør-importen via aktoer_anvend_saelgere på serveren); companies.assigned_to er kun hovedkontoens ansvarlige sælger — because one company can have locations with several sellers.
+- Metrics, portfolio and bonus read trigger-maintained sales_kunde_maaned/company_mp_info — no manual recalculation.
+- Portfolio replies use gzip+base64 via komprimer-json.ts — Start limits response rows/bytes.
+- Sales attribution uses locations.saelger_user_id, set server-side by Aktør's aktoer_anvend_saelgere; companies.assigned_to owns only the main account — locations may have different sellers.
 - DB/DG visibility is decided by the database function maa_se_db (admin or profiles.maa_se_db), never by the admin role alone — so it can be switched off per person.
 - Address search and group (parent/sister) data come live from the CVR Elasticsearch distribution (produktionsenhed/virksomhed indexes) merged with cvr_penheder — because our local copy only covers CVRs already in the CRM.
 - P-enheder link via location_pnr_link; auto-link only on exact normalized street/no.+zip; near matches only suggested (penhed_koblingsforslag, rejections in penhed_forslag_afvist); kilde 'indirekte' (dealer, penhed_saet/fjern_indirekte) counts as covered — uncertain matches never auto-link.
-- Aktiviteters dato vises og sorteres på activities.udfoert_at (brugervalgt, højst 14 dage tilbage, valideret af trigger); created_at er den uændrede registreringstid — so both can be compared.
+- Activities display/sort by trigger-validated udfoert_at (user-selected, at most 14 days back); created_at stays the registration time — both remain comparable.
 - Machine placement lives in maskine_placering per serial no.; import writes only via import_maskine_placering (ignores blanks, never overwrites CRM input) — so user input survives imports.
 - Fakturajournalens DB 0-linjer udledes pr. kunde mod Vismas summeringslinje (src/lib/invoice-db-udledning.ts, invoice_lines.db_kilde, invoice_db_afstemning) — never a general 'DB 0 = 100 %' rule, because real DB-0 sales (machines) exist.
 - Salgskort is an admin-only tab (?fane=salgskort) in Min salgsstatistik; /admin/salgskort only redirects — because the map belongs with the sales statistics.
@@ -20,4 +20,5 @@
 - CVR groups (accounts sharing cvr_norm) are an overlay only: SQL cvr_grupper/cvr_gruppe_konti/cvr_penhed_oversigt; per-account sales only where _maa_se_kontosalg — so sellers see other sellers' accounts but only group totals.
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
 - Read nested AGENTS.md; bonus competition shows seller totals only.
+- Company mobile master data reuses the desktop content in More; machine metrics use one Locations callback — to keep presentation consistent.
 - Paid bonus months freeze in bonus_laas; later changes only via bonus_regulering — so nothing is paid twice.

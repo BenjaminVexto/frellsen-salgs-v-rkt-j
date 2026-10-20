@@ -18,6 +18,7 @@ export function CompanySalesTab({
   locationIds,
   egneLokIds = [],
   skjulSignaler,
+  onMachinesClick,
 }: {
   /** Sælgerens egne lokationer — giver omskifteren "Dine lokationer / Hele virksomheden". */
   egneLokIds?: string[];
@@ -26,6 +27,7 @@ export function CompanySalesTab({
   locationIds?: string[];
   /** Afløst debitorpost: statuslinje/advarsler giver ingen mening. */
   skjulSignaler?: boolean;
+  onMachinesClick?: () => void;
 }) {
   const fetchFn = useServerFn(getSalesForCompany);
   const lokFn = useServerFn(getSalesForLocations);
@@ -102,7 +104,7 @@ export function CompanySalesTab({
       <DataOpdateret />
       <SuppliedViaBanner companyId={companyId} />
       {!skjulSignaler && <KundeStatusLinje rows={rows} />}
-      <SalesFactsStrip rows={rows} isAdmin={isAdmin} antalMaskiner={maskQ.data ?? null} visEgne={visEgne} />
+      <SalesFactsStrip rows={rows} isAdmin={isAdmin} antalMaskiner={maskQ.data ?? null} visEgne={visEgne} onMachinesClick={onMachinesClick} />
       <ConsumableKgChart
         rows={rows}
         months={12}
