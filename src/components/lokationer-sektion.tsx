@@ -1320,7 +1320,12 @@ function LokationRow({
   companyId,
   visBesoeg,
   kontoVisning,
+  skjulSaelger = false,
+  skjulKontakt = false,
 }: {
+  /** Sælger/kontakt vises én gang på adresseniveau, når de er ens på alle konti. */
+  skjulSaelger?: boolean;
+  skjulKontakt?: boolean;
   companyId?: string;
   visBesoeg?: boolean;
   location: Location;
@@ -1353,7 +1358,9 @@ function LokationRow({
     ? [
         `Kundenr. ${location.visma_delivery_no ?? "–"}`,
         kontoStatus,
-        kontoSaelger,
+        `${Math.round(kontoVisning.revenue12m ?? 0).toLocaleString("da-DK")} kr. / 12 mdr.`,
+        lastPurchase ? `Sidst købt ${new Date(lastPurchase + "T00:00:00Z").toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" })}` : "Intet køb",
+        skjulSaelger ? null : kontoSaelger,
         (location as any).koeber_paa?.visma_delivery_no && (location as any).customer_type !== "aktiv_kunde"
           ? `Køber på konto ${(location as any).koeber_paa.visma_delivery_no}`
           : null,
@@ -1368,7 +1375,7 @@ function LokationRow({
     : "Intet køb registreret";
 
   const metaLabel = kontoVisning && !showLastPurchase && !showMachineCount
-    ? `${Math.round(kontoVisning.revenue12m ?? 0).toLocaleString("da-DK")} kr. / 12 mdr.`
+    ? null
     : showLastPurchase
     ? (lastPurchase ? `Sidst købt ${lastPurchaseLabel}` : lastPurchaseLabel)
     : showMachineCount
@@ -1419,6 +1426,7 @@ function LokationRow({
       </button>
       {open && (
         <div className="pl-6 pb-3 pt-1 space-y-1 text-sm">
+          {!skjulKontakt && (<>
           {contacts.length > 0 ? (
             contacts.map((c) => (
               <div key={c.id}>
@@ -1479,13 +1487,14 @@ function LokationRow({
               </a>
             </div>
           )}
+          </>)}
           {location.visma_delivery_no && (
             <div className="text-xs text-muted-foreground">
               Lev.nr. {location.visma_delivery_no}
             </div>
           )}
           <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span>
+            {!skjulSaelger && <span>
               Sælger:{" "}
               {(location as any).saelger?.full_name ??
                 ((location as any).saelger_no
