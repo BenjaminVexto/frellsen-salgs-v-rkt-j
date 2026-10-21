@@ -252,6 +252,97 @@ async function callCvr(payload: unknown, url: string = CVR_ES_URL): Promise<any>
   return res.json();
 }
 
+type PenhedSearchHit = {
+  p_number: string;
+  cvr: string;
+  name: string | null;
+  address: string | null;
+  zip: string | null;
+  city: string | null;
+};
+
+/** Søger aktive P-enheder på navn + by/postnummer (samme fuzziness som virksomhedssøgningen). */
+async function searchPenheder(
+  nameQuery: string,
+  location: string,
+  isPostalCode: boolean,
+  size: number,
+): Promise<PenhedSearchHit[]> {
+  const locationFilter: any[] = [
+    isPostalCode
+      ? {
+          term: {
+            "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteBeliggenhedsadresse.postnummer":
+              parseInt(location, 10),
+          },
+        }
+      : {
+          match: {
+            "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteBeliggenhedsadresse.postdistrikt":
+              location,
+          },
+        },
+  ];
+  const payload = {
+    _source: [
+      "VrproduktionsEnhed.pNummer",
+      "VrproduktionsEnhed.virksomhedsrelation",
+      "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteCvrNummerRelation",
+      "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteNavn",
+      "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteBeliggenhedsadresse",
+      "VrproduktionsEnhed.produktionsEnhedMetadata.sammensatStatus",
+    ],
+    query: {
+      bool: {
+        must: [
+          {
+            match: {
+              "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteNavn.navn": {
+                query: nameQuery,
+                fuzziness: "1",
+                prefix_length: 3,
+              },
+            },
+          },
+          {
+            match: {
+              "VrproduktionsEnhed.produktionsEnhedMetadata.sammensatStatus": "Aktiv",
+            },
+          },
+        ],
+        filter: locationFilter,
+      },
+    },
+    sort: [{ _score: { order: "desc" } }],
+    size,
+  };
+  const json = await callCvr(payload, CVR_PENHED_ES_URL);
+  const out: PenhedSearchHit[] = [];
+  for (const h of json?.hits?.hits ?? []) {
+    const p = h?._source?.VrproduktionsEnhed;
+    if (!p?.pNummer) continue;
+    const relLatest = pickLatest<any>(p?.virksomhedsrelation);
+    const cvrNum =
+      p?.produktionsEnhedMetadata?.nyesteCvrNummerRelation ??
+      relLatest?.cvrNummer ??
+      null;
+    if (cvrNum == null) continue;
+    const addr = p?.produktionsEnhedMetadata?.nyesteBeliggenhedsadresse ?? null;
+    const vejnavn = addr?.vejnavn ?? "";
+    const husnr = addr?.husnummerFra != null ? String(addr.husnummerFra) : "";
+    const bogstav = addr?.bogstavFra ?? "";
+    out.push({
+      p_number: String(p.pNummer),
+      cvr: String(cvrNum),
+      name: p?.produktionsEnhedMetadata?.nyesteNavn?.navn ?? null,
+      address: vejnavn ? `${vejnavn} ${husnr}${bogstav}`.trim() : null,
+      zip: addr?.postnummer != null ? String(addr.postnummer) : null,
+      city: addr?.postdistrikt ?? null,
+    });
+  }
+  return out;
+}
+
 const InputSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("single"),
