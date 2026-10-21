@@ -295,7 +295,7 @@ function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground"><tr className="border-b text-right"><th className="py-2 text-left">Maskintype</th>{kol.map(([t]) => <th key={t}>{t}</th>)}<th>I alt</th></tr></thead>
+            <thead className="text-xs text-muted-foreground"><tr className="border-b text-right"><th className="py-2 text-left">Maskintype</th>{kol.map(([t]) => <th key={t} className="px-2">{t}</th>)}<th className="pl-2 whitespace-nowrap">I alt</th></tr></thead>
             <tbody>
               {mtyper.map((mt) => {
                 const r = alle.filter((x) => x.m.t === mt);
@@ -304,16 +304,16 @@ function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
                     <td className="py-1.5 text-left">{mt}</td>
                     {kol.map(([t, f]) => {
                       const c = r.filter((x) => f(x.m.u));
-                      return <td key={t}>{c.length ? <button type="button" className="tabular-nums underline decoration-dotted" onClick={() => setDrill({ slags: "maskiner", titel: `${mt} – ${t}`, raekker: c })}>{c.length}</button> : "–"}</td>;
+                      return <td key={t} className="px-2">{c.length ? <Button variant="link" className="h-auto p-0 tabular-nums underline decoration-dotted" onClick={() => setDrill({ slags: "maskiner", titel: `${mt} – ${t}`, raekker: c })}>{kr(c.length)}</Button> : "–"}</td>;
                     })}
-                    <td className="tabular-nums font-medium">{r.length}</td>
+                    <td className="pl-2 tabular-nums font-medium">{kr(r.length)}</td>
                   </tr>
                 );
               })}
               <tr className="border-b text-right font-semibold">
                 <td className="py-1.5 text-left">I alt</td>
-                {kol.map(([t, f]) => <td key={t} className="tabular-nums">{kr(alle.filter((x) => f(x.m.u)).length)}</td>)}
-                <td className="tabular-nums">{kr(alle.length)}</td>
+                {kol.map(([t, f]) => <td key={t} className="px-2 tabular-nums">{kr(alle.filter((x) => f(x.m.u)).length)}</td>)}
+                <td className="pl-2 tabular-nums">{kr(alle.length)}</td>
               </tr>
               <tr className="text-right text-muted-foreground">
                 <td className="py-1.5 text-left">Filteraftaler</td><td colSpan={2} />
