@@ -6696,7 +6696,40 @@ export type Database = {
         Returns: Json
       }
       tm_virksomheder: { Args: { _list: string }; Returns: Json }
+      udstyr_grundlag: {
+        Args: {
+          _alle: boolean
+          _company?: string
+          _fra: string
+          _saelger: string
+          _til: string
+        }
+        Returns: Json
+      }
+      udstyr_leje_uden_bonusklasse: {
+        Args: never
+        Returns: {
+          beloeb_12m: number
+          maskintype: string
+          varenr: string
+          varetekst: string
+        }[]
+      }
+      udstyr_linjer: {
+        Args: { _fra: string; _lev: string; _til: string }
+        Returns: {
+          antal: number
+          beloeb: number
+          db: number
+          kostpris: number
+          period: string
+          varegruppe: string
+          varenr: string
+          varetekst: string
+        }[]
+      }
       udstyr_refresh_maaned: { Args: { _m: string }; Returns: undefined }
+      udstyr_toem_ko: { Args: { _maks?: number }; Returns: number }
       udstyr_type_leje: {
         Args: { _bonusklasse: string; _varetekst: string }
         Returns: string
