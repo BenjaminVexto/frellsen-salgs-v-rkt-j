@@ -9,6 +9,7 @@ import { Calendar, Download, Info, Loader2, Lock } from "lucide-react";
 import { BonusRegler, MaskinbonusBoks, ReglerInfo, type ReglerAfsnit } from "./bonus-regler";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { beskrivOrdning, type BonusOrdning } from "@/lib/bonus-ordning";
 import { MASKIN_LABEL, type MaskinFilter } from "@/lib/bonus-maskin-visning";
@@ -57,6 +58,7 @@ type Rk = {
   beregnet?: Rk | null;
 };
 
+const SAELGER_FRA = "2025-09";
 const HISTORISK_TEKST = "Historisk udbetaling jf. lønseddel – detaljer findes ikke";
 
 /**
@@ -66,7 +68,9 @@ const HISTORISK_TEKST = "Historisk udbetaling jf. lønseddel – detaljer findes
 export function BonusFane({ saelgerId }: { saelgerId: string }) {
   const auth = useAuth();
   const afd = useAfdeling();
-  const erAdmin = auth.role === "admin";
+  const viewAs = useViewAs();
+  // "Se som sælger" viser præcis sælgerens visning (databasen afskærer også selv for sælgere).
+  const erAdmin = viewAs.effectiveRole === "admin";
 
   const now = new Date();
   const curM = mKey(now.getUTCFullYear(), now.getUTCMonth());
@@ -147,7 +151,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
       return data ?? [];
     },
   });
-  const rows = useMemo(() => (q.data ?? []).map((r): Rk => {
+  const rows = useMemo(() => (q.data ?? []).filter((r) => erAdmin || r.maaned >= SAELGER_FRA).map((r): Rk => {
     const l = (laasQ.data ?? []).find((x) => String(x.maaned).slice(0, 7) === r.maaned);
     if (!l) return r;
     if ((l as any).kilde === "loenseddel") {
@@ -429,7 +433,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                   <td className="text-right py-1.5 px-2">{fmtTal(total.antal_rex)}</td>
                   <td className="text-right py-1.5 px-2">{fmtTal(total.maskinbonus)}</td>
                   <td className="text-right py-1.5 px-2">{fmtTal(total.ny_kunde_bonus)}</td>
-                  <td className="text-right py-1.5 pl-3">{fmtTal(total.samlet_bonus)}</td>
+                  <td className="text-right py-1.5 pl-3">{fmtTal(total.samlet_bonus, 2)}</td>
                 </tr>
               </tbody>
             </table>
@@ -457,7 +461,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
             {r.ny_kunde_db != null && r.ny_kunde_rang != null && <Button variant="link" className="h-auto min-h-11 w-full p-0 justify-start whitespace-normal text-left text-xs text-muted-foreground no-underline hover:underline" onClick={() => aabn(r, "rangliste")}>DB nye kunder: {fmtTal(r.ny_kunde_db)} kr. · plads {r.ny_kunde_rang}</Button>}
             {!r.ordning_id && <p className="text-xs text-muted-foreground">Ingen bonusordning</p>}
           </article>)}
-          <div className="py-4 space-y-2"><div className="flex justify-between font-semibold"><span>Total</span><span>{fmtTal(total.samlet_bonus)} kr.</span></div><dl className="grid grid-cols-2 gap-3 text-xs">{[["DB-grundlag",total.db_grundlag],["DB-bonus",total.db_bonus],["Maskinbonus",total.maskinbonus],["Ny kunde",total.ny_kunde_bonus],["Wittenborg",total.antal_wittenborg],["Animo",total.antal_animo],["Rex-Royal",total.antal_rex]].map(([label,value])=><div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="tabular-nums">{fmtTal(Number(value))}</dd></div>)}</dl></div>
+          <div className="py-4 space-y-2"><div className="flex justify-between font-semibold"><span>Total</span><span>{fmtTal(total.samlet_bonus, 2)} kr.</span></div><dl className="grid grid-cols-2 gap-3 text-xs">{[["DB-grundlag",total.db_grundlag],["DB-bonus",total.db_bonus],["Maskinbonus",total.maskinbonus],["Ny kunde",total.ny_kunde_bonus],["Wittenborg",total.antal_wittenborg],["Animo",total.antal_animo],["Rex-Royal",total.antal_rex]].map(([label,value])=><div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="tabular-nums">{fmtTal(Number(value))}</dd></div>)}</dl></div>
         </div>}
 
         {manglerOrdning.length > 0 && (
