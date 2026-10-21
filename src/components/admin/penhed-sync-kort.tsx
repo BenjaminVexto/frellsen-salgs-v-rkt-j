@@ -37,7 +37,9 @@ export function PenhedSyncKort() {
     onSettled: () => setQueueing(false),
     onSuccess: (res: any) => {
       toast.success(
-        `${res.jobs} job(s) oprettet for ${res.cvrs} CVR-numre`,
+        res.jobs
+          ? "Næste job (25 CVR'er) lagt i kø"
+          : "Køen kører allerede — intet nyt job lagt ind",
       );
       qc.invalidateQueries({ queryKey: ["penhed-sync-status"] });
     },
@@ -50,7 +52,7 @@ export function PenhedSyncKort() {
         <div>
           <h3 className="font-semibold">CVR-produktionsenheder</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Synkronisér P-enheder for aktive og sovende erhvervskunder
+            Løbende synkronisering af P-enheder for erhvervskunder (aktive, sovende, service og tidligere)
           </p>
         </div>
         <Button
