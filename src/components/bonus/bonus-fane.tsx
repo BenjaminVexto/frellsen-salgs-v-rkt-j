@@ -353,8 +353,8 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Henter…</div>
         ) : <>
           <div className="hidden md:block overflow-x-auto rounded-md border">
-            <table className="w-full min-w-[1100px] table-fixed text-sm tabular-nums">
-              <colgroup><col className="w-44" /><col className="w-28" /><col className="w-20" /><col className="w-28" /><col className="w-24" /><col className="w-16" /><col className="w-16" /><col className="w-32" /><col className="w-28" /><col className="w-32" /></colgroup>
+            <table className="w-full min-w-[940px] table-fixed text-sm tabular-nums">
+              <colgroup><col className="w-40" /><col className="w-24" /><col className="w-16" /><col className="w-24" /><col className="w-20" /><col className="w-12" /><col className="w-12" /><col className="w-28" /><col className="w-24" /><col className="w-28" /></colgroup>
               <thead><tr className="border-b bg-muted/40 h-12">
                 <th className="text-left px-3 font-medium">Måned</th>
                 <th className="text-right px-2 font-medium">DB-grundlag</th>
