@@ -24,10 +24,11 @@ export function PenhedSyncKort() {
   const queueFn = useServerFn(queuePenhedSync);
   const [queueing, setQueueing] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["penhed-sync-status"],
     queryFn: () => fetchStatus(),
     refetchInterval: 15000,
+    retry: 1,
   });
 
   const mutation = useMutation({
