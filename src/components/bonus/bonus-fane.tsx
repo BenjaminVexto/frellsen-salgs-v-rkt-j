@@ -498,7 +498,7 @@ function BeregnetLinje({ r, onMaskiner }: { r: Rk; onMaskiner: (f: MaskinFilter)
   const forskel = r.samlet_bonus - b.samlet_bonus;
   const typer: [string, number, MaskinFilter][] = [
     ["W", b.antal_wittenborg, "wittenborg"], ["A", b.antal_animo, "animo"], ["R", b.antal_rex, "rex"],
-    ["K", b.antal_kalerm ?? 0, "alle"], ["E", b.antal_espresso ?? 0, "alle"], ["Brugt", b.antal_brugt ?? 0, "alle"],
+    ["K", b.antal_kalerm ?? 0, "kalerm"], ["E", b.antal_espresso ?? 0, "espresso"], ["Brugt", b.antal_brugt ?? 0, "alle"],
   ];
   return (
     <div className="rounded-md bg-muted/50 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1 tabular-nums">
