@@ -28,7 +28,6 @@ import {
 } from "@/lib/udstyr";
 
 const kr = (n: number) => Math.round(n).toLocaleString("da-DK");
-void Handlingsliste;
 const ALLE = "__alle__";
 
 export const FORDELT_TEKST =
