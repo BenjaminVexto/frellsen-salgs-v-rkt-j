@@ -53,12 +53,12 @@ export function Datafejl({ lok, satser }: { lok: LokRegnskab[]; satser: Satser }
 
 function FejlRaekke({ type, r, tjek }: { type: string; r: Fejl; tjek?: Tjek }) {
   const qc = useQueryClient();
-  const auth = useAuth() as unknown as { profile?: { full_name?: string | null } | null; user?: { email?: string | null } | null };
+  const auth = useAuth();
   const [kommentar, setKommentar] = useState("");
   const [gemmer, setGemmer] = useState(false);
   const gem = async () => {
     setGemmer(true);
-    const navn = auth.profile?.full_name ?? auth.user?.email ?? null;
+    const navn = auth.fullName || null;
     const { error } = await supabase.from("udstyr_datafejl_tjek").upsert({ type, noegle: r.noegle, kommentar: kommentar.trim() || null, tjekket_af_navn: navn });
     setGemmer(false);
     if (error) return toast.error("Kunne ikke gemme: " + error.message);
