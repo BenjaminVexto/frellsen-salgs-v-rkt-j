@@ -79,6 +79,15 @@ export const Route = createFileRoute("/api/public/hooks/process-penhed-sync")({
           try {
             const res = await syncPenhederByCvrs(cvrs);
             if (res.error) throw new Error(res.error);
+            // Registrér resultatet pr. CVR i statustabellen (også 0-hit).
+            for (const cvr of cvrs) {
+              await supabaseAdmin.rpc("penhed_sync_registrer" as any, {
+                _cvr: cvr,
+                _status: "ok",
+                _antal: res.perCvr[cvr] ?? 0,
+                _fejl: null,
+              } as any);
+            }
             await supabaseAdmin
               .from("cvr_penhed_sync_jobs")
               .update({
