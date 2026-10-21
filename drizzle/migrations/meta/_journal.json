@@ -981,6 +981,13 @@
       "when": 1792586382203,
       "tag": "0139_udstyr_filteraftaler",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1792590388957,
+      "tag": "0140_udstyr_datafejl_tjek",
+      "breakpoints": true
     }
   ]
 }

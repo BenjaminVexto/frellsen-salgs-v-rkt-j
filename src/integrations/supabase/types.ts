@@ -4914,6 +4914,33 @@ export type Database = {
         }
         Relationships: []
       }
+      udstyr_datafejl_tjek: {
+        Row: {
+          kommentar: string | null
+          noegle: string
+          tjekket_af: string
+          tjekket_af_navn: string | null
+          tjekket_at: string
+          type: string
+        }
+        Insert: {
+          kommentar?: string | null
+          noegle: string
+          tjekket_af?: string
+          tjekket_af_navn?: string | null
+          tjekket_at?: string
+          type: string
+        }
+        Update: {
+          kommentar?: string | null
+          noegle?: string
+          tjekket_af?: string
+          tjekket_af_navn?: string | null
+          tjekket_at?: string
+          type?: string
+        }
+        Relationships: []
+      }
       udstyr_indstilling: {
         Row: {
           noegle: string

@@ -1,65 +1,104 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { alderAar, erFilter, handlinger, harAftale, prVirksomhed, reparationer, TYPER, type LokRegnskab, type GrundMaskine, type Satser } from "@/lib/udstyr";
+import {
+  alderAar, erFilter, handlinger, harAftale, reparationer, TYPER, UDLAAN_LABEL, udlaanUdenDaekning, erUdlaan, varekoebAndetSted, prVirksomhed,
+  type LokRegnskab, type GrundMaskine, type Satser,
+} from "@/lib/udstyr";
 
-const kr = (n: number) => Math.round(n).toLocaleString("da-DK");
-type Raekke = { l: LokRegnskab; m?: GrundMaskine; tekst?: string };
-type Liste = { titel: string; raekker: Raekke[] };
-const alder = (m: GrundMaskine) => m.o ? `${Math.max(0, alderAar(m.o) ?? 0).toFixed(1).replace(".", ",")} år` : "Alder ikke registreret";
+const kr = (n: number) => `${Math.round(n).toLocaleString("da-DK")} kr.`;
+const antal = (n: number) => n.toLocaleString("da-DK");
+const alder = (m: GrundMaskine) => { const a = Math.floor(alderAar(m.o) ?? 0); return a >= 1 ? `${a} år` : null; };
+/** Kort maskinnavn: de første ord uden varenumre/teknik. */
+export const kortNavn = (m: GrundMaskine) => {
+  const ord = (m.b ?? m.t).split(/[,(/]/)[0].split(/\s+/).filter(w => w && !/^\d{4,}$/.test(w) && !/^\d+v$/i.test(w));
+  return ord.slice(0, 3).join(" ") || m.t;
+};
+
+function grupper<T extends { l: LokRegnskab }>(xs: T[]): T[][] {
+  const m = new Map<string, T[]>();
+  for (const x of xs) { const a = m.get(x.l.lev); if (a) a.push(x); else m.set(x.l.lev, [x]); }
+  return [...m.values()];
+}
+type Raekke = { key: string; cid: string; kunde: string; maskine: string; tal?: string; negativ?: boolean; detaljer: string[] };
+type Liste = { id: string; titel: string; forklaring: string; raekker: Raekke[] };
+
+const maskinDetaljer = (l: LokRegnskab, m: GrundMaskine) => [
+  l.adr, m.b ?? m.t, [UDLAAN_LABEL[m.u], m.sn && `Serienr. ${m.sn}`, alder(m)].filter(Boolean).join(" · "),
+].filter(Boolean) as string[];
 
 export function SaelgerOverblik({ lok, satser, maaneder }: { lok: LokRegnskab[]; satser: Satser; maaneder: number }) {
   const [liste, setListe] = useState<Liste | null>(null);
-  const h = useMemo(() => handlinger(lok, satser), [lok, satser]);
+  const h = useMemo(() => handlinger(lok, satser, new Date(), maaneder), [lok, satser, maaneder]);
+  const udl = useMemo(() => udlaanUdenDaekning(lok, maaneder), [lok, maaneder]);
+  const virk = useMemo(() => new Map(prVirksomhed(lok).map(v => [v.cid, v])), [lok]);
   const maskiner = lok.flatMap(l => l.maskiner.filter(m => !erFilter(m)).map(m => ({ l, m })));
   const aftaler = lok.flatMap(l => [...l.maskiner, ...l.kundeejede].filter(m => harAftale(m) && !erFilter(m)).map(m => ({ l, m })));
-  const virksomheder = prVirksomhed(lok).filter(v => v.lok.some(l => l.maskiner.some(m => !erFilter(m)) || l.kundeejede.some(m => !erFilter(m))) && v.dbInkl < 0).sort((a, b) => a.dbInkl - b.dbInkl);
-  const udlaan: Raekke[] = [...h.udlaan].sort((a, b) => a.dbInkl - b.dbInkl).flatMap(l => {
-    const ms = l.maskiner.filter(m => [4, 6, 7].includes(m.u) && !erFilter(m));
-    return ms.map(m => ({ l, m, tekst: `Kaffe-DB ${kr(l.vdb / ms.length / maaneder)} kr./md. pr. maskine · maskinen koster ${kr(m.belastning / maaneder)} kr./md.` }));
-  });
+
   const lister: Liste[] = [
-    { titel: "Udlån der ikke betaler sig", raekker: udlaan },
-    { titel: "Salgsmulighed – udskiftning", raekker: h.udskift.map(x => ({ ...x, tekst: `${alder(x.m)} · Reparationer på lokationen: ${kr(reparationer(x.l))} kr. på ${maaneder} mdr.` })) },
-    { titel: "Salgsmulighed – serviceaftale", raekker: h.kundeejet.map(x => ({ ...x, tekst: `${alder(x.m)} · Kundeejet uden serviceaftale` })) },
+    { id: "udlaan", titel: "Udlån der ikke betaler sig", forklaring: "Udlånsmaskiner, hvor kunden ikke køber kaffe nok til at dække maskinen",
+      raekker: udl.map(x => ({
+        key: x.v.cid, cid: x.v.cid, kunde: x.v.kunde,
+        maskine: kortNavn(x.maskiner[0].m) + (x.maskiner.length > 1 ? ` +${x.maskiner.length - 1}` : ""),
+        tal: `${Math.round(x.diffMd).toLocaleString("da-DK")} kr./md.`, negativ: true,
+        detaljer: [
+          `Køber kaffe for ${kr(x.kaffeDbMd)}/md. (DB) · udlån koster ${kr(x.omkMd)}/md.`,
+          ...x.maskiner.map(({ l, m }) => `${m.b ?? m.t} · ${UDLAAN_LABEL[m.u]} · ${l.adr}${varekoebAndetSted(l, virk.get(l.cid)!) ? " · varekøb på anden lokation" : ""}`),
+        ],
+      })) },
+    { id: "udskift", titel: "Udskiftning", forklaring: "Maskiner med store reparationsomkostninger – mulighed for en ny maskine",
+      raekker: grupper(h.udskift).map(xs => { const { l, m } = xs[0];
+        return { key: l.lev, cid: l.cid, kunde: l.kunde, maskine: kortNavn(m) + (xs.length > 1 ? ` +${xs.length - 1}` : ""), tal: `${kr(reparationer(l))} reparationer`, detaljer: xs.flatMap(x => maskinDetaljer(x.l, x.m)).filter((d, i, a) => a.indexOf(d) === i) }; }) },
+    { id: "service", titel: "Serviceaftale-muligheder", forklaring: "Kundeejede maskiner uden serviceaftale",
+      raekker: h.kundeejet.map(({ l, m }) => ({ key: `${l.lev}-${m.id}`, cid: l.cid, kunde: l.kunde, maskine: kortNavn(m), tal: alder(m) ?? undefined, detaljer: maskinDetaljer(l, m) })) },
   ];
-  const kort = [
-    { titel: "Mine maskiner", antal: maskiner.length, under: "Frellsen-maskiner · ekskl. filtre", raekker: maskiner },
-    { titel: "Serviceaftaler", antal: aftaler.length, under: `${new Set(aftaler.map(x => x.l.lev)).size.toLocaleString("da-DK")} lokationer`, raekker: aftaler },
-    { titel: "Udstyr der ikke betaler sig", antal: virksomheder.length, under: "virksomheder med negativ DB inkl. udstyr", raekker: virksomheder.map(v => ({ l: { ...v.lok[0], kunde: v.kunde }, tekst: `DB inkl. udstyr: ${kr(v.dbInkl)} kr. · ${v.lok.length} lokationer` })) },
-  ];
+  const maskinRaekker = (ms: { l: LokRegnskab; m: GrundMaskine }[]): Raekke[] =>
+    ms.map(({ l, m }) => ({ key: `${l.lev}-${m.id}`, cid: l.cid, kunde: l.kunde, maskine: kortNavn(m), detaljer: maskinDetaljer(l, m) }));
+  const lokAftaler = new Set(aftaler.map(x => x.l.lev)).size;
+
   return <>
-    <section className="grid gap-2 md:grid-cols-3" aria-label="Dine nøgletal">
-      {kort.map(k => <Button key={k.titel} variant="outline" className="h-auto min-h-24 justify-between whitespace-normal p-4 text-left" onClick={() => setListe({ titel: k.titel, raekker: k.raekker })}>
-        <span className="min-w-0"><span className="block text-sm font-medium">{k.titel}</span><span className="mt-1 block text-xs font-normal text-muted-foreground">{k.under}</span></span>
-        <span className="ml-3 text-3xl font-semibold tabular-nums">{kr(k.antal)}</span>
+    <section className="grid grid-cols-3 gap-2" aria-label="Det skal du kigge på – antal">
+      {lister.map(k => <Button key={k.id} variant="outline" className="h-auto min-h-20 flex-col items-start justify-between whitespace-normal p-3 text-left md:flex-row md:items-center md:p-4"
+        onClick={() => document.getElementById(`liste-${k.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+        <span className="text-sm font-medium leading-tight">{k.titel}</span>
+        <span className="text-2xl font-semibold tabular-nums md:text-3xl">{antal(k.raekker.length)}</span>
       </Button>)}
     </section>
     <section aria-label="Det skal du kigge på">
       <h2 className="mb-3 text-lg font-semibold">Det skal du kigge på</h2>
-      <div className="grid gap-5 lg:grid-cols-3">
-        {lister.map(x => <div key={x.titel} className="min-w-0">
-          <div className="mb-2 flex items-start justify-between gap-2"><h3 className="text-sm font-semibold">{x.titel}</h3><span className="text-xs tabular-nums text-muted-foreground">{kr(x.raekker.length)}</span></div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {lister.map(x => <div key={x.id} id={`liste-${x.id}`} className="min-w-0 scroll-mt-20">
+          <h3 className="text-base font-semibold">{x.titel} <span className="font-normal text-muted-foreground tabular-nums">({antal(x.raekker.length)})</span></h3>
+          <p className="mb-2 text-[13px] text-muted-foreground">{x.forklaring}</p>
           <div className="divide-y rounded-md border bg-card">
-            {x.raekker.filter((r, i, a) => a.findIndex(v => v.l.cid === r.l.cid) === i).slice(0, 10).map((r, i) => <Kunde key={`${r.l.lev}-${r.m?.id}-${i}`} r={r} />)}
+            {x.raekker.slice(0, 5).map(r => <KundeRaekke key={r.key} r={r} />)}
             {!x.raekker.length && <p className="p-4 text-sm text-muted-foreground">Ingen kunder i denne liste.</p>}
           </div>
-          {!!x.raekker.length && <Button variant="ghost" className="mt-1 w-full justify-between" onClick={() => setListe(x)}>Vis alle ({kr(x.raekker.length)})<ChevronRight className="h-4 w-4" /></Button>}
+          {x.raekker.length > 5 && <Button variant="ghost" className="mt-1 w-full justify-between" onClick={() => setListe(x)}>Vis alle ({antal(x.raekker.length)})<ChevronRight className="h-4 w-4" /></Button>}
         </div>)}
       </div>
     </section>
-    <section aria-label="Mine maskiner">
-      <h2 className="mb-3 text-lg font-semibold">Mine maskiner</h2>
-      <table className="w-full table-fixed text-sm">
-        <colgroup><col className="w-[36%]" /><col className="w-[14%]" /><col className="w-[20%]" /><col className="w-[30%]" /></colgroup>
-        <thead><tr className="border-b text-xs text-muted-foreground"><th className="py-3 text-left">Maskintype</th><th className="px-1 text-right">Antal</th><th className="px-1 text-right">Heraf<br className="md:hidden" /> udlån</th><th className="pl-2 text-right">{maaneder === 12 ? "Netto pr. år" : "Netto i perioden"}</th></tr></thead>
+    <section aria-label="Mine maskiner" className="max-w-[720px]">
+      <h2 className="text-lg font-semibold">
+        <button type="button" className="hover:underline" onClick={() => setListe({ id: "mine", titel: "Mine maskiner", forklaring: "", raekker: maskinRaekker(maskiner) })}>Mine maskiner: {antal(maskiner.length)}</button>
+      </h2>
+      <p className="mb-2 text-sm text-muted-foreground">
+        <button type="button" className="hover:underline" onClick={() => setListe({ id: "aftaler", titel: "Serviceaftaler", forklaring: "", raekker: maskinRaekker(aftaler) })}>
+          Serviceaftaler: {antal(aftaler.length)} maskiner · {antal(lokAftaler)} lokationer</button>
+      </p>
+      <table className="w-full text-sm">
+        <thead><tr className="border-b text-xs text-muted-foreground"><th className="py-2 text-left">Maskintype</th><th className="px-3 text-right">Antal</th><th className="px-3 text-right">Heraf udlån</th><th className="pl-3 text-right">{maaneder === 12 ? "Netto pr. år" : "Netto i perioden"}</th></tr></thead>
         <tbody>{TYPER.filter(t => maskiner.some(x => x.m.t === t)).map(t => {
           const ms = maskiner.filter(x => x.m.t === t);
           const netto = lok.reduce((a, l) => a + (l.lt[t] ?? 0), 0) - ms.reduce((a, x) => a + x.m.belastning, 0);
-          return <tr key={t} className="cursor-pointer border-b hover:bg-muted/40" onClick={() => setListe({ titel: t, raekker: ms })}><td className="py-3 pr-2"><Button variant="link" className="h-auto whitespace-normal p-0 text-left" onClick={e => { e.stopPropagation(); setListe({ titel: t, raekker: ms }); }}>{t}</Button></td><td className="px-1 text-right tabular-nums">{kr(ms.length)}</td><td className="px-1 text-right tabular-nums">{kr(ms.filter(x => x.m.u === 4).length)}</td><td className={`pl-2 text-right tabular-nums ${netto < 0 ? "text-destructive" : ""}`}>{kr(netto)} kr.</td></tr>;
+          return <tr key={t} className="cursor-pointer border-b hover:bg-muted/40" onClick={() => setListe({ id: t, titel: t, forklaring: "", raekker: maskinRaekker(ms) })}>
+            <td className="py-2.5 font-medium text-primary">{t}</td>
+            <td className="px-3 text-right tabular-nums">{antal(ms.length)}</td>
+            <td className="px-3 text-right tabular-nums">{antal(ms.filter(x => erUdlaan(x.m)).length)}</td>
+            <td className={`pl-3 text-right tabular-nums ${netto < 0 ? "text-destructive" : ""}`}>{kr(netto)}</td></tr>;
         })}</tbody>
       </table>
     </section>
@@ -67,22 +106,29 @@ export function SaelgerOverblik({ lok, satser, maaneder }: { lok: LokRegnskab[];
   </>;
 }
 
-function Kunde({ r }: { r: Raekke }) {
-  return <div className="min-w-0 p-3 text-sm">
-    <Link to="/virksomheder/$id" params={{ id: r.l.cid }} className="block font-medium hover:underline">{r.l.kunde}</Link>
-    <div className="mt-0.5 break-words text-xs text-muted-foreground">{r.l.adr}{r.m && ` · ${r.m.b ?? r.m.t}`}</div>
-    {r.tekst && <div className="mt-1 text-xs">{r.tekst}</div>}
+function KundeRaekke({ r }: { r: Raekke }) {
+  const [aaben, setAaben] = useState(false);
+  return <div className="min-w-0">
+    <button type="button" aria-expanded={aaben} onClick={() => setAaben(!aaben)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/40">
+      <span className="line-clamp-2 min-w-0 flex-1"><span className="text-sm font-semibold">{r.kunde}</span><span className="text-[13px] text-muted-foreground"> · {r.maskine}</span></span>
+      {r.tal && <span className={`shrink-0 text-sm tabular-nums ${r.negativ ? "text-destructive" : ""}`}>{r.tal}</span>}
+      {aaben ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+    </button>
+    {aaben && <div className="space-y-1 px-3 pb-3 text-[13px]">
+      {r.detaljer.map((d, i) => <div key={i}>{d}</div>)}
+      <Link to="/virksomheder/$id" params={{ id: r.cid }} className="inline-block font-medium text-primary hover:underline">Åbn kundekort ›</Link>
+    </div>}
   </div>;
 }
 
 function KundeListe({ liste, onClose }: { liste: Liste; onClose: () => void }) {
   const [s, setS] = useState("");
-  const [antal, setAntal] = useState(50);
-  const rows = liste.raekker.filter(r => `${r.l.kunde} ${r.l.adr} ${r.m?.b ?? ""} ${r.m?.sn ?? ""}`.toLowerCase().includes(s.toLowerCase()));
+  const [vis, setVis] = useState(50);
+  const rows = liste.raekker.filter(r => `${r.kunde} ${r.maskine} ${r.detaljer.join(" ")}`.toLowerCase().includes(s.toLowerCase()));
   return <Dialog open onOpenChange={o => !o && onClose()}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-    <DialogHeader><DialogTitle>{liste.titel}</DialogTitle><DialogDescription>{kr(rows.length)} resultater</DialogDescription></DialogHeader>
-    <Input placeholder="Søg kunde, lokation eller maskine" value={s} onChange={e => { setS(e.target.value); setAntal(50); }} />
-    <div className="divide-y">{rows.slice(0, antal).map((r, i) => <Kunde key={`${r.l.lev}-${r.m?.id}-${i}`} r={r} />)}</div>
-    {antal < rows.length && <Button variant="outline" onClick={() => setAntal(antal + 50)}>Vis flere</Button>}
+    <DialogHeader><DialogTitle>{liste.titel}</DialogTitle><DialogDescription>{liste.forklaring || `${antal(rows.length)} resultater`}</DialogDescription></DialogHeader>
+    <Input placeholder="Søg kunde, lokation eller maskine" value={s} onChange={e => { setS(e.target.value); setVis(50); }} />
+    <div className="divide-y rounded-md border">{rows.slice(0, vis).map(r => <KundeRaekke key={r.key} r={r} />)}</div>
+    {vis < rows.length && <Button variant="outline" onClick={() => setVis(vis + 50)}>Vis flere</Button>}
   </DialogContent></Dialog>;
 }

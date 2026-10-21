@@ -119,3 +119,17 @@ describe("kundeejede servicemodeller i visningen", () => {
     expect(efter.serviceNetto).toBe(foer.serviceNetto);
   });
 });
+
+import { udlaanUdenDaekning } from "./udstyr";
+describe("udlån der ikke betaler sig", () => {
+  const lokRaa = (lev: string, cid: string, vdb: number, bel: number) => ({ lev, id: lev, cid, kunde: cid, adr: lev, leje: 0, bel: -bel, si: 0, ak: 0, mo: 0, rd: 0, pa: 0, vdb, vmd: 0, fm: null, lt: {} });
+  const m = (id: string, lev: string, u: number) => ({ ...mk(id, "Bravilor/Bonamat og bryggere", u), lev });
+  it("leje/leasing (3) tæller ikke som udlån; 4, 5 og 6 gør", () => {
+    const lok = beregnLokationer({ erAdmin: true, lok: [lokRaa("a", "A", 0, 1020), lokRaa("b", "B", 0, 1020)], mk: [m("x", "a", 3), m("y", "b", 5)] }, 12, STANDARD_SATSER);
+    expect(udlaanUdenDaekning(lok, 12).map(x => x.v.cid)).toEqual(["B"]);
+  });
+  it("dækning beregnes pr. virksomhed: kaffekøb på anden lokation dækker udlånet", () => {
+    const lok = beregnLokationer({ erAdmin: true, lok: [lokRaa("a", "A", 0, 1020), lokRaa("a2", "A", 5000, 0)], mk: [m("x", "a", 4)] }, 12, STANDARD_SATSER);
+    expect(udlaanUdenDaekning(lok, 12)).toHaveLength(0);
+  });
+});

@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Maskiner & Service v2: udlån kun type 4/5/6 og dækning pr. virksomhed; nøgletal = tre lister, 5 rækker med udfoldning; admin Datafejl-lister med Tjekket; Mads/admin skærmbilleder, 20 tests.
 - [x] Maskiner & Service: Andet/kundeejede kontrolleret; enkel sælgervisning og lukkede adminsektioner; Claus computer/mobil og maskinliste verificeret, 18 tests bestået og skærmbilleder gemt.
 - [x] Bonuspræsentation: fælles tabel, decimaler/fodnoter, ens mobilkort, separat admin-sammenligning, egne satser og Se som-faner; Mads 360/390/1280 px, admin/Claus, CSV-total 244.068,94, 23 tests og fem skærmbilleder verificeret; ingen data-/beregningsændringer.
 - [x] Maskinbonus-ydeevne: kandidatbegrænset historik og indeks, vedligeholdt maskingrundlag, samlet lazy vurderingskald; september 36,4→3,2 s, samme summer/status/årsag, Anders/vurderinger kontrolleret, rollback-test; september ikke låst.
