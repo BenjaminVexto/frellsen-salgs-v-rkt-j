@@ -200,6 +200,7 @@ export async function syncPenhederByCvrs(
       if (!res.ok) {
         return {
           synced,
+          perCvr,
           error: `CVR-API fejl ${res.status}: ${res.statusText}`,
         };
       }
@@ -220,8 +221,11 @@ export async function syncPenhederByCvrs(
       const { error: upErr } = await supabaseAdmin
         .from("cvr_penheder")
         .upsert(list as any, { onConflict: "p_number", ignoreDuplicates: false });
-      if (upErr) return { synced, error: `Upsert fejl: ${upErr.message}` };
+      if (upErr) return { synced, perCvr, error: `Upsert fejl: ${upErr.message}` };
       synced += list.length;
+      for (const r of list) {
+        sliceCounts.set(r.cvr, (sliceCounts.get(r.cvr) ?? 0) + 1);
+      }
     }
 
     // Luk P-enheder der ikke længere returneres for disse CVR-numre.
