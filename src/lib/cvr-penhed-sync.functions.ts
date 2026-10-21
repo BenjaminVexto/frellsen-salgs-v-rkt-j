@@ -16,36 +16,18 @@ async function ensureAdmin(userId: string) {
   if (!data) throw new Error("Forbidden: kun administratorer");
 }
 
-// Læg alle relevante kunde-CVR-numre i kø til P-enhedssynkronisering.
+// Læg ét nyt job (25 CVR'er) i køen — samme logik som cron-jobbet.
+// Returnerer jobs=0 hvis der allerede venter/kører et job.
 export const queuePenhedSync = createServerFn({ method: "POST" })
   .middleware([kraevIntern])
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const { data: cands, error: candErr } = await supabaseAdmin.rpc(
-      "penhed_sync_candidates" as any,
+    const { data, error } = await supabaseAdmin.rpc(
+      "queue_penhed_sync_naeste" as any,
     );
-    if (candErr) throw new Error(candErr.message);
-
-    const cvrs = Array.from(
-      new Set(
-        ((cands as any[]) ?? [])
-          .map((r: any) => String(typeof r === "string" ? r : r?.cvr ?? "").trim())
-          .filter((c) => /^\d{8}$/.test(c)),
-      ),
-    );
-    if (!cvrs.length) return { jobs: 0, cvrs: 0 };
-
-    const rows: { cvrs: string[] }[] = [];
-    for (let i = 0; i < cvrs.length; i += CVR_PER_JOB) {
-      rows.push({ cvrs: cvrs.slice(i, i + CVR_PER_JOB) });
-    }
-    const { error } = await supabaseAdmin
-      .from("cvr_penhed_sync_jobs")
-      .insert(rows as any);
     if (error) throw new Error(error.message);
-    return { jobs: rows.length, cvrs: cvrs.length };
+    return { jobs: (data as number) ?? 0, cvrs: (data as number) ? CVR_PER_JOB : 0 };
   });
 
 // Status for de seneste jobs (til admin-overblik).
