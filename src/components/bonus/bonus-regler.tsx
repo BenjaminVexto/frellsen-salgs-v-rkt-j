@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
-import { ChevronDown } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useEffect } from "react";
 import { Info } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -26,20 +24,27 @@ export function dbProvisionTekst(o: BonusOrdning | null | undefined): string {
 
 const RESUME: Record<"db" | "maskiner" | "nykunde", string> = {
   db: "Provision af DB på dine lokationer i Visma. Leje tæller med 100 % DB; maskinbelastning trækkes fra.",
-  maskiner: "Bonus når du vinder en ny aftale via en maskine: fuld bonus for en ny maskine, 250 kr. for en brugt. Samme maskine hos samme kunde giver kun bonus én gang.",
+  maskiner: "Bonus når du vinder en ny aftale via en maskine. Samme maskine hos samme kunde giver kun bonus én gang.",
   nykunde: "Største DB på nye kunder i måneden giver 1.000 kr., nummer to 600 kr.",
 };
 
-export function ReglerInfo({ afsnit, onAabn }: { afsnit: "db" | "maskiner" | "nykunde"; onAabn: (a: ReglerAfsnit) => void }) {
+function maskinSatser(o: BonusOrdning): string {
+  return [["Wittenborg", o.bonus_wittenborg], ["Animo", o.bonus_animo], ["Rex", o.bonus_rex], ["Kalerm", o.bonus_kalerm], ["Espresso", o.bonus_espresso], ["Brugt maskine", o.bonus_brugt]].map(([navn, sats]) => `${navn} ${tal(Number(sats))} kr.`).join(" · ");
+}
+
+export function ReglerInfo({ afsnit, onAabn, ordning }: { afsnit: "db" | "maskiner" | "nykunde"; onAabn: (a: ReglerAfsnit) => void; ordning?: BonusOrdning | null }) {
+  const fast = ordning?.flatrate != null;
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" aria-label="Regler" className="ml-1 inline-flex align-middle text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="icon" aria-label={`Regler for ${afsnit === "db" ? "DB-bonus" : afsnit === "maskiner" ? "Maskinbonus" : "Ny kunde"}`} className="ml-1 h-5 w-5 align-middle text-muted-foreground hover:text-foreground">
           <Info className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 text-left text-sm font-normal space-y-2">
-        <p>{RESUME[afsnit]}</p>
+        <p>{afsnit === "db" ? dbProvisionTekst(ordning) : fast ? "Maskinbonus og ny kunde-provision gælder ikke ved fast provision." : RESUME[afsnit]}</p>
+        {afsnit === "db" && !fast && <p>{RESUME.db}</p>}
+        {afsnit === "maskiner" && ordning && !fast && <p>{maskinSatser(ordning)}</p>}
         <Button variant="link" className="h-auto p-0" onClick={() => onAabn(afsnit)}>Se alle regler</Button>
       </PopoverContent>
     </Popover>
@@ -76,7 +81,8 @@ export function BonusRegler({ open, afsnit, ordning, onOpenChange }: { open: boo
             <>
               <section id="bonusregel-maskiner" className="space-y-2 scroll-mt-4">
                 <h3 className="font-semibold">Maskinbonus</h3>
-                <MaskinbonusRegler />
+                {ordning && <p className="font-medium leading-relaxed">{maskinSatser(ordning)}</p>}
+                <MaskinbonusRegler ordning={ordning} />
               </section>
               <section id="bonusregel-nykunde" className="space-y-2 scroll-mt-4">
                 <h3 className="font-semibold">Ny kunde-provision <span className="font-normal text-muted-foreground">(fra sep. 2026)</span></h3>
@@ -95,7 +101,7 @@ export const MASKINBONUS_PUNKTER = [
   "Ny maskine på salg eller leje: fuld bonus efter maskintype.",
   "Brugt maskine på salg eller leje: 250 kr., uanset model.",
   "Bonus gives for Wittenborg, Animo (bønne), Kalerm, Rex og espressomaskiner, der kører på Frellsens hele bønner eller VAC og har maskinservicekontrakt.",
-  "Ingen bonus for instantmaskiner (inkl. OptiVend), friskvand, fritstående friskbryg, brygindsatser, fødevareautomater og udlånsmaskiner. Andre maskintyper giver kun bonus, hvis Benjamin har godkendt det, før aftalen indgås.",
+  "Ingen bonus for instantmaskiner (inkl. OptiVend), friskvand, fritstående friskbryg, brygindsatser og fødevareautomater. Andre maskintyper giver kun bonus, hvis Benjamin har godkendt det, før aftalen indgås.",
   "Samme maskine hos samme kunde giver kun bonus én gang — også hvis en lejemaskine bliver solgt.",
   "Ombytning inden for 24 måneder, reklamationer og tekniske ombytninger giver ikke bonus. Det gør tilbagekøb heller ikke, hvor Frellsen betaler for den gamle maskine.",
   "Opgradering efter 24 måneder til en anden/større model på en ny aftale med mindst 2 års binding kan give bonus efter godkendelse.",
@@ -103,31 +109,14 @@ export const MASKINBONUS_PUNKTER = [
 ];
 
 /** Fast regeltekst for maskinbonus (besluttet 20/10-2026). */
-export function MaskinbonusRegler() {
+export function MaskinbonusRegler({ ordning }: { ordning?: BonusOrdning | null }) {
   return (
     <>
-      <p className="font-medium">Maskinbonus — sådan virker det</p>
       <p>Du får maskinbonus, når du vinder en ny aftale med kunden via en maskine.</p>
       <ul className="list-disc pl-5 space-y-1">
-        {MASKINBONUS_PUNKTER.map((p) => <li key={p}>{p}</li>)}
+        {MASKINBONUS_PUNKTER.map((p, i) => <li key={p}>{i === 1 && ordning ? `Brugt maskine på salg eller leje: ${tal(Number(ordning.bonus_brugt))} kr., uanset model.` : i === 5 && ordning ? p.replace("24 måneder", `${Number(ordning.ombytning_mdr)} måneder`) : i === 6 && ordning ? p.replace("24 måneder", `${Number(ordning.ombytning_mdr)} måneder`) : p}</li>)}
       </ul>
     </>
   );
 }
 
-export function MaskinbonusBoks() {
-  const [aaben, setAaben] = useState(false);
-  return (
-    <Collapsible open={aaben} onOpenChange={setAaben} className="rounded-md border">
-      <CollapsibleTrigger asChild>
-        <button type="button" className="flex w-full min-h-11 items-center justify-between px-3 py-2 text-sm font-medium">
-          Sådan beregnes maskinbonus
-          <ChevronDown className={`h-4 w-4 transition-transform ${aaben ? "rotate-180" : ""}`} />
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-2 px-3 pb-3 text-sm">
-        <MaskinbonusRegler />
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}

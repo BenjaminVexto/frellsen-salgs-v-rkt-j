@@ -1,5 +1,6 @@
 - The customer Locations tab merges CVR coverage, account locations and account summaries in presentation only; load other-account details on expansion and paginate rows — so large CVR groups stay responsive.
 - Shared Calendar defaults to native month/year dropdowns and a future navigation horizon, with larger touch targets on mobile; callers retain explicit bounds and disabled-date rules — so distant dates are easy to reach without changing date validation.
 - Bonus presentation uses the monthly RPC's returned payouts, including new-customer bonus in totals and CSV, and describes the matching seller orders rather than hardcoded rates — so presentation never duplicates the SQL calculation.
+- Bonus months share one payout layout; historical CRM comparisons are isolated in an admin-only collapsible table, and mobile uses the same payouts newest-first — so comparisons cannot be mistaken for paid bonus.
 - Machine-count drilldowns filter existing bonus detail rows by bonus class and exclude omitted rows; the full-month view retains them — so customer lists reconcile with counts without changing calculations.
 - Bonus DB, machines and competition use separate detail views and paged RPC reads; the shared competition RPC returns only eligible seller aggregates with internal-role checks — so competition sharing never widens customer access.
