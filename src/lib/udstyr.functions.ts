@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { kraevIntern } from "@/lib/kraev-intern";
 import { komprimerJson } from "@/lib/komprimer-json";
-import { STANDARD_SATSER, SATS_NOEGLER, type Satser } from "@/lib/udstyr";
+import { STANDARD_SATSER, SATS_NOEGLER, TAELLER_PREFIX, type Satser } from "@/lib/udstyr";
 
 /** Grundlag (aggregeret pr. lokation + maskiner). Sælgere får altid kun egne lokationer (håndhævet i SQL). */
 export const hentUdstyr = createServerFn({ method: "POST" })
@@ -24,8 +24,9 @@ export const hentUdstyrSatser = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<Satser> => {
     const { data } = await (context.supabase as any).from("udstyr_indstilling").select("noegle, vaerdi");
     const m = new Map<string, number>((data ?? []).map((r: any) => [r.noegle, Number(r.vaerdi)]));
-    const ud = { ...STANDARD_SATSER };
-    for (const k of Object.keys(SATS_NOEGLER) as (keyof Satser)[]) {
+    const ud: Satser = { ...STANDARD_SATSER, taellerPrType: {} };
+    for (const [n, v] of m) if (n.startsWith(TAELLER_PREFIX) && v > 0) ud.taellerPrType[n.slice(TAELLER_PREFIX.length)] = v;
+    for (const k of Object.keys(SATS_NOEGLER) as (keyof typeof SATS_NOEGLER)[]) {
       const v = m.get(SATS_NOEGLER[k]);
       if (v != null && Number.isFinite(v)) ud[k] = v;
     }
@@ -36,11 +37,18 @@ export const gemUdstyrSatser = createServerFn({ method: "POST" })
   .middleware([kraevIntern])
   .inputValidator((d: Satser) => d)
   .handler(async ({ data, context }) => {
-    const rows = (Object.keys(SATS_NOEGLER) as (keyof Satser)[]).map((k) => {
+    const nu = new Date().toISOString();
+    const rows = (Object.keys(SATS_NOEGLER) as (keyof typeof SATS_NOEGLER)[]).map((k) => {
       const v = Number(data[k]);
       if (!Number.isFinite(v) || v < 0) throw new Error("Ugyldig værdi");
-      return { noegle: SATS_NOEGLER[k], vaerdi: v, opdateret_at: new Date().toISOString() };
+      return { noegle: SATS_NOEGLER[k], vaerdi: v, opdateret_at: nu };
     });
+    // Tællergrænse pr. maskintype; 0 = bruges ikke.
+    for (const [t, raw] of Object.entries(data.taellerPrType ?? {})) {
+      const v = Number(raw);
+      if (!Number.isFinite(v) || v < 0) throw new Error("Ugyldig tællergrænse");
+      rows.push({ noegle: TAELLER_PREFIX + t, vaerdi: v, opdateret_at: nu });
+    }
     const { error } = await (context.supabase as any).from("udstyr_indstilling").upsert(rows);
     if (error) throw new Error("Kun admin kan ændre satserne");
     return { ok: true };
