@@ -6,6 +6,8 @@ import { resolveKommuneKode } from "./cvr-kommuner";
 
 const CVR_ES_URL =
   "http://distribution.virk.dk/cvr-permanent/virksomhed/_search";
+const CVR_PENHED_ES_URL =
+  "http://distribution.virk.dk/cvr-permanent/produktionsenhed/_search";
 
 export type CvrCompany = {
   cvr: string;
@@ -33,6 +35,9 @@ export type CvrCompany = {
   sub_branch_3_text: string | null;
   penheder_count: number;
   pnumre: string[];
+  /** Sat når hitte kommer fra P-enheds-indekset (afdeling), ikke hovedsædet. */
+  p_number?: string | null;
+  penhed_name?: string | null;
 };
 
 export type CvrResponse =
@@ -218,14 +223,14 @@ export const cvrBulkSide = createServerFn({ method: "POST" })
     }
   });
 
-async function callCvr(payload: unknown): Promise<any> {
+async function callCvr(payload: unknown, url: string = CVR_ES_URL): Promise<any> {
   const user = process.env.CVR_USERNAME;
   const pass = process.env.CVR_PASSWORD;
   if (!user || !pass) throw new Error("CONFIG_ERROR: CVR_USERNAME/CVR_PASSWORD mangler");
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
   let res: Response;
   try {
-    res = await fetch(CVR_ES_URL, {
+    res = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Basic ${auth}`,
