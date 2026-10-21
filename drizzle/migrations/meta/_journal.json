@@ -953,6 +953,13 @@
       "when": 1792584915598,
       "tag": "0135_udstyr_aftalestatus_fornyelse",
       "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1792585991653,
+      "tag": "0136_udstyr_kundeejede_interne",
+      "breakpoints": true
     }
   ]
 }
