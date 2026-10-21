@@ -518,6 +518,7 @@ function MaskinTabel({ raekker, sorterRep }: { raekker: MaskinRaekke[]; sorterRe
                   <td className="px-1 tabular-nums">{m.leje != null ? kr(m.leje) : "–"}</td>
                   <td className="px-1 tabular-nums">{m.belastning != null ? <>{kr(-m.belastning)} <span className="text-[10px] text-muted-foreground">fordelt</span></> : "–"}</td>
                   <td className="px-1 tabular-nums">{kr(x.l.vdb)}</td>
+                  <td className="px-1 tabular-nums">{kr(reparationer(x.l))}</td>
                   <td className="px-1 text-xs tabular-nums">{omk > 0 ? `${Math.round((x.l.vdb / omk) * 100)} %` : "–"}</td>
                 </tr>
               );
@@ -540,7 +541,7 @@ function DrillDialog({ drill, onClose, erAdmin, fra, til }: { drill: Drill; onCl
           <DialogDescription>{drill.raekker.length} {drill.slags === "maskiner" ? "maskiner" : "lokationer"} · {fra.slice(0, 7)} – {til.slice(0, 7)}</DialogDescription>
         </DialogHeader>
         {drill.slags === "maskiner"
-          ? <MaskinTabel raekker={drill.raekker} />
+          ? <MaskinTabel raekker={drill.raekker} sorterRep={drill.titel === "Udskiftningskandidater"} />
           : <LokTabel raekker={drill.raekker} maaneder={maanederIPeriode(fra, til)} visFornyelse={drill.visFornyelse} onLinjer={erAdmin ? setLinjeLok : undefined} />}
         {linjeLok && <LinjeDialog lok={linjeLok} fra={fra} til={til} onClose={() => setLinjeLok(null)} />}
       </DialogContent>
