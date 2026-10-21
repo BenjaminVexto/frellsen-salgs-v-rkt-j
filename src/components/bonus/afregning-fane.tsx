@@ -80,6 +80,7 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
   });
 
   const laasRows = laasQ.data ?? [];
+  const historiskMaaned = laasRows.some((l: any) => l.kilde === "loenseddel");
   const faerdigLaast = laasRows.length > 0 && logQ.data?.[0]?.handling === "laas";
   const laastDato = logQ.data?.[0]?.handling === "laas" ? logQ.data[0].tidspunkt : null;
   const saelgere = saelgereQ.data ?? [];
