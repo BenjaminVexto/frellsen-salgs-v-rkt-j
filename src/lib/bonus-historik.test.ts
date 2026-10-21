@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 // Låsning af en ny måned må aldrig efterregulere måneder med kilde = 'loenseddel'.
@@ -25,7 +25,8 @@ ROLLBACK;`;
 
 describe("historisk bonus fra lønsedler", () => {
   it.skipIf(!process.env.PGHOST)("opretter ingen efterregulering for sep 2025 – aug 2026", () => {
-    const out = execFileSync("psql", ["-v", "ON_ERROR_STOP=1", "-c", SQL], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    void out;
+    const r = spawnSync("psql", ["-v", "ON_ERROR_STOP=1", "-c", SQL], { encoding: "utf8" });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stderr).toMatch(/REGULERINGER=0\b/);
   }, 300_000);
 });
