@@ -24,10 +24,11 @@ export function PenhedSyncKort() {
   const queueFn = useServerFn(queuePenhedSync);
   const [queueing, setQueueing] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["penhed-sync-status"],
     queryFn: () => fetchStatus(),
     refetchInterval: 15000,
+    retry: 1,
   });
 
   const mutation = useMutation({
@@ -36,7 +37,9 @@ export function PenhedSyncKort() {
     onSettled: () => setQueueing(false),
     onSuccess: (res: any) => {
       toast.success(
-        `${res.jobs} job(s) oprettet for ${res.cvrs} CVR-numre`,
+        res.jobs
+          ? "Næste job (25 CVR'er) lagt i kø"
+          : "Køen kører allerede — intet nyt job lagt ind",
       );
       qc.invalidateQueries({ queryKey: ["penhed-sync-status"] });
     },
@@ -49,7 +52,7 @@ export function PenhedSyncKort() {
         <div>
           <h3 className="font-semibold">CVR-produktionsenheder</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Synkronisér P-enheder for aktive og sovende erhvervskunder
+            Løbende synkronisering af P-enheder for erhvervskunder (aktive, sovende, service og tidligere)
           </p>
         </div>
         <Button
@@ -62,13 +65,20 @@ export function PenhedSyncKort() {
           ) : (
             <RefreshCw className="h-4 w-4 mr-2" />
           )}
-          Synkronisér CVR P-enheder
+          Læg næste job i kø
         </Button>
       </div>
 
       {isLoading ? (
         <div className="py-6 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="py-6 flex flex-col items-center gap-2">
+          <p className="text-sm text-muted-foreground">Kunne ikke hente status</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            Prøv igen
+          </Button>
         </div>
       ) : (
         <>
@@ -86,6 +96,43 @@ export function PenhedSyncKort() {
               </div>
             ))}
           </div>
+
+          {data?.overblik && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium mb-2">Løbende kø</h4>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-2">
+                {([
+                  ["CVR'er i reglen", data.overblik.i_reglen ?? 0],
+                  ["Synket", data.overblik.synket ?? 0],
+                  ["Venter (aldrig synket)", data.overblik.aldrig ?? 0],
+                  ["Forfaldne", data.overblik.forfaldne ?? 0],
+                  ["Fejlet (7 dage)", data.overblik.fejl_7d ?? 0],
+                ] as [string, number][]).map(([label, val]) => (
+                  <div key={label} className="rounded-md border p-2">
+                    <div className="text-xs text-muted-foreground">{label}</div>
+                    <div className="text-lg font-semibold">{val}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Seneste kørte job:{" "}
+                {data.overblik.seneste_job
+                  ? new Date(data.overblik.seneste_job).toLocaleString("da-DK")
+                  : "aldrig"}
+              </p>
+              {(data.overblik.fejl_liste ?? []).length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-destructive">Fejl seneste 7 dage:</div>
+                  {(data.overblik.fejl_liste ?? []).map((f: any) => (
+                    <div key={f.cvr} className="text-xs border-b last:border-0 py-1">
+                      <span className="font-mono">{f.cvr}</span>
+                      <span className="text-muted-foreground"> — {f.fejl}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-1">
             {(data?.latest ?? []).map((j) => (

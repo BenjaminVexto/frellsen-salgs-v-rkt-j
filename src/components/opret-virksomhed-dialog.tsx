@@ -159,6 +159,12 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
               if (e.cvr) map[e.cvr] = { id: e.id, name: e.name };
             });
             if (mySeq === searchSeq.current) setExistingByCvr(map);
+            // CVR'er der allerede er i CRM, prioriteres i P-enhedssynk-køen
+            for (const e of existing ?? []) {
+              if (e.cvr && /^\d{8}$/.test(e.cvr)) {
+                void (supabase.rpc as any)("penhed_sync_prioriter", { _cvr: e.cvr }).then(() => {}, () => {});
+              }
+            }
           } else {
             setExistingByCvr({});
           }
@@ -200,6 +206,24 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
     const existing = existingByCvr[c.cvr];
     if (existing) {
       toast.error("Virksomheden findes allerede");
+      return;
+    }
+    // P-enheds-hit: virksomheden oprettes med hovedselskabets CVR-data,
+    // og P-enheden bliver lokationen (samme vej som adressesøgningen).
+    if (c.p_number) {
+      void createFromPenhed({
+        p_number: c.p_number,
+        name: c.penhed_name ?? null,
+        address: c.address ?? null,
+        zip: c.zip ?? null,
+        city: c.city ?? null,
+        ansatte: null,
+        kilde: "cvr",
+        cvr: c.cvr,
+        hoved: null,
+        crm: [],
+        linkedLocation: null,
+      });
       return;
     }
     applyCvrCompany(c);
@@ -442,7 +466,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
                   const existing = existingByCvr[c.cvr];
                   return (
                     <button
-                      key={c.cvr}
+                      key={`${c.cvr}-${c.p_number ?? "h"}`}
                       type="button"
                       onClick={() => pickResult(c)}
                       className="w-full text-left min-h-[60px] p-3 rounded-md border border-border hover:bg-accent/40 transition-colors disabled:opacity-60"
@@ -455,6 +479,11 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
                             {existing && (
                               <span className="text-xs px-2 py-0.5 rounded bg-warning/15 text-warning border border-warning/30">
                                 Allerede i systemet
+                              </span>
+                            )}
+                            {c.p_number && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">
+                                Afdeling · P-nr. {c.p_number}
                               </span>
                             )}
                             {c.ad_protection && (

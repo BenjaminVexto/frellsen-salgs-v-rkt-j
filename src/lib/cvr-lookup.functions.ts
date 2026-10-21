@@ -6,6 +6,8 @@ import { resolveKommuneKode } from "./cvr-kommuner";
 
 const CVR_ES_URL =
   "http://distribution.virk.dk/cvr-permanent/virksomhed/_search";
+const CVR_PENHED_ES_URL =
+  "http://distribution.virk.dk/cvr-permanent/produktionsenhed/_search";
 
 export type CvrCompany = {
   cvr: string;
@@ -33,6 +35,9 @@ export type CvrCompany = {
   sub_branch_3_text: string | null;
   penheder_count: number;
   pnumre: string[];
+  /** Sat når hitte kommer fra P-enheds-indekset (afdeling), ikke hovedsædet. */
+  p_number?: string | null;
+  penhed_name?: string | null;
 };
 
 export type CvrResponse =
@@ -218,14 +223,14 @@ export const cvrBulkSide = createServerFn({ method: "POST" })
     }
   });
 
-async function callCvr(payload: unknown): Promise<any> {
+async function callCvr(payload: unknown, url: string = CVR_ES_URL): Promise<any> {
   const user = process.env.CVR_USERNAME;
   const pass = process.env.CVR_PASSWORD;
   if (!user || !pass) throw new Error("CONFIG_ERROR: CVR_USERNAME/CVR_PASSWORD mangler");
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
   let res: Response;
   try {
-    res = await fetch(CVR_ES_URL, {
+    res = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Basic ${auth}`,
@@ -245,6 +250,97 @@ async function callCvr(payload: unknown): Promise<any> {
     throw err;
   }
   return res.json();
+}
+
+type PenhedSearchHit = {
+  p_number: string;
+  cvr: string;
+  name: string | null;
+  address: string | null;
+  zip: string | null;
+  city: string | null;
+};
+
+/** Søger aktive P-enheder på navn + by/postnummer (samme fuzziness som virksomhedssøgningen). */
+async function searchPenheder(
+  nameQuery: string,
+  location: string,
+  isPostalCode: boolean,
+  size: number,
+): Promise<PenhedSearchHit[]> {
+  const locationFilter: any[] = [
+    isPostalCode
+      ? {
+          term: {
+            "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteBeliggenhedsadresse.postnummer":
+              parseInt(location, 10),
+          },
+        }
+      : {
+          match: {
+            "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteBeliggenhedsadresse.postdistrikt":
+              location,
+          },
+        },
+  ];
+  const payload = {
+    _source: [
+      "VrproduktionsEnhed.pNummer",
+      "VrproduktionsEnhed.virksomhedsrelation",
+      "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteCvrNummerRelation",
+      "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteNavn",
+      "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteBeliggenhedsadresse",
+      "VrproduktionsEnhed.produktionsEnhedMetadata.sammensatStatus",
+    ],
+    query: {
+      bool: {
+        must: [
+          {
+            match: {
+              "VrproduktionsEnhed.produktionsEnhedMetadata.nyesteNavn.navn": {
+                query: nameQuery,
+                fuzziness: "1",
+                prefix_length: 3,
+              },
+            },
+          },
+          {
+            match: {
+              "VrproduktionsEnhed.produktionsEnhedMetadata.sammensatStatus": "Aktiv",
+            },
+          },
+        ],
+        filter: locationFilter,
+      },
+    },
+    sort: [{ _score: { order: "desc" } }],
+    size,
+  };
+  const json = await callCvr(payload, CVR_PENHED_ES_URL);
+  const out: PenhedSearchHit[] = [];
+  for (const h of json?.hits?.hits ?? []) {
+    const p = h?._source?.VrproduktionsEnhed;
+    if (!p?.pNummer) continue;
+    const relLatest = pickLatest<any>(p?.virksomhedsrelation);
+    const cvrNum =
+      p?.produktionsEnhedMetadata?.nyesteCvrNummerRelation ??
+      relLatest?.cvrNummer ??
+      null;
+    if (cvrNum == null) continue;
+    const addr = p?.produktionsEnhedMetadata?.nyesteBeliggenhedsadresse ?? null;
+    const vejnavn = addr?.vejnavn ?? "";
+    const husnr = addr?.husnummerFra != null ? String(addr.husnummerFra) : "";
+    const bogstav = addr?.bogstavFra ?? "";
+    out.push({
+      p_number: String(p.pNummer),
+      cvr: String(cvrNum),
+      name: p?.produktionsEnhedMetadata?.nyesteNavn?.navn ?? null,
+      address: vejnavn ? `${vejnavn} ${husnr}${bogstav}`.trim() : null,
+      zip: addr?.postnummer != null ? String(addr.postnummer) : null,
+      city: addr?.postdistrikt ?? null,
+    });
+  }
+  return out;
 }
 
 const InputSchema = z.discriminatedUnion("type", [
@@ -350,8 +446,49 @@ export const cvrLookup = createServerFn({ method: "POST" })
           .map((h: any) => h?._source?.Vrvirksomhed)
           .filter(Boolean)
           .map(mapVirksomhed);
+
+        // Når by/postnummer er angivet, søg også i P-enheds-indekset —
+        // en afdeling kan ligge på den søgte adresse, selvom hovedsædet ikke gør.
+        if (location) {
+          try {
+            const penhedHits = await searchPenheder(nameQuery, location, isPostalCode, data.size ?? 10);
+            if (penhedHits.length) {
+              const cvrs = Array.from(new Set(penhedHits.map((p) => p.cvr)));
+              const vJson = await callCvr({
+                _source: SOURCE_FIELDS,
+                query: { terms: { "Vrvirksomhed.cvrNummer": cvrs } },
+                size: cvrs.length,
+              });
+              const vByCvr = new Map<string, any>();
+              for (const h of vJson?.hits?.hits ?? []) {
+                const v = h?._source?.Vrvirksomhed;
+                if (v?.cvrNummer != null) vByCvr.set(String(v.cvrNummer), v);
+              }
+              // Dedup på CVR + P-nr.
+              const seen = new Set<string>();
+              for (const p of penhedHits) {
+                const key = `${p.cvr}:${p.p_number}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const v = vByCvr.get(p.cvr);
+                if (!v) continue;
+                const mapped = mapVirksomhed(v);
+                mapped.address = p.address;
+                mapped.zip = p.zip;
+                mapped.city = p.city;
+                mapped.p_number = p.p_number;
+                mapped.penhed_name = p.name;
+                companies.push(mapped);
+              }
+            }
+          } catch (e) {
+            // P-enheds-søgning må aldrig ødelægge hovedsøgningen
+            console.error("P-enheds-søgning fejlede:", (e as any)?.message ?? e);
+          }
+        }
+
         if (!companies.length) return { success: false, error: "NOT_FOUND" };
-        return { success: true, data: companies };
+        return { success: true, data: companies.slice(0, data.size ?? 10) };
       }
 
       // --- BULK ---

@@ -76,9 +76,20 @@ export const Route = createFileRoute("/api/public/hooks/process-penhed-sync")({
           const jobId = job.id as string;
           const cvrs = (job.cvrs as string[]) ?? [];
           const attempts = (job.attempts as number) ?? 0;
+          let perCvr: Record<string, number> = {};
           try {
             const res = await syncPenhederByCvrs(cvrs);
+            perCvr = res.perCvr;
             if (res.error) throw new Error(res.error);
+            // Registrér resultatet pr. CVR i statustabellen (også 0-hit).
+            for (const cvr of cvrs) {
+              await supabaseAdmin.rpc("penhed_sync_registrer" as any, {
+                _cvr: cvr,
+                _status: "ok",
+                _antal: res.perCvr[cvr] ?? 0,
+                _fejl: null,
+              } as any);
+            }
             await supabaseAdmin
               .from("cvr_penhed_sync_jobs")
               .update({
@@ -90,6 +101,17 @@ export const Route = createFileRoute("/api/public/hooks/process-penhed-sync")({
               .eq("id", jobId);
             results.push({ id: jobId, status: "done", synced: res.synced });
           } catch (e: any) {
+            // Registrér fejl pr. CVR (CVR'er der nåede at blive synket, markeres ok)
+            const fejlTxt = String(e?.message ?? e).slice(0, 2000);
+            for (const cvr of cvrs) {
+              const okCvr = cvr in perCvr;
+              await supabaseAdmin.rpc("penhed_sync_registrer" as any, {
+                _cvr: cvr,
+                _status: okCvr ? "ok" : "fejl",
+                _antal: perCvr[cvr] ?? 0,
+                _fejl: okCvr ? null : fejlTxt,
+              } as any);
+            }
             const newAttempts = attempts + 1;
             const finalStatus = newAttempts >= MAX_ATTEMPTS ? "failed" : "pending";
             await supabaseAdmin

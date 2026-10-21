@@ -1859,6 +1859,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cvr_penhed_sync_status: {
+        Row: {
+          antal_penheder: number | null
+          created_at: string
+          cvr: string
+          last_error: string | null
+          last_status: string | null
+          last_synced_at: string | null
+          prioritet_override_at: string | null
+        }
+        Insert: {
+          antal_penheder?: number | null
+          created_at?: string
+          cvr: string
+          last_error?: string | null
+          last_status?: string | null
+          last_synced_at?: string | null
+          prioritet_override_at?: string | null
+        }
+        Update: {
+          antal_penheder?: number | null
+          created_at?: string
+          cvr?: string
+          last_error?: string | null
+          last_status?: string | null
+          last_synced_at?: string | null
+          prioritet_override_at?: string | null
+        }
+        Relationships: []
+      }
       cvr_penheder: {
         Row: {
           address: string | null
@@ -6209,6 +6239,12 @@ export type Database = {
           cvr: string
         }[]
       }
+      penhed_sync_overblik: { Args: never; Returns: Json }
+      penhed_sync_prioriter: { Args: { _cvr: string }; Returns: undefined }
+      penhed_sync_registrer: {
+        Args: { _antal: number; _cvr: string; _fejl: string; _status: string }
+        Returns: undefined
+      }
       pnr_link_location: {
         Args: { _afd: number; _dno: string; _loc: string }
         Returns: string
@@ -6292,7 +6328,7 @@ export type Database = {
         }
         Returns: number
       }
-      queue_penhed_sync_ugentlig: { Args: never; Returns: number }
+      queue_penhed_sync_naeste: { Args: never; Returns: number }
       rebuild_products: { Args: never; Returns: number }
       rebuild_sales_aggregates: {
         Args: {
