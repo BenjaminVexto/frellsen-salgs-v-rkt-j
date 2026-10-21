@@ -4,24 +4,29 @@
 export type GrundLok = {
   lev: string; id: string; cid: string; kunde: string; adr: string;
   leje: number; bel: number; si: number; ak: number; mo: number; rd: number; pa: number; vdb: number; vmd: number;
+  /** Måned (1-12) med største aftalefakturering (16/82) i perioden = fornyelsesmåned. */
+  fm: number | null;
   lt: Record<string, number>;
 };
 export type GrundMaskine = {
   id: string; sn: string | null; lev: string; b: string | null; t: string; u: number;
-  o: string | null; tl: number | null; at: string | null; as: string | null;
+  o: string | null; tl: number | null; at: string | null; st: string | null;
 };
 export type Grundlag = { erAdmin: boolean; lok: GrundLok[]; mk: GrundMaskine[] };
 
 export type Satser = {
   brita: number; bryg: number; andetUdlaan: number;
-  udskiftReparation: number; udskiftAlderAar: number; udskiftTaeller: number;
+  udskiftReparation: number; udskiftAlderAar: number;
+  /** Tællergrænse pr. maskintype – tom = bruges ikke. */
+  taellerPrType: Record<string, number>;
 };
 export const STANDARD_SATSER: Satser = {
-  brita: 44, bryg: 85, andetUdlaan: 117, udskiftReparation: 3000, udskiftAlderAar: 5, udskiftTaeller: 100000,
+  brita: 44, bryg: 85, andetUdlaan: 117, udskiftReparation: 3000, udskiftAlderAar: 5, taellerPrType: {},
 };
-export const SATS_NOEGLER: Record<keyof Satser, string> = {
+export const TAELLER_PREFIX = "taeller_";
+export const SATS_NOEGLER: Record<Exclude<keyof Satser, "taellerPrType">, string> = {
   brita: "sats_brita", bryg: "sats_bryg", andetUdlaan: "sats_andet_udlaan",
-  udskiftReparation: "udskift_reparation", udskiftAlderAar: "udskift_alder_aar", udskiftTaeller: "udskift_taeller",
+  udskiftReparation: "udskift_reparation", udskiftAlderAar: "udskift_alder_aar",
 };
 
 export const TYPER = [
@@ -38,7 +43,10 @@ export const UDLAAN_LABEL: Record<number, string> = {
 export const erFrellsen = (u: number) => u >= 3 && u <= 8;
 /** "Andet udlån" = maskiner af typen Andet, der er udlånt (ikke leje). */
 const erAndetUdlaan = (m: GrundMaskine) => m.t === "Andet" && (m.u === 4 || m.u === 6 || m.u === 7 || m.u === 8);
-export const harAftale = (at: string | null) => !!at && !/^0\b/.test(at.trim());
+/** Aftaletype fra serviceregistret (ikke 0). */
+export const harAftaletype = (at: string | null) => !!at && !/^0\b/.test(at.trim());
+/** Aktiv serviceaftale = aftaletype ≠ 0 og status "1 [Aktiv - Har aftale]" på en aktiv maskine. */
+export const harAftale = (m: { at: string | null; st: string | null }) => harAftaletype(m.at) && /^1\b/.test((m.st ?? "").trim());
 export const aftaleLabel = (at: string | null) =>
   at ? at.replace(/^\d+\s*\[?/, "").replace(/\]$/, "").trim() || "Ingen" : "Ingen";
 
@@ -100,7 +108,7 @@ export type LokRegnskab = GrundLok & {
   kundeejede: GrundMaskine[];
   belastningIalt: number; filterBel: number; belExFilter: number; ufordelt: number;
   lejeNetto: number; serviceUdgift: number; serviceNetto: number; dbInkl: number;
-  daekning: number | null; antalAftaler: number; fornyelse: string | null;
+  daekning: number | null; antalAftaler: number; fornyelse: number | null;
 };
 
 export function beregnLokationer(g: Grundlag, maaneder: number, s: Satser): LokRegnskab[] {
@@ -119,8 +127,8 @@ export function beregnLokationer(g: Grundlag, maaneder: number, s: Satser): LokR
     const lejeNetto = l.leje - belExFilter;
     const dbInkl = l.vdb + lejeNetto + serviceNetto - f.ufordelt;
     const omk = belastningIalt + serviceUdgift - l.si - l.leje;
-    const aftaler = alle.filter((m) => harAftale(m.at));
-    const fornyelse = aftaler.map((m) => m.as).filter(Boolean).sort()[0] ?? null;
+    const aftaler = alle.filter(harAftale);
+    const fornyelse = aftaler.length ? l.fm : null;
     return {
       ...l, maskiner: f.maskiner, kundeejede: alle.filter((m) => !erFrellsen(m.u)),
       belastningIalt, filterBel, belExFilter, ufordelt: f.ufordelt,
@@ -167,16 +175,22 @@ export function handlinger(lok: LokRegnskab[], s: Satser, idag = new Date()) {
     l.maskiner.some((m) => [4, 6, 7].includes(m.u) && m.t !== BRITA) &&
     l.vdb < l.belastningIalt + l.serviceUdgift - l.si - l.leje);
   const udskift = lok.flatMap((l) => {
-    const reparation = -l.rd > s.udskiftReparation; // reservedele (vg 18) netto
+    const reparation = -(l.rd + l.mo) > s.udskiftReparation; // reservedele + montør, netto
     return l.maskiner
       .filter((m) => KAFFE_TYPER.has(m.t) || m.t === BRYG)
-      .filter((m) => reparation || (alderAar(m.o, idag) ?? 0) > s.udskiftAlderAar || (m.tl ?? 0) > s.udskiftTaeller)
+      .filter((m) => {
+        const tg = s.taellerPrType[m.t];
+        return reparation || (alderAar(m.o, idag) ?? 0) > s.udskiftAlderAar || (tg != null && tg > 0 && (m.tl ?? 0) > tg);
+      })
       .map((m) => ({ l, m }));
   });
   const kundeejet = lok.flatMap((l) =>
-    l.kundeejede.filter((m) => (KAFFE_TYPER.has(m.t) || m.t === BRYG) && !harAftale(m.at)).map((m) => ({ l, m })));
+    l.kundeejede.filter((m) => (KAFFE_TYPER.has(m.t) || m.t === BRYG) && !harAftale(m)).map((m) => ({ l, m })));
   const underskud = lok.filter((l) => l.antalAftaler > 0 && l.serviceNetto < 0);
   const udenLeje = lok.flatMap((l) => l.maskiner.filter((m) => m.u === 3 && l.leje <= 0).map((m) => ({ l, m })));
   const ufordelt = lok.filter((l) => l.ufordelt > 0);
   return { udlaan, udskift, kundeejet, underskud, udenLeje, ufordelt };
 }
+
+export const MAANED_NAVN = ["januar","februar","marts","april","maj","juni","juli","august","september","oktober","november","december"];
+export const maanedNavn = (m: number | null) => (m ? MAANED_NAVN[m - 1] : "–");

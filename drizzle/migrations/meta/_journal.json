@@ -946,6 +946,13 @@
       "when": 1792584521932,
       "tag": "0134_udstyr_service_role_grant",
       "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1792584915598,
+      "tag": "0135_udstyr_aftalestatus_fornyelse",
+      "breakpoints": true
     }
   ]
 }

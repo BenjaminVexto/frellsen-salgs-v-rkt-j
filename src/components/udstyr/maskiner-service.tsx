@@ -20,7 +20,7 @@ import {
 } from "@/lib/udstyr.functions";
 import {
   beregnLokationer, handlinger, maanederIPeriode, periode, TYPER, UDLAAN_LABEL, BRITA, KAFFE_TYPER, BRYG,
-  aftaleLabel, harAftale, alderAar, STANDARD_SATSER,
+  aftaleLabel, harAftale, alderAar, STANDARD_SATSER, maanedNavn,
   type Grundlag, type LokRegnskab, type FordeltMaskine, type GrundMaskine, type Satser,
 } from "@/lib/udstyr";
 
@@ -133,7 +133,7 @@ function Handlingsliste({ lok, satser, erAdmin, setDrill }: { lok: LokRegnskab[]
   const punkter: { label: string; hjaelp: string; antal: number; aaben: () => void }[] = [
     { label: "Udlån uden dækning", hjaelp: "Varer-DB dækker ikke belastning + service. Hent hjem, omlæg til leje eller lav kaffeaftale.", antal: h.udlaan.length,
       aaben: () => setDrill({ slags: "lokationer", titel: "Udlån uden dækning", raekker: [...h.udlaan].sort((a, b) => a.dbInkl - b.dbInkl) }) },
-    { label: "Udskiftningskandidater", hjaelp: `Over ${satser.udskiftAlderAar} år, over ${kr(satser.udskiftTaeller)} i tællerstand eller reservedele over ${kr(satser.udskiftReparation)} kr. netto på lokationen. Opgradering efter 24 mdr. kan give maskinbonus.`, antal: h.udskift.length,
+    { label: "Udskiftningskandidater", hjaelp: `Over ${satser.udskiftAlderAar} år eller reservedele + montør over ${kr(satser.udskiftReparation)} kr. (kostpris) på lokationen i perioden. Opgradering efter 24 mdr. kan give maskinbonus.`, antal: h.udskift.length,
       aaben: () => setDrill({ slags: "maskiner", titel: "Udskiftningskandidater", raekker: h.udskift }) },
     { label: "Kundeejede uden serviceaftale", hjaelp: "Mersalg: tilbyd serviceaftale.", antal: h.kundeejet.length,
       aaben: () => setDrill({ slags: "maskiner", titel: "Kundeejede maskiner uden serviceaftale", raekker: h.kundeejet }) },
@@ -167,13 +167,14 @@ function Noegletal({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: Drill)
   const fr = lok.flatMap((l) => l.maskiner.map((m) => ({ l, m })));
   const lejeNetto = lok.reduce((a, l) => a + l.lejeNetto, 0);
   const aftaler = lok.reduce((a, l) => a + l.antalAftaler, 0);
+  const lokMedAftale = lok.filter((l) => l.antalAftaler > 0);
   const serviceNetto = lok.reduce((a, l) => a + l.serviceNetto, 0);
   const medUdstyr = lok.filter((l) => l.maskiner.length > 0);
   const underskud = medUdstyr.filter((l) => l.dbInkl < 0);
   const kort: { label: string; v: ReactNode; aaben: () => void }[] = [
     { label: "Frellsen-maskiner", v: kr(fr.length), aaben: () => setDrill({ slags: "maskiner", titel: "Frellsen-maskiner", raekker: fr }) },
     { label: "Leje netto", v: <Tal v={lejeNetto} />, aaben: () => setDrill({ slags: "lokationer", titel: "Leje netto pr. lokation", raekker: [...medUdstyr].sort((a, b) => a.lejeNetto - b.lejeNetto) }) },
-    { label: "Aktive serviceaftaler", v: kr(aftaler), aaben: () => setDrill({ slags: "maskiner", titel: "Maskiner med aktiv aftale", raekker: lok.flatMap((l) => [...l.maskiner, ...l.kundeejede].filter((m) => harAftale(m.at)).map((m) => ({ l, m }))) }) },
+    { label: "Aktive serviceaftaler", v: <span>{kr(aftaler)} <span className="text-xs font-normal text-muted-foreground">maskiner · {kr(lokMedAftale.length)} lok.</span></span>, aaben: () => setDrill({ slags: "maskiner", titel: "Maskiner med aktiv serviceaftale", raekker: lok.flatMap((l) => [...l.maskiner, ...l.kundeejede].filter(harAftale).map((m) => ({ l, m }))) }) },
     { label: "Service netto (inkl. filtre)", v: <Tal v={serviceNetto} />, aaben: () => setDrill({ slags: "lokationer", titel: "Service netto pr. lokation", raekker: lok.filter((l) => l.antalAftaler > 0 || l.si !== 0).sort((a, b) => a.serviceNetto - b.serviceNetto), visFornyelse: true }) },
     { label: "Lokationer i underskud", v: kr(underskud.length), aaben: () => setDrill({ slags: "lokationer", titel: "Lokationer i underskud", raekker: [...underskud].sort((a, b) => a.dbInkl - b.dbInkl) }) },
   ];
@@ -264,7 +265,7 @@ function Maskinoversigt({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
 }
 
 function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: Drill) => void }) {
-  const alle = lok.flatMap((l) => [...l.maskiner, ...l.kundeejede].filter((m) => harAftale(m.at)).map((m) => ({ l, m })));
+  const alle = lok.flatMap((l) => [...l.maskiner, ...l.kundeejede].filter(harAftale).map((m) => ({ l, m })));
   const typer = [...new Set(alle.map((x) => aftaleLabel(x.m.at)))].sort();
   const mtyper = TYPER.filter((t) => alle.some((x) => x.m.t === t));
   const s = lok.reduce((a, l) => ({ si: a.si + l.si, mo: a.mo + l.mo, rd: a.rd + l.rd, pa: a.pa + l.pa, fh: a.fh + l.filterBel, ak: a.ak + l.ak, n: a.n + l.serviceNetto }),
@@ -279,7 +280,8 @@ function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
   ];
   return (
     <Card className="p-4">
-      <h2 className="mb-3 font-semibold">Serviceaftaler</h2>
+      <h2 className="font-semibold">Serviceaftaler</h2>
+      <p className="mb-3 text-xs text-muted-foreground">Fra Vismas serviceregister: {kr(alle.length)} maskiner med aktiv aftale på {kr(medAftale.length)} lokationer. Fornyelsesmåned = måneden med den årlige aftalefakturering.</p>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -381,7 +383,7 @@ function LokTabel({ raekker, maaneder, visFornyelse, onLinjer }: { raekker: LokR
                   <td className="text-right"><Tal v={l.serviceNetto} /></td><td className="text-right"><Tal v={-l.belastningIalt} /></td>
                   <td className="text-right font-medium"><Tal v={l.dbInkl} /></td>
                   <td className="text-right text-xs tabular-nums">{d ? <span title={`Kaffe-DB ${kr(d.kaffeDb)} kr./md. pr. maskine mod omkostning ${kr(d.omk)} kr./md.`} className={d.pct != null && d.pct < 1 ? "text-destructive" : ""}>{d.pct != null ? `${Math.round(d.pct * 100)} %` : "–"}</span> : "–"}</td>
-                  {visFornyelse && <td className="text-right text-xs">{l.fornyelse ? l.fornyelse.slice(0, 7) : "–"}</td>}
+                  {visFornyelse && <td className="text-right text-xs">{maanedNavn(l.fornyelse)}</td>}
                   {onLinjer && <td className="text-right"><Button size="sm" variant="ghost" onClick={() => onLinjer(l)}>Linjer</Button></td>}
                 </tr>
               );
@@ -400,7 +402,7 @@ function LokTabel({ raekker, maaneder, visFornyelse, onLinjer }: { raekker: LokR
               <span>Service netto</span><span className="text-right"><Tal v={l.serviceNetto} /></span>
               <span>Belastning</span><span className="text-right"><Tal v={-l.belastningIalt} /></span>
               <span className="font-medium">DB inkl. udstyr</span><span className="text-right font-medium"><Tal v={l.dbInkl} /></span>
-              {visFornyelse && <><span>Fornyelse</span><span className="text-right">{l.fornyelse?.slice(0, 7) ?? "–"}</span></>}
+              {visFornyelse && <><span>Fornyelse</span><span className="text-right">{maanedNavn(l.fornyelse)}</span></>}
             </div>
             {onLinjer && <Button className="mt-2" size="sm" variant="outline" onClick={() => onLinjer(l)}>Linjer</Button>}
           </div>
@@ -512,8 +514,9 @@ function SatserKnap({ satser }: { satser: Satser }) {
   const fn = useServerFn(gemUdstyrSatser);
   const felter: [keyof Satser, string][] = [
     ["brita", "Brita-filterhoved, kr./md."], ["bryg", "Bravilor/Bonamat og bryggere, kr./md."], ["andetUdlaan", "Andet udlån, kr./md."],
-    ["udskiftReparation", "Udskiftning: reparationer over (kr.)"], ["udskiftAlderAar", "Udskiftning: alder over (år)"], ["udskiftTaeller", "Udskiftning: tællerstand over"],
+    ["udskiftReparation", "Udskiftning: reservedele + montør over (kr.)"], ["udskiftAlderAar", "Udskiftning: alder over (år)"],
   ];
+  const taellerTyper = ["Wittenborg", "Rex-Royal", "Animo", "Espresso", "Vandkøler", "Bravilor/Bonamat og bryggere"];
   return (
     <>
       <Button variant="outline" onClick={() => { setV(satser); setAaben(true); }}><Settings2 className="mr-1 h-4 w-4" />Satser</Button>
@@ -523,7 +526,13 @@ function SatserKnap({ satser }: { satser: Satser }) {
           <div className="space-y-2">
             {felter.map(([k, l]) => (
               <label key={k} className="flex items-center justify-between gap-3 text-sm">{l}
-                <Input className="w-32 text-right" type="number" value={v[k]} onChange={(e) => setV({ ...v, [k]: Number(e.target.value) })} /></label>
+                <Input className="w-32 text-right" type="number" value={v[k] as number} onChange={(e) => setV({ ...v, [k]: Number(e.target.value) })} /></label>
+            ))}
+            <p className="pt-2 text-xs font-medium">Tællergrænse pr. maskintype (tom = bruges ikke)</p>
+            {taellerTyper.map((t) => (
+              <label key={t} className="flex items-center justify-between gap-3 text-sm">{t}
+                <Input className="w-32 text-right" type="number" placeholder="–" value={v.taellerPrType[t] ?? ""}
+                  onChange={(e) => setV({ ...v, taellerPrType: { ...v.taellerPrType, [t]: Number(e.target.value) || 0 } })} /></label>
             ))}
           </div>
           <Button onClick={async () => {
