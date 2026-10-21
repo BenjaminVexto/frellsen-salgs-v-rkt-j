@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar, Download, Info, Loader2, Lock } from "lucide-react";
-import { BonusRegler, MaskinbonusBoks, ReglerInfo, type ReglerAfsnit } from "./bonus-regler";
+import { Calendar, ChevronDown, Download, Info, Loader2, Lock } from "lucide-react";
+import { BonusRegler, ReglerInfo, type ReglerAfsnit } from "./bonus-regler";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
@@ -14,6 +14,8 @@ import { useAfdeling } from "@/contexts/afdeling-context";
 import { beskrivOrdning, type BonusOrdning } from "@/lib/bonus-ordning";
 import { MASKIN_LABEL, type MaskinFilter } from "@/lib/bonus-maskin-visning";
 import { BonusDetaljer, type BonusDrill } from "./bonus-detaljer";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const mKey = (y: number, m0: number) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
 const parseM = (s: string) => ({ y: Number(s.slice(0, 4)), m0: Number(s.slice(5, 7)) - 1 });
@@ -59,7 +61,7 @@ type Rk = {
 };
 
 const SAELGER_FRA = "2025-09";
-const HISTORISK_TEKST = "Historisk udbetaling jf. lønseddel – detaljer findes ikke";
+const HISTORISK_TEKST = "Lønseddel = historisk udbetaling (sep. 2025 – aug. 2026). DB-bonus er Provision I og Maskinbonus er Provision II fra lønsedlen, inkl. evt. andre tillæg. Detaljer findes ikke for disse måneder.";
 
 /**
  * Bonus pr. måned. Satserne hentes fra den ordning der gælder netop den måned,
@@ -212,6 +214,9 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
     [rows],
   );
 
+  const harHistorik = rows.some((r) => r.historisk);
+  const mobileRows = [...rows].sort((a, b) => b.maaned.localeCompare(a.maaned));
+
   const csv = () => {
     const head = [
       "Måned",
@@ -231,14 +236,14 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
       lines.push(
         [
           maanedNavn(r.maaned) + (r.historisk ? " (historisk jf. lønseddel)" : r.ordning_id ? "" : " (ingen ordning)"),
-          num(r.db_grundlag),
-          num(r.db_provision_pct, 2),
+          r.historisk ? "–" : num(r.db_grundlag, 0),
+          r.historisk ? "–" : num(r.db_provision_pct, 2),
           num(r.db_bonus),
-          num(r.antal_wittenborg, 0),
-          num(r.antal_animo, 0),
-          num(r.antal_rex, 0),
+          r.historisk ? "–" : num(r.antal_wittenborg, 0),
+          r.historisk ? "–" : num(r.antal_animo, 0),
+          r.historisk ? "–" : num(r.antal_rex, 0),
           num(r.maskinbonus),
-          num(r.ny_kunde_bonus),
+          r.historisk ? "–" : num(r.ny_kunde_bonus),
           num(r.samlet_bonus),
         ].join(";"),
       ),
@@ -246,12 +251,12 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
     lines.push(
       [
         "Total",
-        num(total.db_grundlag),
+        harHistorik ? "" : num(total.db_grundlag, 0),
         "",
         num(total.db_bonus),
-        num(total.antal_wittenborg, 0),
-        num(total.antal_animo, 0),
-        num(total.antal_rex, 0),
+        harHistorik ? "" : num(total.antal_wittenborg, 0),
+        harHistorik ? "" : num(total.antal_animo, 0),
+        harHistorik ? "" : num(total.antal_rex, 0),
         num(total.maskinbonus),
         num(total.ny_kunde_bonus),
         num(total.samlet_bonus),
@@ -283,12 +288,11 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
   }
 
   return (
-    <div className="space-y-4 max-w-full">
+    <div className="space-y-4 max-w-full pb-8 md:pb-0">
       <p className="text-sm text-muted-foreground">
         Optjent bonus pr. hel måned — afdeling 11. Satserne følger den bonusordning, der gjaldt i
         netop den måned.
       </p>
-      <p className="text-sm">Bonus for en måned udbetales med lønnen pr. sidste dag i den følgende måned.</p>
 
       <div className="flex flex-wrap items-center gap-2">
         <Popover>
@@ -343,181 +347,108 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
         </Button>
       </div>
 
-      <Card className="p-4 space-y-3">
+      <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide">Bonus pr. måned</h2>
-        {q.error ? (
-          <p className="text-sm text-destructive">{(q.error as Error).message}</p>
-        ) : q.isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Henter…
-          </div>
-        ) : (
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm tabular-nums">
-              <colgroup><col className="w-24" /><col /><col className="w-20" /><col /><col className="w-24" /><col className="w-16" /><col className="w-16" /><col /><col className="w-40" /><col /></colgroup>
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 pr-3 font-medium">Måned</th>
-                  <th className="text-right py-2 px-2 font-medium">DB-grundlag</th>
-                  <th className="text-right py-2 px-2 font-medium">Sats</th>
-                  <th className="text-right py-2 px-2 font-medium whitespace-nowrap">DB-bonus<ReglerInfo afsnit="db" onAabn={aabnRegler} /></th>
-                  <th className="text-right py-2 px-2 font-medium">Wittenborg</th>
-                  <th className="text-right py-2 px-2 font-medium">Animo</th>
-                  <th className="text-right py-2 px-2 font-medium">Rex</th>
-                  <th className="text-right py-2 px-2 font-medium whitespace-nowrap">Maskinbonus<ReglerInfo afsnit="maskiner" onAabn={aabnRegler} /></th>
-                  <th className="text-right py-2 px-2 font-medium whitespace-nowrap">Ny kunde<ReglerInfo afsnit="nykunde" onAabn={aabnRegler} /></th>
-                  <th className="text-right py-2 pl-3 font-semibold">Bonus i alt</th>
-                </tr>
-              </thead>
+        {q.error ? <p className="text-sm text-destructive">{(q.error as Error).message}</p> : q.isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Henter…</div>
+        ) : <>
+          <div className="hidden md:block overflow-x-auto rounded-md border">
+            <table className="w-full min-w-[1100px] table-fixed text-sm tabular-nums">
+              <colgroup><col className="w-44" /><col className="w-28" /><col className="w-20" /><col className="w-28" /><col className="w-24" /><col className="w-16" /><col className="w-16" /><col className="w-32" /><col className="w-28" /><col className="w-32" /></colgroup>
+              <thead><tr className="border-b bg-muted/40 h-12">
+                <th className="text-left px-3 font-medium">Måned</th>
+                <th className="text-right px-2 font-medium">DB-grundlag</th>
+                <th className="text-right px-2 font-medium">Sats</th>
+                <th className="text-right px-2 font-medium whitespace-nowrap">DB-bonus<ReglerInfo ordning={aktuelOrdning} afsnit="db" onAabn={aabnRegler} /></th>
+                <th className="text-right px-2 font-medium">Wittenborg</th><th className="text-right px-2 font-medium">Animo</th><th className="text-right px-2 font-medium">Rex</th>
+                <th className="text-right px-2 font-medium whitespace-nowrap">Maskinbonus<ReglerInfo ordning={aktuelOrdning} afsnit="maskiner" onAabn={aabnRegler} /></th>
+                <th className="text-right px-2 font-medium whitespace-nowrap">Ny kunde<ReglerInfo ordning={aktuelOrdning} afsnit="nykunde" onAabn={aabnRegler} /></th>
+                <th className="text-right px-3 font-semibold">Bonus i alt</th>
+              </tr></thead>
               <tbody>
-                {rows.map((r) => r.historisk ? (
-                  <HistoriskRaekke key={r.maaned} r={r} onMaskiner={(f) => r.beregnet && aabn(r.beregnet, "maskiner", f)} />
-                ) : (
-                  <tr key={r.maaned} className="border-b last:border-0">
-                    <td className="py-1.5 pr-3 whitespace-nowrap">
-                      <Button
-                        variant="link"
-                        className={klik}
-                        onClick={() => aabn(r, "db")}
-                      >
-                        {maanedNavn(r.maaned)}
-                      </Button>
-                      {r.laast_at && <LaasIkon dato={r.laast_at} />}
-                      {!r.ordning_id && (
-                        <span className="ml-2 text-xs text-muted-foreground">ingen ordning</span>
-                      )}
-                    </td>
-                    <td className="text-right py-1.5 px-2"><Button variant="link" className={klik} aria-label={`DB-grundlag — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_grundlag)}</Button></td>
-                    <td className="text-right py-1.5 px-2">
-                      {r.ordning_id ? `${fmtTal(r.db_provision_pct, 2)} %` : "—"}
-                    </td>
-                    <td className="text-right py-1.5 px-2"><Button variant="link" className={klik} aria-label={`DB-bonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_bonus)}</Button></td>
-                    {([
-                      ["wittenborg", r.antal_wittenborg],
-                      ["animo", r.antal_animo],
-                      ["rex", r.antal_rex],
-                    ] as const).map(([klasse, antal]) => (
-                      <td key={klasse} className="text-right py-1.5 px-2">
-                        <Button variant="link" className={klik}
-                          aria-label={`${MASKIN_LABEL[klasse]} — ${maanedNavn(r.maaned)}: ${fmtTal(antal)} maskiner`}
-                          onClick={() => aabn(r, "maskiner", klasse)}>
-                          {fmtTal(antal)}
-                        </Button>
-                      </td>
-                    ))}
-                    <td className="text-right py-1.5 px-2">
-                      <Button variant="link" className={klik}
-                        aria-label={`Maskinbonus — ${maanedNavn(r.maaned)}`}
-                        onClick={() => aabn(r, "maskiner")}>{fmtTal(r.maskinbonus)}</Button>
-                    </td>
-                    <td className="text-right py-1.5 px-2">
-                      {fmtTal(r.ny_kunde_bonus)}
-                      {r.ny_kunde_db != null && r.ny_kunde_rang != null && (
-                        <Button variant="link" className="block h-auto w-full p-0 text-xs text-muted-foreground whitespace-normal text-right no-underline hover:underline focus-visible:underline" onClick={() => aabn(r, "rangliste")}>
-                          DB nye kunder: {fmtTal(r.ny_kunde_db)} kr. · plads {r.ny_kunde_rang}
-                        </Button>
-                      )}
-                    </td>
-                    <td className="text-right py-1.5 pl-3 font-semibold">
-                      {fmtTal(r.samlet_bonus)}
-                    </td>
-                  </tr>
-                ))}
-                <tr className="border-t-2 font-semibold">
-                  <td className="py-1.5 pr-3">Total</td>
-                  <td className="text-right py-1.5 px-2">{fmtTal(total.db_grundlag)}</td>
-                  <td className="text-right py-1.5 px-2">—</td>
-                  <td className="text-right py-1.5 px-2">{fmtTal(total.db_bonus)}</td>
-                  <td className="text-right py-1.5 px-2">{fmtTal(total.antal_wittenborg)}</td>
-                  <td className="text-right py-1.5 px-2">{fmtTal(total.antal_animo)}</td>
-                  <td className="text-right py-1.5 px-2">{fmtTal(total.antal_rex)}</td>
-                  <td className="text-right py-1.5 px-2">{fmtTal(total.maskinbonus)}</td>
-                  <td className="text-right py-1.5 px-2">{fmtTal(total.ny_kunde_bonus)}</td>
-                  <td className="text-right py-1.5 pl-3">{fmtTal(total.samlet_bonus, 2)}</td>
+                {rows.map((r) => <tr key={r.maaned} className="h-12 border-b">
+                  <td className="px-3 whitespace-nowrap"><MaanedLabel r={r} />{!r.ordning_id && !r.historisk && <span className="block text-xs text-muted-foreground">ingen ordning</span>}</td>
+                  <td className="text-right px-2">{r.historisk ? <Streg /> : <Button variant="link" className={klik} aria-label={`DB-grundlag — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_grundlag)}</Button>}</td>
+                  <td className="text-right px-2">{r.historisk || !r.ordning_id ? <Streg /> : `${fmtTal(r.db_provision_pct, 2)} %`}</td>
+                  <td className="text-right px-2">{r.historisk ? fmtTal(r.db_bonus, 2) : <Button variant="link" className={klik} aria-label={`DB-bonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_bonus, 2)}</Button>}</td>
+                  {([["wittenborg", r.antal_wittenborg], ["animo", r.antal_animo], ["rex", r.antal_rex]] as const).map(([klasse, antal]) => <td key={klasse} className="text-right px-2">{r.historisk ? <Streg /> : <Button variant="link" className={klik} aria-label={`${MASKIN_LABEL[klasse]} — ${maanedNavn(r.maaned)}: ${fmtTal(antal)} maskiner`} onClick={() => aabn(r, "maskiner", klasse)}>{fmtTal(antal)}</Button>}</td>)}
+                  <td className="text-right px-2">{r.historisk ? fmtTal(r.maskinbonus, 2) : <Button variant="link" className={klik} aria-label={`Maskinbonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "maskiner")}>{fmtTal(r.maskinbonus, 2)}</Button>}</td>
+                  <td className="text-right px-2">{r.historisk ? <Streg /> : <NyKundeBeloeb r={r} onClick={() => aabn(r, "rangliste")} />}</td>
+                  <td className="text-right px-3 font-semibold">{fmtTal(r.samlet_bonus, 2)}</td>
+                </tr>)}
+                <tr className="h-12 border-t-2 bg-muted/40 font-semibold">
+                  <td className="px-3">Total</td><td className="text-right px-2">{!harHistorik && fmtTal(total.db_grundlag)}</td><td />
+                  <td className="text-right px-2">{fmtTal(total.db_bonus, 2)}</td>
+                  <td className="text-right px-2">{!harHistorik && fmtTal(total.antal_wittenborg)}</td><td className="text-right px-2">{!harHistorik && fmtTal(total.antal_animo)}</td><td className="text-right px-2">{!harHistorik && fmtTal(total.antal_rex)}</td>
+                  <td className="text-right px-2">{fmtTal(total.maskinbonus, 2)}</td><td className="text-right px-2">{fmtTal(total.ny_kunde_bonus, 2)}</td><td className="text-right px-3">{fmtTal(total.samlet_bonus, 2)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
-        )}
-
-        {!q.isLoading && !q.error && <div className="md:hidden divide-y">
-          {rows.map((r) => r.historisk ? <article key={r.maaned} className="py-4 space-y-2">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"><h3 className="font-medium">{maanedNavn(r.maaned)}{r.laast_at && <LaasIkon dato={r.laast_at} />}</h3><span className="font-semibold tabular-nums">{fmtTal(r.samlet_bonus, 2)} kr.</span></div>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <div><dt className="text-xs text-muted-foreground">Provision I (DB-provision)</dt><dd className="tabular-nums">{fmtTal(r.db_bonus, 2)} kr.</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Provision II (maskiner m.m.)</dt><dd className="tabular-nums">{fmtTal(r.maskinbonus, 2)} kr.</dd></div>
-            </dl>
-            <p className="text-xs text-muted-foreground">{HISTORISK_TEKST}</p>
-            {r.beregnet && <BeregnetLinje r={r} onMaskiner={(f) => aabn(r.beregnet!, "maskiner", f)} />}
-          </article> : <article key={r.maaned} className="py-4 space-y-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"><h3 className="font-medium">{maanedNavn(r.maaned)}{r.laast_at && <LaasIkon dato={r.laast_at} />}</h3><span className="font-semibold tabular-nums">{fmtTal(r.samlet_bonus)} kr.</span></div>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <div><dt className="text-xs text-muted-foreground">DB-grundlag</dt><dd><Button variant="link" className={klik} onClick={() => aabn(r, "db")}>{fmtTal(r.db_grundlag)} kr.</Button></dd></div>
-              <div><dt className="text-xs text-muted-foreground">DB-bonus · {fmtTal(r.db_provision_pct, 2)} %</dt><dd><Button variant="link" className={klik} aria-label={`DB-bonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_bonus)} kr.</Button></dd></div>
-              <div><dt className="text-xs text-muted-foreground">Maskinbonus</dt><dd><Button variant="link" className={klik} aria-label={`Maskinbonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "maskiner")}>{fmtTal(r.maskinbonus)} kr.</Button></dd></div>
-              <div><dt className="text-xs text-muted-foreground">Ny kunde-bonus</dt><dd>{fmtTal(r.ny_kunde_bonus)} kr.</dd></div>
-            </dl>
-            <div className="grid grid-cols-3 gap-2 text-sm">{([["wittenborg", r.antal_wittenborg], ["animo", r.antal_animo], ["rex", r.antal_rex]] as const).map(([k,n]) => <Button key={k} variant="ghost" className="h-11 p-1 font-normal justify-start" aria-label={`${MASKIN_LABEL[k]} — ${maanedNavn(r.maaned)}: ${fmtTal(n)} maskiner`} onClick={() => aabn(r, "maskiner", k)}><span className="text-muted-foreground text-xs">{MASKIN_LABEL[k]}</span><span className="tabular-nums">{fmtTal(n)}</span></Button>)}</div>
-            {r.ny_kunde_db != null && r.ny_kunde_rang != null && <Button variant="link" className="h-auto min-h-11 w-full p-0 justify-start whitespace-normal text-left text-xs text-muted-foreground no-underline hover:underline" onClick={() => aabn(r, "rangliste")}>DB nye kunder: {fmtTal(r.ny_kunde_db)} kr. · plads {r.ny_kunde_rang}</Button>}
-            {!r.ordning_id && <p className="text-xs text-muted-foreground">Ingen bonusordning</p>}
-          </article>)}
-          <div className="py-4 space-y-2"><div className="flex justify-between font-semibold"><span>Total</span><span>{fmtTal(total.samlet_bonus, 2)} kr.</span></div><dl className="grid grid-cols-2 gap-3 text-xs">{[["DB-grundlag",total.db_grundlag],["DB-bonus",total.db_bonus],["Maskinbonus",total.maskinbonus],["Ny kunde",total.ny_kunde_bonus],["Wittenborg",total.antal_wittenborg],["Animo",total.antal_animo],["Rex-Royal",total.antal_rex]].map(([label,value])=><div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="tabular-nums">{fmtTal(Number(value))}</dd></div>)}</dl></div>
-        </div>}
-
-        {manglerOrdning.length > 0 && (
-          <p className="text-xs text-muted-foreground pt-1">
-            Ingen bonusordning for {manglerOrdning.map(maanedNavn).join(", ")}.
-          </p>
-        )}
-      </Card>
+          <div className="md:hidden space-y-3">
+            {mobileRows.map((r) => <Card key={r.maaned} className="p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium"><MaanedLabel r={r} /></h3><span className="shrink-0 text-sm font-semibold tabular-nums">{fmtTal(r.samlet_bonus, 2)} kr.</span></div>
+              <dl className="text-sm space-y-1">
+                <div className="flex justify-between items-center"><dt>DB-bonus</dt><dd className="tabular-nums">{r.historisk ? `${fmtTal(r.db_bonus, 2)} kr.` : <Button variant="link" className={klik} aria-label={`DB-bonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "db")}>{fmtTal(r.db_bonus, 2)} kr.</Button>}</dd></div>
+                <div className="flex justify-between items-center"><dt>Maskinbonus</dt><dd className="tabular-nums">{r.historisk ? `${fmtTal(r.maskinbonus, 2)} kr.` : <Button variant="link" className={klik} aria-label={`Maskinbonus — ${maanedNavn(r.maaned)}`} onClick={() => aabn(r, "maskiner")}>{fmtTal(r.maskinbonus, 2)} kr.</Button>}</dd></div>
+                <div className="flex justify-between items-center min-h-8"><dt>Ny kunde</dt><dd className="tabular-nums">{r.historisk ? <Streg /> : <NyKundeBeloeb r={r} onClick={() => aabn(r, "rangliste")} suffix=" kr." />}</dd></div>
+              </dl>
+              {!r.historisk && <div className="border-t pt-2 text-xs text-muted-foreground tabular-nums flex flex-wrap gap-x-2 gap-y-1"><span>DB {fmtTal(r.db_grundlag)} kr. · {fmtTal(r.db_provision_pct, 2)} %</span><span>W {r.antal_wittenborg} / A {r.antal_animo} / R {r.antal_rex} / K {r.antal_kalerm ?? 0} / E {r.antal_espresso ?? 0} · Brugt {r.antal_brugt ?? 0}</span></div>}
+            </Card>)}
+            <Card className="p-3 space-y-2 bg-muted/40">
+              <div className="flex justify-between gap-2 text-sm font-semibold"><span>Total for valgt periode</span><span className="tabular-nums shrink-0">{fmtTal(total.samlet_bonus, 2)} kr.</span></div>
+              <dl className="space-y-1 text-sm">{[["DB-bonus", total.db_bonus], ["Maskinbonus", total.maskinbonus], ["Ny kunde", total.ny_kunde_bonus]].map(([label, value]) => <div key={label} className="flex justify-between"><dt>{label}</dt><dd className="tabular-nums">{fmtTal(Number(value), 2)} kr.</dd></div>)}</dl>
+            </Card>
+          </div>
+          <div className="space-y-1 text-xs text-muted-foreground leading-relaxed">
+            {harHistorik && <p>{HISTORISK_TEKST}</p>}
+            <p>Bonus for en måned udbetales med lønnen pr. sidste dag i den følgende måned.</p>
+          </div>
+        </>}
+        {manglerOrdning.length > 0 && <p className="text-xs text-muted-foreground">Ingen bonusordning for {manglerOrdning.map(maanedNavn).join(", ")}.</p>}
+      </section>
+      {erAdmin && harHistorik && <HistoriskSammenligning rows={rows} onMaskiner={(r) => aabn(r, "maskiner")} />}
 
       <BonusDetaljer key={`${saelgerId}-${drill?.maaned}-${drill?.visning}-${drill?.filter}`} saelgerId={saelgerId} drill={drill} onClose={() => setDrill(null)} onRegler={() => aabnRegler("maskiner")} />
-      <MaskinbonusBoks />
       <BonusRegler open={regler !== null} afsnit={regler ?? "top"} ordning={aktuelOrdning} onOpenChange={(o) => { if (!o) setRegler(null); }} />
     </div>
   );
 }
 
-/** Historisk måned på computer: kun Provision I, II og I alt (+ admins sammenligning). */
-function HistoriskRaekke({ r, onMaskiner }: { r: Rk; onMaskiner: (f: MaskinFilter) => void }) {
-  return (
-    <>
-      <tr className={r.beregnet ? "" : "border-b last:border-0"}>
-        <td className="py-1.5 pr-3 whitespace-nowrap">{maanedNavn(r.maaned)}{r.laast_at && <LaasIkon dato={r.laast_at} />}</td>
-        <td colSpan={2} className="py-1.5 px-2 text-xs text-muted-foreground">{HISTORISK_TEKST}</td>
-        <td className="text-right py-1.5 px-2" title="Provision I (DB-provision)">{fmtTal(r.db_bonus, 2)}</td>
-        <td colSpan={3} className="py-1.5 px-2 text-xs text-muted-foreground text-center">Provision I · Provision II</td>
-        <td className="text-right py-1.5 px-2" title="Provision II (maskiner m.m.)">{fmtTal(r.maskinbonus, 2)}</td>
-        <td className="text-right py-1.5 px-2">—</td>
-        <td className="text-right py-1.5 pl-3 font-semibold">{fmtTal(r.samlet_bonus, 2)}</td>
-      </tr>
-      {r.beregnet && <tr className="border-b last:border-0"><td colSpan={10} className="pb-2 pt-0"><BeregnetLinje r={r} onMaskiner={onMaskiner} /></td></tr>}
-    </>
-  );
+function Streg() { return <span className="text-muted-foreground">–</span>; }
+
+function MaanedLabel({ r }: { r: Rk }) {
+  return <span className="inline-flex items-center gap-1 whitespace-nowrap">{maanedNavn(r.maaned)}{r.laast_at && <LaasIkon dato={r.laast_at} />}{r.historisk && <span className="rounded border px-1 py-0.5 text-[10px] font-normal text-muted-foreground">Lønseddel</span>}</span>;
 }
 
-/** Kun admin: CRM'ets beregning af en historisk måned — vises, men bruges aldrig til udbetaling. */
-function BeregnetLinje({ r, onMaskiner }: { r: Rk; onMaskiner: (f: MaskinFilter) => void }) {
-  const b = r.beregnet!;
-  const forskel = r.samlet_bonus - b.samlet_bonus;
-  const typer: [string, number, MaskinFilter][] = [
-    ["W", b.antal_wittenborg, "wittenborg"], ["A", b.antal_animo, "animo"], ["R", b.antal_rex, "rex"],
-    ["K", b.antal_kalerm ?? 0, "kalerm"], ["E", b.antal_espresso ?? 0, "espresso"], ["Brugt", b.antal_brugt ?? 0, "alle"],
-  ];
-  return (
-    <div className="rounded-md bg-muted/50 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1 tabular-nums">
-      <span className="font-medium">Beregnet (kun sammenligning):</span>
-      <span>DB-provision {fmtTal(b.db_bonus, 2)}</span>
-      <span>Maskinbonus {fmtTal(b.maskinbonus, 2)}</span>
-      <span>I alt {fmtTal(b.samlet_bonus, 2)}</span>
-      <span className={forskel === 0 ? "" : "font-medium"}>Forskel {fmtTal(forskel, 2)}</span>
-      <span className="font-semibold">Maskiner:</span>
-      {typer.map(([l, n, f]) => (
-        <Button key={l} variant="link" className="h-auto min-h-8 p-0 text-xs font-semibold text-foreground" onClick={() => onMaskiner(f)}>{l} {fmtTal(n)}</Button>
-      ))}
-      <Button variant="link" className="h-auto min-h-8 p-0 text-xs" onClick={() => onMaskiner("alle")}>Vis maskinliste</Button>
-    </div>
-  );
+function NyKundeBeloeb({ r, onClick, suffix = "" }: { r: Rk; onClick: () => void; suffix?: string }) {
+  if (r.ny_kunde_db == null || r.ny_kunde_rang == null) return <>{fmtTal(r.ny_kunde_bonus, 2)}{suffix}</>;
+  return <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="link" className="h-8 p-0 font-normal text-foreground tabular-nums no-underline hover:underline focus-visible:underline" aria-label={`Ny kunde — ${maanedNavn(r.maaned)}`} onClick={onClick}>{fmtTal(r.ny_kunde_bonus, 2)}{suffix}</Button></TooltipTrigger><TooltipContent>DB nye kunder: {fmtTal(r.ny_kunde_db)} kr. · plads {r.ny_kunde_rang}</TooltipContent></Tooltip></TooltipProvider>;
+}
+
+function HistoriskSammenligning({ rows, onMaskiner }: { rows: Rk[]; onMaskiner: (r: Rk) => void }) {
+  const historik = rows.filter((r) => r.historisk && r.beregnet);
+  const values = (r: Rk) => {
+    const b = r.beregnet;
+    if (!b) return [];
+    return [r.db_bonus, b.db_bonus, r.db_bonus - b.db_bonus, r.maskinbonus, b.maskinbonus, r.maskinbonus - b.maskinbonus, r.samlet_bonus - b.samlet_bonus, b.antal_wittenborg, b.antal_animo, b.antal_rex, b.antal_kalerm ?? 0, b.antal_espresso ?? 0, b.antal_brugt ?? 0];
+  };
+  const totals = historik.reduce((sum, r) => values(r).map((n, i) => n + (sum[i] ?? 0)), Array<number>(13).fill(0));
+  const diffColumns = [2, 5, 6];
+  return <Collapsible className="border-t pt-4">
+    <CollapsibleTrigger asChild><Button variant="ghost" className="group w-full justify-between px-0"><span>Historisk vs. beregnet</span><ChevronDown className="h-4 w-4 group-data-[state=open]:rotate-180" /></Button></CollapsibleTrigger>
+    <CollapsibleContent className="pt-3 space-y-2">
+      <div className="overflow-x-auto rounded-md border">
+        <table className="w-full min-w-[1450px] table-fixed text-xs tabular-nums">
+          <colgroup><col className="w-24" />{Array.from({length: 7}, (_, i) => <col key={i} className="w-28" />)}{Array.from({length: 6}, (_, i) => <col key={i} className="w-12" />)}<col className="w-32" /></colgroup>
+          <thead><tr className="h-12 border-b bg-muted/40">{["Måned", "Udbetalt I", "Beregnet DB", "Forskel", "Udbetalt II", "Beregnet maskin", "Forskel", "I alt forskel", "W", "A", "R", "K", "E", "Brugt", "Vis maskinliste"].map((label, i) => <th key={i} className={`px-2 font-medium ${i === 0 || i === 14 ? "text-left" : "text-right"}`}>{label}</th>)}</tr></thead>
+          <tbody>{historik.map((r) => <tr key={r.maaned} className="h-11 border-b"><td className="px-2">{maanedNavn(r.maaned)}</td>{values(r).map((n, i) => <td key={i} className={`text-right px-2 ${diffColumns.includes(i) && n < 0 ? "text-destructive" : ""}`}>{fmtTal(n, i < 7 ? 2 : 0)}</td>)}<td className="px-2"><Button variant="link" className="h-8 p-0 text-xs" onClick={() => { if (r.beregnet) onMaskiner(r.beregnet); }}>Vis maskinliste</Button></td></tr>)}
+          <tr className="h-12 font-semibold bg-muted/40"><td className="px-2">Total</td>{totals.map((n, i) => <td key={i} className={`text-right px-2 ${diffColumns.includes(i) && n < 0 ? "text-destructive" : ""}`}>{fmtTal(n, i < 7 ? 2 : 0)}</td>)}<td /></tr></tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">Forskel = udbetalt minus beregnet. Beregnede tal er kun til sammenligning og indgår ikke i udbetaling.</p>
+    </CollapsibleContent>
+  </Collapsible>;
 }
 
 function LaasIkon({ dato }: { dato: string }) {

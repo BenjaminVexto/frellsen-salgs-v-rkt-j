@@ -159,9 +159,9 @@ function PortfolioPage() {
     auth.afdelinger.includes(11) && (afdelingFilter === 11 || afdelingFilter === null);
   // Salgssupport har ikke bonusordning — skjul bonusfanen for dem.
   const visBonus = visMaalepunkter && auth.role !== "salgssupport";
-  const visSalgskort = auth.role === "admin";
+  const visSalgskort = auth.role === "admin" && !isImpersonating;
   const tilladte = new Set<string>(["portefoelje", ...(visAnalyse ? ["analyse"] : []), ...(visMaalepunkter ? ["maalepunkter"] : []), ...(visBonus ? ["bonus"] : []), ...(visSalgskort ? ["salgskort", "afregning"] : [])]);
-  const tab = (urlFane && tilladte.has(urlFane) ? urlFane : tabState) as typeof tabState;
+  const tab = (urlFane && tilladte.has(urlFane) ? urlFane : tilladte.has(tabState) ? tabState : "bonus") as typeof tabState;
   const setTab = (v: typeof tabState) => {
     setTabState(v);
     navigate({ to: "/min-portefoelje", search: { fane: v }, replace: true });
