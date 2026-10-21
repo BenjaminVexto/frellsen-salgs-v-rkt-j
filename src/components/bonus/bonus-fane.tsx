@@ -9,6 +9,7 @@ import { Calendar, Download, Info, Loader2, Lock } from "lucide-react";
 import { BonusRegler, MaskinbonusBoks, ReglerInfo, type ReglerAfsnit } from "./bonus-regler";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useViewAs } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { beskrivOrdning, type BonusOrdning } from "@/lib/bonus-ordning";
 import { MASKIN_LABEL, type MaskinFilter } from "@/lib/bonus-maskin-visning";
@@ -57,6 +58,7 @@ type Rk = {
   beregnet?: Rk | null;
 };
 
+const SAELGER_FRA = "2025-09";
 const HISTORISK_TEKST = "Historisk udbetaling jf. lønseddel – detaljer findes ikke";
 
 /**
@@ -66,7 +68,9 @@ const HISTORISK_TEKST = "Historisk udbetaling jf. lønseddel – detaljer findes
 export function BonusFane({ saelgerId }: { saelgerId: string }) {
   const auth = useAuth();
   const afd = useAfdeling();
-  const erAdmin = auth.role === "admin";
+  const viewAs = useViewAs();
+  // "Se som sælger" viser præcis sælgerens visning (databasen afskærer også selv for sælgere).
+  const erAdmin = viewAs.effectiveRole === "admin";
 
   const now = new Date();
   const curM = mKey(now.getUTCFullYear(), now.getUTCMonth());
@@ -147,7 +151,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
       return data ?? [];
     },
   });
-  const rows = useMemo(() => (q.data ?? []).map((r): Rk => {
+  const rows = useMemo(() => (q.data ?? []).filter((r) => erAdmin || r.maaned >= SAELGER_FRA).map((r): Rk => {
     const l = (laasQ.data ?? []).find((x) => String(x.maaned).slice(0, 7) === r.maaned);
     if (!l) return r;
     if ((l as any).kilde === "loenseddel") {
