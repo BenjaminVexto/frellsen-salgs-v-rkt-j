@@ -71,6 +71,13 @@ export function PenhedSyncKort() {
         <div className="py-6 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
+      ) : isError ? (
+        <div className="py-6 flex flex-col items-center gap-2">
+          <p className="text-sm text-muted-foreground">Kunne ikke hente status</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            Prøv igen
+          </Button>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
