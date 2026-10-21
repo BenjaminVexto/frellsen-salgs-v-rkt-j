@@ -904,6 +904,13 @@
       "when": 1792572009312,
       "tag": "0128_penhed_sync_loebende_koe",
       "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1792572667069,
+      "tag": "0129_penhed_sync_overblik_jsonb_fix",
+      "breakpoints": true
     }
   ]
 }
