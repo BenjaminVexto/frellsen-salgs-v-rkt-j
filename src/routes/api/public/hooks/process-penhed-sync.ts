@@ -76,8 +76,10 @@ export const Route = createFileRoute("/api/public/hooks/process-penhed-sync")({
           const jobId = job.id as string;
           const cvrs = (job.cvrs as string[]) ?? [];
           const attempts = (job.attempts as number) ?? 0;
+          let perCvr: Record<string, number> = {};
           try {
             const res = await syncPenhederByCvrs(cvrs);
+            perCvr = res.perCvr;
             if (res.error) throw new Error(res.error);
             // Registrér resultatet pr. CVR i statustabellen (også 0-hit).
             for (const cvr of cvrs) {

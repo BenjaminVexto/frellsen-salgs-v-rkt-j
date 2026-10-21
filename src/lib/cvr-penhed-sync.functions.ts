@@ -82,5 +82,12 @@ export const getPenhedSyncStatus = createServerFn({ method: "GET" })
       created_at: r.created_at as string,
       finished_at: (r.finished_at as string) ?? null,
     }));
-    return { pending, processing, done, failed, synced, latest };
+
+    // Overblik over den løbende kø (statustabellen)
+    const { data: ov, error: ovErr } = await supabaseAdmin.rpc(
+      "penhed_sync_overblik" as any,
+    );
+    if (ovErr) throw new Error(ovErr.message);
+
+    return { pending, processing, done, failed, synced, latest, overblik: ov ?? null };
   });

@@ -302,6 +302,11 @@ function VirksomhedsKort() {
     ]);
     setCompany(c ?? null);
     if (c) gemSenestAabnet(user?.id, { id: (c as any).id, name: (c as any).name, city: (c as any).city ?? null });
+    // Spring P-enhedssynk-køen over for dette CVR (fire-and-forget, blokerer ikke visningen)
+    const cvr8 = (c as any)?.cvr as string | null | undefined;
+    if (cvr8 && /^\d{8}$/.test(cvr8)) {
+      void (supabase.rpc as any)("penhed_sync_prioriter", { _cvr: cvr8 }).then(() => {}, () => {});
+    }
     setContacts(ct ?? []);
     setActivities(a ?? []);
     setAssignments(asg ?? []);
