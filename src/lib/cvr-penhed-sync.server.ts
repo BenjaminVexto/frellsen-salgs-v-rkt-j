@@ -243,10 +243,11 @@ export async function syncPenhederByCvrs(
       );
     }
     const { error: deErr } = await deactivate;
-    if (deErr) return { synced, error: `Deaktivering fejl: ${deErr.message}` };
+    if (deErr) return { synced, perCvr, error: `Deaktivering fejl: ${deErr.message}` };
+    for (const [c, n] of sliceCounts) perCvr[c] = n;
   }
 
   // Auto-kobling (kun entydige match; manuelle/afviste røres aldrig)
   await supabaseAdmin.rpc("auto_link_penheder" as any, { _cvrs: clean } as any);
-  return { synced };
+  return { synced, perCvr };
 }
