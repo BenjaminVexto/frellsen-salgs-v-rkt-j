@@ -953,6 +953,34 @@
       "when": 1792584915598,
       "tag": "0135_udstyr_aftalestatus_fornyelse",
       "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1792585991653,
+      "tag": "0136_udstyr_kundeejede_interne",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1792586237015,
+      "tag": "0137_udstyr_filter_serienr_kundeejet",
+      "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1792586285672,
+      "tag": "0138_udstyr_reparation_kostpris",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1792586382203,
+      "tag": "0139_udstyr_filteraftaler",
+      "breakpoints": true
     }
   ]
 }
