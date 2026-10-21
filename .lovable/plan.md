@@ -1,57 +1,43 @@
-# Nye regler for maskinbonus (besluttet 20/10-2026)
+# Historisk bonus fra lønsedler (sep 2025 – aug 2026)
 
-Bygges oven på den nuværende maskinbonus pr. serienummer. DB-bonus og ny kunde-bonus røres ikke. Reglerne gælder for alle måneder, der ikke er låst (fra september 2026). Låste måneder ændres ikke; senere ændringer går via efterregulering som i dag.
+## Kontrol af data på forhånd
+Summen af de 72 rækker passer allerede præcis med kontroltotalerne: Anders 193.099,07 · Claus 314.674,86 · Jes 268.132,17 · Mads 244.068,94 · Malene 108.000,00 · Ole 189.217,80. I dag er kun september 2026 låst (6 rækker) — der er ingen kollision med de historiske måneder.
 
-**Hovedprincip:** bonus kun når Frellsen vinder en ny aftaleperiode via en maskine (salg eller ny leje). Bonus følger lokationen (Lev. kund).
+## 1. Import
+- Ny tabel **bonus_historik_loenseddel** med de rå rækker: sælger, optjeningsmåned, lønseddelmåned, 1561, 1563, importeret tidspunkt/af. Kun admin kan læse/skrive (plus telemarketing-spærring).
+- Ny markering **kilde** på låste måneder: 'beregnet' (alle eksisterende, også september 2026) eller 'loenseddel'.
+- De 72 rækker lægges ind i den rå tabel og låses som 'loenseddel': 1561/1563 som på lønsedlen (også skæve fordelinger), I alt = summen, DB-grundlag/maskinantal/ny kunde = 0, ingen maskinliste, note "Historisk jf. lønseddel". Sælgere findes via fulde navn i profilerne.
+- En admin-funktion **genetabler historisk måned** (sælger + måned) låser igen fra den rå tabel, hvis en måned ved en fejl er låst op. Oplåsning er uændret (kun admin).
 
-## 1. Bonusklasser og satser
-- Bonusklasse får to nye værdier: **Kalerm** og **Espresso** (ud over Wittenborg, Animo, Rex-Royal, Ingen).
-- Bonusordningen får nye satsfelter: **Kalerm**, **Espresso** (standard 0 kr.) og **Brugt maskine** (standard 250 kr.), plus **Ombytningsgrænse** (standard 24 mdr.). Admin redigerer dem som de øvrige satser.
-- Varer uden bonusklasse eller med "Ingen" giver aldrig bonus automatisk.
-- Tilbudskataloget får de nye klasser i dropdown, badge og "Sæt bonusklasse".
+## 2. Efterregulering
+- Låsning af en ny måned springer alle rækker med kilde 'loenseddel' over, når den beregner forskelle.
+- Test: lås oktober 2026 i en transaktion der rulles tilbage og bekræft, at der ikke opstår reguleringer for september 2025 – august 2026. Oktober forbliver ulåst.
 
-## 2. Ny eller brugt
-- Ny maskine: fuld sats efter bonusklasse. Brugt maskine: fast beløb (Brugt maskine-satsen) uanset model. Feltet "Brugte maskiner tæller med" styrer fortsat, om brugte er med.
-- Brugt = serienummeret har tidligere været registreret hos en **anden** kunde (maskinhændelser eller historiske lejelinjer).
-- Admin kan overstyre ny/brugt på rækken før låsning, med årsag.
+## 3. Sælgernes visning
+- Måneder før september 2025 vises aldrig for sælgere — afskåret i databasen (bonus-funktionerne returnerer intet før 2025-09 for ikke-admin), så det gælder fanen, årstotaler, CSV og alt andet.
+- Historiske måneder viser kun Provision I (DB-provision), Provision II (maskiner m.m.) og I alt, med teksten "Historisk udbetaling jf. lønseddel – detaljer findes ikke". Ingen klik til DB-grundlag eller maskinliste. Gælder både computer og telefon.
+- Årstotaler summeres efter optjeningsmåned (låst beløb vinder over beregnet).
+- Fast note: "Bonus for en måned udbetales med lønnen pr. sidste dag i den følgende måned."
 
-## 3. Samme maskine hos samme kunde
-- Et serienummer giver højst bonus én gang pr. lokation, uden tidsgrænse — også ved leje konverteret til salg. Erstatter den nuværende 3-måneders overtagelsesregel (feltet bevares, men bruges ikke længere og markeres som udfaset).
-- Udeladte rækker får årsag "Samme maskine hos samme kunde".
+## 4. Admin-visning
+- Admin ser alle måneder, også før september 2025.
+- For historiske måneder: to kolonnesæt side om side — **Historisk** (1561, 1563, i alt) og **Beregnet** (DB-provision, maskinbonus, i alt, antal maskiner W/A/R/K/E + brugt) samt **Forskel**. Maskinantal fremhæves.
+- Admin kan åbne den beregnede maskinliste for en historisk måned (samme liste som i dag, mærket "Kun til sammenligning").
+- Det beregnede tal bruges kun til visning — aldrig i udbetaling, lønfil eller efterregulering.
 
-## 4. Ombytning / opgradering
-- Ny placering på en lokation, hvor en anden bonusberettiget maskine er taget retur/erstattet:
-  - Den gamle maskine placeret inden for ombytningsgrænsen → **"Mulig ombytning — kræver vurdering"**, tæller ikke med som udgangspunkt.
-  - Ældre end grænsen → **"Opgradering — kontrollér"**, tæller kun med efter admin-godkendelse.
-- Godkendelse viser tjekliste: anden/større model, ny aftale med min. 2 års binding, Frellsen betaler ikke for den gamle maskine.
-- Afvisningsårsager: teknisk ombytning, reklamation, tilbagekøb (Frellsen betaler for den gamle), andet.
-- Alle vurderinger logges (hvem, hvornår, årsag) og fastfryses ved månedslås.
-
-## 5. Afregning (admin)
-- Ny sektion pr. sælger/måned: maskiner der kræver vurdering, uklassificerede maskiner og ny/brugt-overstyring.
-- Advarsel før låsning, hvis måneden har uklassificerede maskinvarer eller uafgjorte ombytninger/opgraderinger.
-
-## 6. Sælgerens bonusside
-- Pr. maskine: serienummer, model, ny/brugt, sats og status ("Bonus" eller "Ingen bonus" + årsag i klart sprog). Ingen tekniske koder.
-- Sammenklappelig boks **"Sådan beregnes maskinbonus"** med regelteksten ordret som leveret.
-
-## 7. Sammenligning før låsning
-Efter implementering laves en opgørelse af **september 2026 pr. sælger**: antal maskiner og maskinbonus med gamle regler vs. nye regler, plus antal rækker til vurdering. Vises i chatten. September låses ikke.
+## 5. Kontrol (rapporteres i chatten)
+- Totaler pr. sælger for sep 2025 – aug 2026 fra databasen mod de seks tal.
+- September 2026: sammenlign alle felter før og efter — uændret.
+- Playwright som sælger: måneder før september 2025 vises ikke; historisk måned viser kun de tre tal + teksten.
 
 ## Teknisk
-Migrationer:
-1. `products.bonusklasse` CHECK udvides med `kalerm`, `espresso`.
-2. `bonus_ordning`: `bonus_kalerm numeric default 0`, `bonus_espresso numeric default 0`, `bonus_brugt numeric default 250`, `ombytning_mdr int default 24`; COMMENT DEPRECATED på `overtagelse_mdr`.
-3. Ny tabel `bonus_maskin_vurdering` (user_id, maaned, serienr, lev_kundenr, beslutning: godkendt/afvist/ny/brugt, aarsag, tjekliste jsonb, besluttet_af, besluttet_at). GRANTs, RLS (admin skriver, sælger læser egne), `tm_spaerret`-policy, trigger der afviser ændringer når `bonus_laas` findes for sælgerens måned. Append-log i `bonus_laas_log`-stil.
-4. `bonus_maskin_grundlag` omskrives: ny kolonner `ny_brugt`, `status` (bonus/udeladt/vurdering), `aarsag_tekst`; "første gang pr. serienr+lokation"-regel over hele historikken; brugt-detektion; ombytningsdetektion via maskinhændelser/lejelinjer på samme lokation inden for `ombytning_mdr`; vurderinger fra ny tabel anvendes. `bonus_maskin_grundlag_faktura` og en kopi af den nuværende funktion (`bonus_maskin_grundlag_v1`) bevares til sammenligning.
-5. `bonus_maskin_detaljer` og `bonus_pr_maaned`: sats efter bonusklasse inkl. kalerm/espresso, brugt = `bonus_brugt`, kun `status='bonus'` tæller.
-6. `bonus_laas_start`: gemmer vurderinger i låsen og returnerer advarsler.
+- Migration: kolonne `kilde text not null default 'beregnet'` med check ('beregnet','loenseddel') på bonus_laas; tabel bonus_historik_loenseddel med GRANT, RLS (is_admin) og `tm_spaerret`; funktion `bonus_historik_genetabler(_user_id, _maaned)` (admin-tjek).
+- `_bonus_laas_saelger`/efterreguleringslogik: filtrér `kilde <> 'loenseddel'` ved beregning af forskelle; `bonus_laas_start` må ikke overskrive en 'loenseddel'-række.
+- `bonus_pr_maaned` og øvrige sælger-RPC'er: wrapper/filter `maaned >= '2025-09-01' OR is_admin(auth.uid())`; selve beregningen ændres ikke.
+- Data (72 + 72 rækker) indsættes via datakald, ikke migration.
+- Lønfil: historiske rækker indgår kun hvis admin eksplicit vælger deres måned (de er allerede udbetalt) — standardvalg er uændret.
+- UI: `bonus-fane.tsx` (kilde-afhængig rækkevisning, note), `afregning-fane.tsx` (Historisk/Beregnet/Forskel), `bonus-afregning.functions.ts` (genetabler).
+- Test i `src/lib/` for reglen "loenseddel-rækker giver aldrig regulering" + SQL-test med rollback.
 
-Kode:
-- `src/lib/bonus-ordning.ts`, `bonus-ordning-admin.tsx`: nye felter og beskrivelse.
-- `admin.tilbudskatalog.tsx`, `products.functions.ts`: nye klasser.
-- `bonus-fane.tsx`, `bonus-detaljer.tsx`, `bonus-maskin-visning.ts`: nye kolonner, klartekst-årsager, regelboks.
-- `afregning-fane.tsx`, `bonus-afregning.functions.ts`: vurderingssektion, overstyring, låseadvarsel.
-- Tests: én test pr. regel (samme serienr/lokation én gang, brugt = 250 kr., ombytning inden for 24 mdr. udelades, opgradering kun ved godkendelse, ingen/uklassificeret = 0 kr.).
-
-Antagelse: "taget retur/erstattet" afgøres ud fra maskinhændelser og lejelinjer (maskinen forsvinder fra lokationen). Hvis datagrundlaget viser sig utilstrækkeligt, markeres sådanne rækker til vurdering frem for at gætte.
+## Antagelse
+Lønfilen genereres ikke for de historiske måneder (de er udbetalt). Sig til, hvis de skal kunne eksporteres.
