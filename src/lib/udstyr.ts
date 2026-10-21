@@ -16,6 +16,19 @@ export type GrundMaskine = {
 };
 export type Grundlag = { erAdmin: boolean; lok: GrundLok[]; mk: GrundMaskine[] };
 
+/** Serviceregisterets modelnavne mangler ofte mærket. Kun kundeejede visningsrækker:
+ * Frellsen-udstyrets leje/belastningsberegning og kildedata ændres ikke. */
+export function serviceVisningsGrundlag(g: Grundlag): Grundlag {
+  return { ...g, mk: g.mk.map(m => {
+    if (erFrellsen(m.u) || m.t !== "Andet") return m;
+    const b = m.b ?? "";
+    const t = erFilter(m) ? BRITA
+      : /^(?:9100|9000|95|7100|W100|FB7100)(?:\b|_)/i.test(b) ? "Wittenborg"
+      : /(borg.*overstr|hi.class|h2omy)/i.test(b) ? "Vandkøler" : m.t;
+    return t === m.t ? m : { ...m, t };
+  }) };
+}
+
 export type Satser = {
   brita: number; bryg: number; andetUdlaan: number;
   /** Udskiftning: reparationer over X kr., ELLER alder over Y år OG reparationer over Z kr. */

@@ -4,3 +4,4 @@
 - Bonus months share one payout layout; historical CRM comparisons are isolated in an admin-only collapsible table, and mobile uses the same payouts newest-first — so comparisons cannot be mistaken for paid bonus.
 - Machine-count drilldowns filter existing bonus detail rows by bonus class and exclude omitted rows; the full-month view retains them — so customer lists reconcile with counts without changing calculations.
 - Bonus DB, machines and competition use separate detail views and paged RPC reads; the shared competition RPC returns only eligible seller aggregates with internal-role checks — so competition sharing never widens customer access.
+- Equipment uses a shared action-first seller overview, with accounting rendered only in collapsed admin sections; customer-owned service model normalization is separate from financial allocation so totals remain unchanged.

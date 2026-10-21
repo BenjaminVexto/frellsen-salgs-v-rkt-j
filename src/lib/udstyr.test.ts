@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { erFilter, prVirksomhed, varekoebAndetSted, fordelBelastning, STANDARD_SATSER, periode, harAftale, handlinger, beregnLokationer, type GrundMaskine } from "./udstyr";
+import { serviceVisningsGrundlag, erFilter, prVirksomhed, varekoebAndetSted, fordelBelastning, STANDARD_SATSER, periode, harAftale, handlinger, beregnLokationer, type GrundMaskine } from "./udstyr";
 
 const mk = (id: string, t: string, u = 3): GrundMaskine => ({ id, sn: id, lev: "1", b: t, t, u, o: null, tl: null, at: null, st: null });
 
@@ -14,8 +14,8 @@ describe("fordeling af maskinbelastning", () => {
   });
   it("resten fordeles efter lejeandel", () => {
     const r = fordelBelastning(1000, [mk("w", "Wittenborg"), mk("r", "Rex-Royal")], { Wittenborg: 300, "Rex-Royal": 100 }, 12, STANDARD_SATSER);
-    expect(r.maskiner.find((m) => m.id === "w")!.belastning).toBe(750);
-    expect(r.maskiner.find((m) => m.id === "r")!.belastning).toBe(250);
+    expect(r.maskiner.find((m) => m.id === "w")?.belastning).toBe(750);
+    expect(r.maskiner.find((m) => m.id === "r")?.belastning).toBe(250);
   });
   it("uden leje fordeles efter antal", () => {
     const r = fordelBelastning(900, [mk("w1", "Wittenborg"), mk("w2", "Wittenborg"), mk("r", "Rex-Royal")], {}, 12, STANDARD_SATSER);
@@ -90,5 +90,32 @@ describe("filtre og kundeejede", () => {
     const v = prVirksomhed([base, anden])[0];
     expect(v.vdb).toBe(5000);
     expect(varekoebAndetSted(base, v)).toBe(true);
+  });
+});
+
+describe("kundeejede servicemodeller i visningen", () => {
+  const grundlag = (b: string, u = 0) => ({ erAdmin: true, lok: [], mk: [{ ...mk("e:1", "Andet", u), b }] });
+  it("genkender Wittenborg-modeller uden mærkenavn", () => {
+    for (const b of ["9100 B2C", "9000 R&G", "95 B2C", "7100, Plus FB", "W100 Core B2C", "FB7100 MAXI"]) {
+      expect(serviceVisningsGrundlag(grundlag(b)).mk[0].t).toBe("Wittenborg");
+    }
+  });
+  it("vandudstyr klassificeres som Vandkøler", () => {
+    for (const b of ["Borg og Overström", "Hi-Class 30L Still", "H2OMY TOP 15L CO2"]) {
+      expect(serviceVisningsGrundlag(grundlag(b)).mk[0].t).toBe("Vandkøler");
+    }
+  });
+  it("filterhoveder flyttes til filteraftaler", () => {
+    expect(serviceVisningsGrundlag(grundlag("Filterhoved Purity")).mk[0].t).toBe("Brita-filtre");
+  });
+  it("ændrer ikke Frellsen-maskiner eller økonomiberegninger", () => {
+    const g = grundlag("9100 B2C", 3);
+    expect(serviceVisningsGrundlag(g).mk).toEqual(g.mk);
+    const g2 = { erAdmin: true, mk: grundlag("9100 B2C").mk, lok: [{ lev: "1", id: "l", cid: "c", kunde: "K", adr: "", leje: 1000, bel: -1200, si: 500, ak: 100, mo: -200, rd: -100, pa: -50, vdb: 3000, vmd: 1, fm: null, lt: {} }] };
+    const foer = beregnLokationer(g2, 12, STANDARD_SATSER)[0];
+    const efter = beregnLokationer(serviceVisningsGrundlag(g2), 12, STANDARD_SATSER)[0];
+    expect(efter.dbInkl).toBe(foer.dbInkl);
+    expect(efter.lejeNetto).toBe(foer.lejeNetto);
+    expect(efter.serviceNetto).toBe(foer.serviceNetto);
   });
 });
