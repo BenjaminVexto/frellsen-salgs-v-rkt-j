@@ -960,6 +960,13 @@
       "when": 1792585991653,
       "tag": "0136_udstyr_kundeejede_interne",
       "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1792586237015,
+      "tag": "0137_udstyr_filter_serienr_kundeejet",
+      "breakpoints": true
     }
   ]
 }

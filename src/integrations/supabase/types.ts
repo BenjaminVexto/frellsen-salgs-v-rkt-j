@@ -6696,6 +6696,7 @@ export type Database = {
         Returns: Json
       }
       tm_virksomheder: { Args: { _list: string }; Returns: Json }
+      udstyr_er_filter: { Args: { _t: string }; Returns: boolean }
       udstyr_grundlag: {
         Args: {
           _alle: boolean
