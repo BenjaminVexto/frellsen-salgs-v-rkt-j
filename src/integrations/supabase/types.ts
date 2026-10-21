@@ -4962,6 +4962,7 @@ export type Database = {
           maaned: string
           montoer: number
           patroner: number
+          reparation_kost: number
           reservedele: number
           service_ind: number
           varer_db: number
@@ -4974,6 +4975,7 @@ export type Database = {
           maaned: string
           montoer?: number
           patroner?: number
+          reparation_kost?: number
           reservedele?: number
           service_ind?: number
           varer_db?: number
@@ -4986,6 +4988,7 @@ export type Database = {
           maaned?: string
           montoer?: number
           patroner?: number
+          reparation_kost?: number
           reservedele?: number
           service_ind?: number
           varer_db?: number
