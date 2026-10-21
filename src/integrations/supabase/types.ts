@@ -4914,6 +4914,99 @@ export type Database = {
         }
         Relationships: []
       }
+      udstyr_indstilling: {
+        Row: {
+          noegle: string
+          opdateret_at: string
+          vaerdi: number
+        }
+        Insert: {
+          noegle: string
+          opdateret_at?: string
+          vaerdi: number
+        }
+        Update: {
+          noegle?: string
+          opdateret_at?: string
+          vaerdi?: number
+        }
+        Relationships: []
+      }
+      udstyr_leje_type_maaned: {
+        Row: {
+          leje: number
+          lev: string
+          maaned: string
+          maskintype: string
+        }
+        Insert: {
+          leje?: number
+          lev: string
+          maaned: string
+          maskintype: string
+        }
+        Update: {
+          leje?: number
+          lev?: string
+          maaned?: string
+          maskintype?: string
+        }
+        Relationships: []
+      }
+      udstyr_lok_maaned: {
+        Row: {
+          aftale_kost: number
+          belastning: number
+          leje: number
+          lev: string
+          maaned: string
+          montoer: number
+          patroner: number
+          reservedele: number
+          service_ind: number
+          varer_db: number
+        }
+        Insert: {
+          aftale_kost?: number
+          belastning?: number
+          leje?: number
+          lev: string
+          maaned: string
+          montoer?: number
+          patroner?: number
+          reservedele?: number
+          service_ind?: number
+          varer_db?: number
+        }
+        Update: {
+          aftale_kost?: number
+          belastning?: number
+          leje?: number
+          lev?: string
+          maaned?: string
+          montoer?: number
+          patroner?: number
+          reservedele?: number
+          service_ind?: number
+          varer_db?: number
+        }
+        Relationships: []
+      }
+      udstyr_refresh_ko: {
+        Row: {
+          maaned: string
+          tilfoejet_at: string
+        }
+        Insert: {
+          maaned: string
+          tilfoejet_at?: string
+        }
+        Update: {
+          maaned?: string
+          tilfoejet_at?: string
+        }
+        Relationships: []
+      }
       user_afdeling_access: {
         Row: {
           afdeling_nr: number
@@ -6603,6 +6696,12 @@ export type Database = {
         Returns: Json
       }
       tm_virksomheder: { Args: { _list: string }; Returns: Json }
+      udstyr_refresh_maaned: { Args: { _m: string }; Returns: undefined }
+      udstyr_type_leje: {
+        Args: { _bonusklasse: string; _varetekst: string }
+        Returns: string
+      }
+      udstyr_type_tekst: { Args: { _t: string }; Returns: string }
       vind_tilbage_liste: {
         Args: { _saelger?: string }
         Returns: {

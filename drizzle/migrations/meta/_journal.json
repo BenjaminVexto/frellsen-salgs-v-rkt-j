@@ -925,6 +925,13 @@
       "when": 1792575322295,
       "tag": "0131_bonus_maskin_detaljer_historisk",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1792584273380,
+      "tag": "0132_maskiner_service",
+      "breakpoints": true
     }
   ]
 }
