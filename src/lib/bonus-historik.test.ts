@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 // Oktober 2026 kan endnu ikke låses (måneden er ikke afsluttet), så testen låser
 // september 2026 igen i en transaktion der rulles tilbage — dens 6-måneders
 // efterreguleringsvindue (mar–aug 2026) består udelukkende af lønseddelrækker,
+// Kræver skriveadgang til databasen: kør med BONUS_DB_TEST=1.
 // præcis som oktober 2026's vindue (apr–sep 2026, hvor sep er 'beregnet').
 const SQL = `
 BEGIN;
@@ -24,7 +25,7 @@ END $$;
 ROLLBACK;`;
 
 describe("historisk bonus fra lønsedler", () => {
-  it.skipIf(!process.env.PGHOST)("opretter ingen efterregulering for sep 2025 – aug 2026", () => {
+  it.skipIf(!process.env.BONUS_DB_TEST)("opretter ingen efterregulering for sep 2025 – aug 2026", () => {
     const r = spawnSync("psql", ["-v", "ON_ERROR_STOP=1", "-c", SQL], { encoding: "utf8" });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stderr).toMatch(/REGULERINGER=0\b/);
