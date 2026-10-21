@@ -129,23 +129,26 @@ function mapPenhed(p: any, syncedAt: string): PenhedRow | null {
 
 export async function syncPenhederByCvrs(
   cvrs: string[],
-): Promise<{ synced: number; error?: string }> {
-  if (!cvrs.length) return { synced: 0 };
+): Promise<{ synced: number; perCvr: Record<string, number>; error?: string }> {
+  if (!cvrs.length) return { synced: 0, perCvr: {} };
 
   const user = process.env.CVR_USERNAME;
   const pass = process.env.CVR_PASSWORD;
-  if (!user || !pass) return { synced: 0, error: "CVR credentials mangler" };
+  if (!user || !pass) return { synced: 0, perCvr: {}, error: "CVR credentials mangler" };
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
 
   const clean = Array.from(
     new Set(cvrs.map((c) => String(c ?? "").trim()).filter((c) => /^\d{8}$/.test(c))),
   );
-  if (!clean.length) return { synced: 0 };
+  if (!clean.length) return { synced: 0, perCvr: {} };
 
   let synced = 0;
+  // Antal synkede P-enheder pr. CVR — bruges til statustabellen.
+  const perCvr: Record<string, number> = {};
 
   for (let i = 0; i < clean.length; i += CVR_CHUNK) {
     const slice = clean.slice(i, i + CVR_CHUNK);
+    const sliceCounts = new Map<string, number>(slice.map((c) => [c, 0]));
     const cvrInts = slice.map((c) => parseInt(c, 10));
     const syncedAt = new Date().toISOString();
     const rows = new Map<string, PenhedRow>();
