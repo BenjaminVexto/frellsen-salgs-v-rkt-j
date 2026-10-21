@@ -20,7 +20,8 @@ import {
 } from "@/lib/udstyr.functions";
 import {
   beregnLokationer, handlinger, maanederIPeriode, periode, TYPER, UDLAAN_LABEL, BRITA, KAFFE_TYPER, BRYG,
-  aftaleLabel, harAftale, alderAar, STANDARD_SATSER, maanedNavn,
+  harAftale, alderAar, STANDARD_SATSER, maanedNavn, erFilter, erFrellsen, prVirksomhed, varekoebAndetSted, reparationer,
+  type VirkRegnskab,
   type Grundlag, type LokRegnskab, type FordeltMaskine, type GrundMaskine, type Satser,
 } from "@/lib/udstyr";
 
@@ -133,7 +134,7 @@ function Handlingsliste({ lok, satser, erAdmin, setDrill }: { lok: LokRegnskab[]
   const punkter: { label: string; hjaelp: string; antal: number; aaben: () => void }[] = [
     { label: "Udlån uden dækning", hjaelp: "Varer-DB dækker ikke belastning + service. Hent hjem, omlæg til leje eller lav kaffeaftale.", antal: h.udlaan.length,
       aaben: () => setDrill({ slags: "lokationer", titel: "Udlån uden dækning", raekker: [...h.udlaan].sort((a, b) => a.dbInkl - b.dbInkl) }) },
-    { label: "Udskiftningskandidater", hjaelp: `Over ${satser.udskiftAlderAar} år eller reservedele + montør over ${kr(satser.udskiftReparation)} kr. (kostpris) på lokationen i perioden. Opgradering efter 24 mdr. kan give maskinbonus.`, antal: h.udskift.length,
+    { label: "Udskiftningskandidater", hjaelp: `Reparationer (reservedele + montør, kostpris) over ${kr(satser.udskiftReparation)} kr. på lokationen i perioden, eller over ${satser.udskiftAlderAar} år og reparationer over ${kr(satser.udskiftReparationAeldre)} kr. Højeste reparationsomkostning først. Opgradering efter 24 mdr. kan give maskinbonus.`, antal: h.udskift.length,
       aaben: () => setDrill({ slags: "maskiner", titel: "Udskiftningskandidater", raekker: h.udskift }) },
     { label: "Kundeejede uden serviceaftale", hjaelp: "Mersalg: tilbyd serviceaftale.", antal: h.kundeejet.length,
       aaben: () => setDrill({ slags: "maskiner", titel: "Kundeejede maskiner uden serviceaftale", raekker: h.kundeejet }) },
@@ -164,7 +165,7 @@ function Handlingsliste({ lok, satser, erAdmin, setDrill }: { lok: LokRegnskab[]
 }
 
 function Noegletal({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: Drill) => void }) {
-  const fr = lok.flatMap((l) => l.maskiner.map((m) => ({ l, m })));
+  const fr = lok.flatMap((l) => l.maskiner.filter((m) => !erFilter(m)).map((m) => ({ l, m })));
   const lejeNetto = lok.reduce((a, l) => a + l.lejeNetto, 0);
   const aftaler = lok.reduce((a, l) => a + l.antalAftaler, 0);
   const lokMedAftale = lok.filter((l) => l.antalAftaler > 0);
@@ -174,7 +175,7 @@ function Noegletal({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: Drill)
   const kort: { label: string; v: ReactNode; aaben: () => void }[] = [
     { label: "Frellsen-maskiner", v: kr(fr.length), aaben: () => setDrill({ slags: "maskiner", titel: "Frellsen-maskiner", raekker: fr }) },
     { label: "Leje netto", v: <Tal v={lejeNetto} />, aaben: () => setDrill({ slags: "lokationer", titel: "Leje netto pr. lokation", raekker: [...medUdstyr].sort((a, b) => a.lejeNetto - b.lejeNetto) }) },
-    { label: "Aktive serviceaftaler", v: <span>{kr(aftaler)} <span className="text-xs font-normal text-muted-foreground">maskiner · {kr(lokMedAftale.length)} lok.</span></span>, aaben: () => setDrill({ slags: "maskiner", titel: "Maskiner med aktiv serviceaftale", raekker: lok.flatMap((l) => [...l.maskiner, ...l.kundeejede].filter(harAftale).map((m) => ({ l, m }))) }) },
+    { label: "Aktive serviceaftaler", v: <span>{kr(aftaler)} <span className="text-xs font-normal text-muted-foreground">maskiner · {kr(lokMedAftale.length)} lok.</span></span>, aaben: () => setDrill({ slags: "maskiner", titel: "Maskiner med aktiv serviceaftale", raekker: lok.flatMap((l) => [...l.maskiner, ...l.kundeejede].filter((m) => harAftale(m) && !erFilter(m)).map((m) => ({ l, m }))) }) },
     { label: "Service netto (inkl. filtre)", v: <Tal v={serviceNetto} />, aaben: () => setDrill({ slags: "lokationer", titel: "Service netto pr. lokation", raekker: lok.filter((l) => l.antalAftaler > 0 || l.si !== 0).sort((a, b) => a.serviceNetto - b.serviceNetto), visFornyelse: true }) },
     { label: "Lokationer i underskud", v: kr(underskud.length), aaben: () => setDrill({ slags: "lokationer", titel: "Lokationer i underskud", raekker: [...underskud].sort((a, b) => a.dbInkl - b.dbInkl) }) },
   ];
@@ -191,8 +192,8 @@ function Noegletal({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: Drill)
 }
 
 function Maskinoversigt({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: Drill) => void }) {
-  const raekker = TYPER.map((t) => {
-    const ms = lok.flatMap((l) => l.maskiner.filter((m) => m.t === t).map((m) => ({ l, m })));
+  const raekker = TYPER.filter((t) => t !== BRITA).map((t) => {
+    const ms = lok.flatMap((l) => l.maskiner.filter((m) => m.t === t && !erFilter(m)).map((m) => ({ l, m })));
     const ind = lok.reduce((a, l) => a + (l.lt[t] ?? 0), 0);
     const ud = ms.reduce((a, x) => a + x.m.belastning, 0);
     const grp = (f: (u: number) => boolean) => ms.filter((x) => f(x.m.u));
@@ -205,7 +206,7 @@ function Maskinoversigt({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
   const åbn = (titel: string, ms: MaskinRaekke[]) => () => setDrill({ slags: "maskiner", titel, raekker: ms });
   const N = ({ ms, titel }: { ms: MaskinRaekke[]; titel: string }) =>
     ms.length ? <button type="button" className="tabular-nums underline decoration-dotted underline-offset-2 hover:text-primary" onClick={åbn(titel, ms)}>{kr(ms.length)}</button> : <span className="text-muted-foreground">–</span>;
-  const kundeejede = lok.flatMap((l) => l.kundeejede.map((m) => ({ l, m })));
+  const kundeejede = lok.flatMap((l) => l.kundeejede.filter((m) => !erFilter(m)).map((m) => ({ l, m })));
 
   return (
     <Card className="p-4">
@@ -222,7 +223,7 @@ function Maskinoversigt({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
           <tbody>
             {raekker.map((r) => (
               <tr key={r.t} className="border-b text-right">
-                <td className="py-2 text-left">{r.t}{r.t === BRITA && <span className="ml-1 text-xs text-muted-foreground">(belastning i service)</span>}</td>
+                <td className="py-2 text-left">{r.t}</td>
                 <td><N ms={r.ms} titel={`${r.t} – alle`} /></td><td><N ms={r.leje} titel={`${r.t} – leje/leasing`} /></td>
                 <td><N ms={r.ub} titel={`${r.t} – leje u/b`} /></td><td><N ms={r.udl} titel={`${r.t} – udlån`} /></td><td><N ms={r.oev} titel={`${r.t} – øvrige`} /></td>
                 <td><Tal v={r.ind} onClick={åbn(`${r.t} – leje`, r.ms)} /></td>
@@ -230,15 +231,16 @@ function Maskinoversigt({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
                 <td className="font-medium"><Tal v={r.ind - r.ud} onClick={åbn(`${r.t} – netto`, r.ms)} /></td>
               </tr>
             ))}
+            <tr className="text-right font-semibold">
+              <td className="py-2 text-left">Total</td><td className="tabular-nums">{kr(tot.n)}</td><td className="tabular-nums">{kr(tot.l)}</td><td className="tabular-nums">{kr(tot.ub)}</td>
+              <td className="tabular-nums">{kr(tot.u)}</td><td className="tabular-nums">{kr(tot.o)}</td><td><Tal v={tot.ind} /></td><td><Tal v={-tot.ud} /></td><td><Tal v={tot.ind - tot.ud} /></td>
+            </tr>
             {ufordelt > 0 && (
-              <tr className="border-b text-right text-muted-foreground">
+              <tr className="border-t text-right text-muted-foreground">
                 <td className="py-2 text-left">Ufordelt (intet registreret udstyr)</td><td colSpan={6} /><td><Tal v={-ufordelt} /></td><td><Tal v={-ufordelt} /></td>
               </tr>
             )}
-            <tr className="text-right font-semibold">
-              <td className="py-2 text-left">Total</td><td className="tabular-nums">{kr(tot.n)}</td><td className="tabular-nums">{kr(tot.l)}</td><td className="tabular-nums">{kr(tot.ub)}</td>
-              <td className="tabular-nums">{kr(tot.u)}</td><td className="tabular-nums">{kr(tot.o)}</td><td><Tal v={tot.ind} /></td><td><Tal v={-(tot.ud + ufordelt)} /></td><td><Tal v={tot.ind - tot.ud - ufordelt} /></td>
-            </tr>
+
           </tbody>
         </table>
       </div>
@@ -254,6 +256,7 @@ function Maskinoversigt({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
           </button>
         ))}
       </div>
+      <p className="mt-2 text-xs text-muted-foreground">Total = nøgletallet "Leje netto". Brita-filtre og andre filterhoveder indgår ikke her – de hører til service-regnskabet.</p>
       {kundeejede.length > 0 && (
         <p className="mt-3 text-sm text-muted-foreground">
           Kundeejede maskiner (vises separat):{" "}
@@ -265,9 +268,12 @@ function Maskinoversigt({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
 }
 
 function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: Drill) => void }) {
-  const alle = lok.flatMap((l) => [...l.maskiner, ...l.kundeejede].filter(harAftale).map((m) => ({ l, m })));
-  const typer = [...new Set(alle.map((x) => aftaleLabel(x.m.at)))].sort();
+  const medAft = lok.flatMap((l) => [...l.maskiner, ...l.kundeejede].filter(harAftale).map((m) => ({ l, m })));
+  const alle = medAft.filter((x) => !erFilter(x.m));
+  const filtre = medAft.filter((x) => erFilter(x.m));
+  const kol: [string, (u: number) => boolean][] = [["Frellsen-ejet med aftale", erFrellsen], ["Kundeejet med aftale", (u) => !erFrellsen(u)]];
   const mtyper = TYPER.filter((t) => alle.some((x) => x.m.t === t));
+  const fl = lok.reduce((a, l) => a + l.filterLeje, 0);
   const s = lok.reduce((a, l) => ({ si: a.si + l.si, mo: a.mo + l.mo, rd: a.rd + l.rd, pa: a.pa + l.pa, fh: a.fh + l.filterBel, ak: a.ak + l.ak, n: a.n + l.serviceNetto }),
     { si: 0, mo: 0, rd: 0, pa: 0, fh: 0, ak: 0, n: 0 });
   const medAftale = lok.filter((l) => l.antalAftaler > 0);
@@ -275,31 +281,40 @@ function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
   const lokListe = (titel: string, r: LokRegnskab[]) => () =>
     setDrill({ slags: "lokationer", titel, raekker: [...r].sort((a, b) => a.serviceNetto - b.serviceNetto), visFornyelse: true });
   const linjer: [string, number][] = [
-    ["Indtægt (aftaler, 16/82)", s.si], ["Montør/kørsel netto", s.mo], ["Reservedele netto", s.rd], ["Brita-patroner netto", s.pa],
+    ["Indtægt (aftaler, 16/82)", s.si], ["Montør/kørsel netto", s.mo], ["Reservedele netto", s.rd], ["Brita-patroner netto", s.pa], ["Filterhoveder (leje)", fl],
     ["Filterhoveder (fordelt)", -s.fh], ["Kostpris aftalelinjer", -s.ak],
   ];
   return (
     <Card className="p-4">
       <h2 className="font-semibold">Serviceaftaler</h2>
-      <p className="mb-3 text-xs text-muted-foreground">Fra Vismas serviceregister: {kr(alle.length)} maskiner med aktiv aftale på {kr(medAftale.length)} lokationer. Fornyelsesmåned = måneden med den årlige aftalefakturering.</p>
+      <p className="mb-3 text-xs text-muted-foreground">Fra Vismas serviceregister: {kr(alle.length)} maskiner med aktiv aftale (Frellsen-ejede og kundeejede) på {kr(medAftale.length)} lokationer, plus {kr(filtre.length)} filteraftaler. Fornyelsesmåned = måneden med den årlige aftalefakturering.</p>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground"><tr className="border-b text-right"><th className="py-2 text-left">Maskintype</th>{typer.map((t) => <th key={t}>{t}</th>)}<th>I alt</th></tr></thead>
+            <thead className="text-xs text-muted-foreground"><tr className="border-b text-right"><th className="py-2 text-left">Maskintype</th>{kol.map(([t]) => <th key={t}>{t}</th>)}<th>I alt</th></tr></thead>
             <tbody>
               {mtyper.map((mt) => {
                 const r = alle.filter((x) => x.m.t === mt);
                 return (
                   <tr key={mt} className="border-b text-right">
                     <td className="py-1.5 text-left">{mt}</td>
-                    {typer.map((t) => {
-                      const c = r.filter((x) => aftaleLabel(x.m.at) === t);
+                    {kol.map(([t, f]) => {
+                      const c = r.filter((x) => f(x.m.u));
                       return <td key={t}>{c.length ? <button type="button" className="tabular-nums underline decoration-dotted" onClick={() => setDrill({ slags: "maskiner", titel: `${mt} – ${t}`, raekker: c })}>{c.length}</button> : "–"}</td>;
                     })}
                     <td className="tabular-nums font-medium">{r.length}</td>
                   </tr>
                 );
               })}
+              <tr className="border-b text-right font-semibold">
+                <td className="py-1.5 text-left">I alt</td>
+                {kol.map(([t, f]) => <td key={t} className="tabular-nums">{kr(alle.filter((x) => f(x.m.u)).length)}</td>)}
+                <td className="tabular-nums">{kr(alle.length)}</td>
+              </tr>
+              <tr className="text-right text-muted-foreground">
+                <td className="py-1.5 text-left">Filteraftaler</td><td colSpan={2} />
+                <td>{filtre.length ? <button type="button" className="tabular-nums underline decoration-dotted" onClick={() => setDrill({ slags: "maskiner", titel: "Filteraftaler", raekker: filtre })}>{kr(filtre.length)}</button> : "–"}</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -324,22 +339,68 @@ function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
 
 function Lokationsregnskab({ lok, maaneder, setDrill }: { lok: LokRegnskab[]; maaneder: number; setDrill: (d: Drill) => void }) {
   const [vis, setVis] = useState(25);
-  const r = useMemo(() => lok.filter((l) => l.maskiner.length > 0).sort((a, b) => a.dbInkl - b.dbInkl), [lok]);
+  const [aabne, setAabne] = useState<Set<string>>(new Set());
+  const virk = useMemo(() => prVirksomhed(lok).filter((v) => v.lok.some((l) => l.maskiner.length > 0)).sort((a, b) => a.dbInkl - b.dbInkl), [lok]);
+  const alleLok = useMemo(() => lok.filter((l) => l.maskiner.length > 0).sort((a, b) => a.dbInkl - b.dbInkl), [lok]);
+  const skift = (cid: string) => setAabne((s) => { const n = new Set(s); if (n.has(cid)) n.delete(cid); else n.add(cid); return n; });
   return (
     <Card className="p-4">
       <div className="mb-1 flex items-center justify-between">
-        <h2 className="font-semibold">Giver det mening? – lokationsregnskab</h2>
-        <Button size="sm" variant="ghost" onClick={() => setDrill({ slags: "lokationer", titel: "Lokationsregnskab", raekker: r })}>Vis alle ({r.length})</Button>
+        <h2 className="font-semibold">Giver det mening? – regnskab pr. virksomhed</h2>
+        <Button size="sm" variant="ghost" onClick={() => setDrill({ slags: "lokationer", titel: "Lokationsregnskab", raekker: alleLok })}>Alle lokationer ({alleLok.length})</Button>
       </div>
-      <p className="mb-3 text-xs text-muted-foreground">Varer-DB + Leje + Service − Belastning − Serviceudgifter = DB inkl. udstyr. Dårligst først.</p>
-      <LokTabel raekker={r.slice(0, vis)} maaneder={maaneder} />
-      {vis < r.length && <Button className="mt-2" size="sm" variant="outline" onClick={() => setVis(vis + 50)}>Vis flere</Button>}
+      <p className="mb-3 text-xs text-muted-foreground">Sum af virksomhedens lokationer: Varer-DB + Leje + Service − Belastning − Serviceudgifter = DB inkl. udstyr. Dårligst først. Klik for lokationerne.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
+          <thead className="text-xs text-muted-foreground"><tr className="border-b text-right">
+            <th className="py-2 text-left">Virksomhed / lokation</th><th>Maskiner</th><th>Varer-DB</th><th>Leje</th><th>Service netto</th><th>Belastning</th><th>DB inkl. udstyr</th>
+          </tr></thead>
+          <tbody>
+            {virk.slice(0, vis).map((v) => {
+              const aaben = aabne.has(v.cid);
+              return (
+                <VirkRaekker key={v.cid} v={v} aaben={aaben} onSkift={() => skift(v.cid)} maaneder={maaneder} />
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {vis < virk.length && <Button className="mt-2" size="sm" variant="outline" onClick={() => setVis(vis + 50)}>Vis flere ({virk.length - vis})</Button>}
     </Card>
   );
 }
 
+function VirkRaekker({ v, aaben, onSkift }: { v: VirkRegnskab; aaben: boolean; onSkift: () => void; maaneder: number }) {
+  const T = ({ x }: { x: number }) => <td className="text-right"><Tal v={x} /></td>;
+  return (
+    <>
+      <tr className={`border-b ${v.dbInkl < 0 ? "bg-destructive/5" : ""}`}>
+        <td className="py-1.5">
+          <button type="button" onClick={onSkift} className="inline-flex items-center gap-1 text-left" aria-expanded={aaben}>
+            {aaben ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            <span className="font-medium">{v.kunde}</span>
+            <span className="text-xs text-muted-foreground">· {v.lok.length} lok.</span>
+          </button>
+          <Link to="/virksomheder/$id" params={{ id: v.cid }} className="ml-2 text-xs text-muted-foreground hover:underline">Åbn</Link>
+        </td>
+        <td className="text-right tabular-nums">{v.antalMaskiner}</td>
+        <T x={v.vdb} /><T x={v.leje} /><T x={v.serviceNetto} /><T x={-v.belastningIalt} />
+        <td className="text-right font-medium"><Tal v={v.dbInkl} /></td>
+      </tr>
+      {aaben && v.lok.map((l) => (
+        <tr key={l.lev} className="border-b bg-muted/30 text-xs">
+          <td className="py-1 pl-6">{l.adr} · {l.lev}
+            {varekoebAndetSted(l, v) && <Badge variant="outline" className="ml-2 text-[10px]">varekøb på anden lokation</Badge>}</td>
+          <td className="text-right tabular-nums">{l.maskiner.filter((m) => !erFilter(m)).length}</td>
+          <T x={l.vdb} /><T x={l.leje} /><T x={l.serviceNetto} /><T x={-l.belastningIalt} /><T x={l.dbInkl} />
+        </tr>
+      ))}
+    </>
+  );
+}
+
 function udlaanDaekning(l: LokRegnskab, maaneder: number) {
-  const udl = l.maskiner.filter((m) => [4, 5, 6, 7].includes(m.u) && m.t !== BRITA);
+  const udl = l.maskiner.filter((m) => [4, 5, 6, 7].includes(m.u) && !erFilter(m));
   if (!udl.length) return null;
   const kaffeDb = l.vdb / udl.length / maaneder;
   const omk = udl.reduce((a, m) => a + m.belastning, 0) / udl.length / maaneder;
@@ -514,7 +575,8 @@ function SatserKnap({ satser }: { satser: Satser }) {
   const fn = useServerFn(gemUdstyrSatser);
   const felter: [keyof Satser, string][] = [
     ["brita", "Brita-filterhoved, kr./md."], ["bryg", "Bravilor/Bonamat og bryggere, kr./md."], ["andetUdlaan", "Andet udlån, kr./md."],
-    ["udskiftReparation", "Udskiftning: reservedele + montør over (kr.)"], ["udskiftAlderAar", "Udskiftning: alder over (år)"],
+    ["udskiftReparation", "Udskiftning: reparationer over (kr.)"], ["udskiftAlderAar", "… eller alder over (år)"],
+    ["udskiftReparationAeldre", "… og reparationer over (kr.)"],
   ];
   const taellerTyper = ["Wittenborg", "Rex-Royal", "Animo", "Espresso", "Vandkøler", "Bravilor/Bonamat og bryggere"];
   return (
