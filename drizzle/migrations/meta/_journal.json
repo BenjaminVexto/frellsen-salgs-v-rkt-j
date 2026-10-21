@@ -974,6 +974,13 @@
       "when": 1792586285672,
       "tag": "0138_udstyr_reparation_kostpris",
       "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1792586382203,
+      "tag": "0139_udstyr_filteraftaler",
+      "breakpoints": true
     }
   ]
 }
