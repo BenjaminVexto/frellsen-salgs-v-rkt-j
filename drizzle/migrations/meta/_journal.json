@@ -911,6 +911,20 @@
       "when": 1792572667069,
       "tag": "0129_penhed_sync_overblik_jsonb_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1792575206804,
+      "tag": "0130_bonus_historik_loenseddel",
+      "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1792575322295,
+      "tag": "0131_bonus_maskin_detaljer_historisk",
+      "breakpoints": true
     }
   ]
 }

@@ -80,6 +80,7 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
   });
 
   const laasRows = laasQ.data ?? [];
+  const historiskMaaned = laasRows.some((l: any) => l.kilde === "loenseddel");
   const faerdigLaast = laasRows.length > 0 && logQ.data?.[0]?.handling === "laas";
   const laastDato = logQ.data?.[0]?.handling === "laas" ? logQ.data[0].tidspunkt : null;
   const saelgere = saelgereQ.data ?? [];
@@ -238,6 +239,7 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide">Afregning — {navnM(maaned)}</h2>
           {faerdigLaast && laastDato && <span className="text-xs text-muted-foreground flex items-center gap-1"><Lock className="h-3 w-3" />Låst {new Date(laastDato).toLocaleDateString("da-DK")}</span>}
+          {historiskMaaned && <span className="text-xs text-muted-foreground">Historisk jf. lønseddel – CRM'ets beregning vises til sammenligning i Bonus-fanen pr. sælger.</span>}
           {(liveLoading && !faerdigLaast) && <span className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Beregner…</span>}
         </div>
         {fejl ? <p className="text-sm text-destructive">{(fejl as Error).message}</p> : indlaeser ? (
