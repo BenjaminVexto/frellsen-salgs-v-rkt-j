@@ -18,6 +18,11 @@ export const kortNavn = (m: GrundMaskine) => {
   return ord.slice(0, 3).join(" ") || m.t;
 };
 
+function grupper<T extends { l: LokRegnskab }>(xs: T[]): T[][] {
+  const m = new Map<string, T[]>();
+  for (const x of xs) { const a = m.get(x.l.lev); if (a) a.push(x); else m.set(x.l.lev, [x]); }
+  return [...m.values()];
+}
 type Raekke = { key: string; cid: string; kunde: string; maskine: string; tal?: string; negativ?: boolean; detaljer: string[] };
 type Liste = { id: string; titel: string; forklaring: string; raekker: Raekke[] };
 
@@ -45,7 +50,7 @@ export function SaelgerOverblik({ lok, satser, maaneder }: { lok: LokRegnskab[];
         ],
       })) },
     { id: "udskift", titel: "Udskiftning", forklaring: "Maskiner med store reparationsomkostninger – mulighed for en ny maskine",
-      raekker: [...Map.groupBy(h.udskift, x => x.l.lev).values()].map(xs => { const { l, m } = xs[0];
+      raekker: grupper(h.udskift).map(xs => { const { l, m } = xs[0];
         return { key: l.lev, cid: l.cid, kunde: l.kunde, maskine: kortNavn(m) + (xs.length > 1 ? ` +${xs.length - 1}` : ""), tal: `${kr(reparationer(l))} reparationer`, detaljer: xs.flatMap(x => maskinDetaljer(x.l, x.m)).filter((d, i, a) => a.indexOf(d) === i) }; }) },
     { id: "service", titel: "Serviceaftale-muligheder", forklaring: "Kundeejede maskiner uden serviceaftale",
       raekker: h.kundeejet.map(({ l, m }) => ({ key: `${l.lev}-${m.id}`, cid: l.cid, kunde: l.kunde, maskine: kortNavn(m), tal: alder(m) ?? undefined, detaljer: maskinDetaljer(l, m) })) },
