@@ -402,6 +402,36 @@ export type Database = {
         }
         Relationships: []
       }
+      bonus_historik_loenseddel: {
+        Row: {
+          importeret_af: string | null
+          importeret_at: string
+          loen_1561: number
+          loen_1563: number
+          loenseddel_maaned: string
+          maaned: string
+          user_id: string
+        }
+        Insert: {
+          importeret_af?: string | null
+          importeret_at?: string
+          loen_1561?: number
+          loen_1563?: number
+          loenseddel_maaned: string
+          maaned: string
+          user_id: string
+        }
+        Update: {
+          importeret_af?: string | null
+          importeret_at?: string
+          loen_1561?: number
+          loen_1563?: number
+          loenseddel_maaned?: string
+          maaned?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bonus_laas: {
         Row: {
           antal_animo: number | null
@@ -410,6 +440,7 @@ export type Database = {
           db_bonus: number | null
           db_grundlag: number | null
           db_provision_pct: number | null
+          kilde: string
           laast_af: string | null
           laast_at: string
           laast_note: string | null
@@ -433,6 +464,7 @@ export type Database = {
           db_bonus?: number | null
           db_grundlag?: number | null
           db_provision_pct?: number | null
+          kilde?: string
           laast_af?: string | null
           laast_at?: string
           laast_note?: string | null
@@ -456,6 +488,7 @@ export type Database = {
           db_bonus?: number | null
           db_grundlag?: number | null
           db_provision_pct?: number | null
+          kilde?: string
           laast_af?: string | null
           laast_at?: string
           laast_note?: string | null
@@ -5344,6 +5377,10 @@ export type Database = {
           navn: string
           omsaetning: number
         }[]
+      }
+      bonus_historik_genetabler: {
+        Args: { _maaned: string; _user_id: string }
+        Returns: undefined
       }
       bonus_laas_afslut: {
         Args: { _maaned: string; _note?: string }
