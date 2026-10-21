@@ -21,4 +21,4 @@
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
 - Read nested AGENTS.md; bonus competition shows seller totals only.
 - Company mobile master data reuses the desktop content in More; machine metrics use one Locations callback — to keep presentation consistent.
-- Machine bonus reads cached seller/month rows; changes queue keys, imports drain, reviews refresh. Locked bonus_laas snapshots stay separate from live reconciliation. Equal-distance orders use order number.
+- Machine bonus reads cached seller/month rows; changes queue keys, imports drain, reviews refresh. Locked bonus_laas snapshots stay separate from live reconciliation.
