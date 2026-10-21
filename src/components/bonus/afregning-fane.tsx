@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, Download, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
-import { laasBonusSaelger } from "@/lib/bonus-afregning.functions";
+import { hentLoenfilGrundlag, laasBonusSaelger, LOENFIL_SPAERRET } from "@/lib/bonus-afregning.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { LaasMaskinAdvarsel, MaskinVurderingKort } from "./maskin-vurdering";
 import { loenartGrundlag, loenfilRaekker, tidligLaasning } from "@/lib/bonus-afregning";
 
@@ -191,8 +192,13 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
     toast.success("Lønnr. gemt"); qc.invalidateQueries({ queryKey: ["afregning-saelgere"] });
   };
 
-  const hentLoenfil = (type: "xlsx" | "csv") => {
-    const data = loenfilRaekker(maaned, rows.map((r) => ({ navn: r.navn, loennr: r.loennr, loen_1561: r.loen_1561, loen_1563: r.loen_1563 })));
+  const hentGrundlag = useServerFn(hentLoenfilGrundlag);
+  const kunHistorisk = historiskMaaned && laasRows.every((l: any) => l.kilde === "loenseddel");
+  const hentLoenfil = async (type: "xlsx" | "csv") => {
+    let grundlag;
+    try { grundlag = await hentGrundlag({ data: { maaned: m1 } }); }
+    catch (e) { toast.error((e as Error).message); return; }
+    const data = loenfilRaekker(maaned, grundlag);
     const filnavn = `loenfil-bonus-${maaned}`;
     if (type === "xlsx") {
       // Date som rigtig dato-celle (dd-mm-åååå), ikke tekst.
@@ -230,8 +236,12 @@ export function AfregningFane({ onVisSaelger }: { onVisSaelger: (id: string) => 
           ) : (
             <Button size="sm" onClick={() => setLaasOpen(true)} disabled={maaned > sidsteHele}><Lock className="h-4 w-4 mr-2" />{delvis ? `Fortsæt låsning af ${navnM(maaned)}` : `Lås ${navnM(maaned)}`}</Button>
           )}
+          {kunHistorisk ? (
+            <Button variant="outline" size="sm" disabled><Lock className="h-4 w-4 mr-2" />{LOENFIL_SPAERRET}</Button>
+          ) : <>
           <Button variant="outline" size="sm" disabled={!faerdigLaast} title={faerdigLaast ? undefined : "Lønfilen kan kun hentes for låste måneder"} onClick={() => hentLoenfil("xlsx")}><Download className="h-4 w-4 mr-2" />Hent lønfil (xlsx)</Button>
           <Button variant="outline" size="sm" disabled={!faerdigLaast} onClick={() => hentLoenfil("csv")}><Download className="h-4 w-4 mr-2" />CSV</Button>
+          </>}
         </div>
       </div>
 
