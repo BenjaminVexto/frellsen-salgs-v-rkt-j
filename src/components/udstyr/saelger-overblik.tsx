@@ -44,7 +44,7 @@ export function SaelgerOverblik({ lok, satser, maaneder }: { lok: LokRegnskab[];
         {lister.map(x => <div key={x.titel} className="min-w-0">
           <div className="mb-2 flex items-start justify-between gap-2"><h3 className="text-sm font-semibold">{x.titel}</h3><span className="text-xs tabular-nums text-muted-foreground">{kr(x.raekker.length)}</span></div>
           <div className="divide-y rounded-md border bg-card">
-            {x.raekker.slice(0, 10).map((r, i) => <Kunde key={`${r.l.lev}-${r.m?.id}-${i}`} r={r} />)}
+            {x.raekker.filter((r, i, a) => a.findIndex(v => v.l.cid === r.l.cid) === i).slice(0, 10).map((r, i) => <Kunde key={`${r.l.lev}-${r.m?.id}-${i}`} r={r} />)}
             {!x.raekker.length && <p className="p-4 text-sm text-muted-foreground">Ingen kunder i denne liste.</p>}
           </div>
           {!!x.raekker.length && <Button variant="ghost" className="mt-1 w-full justify-between" onClick={() => setListe(x)}>Vis alle ({kr(x.raekker.length)})<ChevronRight className="h-4 w-4" /></Button>}
@@ -54,12 +54,12 @@ export function SaelgerOverblik({ lok, satser, maaneder }: { lok: LokRegnskab[];
     <section aria-label="Mine maskiner">
       <h2 className="mb-3 text-lg font-semibold">Mine maskiner</h2>
       <table className="w-full table-fixed text-sm">
-        <colgroup><col className="w-[40%]" /><col className="w-[15%]" /><col className="w-[20%]" /><col className="w-[25%]" /></colgroup>
-        <thead><tr className="border-b text-xs text-muted-foreground"><th className="py-3 text-left">Maskintype</th><th className="text-right">Antal</th><th className="text-right">Heraf udlån</th><th className="text-right">Netto pr. år</th></tr></thead>
+        <colgroup><col className="w-[36%]" /><col className="w-[14%]" /><col className="w-[20%]" /><col className="w-[30%]" /></colgroup>
+        <thead><tr className="border-b text-xs text-muted-foreground"><th className="py-3 text-left">Maskintype</th><th className="px-1 text-right">Antal</th><th className="px-1 text-right">Heraf<br className="md:hidden" /> udlån</th><th className="pl-2 text-right">{maaneder === 12 ? "Netto pr. år" : "Netto i perioden"}</th></tr></thead>
         <tbody>{TYPER.filter(t => maskiner.some(x => x.m.t === t)).map(t => {
           const ms = maskiner.filter(x => x.m.t === t);
           const netto = lok.reduce((a, l) => a + (l.lt[t] ?? 0), 0) - ms.reduce((a, x) => a + x.m.belastning, 0);
-          return <tr key={t} className="border-b"><td className="py-3 pr-2"><Button variant="link" className="h-auto whitespace-normal p-0 text-left" onClick={() => setListe({ titel: t, raekker: ms })}>{t}</Button></td><td className="text-right tabular-nums">{kr(ms.length)}</td><td className="text-right tabular-nums">{kr(ms.filter(x => x.m.u === 4).length)}</td><td className={`text-right tabular-nums ${netto < 0 ? "text-destructive" : ""}`}>{kr(netto * 12 / maaneder)} kr.</td></tr>;
+          return <tr key={t} className="cursor-pointer border-b hover:bg-muted/40" onClick={() => setListe({ titel: t, raekker: ms })}><td className="py-3 pr-2"><Button variant="link" className="h-auto whitespace-normal p-0 text-left" onClick={e => { e.stopPropagation(); setListe({ titel: t, raekker: ms }); }}>{t}</Button></td><td className="px-1 text-right tabular-nums">{kr(ms.length)}</td><td className="px-1 text-right tabular-nums">{kr(ms.filter(x => x.m.u === 4).length)}</td><td className={`pl-2 text-right tabular-nums ${netto < 0 ? "text-destructive" : ""}`}>{kr(netto)} kr.</td></tr>;
         })}</tbody>
       </table>
     </section>
