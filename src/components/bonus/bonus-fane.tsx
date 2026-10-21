@@ -48,7 +48,16 @@ type Rk = {
   samlet_bonus: number;
   laast_at?: string | null;
   maskiner?: any[] | null;
+  antal_kalerm?: number;
+  antal_espresso?: number;
+  antal_brugt?: number;
+  /** Låst fra lønseddel: db_bonus = Provision I (1561), maskinbonus = Provision II (1563). */
+  historisk?: boolean;
+  /** Kun admin: CRM'ets beregning af en historisk måned — kun til sammenligning. */
+  beregnet?: Rk | null;
 };
+
+const HISTORISK_TEKST = "Historisk udbetaling jf. lønseddel – detaljer findes ikke";
 
 /**
  * Bonus pr. måned. Satserne hentes fra den ordning der gælder netop den måned,
@@ -57,6 +66,7 @@ type Rk = {
 export function BonusFane({ saelgerId }: { saelgerId: string }) {
   const auth = useAuth();
   const afd = useAfdeling();
+  const erAdmin = auth.role === "admin";
 
   const now = new Date();
   const curM = mKey(now.getUTCFullYear(), now.getUTCMonth());
@@ -105,6 +115,9 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
         ny_kunde_rang: r.ny_kunde_rang == null ? null : Number(r.ny_kunde_rang),
         ny_kunde_bonus: Number(r.ny_kunde_bonus) || 0,
         samlet_bonus: Number(r.samlet_bonus) || 0,
+        antal_kalerm: Number(r.antal_kalerm) || 0,
+        antal_espresso: Number(r.antal_espresso) || 0,
+        antal_brugt: Number(r.antal_brugt) || 0,
       })) as Rk[];
     },
   });
@@ -137,6 +150,15 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
   const rows = useMemo(() => (q.data ?? []).map((r): Rk => {
     const l = (laasQ.data ?? []).find((x) => String(x.maaned).slice(0, 7) === r.maaned);
     if (!l) return r;
+    if ((l as any).kilde === "loenseddel") {
+      const p1 = Number(l.loen_1561) || 0, p2 = Number(l.loen_1563) || 0;
+      return {
+        maaned: r.maaned, ordning_id: l.ordning_id ?? r.ordning_id, db_grundlag: 0, db_provision_pct: 0,
+        db_bonus: p1, antal_wittenborg: 0, antal_animo: 0, antal_rex: 0, maskinbonus: p2,
+        ny_kunde_db: null, ny_kunde_rang: null, ny_kunde_bonus: 0, samlet_bonus: p1 + p2,
+        laast_at: l.laast_at, maskiner: null, historisk: true, beregnet: erAdmin ? r : null,
+      };
+    }
     return {
       ...r, ordning_id: l.ordning_id, db_grundlag: Number(l.db_grundlag), db_provision_pct: Number(l.db_provision_pct),
       db_bonus: Number(l.db_bonus), antal_wittenborg: Number(l.antal_wittenborg), antal_animo: Number(l.antal_animo),
@@ -145,7 +167,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
       ny_kunde_bonus: Number(l.ny_kunde_bonus), samlet_bonus: Number(l.samlet_bonus),
       laast_at: l.laast_at, maskiner: Array.isArray(l.maskiner) ? (l.maskiner as any[]) : [],
     };
-  }), [q.data, laasQ.data]);
+  }), [q.data, laasQ.data, erAdmin]);
   const brugteOrdninger = useMemo(() => {
     const ids = new Set(rows.map((r) => r.ordning_id).filter(Boolean) as string[]);
     return (ordningerQ.data ?? []).filter((o) => ids.has(o.id));
@@ -157,7 +179,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
     const idag = new Date().toISOString().slice(0, 10);
     return alle.filter((o) => o.gyldig_fra <= idag && (!o.gyldig_til || o.gyldig_til >= idag)).at(-1) ?? alle.at(-1) ?? null;
   }, [ordningerQ.data]);
-  const manglerOrdning = rows.filter((r) => !r.ordning_id).map((r) => r.maaned);
+  const manglerOrdning = rows.filter((r) => !r.ordning_id && !r.historisk).map((r) => r.maaned);
 
   const total = useMemo(
     () =>
@@ -204,7 +226,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
     rows.forEach((r) =>
       lines.push(
         [
-          maanedNavn(r.maaned) + (r.ordning_id ? "" : " (ingen ordning)"),
+          maanedNavn(r.maaned) + (r.historisk ? " (historisk jf. lønseddel)" : r.ordning_id ? "" : " (ingen ordning)"),
           num(r.db_grundlag),
           num(r.db_provision_pct, 2),
           num(r.db_bonus),
@@ -262,6 +284,7 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
         Optjent bonus pr. hel måned — afdeling 11. Satserne følger den bonusordning, der gjaldt i
         netop den måned.
       </p>
+      <p className="text-sm">Bonus for en måned udbetales med lønnen pr. sidste dag i den følgende måned.</p>
 
       <div className="flex flex-wrap items-center gap-2">
         <Popover>
@@ -343,7 +366,9 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {rows.map((r) => r.historisk ? (
+                  <HistoriskRaekke key={r.maaned} r={r} onMaskiner={(f) => r.beregnet && aabn(r.beregnet, "maskiner", f)} />
+                ) : (
                   <tr key={r.maaned} className="border-b last:border-0">
                     <td className="py-1.5 pr-3 whitespace-nowrap">
                       <Button
@@ -412,7 +437,15 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
         )}
 
         {!q.isLoading && !q.error && <div className="md:hidden divide-y">
-          {rows.map((r) => <article key={r.maaned} className="py-4 space-y-3">
+          {rows.map((r) => r.historisk ? <article key={r.maaned} className="py-4 space-y-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"><h3 className="font-medium">{maanedNavn(r.maaned)}{r.laast_at && <LaasIkon dato={r.laast_at} />}</h3><span className="font-semibold tabular-nums">{fmtTal(r.samlet_bonus, 2)} kr.</span></div>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <div><dt className="text-xs text-muted-foreground">Provision I (DB-provision)</dt><dd className="tabular-nums">{fmtTal(r.db_bonus, 2)} kr.</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Provision II (maskiner m.m.)</dt><dd className="tabular-nums">{fmtTal(r.maskinbonus, 2)} kr.</dd></div>
+            </dl>
+            <p className="text-xs text-muted-foreground">{HISTORISK_TEKST}</p>
+            {r.beregnet && <BeregnetLinje r={r} onMaskiner={(f) => aabn(r.beregnet!, "maskiner", f)} />}
+          </article> : <article key={r.maaned} className="py-4 space-y-3">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"><h3 className="font-medium">{maanedNavn(r.maaned)}{r.laast_at && <LaasIkon dato={r.laast_at} />}</h3><span className="font-semibold tabular-nums">{fmtTal(r.samlet_bonus)} kr.</span></div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <div><dt className="text-xs text-muted-foreground">DB-grundlag</dt><dd><Button variant="link" className={klik} onClick={() => aabn(r, "db")}>{fmtTal(r.db_grundlag)} kr.</Button></dd></div>
@@ -437,6 +470,48 @@ export function BonusFane({ saelgerId }: { saelgerId: string }) {
       <BonusDetaljer key={`${saelgerId}-${drill?.maaned}-${drill?.visning}-${drill?.filter}`} saelgerId={saelgerId} drill={drill} onClose={() => setDrill(null)} onRegler={() => aabnRegler("maskiner")} />
       <MaskinbonusBoks />
       <BonusRegler open={regler !== null} afsnit={regler ?? "top"} ordning={aktuelOrdning} onOpenChange={(o) => { if (!o) setRegler(null); }} />
+    </div>
+  );
+}
+
+/** Historisk måned på computer: kun Provision I, II og I alt (+ admins sammenligning). */
+function HistoriskRaekke({ r, onMaskiner }: { r: Rk; onMaskiner: (f: MaskinFilter) => void }) {
+  return (
+    <>
+      <tr className={r.beregnet ? "" : "border-b last:border-0"}>
+        <td className="py-1.5 pr-3 whitespace-nowrap">{maanedNavn(r.maaned)}{r.laast_at && <LaasIkon dato={r.laast_at} />}</td>
+        <td colSpan={2} className="py-1.5 px-2 text-xs text-muted-foreground">{HISTORISK_TEKST}</td>
+        <td className="text-right py-1.5 px-2" title="Provision I (DB-provision)">{fmtTal(r.db_bonus, 2)}</td>
+        <td colSpan={3} className="py-1.5 px-2 text-xs text-muted-foreground text-center">Provision I · Provision II</td>
+        <td className="text-right py-1.5 px-2" title="Provision II (maskiner m.m.)">{fmtTal(r.maskinbonus, 2)}</td>
+        <td className="text-right py-1.5 px-2">—</td>
+        <td className="text-right py-1.5 pl-3 font-semibold">{fmtTal(r.samlet_bonus, 2)}</td>
+      </tr>
+      {r.beregnet && <tr className="border-b last:border-0"><td colSpan={10} className="pb-2 pt-0"><BeregnetLinje r={r} onMaskiner={onMaskiner} /></td></tr>}
+    </>
+  );
+}
+
+/** Kun admin: CRM'ets beregning af en historisk måned — vises, men bruges aldrig til udbetaling. */
+function BeregnetLinje({ r, onMaskiner }: { r: Rk; onMaskiner: (f: MaskinFilter) => void }) {
+  const b = r.beregnet!;
+  const forskel = r.samlet_bonus - b.samlet_bonus;
+  const typer: [string, number, MaskinFilter][] = [
+    ["W", b.antal_wittenborg, "wittenborg"], ["A", b.antal_animo, "animo"], ["R", b.antal_rex, "rex"],
+    ["K", b.antal_kalerm ?? 0, "alle"], ["E", b.antal_espresso ?? 0, "alle"], ["Brugt", b.antal_brugt ?? 0, "alle"],
+  ];
+  return (
+    <div className="rounded-md bg-muted/50 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1 tabular-nums">
+      <span className="font-medium">Beregnet (kun sammenligning):</span>
+      <span>DB-provision {fmtTal(b.db_bonus, 2)}</span>
+      <span>Maskinbonus {fmtTal(b.maskinbonus, 2)}</span>
+      <span>I alt {fmtTal(b.samlet_bonus, 2)}</span>
+      <span className={forskel === 0 ? "" : "font-medium"}>Forskel {fmtTal(forskel, 2)}</span>
+      <span className="font-semibold">Maskiner:</span>
+      {typer.map(([l, n, f]) => (
+        <Button key={l} variant="link" className="h-auto min-h-8 p-0 text-xs font-semibold text-foreground" onClick={() => onMaskiner(f)}>{l} {fmtTal(n)}</Button>
+      ))}
+      <Button variant="link" className="h-auto min-h-8 p-0 text-xs" onClick={() => onMaskiner("alle")}>Vis maskinliste</Button>
     </div>
   );
 }
