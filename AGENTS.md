@@ -6,20 +6,21 @@
 - Address/group data come live from CVR Elasticsearch (virksomhed + produktionsenhed) merged with cvr_penheder; name search with by/zip also searches the P-enhed index.
 - P-enheder link via location_pnr_link; auto-link only on exact normalized street/no.+zip; near matches only suggested; 'indirekte' counts as covered — uncertain matches never auto-link.
 - P-enhed sync: continuous queue — cvr_penhed_sync_status per CVR; queue_penhed_sync_naeste (cron 10 min) adds one 25-CVR job if idle; worker registers per CVR; penhed_sync_prioriter jumps queue; candidates exclude offentlig/intern/nyt_emne.
-- Activities sort by trigger-validated udfoert_at (max 14 days back); created_at stays registration time.
+- Activities sort by trigger-validated udfoert_at (≤14 days back).
 - Machine placement lives in maskine_placering per serial no.; import writes only via import_maskine_placering (ignores blanks, never overwrites CRM input) — so user input survives imports.
 - Fakturajournalens DB 0-linjer udledes pr. kunde mod Vismas summeringslinje (src/lib/invoice-db-udledning.ts, invoice_lines.db_kilde, invoice_db_afstemning) — never a general 'DB 0 = 100 %' rule, because real DB-0 sales (machines) exist.
-- Salgskort is an admin-only tab (?fane=salgskort) in Min salgsstatistik; /admin/salgskort only redirects — because the map belongs with the sales statistics.
+- Salgskort is an admin-only tab (?fane=salgskort) in Min salgsstatistik; /admin/salgskort only redirects.
 - Distriktsscenarier (distrikt_scenarie, scenarie_distrikt, scenarie_flade, scenarie_saelger) are edited only in Salgskort → Simulering; the current map (distrikter/distrikt_flade) changes only via scenarie_gor_gaeldende, which first archives the old map as a scenario — so the current map can always be restored.
 - Simulation assignment rules (scenarie_regel) are evaluated client-side in src/lib/simulering-regler.ts (Frellsen → KAM → assign → geography → exclude) — so the order is tested in one place.
 - KAM-aftaler (kam_aftale/scenarie_kam) match on separate kpg1/kpg2/kpg3 lists (OR) plus optional omraade; kodetype/koder are deprecated, and scenarie_gor_gaeldende creates/updates/deletes kam_aftale from the scenario.
 - Telemarketing (role `telemarketing`) is locked out in the DB: every public table gets a RESTRICTIVE policy `tm_spaerret` USING/WITH CHECK (NOT (SELECT er_telemarketing())) — except contact_lists, contact_list_assignments, kontaktliste_ringer, kontaktliste_opkald. NEW TABLES MUST GET THIS POLICY. All server functions use `kraevIntern` middleware (src/lib/kraev-intern.ts), never bare requireSupabaseAuth; views must be security_invoker; the PostgREST pre-request `tm_pre_request` only lets telemarketing call the tm_* RPCs (add new agency RPCs to its allowlist). Agency data flows only through tm_virksomheder/tm_registrer_opkald/tm_gem_kontakt, which require a kontaktliste_ringer row — so a forgotten policy cannot leak sales data.
 - CVR-emnesøgning filtrerer ansatte/telefon/postnr i ES (src/lib/cvr-bulk-query.ts, nyeste måned→kvartal→år) og pager med search_after på cvrNummer; 'findes i CRM' afgøres kun af cvr_match_crm — ~40 % lack CVR.
 - Reads that can exceed 1,000 rows page via `hentAlle` (src/lib/hent-alle.ts), and postcode → district seller is resolved only in SQL (`_distrikt_saelger` and its wrappers) — because PostgREST silently caps responses at 1,000 rows.
-- CVR director contacts are created only for CVR-imported nyt_emne companies via src/lib/cvr-direktoer.ts, run as `cvr_direktoer_job` batches — so existing customers' contacts are never touched.
+- CVR director contacts: only for CVR-imported nyt_emne companies (src/lib/cvr-direktoer.ts, cvr_direktoer_job) — existing contacts never touched.
 - Contact-list status comes only from the latest outcome via SQL `registrer_udfald` (logs to kontaktliste_opkald); udfald 'note' never changes status or counts as a call; labels/stats in src/lib/telemarketing.ts — so status and statistics cannot drift apart.
 - CVR groups (accounts sharing cvr_norm) are an overlay only: SQL cvr_grupper/cvr_gruppe_konti/cvr_penhed_oversigt; per-account sales only where _maa_se_kontosalg — so sellers see other sellers' accounts but only group totals.
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
 - Read nested AGENTS.md; bonus competition shows seller totals only.
-- Company mobile master data reuses the desktop content in More; machine metrics use one Locations callback — to keep presentation consistent.
+- Company mobile reuses desktop master data in More; one Locations callback for machine metrics.
 - Machine bonus reads cached seller/month rows; changes queue keys, imports drain, reviews refresh. Locked bonus_laas snapshots stay separate from live reconciliation.
+- Maskiner & Service reads only precomputed udstyr_*_maaned (trigger-queued, drained on invoice import) via udstyr_grundlag; allocation in src/lib/udstyr.ts — never scans invoices.

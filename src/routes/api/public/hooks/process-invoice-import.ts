@@ -257,6 +257,12 @@ export const Route = createFileRoute("/api/public/hooks/process-invoice-import")
               if (bonusError) throw new Error("Maskinbonus kunne ikke opdateres: " + bonusError.message);
               if (!refreshed || refreshed < 20) break;
             }
+            // Maskiner & Service: genberegn de måneder, importen har ændret.
+            for (let i = 0; i < 10; i++) {
+              const { data: n, error: udErr } = await (supabaseAdmin as any).rpc("udstyr_toem_ko", { _maks: 6 });
+              if (udErr) { console.error("[invoice-import] udstyr_toem_ko fejlede:", udErr); break; }
+              if (!n || n < 6) break;
+            }
             // Ryd chunk-filerne op.
             const linesCount = Math.ceil((job.total_lines ?? 0) / LINES_CHUNK_SIZE);
             const allChunks: string[] = [];
