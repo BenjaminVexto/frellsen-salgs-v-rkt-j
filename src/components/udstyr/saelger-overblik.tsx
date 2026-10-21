@@ -11,7 +11,7 @@ import {
 
 const kr = (n: number) => `${Math.round(n).toLocaleString("da-DK")} kr.`;
 const antal = (n: number) => n.toLocaleString("da-DK");
-const alder = (m: GrundMaskine) => m.o ? `${Math.max(0, Math.floor(alderAar(m.o) ?? 0))} år` : null;
+const alder = (m: GrundMaskine) => { const a = Math.floor(alderAar(m.o) ?? 0); return a >= 1 ? `${a} år` : null; };
 /** Kort maskinnavn: de første ord uden varenumre/teknik. */
 export const kortNavn = (m: GrundMaskine) => {
   const ord = (m.b ?? m.t).split(/[,(/]/)[0].split(/\s+/).filter(w => w && !/^\d{4,}$/.test(w) && !/^\d+v$/i.test(w));
@@ -45,7 +45,8 @@ export function SaelgerOverblik({ lok, satser, maaneder }: { lok: LokRegnskab[];
         ],
       })) },
     { id: "udskift", titel: "Udskiftning", forklaring: "Maskiner med store reparationsomkostninger – mulighed for en ny maskine",
-      raekker: h.udskift.map(({ l, m }) => ({ key: `${l.lev}-${m.id}`, cid: l.cid, kunde: l.kunde, maskine: kortNavn(m), tal: `${kr(reparationer(l))} reparationer`, detaljer: maskinDetaljer(l, m) })) },
+      raekker: [...Map.groupBy(h.udskift, x => x.l.lev).values()].map(xs => { const { l, m } = xs[0];
+        return { key: l.lev, cid: l.cid, kunde: l.kunde, maskine: kortNavn(m) + (xs.length > 1 ? ` +${xs.length - 1}` : ""), tal: `${kr(reparationer(l))} reparationer`, detaljer: xs.flatMap(x => maskinDetaljer(x.l, x.m)).filter((d, i, a) => a.indexOf(d) === i) }; }) },
     { id: "service", titel: "Serviceaftale-muligheder", forklaring: "Kundeejede maskiner uden serviceaftale",
       raekker: h.kundeejet.map(({ l, m }) => ({ key: `${l.lev}-${m.id}`, cid: l.cid, kunde: l.kunde, maskine: kortNavn(m), tal: alder(m) ?? undefined, detaljer: maskinDetaljer(l, m) })) },
   ];
@@ -104,7 +105,7 @@ function KundeRaekke({ r }: { r: Raekke }) {
   const [aaben, setAaben] = useState(false);
   return <div className="min-w-0">
     <button type="button" aria-expanded={aaben} onClick={() => setAaben(!aaben)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/40">
-      <span className="min-w-0 flex-1 truncate"><span className="text-sm font-semibold">{r.kunde}</span><span className="text-[13px] text-muted-foreground"> · {r.maskine}</span></span>
+      <span className="line-clamp-2 min-w-0 flex-1"><span className="text-sm font-semibold">{r.kunde}</span><span className="text-[13px] text-muted-foreground"> · {r.maskine}</span></span>
       {r.tal && <span className={`shrink-0 text-sm tabular-nums ${r.negativ ? "text-destructive" : ""}`}>{r.tal}</span>}
       {aaben ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
     </button>
