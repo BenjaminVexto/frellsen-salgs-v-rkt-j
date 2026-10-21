@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
 import { SaelgerOverblik } from "./saelger-overblik";
+import { Datafejl } from "./datafejl";
 import { getSellerOptions } from "@/lib/portfolio.functions";
 import { dekomprimerJson } from "@/lib/komprimer-json";
 import {
@@ -27,6 +28,7 @@ import {
 } from "@/lib/udstyr";
 
 const kr = (n: number) => Math.round(n).toLocaleString("da-DK");
+void Handlingsliste;
 const ALLE = "__alle__";
 
 export const FORDELT_TEKST =
@@ -123,7 +125,7 @@ export function MaskinerService() {
               </AdminSektion>
               <AdminSektion titel="Serviceregnskab"><Serviceaftaler lok={lok} setDrill={setDrill} /></AdminSektion>
               <AdminSektion titel="Lokationsregnskab"><Lokationsregnskab lok={lok} maaneder={maaneder} setDrill={setDrill} /></AdminSektion>
-              <AdminSektion titel="Datafejl"><Handlingsliste lok={lok} satser={satser} erAdmin={erAdmin} setDrill={setDrill} /><LejeUdenBonusklasse /></AdminSektion>
+              <AdminSektion titel="Datafejl"><Datafejl lok={lok} satser={satser} /><LejeUdenBonusklasse /></AdminSektion>
             </div>}
           </>
         )}
@@ -375,10 +377,10 @@ function Lokationsregnskab({ lok, maaneder, setDrill }: { lok: LokRegnskab[]; ma
 }
 
 function VirkRaekker({ v, aaben, onSkift }: { v: VirkRegnskab; aaben: boolean; onSkift: () => void; maaneder: number }) {
-  const T = ({ x }: { x: number }) => <td className="text-right"><Tal v={x} /></td>;
+  const T = ({ x }: { x: number }) => <td className="text-right"><Tal v={x} rød={false} /></td>;
   return (
     <>
-      <tr className={`border-b ${v.dbInkl < 0 ? "bg-destructive/5" : ""}`}>
+      <tr className="border-b">
         <td className="py-1.5">
           <button type="button" onClick={onSkift} className="inline-flex items-center gap-1 text-left" aria-expanded={aaben}>
             {aaben ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -440,12 +442,12 @@ function LokTabel({ raekker, maaneder, visFornyelse, onLinjer }: { raekker: LokR
             {rows.map((l) => {
               const d = udlaanDaekning(l, maaneder);
               return (
-                <tr key={l.lev} className={`border-b ${l.dbInkl < 0 ? "bg-destructive/5" : ""}`}>
+                <tr key={l.lev} className="border-b">
                   <td className="py-1.5"><Link to="/virksomheder/$id" params={{ id: l.cid }} className="font-medium hover:underline">{l.kunde}</Link>
                     <div className="text-xs text-muted-foreground">{l.adr} · {l.lev}</div></td>
                   <td className="text-right tabular-nums">{l.maskiner.length}</td>
-                  <td className="text-right"><Tal v={l.vdb} /></td><td className="text-right"><Tal v={l.leje} /></td>
-                  <td className="text-right"><Tal v={l.serviceNetto} /></td><td className="text-right"><Tal v={-l.belastningIalt} /></td>
+                  <td className="text-right"><Tal v={l.vdb} rød={false} /></td><td className="text-right"><Tal v={l.leje} rød={false} /></td>
+                  <td className="text-right"><Tal v={l.serviceNetto} rød={false} /></td><td className="text-right"><Tal v={-l.belastningIalt} rød={false} /></td>
                   <td className="text-right font-medium"><Tal v={l.dbInkl} /></td>
                   <td className="text-right text-xs tabular-nums">{d ? <span title={`Kaffe-DB ${kr(d.kaffeDb)} kr./md. pr. maskine mod omkostning ${kr(d.omk)} kr./md.`} className={d.pct != null && d.pct < 1 ? "text-destructive" : ""}>{d.pct != null ? `${Math.round(d.pct * 100)} %` : "–"}</span> : "–"}</td>
                   {visFornyelse && <td className="text-right text-xs">{maanedNavn(l.fornyelse)}</td>}
