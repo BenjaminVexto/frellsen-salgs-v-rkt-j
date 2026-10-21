@@ -355,8 +355,49 @@ export const cvrLookup = createServerFn({ method: "POST" })
           .map((h: any) => h?._source?.Vrvirksomhed)
           .filter(Boolean)
           .map(mapVirksomhed);
+
+        // Når by/postnummer er angivet, søg også i P-enheds-indekset —
+        // en afdeling kan ligge på den søgte adresse, selvom hovedsædet ikke gør.
+        if (location) {
+          try {
+            const penhedHits = await searchPenheder(nameQuery, location, isPostalCode, data.size ?? 10);
+            if (penhedHits.length) {
+              const cvrs = Array.from(new Set(penhedHits.map((p) => p.cvr)));
+              const vJson = await callCvr({
+                _source: SOURCE_FIELDS,
+                query: { terms: { "Vrvirksomhed.cvrNummer": cvrs } },
+                size: cvrs.length,
+              });
+              const vByCvr = new Map<string, any>();
+              for (const h of vJson?.hits?.hits ?? []) {
+                const v = h?._source?.Vrvirksomhed;
+                if (v?.cvrNummer != null) vByCvr.set(String(v.cvrNummer), v);
+              }
+              // Dedup på CVR + P-nr.
+              const seen = new Set<string>();
+              for (const p of penhedHits) {
+                const key = `${p.cvr}:${p.p_number}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const v = vByCvr.get(p.cvr);
+                if (!v) continue;
+                const mapped = mapVirksomhed(v);
+                mapped.address = p.address;
+                mapped.zip = p.zip;
+                mapped.city = p.city;
+                mapped.p_number = p.p_number;
+                mapped.penhed_name = p.name;
+                companies.push(mapped);
+              }
+            }
+          } catch (e) {
+            // P-enheds-søgning må aldrig ødelægge hovedsøgningen
+            console.error("P-enheds-søgning fejlede:", (e as any)?.message ?? e);
+          }
+        }
+
         if (!companies.length) return { success: false, error: "NOT_FOUND" };
-        return { success: true, data: companies };
+        return { success: true, data: companies.slice(0, data.size ?? 10) };
       }
 
       // --- BULK ---
