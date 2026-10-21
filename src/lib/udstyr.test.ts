@@ -92,3 +92,30 @@ describe("filtre og kundeejede", () => {
     expect(varekoebAndetSted(base, v)).toBe(true);
   });
 });
+
+describe("kundeejede servicemodeller i visningen", () => {
+  const grundlag = (b: string, u = 0) => ({ erAdmin: true, lok: [], mk: [{ ...mk("e:1", "Andet", u), b }] });
+  it("genkender Wittenborg-modeller uden mærkenavn", () => {
+    for (const b of ["9100 B2C", "9000 R&G", "95 B2C", "7100, Plus FB", "W100 Core B2C", "FB7100 MAXI"]) {
+      expect(serviceVisningsGrundlag(grundlag(b)).mk[0].t).toBe("Wittenborg");
+    }
+  });
+  it("vandudstyr klassificeres som Vandkøler", () => {
+    for (const b of ["Borg og Overström", "Hi-Class 30L Still", "H2OMY TOP 15L CO2"]) {
+      expect(serviceVisningsGrundlag(grundlag(b)).mk[0].t).toBe("Vandkøler");
+    }
+  });
+  it("filterhoveder flyttes til filteraftaler", () => {
+    expect(serviceVisningsGrundlag(grundlag("Filterhoved Purity")).mk[0].t).toBe("Brita-filtre");
+  });
+  it("ændrer ikke Frellsen-maskiner eller økonomiberegninger", () => {
+    const g = grundlag("9100 B2C", 3);
+    expect(serviceVisningsGrundlag(g).mk).toEqual(g.mk);
+    const g2 = { erAdmin: true, mk: grundlag("9100 B2C").mk, lok: [{ lev: "1", id: "l", cid: "c", kunde: "K", adr: "", leje: 1000, bel: -1200, si: 500, ak: 100, mo: -200, rd: -100, pa: -50, vdb: 3000, vmd: 1, fm: null, lt: {} }] };
+    const foer = beregnLokationer(g2, 12, STANDARD_SATSER)[0];
+    const efter = beregnLokationer(serviceVisningsGrundlag(g2), 12, STANDARD_SATSER)[0];
+    expect(efter.dbInkl).toBe(foer.dbInkl);
+    expect(efter.lejeNetto).toBe(foer.lejeNetto);
+    expect(efter.serviceNetto).toBe(foer.serviceNetto);
+  });
+});
