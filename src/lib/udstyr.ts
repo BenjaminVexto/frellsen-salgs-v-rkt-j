@@ -40,7 +40,7 @@ export const BRYG = "Bravilor/Bonamat og bryggere";
 export const BRITA = "Brita-filtre";
 
 /** Brita-filtre og andre filterhoveder: hører kun til service-regnskabet, ikke Maskinoversigten. */
-export const erFilter = (m: { t: string; b: string | null }) => m.t === BRITA || /filter/i.test(m.b ?? "");
+export const erFilter = (m: { t: string; b: string | null }) => m.t === BRITA || /(brita|filter|purity)/i.test(m.b ?? "");
 
 export const UDLAAN_LABEL: Record<number, string> = {
   0: "Kundeejet", 3: "Leje/leasing", 4: "Udlån", 5: "Leje u/b", 6: "Midlertidigt udlån", 7: "Bytteservice", 8: "Prøveopsætning",
