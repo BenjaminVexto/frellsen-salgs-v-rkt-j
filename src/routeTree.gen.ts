@@ -21,6 +21,7 @@ import { Route as AuthenticatedAfdelingspotentialeRouteImport } from './routes/_
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedKonkurrenterRouteImport } from './routes/_authenticated/konkurrenter'
 import { Route as AuthenticatedKontaktlisterRouteImport } from './routes/_authenticated/kontaktlister'
+import { Route as AuthenticatedMaskinerServiceRouteImport } from './routes/_authenticated/maskiner-service'
 import { Route as AuthenticatedMinPortefoeljeRouteImport } from './routes/_authenticated/min-portefoelje'
 import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
 import { Route as AuthenticatedTeSortimentRouteImport } from './routes/_authenticated/te-sortiment'
@@ -127,6 +128,12 @@ const AuthenticatedKontaktlisterRoute =
   AuthenticatedKontaktlisterRouteImport.update({
     id: '/kontaktlister',
     path: '/kontaktlister',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMaskinerServiceRoute =
+  AuthenticatedMaskinerServiceRouteImport.update({
+    id: '/maskiner-service',
+    path: '/maskiner-service',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedMinPortefoeljeRoute =
@@ -394,6 +401,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/maskiner-service': typeof AuthenticatedMaskinerServiceRoute
   '/min-portefoelje': typeof AuthenticatedMinPortefoeljeRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/te-sortiment': typeof AuthenticatedTeSortimentRoute
@@ -450,6 +458,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/maskiner-service': typeof AuthenticatedMaskinerServiceRoute
   '/min-portefoelje': typeof AuthenticatedMinPortefoeljeRoute
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/te-sortiment': typeof AuthenticatedTeSortimentRoute
@@ -507,6 +516,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/konkurrenter': typeof AuthenticatedKonkurrenterRoute
   '/_authenticated/kontaktlister': typeof AuthenticatedKontaktlisterRoute
+  '/_authenticated/maskiner-service': typeof AuthenticatedMaskinerServiceRoute
   '/_authenticated/min-portefoelje': typeof AuthenticatedMinPortefoeljeRoute
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/te-sortiment': typeof AuthenticatedTeSortimentRoute
@@ -565,6 +575,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
+    | '/maskiner-service'
     | '/min-portefoelje'
     | '/salgsmuligheder'
     | '/te-sortiment'
@@ -621,6 +632,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/konkurrenter'
     | '/kontaktlister'
+    | '/maskiner-service'
     | '/min-portefoelje'
     | '/salgsmuligheder'
     | '/te-sortiment'
@@ -677,6 +689,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/konkurrenter'
     | '/_authenticated/kontaktlister'
+    | '/_authenticated/maskiner-service'
     | '/_authenticated/min-portefoelje'
     | '/_authenticated/salgsmuligheder'
     | '/_authenticated/te-sortiment'
@@ -824,6 +837,13 @@ declare module '@tanstack/react-router' {
       path: '/kontaktlister'
       fullPath: '/kontaktlister'
       preLoaderRoute: typeof AuthenticatedKontaktlisterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/maskiner-service': {
+      id: '/_authenticated/maskiner-service'
+      path: '/maskiner-service'
+      fullPath: '/maskiner-service'
+      preLoaderRoute: typeof AuthenticatedMaskinerServiceRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/min-portefoelje': {
@@ -1166,6 +1186,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedKonkurrenterRoute: typeof AuthenticatedKonkurrenterRoute
   AuthenticatedKontaktlisterRoute: typeof AuthenticatedKontaktlisterRoute
+  AuthenticatedMaskinerServiceRoute: typeof AuthenticatedMaskinerServiceRoute
   AuthenticatedMinPortefoeljeRoute: typeof AuthenticatedMinPortefoeljeRoute
   AuthenticatedSalgsmulighederRoute: typeof AuthenticatedSalgsmulighederRoute
   AuthenticatedTeSortimentRoute: typeof AuthenticatedTeSortimentRoute
@@ -1201,6 +1222,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedKonkurrenterRoute: AuthenticatedKonkurrenterRoute,
   AuthenticatedKontaktlisterRoute: AuthenticatedKontaktlisterRoute,
+  AuthenticatedMaskinerServiceRoute: AuthenticatedMaskinerServiceRoute,
   AuthenticatedMinPortefoeljeRoute: AuthenticatedMinPortefoeljeRoute,
   AuthenticatedSalgsmulighederRoute: AuthenticatedSalgsmulighederRoute,
   AuthenticatedTeSortimentRoute: AuthenticatedTeSortimentRoute,
