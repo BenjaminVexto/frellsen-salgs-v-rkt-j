@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { erFilter, prVirksomhed, varekoebAndetSted, fordelBelastning, STANDARD_SATSER, periode, harAftale, handlinger, beregnLokationer, type GrundMaskine } from "./udstyr";
+import { serviceVisningsGrundlag, erFilter, prVirksomhed, varekoebAndetSted, fordelBelastning, STANDARD_SATSER, periode, harAftale, handlinger, beregnLokationer, type GrundMaskine } from "./udstyr";
 
 const mk = (id: string, t: string, u = 3): GrundMaskine => ({ id, sn: id, lev: "1", b: t, t, u, o: null, tl: null, at: null, st: null });
 
@@ -14,8 +14,8 @@ describe("fordeling af maskinbelastning", () => {
   });
   it("resten fordeles efter lejeandel", () => {
     const r = fordelBelastning(1000, [mk("w", "Wittenborg"), mk("r", "Rex-Royal")], { Wittenborg: 300, "Rex-Royal": 100 }, 12, STANDARD_SATSER);
-    expect(r.maskiner.find((m) => m.id === "w")!.belastning).toBe(750);
-    expect(r.maskiner.find((m) => m.id === "r")!.belastning).toBe(250);
+    expect(r.maskiner.find((m) => m.id === "w")?.belastning).toBe(750);
+    expect(r.maskiner.find((m) => m.id === "r")?.belastning).toBe(250);
   });
   it("uden leje fordeles efter antal", () => {
     const r = fordelBelastning(900, [mk("w1", "Wittenborg"), mk("w2", "Wittenborg"), mk("r", "Rex-Royal")], {}, 12, STANDARD_SATSER);

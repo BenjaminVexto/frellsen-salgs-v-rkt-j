@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewAs } from "@/contexts/view-as-context";
+import { SaelgerOverblik } from "./saelger-overblik";
 import { getSellerOptions } from "@/lib/portfolio.functions";
 import { dekomprimerJson } from "@/lib/komprimer-json";
 import {
@@ -20,7 +21,7 @@ import {
 } from "@/lib/udstyr.functions";
 import {
   beregnLokationer, handlinger, maanederIPeriode, periode, TYPER, UDLAAN_LABEL, BRITA, KAFFE_TYPER, BRYG,
-  harAftale, alderAar, STANDARD_SATSER, maanedNavn, erFilter, erFrellsen, prVirksomhed, varekoebAndetSted, reparationer,
+  harAftale, alderAar, STANDARD_SATSER, maanedNavn, erFilter, erFrellsen, prVirksomhed, varekoebAndetSted, reparationer, serviceVisningsGrundlag,
   type VirkRegnskab,
   type Grundlag, type LokRegnskab, type FordeltMaskine, type GrundMaskine, type Satser,
 } from "@/lib/udstyr";
@@ -71,7 +72,7 @@ export function MaskinerService() {
     enabled: !!sellerId || alle,
   });
   const satser = satserQ.data ?? STANDARD_SATSER;
-  const lok = useMemo(() => (q.data ? beregnLokationer(q.data, maaneder, satser) : []), [q.data, maaneder, satser]);
+  const lok = useMemo(() => (q.data ? beregnLokationer(serviceVisningsGrundlag(q.data), maaneder, satser) : []), [q.data, maaneder, satser]);
   const [drill, setDrill] = useState<Drill | null>(null);
 
   const aar = new Date().getFullYear();
@@ -114,13 +115,16 @@ export function MaskinerService() {
         )}
         {q.data && (
           <>
-            <Handlingsliste lok={lok} satser={satser} erAdmin={erAdmin} setDrill={setDrill} />
-            <Noegletal lok={lok} setDrill={setDrill} />
-            <Maskinoversigt lok={lok} setDrill={setDrill} />
-            <Serviceaftaler lok={lok} setDrill={setDrill} />
-            <Lokationsregnskab lok={lok} maaneder={maaneder} setDrill={setDrill} />
-            <p className="text-xs text-muted-foreground"><Badge variant="outline" className="mr-1">fordelt</Badge>{FORDELT_TEKST}</p>
-            {erAdmin && <LejeUdenBonusklasse />}
+            <SaelgerOverblik lok={lok} satser={satser} maaneder={maaneder} />
+            {erAdmin && <div className="space-y-2 border-t pt-5">
+              <AdminSektion titel="Maskinøkonomi">
+                <Maskinoversigt lok={lok} setDrill={setDrill} />
+                <p className="mt-3 text-xs text-muted-foreground">{FORDELT_TEKST}</p>
+              </AdminSektion>
+              <AdminSektion titel="Serviceregnskab"><Serviceaftaler lok={lok} setDrill={setDrill} /></AdminSektion>
+              <AdminSektion titel="Lokationsregnskab"><Lokationsregnskab lok={lok} maaneder={maaneder} setDrill={setDrill} /></AdminSektion>
+              <AdminSektion titel="Datafejl"><Handlingsliste lok={lok} satser={satser} erAdmin={erAdmin} setDrill={setDrill} /><LejeUdenBonusklasse /></AdminSektion>
+            </div>}
           </>
         )}
         {drill && <DrillDialog drill={drill} onClose={() => setDrill(null)} erAdmin={erAdmin} fra={p.fra} til={p.til} />}
@@ -129,15 +133,17 @@ export function MaskinerService() {
   );
 }
 
+function AdminSektion({ titel, children }: { titel: string; children: ReactNode }) {
+  const [aaben, setAaben] = useState(false);
+  return <section className="border-b">
+    <Button variant="ghost" className="h-12 w-full justify-between px-0 text-base" aria-expanded={aaben} onClick={() => setAaben(!aaben)}>{titel}{aaben ? <ChevronUp /> : <ChevronDown />}</Button>
+    {aaben && <div className="pb-5 [&>div]:rounded-none [&>div]:border-0 [&>div]:p-0 [&>div]:shadow-none">{children}</div>}
+  </section>;
+}
+
 function Handlingsliste({ lok, satser, erAdmin, setDrill }: { lok: LokRegnskab[]; satser: Satser; erAdmin: boolean; setDrill: (d: Drill) => void }) {
   const h = useMemo(() => handlinger(lok, satser), [lok, satser]);
   const punkter: { label: string; hjaelp: string; antal: number; aaben: () => void }[] = [
-    { label: "Udlån uden dækning", hjaelp: "Varer-DB dækker ikke belastning + service. Hent hjem, omlæg til leje eller lav kaffeaftale.", antal: h.udlaan.length,
-      aaben: () => setDrill({ slags: "lokationer", titel: "Udlån uden dækning", raekker: [...h.udlaan].sort((a, b) => a.dbInkl - b.dbInkl) }) },
-    { label: "Udskiftningskandidater", hjaelp: `Reparationer (reservedele + montør, kostpris) over ${kr(satser.udskiftReparation)} kr. på lokationen i perioden, eller over ${satser.udskiftAlderAar} år og reparationer over ${kr(satser.udskiftReparationAeldre)} kr. Højeste reparationsomkostning først. Opgradering efter 24 mdr. kan give maskinbonus.`, antal: h.udskift.length,
-      aaben: () => setDrill({ slags: "maskiner", titel: "Udskiftningskandidater", raekker: h.udskift }) },
-    { label: "Kundeejede uden serviceaftale", hjaelp: "Mersalg: tilbyd serviceaftale.", antal: h.kundeejet.length,
-      aaben: () => setDrill({ slags: "maskiner", titel: "Kundeejede maskiner uden serviceaftale", raekker: h.kundeejet }) },
     { label: "Serviceaftaler i underskud", hjaelp: "Service netto er negativ. Se fornyelsesmåned.", antal: h.underskud.length,
       aaben: () => setDrill({ slags: "lokationer", titel: "Serviceaftaler i underskud", raekker: [...h.underskud].sort((a, b) => a.serviceNetto - b.serviceNetto), visFornyelse: true }) },
     { label: "Leje uden lejefakturering", hjaelp: "Leje/leasing-udstyr, hvor lokationen ikke er faktureret leje i perioden.", antal: h.udenLeje.length,
@@ -147,7 +153,6 @@ function Handlingsliste({ lok, satser, erAdmin, setDrill }: { lok: LokRegnskab[]
   ];
   return (
     <section>
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Hvor skal jeg handle?</h2>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {punkter.map((x) => (
           <button key={x.label} type="button" onClick={x.aaben} disabled={!x.antal}
@@ -273,7 +278,6 @@ function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
   const filtre = medAft.filter((x) => erFilter(x.m));
   const kol: [string, (u: number) => boolean][] = [["Frellsen-ejet med aftale", erFrellsen], ["Kundeejet med aftale", (u) => !erFrellsen(u)]];
   const mtyper = TYPER.filter((t) => alle.some((x) => x.m.t === t));
-  const fl = lok.reduce((a, l) => a + l.filterLeje, 0);
   const s = lok.reduce((a, l) => ({ si: a.si + l.si, mo: a.mo + l.mo, rd: a.rd + l.rd, pa: a.pa + l.pa, fh: a.fh + l.filterBel, ak: a.ak + l.ak, n: a.n + l.serviceNetto }),
     { si: 0, mo: 0, rd: 0, pa: 0, fh: 0, ak: 0, n: 0 });
   const medAftale = lok.filter((l) => l.antalAftaler > 0);
@@ -281,7 +285,7 @@ function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
   const lokListe = (titel: string, r: LokRegnskab[]) => () =>
     setDrill({ slags: "lokationer", titel, raekker: [...r].sort((a, b) => a.serviceNetto - b.serviceNetto), visFornyelse: true });
   const linjer: [string, number][] = [
-    ["Indtægt (aftaler, 16/82)", s.si], ["Montør/kørsel netto", s.mo], ["Reservedele netto", s.rd], ["Brita-patroner netto", s.pa], ["Filterhoveder (leje)", fl],
+    ["Indtægt (aftaler, 16/82)", s.si], ["Montør/kørsel netto", s.mo], ["Reservedele netto", s.rd], ["Brita-patroner netto", s.pa],
     ["Filterhoveder (fordelt)", -s.fh], ["Kostpris aftalelinjer", -s.ak],
   ];
   return (
@@ -646,7 +650,7 @@ export function UdstyrBoks({ companyId }: { companyId: string }) {
     queryKey: ["udstyr-firma", companyId, erAdmin, viewAs.effectiveUserId],
     queryFn: async () => dekomprimerJson<Grundlag>(await hentFn({ data: { companyId, alle: erAdmin, sellerId: viewAs.effectiveUserId, fra: p.fra, til: p.til } })),
   });
-  const lok = useMemo(() => (q.data ? beregnLokationer(q.data, 12, satserQ.data ?? STANDARD_SATSER) : []).filter((l) => l.maskiner.length || l.leje || l.bel || l.si), [q.data, satserQ.data]);
+  const lok = useMemo(() => (q.data ? beregnLokationer(serviceVisningsGrundlag(q.data), 12, satserQ.data ?? STANDARD_SATSER) : []).filter((l) => l.maskiner.length || l.leje || l.bel || l.si), [q.data, satserQ.data]);
   if (!lok.length) return null;
   return (
     <Card className="p-4">
