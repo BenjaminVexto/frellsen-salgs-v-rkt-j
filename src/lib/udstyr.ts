@@ -27,7 +27,7 @@ export const STANDARD_SATSER: Satser = {
 export const TAELLER_PREFIX = "taeller_";
 export const SATS_NOEGLER: Record<Exclude<keyof Satser, "taellerPrType">, string> = {
   brita: "sats_brita", bryg: "sats_bryg", andetUdlaan: "sats_andet_udlaan",
-  udskiftReparation: "udskift_reparation", udskiftAlderAar: "udskift_alder_aar_v2",
+  udskiftReparation: "udskift_reparation", udskiftAlderAar: "udskift_alder_aar",
   udskiftReparationAeldre: "udskift_reparation_aeldre",
 };
 
