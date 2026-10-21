@@ -65,7 +65,7 @@ export function PenhedSyncKort() {
           ) : (
             <RefreshCw className="h-4 w-4 mr-2" />
           )}
-          Synkronisér CVR P-enheder
+          Læg næste job i kø
         </Button>
       </div>
 
