@@ -1,5 +1,5 @@
 # Roadmap
-- [ ] Maskiner & Service: kontrollér Andet/kundeejede; enkel sælgervisning, lukkede adminsektioner og browserbilleder som Claus.
+- [x] Maskiner & Service: Andet/kundeejede kontrolleret; enkel sælgervisning og lukkede adminsektioner; Claus computer/mobil og maskinliste verificeret, 18 tests bestået og skærmbilleder gemt.
 - [x] Bonuspræsentation: fælles tabel, decimaler/fodnoter, ens mobilkort, separat admin-sammenligning, egne satser og Se som-faner; Mads 360/390/1280 px, admin/Claus, CSV-total 244.068,94, 23 tests og fem skærmbilleder verificeret; ingen data-/beregningsændringer.
 - [x] Maskinbonus-ydeevne: kandidatbegrænset historik og indeks, vedligeholdt maskingrundlag, samlet lazy vurderingskald; september 36,4→3,2 s, samme summer/status/årsag, Anders/vurderinger kontrolleret, rollback-test; september ikke låst.
 - [x] Mobil: start på Virksomheder, bundmenu Firmaer/Aftaler/Mere, søgning først med Filtre-sheet, Senest åbnet, enklere liste; testet som admin ved 360/390 px (sælger ikke testet).
