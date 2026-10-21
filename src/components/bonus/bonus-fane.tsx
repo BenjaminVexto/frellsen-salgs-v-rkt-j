@@ -439,8 +439,8 @@ function HistoriskSammenligning({ rows, onMaskiner }: { rows: Rk[]; onMaskiner: 
     <CollapsibleTrigger asChild><Button variant="ghost" className="group w-full justify-between px-0"><span>Historisk vs. beregnet</span><ChevronDown className="h-4 w-4 group-data-[state=open]:rotate-180" /></Button></CollapsibleTrigger>
     <CollapsibleContent className="pt-3 space-y-2">
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full min-w-[1450px] table-fixed text-xs tabular-nums">
-          <colgroup><col className="w-24" />{Array.from({length: 7}, (_, i) => <col key={i} className="w-28" />)}{Array.from({length: 6}, (_, i) => <col key={i} className="w-12" />)}<col className="w-32" /></colgroup>
+        <table className="w-full min-w-[1180px] table-fixed text-xs tabular-nums">
+          <colgroup><col className="w-20" />{Array.from({length: 7}, (_, i) => <col key={i} className="w-24" />)}{Array.from({length: 6}, (_, i) => <col key={i} className="w-8" />)}<col className="w-28" /></colgroup>
           <thead><tr className="h-12 border-b bg-muted/40">{["Måned", "Udbetalt I", "Beregnet DB", "Forskel", "Udbetalt II", "Beregnet maskin", "Forskel", "I alt forskel", "W", "A", "R", "K", "E", "Brugt", "Vis maskinliste"].map((label, i) => <th key={i} className={`px-2 font-medium ${i === 0 || i === 14 ? "text-left" : "text-right"}`}>{label}</th>)}</tr></thead>
           <tbody>{historik.map((r) => <tr key={r.maaned} className="h-11 border-b"><td className="px-2">{maanedNavn(r.maaned)}</td>{values(r).map((n, i) => <td key={i} className={`text-right px-2 ${diffColumns.includes(i) && n < 0 ? "text-destructive" : ""}`}>{fmtTal(n, i < 7 ? 2 : 0)}</td>)}<td className="px-2"><Button variant="link" className="h-8 p-0 text-xs" onClick={() => { if (r.beregnet) onMaskiner(r.beregnet); }}>Vis maskinliste</Button></td></tr>)}
           <tr className="h-12 font-semibold bg-muted/40"><td className="px-2">Total</td>{totals.map((n, i) => <td key={i} className={`text-right px-2 ${diffColumns.includes(i) && n < 0 ? "text-destructive" : ""}`}>{fmtTal(n, i < 7 ? 2 : 0)}</td>)}<td /></tr></tbody>
