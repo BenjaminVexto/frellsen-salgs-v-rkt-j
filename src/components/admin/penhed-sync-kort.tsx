@@ -87,6 +87,43 @@ export function PenhedSyncKort() {
             ))}
           </div>
 
+          {data?.overblik && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium mb-2">Løbende kø</h4>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-2">
+                {([
+                  ["CVR'er i reglen", data.overblik.i_reglen ?? 0],
+                  ["Synket", data.overblik.synket ?? 0],
+                  ["Venter (aldrig synket)", data.overblik.aldrig ?? 0],
+                  ["Forfaldne", data.overblik.forfaldne ?? 0],
+                  ["Fejlet (7 dage)", data.overblik.fejl_7d ?? 0],
+                ] as [string, number][]).map(([label, val]) => (
+                  <div key={label} className="rounded-md border p-2">
+                    <div className="text-xs text-muted-foreground">{label}</div>
+                    <div className="text-lg font-semibold">{val}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Seneste kørte job:{" "}
+                {data.overblik.seneste_job
+                  ? new Date(data.overblik.seneste_job).toLocaleString("da-DK")
+                  : "aldrig"}
+              </p>
+              {(data.overblik.fejl_liste ?? []).length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-destructive">Fejl seneste 7 dage:</div>
+                  {(data.overblik.fejl_liste ?? []).map((f: any) => (
+                    <div key={f.cvr} className="text-xs border-b last:border-0 py-1">
+                      <span className="font-mono">{f.cvr}</span>
+                      <span className="text-muted-foreground"> — {f.fejl}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1">
             {(data?.latest ?? []).map((j) => (
               <div
