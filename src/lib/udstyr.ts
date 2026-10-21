@@ -216,10 +216,29 @@ export function prVirksomhed(lok: LokRegnskab[]): VirkRegnskab[] {
 export const varekoebAndetSted = (l: LokRegnskab, v: VirkRegnskab) =>
   l.maskiner.length > 0 && l.vdb === 0 && v.lok.some((x) => x.lev !== l.lev && x.vdb !== 0);
 
-export function handlinger(lok: LokRegnskab[], s: Satser, idag = new Date()) {
-  const udlaan = lok.filter((l) =>
-    l.maskiner.some((m) => [4, 6, 7].includes(m.u) && !erFilter(m)) &&
-    l.vdb < l.belastningIalt + l.serviceUdgift - l.si - l.leje);
+/** Udlånstyper, der skal dækkes af kaffekøb: 4 Udlån, 5 Leje u/b, 6 Midlertidigt udlån (ikke 3 Leje/leasing). */
+export const UDLAAN_TYPER = [4, 5, 6];
+export const erUdlaan = (m: GrundMaskine) => UDLAAN_TYPER.includes(m.u) && !erFilter(m);
+export type UdlaanVirk = {
+  v: VirkRegnskab; maskiner: { l: LokRegnskab; m: FordeltMaskine }[];
+  kaffeDbMd: number; omkMd: number; diffMd: number;
+};
+/** Udlånsdækning pr. virksomhed: kaffe-DB på alle sælgerens lokationer hos virksomheden mod udlånsmaskinernes fordelte belastning. */
+export function udlaanPrVirksomhed(lok: LokRegnskab[], maaneder: number): UdlaanVirk[] {
+  return prVirksomhed(lok).flatMap((v) => {
+    const maskiner = v.lok.flatMap((l) => l.maskiner.filter(erUdlaan).map((m) => ({ l, m })));
+    if (!maskiner.length) return [];
+    const omkMd = maskiner.reduce((a, x) => a + x.m.belastning, 0) / maaneder;
+    const kaffeDbMd = v.vdb / maaneder;
+    return [{ v, maskiner, kaffeDbMd, omkMd, diffMd: kaffeDbMd - omkMd }];
+  });
+}
+export const udlaanUdenDaekning = (lok: LokRegnskab[], maaneder: number) =>
+  udlaanPrVirksomhed(lok, maaneder).filter((x) => x.diffMd < 0).sort((a, b) => a.diffMd - b.diffMd);
+
+export function handlinger(lok: LokRegnskab[], s: Satser, idag = new Date(), maaneder = 12) {
+  const daarlige = new Set(udlaanUdenDaekning(lok, maaneder).map((x) => x.v.cid));
+  const udlaan = lok.filter((l) => daarlige.has(l.cid) && l.maskiner.some(erUdlaan));
   const udskift = lok.flatMap((l) => {
     const rep = reparationer(l); // reservedele + montør, kostpris
     return l.maskiner
