@@ -23,3 +23,4 @@
 - Read nested AGENTS.md; bonus competition shows seller totals only.
 - Company mobile master data reuses the desktop content in More; machine metrics use one Locations callback — to keep presentation consistent.
 - Machine bonus reads cached seller/month rows; changes queue keys, imports drain, reviews refresh. Locked bonus_laas snapshots stay separate from live reconciliation.
+- Maskiner & Service reads only the precomputed udstyr_lok_maaned/udstyr_leje_type_maaned (queued by invoice_lines triggers, drained by invoice import via udstyr_toem_ko) through udstyr_grundlag; belastning allocation lives in src/lib/udstyr.ts — so the page never scans the invoice journal.

@@ -34,6 +34,7 @@ import {
   Copy,
   Leaf,
   MapPin,
+  Wrench,
 } from "lucide-react";
 import {
   Sheet,
@@ -167,6 +168,7 @@ function AuthenticatedShell() {
     { to: "/dashboard", label: "Mit overblik", shortLabel: "Overblik", icon: LayoutDashboard },
     { to: "/virksomheder", label: "Virksomheder", shortLabel: "Firmaer", icon: Building2 },
     { to: "/min-portefoelje", label: "Min salgsstatistik", shortLabel: "Statistik", icon: TrendingUp },
+    ...(isSupport ? [] : [{ to: "/maskiner-service", label: "Maskiner & Service", shortLabel: "Maskiner", icon: Wrench }]),
     { to: "/aftaler", label: "Aftaler", shortLabel: "Aftaler", icon: FileText },
     { to: "/tilbud", label: "Tilbud", shortLabel: "Tilbud", icon: FileSignature },
     ...(isSupport

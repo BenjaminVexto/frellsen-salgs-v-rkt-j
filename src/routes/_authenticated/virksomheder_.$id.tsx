@@ -113,6 +113,7 @@ import { SkrivMailDialog } from "@/components/skriv-mail-dialog";
 import { getActivityType, labelFor } from "@/lib/activity-types";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Target } from "lucide-react";
+import { UdstyrBoks } from "@/components/udstyr/maskiner-service";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 
@@ -1071,6 +1072,7 @@ function VirksomhedsKort() {
 
             {/* FANE: Lokationer */}
             <TabsContent value="lokationer" id="company-locations" className="space-y-4 mt-4 scroll-mt-16">
+              <UdstyrBoks companyId={company.id} />
               <LokationerSektion
                 companyId={company.id}
                 isAdmin={isAdmin}
