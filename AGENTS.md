@@ -9,7 +9,7 @@
 - Activities sort by trigger-validated udfoert_at (≤14 days back).
 - Machine placement lives in maskine_placering per serial no.; import writes only via import_maskine_placering (ignores blanks, never overwrites CRM input) — so user input survives imports.
 - Fakturajournalens DB 0-linjer udledes pr. kunde mod Vismas summeringslinje (src/lib/invoice-db-udledning.ts, invoice_lines.db_kilde, invoice_db_afstemning) — never a general 'DB 0 = 100 %' rule, because real DB-0 sales (machines) exist.
-- Salgskort is an admin-only tab (?fane=salgskort) in Min salgsstatistik; /admin/salgskort only redirects — because the map belongs with the sales statistics.
+- Salgskort is an admin-only tab (?fane=salgskort) in Min salgsstatistik; /admin/salgskort only redirects.
 - Distriktsscenarier (distrikt_scenarie, scenarie_distrikt, scenarie_flade, scenarie_saelger) are edited only in Salgskort → Simulering; the current map (distrikter/distrikt_flade) changes only via scenarie_gor_gaeldende, which first archives the old map as a scenario — so the current map can always be restored.
 - Simulation assignment rules (scenarie_regel) are evaluated client-side in src/lib/simulering-regler.ts (Frellsen → KAM → assign → geography → exclude) — so the order is tested in one place.
 - KAM-aftaler (kam_aftale/scenarie_kam) match on separate kpg1/kpg2/kpg3 lists (OR) plus optional omraade; kodetype/koder are deprecated, and scenarie_gor_gaeldende creates/updates/deletes kam_aftale from the scenario.
@@ -21,6 +21,6 @@
 - CVR groups (accounts sharing cvr_norm) are an overlay only: SQL cvr_grupper/cvr_gruppe_konti/cvr_penhed_oversigt; per-account sales only where _maa_se_kontosalg — so sellers see other sellers' accounts but only group totals.
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
 - Read nested AGENTS.md; bonus competition shows seller totals only.
-- Company mobile master data reuses the desktop content in More; machine metrics use one Locations callback — to keep presentation consistent.
+- Company mobile reuses desktop master data in More; one Locations callback for machine metrics.
 - Machine bonus reads cached seller/month rows; changes queue keys, imports drain, reviews refresh. Locked bonus_laas snapshots stay separate from live reconciliation.
 - Maskiner & Service reads only precomputed udstyr_*_maaned (trigger-queued, drained on invoice import) via udstyr_grundlag; allocation in src/lib/udstyr.ts — never scans invoices.
