@@ -6,6 +6,8 @@ export type GrundLok = {
   leje: number; bel: number; si: number; ak: number; mo: number; rd: number; pa: number; vdb: number; vmd: number;
   /** Måned (1-12) med største aftalefakturering (16/82) i perioden = fornyelsesmåned. */
   fm: number | null;
+  /** Kostpris for reservedele + montør/kørsel i perioden. */
+  rk?: number;
   lt: Record<string, number>;
 };
 export type GrundMaskine = {
@@ -180,7 +182,7 @@ export function alderAar(opsat: string | null, idag = new Date()): number | null
 }
 
 /** Reparationsomkostning (reservedele + montør, kostpris) på lokationen i perioden. */
-export const reparationer = (l: { rd: number; mo: number }) => -(l.rd + l.mo);
+export const reparationer = (l: { rk?: number }) => l.rk ?? 0;
 
 export type VirkRegnskab = {
   cid: string; kunde: string; lok: LokRegnskab[];

@@ -49,7 +49,7 @@ describe("aktiv serviceaftale", () => {
 describe("udskiftningskandidater", () => {
   const idag = new Date(2026, 9, 21);
   const lok = (rd: number, mo: number, m: GrundMaskine) => beregnLokationer({ erAdmin: true, mk: [m], lok: [{
-    lev: "1", id: "l", cid: "c", kunde: "K", adr: "", leje: 0, bel: 0, si: 0, ak: 0, mo, rd, pa: 0, vdb: 0, vmd: 0, fm: null, lt: {} }] }, 12, STANDARD_SATSER);
+    lev: "1", id: "l", cid: "c", kunde: "K", adr: "", leje: 0, bel: 0, si: 0, ak: 0, mo: 0, rd: 0, rk: -(rd + mo), pa: 0, vdb: 0, vmd: 0, fm: null, lt: {} }] }, 12, STANDARD_SATSER);
   const ny = { ...mk("w", "Wittenborg"), o: "2024-01-01", tl: 999_999 };
   it("alder over 8 år giver kun kandidat med reparationer over 1.000 kr.", () => {
     const gl = { ...ny, o: "2017-01-01" };
