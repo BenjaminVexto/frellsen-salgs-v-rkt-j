@@ -473,15 +473,15 @@ function LokTabel({ raekker, maaneder, visFornyelse, onLinjer }: { raekker: LokR
   );
 }
 
-function MaskinTabel({ raekker }: { raekker: MaskinRaekke[] }) {
-  type K = "kunde" | "sn" | "model" | "udl" | "opsat" | "taeller" | "leje" | "bel" | "vdb";
-  const [sort, setSort] = useState<{ k: K; asc: boolean }>({ k: "kunde", asc: true });
+function MaskinTabel({ raekker, sorterRep }: { raekker: MaskinRaekke[]; sorterRep?: boolean }) {
+  type K = "kunde" | "sn" | "model" | "udl" | "opsat" | "taeller" | "leje" | "bel" | "vdb" | "rep";
+  const [sort, setSort] = useState<{ k: K; asc: boolean }>(sorterRep ? { k: "rep", asc: false } : { k: "kunde", asc: true });
   const [søg, setSøg] = useState("");
   const val = (x: MaskinRaekke, k: K): string | number => {
     const m = x.m as FordeltMaskine;
     switch (k) {
       case "kunde": return x.l.kunde; case "sn": return m.sn ?? ""; case "model": return m.b ?? ""; case "udl": return m.u;
-      case "opsat": return m.o ?? ""; case "taeller": return m.tl ?? 0; case "leje": return m.leje ?? 0; case "bel": return m.belastning ?? 0; case "vdb": return x.l.vdb;
+      case "opsat": return m.o ?? ""; case "taeller": return m.tl ?? 0; case "leje": return m.leje ?? 0; case "bel": return m.belastning ?? 0; case "vdb": return x.l.vdb; case "rep": return reparationer(x.l);
     }
   };
   const rows = useMemo(() => {
@@ -503,7 +503,7 @@ function MaskinTabel({ raekker }: { raekker: MaskinRaekke[] }) {
         <table className="w-full min-w-[1000px] text-sm">
           <thead className="text-xs text-muted-foreground"><tr className="border-b">
             <H k="kunde">Kunde / lokation</H><H k="sn">Serienr.</H><H k="model">Model</H><H k="udl">Udlånstype</H><H k="opsat">Opsat</H>
-            <H k="taeller">Tæller</H><H k="leje">Leje</H><H k="bel">Belastning (fordelt)</H><H k="vdb">Kaffe-DB (lokation)</H><th className="px-1 text-left">Dækning</th>
+            <H k="taeller">Tæller</H><H k="leje">Leje</H><H k="bel">Belastning (fordelt)</H><H k="vdb">Kaffe-DB (lokation)</H><H k="rep">Reparationer (lok.)</H><th className="px-1 text-left">Dækning</th>
           </tr></thead>
           <tbody>
             {rows.map((x) => {
