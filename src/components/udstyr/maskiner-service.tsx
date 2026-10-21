@@ -133,7 +133,7 @@ function Handlingsliste({ lok, satser, erAdmin, setDrill }: { lok: LokRegnskab[]
   const punkter: { label: string; hjaelp: string; antal: number; aaben: () => void }[] = [
     { label: "Udlån uden dækning", hjaelp: "Varer-DB dækker ikke belastning + service. Hent hjem, omlæg til leje eller lav kaffeaftale.", antal: h.udlaan.length,
       aaben: () => setDrill({ slags: "lokationer", titel: "Udlån uden dækning", raekker: [...h.udlaan].sort((a, b) => a.dbInkl - b.dbInkl) }) },
-    { label: "Udskiftningskandidater", hjaelp: `Over ${satser.udskiftAlderAar} år, over ${kr(satser.udskiftTaeller)} i tællerstand eller reparationer over ${kr(satser.udskiftReparation)} kr. på lokationen. Opgradering efter 24 mdr. kan give maskinbonus.`, antal: h.udskift.length,
+    { label: "Udskiftningskandidater", hjaelp: `Over ${satser.udskiftAlderAar} år, over ${kr(satser.udskiftTaeller)} i tællerstand eller reservedele over ${kr(satser.udskiftReparation)} kr. netto på lokationen. Opgradering efter 24 mdr. kan give maskinbonus.`, antal: h.udskift.length,
       aaben: () => setDrill({ slags: "maskiner", titel: "Udskiftningskandidater", raekker: h.udskift }) },
     { label: "Kundeejede uden serviceaftale", hjaelp: "Mersalg: tilbyd serviceaftale.", antal: h.kundeejet.length,
       aaben: () => setDrill({ slags: "maskiner", titel: "Kundeejede maskiner uden serviceaftale", raekker: h.kundeejet }) },

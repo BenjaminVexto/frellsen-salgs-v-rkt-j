@@ -167,7 +167,7 @@ export function handlinger(lok: LokRegnskab[], s: Satser, idag = new Date()) {
     l.maskiner.some((m) => [4, 6, 7].includes(m.u) && m.t !== BRITA) &&
     l.vdb < l.belastningIalt + l.serviceUdgift - l.si - l.leje);
   const udskift = lok.flatMap((l) => {
-    const reparation = -(l.mo + l.rd) > s.udskiftReparation;
+    const reparation = -l.rd > s.udskiftReparation; // reservedele (vg 18) netto
     return l.maskiner
       .filter((m) => KAFFE_TYPER.has(m.t) || m.t === BRYG)
       .filter((m) => reparation || (alderAar(m.o, idag) ?? 0) > s.udskiftAlderAar || (m.tl ?? 0) > s.udskiftTaeller)
