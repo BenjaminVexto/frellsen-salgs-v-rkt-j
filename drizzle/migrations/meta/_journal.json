@@ -995,6 +995,13 @@
       "when": 1792595771520,
       "tag": "0141_rls_tautology_til_auth_uid",
       "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1792670143503,
+      "tag": "0142_afdelingspotentiale_offentlig",
+      "breakpoints": true
     }
   ]
 }
