@@ -5280,6 +5280,7 @@ export type Database = {
           daekket: number | null
           max_ansatte_ikke_daekket: number | null
           name: string | null
+          offentlig: boolean | null
           penheder_total: number | null
           potential: number | null
           uden_tal_ikke_daekket: number | null

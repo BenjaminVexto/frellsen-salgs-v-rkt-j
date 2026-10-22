@@ -141,6 +141,7 @@ type MersalgRow = {
   max_ansatte_ikke_daekket: number | null;
   uden_tal_ikke_daekket: number;
   uden_tal_total: number;
+  offentlig: boolean;
 };
 
 function AnsatteCelle({ sum, udenTal }: { sum: number | null; udenTal: number }) {
@@ -175,6 +176,7 @@ function HorisontalMersalg() {
   const [seller, setSeller] = useState<string>("__all");
   const [minPot, setMinPot] = useState<number>(0);
   const [visUdenTal, setVisUdenTal] = useState(true);
+  const [visOffentlige, setVisOffentlige] = useState(false);
   const [didAnalyze, setDidAnalyze] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, PenhedRow[]>>({});
@@ -213,7 +215,7 @@ function HorisontalMersalg() {
         supabase
           .from("salgsintelligens_mersalg")
           .select(
-            "company_id, cvr, name, city, potential, daekket, penheder_total, assigned_to, antal_kundenumre, afdeling_nr, ansatte_ikke_daekket, ansatte_total, max_ansatte_ikke_daekket, uden_tal_ikke_daekket, uden_tal_total",
+            "company_id, cvr, name, city, potential, daekket, penheder_total, assigned_to, antal_kundenumre, afdeling_nr, ansatte_ikke_daekket, ansatte_total, max_ansatte_ikke_daekket, uden_tal_ikke_daekket, uden_tal_total, offentlig",
           )
           .order("ansatte_ikke_daekket", { ascending: false, nullsFirst: false })
           .order("potential", { ascending: false })
@@ -264,6 +266,7 @@ function HorisontalMersalg() {
     () =>
       rows.filter((r) => {
         if (afdelingFilter != null && r.afdeling_nr !== afdelingFilter) return false;
+        if (!visOffentlige && r.offentlig) return false;
         if (r.ansatte_ikke_daekket == null) {
           if (!visUdenTal) return false;
         } else if (r.ansatte_ikke_daekket < minPot) return false;
@@ -275,7 +278,7 @@ function HorisontalMersalg() {
         }
         return true;
       }),
-    [rows, seller, minPot, visUdenTal, ansvarlig, aabneOpp, aabneAntal, afdelingFilter],
+    [rows, seller, minPot, visUdenTal, visOffentlige, ansvarlig, aabneOpp, aabneAntal, afdelingFilter],
   );
 
   async function exportCsv() {
@@ -318,8 +321,8 @@ function HorisontalMersalg() {
       <Card className="p-4 bg-muted/30">
         <p className="text-sm">
           Find aktive CVR-produktionsenheder hos eksisterende kunder, som vi ikke
-          leverer til. Offentlige kunder, interne selskaber og personaleforeninger
-          er udeladt.
+          leverer til. Offentlige myndigheder (CVR-virksomhedsform eller udbudskunde),
+          interne selskaber og personaleforeninger er skjult som standard.
         </p>
       </Card>
 
@@ -367,6 +370,10 @@ function HorisontalMersalg() {
           <label className="flex items-center gap-2 text-sm pb-2 cursor-pointer">
             <Checkbox checked={visUdenTal} onCheckedChange={(v) => setVisUdenTal(v === true)} />
             Vis også uden ansattetal
+          </label>
+          <label className="flex items-center gap-2 text-sm pb-2 cursor-pointer">
+            <Checkbox checked={visOffentlige} onCheckedChange={(v) => setVisOffentlige(v === true)} />
+            Vis offentlige
           </label>
           <label className="flex items-center gap-2 text-sm pb-2">
             <Checkbox checked={visIkkeRelevante} onCheckedChange={(v) => setVisIkkeRelevante(v === true)} />
