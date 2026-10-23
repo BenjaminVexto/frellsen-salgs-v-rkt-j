@@ -1058,6 +1058,13 @@
       "when": 1792755158160,
       "tag": "0150_quotes_saelger_id",
       "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1792756048382,
+      "tag": "0151_contacts_kilde_og_booking_felter",
+      "breakpoints": true
     }
   ]
 }
