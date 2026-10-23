@@ -23,9 +23,9 @@ export const UDFALD_LABEL: Record<Udfald, string> = {
   note: "Note",
 };
 
-/** Udfald man kan vælge (Ikke opnået sættes automatisk efter 3 × ingen svar). */
+/** Registreringer man kan vælge; note ændrer ikke status eller opkaldstal. */
 export const VALGBARE_UDFALD: Udfald[] = [
-  "ingen_svar", "ring_igen", "forkert_nummer", "ikke_interesseret", "oensker_ikke_kontakt", "tilbud_oensket", "moede_booket",
+  "ingen_svar", "ring_igen", "forkert_nummer", "ikke_interesseret", "oensker_ikke_kontakt", "tilbud_oensket", "moede_booket", "note",
 ];
 
 export const AARSAGER = [

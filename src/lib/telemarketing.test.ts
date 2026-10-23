@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { byggKoe, ingenSvarIRaekke, statusTekst, udfaldStatistik, iStatusGruppe, standardRang, ringIgenIDag } from "./telemarketing";
+import { byggKoe, ingenSvarIRaekke, statusTekst, udfaldStatistik, iStatusGruppe, standardRang, ringIgenIDag, VALGBARE_UDFALD } from "./telemarketing";
 
 const nu = new Date("2026-10-13T12:00:00Z");
 
@@ -23,6 +23,9 @@ describe("telemarketing-kø", () => {
 });
 
 describe("udfald og statistik", () => {
+  it("admin og sælger kan vælge en fri note i den fælles registrering", () => {
+    expect(VALGBARE_UDFALD).toContain("note");
+  });
   it("viser årsag ved Ikke interesseret", () => {
     expect(statusTekst("ikke_interesseret", "har_leverandoer")).toBe("Ikke interesseret · Har leverandør");
   });
