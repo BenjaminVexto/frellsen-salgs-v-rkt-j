@@ -81,6 +81,8 @@ type Quote = {
   pdf_path: string | null;
   forbrug_pr_maaned: number | null;
   faste_pr_maaned: number | null;
+  saelger_id: string | null;
+  created_by: string | null;
 };
 
 type Company = {
@@ -232,7 +234,7 @@ function TilbudBygger() {
       const { data, error } = await supabase
         .from("quotes")
         .select(
-          "id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at, expiry_date, sent_date, public_token, notes, pdf_path, forbrug_pr_maaned, faste_pr_maaned",
+          "id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at, expiry_date, sent_date, public_token, notes, pdf_path, forbrug_pr_maaned, faste_pr_maaned, saelger_id, created_by",
         )
         .eq("id", quoteId)
         .single();
