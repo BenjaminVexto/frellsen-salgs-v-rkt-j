@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { FileText, Users } from "lucide-react";
+import { FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
-import { TilbudModtagere } from "@/components/tilbud-modtagere";
+import { TilbudModtagerStatus } from "@/components/tilbud-modtager-status";
 import { hentTilbudPdf } from "@/lib/tilbud-pdf.functions";
 
 type Q = {
@@ -44,37 +43,32 @@ export function TilbudSektion({ companyId, reloadKey }: { companyId: string; rel
 
   const hentPdf = useServerFn(hentTilbudPdf);
   const [vis, setVis] = useState<Q | null>(null);
-  const [modtagereFor, setModtagereFor] = useState<Q | null>(null);
 
   return (
     <Card className="p-5 mt-4">
       <h2 className="font-semibold flex items-center gap-2 mb-3"><FileText className="h-4 w-4" /> Tilbud</h2>
       {rows.length === 0 ? <p className="text-sm text-muted-foreground">Ingen tilbud</p> : <div className="divide-y">
         {rows.map((q) => (
-          <div key={q.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-            <div className="min-w-0">
-              <span className="font-medium">Tilbud {q.quote_number ?? "—"}</span>
-              <span className="text-muted-foreground"> · {STATUS_LABEL[q.status] ?? q.status} · {dato(q.sent_date)} · Årsværdi {dkk(q.estimated_value)}</span>
+          <div key={q.id} className="py-2 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <span className="font-medium">Tilbud {q.quote_number ?? "—"}</span>
+                <span className="text-muted-foreground"> · {STATUS_LABEL[q.status] ?? q.status} · {dato(q.sent_date)} · Årsværdi {dkk(q.estimated_value)}</span>
+              </div>
+              {q.pdf_path && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button size="sm" variant="outline" onClick={() => setVis(q)}>Åbn PDF</Button>
+                </div>
+              )}
             </div>
             {q.pdf_path && (
-              <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" variant="outline" onClick={() => setVis(q)}>Åbn PDF</Button>
-                <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setModtagereFor(q)}>
-                  <Users className="h-3.5 w-3.5" /> Modtagere
-                </Button>
+              <div className="mt-1">
+                <TilbudModtagerStatus quoteId={q.id} companyId={companyId} />
               </div>
             )}
           </div>
         ))}
       </div>}
-      <Dialog open={!!modtagereFor} onOpenChange={(o) => !o && setModtagereFor(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Modtagere · Tilbud {modtagereFor?.quote_number ?? ""}</DialogTitle>
-          </DialogHeader>
-          {modtagereFor && <TilbudModtagere quoteId={modtagereFor.id} companyId={companyId} />}
-        </DialogContent>
-      </Dialog>
       {vis && (
         <PDFViewerDialog
           open={!!vis}
