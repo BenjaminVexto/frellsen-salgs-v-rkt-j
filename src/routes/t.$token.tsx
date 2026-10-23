@@ -40,9 +40,9 @@ function PdfSider({ base64 }: { base64: string }) {
     if (!container) return;
     container.innerHTML = "";
     (async () => {
-      const pdfjs = await import("pdfjs-dist");
+      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
       pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.min.mjs",
+        "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
         import.meta.url,
       ).toString();
       const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
