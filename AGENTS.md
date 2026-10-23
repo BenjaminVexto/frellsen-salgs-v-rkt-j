@@ -18,6 +18,7 @@
 - Reads that can exceed 1,000 rows page via `hentAlle` (src/lib/hent-alle.ts), and postcode → district seller is resolved only in SQL (`_distrikt_saelger` and its wrappers) — because PostgREST silently caps responses at 1,000 rows.
 - CVR director contacts: only for CVR-imported nyt_emne companies (src/lib/cvr-direktoer.ts, cvr_direktoer_job) — existing contacts never touched.
 - Contact-list status comes only from the latest outcome via SQL `registrer_udfald` (logs to kontaktliste_opkald); udfald 'note' never changes status or counts as a call; labels/stats in src/lib/telemarketing.ts — so status and statistics cannot drift apart.
+- Contact-list notes and outcomes use the shared UdfaldDialog and registrer_udfald for all roles; database authorization remains authoritative so offering notes never broadens seller or agency access.
 - CVR groups (accounts sharing cvr_norm) are an overlay only: SQL cvr_grupper/cvr_gruppe_konti/cvr_penhed_oversigt; per-account sales only where _maa_se_kontosalg — so sellers see other sellers' accounts but only group totals.
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
 - Read nested AGENTS.md; bonus competition shows seller totals only.

@@ -42,6 +42,7 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
 
   const send = async () => {
     if (!udfald) return toast.error("Vælg et udfald");
+    if (udfald === "note" && !note.trim()) return toast.error("Skriv en note");
     if (udfald === "oensker_ikke_kontakt" && !confirm("Virksomheden udelukkes fra alle fremtidige lister. Fortsæt?")) return;
     const extra: Record<string, unknown> = { _note: note.trim() || null };
     if (udfald === "ring_igen") {
@@ -130,8 +131,8 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
                 {kontakt === "ny" && <Input className="mt-2" placeholder="Navn" value={nyKontakt} onChange={(e) => setNyKontakt(e.target.value)} />}
               </div>
             )}
-            <div><Label>Note{udfald === "moede_booket" || (udfald === "ikke_interesseret" && aarsag === "andet") ? " (påkrævet)" : " (valgfri)"}</Label>
-              <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></div>
+            <div><Label htmlFor="udfald-note">Note{udfald === "note" || udfald === "moede_booket" || (udfald === "ikke_interesseret" && aarsag === "andet") ? " (påkrævet)" : " (valgfri)"}</Label>
+              <Textarea id="udfald-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></div>
           </div>
         )}
         <DialogFooter>
