@@ -4463,13 +4463,19 @@ export type Database = {
           expected_close_date: string | null
           id: string
           kilde: string | null
+          kontaktliste_opkald_id: string | null
+          moede_at: string | null
+          moede_udfald: Database["public"]["Enums"]["moede_udfald"] | null
           name: string
           next_action: string | null
           next_followup_date: string | null
           opportunity_type: string | null
           p_nummer: string | null
           probability: number | null
+          quote_id: string | null
           status: Database["public"]["Enums"]["opportunity_status"]
+          status_v2: Database["public"]["Enums"]["opportunity_status_v2"]
+          tabt_aarsag: Database["public"]["Enums"]["tabt_aarsag"] | null
           updated_at: string
         }
         Insert: {
@@ -4482,13 +4488,19 @@ export type Database = {
           expected_close_date?: string | null
           id?: string
           kilde?: string | null
+          kontaktliste_opkald_id?: string | null
+          moede_at?: string | null
+          moede_udfald?: Database["public"]["Enums"]["moede_udfald"] | null
           name: string
           next_action?: string | null
           next_followup_date?: string | null
           opportunity_type?: string | null
           p_nummer?: string | null
           probability?: number | null
+          quote_id?: string | null
           status?: Database["public"]["Enums"]["opportunity_status"]
+          status_v2?: Database["public"]["Enums"]["opportunity_status_v2"]
+          tabt_aarsag?: Database["public"]["Enums"]["tabt_aarsag"] | null
           updated_at?: string
         }
         Update: {
@@ -4501,13 +4513,19 @@ export type Database = {
           expected_close_date?: string | null
           id?: string
           kilde?: string | null
+          kontaktliste_opkald_id?: string | null
+          moede_at?: string | null
+          moede_udfald?: Database["public"]["Enums"]["moede_udfald"] | null
           name?: string
           next_action?: string | null
           next_followup_date?: string | null
           opportunity_type?: string | null
           p_nummer?: string | null
           probability?: number | null
+          quote_id?: string | null
           status?: Database["public"]["Enums"]["opportunity_status"]
+          status_v2?: Database["public"]["Enums"]["opportunity_status_v2"]
+          tabt_aarsag?: Database["public"]["Enums"]["tabt_aarsag"] | null
           updated_at?: string
         }
         Relationships: [
@@ -4530,6 +4548,20 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_opportunities_kontaktliste_opkald_id_fkey"
+            columns: ["kontaktliste_opkald_id"]
+            isOneToOne: false
+            referencedRelation: "kontaktliste_opkald"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_opportunities_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -6837,6 +6869,7 @@ export type Database = {
         | "region"
         | "stat"
         | "andet_offentligt"
+      moede_udfald: "afholdt" | "aflyst" | "no_show" | "flyttet"
       opportunity_status:
         | "emne"
         | "ny"
@@ -6848,6 +6881,7 @@ export type Database = {
         | "vundet"
         | "tabt"
         | "sat_på_pause"
+      opportunity_status_v2: "moede_booket" | "tilbud_sendt" | "vundet" | "tabt"
       priority_level: "høj" | "middel" | "lav"
       quote_status:
         | "kladde"
@@ -6857,6 +6891,7 @@ export type Database = {
         | "afvist"
         | "udløbet"
       relation_suggestion_status: "pending" | "confirmed" | "rejected"
+      tabt_aarsag: "pris" | "konkurrent" | "ikke_relevant" | "timing" | "andet"
     }
     CompositeTypes: {
       bonus_maskin_detalje_row: {
@@ -7090,6 +7125,7 @@ export const Constants = {
         "stat",
         "andet_offentligt",
       ],
+      moede_udfald: ["afholdt", "aflyst", "no_show", "flyttet"],
       opportunity_status: [
         "emne",
         "ny",
@@ -7102,6 +7138,7 @@ export const Constants = {
         "tabt",
         "sat_på_pause",
       ],
+      opportunity_status_v2: ["moede_booket", "tilbud_sendt", "vundet", "tabt"],
       priority_level: ["høj", "middel", "lav"],
       quote_status: [
         "kladde",
@@ -7112,6 +7149,7 @@ export const Constants = {
         "udløbet",
       ],
       relation_suggestion_status: ["pending", "confirmed", "rejected"],
+      tabt_aarsag: ["pris", "konkurrent", "ikke_relevant", "timing", "andet"],
     },
   },
 } as const

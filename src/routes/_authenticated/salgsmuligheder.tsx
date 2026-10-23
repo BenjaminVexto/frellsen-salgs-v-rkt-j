@@ -36,44 +36,51 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, TrendingUp, Briefcase, Target, Trash2 } from "lucide-react";
+import { Loader2, TrendingUp, CalendarDays, Target, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/salgsmuligheder")({
   component: PipelinePage,
+  head: () => ({
+    meta: [
+      { title: "Salgsmuligheder – Frellsen Kaffe" },
+      { name: "description", content: "Pipeline over bookede møder og sendte tilbud." },
+      { property: "og:title", content: "Salgsmuligheder – Frellsen Kaffe" },
+      { property: "og:description", content: "Pipeline over bookede møder og sendte tilbud." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
 });
 
-type Status =
-  | "emne"
-  | "ny"
-  | "behovsafdækning"
-  | "møde_demo"
-  | "tilbud_sendt"
-  | "opfølgning"
-  | "vundet"
-  | "tabt"
-  | "sat_på_pause";
+type Status = "moede_booket" | "tilbud_sendt" | "vundet" | "tabt";
+type MoedeUdfald = "afholdt" | "aflyst" | "no_show" | "flyttet";
+type TabtAarsag = "pris" | "konkurrent" | "ikke_relevant" | "timing" | "andet";
 
 const COLUMNS: { key: Status; label: string }[] = [
-  { key: "emne", label: "Emne" },
-  { key: "ny", label: "Ny" },
-  { key: "behovsafdækning", label: "Behovsafdækning" },
-  { key: "møde_demo", label: "Møde/Demo" },
+  { key: "moede_booket", label: "Møde booket" },
   { key: "tilbud_sendt", label: "Tilbud sendt" },
-  { key: "opfølgning", label: "Opfølgning" },
-  { key: "vundet", label: "Vundet" },
-  { key: "tabt", label: "Tabt" },
 ];
 
 const STATUS_LABEL: Record<Status, string> = {
-  emne: "Emne",
-  ny: "Ny",
-  behovsafdækning: "Behovsafdækning",
-  møde_demo: "Møde/Demo",
+  moede_booket: "Møde booket",
   tilbud_sendt: "Tilbud sendt",
-  opfølgning: "Opfølgning",
   vundet: "Vundet",
   tabt: "Tabt",
-  sat_på_pause: "Sat på pause",
+};
+
+const MOEDE_UDFALD_LABEL: Record<MoedeUdfald, string> = {
+  afholdt: "Afholdt",
+  aflyst: "Aflyst",
+  no_show: "No-show",
+  flyttet: "Flyttet",
+};
+
+const TABT_AARSAG_LABEL: Record<TabtAarsag, string> = {
+  pris: "Pris",
+  konkurrent: "Konkurrent",
+  ikke_relevant: "Ikke relevant",
+  timing: "Timing",
+  andet: "Andet",
 };
 
 interface Opportunity {
@@ -82,9 +89,12 @@ interface Opportunity {
   company_id: string;
   opportunity_type: string | null;
   estimated_value: number | null;
-  expected_close_date: string | null;
-  status: Status;
-  probability: number | null;
+  status_v2: Status;
+  moede_at: string | null;
+  moede_udfald: MoedeUdfald | null;
+  quote_id: string | null;
+  tabt_aarsag: TabtAarsag | null;
+  kilde: string | null;
   next_action: string | null;
   next_followup_date: string | null;
   assigned_to: string | null;
@@ -99,13 +109,31 @@ const dkk = (n: number | null | undefined) =>
     maximumFractionDigits: 0,
   }).format(n ?? 0);
 
-const daysUntil = (date: string | null) => {
-  if (!date) return null;
-  const diff = Math.ceil(
-    (new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-  );
-  return diff;
-};
+const fmtDato = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("da-DK", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
+/** Rød markering: mødetid passeret uden udfald, eller overskredet opfølgningsdato. */
+function erOverskredet(o: Opportunity): boolean {
+  const nu = Date.now();
+  if (o.status_v2 === "moede_booket" && o.moede_at && !o.moede_udfald) {
+    if (new Date(o.moede_at).getTime() < nu) return true;
+  }
+  if (
+    (o.status_v2 === "moede_booket" || o.status_v2 === "tilbud_sendt") &&
+    o.next_followup_date &&
+    new Date(o.next_followup_date).getTime() < nu
+  ) {
+    return true;
+  }
+  return false;
+}
 
 function PipelinePage() {
   const { user, role, loading: authLoading } = useAuth();
@@ -113,13 +141,16 @@ function PipelinePage() {
   const [items, setItems] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Opportunity | null>(null);
+  const [saelgerFilter, setSaelgerFilter] = useState("__alle");
+  const [kildeFilter, setKildeFilter] = useState("__alle");
+  const isAdmin = role === "admin";
 
   const load = async () => {
     setLoading(true);
     let q = supabase
       .from("sales_opportunities")
       .select(
-        "id,name,company_id,opportunity_type,estimated_value,expected_close_date,status,probability,next_action,next_followup_date,assigned_to,companies!inner(name,afdeling_nr)",
+        "id,name,company_id,opportunity_type,estimated_value,status_v2,moede_at,moede_udfald,quote_id,tabt_aarsag,kilde,next_action,next_followup_date,assigned_to,companies!inner(name,afdeling_nr)",
       )
       .order("updated_at", { ascending: false });
     if (afdelingFilter != null) q = q.eq("companies.afdeling_nr", afdelingFilter);
@@ -152,60 +183,115 @@ function PipelinePage() {
     if (!authLoading && user) load();
   }, [authLoading, user, afdelingFilter]);
 
+  const filtrerede = useMemo(() => {
+    return items.filter((o) => {
+      if (isAdmin && saelgerFilter !== "__alle" && o.assigned_to !== saelgerFilter)
+        return false;
+      if (isAdmin && kildeFilter !== "__alle" && (o.kilde ?? "") !== kildeFilter)
+        return false;
+      return true;
+    });
+  }, [items, isAdmin, saelgerFilter, kildeFilter]);
+
+  const saelgere = useMemo(() => {
+    const m = new Map<string, string>();
+    items.forEach((o) => {
+      if (o.assigned_to) m.set(o.assigned_to, o.profiles?.full_name ?? "");
+    });
+    return Array.from(m.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [items]);
+
+  const kilder = useMemo(
+    () =>
+      Array.from(new Set(items.map((o) => o.kilde).filter(Boolean) as string[])).sort(),
+    [items],
+  );
+
   const stats = useMemo(() => {
-    const open = items.filter(
-      (o) => o.status !== "vundet" && o.status !== "tabt",
-    );
-    const totalOpen = open.reduce(
+    const tilbud = filtrerede.filter((o) => o.status_v2 === "tilbud_sendt");
+    const aabenPipeline = tilbud.reduce(
       (s, o) => s + Number(o.estimated_value ?? 0),
       0,
     );
-    const won = items.filter((o) => o.status === "vundet").length;
-    const lost = items.filter((o) => o.status === "tabt").length;
+    const om14 = Date.now() + 14 * 24 * 60 * 60 * 1000;
+    const moeder14 = filtrerede.filter(
+      (o) =>
+        o.status_v2 === "moede_booket" &&
+        o.moede_at &&
+        new Date(o.moede_at).getTime() >= Date.now() &&
+        new Date(o.moede_at).getTime() <= om14,
+    ).length;
+    const won = filtrerede.filter((o) => o.status_v2 === "vundet").length;
+    const lost = filtrerede.filter((o) => o.status_v2 === "tabt").length;
     const winRate = won + lost === 0 ? 0 : (won / (won + lost)) * 100;
-    return { totalOpen, openCount: open.length, winRate };
-  }, [items]);
+    return { aabenPipeline, moeder14, winRate, won, lost };
+  }, [filtrerede]);
 
   const byCol = useMemo(() => {
     const map: Record<Status, Opportunity[]> = {
-      emne: [],
-      ny: [],
-      behovsafdækning: [],
-      møde_demo: [],
+      moede_booket: [],
       tilbud_sendt: [],
-      opfølgning: [],
       vundet: [],
       tabt: [],
-      sat_på_pause: [],
     };
-    items.forEach((o) => {
-      if (map[o.status]) map[o.status].push(o);
+    filtrerede.forEach((o) => {
+      if (map[o.status_v2]) map[o.status_v2].push(o);
     });
     return map;
-  }, [items]);
+  }, [filtrerede]);
 
   return (
-    <div className="px-4 md:px-8 py-6 pb-24 md:pb-8 max-w-[1800px] mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="px-4 md:px-8 py-6 pb-24 md:pb-8 max-w-[1400px] mx-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold">Salgsmuligheder</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Hele teamets pipeline
+            {isAdmin ? "Hele teamets pipeline" : "Din pipeline"}
           </p>
         </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <Select value={saelgerFilter} onValueChange={setSaelgerFilter}>
+              <SelectTrigger className="w-44" aria-label="Filtrér på sælger">
+                <SelectValue placeholder="Alle sælgere" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__alle">Alle sælgere</SelectItem>
+                {saelgere.map(([id, navn]) => (
+                  <SelectItem key={id} value={id}>
+                    {navn || "Ukendt"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={kildeFilter} onValueChange={setKildeFilter}>
+              <SelectTrigger className="w-40" aria-label="Filtrér på kilde">
+                <SelectValue placeholder="Alle kilder" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__alle">Alle kilder</SelectItem>
+                {kilder.map((k) => (
+                  <SelectItem key={k} value={k}>
+                    {k === "boost" ? "Boost" : k === "egen" ? "Egen" : k}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
-      {/* Statistik */}
+      {/* Nøgletal */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
-          label="Total åben pipeline"
-          value={dkk(stats.totalOpen)}
+          label="Åben pipeline (tilbud sendt)"
+          value={dkk(stats.aabenPipeline)}
         />
         <StatCard
-          icon={<Briefcase className="h-5 w-5" />}
-          label="Åbne muligheder"
-          value={String(stats.openCount)}
+          icon={<CalendarDays className="h-5 w-5" />}
+          label="Møder næste 14 dage"
+          value={String(stats.moeder14)}
         />
         <StatCard
           icon={<Target className="h-5 w-5" />}
@@ -219,44 +305,53 @@ function PipelinePage() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="overflow-x-auto -mx-4 px-4">
-          <div className="flex gap-4 min-w-max pb-4">
-            {COLUMNS.map((col) => {
-              const colItems = byCol[col.key] ?? [];
-              const colTotal = colItems.reduce(
-                (s, o) => s + Number(o.estimated_value ?? 0),
-                0,
-              );
-              return (
-                <div key={col.key} className="w-72 flex-shrink-0">
-                  <div className="flex items-center justify-between mb-2 px-1">
-                    <div className="flex items-center gap-2">
-                      <h2 className="font-medium text-sm">{col.label}</h2>
-                      <Badge variant="secondary" className="text-xs">
-                        {colItems.length}
-                      </Badge>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {dkk(colTotal)}
-                    </span>
+        <div className="flex flex-col md:flex-row gap-4">
+          {COLUMNS.map((col) => {
+            const colItems = byCol[col.key] ?? [];
+            const colTotal = colItems.reduce(
+              (s, o) => s + Number(o.estimated_value ?? 0),
+              0,
+            );
+            return (
+              <div key={col.key} className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-medium text-sm">{col.label}</h2>
+                    <Badge variant="secondary" className="text-xs">
+                      {colItems.length}
+                    </Badge>
                   </div>
-                  <div className="bg-muted/40 rounded-lg p-2 space-y-2 min-h-[200px]">
-                    {colItems.map((o) => (
-                      <OpportunityCard
-                        key={o.id}
-                        opp={o}
-                        onClick={() => setSelected(o)}
-                      />
-                    ))}
-                    {colItems.length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-4">
-                        Ingen
-                      </p>
-                    )}
-                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {dkk(colTotal)}
+                  </span>
                 </div>
-              );
-            })}
+                <div className="bg-muted/40 rounded-lg p-2 space-y-2 min-h-[200px]">
+                  {colItems.map((o) => (
+                    <OpportunityCard
+                      key={o.id}
+                      opp={o}
+                      onClick={() => setSelected(o)}
+                    />
+                  ))}
+                  {colItems.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      Ingen
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {/* Vundet/Tabt som tællere */}
+          <div className="md:w-48 flex md:flex-col gap-3">
+            <Card className="p-3 flex-1">
+              <p className="text-xs text-muted-foreground">Vundet</p>
+              <p className="text-2xl font-semibold">{stats.won}</p>
+            </Card>
+            <Card className="p-3 flex-1">
+              <p className="text-xs text-muted-foreground">Tabt</p>
+              <p className="text-2xl font-semibold">{stats.lost}</p>
+            </Card>
           </div>
         </div>
       )}
@@ -268,8 +363,7 @@ function PipelinePage() {
           setSelected(null);
           load();
         }}
-        isAdmin={role === "admin"}
-        currentUserId={user?.id ?? null}
+        isAdmin={isAdmin}
       />
     </div>
   );
@@ -304,31 +398,28 @@ function OpportunityCard({
   opp: Opportunity;
   onClick: () => void;
 }) {
-  const days = daysUntil(opp.expected_close_date);
+  const roed = erOverskredet(opp);
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-card border rounded-md p-3 hover:border-primary/50 hover:shadow-sm transition-all"
+      className={`w-full text-left bg-card border rounded-md p-3 hover:border-primary/50 hover:shadow-sm transition-all ${
+        roed ? "border-destructive" : ""
+      }`}
     >
       <p className="font-medium text-sm truncate">
         {opp.companies?.name ?? "Ukendt virksomhed"}
       </p>
-      <p className="text-xs text-muted-foreground truncate mt-0.5">
-        {opp.opportunity_type || opp.name}
-      </p>
+      {opp.moede_at && (
+        <p className={`text-xs mt-0.5 ${roed ? "text-destructive" : "text-muted-foreground"}`}>
+          Møde {fmtDato(opp.moede_at)}
+          {opp.moede_udfald ? ` · ${MOEDE_UDFALD_LABEL[opp.moede_udfald]}` : ""}
+        </p>
+      )}
       <div className="flex items-center justify-between mt-2">
         <span className="text-sm font-semibold">{dkk(opp.estimated_value)}</span>
-        {days !== null && (
-          <span
-            className={`text-xs ${
-              days < 0
-                ? "text-destructive"
-                : days <= 7
-                  ? "text-warning-foreground"
-                  : "text-muted-foreground"
-            }`}
-          >
-            {days < 0 ? `${Math.abs(days)} d. forsinket` : `${days} d.`}
+        {opp.kilde && (
+          <span className="text-[11px] text-muted-foreground">
+            {opp.kilde === "boost" ? "Boost" : opp.kilde === "egen" ? "Egen" : opp.kilde}
           </span>
         )}
       </div>
@@ -346,17 +437,19 @@ function OpportunityDrawer({
   onClose,
   onSaved,
   isAdmin,
-  currentUserId,
 }: {
   opp: Opportunity | null;
   onClose: () => void;
   onSaved: () => void;
   isAdmin: boolean;
-  currentUserId: string | null;
 }) {
   const [form, setForm] = useState<Partial<Opportunity>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (opp) setForm(opp);
+  }, [opp]);
 
   const remove = async () => {
     if (!opp) return;
@@ -374,29 +467,35 @@ function OpportunityDrawer({
     }
   };
 
-  useEffect(() => {
-    if (opp) setForm(opp);
-  }, [opp]);
-
-  const canEdit = !!opp;
-
   const save = async () => {
     if (!opp) return;
+    const nyStatus = (form.status_v2 ?? opp.status_v2) as Status;
+    const aaben = nyStatus === "moede_booket" || nyStatus === "tilbud_sendt";
+    // Påkrævede valg
+    if (opp.status_v2 === "moede_booket" && nyStatus !== "moede_booket" && !form.moede_udfald) {
+      toast.error("Vælg mødets udfald før du flytter kortet ud af \"Møde booket\"");
+      return;
+    }
+    if (aaben && !form.next_followup_date) {
+      toast.error("Åbne muligheder skal have en opfølgningsdato");
+      return;
+    }
+    if (nyStatus === "tabt" && !form.tabt_aarsag) {
+      toast.error("Vælg en årsag til at salget er tabt");
+      return;
+    }
     setSaving(true);
     const { error } = await supabase
       .from("sales_opportunities")
       .update({
         name: form.name,
         opportunity_type: form.opportunity_type,
-        estimated_value: form.estimated_value
-          ? Number(form.estimated_value)
-          : null,
-        expected_close_date: form.expected_close_date || null,
-        status: form.status as Status,
-        probability: form.probability ? Number(form.probability) : null,
+        status_v2: nyStatus,
+        moede_udfald: form.moede_udfald ?? null,
+        tabt_aarsag: nyStatus === "tabt" ? form.tabt_aarsag ?? null : null,
         next_action: form.next_action,
         next_followup_date: form.next_followup_date || null,
-      })
+      } as never)
       .eq("id", opp.id);
     setSaving(false);
     if (error) {
@@ -418,6 +517,7 @@ function OpportunityDrawer({
                 {opp.profiles?.full_name
                   ? `Tildelt: ${opp.profiles.full_name}`
                   : "Ikke tildelt"}
+                {opp.moede_at ? ` · Møde ${fmtDato(opp.moede_at)}` : ""}
               </SheetDescription>
             </SheetHeader>
 
@@ -427,7 +527,6 @@ function OpportunityDrawer({
                 <Input
                   value={form.name ?? ""}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  disabled={!canEdit}
                 />
               </div>
               <div>
@@ -438,49 +537,23 @@ function OpportunityDrawer({
                     setForm({ ...form, opportunity_type: e.target.value })
                   }
                   placeholder="Fx kaffemaskine, abonnement"
-                  disabled={!canEdit}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Estimeret værdi (DKK)</Label>
-                  <Input
-                    type="number"
-                    value={form.estimated_value ?? ""}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        estimated_value: e.target.value as unknown as number,
-                      })
-                    }
-                    disabled={!canEdit}
-                  />
-                </div>
-                <div>
-                  <Label>Sandsynlighed %</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={form.probability ?? ""}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        probability: e.target.value as unknown as number,
-                      })
-                    }
-                    disabled={!canEdit}
-                  />
-                </div>
+              <div>
+                <Label>Værdi</Label>
+                <p className="text-sm font-medium py-2">
+                  {opp.quote_id
+                    ? `${dkk(opp.estimated_value)} (fra tilbud)`
+                    : "Sættes automatisk fra tilbuddet"}
+                </p>
               </div>
               <div>
                 <Label>Status</Label>
                 <Select
-                  value={form.status}
+                  value={form.status_v2}
                   onValueChange={(v) =>
-                    setForm({ ...form, status: v as Status })
+                    setForm({ ...form, status_v2: v as Status })
                   }
-                  disabled={!canEdit}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -494,17 +567,53 @@ function OpportunityDrawer({
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Forventet lukning</Label>
-                <Input
-                  type="date"
-                  value={form.expected_close_date ?? ""}
-                  onChange={(e) =>
-                    setForm({ ...form, expected_close_date: e.target.value })
-                  }
-                  disabled={!canEdit}
-                />
-              </div>
+              {opp.status_v2 === "moede_booket" && (
+                <div>
+                  <Label>
+                    Mødets udfald
+                    {form.status_v2 !== "moede_booket" ? " (påkrævet)" : ""}
+                  </Label>
+                  <Select
+                    value={form.moede_udfald ?? ""}
+                    onValueChange={(v) =>
+                      setForm({ ...form, moede_udfald: v as MoedeUdfald })
+                    }
+                  >
+                    <SelectTrigger aria-label="Mødets udfald">
+                      <SelectValue placeholder="Vælg udfald" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(MOEDE_UDFALD_LABEL) as MoedeUdfald[]).map((u) => (
+                        <SelectItem key={u} value={u}>
+                          {MOEDE_UDFALD_LABEL[u]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {form.status_v2 === "tabt" && (
+                <div>
+                  <Label>Årsag til tabt (påkrævet)</Label>
+                  <Select
+                    value={form.tabt_aarsag ?? ""}
+                    onValueChange={(v) =>
+                      setForm({ ...form, tabt_aarsag: v as TabtAarsag })
+                    }
+                  >
+                    <SelectTrigger aria-label="Årsag til tabt">
+                      <SelectValue placeholder="Vælg årsag" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(TABT_AARSAG_LABEL) as TabtAarsag[]).map((a) => (
+                        <SelectItem key={a} value={a}>
+                          {TABT_AARSAG_LABEL[a]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Næste handling</Label>
                 <Textarea
@@ -513,18 +622,21 @@ function OpportunityDrawer({
                   onChange={(e) =>
                     setForm({ ...form, next_action: e.target.value })
                   }
-                  disabled={!canEdit}
                 />
               </div>
               <div>
-                <Label>Næste opfølgningsdato</Label>
+                <Label>
+                  Næste opfølgningsdato
+                  {form.status_v2 === "moede_booket" || form.status_v2 === "tilbud_sendt"
+                    ? " (påkrævet)"
+                    : ""}
+                </Label>
                 <Input
                   type="date"
                   value={form.next_followup_date ?? ""}
                   onChange={(e) =>
                     setForm({ ...form, next_followup_date: e.target.value })
                   }
-                  disabled={!canEdit}
                 />
               </div>
             </div>
@@ -568,12 +680,10 @@ function OpportunityDrawer({
                 <Button variant="outline" onClick={onClose}>
                   Luk
                 </Button>
-                {canEdit && (
-                  <Button onClick={save} disabled={saving}>
-                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Gem ændringer
-                  </Button>
-                )}
+                <Button onClick={save} disabled={saving}>
+                  {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Gem ændringer
+                </Button>
               </div>
             </SheetFooter>
           </>

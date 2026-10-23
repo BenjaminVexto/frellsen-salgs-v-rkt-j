@@ -35,7 +35,7 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
   const [tid, setTid] = useState("");
   const [aarsag, setAarsag] = useState("");
   const [note, setNote] = useState("");
-  const [kontakt, setKontakt] = useState(virksomhed.kontakter[0]?.id ?? "");
+  const [kontakt, setKontakt] = useState("");
   const [nyKontakt, setNyKontakt] = useState("");
   const [busy, setBusy] = useState(false);
   const spoerg = virksomhed.kontakter[0];

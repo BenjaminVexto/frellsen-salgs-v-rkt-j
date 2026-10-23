@@ -94,7 +94,7 @@ function DashboardPage() {
         .select(
           "id, name, status, estimated_value, next_followup_date, company:companies(id, name, afdeling_nr)"
         )
-        .in("status", ["tilbud_sendt", "møde_demo"])
+        .in("status_v2" as never, ["tilbud_sendt", "moede_booket"] as never)
         .order("next_followup_date", { ascending: true, nullsFirst: false });
       if (!isAdmin) q = q.eq("assigned_to", userId!);
       const { data, error } = await q;

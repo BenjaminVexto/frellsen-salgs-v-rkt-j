@@ -36,14 +36,8 @@ import {
 } from "@/components/penhed-forhandler";
 
 export const STADIE_LABEL: Record<string, string> = {
-  emne: "Emne",
-  ny: "Ny",
-  behovsafdækning: "Behovsafdækning",
-  møde_demo: "Møde booket",
-  tilbud_under_udarbejdelse: "Tilbud under udarbejdelse",
+  moede_booket: "Møde booket",
   tilbud_sendt: "Tilbud sendt",
-  opfølgning: "Opfølgning",
-  sat_på_pause: "Sat på pause",
   vundet: "Vundet",
   tabt: "Tabt",
 };
@@ -275,9 +269,9 @@ export function PenhedDaekning({
         const [{ data: opp }, { data: ir }] = await Promise.all([
           (supabase as any)
             .from("sales_opportunities")
-            .select("p_nummer, name, status, assigned_to")
+            .select("p_nummer, name, status_v2, assigned_to")
             .in("p_nummer", pnrs)
-            .not("status", "in", "(vundet,tabt)"),
+            .not("status_v2", "in", "(vundet,tabt)"),
           (supabase as any)
             .from("penhed_ikke_relevant")
             .select("p_nummer, aarsag, fritekst")
@@ -293,7 +287,7 @@ export function PenhedDaekning({
         for (const o of (opp ?? []) as any[]) {
           m.set(o.p_nummer, {
             saelger: o.assigned_to ? navne.get(o.assigned_to) ?? null : null,
-            status: o.status,
+            status: o.status_v2,
           });
         }
         setAabneInfo(m);

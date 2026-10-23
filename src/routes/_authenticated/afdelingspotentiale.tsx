@@ -193,7 +193,7 @@ function HorisontalMersalg() {
         .from("sales_opportunities")
         .select("company_id, assigned_to, p_nummer")
         .not("p_nummer", "is", null)
-        .not("status", "in", "(vundet,tabt)")
+        .not("status_v2", "in", "(vundet,tabt)")
         .order("id")
         .range(f, t),
     ).catch(() => [] as any[]);
