@@ -100,7 +100,6 @@ import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktper
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { KoncernSektion } from "@/components/koncern-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
-import { ListeNoterSektion } from "@/components/kontaktliste/liste-noter-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion, useCompanyBriefing } from "@/components/ai-briefing-sektion";
 import { KundeSalgstal } from "@/components/sales/kunde-salgstal";
@@ -282,7 +281,7 @@ function VirksomhedsKort() {
     ] = await Promise.all([
       supabase.from("companies").select("*").eq("id", id).maybeSingle(),
       supabase.from("contacts").select("*").eq("company_id", id).order("is_primary", { ascending: false }),
-      supabase.from("activities").select("*").eq("company_id", id).order("udfoert_at" as any, { ascending: false }),
+      supabase.from("activities").select("*, contact_list_assignments(contact_lists(name))").eq("company_id", id).order("udfoert_at" as any, { ascending: false }),
       supabase.from("contact_list_assignments").select("*").eq("company_id", id),
       (supabase as any)
         .from("locations")
@@ -1026,7 +1025,6 @@ function VirksomhedsKort() {
 
             {/* FANE: Aktivitet */}
             <TabsContent value="aktivitet" className="mt-4">
-              <ListeNoterSektion companyId={id} />
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-semibold flex items-center gap-2">
@@ -1318,6 +1316,11 @@ function ActivityRow({ a, locations, userNames, isAdmin, userId, onDeleted }: { 
               </Badge>
             );
           })()}
+          {(a as any).contact_list_assignments?.contact_lists?.name && (
+            <span className="text-[11px] text-muted-foreground border rounded px-1.5 py-0.5">
+              Kontaktliste: {(a as any).contact_list_assignments.contact_lists.name}{authorName ? ` · ${authorName}` : ""}
+            </span>
+          )}
           {loc && (
             <Badge variant="secondary" className="text-xs gap-1">
               <MapPin className="h-3 w-3" />

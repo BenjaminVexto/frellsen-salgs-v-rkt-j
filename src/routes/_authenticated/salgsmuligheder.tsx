@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -118,6 +118,19 @@ const fmtDato = (iso: string | null) =>
         minute: "2-digit",
       })
     : null;
+
+/** Én rød tekstlinje på kortet: manglende mødeudfald eller overskredet opfølgning. */
+function advarselTekst(o: Opportunity): string | null {
+  const nu = Date.now();
+  if (o.status_v2 === "moede_booket" && o.moede_at && !o.moede_udfald && new Date(o.moede_at).getTime() < nu) {
+    return "Udfald mangler";
+  }
+  if ((o.status_v2 === "moede_booket" || o.status_v2 === "tilbud_sendt") && o.next_followup_date) {
+    const dage = Math.floor((nu - new Date(o.next_followup_date + "T23:59:59").getTime()) / 86400000) + 1;
+    if (dage > 0) return `Opfølgning overskredet ${dage} ${dage === 1 ? "dag" : "dage"}`;
+  }
+  return null;
+}
 
 /** Rød markering: mødetid passeret uden udfald, eller overskredet opfølgningsdato. */
 function erOverskredet(o: Opportunity): boolean {
@@ -398,23 +411,34 @@ function OpportunityCard({
   opp: Opportunity;
   onClick: () => void;
 }) {
-  const roed = erOverskredet(opp);
+  const advarsel = advarselTekst(opp);
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`w-full text-left bg-card border rounded-md p-3 hover:border-primary/50 hover:shadow-sm transition-all ${
-        roed ? "border-destructive" : ""
-      }`}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      className="w-full text-left bg-card border rounded-md p-3 cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all"
     >
       <p className="font-medium text-sm truncate">
-        {opp.companies?.name ?? "Ukendt virksomhed"}
+        {opp.company_id ? (
+          <Link
+            to="/virksomheder/$id"
+            params={{ id: opp.company_id }}
+            onClick={(e) => e.stopPropagation()}
+            className="hover:underline"
+          >
+            {opp.companies?.name ?? "Ukendt virksomhed"}
+          </Link>
+        ) : (opp.companies?.name ?? "Ukendt virksomhed")}
       </p>
       {opp.moede_at && (
-        <p className={`text-xs mt-0.5 ${roed ? "text-destructive" : "text-muted-foreground"}`}>
+        <p className="text-xs mt-0.5 text-muted-foreground">
           Møde {fmtDato(opp.moede_at)}
           {opp.moede_udfald ? ` · ${MOEDE_UDFALD_LABEL[opp.moede_udfald]}` : ""}
         </p>
       )}
+      {advarsel && <p className="text-xs mt-1 font-medium text-destructive">{advarsel}</p>}
       <div className="flex items-center justify-between mt-2">
         <span className="text-sm font-semibold">{dkk(opp.estimated_value)}</span>
         {opp.kilde && (
@@ -428,7 +452,7 @@ function OpportunityCard({
           {opp.profiles.full_name}
         </p>
       )}
-    </button>
+    </div>
   );
 }
 

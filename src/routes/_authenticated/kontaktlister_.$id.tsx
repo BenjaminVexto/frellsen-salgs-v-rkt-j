@@ -176,16 +176,15 @@ function KontaktlisteDetalje() {
       ).catch((e) => { toast.error("Kunne ikke hente listen: " + (e?.message ?? e)); return [] as any[]; }),
     ]);
     setList(listData as any);
-    const noter = await hentAlle<any>((f, t) =>
-      (supabase as any).from("kontaktliste_opkald").select("company_id, note, created_at, user_id")
-        .eq("contact_list_id", id).not("note", "is", null).order("created_at", { ascending: false }).order("id").range(f, t),
-    ).catch(() => [] as any[]);
-    const noteMap = new Map<string, any>();
-    for (const n of noter) if (!noteMap.has(n.company_id)) noteMap.set(n.company_id, n);
+    // Seneste aktivitet pr. virksomhed uanset kilde (samme kilde for alle roller)
+    const { data: senesteData } = await (supabase as any).rpc("tm_seneste_aktivitet", { _list: id });
+    const noteMap = new Map<string, { note: string | null; at: string; bruger: string | null }>(
+      Object.entries((senesteData ?? {}) as Record<string, any>),
+    );
 
     const userIds = Array.from(
       new Set(
-        [...(assigns ?? []).map((a) => a.assigned_to), ...[...noteMap.values()].map((n) => n.user_id)].filter(Boolean) as string[],
+        [...(assigns ?? []).map((a) => a.assigned_to)].filter(Boolean) as string[],
       ),
     );
     const companyIds = (assigns ?? []).map((a) => a.company_id);
@@ -292,7 +291,7 @@ function KontaktlisteDetalje() {
       last_activity_type: lastActMap.get(a.company_id)?.type ?? null,
       seneste_note: (() => {
         const n = noteMap.get(a.company_id);
-        return n ? { note: n.note, at: n.created_at, bruger: pMap.get(n.user_id) ?? "" } : null;
+        return n ? { note: n.note ?? "", at: n.at, bruger: n.bruger ?? "" } : null;
       })(),
     }));
     setRows(result);
@@ -763,21 +762,11 @@ function KontaktlisteDetalje() {
                                 Næste: {new Date(r.next_followup_date).toLocaleDateString("da-DK")}
                               </div>
                             ) : null}
-                            {r.last_activity_at ? (
-                              <div className="text-muted-foreground whitespace-nowrap">
-                                {new Date(r.last_activity_at).toLocaleDateString("da-DK")}
-                                {r.last_activity_type ? ` · ${r.last_activity_type.replace(/_/g, " ")}` : ""}
-                              </div>
-                            ) : null}
-                            {r.seneste_note && (
-                              <div title={`${r.seneste_note.note}\n— ${new Date(r.seneste_note.at).toLocaleString("da-DK")}${r.seneste_note.bruger ? ` · ${r.seneste_note.bruger}` : ""}`}>
-                                <div className="line-clamp-2 italic">“{r.seneste_note.note}”</div>
-                                <div className="text-muted-foreground">
-                                  {new Date(r.seneste_note.at).toLocaleDateString("da-DK")}{r.seneste_note.bruger ? ` · ${r.seneste_note.bruger}` : ""}
-                                </div>
-                              </div>
-                            )}
-                            {!r.next_followup_date && !r.last_activity_at && !r.seneste_note && (
+                            {r.seneste_note && (() => {
+                              const linje = `${new Date(r.seneste_note.at).toLocaleDateString("da-DK")}${r.seneste_note.bruger ? ` · ${r.seneste_note.bruger}` : ""}${r.seneste_note.note ? ` · ${r.seneste_note.note}` : ""}`;
+                              return <div className="line-clamp-2 text-muted-foreground" title={linje}>{linje}</div>;
+                            })()}
+                            {!r.next_followup_date && !r.seneste_note && (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
