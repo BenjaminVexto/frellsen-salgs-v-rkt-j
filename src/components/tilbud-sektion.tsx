@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
+import { FileText, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
+import { TilbudModtagere } from "@/components/tilbud-modtagere";
 import { hentTilbudPdf } from "@/lib/tilbud-pdf.functions";
 
 type Q = {
@@ -42,6 +44,7 @@ export function TilbudSektion({ companyId, reloadKey }: { companyId: string; rel
 
   const hentPdf = useServerFn(hentTilbudPdf);
   const [vis, setVis] = useState<Q | null>(null);
+  const [modtagereFor, setModtagereFor] = useState<Q | null>(null);
 
   return (
     <Card className="p-5 mt-4">
@@ -54,11 +57,24 @@ export function TilbudSektion({ companyId, reloadKey }: { companyId: string; rel
               <span className="text-muted-foreground"> · {STATUS_LABEL[q.status] ?? q.status} · {dato(q.sent_date)} · Årsværdi {dkk(q.estimated_value)}</span>
             </div>
             {q.pdf_path && (
-              <Button size="sm" variant="outline" onClick={() => setVis(q)}>Åbn PDF</Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" variant="outline" onClick={() => setVis(q)}>Åbn PDF</Button>
+                <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setModtagereFor(q)}>
+                  <Users className="h-3.5 w-3.5" /> Modtagere
+                </Button>
+              </div>
             )}
           </div>
         ))}
       </div>}
+      <Dialog open={!!modtagereFor} onOpenChange={(o) => !o && setModtagereFor(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Modtagere · Tilbud {modtagereFor?.quote_number ?? ""}</DialogTitle>
+          </DialogHeader>
+          {modtagereFor && <TilbudModtagere quoteId={modtagereFor.id} companyId={companyId} />}
+        </DialogContent>
+      </Dialog>
       {vis && (
         <PDFViewerDialog
           open={!!vis}

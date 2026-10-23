@@ -27,3 +27,5 @@
 - Machine bonus reads cached seller/month rows; changes queue keys, imports drain, reviews refresh. Locked bonus_laas snapshots stay separate from live reconciliation.
 - Maskiner & Service reads only precomputed udstyr_*_maaned (trigger-queued, drained on invoice import) via udstyr_grundlag; allocation in src/lib/udstyr.ts — never scans invoices.
 - Uploaded Word-quote PDFs live in private bucket quote-documents at <company_id>/<uuid>.pdf (upload policy checks the folder company; read requires a quotes.pdf_path row) and are opened only via signed URLs.
+
+- Tilbudsmodtagerlinks: quote_recipients/quote_events med token-RPC quote_recipient_by_token + quote_track_event (security definer, anon+authenticated); offentlig side /t/$token renderer PDF med pdfjs-dist legacy v4 (v6 kræver Map.getOrInsertComputed som ældre browsere mangler); sporing springes over for indloggede CRM-brugere client-side; Graph-mailsendelse (sendTilbudMail) er deaktiveret indtil MS_* secrets findes.

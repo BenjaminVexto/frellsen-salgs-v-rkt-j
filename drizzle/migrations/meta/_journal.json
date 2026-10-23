@@ -1044,6 +1044,13 @@
       "when": 1792751278996,
       "tag": "0148_tilbud_pdf_upload",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1792754050417,
+      "tag": "0149_quote_modtagere_og_sporing",
+      "breakpoints": true
     }
   ]
 }

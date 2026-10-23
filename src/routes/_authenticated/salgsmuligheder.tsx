@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Loader2, TrendingUp, CalendarDays, Target, Trash2 } from "lucide-react";
+import { tilbudAabningLinje, type ModtagerSporing } from "@/lib/tilbud-aabning";
 
 export const Route = createFileRoute("/_authenticated/salgsmuligheder")({
   component: PipelinePage,
@@ -98,6 +99,8 @@ interface Opportunity {
   next_action: string | null;
   next_followup_date: string | null;
   assigned_to: string | null;
+  /** Åbningsporing fra quote_recipients (kun tilbud_sendt med quote_id). */
+  modtagere?: ModtagerSporing[];
   companies?: { name: string } | null;
   profiles?: { full_name: string } | null;
 }
@@ -186,6 +189,25 @@ function PipelinePage() {
       rows.forEach((r) => {
         if (r.assigned_to)
           r.profiles = { full_name: map.get(r.assigned_to) ?? "" };
+      });
+    }
+    const quoteIds = Array.from(
+      new Set(rows.map((r) => r.quote_id).filter(Boolean) as string[]),
+    );
+    if (quoteIds.length) {
+      const { data: recs } = await supabase
+        .from("quote_recipients")
+        .select("quote_id,sendt_at,antal_aabninger,foerst_aabnet_at,seneste_aabnet_at")
+        .in("quote_id", quoteIds);
+      const perQuote = new Map<string, ModtagerSporing[]>();
+      (recs ?? []).forEach((r: any) => {
+        const arr = perQuote.get(r.quote_id) ?? [];
+        arr.push(r);
+        perQuote.set(r.quote_id, arr);
+      });
+      rows.forEach((r) => {
+        if (r.quote_id && perQuote.has(r.quote_id))
+          r.modtagere = perQuote.get(r.quote_id);
       });
     }
     setItems(rows);
@@ -412,6 +434,10 @@ function OpportunityCard({
   onClick: () => void;
 }) {
   const advarsel = advarselTekst(opp);
+  const aabning =
+    opp.status_v2 === "tilbud_sendt" && opp.quote_id
+      ? tilbudAabningLinje(opp.modtagere ?? [], null)
+      : null;
   return (
     <div
       role="button"
@@ -439,6 +465,17 @@ function OpportunityCard({
         </p>
       )}
       {advarsel && <p className="text-xs mt-1 font-medium text-destructive">{advarsel}</p>}
+      {aabning && (
+        <p
+          className={
+            aabning.tone === "rod"
+              ? "text-xs mt-1 font-medium text-destructive"
+              : "text-xs mt-1 text-muted-foreground"
+          }
+        >
+          {aabning.text}
+        </p>
+      )}
       <div className="flex items-center justify-between mt-2">
         {opp.status_v2 === "tilbud_sendt" && !opp.quote_id ? (
           <span className="text-xs text-muted-foreground">Værdi mangler – opret tilbud</span>
