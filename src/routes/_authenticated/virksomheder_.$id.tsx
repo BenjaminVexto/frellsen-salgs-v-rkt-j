@@ -1953,6 +1953,8 @@ function RegistrerTilbudDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annullér</Button>
           <Button onClick={save} disabled={saving}>{saving ? "Gemmer…" : "Gem tilbud"}</Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );
