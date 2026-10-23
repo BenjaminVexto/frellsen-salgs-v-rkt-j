@@ -1684,9 +1684,21 @@ const PDF_STATUS_LABEL: Record<string, string> = {
 function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }) {
   const hentPdf = useServerFn(hentTilbudPdf);
   const [open, setOpen] = useState(true);
+  const [saelgerNavn, setSaelgerNavn] = useState<string | null>(null);
   const forbrug = Number(quote.forbrug_pr_maaned ?? 0);
   const faste = Number(quote.faste_pr_maaned ?? 0);
   const aarsvaerdi = beregnAarsvaerdi(forbrug, faste);
+
+  useEffect(() => {
+    const id = quote.saelger_id ?? quote.created_by;
+    if (!id) return;
+    supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", id)
+      .single()
+      .then(({ data }) => setSaelgerNavn(data?.full_name ?? null));
+  }, [quote.saelger_id, quote.created_by]);
 
   return (
     <div className="px-4 md:px-8 py-6 pb-24 max-w-3xl mx-auto space-y-4">
