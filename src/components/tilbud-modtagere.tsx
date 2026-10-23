@@ -283,49 +283,81 @@ export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; compa
       )}
 
       <div className="rounded-md border p-3 space-y-2">
-        {kontakter.length > 0 && (
-          <Select
-            value="__manuelt"
-            onValueChange={(v) => {
-              const k = kontakter.find((x) => x.id === v);
-              if (k) {
-                setNavn(k.name);
-                setEmail(k.email ?? "");
-              }
-            }}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Vælg blandt virksomhedens kontakter…" />
-            </SelectTrigger>
-            <SelectContent>
-              {kontakter.map((k) => (
-                <SelectItem key={k.id} value={k.id}>
-                  {k.name} · {k.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Input
+          value={soeg}
+          onChange={(e) => { setSoeg(e.target.value); setValgt(null); }}
+          placeholder="Søg blandt virksomhedens kontaktpersoner…"
+          className="h-8"
+        />
+        {kontakter.length > 0 && !valgt && (
+          <div className="divide-y rounded-md border max-h-56 overflow-y-auto">
+            {kontakter.map((k) => (
+              <button
+                key={k.id}
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 disabled:opacity-50"
+                onClick={() => vaelgKontakt(k)}
+                disabled={saving}
+              >
+                <span className="font-medium">{k.name}</span>
+                {k.title && <span className="text-muted-foreground"> · {k.title}</span>}
+                <span className={`block text-xs ${k.email ? "text-muted-foreground" : "text-amber-600"}`}>
+                  {k.email ?? "E-mail mangler – kan tilføjes"}
+                </span>
+              </button>
+            ))}
+          </div>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs mb-1 block">Navn</Label>
-            <Input value={navn} onChange={(e) => setNavn(e.target.value)} placeholder="Navn" className="h-8" />
+        {valgt && (
+          <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+            <p className="text-sm">
+              <span className="font-medium">{valgt.name}</span>
+              {valgt.title && <span className="text-muted-foreground"> · {valgt.title}</span>}
+              <span className="block text-xs text-muted-foreground">E-mail mangler på kontaktpersonen — den gemmes på kontakten.</span>
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={manglerEmail}
+                onChange={(e) => setManglerEmail(e.target.value)}
+                placeholder="navn@firma.dk"
+                type="email"
+                className="h-8"
+                autoFocus
+              />
+              <Button size="sm" className="h-8 gap-1.5" onClick={gemEmailOgTilfoej} disabled={saving}>
+                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Gem og tilføj
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => setValgt(null)}>
+                Annullér
+              </Button>
+            </div>
           </div>
-          <div>
-            <Label className="text-xs mb-1 block">E-mail</Label>
-            <Input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="navn@firma.dk"
-              type="email"
-              className="h-8"
-            />
+        )}
+        {!nyOpen ? (
+          <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setNyOpen(true)}>
+            <Plus className="h-3.5 w-3.5" /> Ny kontaktperson
+          </Button>
+        ) : (
+          <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Ny kontaktperson (gemmes på virksomheden)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Input value={nNavn} onChange={(e) => setNNavn(e.target.value)} placeholder="Navn *" className="h-8" />
+              <Input value={nTitel} onChange={(e) => setNTitel(e.target.value)} placeholder="Stilling" className="h-8" />
+              <Input value={nEmail} onChange={(e) => setNEmail(e.target.value)} placeholder="E-mail *" type="email" className="h-8" />
+              <Input value={nTelefon} onChange={(e) => setNTelefon(e.target.value)} placeholder="Telefon" className="h-8" />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" className="h-8 gap-1.5" onClick={opretKontaktOgTilfoej} disabled={saving}>
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Opret og tilføj som modtager
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => setNyOpen(false)}>
+                Annullér
+              </Button>
+            </div>
           </div>
-        </div>
-        <Button size="sm" variant="secondary" className="gap-1.5" onClick={tilfoej} disabled={saving}>
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          Tilføj modtager
-        </Button>
+        )}
       </div>
 
       <Dialog open={!!mailTil} onOpenChange={(o) => !o && setMailTil(null)}>
