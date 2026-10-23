@@ -129,7 +129,7 @@ function AdminOverblikPage() {
           .lt("udfoert_at" as any, toIso),
         supabase
           .from("sales_opportunities")
-          .select("assigned_to, status, estimated_value, next_followup_date"),
+          .select("assigned_to, status_v2, estimated_value, next_followup_date"),
       ]);
       if (cancelled) return;
       const sellerIds = new Set(
