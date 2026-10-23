@@ -539,6 +539,8 @@ function OpportunityDrawer({
   const [form, setForm] = useState<Partial<Opportunity>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const hentPdf = useServerFn(hentTilbudPdf);
 
   useEffect(() => {
     if (opp) setForm(opp);
