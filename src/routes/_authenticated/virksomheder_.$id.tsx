@@ -1207,6 +1207,7 @@ function VirksomhedsKort() {
         assignments={assignments}
         locations={locations}
         presetLocationId={presetLocationId}
+        ringelisteInfo={ringelisteInfo}
         onSaved={() => { load(); setLocationReloadKey((k) => k + 1); }}
       />
       <OpretSalgsmulighedDialog
@@ -1508,6 +1509,7 @@ function RegistrerAktivitetDialog({
   assignments: Assignment[];
   locations: Location[];
   presetLocationId: string | null;
+  ringelisteInfo?: RingelisteInfo | null;
   onSaved: () => void;
 }) {
   const [type, setType] = useState<ActivityType | "">("");
