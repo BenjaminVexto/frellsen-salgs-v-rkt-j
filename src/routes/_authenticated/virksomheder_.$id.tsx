@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
+import { RingelisteBadge } from "@/components/ringeliste-badge";
+import { hentRingelisteMap, udledRingelisteMaerke, type RingelisteInfo } from "@/lib/ringeliste-maerke";
 import { MentionTextarea, NoteWithMentions } from "@/components/mention-textarea";
 import {
   fetchMentionableUsers,
@@ -63,6 +65,7 @@ import {
   ArrowLeft,
   Building2,
   Phone,
+  PhoneCall,
   Mail,
   Globe,
   MapPin,
@@ -200,6 +203,7 @@ function VirksomhedsKort() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [ringelisteInfo, setRingelisteInfo] = useState<RingelisteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState<Location[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -269,6 +273,17 @@ function VirksomhedsKort() {
       setDeleting(false);
     }
   }
+
+  // Ringeliste-mærkat: nyeste kontaktliste-tildeling for denne virksomhed
+  useEffect(() => {
+    let cancelled = false;
+    hentRingelisteMap(supabase, [id])
+      .then((m) => !cancelled && setRingelisteInfo(m.get(id) ?? null))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const load = useCallback(async (stille?: unknown) => {
     // Stille genindlæsning (fx efter "Besøgt") må ikke skjule siden.
@@ -462,10 +477,13 @@ function VirksomhedsKort() {
             <div className="bg-muted rounded-md p-2">
               <Building2 className="h-5 w-5" />
             </div>
-            <CustomerStatusBadge
-              type={company.customer_type}
-              variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
-            />
+            <div className="flex flex-col items-end gap-1">
+              <CustomerStatusBadge
+                type={company.customer_type}
+                variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
+              />
+              <RingelisteBadge info={ringelisteInfo} />
+            </div>
             {(company as any).kreditspaerret && <Badge variant="destructive">Spærret</Badge>}
 
           </div>
@@ -778,7 +796,10 @@ function VirksomhedsKort() {
         <div className="space-y-3">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
             <h1 className="min-w-0 break-words text-lg font-semibold leading-tight">{company.name}</h1>
-            <CustomerStatusBadge type={company.customer_type} variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"} />
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <CustomerStatusBadge type={company.customer_type} variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"} />
+              <RingelisteBadge info={ringelisteInfo} />
+            </div>
           </div>
           <p className="text-xs text-muted-foreground truncate">{company.cvr ? `CVR ${company.cvr}` : "Ingen CVR"}</p>
           {primaryContact && <div className="flex min-w-0 items-center gap-2 text-sm"><User className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="min-w-0 break-words">{primaryContact.name}</span></div>}
@@ -824,6 +845,7 @@ function VirksomhedsKort() {
                 type={company.customer_type}
                 variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
               />
+              <RingelisteBadge info={ringelisteInfo} />
               <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
             </div>
           </div>
@@ -1186,6 +1208,7 @@ function VirksomhedsKort() {
         assignments={assignments}
         locations={locations}
         presetLocationId={presetLocationId}
+        ringelisteInfo={ringelisteInfo}
         onSaved={() => { load(); setLocationReloadKey((k) => k + 1); }}
       />
       <OpretSalgsmulighedDialog
@@ -1478,6 +1501,7 @@ function RegistrerAktivitetDialog({
   assignments,
   locations,
   presetLocationId,
+  ringelisteInfo = null,
   onSaved,
 }: {
   open: boolean;
@@ -1487,6 +1511,7 @@ function RegistrerAktivitetDialog({
   assignments: Assignment[];
   locations: Location[];
   presetLocationId: string | null;
+  ringelisteInfo?: RingelisteInfo | null;
   onSaved: () => void;
 }) {
   const [type, setType] = useState<ActivityType | "">("");
@@ -1589,6 +1614,15 @@ function RegistrerAktivitetDialog({
         <DialogHeader>
           <DialogTitle>Registrér aktivitet</DialogTitle>
         </DialogHeader>
+        {(() => {
+          const m = ringelisteInfo ? udledRingelisteMaerke(ringelisteInfo) : null;
+          return m?.aktiv ? (
+            <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              <PhoneCall className="h-3.5 w-3.5 shrink-0" />
+              Står på en aktiv ringeliste ({ringelisteInfo!.listeNavn ?? "ukendt liste"})
+            </div>
+          ) : null;
+        })()}
         <div className="space-y-4">
           <div>
             <Label className="mb-1.5 block">Aktivitetstype *</Label>

@@ -9,6 +9,8 @@ import { SegmentBadge } from "@/components/binding-status-badge";
 import { adresseNoegle } from "@/lib/adresse-grupper";
 import { kr, CvrStatusMaerke, type CvrGruppeInfo, type ListeItem } from "@/components/cvr-gruppe";
 import { parseSegment3 } from "@/lib/customer-segment-mapping";
+import { RingelisteBadge } from "@/components/ringeliste-badge";
+import type { RingelisteInfo } from "@/lib/ringeliste-maerke";
 import type { CompanyRow } from "@/components/company-filter/types";
 
 /** Kun visning: "ROSKILDE" → "Roskilde", "HØJE-TAASTRUP" → "Høje-Taastrup". Blandet skrivemåde bevares. */
@@ -42,6 +44,7 @@ type Props = {
   ikkeTildelt: (r: CompanyRow) => boolean;
   ekstraLinje: (r: CompanyRow) => ReactNode;
   grupper: Map<string, CvrGruppeInfo> | undefined;
+  ringelisteMap?: Map<string, RingelisteInfo>;
   aabne: Set<string>;
   toggleGruppe: (cvr: string) => void;
   sort: Sort;
@@ -147,6 +150,7 @@ export function VirksomhedListe(p: Props) {
           {p.ikkeTildelt(r) && (
             <Badge variant="outline" className="border-warning/40 text-warning text-[10px]">Ikke tildelt</Badge>
           )}
+          <RingelisteBadge info={p.ringelisteMap?.get(r.id)} className="text-[10px]" />
           {!opts.skjulSegment && <SegmentBadge segment3={r.customer_segment_3} size="sm" kompakt />}
           <CustomerStatusBadge type={r.customer_type as any} />
         </div>

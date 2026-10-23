@@ -105,6 +105,7 @@ function VirksomhederListe() {
     locationMap,
     sellers,
     municipalities,
+    ringelisteMap,
     isFilterActive,
   } = useCompanyFilter({ isAdmin, restrictToIds: recentIds, userId: auth.user?.id ?? null });
 
@@ -512,6 +513,7 @@ function VirksomhederListe() {
               ikkeTildelt={(r) => isAdmin && (assignmentMap.get(r.id) ?? []).length === 0}
               ekstraLinje={lokHitLinje}
               grupper={grupperQ.data}
+              ringelisteMap={ringelisteMap}
               aabne={aabneGrupper}
               toggleGruppe={(cvr) =>
                 setAabneGrupper((prev) => {

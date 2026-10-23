@@ -165,6 +165,14 @@ export function FilterLinje({
           />
         </div>
       </DD>
+      <Button
+        variant={filters.paaRingeliste ? "secondary" : "outline"}
+        size="sm"
+        className="h-9"
+        onClick={() => setFilters((f) => ({ ...f, paaRingeliste: !f.paaRingeliste }))}
+      >
+        På ringeliste
+      </Button>
     </div>
   );
 }
@@ -321,6 +329,7 @@ export function filterChips(filters: FilterState, setFilters: SetF, sellers: Sel
     chips.push({ l: `Kilde: ${lbl(KILDE_OPTS, v)}`, clear: () => setFilters((f) => ({ ...f, sources: f.sources.filter((x) => x !== v) })) }),
   );
   if (filters.visAfloeste) chips.push({ l: "Vis afløste", clear: () => setFilters((f) => ({ ...f, visAfloeste: false })) });
+  if (filters.paaRingeliste) chips.push({ l: "På ringeliste", clear: () => setFilters((f) => ({ ...f, paaRingeliste: false })) });
   // Gamle felter fra gemte skabeloner
   if (filters.city) chips.push({ l: `By: ${filters.city}`, clear: () => setFilters((f) => ({ ...f, city: "" })) });
   if (filters.municipality) chips.push({ l: `Kommune: ${filters.municipality}`, clear: () => setFilters((f) => ({ ...f, municipality: "" })) });

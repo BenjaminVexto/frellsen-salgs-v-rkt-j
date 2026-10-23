@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { hentAlle } from "@/lib/hent-alle";
+import { hentRingelisteMap, udledRingelisteMaerke, type RingelisteInfo } from "@/lib/ringeliste-maerke";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { cvrGrupperQuery, cvrNorm } from "@/components/cvr-gruppe";
@@ -121,6 +122,18 @@ export function useCompanyFilter({
   );
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [municipalities, setMunicipalities] = useState<string[]>([]);
+  const [ringelisteMap, setRingelisteMap] = useState<Map<string, RingelisteInfo>>(new Map());
+
+  // Ringeliste-mærkat: nyeste kontaktliste-tildeling pr. virksomhed (alle tildelinger)
+  useEffect(() => {
+    let cancelled = false;
+    hentRingelisteMap(supabase)
+      .then((m) => !cancelled && setRingelisteMap(m))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Load companies
   useEffect(() => {
@@ -432,9 +445,13 @@ export function useCompanyFilter({
         if (filters.binding === "offentlig_aftale" && kode !== "45") return false;
         if (filters.binding === "andre" && (kode === "40" || kode === "45")) return false;
       }
+      if (filters.paaRingeliste) {
+        const m = udledRingelisteMaerke(ringelisteMap.get(r.id) ?? { status: "", dato: null, listeNavn: null, ringere: [] });
+        if (!m?.aktiv) return false;
+      }
       return true;
     });
-  }, [rows, q, filters, assignmentMap, locationMap, equipmentMap, userId, cvrGrupperQ.data]);
+  }, [rows, q, filters, assignmentMap, locationMap, equipmentMap, userId, cvrGrupperQ.data, ringelisteMap]);
 
   const isActive = useMemo(() => computeIsFilterActive(filters), [filters]);
 
@@ -451,6 +468,7 @@ export function useCompanyFilter({
     equipmentMap,
     sellers,
     municipalities,
+    ringelisteMap,
     isFilterActive: isActive,
   };
 }
