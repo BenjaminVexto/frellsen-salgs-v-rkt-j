@@ -115,24 +115,74 @@ export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; compa
   });
   const mailKlar = mailKlarQuery.data?.klar === true;
 
-  async function tilfoej() {
-    const n = navn.trim();
-    const e = email.trim();
-    if (!n || !e) {
-      toast.error("Udfyld både navn og e-mail");
-      return;
-    }
+  async function tilfoejModtager(kontaktId: string | null, n: string, e: string) {
     setSaving(true);
-    const { error } = await supabase.from("quote_recipients").insert({ quote_id: quoteId, navn: n, email: e });
+    const { error } = await supabase
+      .from("quote_recipients")
+      .insert({ quote_id: quoteId, navn: n, email: e, contact_id: kontaktId });
     setSaving(false);
     if (error) {
       toast.error("Kunne ikke tilføje modtager: " + error.message);
-      return;
+      return false;
     }
-    setNavn("");
-    setEmail("");
     toast.success(`Modtager ${n} tilføjet`);
     qc.invalidateQueries({ queryKey: ["quote-modtagere", quoteId] });
+    return true;
+  }
+
+  async function vaelgKontakt(k: Kontakt) {
+    if (k.email) {
+      if (await tilfoejModtager(k.id, k.name, k.email)) setSoeg("");
+      return;
+    }
+    setValgt(k);
+    setManglerEmail("");
+  }
+
+  async function gemEmailOgTilfoej() {
+    if (!valgt) return;
+    const e = manglerEmail.trim();
+    if (!e) {
+      toast.error("Skriv kontaktpersonens e-mail");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("contacts").update({ email: e }).eq("id", valgt.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Kunne ikke gemme e-mail: " + error.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["quote-modtagere-kontakter", companyId] });
+    if (await tilfoejModtager(valgt.id, valgt.name, e)) {
+      setValgt(null);
+      setSoeg("");
+    }
+  }
+
+  async function opretKontaktOgTilfoej() {
+    const n = nNavn.trim();
+    const e = nEmail.trim();
+    if (!n || !e) {
+      toast.error("Navn og e-mail er påkrævet");
+      return;
+    }
+    setSaving(true);
+    const { data: k, error } = await supabase
+      .from("contacts")
+      .insert({ company_id: companyId, name: n, title: nTitel.trim() || null, email: e, phone: nTelefon.trim() || null, kilde: "crm" })
+      .select("id")
+      .single();
+    setSaving(false);
+    if (error || !k) {
+      toast.error("Kunne ikke oprette kontaktperson: " + (error?.message ?? "ukendt fejl"));
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["quote-modtagere-kontakter", companyId] });
+    if (await tilfoejModtager(k.id, n, e)) {
+      setNyOpen(false);
+      setNNavn(""); setNTitel(""); setNEmail(""); setNTelefon("");
+    }
   }
 
   async function kopier(m: Modtager) {
