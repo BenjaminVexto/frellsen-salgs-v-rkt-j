@@ -3,7 +3,9 @@ import { FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
+import { hentTilbudPdf } from "@/lib/tilbud-pdf.functions";
 
 type Q = {
   id: string;
@@ -38,11 +40,8 @@ export function TilbudSektion({ companyId, reloadKey }: { companyId: string; rel
       .then(({ data }) => setRows(sorterTilbud((data as Q[]) ?? [])));
   }, [companyId, reloadKey]);
 
-  async function aabn(path: string) {
-    const { data, error } = await supabase.storage.from("quote-documents").createSignedUrl(path, 300);
-    if (error || !data) return toast.error("Kunne ikke åbne PDF");
-    window.open(data.signedUrl, "_blank", "noopener");
-  }
+  const hentPdf = useServerFn(hentTilbudPdf);
+  const [vis, setVis] = useState<Q | null>(null);
 
   return (
     <Card className="p-5 mt-4">
@@ -55,11 +54,19 @@ export function TilbudSektion({ companyId, reloadKey }: { companyId: string; rel
               <span className="text-muted-foreground"> · {STATUS_LABEL[q.status] ?? q.status} · {dato(q.sent_date)} · Årsværdi {dkk(q.estimated_value)}</span>
             </div>
             {q.pdf_path && (
-              <Button size="sm" variant="outline" onClick={() => aabn(q.pdf_path!)}>Åbn PDF</Button>
+              <Button size="sm" variant="outline" onClick={() => setVis(q)}>Åbn PDF</Button>
             )}
           </div>
         ))}
       </div>}
+      {vis && (
+        <PDFViewerDialog
+          open={!!vis}
+          onClose={() => setVis(null)}
+          filename={`Tilbud ${vis.quote_number ?? ""}.pdf`}
+          fetcher={() => hentPdf({ data: { quote_id: vis.id } })}
+        />
+      )}
     </Card>
   );
 }
