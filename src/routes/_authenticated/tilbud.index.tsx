@@ -34,6 +34,7 @@ type QuoteRow = {
   estimated_value: number | null;
   created_by: string;
   company_id: string;
+  pdf_path: string | null;
   companies: { id: string; name: string | null } | null;
 };
 
@@ -74,7 +75,7 @@ function TilbudOversigtPage() {
       let query = supabase
         .from("quotes")
         .select(
-          "id, quote_number, status, created_at, sent_date, expiry_date, frozen_at, estimated_value, created_by, company_id, companies(id, name)",
+          "id, quote_number, status, created_at, sent_date, expiry_date, frozen_at, estimated_value, created_by, company_id, pdf_path, companies(id, name)",
         )
         .order("created_at", { ascending: false })
         .limit(500);
@@ -225,8 +226,11 @@ function TilbudOversigtPage() {
                 params={{ id: r.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
               >
-                <div className="font-mono text-sm w-20 shrink-0 text-muted-foreground">
+                <div className="font-mono text-sm w-20 shrink-0 text-muted-foreground flex items-center gap-1.5">
                   {r.quote_number ?? "—"}
+                  {r.pdf_path && (
+                    <FileText className="h-3.5 w-3.5 shrink-0" aria-label="Uploadet PDF-tilbud" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">

@@ -1666,3 +1666,85 @@ function CartSection({
     </div>
   );
 }
+
+// ---------- Visning af uploadet PDF-tilbud ----------
+
+const PDF_STATUS_LABEL: Record<string, string> = {
+  kladde: "Kladde",
+  sendt: "Sendt",
+  under_opfølgning: "Sendt",
+  accepteret: "Accepteret",
+  afvist: "Afvist",
+  udløbet: "Udløbet",
+};
+
+function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }) {
+  const hentPdf = useServerFn(hentTilbudPdf);
+  const [open, setOpen] = useState(true);
+  const forbrug = Number(quote.forbrug_pr_maaned ?? 0);
+  const faste = Number(quote.faste_pr_maaned ?? 0);
+  const aarsvaerdi = beregnAarsvaerdi(forbrug, faste);
+
+  return (
+    <div className="px-4 md:px-8 py-6 pb-24 max-w-3xl mx-auto space-y-4">
+      <Link
+        to="/virksomheder/$id"
+        params={{ id: company.id }}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> Tilbage til {company.name}
+      </Link>
+
+      <Card className="p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-xl font-semibold flex items-center gap-2">
+              <FileText className="h-5 w-5" /> Tilbud {quote.quote_number ?? "—"}
+            </h1>
+            <div className="text-sm text-muted-foreground mt-1">
+              Kunde:{" "}
+              <Link
+                to="/virksomheder/$id"
+                params={{ id: company.id }}
+                className="text-foreground underline underline-offset-2 hover:text-primary"
+              >
+                {company.name}
+              </Link>
+            </div>
+          </div>
+          <Badge>{PDF_STATUS_LABEL[quote.status] ?? quote.status}</Badge>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">Forbrug pr. måned</div>
+            <div className="font-semibold tabular-nums">{formatKr(forbrug)}</div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">Faste beløb pr. måned</div>
+            <div className="font-semibold tabular-nums">{formatKr(faste)}</div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">Årsværdi</div>
+            <div className="font-semibold tabular-nums">{formatKr(aarsvaerdi)}</div>
+          </div>
+        </div>
+
+        <div className="text-sm text-muted-foreground">
+          Sendt {formatDate(quote.sent_date)} · Gyldig til {formatDate(quote.expiry_date)}
+        </div>
+
+        <Button variant="outline" onClick={() => setOpen(true)} className="gap-2">
+          <FileText className="h-4 w-4" /> Åbn PDF
+        </Button>
+      </Card>
+
+      <PDFViewerDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        filename={`Tilbud ${quote.quote_number ?? ""}.pdf`}
+        fetcher={() => hentPdf({ data: { quote_id: quote.id } })}
+      />
+    </div>
+  );
+}
