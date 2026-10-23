@@ -38,7 +38,6 @@ function ringTekst(t: string, nu: Date) {
   if (d.toDateString() === imorgen.toDateString()) return `i morgen ${kl(t)}`;
   return fmt(t);
 }
-const senesteNote = (v: V) => v.opkald.find((o) => o.note);
 
 type SortKey = "standard" | "navn" | "telefon" | "kontakt" | "ansatte" | "status" | "note" | "ring";
 
