@@ -7,6 +7,7 @@ import {
   hentOffentligtTilbud,
   hentOffentligtTilbudPdf,
   sporQuoteEvent,
+  type OffentligTilbudInfo,
 } from "@/lib/tilbud-modtagere.functions";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, FileWarning } from "lucide-react";
@@ -21,16 +22,6 @@ export const Route = createFileRoute("/t/$token")({
   }),
   component: OffentligTilbudSide,
 });
-
-type TilbudInfo = {
-  recipient_navn: string;
-  quote_number: string | null;
-  company_name: string | null;
-  expiry_date: string | null;
-  sent_date: string | null;
-  seller_name: string | null;
-  seller_email: string | null;
-};
 
 function langDato(d: string | null) {
   if (!d) return null;
@@ -106,7 +97,7 @@ function OffentligTilbudSide() {
 
   const infoQuery = useQuery({
     queryKey: ["offentligt-tilbud", token],
-    queryFn: async () => (await hentInfo({ data: { token } })) as TilbudInfo | null,
+    queryFn: async () => (await hentInfo({ data: { token } })) as OffentligTilbudInfo | null,
     staleTime: 60_000,
     retry: false,
   });
