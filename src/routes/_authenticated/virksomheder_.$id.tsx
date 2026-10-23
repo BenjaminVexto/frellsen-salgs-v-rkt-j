@@ -1854,6 +1854,19 @@ function RegistrerTilbudDialog({
             <Label className="mb-1.5 block">Tilbudsnummer{mode === "pdf" ? " *" : ""}</Label>
             <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Fx: 18749" />
           </div>
+          <div>
+            <Label className="mb-1.5 block">Ansvarlig sælger</Label>
+            <Select value={saelgerId} onValueChange={setSaelgerId}>
+              <SelectTrigger aria-label="Ansvarlig sælger">
+                <SelectValue placeholder="Vælg sælger" />
+              </SelectTrigger>
+              <SelectContent>
+                {saelgere.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {mode === "pdf" ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
