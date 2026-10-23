@@ -55,6 +55,7 @@ export function Ringevisning({ listId }: { listId: string }) {
   const [sort, setSort] = useState<{ k: SortKey; dir: 1 | -1 }>({ k: "standard", dir: 1 });
   const [nu, setNu] = useState(() => new Date());
   const [friNote, setFriNote] = useState("");
+  const [seneste, setSeneste] = useState<Record<string, { at: string; bruger: string | null; note: string | null }>>({});
 
   useEffect(() => { const t = setInterval(() => setNu(new Date()), 60000); return () => clearInterval(t); }, []);
 
@@ -63,6 +64,8 @@ export function Ringevisning({ listId }: { listId: string }) {
     if (error) { toast.error("Listen kunne ikke hentes"); return; }
     setData(d);
     setNu(new Date());
+    const { data: sa } = await rpc("tm_seneste_aktivitet", { _list: listId });
+    setSeneste((sa ?? {}) as any);
   }, [listId]);
   useEffect(() => { void load(); }, [load]);
 
@@ -95,7 +98,7 @@ export function Ringevisning({ listId }: { listId: string }) {
         case "kontakt": return (v.kontakter[0]?.navn ?? "").toLowerCase();
         case "ansatte": return v.ansatte ?? -1;
         case "status": return v.status;
-        case "note": return senesteNote(v)?.at ?? "";
+        case "note": return seneste[v.company_id]?.at ?? "";
         case "ring": return ringIgenTid(v) ?? "9999";
         default: { const [r, t] = standardRang(v, nu); return `${r}|${t}`; }
       }
@@ -177,7 +180,7 @@ export function Ringevisning({ listId }: { listId: string }) {
                 <SH k="kontakt" l="Spørg efter" />
                 <SH k="ansatte" l="Ansatte" />
                 <SH k="status" l="Status" />
-                <SH k="note" l="Seneste note" />
+                <SH k="note" l="Seneste aktivitet" />
                 <SH k="ring" l="Ring igen" className="whitespace-nowrap" />
                 <TableHead />
               </TableRow>
@@ -189,7 +192,7 @@ export function Ringevisning({ listId }: { listId: string }) {
               {vist.map((v) => {
                 const t = ringIgenTid(v);
                 const over = t ? new Date(t) <= nu : false;
-                const n = senesteNote(v);
+                const n = seneste[v.company_id];
                 const k = v.kontakter[0];
                 return (
                   <TableRow key={v.company_id} onClick={() => setValgt(v.company_id)}
@@ -219,9 +222,8 @@ export function Ringevisning({ listId }: { listId: string }) {
                     </TableCell>
                     <TableCell className="text-xs max-w-[220px]">
                       {n ? (
-                        <div title={`${n.note}\n— ${fmt(n.at)}${n.bruger ? ` · ${n.bruger}` : ""}`}>
-                          <div className="truncate">{n.note}</div>
-                          <div className="text-muted-foreground truncate">{fmt(n.at)}{n.bruger ? ` · ${n.bruger}` : ""}</div>
+                        <div className="line-clamp-2" title={`${fmt(n.at)}${n.bruger ? ` · ${n.bruger}` : ""}${n.note ? ` · ${n.note}` : ""}`}>
+                          {fmt(n.at)}{n.bruger ? ` · ${n.bruger}` : ""}{n.note ? ` · ${n.note}` : ""}
                         </div>
                       ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
