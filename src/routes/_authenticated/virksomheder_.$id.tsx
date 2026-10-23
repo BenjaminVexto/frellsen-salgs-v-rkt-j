@@ -82,6 +82,7 @@ import {
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { TilbudSektion } from "@/components/tilbud-sektion";
+import { TilbudSendTil } from "@/components/tilbud-send-til";
 import { beregnAarsvaerdi } from "@/lib/tilbud-vaerdi";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -1800,10 +1801,13 @@ function RegistrerTilbudDialog({
   const [saving, setSaving] = useState(false);
   const [saelgerId, setSaelgerId] = useState<string>(userId);
   const [saelgere, setSaelgere] = useState<{ id: string; full_name: string }[]>([]);
+  const [trin, setTrin] = useState<1 | 2>(1);
+  const [nytQuoteId, setNytQuoteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setMode("pdf"); setNumber(""); setValue(""); setSent(new Date()); setNotes("");
+      setTrin(1); setNytQuoteId(null);
       setFil(null); setForbrug(""); setFaste("0"); setExpiryRoert(false);
       setExpiry(addDays(new Date(), 30));
       // Sælgerliste + default: åben salgsmuligheds assigned_to → virksomhedens sælger → den indloggede.
@@ -1845,7 +1849,7 @@ function RegistrerTilbudDialog({
       const up = await supabase.storage.from("quote-documents").upload(pdfPath, fil, { contentType: "application/pdf", upsert: false });
       if (up.error) { setSaving(false); toast.error("Upload fejlede: " + up.error.message); return; }
     }
-    const { error } = await supabase.from("quotes").insert({
+    const { data: nyt, error } = await supabase.from("quotes").insert({
       company_id: companyId,
       created_by: userId,
       saelger_id: saelgerId || userId,
@@ -1858,21 +1862,37 @@ function RegistrerTilbudDialog({
       pdf_path: pdfPath,
       forbrug_pr_maaned: mode === "pdf" ? Number(forbrug) : null,
       faste_pr_maaned: mode === "pdf" ? Number(faste || 0) : null,
-    });
+    }).select("id").single();
     setSaving(false);
-    if (error) {
+    if (error || !nyt) {
       if (pdfPath) await supabase.storage.from("quote-documents").remove([pdfPath]);
-      toast.error("Fejl: " + error.message); return;
+      toast.error("Fejl: " + (error?.message ?? "ukendt fejl")); return;
     }
     toast.success("Tilbud registreret");
-    onOpenChange(false);
-    onSaved();
+    if (mode === "pdf") {
+      // Trin 2: vælg modtagere i samme dialog. onSaved ventes til dialogen lukkes,
+      // fordi load() ellers genmounter dialogen og nulstiller trin 2.
+      setNytQuoteId(nyt.id);
+      setTrin(2);
+    } else {
+      onOpenChange(false);
+      onSaved();
+    }
+  }
+
+  function luk(v: boolean) {
+    if (!v && trin === 2) onSaved();
+    onOpenChange(v);
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={luk}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Registrér tilbud</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{trin === 1 ? "Registrér tilbud" : "Send til"}</DialogTitle></DialogHeader>
+        {trin === 2 && nytQuoteId ? (
+          <TilbudSendTil quoteId={nytQuoteId} companyId={companyId} onLuk={() => luk(false)} />
+        ) : (
+        <>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" variant={mode === "pdf" ? "default" : "outline"} onClick={() => setMode("pdf")}>Upload sendt tilbud (PDF)</Button>
@@ -1940,6 +1960,8 @@ function RegistrerTilbudDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annullér</Button>
           <Button onClick={save} disabled={saving}>{saving ? "Gemmer…" : "Gem tilbud"}</Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );

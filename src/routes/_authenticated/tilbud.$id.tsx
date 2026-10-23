@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { hentAlle } from "@/lib/hent-alle";
 import { useServerFn } from "@tanstack/react-start";
 import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
-import { TilbudModtagere } from "@/components/tilbud-modtagere";
+import { TilbudModtagerStatus } from "@/components/tilbud-modtager-status";
 import { hentTilbudPdf } from "@/lib/tilbud-pdf.functions";
 import { beregnAarsvaerdi } from "@/lib/tilbud-vaerdi";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1756,7 +1756,7 @@ function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }
       </Card>
 
       <Card className="p-5">
-        <TilbudModtagere quoteId={quote.id} companyId={company.id} />
+        <TilbudModtagerStatus quoteId={quote.id} companyId={company.id} />
       </Card>
 
       <PDFViewerDialog
