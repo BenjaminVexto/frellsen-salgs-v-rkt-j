@@ -275,9 +275,9 @@ export function PenhedDaekning({
         const [{ data: opp }, { data: ir }] = await Promise.all([
           (supabase as any)
             .from("sales_opportunities")
-            .select("p_nummer, name, status, assigned_to")
+            .select("p_nummer, name, status_v2, assigned_to")
             .in("p_nummer", pnrs)
-            .not("status", "in", "(vundet,tabt)"),
+            .not("status_v2", "in", "(vundet,tabt)"),
           (supabase as any)
             .from("penhed_ikke_relevant")
             .select("p_nummer, aarsag, fritekst")

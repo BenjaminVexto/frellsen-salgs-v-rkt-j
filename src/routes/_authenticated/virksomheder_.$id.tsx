@@ -294,7 +294,7 @@ function VirksomhedsKort() {
         .from("sales_opportunities")
         .select("*")
         .eq("company_id", id)
-        .not("status", "in", "(vundet,tabt)")
+        .not("status_v2" as never, "in", "(vundet,tabt)")
         .order("created_at", { ascending: false }),
       supabase
         .from("company_documents")
@@ -729,9 +729,9 @@ function VirksomhedsKort() {
                         <div className="min-w-0">
                           <div className="font-medium truncate">{o.name}</div>
                           <div className="text-xs text-muted-foreground">
-                            {o.status}
-                            {o.expected_close_date &&
-                              ` · lukker ${format(new Date(o.expected_close_date), "d. MMM yyyy", { locale: da })}`}
+                            {{ moede_booket: "Møde booket", tilbud_sendt: "Tilbud sendt", vundet: "Vundet", tabt: "Tabt" }[(o as any).status_v2 as string] ?? (o as any).status_v2}
+                            {(o as any).moede_at &&
+                              ` · møde ${format(new Date((o as any).moede_at), "d. MMM yyyy", { locale: da })}`}
                           </div>
                         </div>
                         {o.estimated_value != null && (

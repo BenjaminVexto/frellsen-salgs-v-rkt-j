@@ -61,14 +61,10 @@ const dkk = (n: number) =>
   }).format(n);
 
 const STATUS_LABEL: Record<string, string> = {
-  ny: "Ny",
-  behovsafdækning: "Behovsafdækning",
-  møde_demo: "Møde/Demo",
+  moede_booket: "Møde booket",
   tilbud_sendt: "Tilbud sendt",
-  opfølgning: "Opfølgning",
   vundet: "Vundet",
   tabt: "Tabt",
-  sat_på_pause: "Sat på pause",
 };
 
 interface SellerRow {
@@ -171,16 +167,16 @@ function AdminOverblikPage() {
         moeder: myActs.filter((a) => a.activity_type === "møde_booket").length,
         tilbudSendt: myActs.filter((a) => a.activity_type === "tilbud_sendt")
           .length,
-        vundne: myOpps.filter((o) => o.status === "vundet").length,
+        vundne: myOpps.filter((o) => (o as any).status_v2 === "vundet").length,
         overskredne: myOpps.filter(
           (o) =>
             o.next_followup_date &&
             o.next_followup_date < today &&
-            o.status !== "vundet" &&
-            o.status !== "tabt",
+            (o as any).status_v2 !== "vundet" &&
+            (o as any).status_v2 !== "tabt",
         ).length,
         aabneCount: myOpps.filter(
-          (o) => o.status !== "vundet" && o.status !== "tabt",
+          (o) => (o as any).status_v2 !== "vundet" && (o as any).status_v2 !== "tabt",
         ).length,
       };
     });
@@ -190,9 +186,10 @@ function AdminOverblikPage() {
     const map: Record<string, { count: number; value: number }> = {};
     Object.keys(STATUS_LABEL).forEach((k) => (map[k] = { count: 0, value: 0 }));
     opportunities.forEach((o) => {
-      if (!map[o.status]) map[o.status] = { count: 0, value: 0 };
-      map[o.status].count += 1;
-      map[o.status].value += Number(o.estimated_value ?? 0);
+      const st = (o as any).status_v2 as string;
+      if (!map[st]) map[st] = { count: 0, value: 0 };
+      map[st].count += 1;
+      map[st].value += Number(o.estimated_value ?? 0);
     });
     return map;
   }, [opportunities]);
