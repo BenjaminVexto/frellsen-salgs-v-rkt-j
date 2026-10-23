@@ -11,9 +11,10 @@ const client = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_PUBLISHABLE
 });
 
 describe.skipIf(!session)("September 2026 machine cache regression", () => {
+  // September 2026 er låst (kilde 'beregnet') — tallene er låste snapshotværdier
   const expected = [
-    ["Anders Mohr", 6, 2500, 0], ["Claus Wolsing", 13, 7250, 4],
-    ["Jes Højgaard", 7, 3750, 1], ["Mads Lund", 4, 2750, 1],
+    ["Anders Mohr", 6, 2500, 0], ["Claus Wolsing", 17, 9500, 0],
+    ["Jes Højgaard", 7, 3750, 0], ["Mads Lund", 5, 3500, 0],
     ["Malene Tønnesen", 6, 0, 0], ["Ole Reher", 6, 3000, 0],
   ] as const;
   for (const [name, count, payout, reviews] of expected) {
@@ -34,8 +35,10 @@ describe.skipIf(!session)("September 2026 machine cache regression", () => {
       expect(rows.filter((r) => r.status === "vurdering")).toHaveLength(reviews);
     });
   }
-  it("September remains unlocked", async () => {
-    const { data, error } = await client.from("bonus_laas").select("user_id").eq("maaned", "2026-09-01");
-    expect(error).toBeNull(); expect(data).toEqual([]);
+  it("September is locked with calculated values", async () => {
+    const { data, error } = await client.from("bonus_laas").select("user_id, kilde").eq("maaned", "2026-09-01");
+    expect(error).toBeNull();
+    expect(data).toHaveLength(6);
+    expect(new Set((data ?? []).map((r) => r.kilde))).toEqual(new Set(["beregnet"]));
   });
 });
