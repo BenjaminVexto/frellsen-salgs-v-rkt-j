@@ -61,7 +61,7 @@ function PdfSider({ base64 }: { base64: string }) {
         canvas.style.height = "auto";
         canvas.className = "rounded-md border shadow-sm mb-3 bg-white block";
         container.appendChild(canvas);
-        await page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
+        await page.render({ canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
       }
       if (!cancelled) setKlar(true);
     })().catch((e) => {
