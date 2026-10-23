@@ -1886,11 +1886,11 @@ function RegistrerTilbudDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={luk}>
       <DialogContent>
         <DialogHeader><DialogTitle>{trin === 1 ? "Registrér tilbud" : "Send til"}</DialogTitle></DialogHeader>
         {trin === 2 && nytQuoteId ? (
-          <TilbudSendTil quoteId={nytQuoteId} companyId={companyId} onLuk={() => onOpenChange(false)} />
+          <TilbudSendTil quoteId={nytQuoteId} companyId={companyId} onLuk={() => luk(false)} />
         ) : (
         <>
         <div className="space-y-4">
