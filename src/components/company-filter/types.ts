@@ -68,6 +68,8 @@ export type FilterState = {
   saelger: string;
   /** Matcher by, kommune og postnummer */
   omraade: string;
+  /** Kun virksomheder på en aktiv ringeliste (ikke ringet / ring igen) */
+  paaRingeliste: boolean;
 };
 
 export const DEFAULT_FILTERS: FilterState = {
@@ -87,6 +89,7 @@ export const DEFAULT_FILTERS: FilterState = {
   visAfloeste: false,
   saelger: "alle",
   omraade: "",
+  paaRingeliste: false,
 };
 
 export function normalizeFilterConfig(input: any): FilterState {
@@ -117,6 +120,7 @@ export function isFilterActive(f: FilterState): boolean {
     f.binding !== "all" ||
     f.visAfloeste ||
     f.saelger !== "alle" ||
-    f.omraade.trim() !== ""
+    f.omraade.trim() !== "" ||
+    f.paaRingeliste
   );
 }
