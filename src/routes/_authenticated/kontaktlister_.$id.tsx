@@ -176,16 +176,15 @@ function KontaktlisteDetalje() {
       ).catch((e) => { toast.error("Kunne ikke hente listen: " + (e?.message ?? e)); return [] as any[]; }),
     ]);
     setList(listData as any);
-    const noter = await hentAlle<any>((f, t) =>
-      (supabase as any).from("kontaktliste_opkald").select("company_id, note, created_at, user_id")
-        .eq("contact_list_id", id).not("note", "is", null).order("created_at", { ascending: false }).order("id").range(f, t),
-    ).catch(() => [] as any[]);
-    const noteMap = new Map<string, any>();
-    for (const n of noter) if (!noteMap.has(n.company_id)) noteMap.set(n.company_id, n);
+    // Seneste aktivitet pr. virksomhed uanset kilde (samme kilde for alle roller)
+    const { data: senesteData } = await (supabase as any).rpc("tm_seneste_aktivitet", { _list: id });
+    const noteMap = new Map<string, { note: string | null; at: string; bruger: string | null }>(
+      Object.entries((senesteData ?? {}) as Record<string, any>),
+    );
 
     const userIds = Array.from(
       new Set(
-        [...(assigns ?? []).map((a) => a.assigned_to), ...[...noteMap.values()].map((n) => n.user_id)].filter(Boolean) as string[],
+        [...(assigns ?? []).map((a) => a.assigned_to)].filter(Boolean) as string[],
       ),
     );
     const companyIds = (assigns ?? []).map((a) => a.company_id);
