@@ -1016,6 +1016,13 @@
       "when": 1792747604533,
       "tag": "0144_salgsmuligheder_backfill_moede_booket",
       "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1792748654799,
+      "tag": "0145_kontaktliste_registreringer_som_aktiviteter",
+      "breakpoints": true
     }
   ]
 }
