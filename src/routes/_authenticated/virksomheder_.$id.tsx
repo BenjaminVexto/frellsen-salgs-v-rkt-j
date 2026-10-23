@@ -1800,10 +1800,13 @@ function RegistrerTilbudDialog({
   const [saving, setSaving] = useState(false);
   const [saelgerId, setSaelgerId] = useState<string>(userId);
   const [saelgere, setSaelgere] = useState<{ id: string; full_name: string }[]>([]);
+  const [trin, setTrin] = useState<1 | 2>(1);
+  const [nytQuoteId, setNytQuoteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setMode("pdf"); setNumber(""); setValue(""); setSent(new Date()); setNotes("");
+      setTrin(1); setNytQuoteId(null);
       setFil(null); setForbrug(""); setFaste("0"); setExpiryRoert(false);
       setExpiry(addDays(new Date(), 30));
       // Sælgerliste + default: åben salgsmuligheds assigned_to → virksomhedens sælger → den indloggede.
