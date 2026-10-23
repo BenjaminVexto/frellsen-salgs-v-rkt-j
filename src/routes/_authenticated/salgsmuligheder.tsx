@@ -815,6 +815,14 @@ function OpportunityDrawer({
                 </Button>
               </div>
             </SheetFooter>
+            {opp.tilbud?.pdf_path && (
+              <PDFViewerDialog
+                open={pdfOpen}
+                onClose={() => setPdfOpen(false)}
+                filename={`Tilbud ${opp.tilbud.quote_number ?? ""}.pdf`}
+                fetcher={() => hentPdf({ data: { quote_id: opp.tilbud!.id } })}
+              />
+            )}
           </>
         )}
       </SheetContent>
