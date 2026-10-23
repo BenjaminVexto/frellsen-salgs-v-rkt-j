@@ -17,7 +17,8 @@ import {
   type MentionableUser,
 } from "@/lib/mentions";
 import { ACTIVITY_TYPES, type ActivityTypeKey } from "@/lib/activity-types";
-import { ArrowLeft, CalendarIcon, Mic } from "lucide-react";
+import { hentRingelisteMap, udledRingelisteMaerke } from "@/lib/ringeliste-maerke";
+import { ArrowLeft, CalendarIcon, Mic, PhoneCall } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
@@ -52,6 +53,7 @@ export function RegistrerAktivitetDialogV2({
   const [followUpDate, setFollowUpDate] = useState<Date | undefined>();
   const [users, setUsers] = useState<MentionableUser[]>([]);
   const [saving, setSaving] = useState(false);
+  const [aktivRingeliste, setAktivRingeliste] = useState<string | null>(null);
   const { isImpersonating, viewAsName } = useViewAs();
   const { stampAfdelingNr } = useAfdeling();
 
@@ -69,8 +71,17 @@ export function RegistrerAktivitetDialogV2({
       setNote("");
       setFollowUpDate(undefined);
       fetchMentionableUsers(userId).then(setUsers);
+      // Aktiv ringeliste? → kort info-linje øverst i dialogen
+      setAktivRingeliste(null);
+      hentRingelisteMap(supabase, [companyId])
+        .then((m) => {
+          const info = m.get(companyId);
+          const maerke = info ? udledRingelisteMaerke(info) : null;
+          if (maerke?.aktiv) setAktivRingeliste(info!.listeNavn ?? "ukendt liste");
+        })
+        .catch(() => {});
     }
-  }, [open, presetType, userId]);
+  }, [open, presetType, userId, companyId]);
 
   // Vis dato-vælger automatisk for "opfølgning_aftalt"
   const showFollowUpHint = type === "opfølgning_aftalt";
@@ -141,6 +152,13 @@ export function RegistrerAktivitetDialogV2({
             {step === 1 ? "Vælg aktivitetstype" : "Registrér aktivitet"}
           </DialogTitle>
         </DialogHeader>
+
+        {aktivRingeliste && (
+          <div className="mx-5 mt-3 flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <PhoneCall className="h-3.5 w-3.5 shrink-0" />
+            Står på en aktiv ringeliste ({aktivRingeliste})
+          </div>
+        )}
 
         {step === 1 ? (
           <div className="p-4 grid grid-cols-2 gap-3">
