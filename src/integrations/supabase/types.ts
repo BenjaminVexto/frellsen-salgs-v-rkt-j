@@ -3978,6 +3978,38 @@ export type Database = {
           },
         ]
       }
+      quote_events: {
+        Row: {
+          at: string
+          event: string
+          id: string
+          recipient_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          at?: string
+          event: string
+          id?: string
+          recipient_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          at?: string
+          event?: string
+          id?: string
+          recipient_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_events_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "quote_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_lines: {
         Row: {
           antal: number
@@ -4036,6 +4068,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "quote_lines_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_recipients: {
+        Row: {
+          antal_aabninger: number
+          created_at: string
+          downloadet_at: string | null
+          email: string
+          foerst_aabnet_at: string | null
+          id: string
+          navn: string
+          quote_id: string
+          sendt_at: string | null
+          seneste_aabnet_at: string | null
+          token: string
+        }
+        Insert: {
+          antal_aabninger?: number
+          created_at?: string
+          downloadet_at?: string | null
+          email: string
+          foerst_aabnet_at?: string | null
+          id?: string
+          navn: string
+          quote_id: string
+          sendt_at?: string | null
+          seneste_aabnet_at?: string | null
+          token?: string
+        }
+        Update: {
+          antal_aabninger?: number
+          created_at?: string
+          downloadet_at?: string | null
+          email?: string
+          foerst_aabnet_at?: string | null
+          id?: string
+          navn?: string
+          quote_id?: string
+          sendt_at?: string | null
+          seneste_aabnet_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_recipients_quote_id_fkey"
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
@@ -6535,6 +6617,11 @@ export type Database = {
         Returns: number
       }
       queue_penhed_sync_naeste: { Args: never; Returns: number }
+      quote_recipient_by_token: { Args: { _token: string }; Returns: Json }
+      quote_track_event: {
+        Args: { _event: string; _token: string; _user_agent?: string }
+        Returns: boolean
+      }
       rebuild_products: { Args: never; Returns: number }
       rebuild_sales_aggregates: {
         Args: {
