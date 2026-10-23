@@ -1,3 +1,4 @@
+import { labelFor } from "@/lib/activity-types";
 import { formatTelefon, telHref, webHref } from "@/lib/telefon";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,7 +55,7 @@ export function Ringevisning({ listId }: { listId: string }) {
   const [sort, setSort] = useState<{ k: SortKey; dir: 1 | -1 }>({ k: "standard", dir: 1 });
   const [nu, setNu] = useState(() => new Date());
   const [friNote, setFriNote] = useState("");
-  const [seneste, setSeneste] = useState<Record<string, { at: string; bruger: string | null; note: string | null }>>({});
+  const [seneste, setSeneste] = useState<Record<string, { at: string; bruger: string | null; note: string | null; type?: string | null }>>({});
 
   useEffect(() => { const t = setInterval(() => setNu(new Date()), 60000); return () => clearInterval(t); }, []);
 
@@ -221,8 +222,8 @@ export function Ringevisning({ listId }: { listId: string }) {
                     </TableCell>
                     <TableCell className="text-xs max-w-[220px]">
                       {n ? (
-                        <div className="line-clamp-2" title={`${fmt(n.at)}${n.bruger ? ` · ${n.bruger}` : ""}${n.note ? ` · ${n.note}` : ""}`}>
-                          {fmt(n.at)}{n.bruger ? ` · ${n.bruger}` : ""}{n.note ? ` · ${n.note}` : ""}
+                        <div className="line-clamp-2" title={n.note ? `${fmt(n.at)}${n.bruger ? ` · ${n.bruger}` : ""} · ${n.note}` : `${labelFor(n.type)} · ${fmt(n.at)}${n.bruger ? ` · ${n.bruger}` : ""}`}>
+                          {n.note ? `${fmt(n.at)}${n.bruger ? ` · ${n.bruger}` : ""} · ${n.note}` : `${labelFor(n.type)} · ${fmt(n.at)}${n.bruger ? ` · ${n.bruger}` : ""}`}
                         </div>
                       ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>

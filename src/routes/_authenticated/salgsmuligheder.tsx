@@ -440,7 +440,11 @@ function OpportunityCard({
       )}
       {advarsel && <p className="text-xs mt-1 font-medium text-destructive">{advarsel}</p>}
       <div className="flex items-center justify-between mt-2">
-        <span className="text-sm font-semibold">{dkk(opp.estimated_value)}</span>
+        {opp.status_v2 === "tilbud_sendt" && !opp.quote_id ? (
+          <span className="text-xs text-muted-foreground">Værdi mangler – opret tilbud</span>
+        ) : (
+          <span className="text-sm font-semibold">{dkk(opp.estimated_value)}</span>
+        )}
         {opp.kilde && (
           <span className="text-[11px] text-muted-foreground">
             {opp.kilde === "boost" ? "Boost" : opp.kilde === "egen" ? "Egen" : opp.kilde}
