@@ -1,342 +1,228 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
-import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import frellsenLogo from "@/assets/frellsen-logo.png";
-import { Receipt, Calendar, Repeat, Download } from "lucide-react";
-
-type Line = {
-  id: string;
-  varenr: string | null;
-  line_type: "machine" | "consumable" | "accessory" | string;
-  beskrivelse_snapshot: string | null;
-  antal: number;
-  listepris_snapshot: number | null;
-  rabat_pct_snapshot: number | null;
-  rabat_kr_snapshot: number | null;
-  saerpris_kr_snapshot: number | null;
-  nettopris_snapshot: number | null;
-  nettopris_enhed_snapshot: number | null;
-  er_leje: boolean;
-  sort_order: number;
-};
-
-type PublicQuote = {
-  quote: {
-    id: string;
-    quote_number: string;
-    status: string;
-    pricing_mode: string;
-    sent_date: string | null;
-    expiry_date: string | null;
-    frozen_at: string | null;
-    notes: string | null;
-  };
-  company: {
-    name: string;
-    address: string | null;
-    zip: string | null;
-    city: string | null;
-    contact_person: string | null;
-    cvr: string | null;
-  };
-  location: {
-    address: string | null;
-    zip: string | null;
-    city: string | null;
-    contact_person: string | null;
-    phone: string | null;
-    email: string | null;
-  } | null;
-  lines: Line[];
-};
-
-const publicQuoteQuery = (token: string) =>
-  queryOptions({
-    queryKey: ["public-quote", token],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_public_quote", { _token: token });
-      if (error) throw error;
-      if (!data) throw notFound();
-      return data as unknown as PublicQuote;
-    },
-  });
+import {
+  hentOffentligtTilbud,
+  hentOffentligtTilbudPdf,
+  sporQuoteEvent,
+} from "@/lib/tilbud-modtagere.functions";
+import { Button } from "@/components/ui/button";
+import { Download, Loader2, FileWarning } from "lucide-react";
 
 export const Route = createFileRoute("/t/$token")({
-  loader: async ({ params, context }) =>
-    context.queryClient.ensureQueryData(publicQuoteQuery(params.token)),
   head: () => ({
     meta: [
-      { title: "Tilbud — Frellsen" },
-      { name: "robots", content: "noindex,nofollow" },
+      { title: "Tilbud — Frellsen Kaffe" },
+      { name: "description", content: "Se dit tilbud fra Frellsen Kaffe" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
-  component: PublicQuotePage,
-  errorComponent: () => <NotFoundCard />,
-  notFoundComponent: () => <NotFoundCard />,
+  component: OffentligTilbudSide,
 });
 
-function NotFoundCard() {
+type TilbudInfo = {
+  recipient_navn: string;
+  quote_number: string | null;
+  company_name: string | null;
+  expiry_date: string | null;
+  sent_date: string | null;
+  seller_name: string | null;
+  seller_email: string | null;
+};
+
+function langDato(d: string | null) {
+  if (!d) return null;
+  return new Date(d).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/** Renderer alle PDF-sider med pdf.js (virker på iPhone — ingen browser-plugin, ingen iframe). */
+function PdfSider({ base64 }: { base64: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fejl, setFejl] = useState(false);
+  const [klar, setKlar] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const container = ref.current;
+    if (!container) return;
+    container.innerHTML = "";
+    (async () => {
+      const pdfjs = await import("pdfjs-dist");
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        "pdfjs-dist/build/pdf.worker.min.mjs",
+        import.meta.url,
+      ).toString();
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const doc = await pdfjs.getDocument({ data: bytes }).promise;
+      for (let i = 1; i <= doc.numPages; i++) {
+        if (cancelled) return;
+        const page = await doc.getPage(i);
+        const width = container.clientWidth || 800;
+        const vp1 = page.getViewport({ scale: 1 });
+        const scale = (width / vp1.width) * Math.min(window.devicePixelRatio || 1, 2);
+        const vp = page.getViewport({ scale });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.floor(vp.width);
+        canvas.height = Math.floor(vp.height);
+        canvas.style.width = "100%";
+        canvas.style.height = "auto";
+        canvas.className = "rounded-md border shadow-sm mb-3 bg-white block";
+        container.appendChild(canvas);
+        await page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
+      }
+      if (!cancelled) setKlar(true);
+    })().catch(() => !cancelled && setFejl(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [base64]);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
-      <div className="max-w-md text-center bg-card border rounded-lg p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold">Tilbud ikke fundet</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Linket er ugyldigt, udløbet eller tilbuddet er endnu ikke afsendt.
+    <div>
+      {!klar && !fejl && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {fejl && (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          PDF&apos;en kunne ikke vises her — brug Download-knappen i stedet.
         </p>
-      </div>
+      )}
+      <div ref={ref} />
     </div>
   );
 }
 
-function fmt(n: number | null | undefined) {
-  const v = Number(n ?? 0);
-  return new Intl.NumberFormat("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
-}
-
-function fmtDate(s: string | null | undefined) {
-  if (!s) return "—";
-  try {
-    return new Date(s).toLocaleDateString("da-DK", { day: "2-digit", month: "long", year: "numeric" });
-  } catch {
-    return s;
-  }
-}
-
-function lineTotal(l: Line) {
-  // Prefer line total snapshot; fall back to enhed * antal.
-  if (l.nettopris_snapshot != null && l.nettopris_enhed_snapshot != null) {
-    return Number(l.nettopris_snapshot);
-  }
-  if (l.nettopris_enhed_snapshot != null) {
-    return Number(l.nettopris_enhed_snapshot) * Number(l.antal ?? 1);
-  }
-  return Number(l.nettopris_snapshot ?? 0);
-}
-
-function listTotal(l: Line) {
-  return Number(l.listepris_snapshot ?? 0) * Number(l.antal ?? 1);
-}
-
-function isSaerpris(l: Line) {
-  return Number(l.saerpris_kr_snapshot ?? 0) > 0;
-}
-
-function PublicQuotePage() {
+function OffentligTilbudSide() {
   const { token } = Route.useParams();
-  const { data } = useSuspenseQuery(publicQuoteQuery(token));
-  const { quote, company, location, lines } = data;
+  const hentInfo = useServerFn(hentOffentligtTilbud);
+  const hentPdf = useServerFn(hentOffentligtTilbudPdf);
+  const spor = useServerFn(sporQuoteEvent);
+  const [pdf, setPdf] = useState<{ base64: string; filename: string } | null>(null);
+  const trackedRef = useRef(false);
 
-  const engangskob = lines.filter(
-    (l) => (l.line_type === "machine" && !l.er_leje) || l.line_type === "accessory",
-  );
-  const leje = lines.filter((l) => l.line_type === "machine" && l.er_leje);
-  const forbrug = lines.filter((l) => l.line_type === "consumable");
+  const infoQuery = useQuery({
+    queryKey: ["offentligt-tilbud", token],
+    queryFn: async () => (await hentInfo({ data: { token } })) as TilbudInfo | null,
+    staleTime: 60_000,
+    retry: false,
+  });
 
-  const buckets = [
-    { key: "engangskob", title: "Engangskøb", suffix: "", icon: <Receipt className="h-4 w-4" />, lines: engangskob },
-    { key: "leje", title: "Månedlig leje", suffix: " /md", icon: <Calendar className="h-4 w-4" />, lines: leje },
-    { key: "forbrug", title: "Løbende forbrug", suffix: "", icon: <Repeat className="h-4 w-4" />, lines: forbrug },
-  ].filter((b) => b.lines.length > 0);
+  // Spor åbning — men aldrig for en indlogget CRM-bruger (sælgeren selv m.m.)
+  useEffect(() => {
+    if (!infoQuery.data || trackedRef.current) return;
+    trackedRef.current = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) return;
+      spor({ data: { token, event: "aabnet", user_agent: navigator.userAgent } }).catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [infoQuery.data, token]);
+
+  // Hent PDF når info er på plads
+  useEffect(() => {
+    if (!infoQuery.data) return;
+    let cancelled = false;
+    hentPdf({ data: { token } })
+      .then((r) => !cancelled && setPdf(r))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [infoQuery.data, token]);
+
+  async function download() {
+    if (!pdf) return;
+    const bytes = atob(pdf.base64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    const blob = new Blob([arr], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = pdf.filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) spor({ data: { token, event: "downloadet", user_agent: navigator.userAgent } }).catch(() => {});
+  }
+
+  if (infoQuery.isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/40">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const info = infoQuery.data;
+  if (!info) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-muted/40 px-4 text-center">
+        <FileWarning className="h-10 w-10 text-muted-foreground mb-4" />
+        <h1 className="text-xl font-semibold">Linket er ikke gyldigt</h1>
+        <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+          Dette tilbudslink findes ikke eller er ikke længere aktivt. Kontakt din konsulent hos
+          Frellsen Kaffe, hvis du mener, det er en fejl.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-10">
-        <div className="mb-4 flex justify-end">
-          <a
-            href={`/api/public/quote-pdf/${token}`}
-            className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-sm shadow-sm hover:bg-muted"
-          >
-            <Download className="h-4 w-4" /> Download PDF
-          </a>
-        </div>
-        <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
-          {/* Header */}
-          <header className="px-8 py-8 border-b bg-gradient-to-br from-background to-muted/20">
-            <div className="flex items-start justify-between gap-6 flex-wrap">
-              <img src={frellsenLogo} alt="Frellsen siden 1897" className="h-14 w-auto object-contain" />
-              <div className="text-right text-sm">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Tilbud</div>
-                <div className="text-2xl font-semibold tabular-nums">{quote.quote_number}</div>
-                <div className="mt-2 text-muted-foreground">
-                  Dato: <span className="text-foreground">{fmtDate(quote.sent_date)}</span>
-                </div>
-                <div className="text-muted-foreground">
-                  Gyldig til: <span className="text-foreground">{fmtDate(quote.expiry_date)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Tilbud til</div>
-                <div className="text-lg font-semibold">{company.name}</div>
-                {company.contact_person && (
-                  <div className="text-sm text-muted-foreground">Att: {company.contact_person}</div>
-                )}
-                {(company.address || company.zip || company.city) && (
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {company.address}
-                    {company.address ? <br /> : null}
-                    {[company.zip, company.city].filter(Boolean).join(" ")}
-                  </div>
-                )}
-                {company.cvr && (
-                  <div className="text-xs text-muted-foreground mt-1">CVR: {company.cvr}</div>
-                )}
-              </div>
-              {location && (
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Leveringsadresse</div>
-                  {location.contact_person && (
-                    <div className="text-sm">{location.contact_person}</div>
-                  )}
-                  <div className="text-sm text-muted-foreground">
-                    {location.address}
-                    {location.address ? <br /> : null}
-                    {[location.zip, location.city].filter(Boolean).join(" ")}
-                  </div>
-                  {(location.phone || location.email) && (
-                    <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-2 gap-y-1">
-                      {location.phone && (
-                        <a href={`tel:${location.phone}`} className="hover:underline">
-                          {location.phone}
-                        </a>
-                      )}
-                      {location.phone && location.email && <span>·</span>}
-                      {location.email && (
-                        <a href={`mailto:${location.email}`} className="hover:underline break-all">
-                          {location.email}
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </header>
-
-          {/* Sections */}
-          <div className="divide-y">
-            {buckets.length === 0 && (
-              <div className="px-8 py-12 text-center text-muted-foreground text-sm">
-                Tilbuddet indeholder ingen linjer.
-              </div>
-            )}
-            {buckets.map((b) => {
-              const total = b.lines.reduce((s, l) => s + lineTotal(l), 0);
-              // Listepris-totalen og "I sparer" beregnes KUN på linjer hvor
-              // listeprisen vises (ikke-særpris). Særpris-linjer skjuler både
-              // listepris, rabat og besparelse mod kunden.
-              const visibleListSum = b.lines
-                .filter((l) => !isSaerpris(l))
-                .reduce((s, l) => s + listTotal(l), 0);
-              const visibleNetSum = b.lines
-                .filter((l) => !isSaerpris(l))
-                .reduce((s, l) => s + lineTotal(l), 0);
-              const savings = Math.max(0, visibleListSum - visibleNetSum);
-              return (
-                <section key={b.key} className="px-8 py-7">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-base font-semibold flex items-center gap-2">
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        {b.icon}
-                      </span>
-                      {b.title}
-                    </h2>
-                    <span className="text-xs text-muted-foreground">
-                      {b.lines.length} {b.lines.length === 1 ? "linje" : "linjer"}
-                    </span>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
-                          <th className="py-2 pr-4 font-medium">Beskrivelse</th>
-                          <th className="py-2 px-3 font-medium text-right w-16">Antal</th>
-                          <th className="py-2 px-3 font-medium text-right w-28">Listepris</th>
-                          <th className="py-2 px-3 font-medium text-right w-24">Rabat</th>
-                          <th className="py-2 pl-3 font-medium text-right w-32">Nettopris</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {b.lines.map((l) => {
-                          const saer = isSaerpris(l);
-                          const pct = Number(l.rabat_pct_snapshot ?? 0);
-                          const kr = Number(l.rabat_kr_snapshot ?? 0);
-                          const rabatLabel =
-                            pct > 0 && kr > 0
-                              ? `${pct}% + ${fmt(kr)} kr`
-                              : pct > 0
-                                ? `${pct}%`
-                                : kr > 0
-                                  ? `${fmt(kr)} kr`
-                                  : "—";
-                          return (
-                            <tr key={l.id} className="align-top">
-                              <td className="py-3 pr-4">
-                                <div className="font-medium">{l.beskrivelse_snapshot || l.varenr}</div>
-                                {l.varenr && (
-                                  <div className="text-xs text-muted-foreground">Varenr {l.varenr}</div>
-                                )}
-                              </td>
-                              <td className="py-3 px-3 text-right tabular-nums">{l.antal}</td>
-                              <td className="py-3 px-3 text-right tabular-nums text-muted-foreground">
-                                {saer ? "" : fmt(l.listepris_snapshot)}
-                              </td>
-                              <td className="py-3 px-3 text-right tabular-nums text-muted-foreground">
-                                {saer ? "" : rabatLabel}
-                              </td>
-                              <td className="py-3 pl-3 text-right tabular-nums font-semibold">
-                                {fmt(lineTotal(l))}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="border-t-2">
-                          <td colSpan={4} className="pt-4 pr-4 text-right text-sm">
-                            {visibleListSum > 0 && (
-                              <>
-                                <span className="text-muted-foreground">Listepris i alt </span>
-                                <span className="tabular-nums">{fmt(visibleListSum)} kr</span>
-                              </>
-                            )}
-                            {savings > 0 && (
-                              <span className="ml-3 text-emerald-700 dark:text-emerald-400">
-                                · I sparer {fmt(savings)} kr
-                              </span>
-                            )}
-                          </td>
-                          <td className="pt-4 pl-3 text-right">
-                            <div className="text-xs text-muted-foreground">Total{b.suffix}</div>
-                            <div className="text-xl font-bold tabular-nums">
-                              {fmt(total)} kr{b.suffix}
-                            </div>
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </section>
-              );
-            })}
+    <div className="min-h-screen bg-muted/40">
+      <header className="bg-background border-b">
+        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+          <div className="text-lg font-bold tracking-tight">
+            FRELLSEN <span className="font-normal text-muted-foreground">KAFFE</span>
           </div>
-
-          {quote.notes && (
-            <div className="px-8 py-6 border-t bg-muted/20">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Bemærkninger</div>
-              <div className="text-sm whitespace-pre-wrap">{quote.notes}</div>
-            </div>
-          )}
-
-          <footer className="px-8 py-6 border-t text-xs text-muted-foreground flex items-center justify-between flex-wrap gap-2">
-            <div>Alle priser er ekskl. moms. Tilbud gyldigt til {fmtDate(quote.expiry_date)}.</div>
-            <div>Frellsen Kaffe A/S</div>
-          </footer>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={download} disabled={!pdf}>
+            <Download className="h-3.5 w-3.5" /> Download
+          </Button>
         </div>
-      </div>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+        <div>
+          <h1 className="text-xl md:text-2xl font-semibold">
+            Tilbud {info.quote_number ?? ""} til {info.company_name ?? "dig"}
+          </h1>
+          <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
+            {info.seller_name && (
+              <p>
+                {info.seller_name}
+                {info.seller_email ? (
+                  <>
+                    {" · "}
+                    <a href={`mailto:${info.seller_email}`} className="underline underline-offset-2">
+                      {info.seller_email}
+                    </a>
+                  </>
+                ) : null}
+              </p>
+            )}
+            {info.expiry_date && <p>Tilbuddet er gyldigt til {langDato(info.expiry_date)}</p>}
+          </div>
+        </div>
+
+        {pdf ? (
+          <PdfSider base64={pdf.base64} />
+        ) : (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        <p className="text-center text-xs text-muted-foreground pb-6">
+          Frellsen Kaffe · Dette link er personligt og viser kun dette tilbud.
+        </p>
+      </main>
     </div>
   );
 }
