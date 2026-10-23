@@ -915,7 +915,7 @@ function VirksomhedsKort() {
                 ...(isAdmin ? [{ v: "udvikling", label: "Udvikling" }] : []),
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
-                { v: "aftaler", label: "Aftaler" },
+                { v: "aftaler", label: "Aftaler & tilbud" },
               ];
               const mobilePrimary = ["oversigt", "salg", "lokationer", "aftaler"];
               const mobileMore = [...allTabs.filter((t) => !mobilePrimary.includes(t.v)), { v: "stamdata", label: "Stamdata" }];
@@ -1047,7 +1047,6 @@ function VirksomhedsKort() {
                   </div>
                 )}
               </Card>
-              <TilbudSektion companyId={company.id} reloadKey={tilbudReload} />
             </TabsContent>
 
             {/* FANE: Salg */}
@@ -1124,6 +1123,7 @@ function VirksomhedsKort() {
 
             {/* FANE: Aftaler */}
             <TabsContent value="aftaler" className="space-y-6 mt-4">
+              <TilbudSektion companyId={company.id} reloadKey={tilbudReload} />
               <AgreementCardSection segment1={(company as any).customer_segment_1 ?? null} variant="top" />
               <CompanyPricingSummary companyId={company.id} />
               <DokumenterSektion companyId={company.id} canWrite={canWriteDocs} />

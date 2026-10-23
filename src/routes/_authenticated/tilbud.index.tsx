@@ -285,9 +285,11 @@ function TilbudOversigtPage() {
                 e.preventDefault();
                 if (!sletter) return;
                 setSletterNu(true);
+                const { data: pdf } = await supabase.from("quotes").select("pdf_path").eq("id", sletter.id).maybeSingle();
                 const { error, count } = await supabase.from("quotes").delete({ count: "exact" }).eq("id", sletter.id);
                 setSletterNu(false);
                 if (error || !count) { toast.error("Kunne ikke slette tilbuddet" + (error ? ": " + error.message : "")); return; }
+                if (pdf?.pdf_path) await supabase.storage.from("quote-documents").remove([pdf.pdf_path]);
                 setRows((prev) => (prev ?? []).filter((x) => x.id !== sletter.id));
                 toast.success("Tilbud slettet");
                 setSletter(null);
