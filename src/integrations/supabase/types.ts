@@ -4051,10 +4051,13 @@ export type Database = {
           delivery_location_id: string | null
           estimated_value: number | null
           expiry_date: string | null
+          faste_pr_maaned: number | null
+          forbrug_pr_maaned: number | null
           frozen_at: string | null
           id: string
           notes: string | null
           opportunity_id: string | null
+          pdf_path: string | null
           pricing_mode: string
           public_token: string | null
           quote_number: string | null
@@ -4069,10 +4072,13 @@ export type Database = {
           delivery_location_id?: string | null
           estimated_value?: number | null
           expiry_date?: string | null
+          faste_pr_maaned?: number | null
+          forbrug_pr_maaned?: number | null
           frozen_at?: string | null
           id?: string
           notes?: string | null
           opportunity_id?: string | null
+          pdf_path?: string | null
           pricing_mode?: string
           public_token?: string | null
           quote_number?: string | null
@@ -4087,10 +4093,13 @@ export type Database = {
           delivery_location_id?: string | null
           estimated_value?: number | null
           expiry_date?: string | null
+          faste_pr_maaned?: number | null
+          forbrug_pr_maaned?: number | null
           frozen_at?: string | null
           id?: string
           notes?: string | null
           opportunity_id?: string | null
+          pdf_path?: string | null
           pricing_mode?: string
           public_token?: string | null
           quote_number?: string | null

@@ -77,7 +77,9 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
+import { TilbudSektion } from "@/components/tilbud-sektion";
+import { beregnAarsvaerdi } from "@/lib/tilbud-vaerdi";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
@@ -213,6 +215,7 @@ function VirksomhedsKort() {
   const [mailOpen, setMailOpen] = useState(false);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [tilbudReload, setTilbudReload] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const [extraOpen, setExtraOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>("oversigt");
@@ -796,7 +799,7 @@ function VirksomhedsKort() {
                 <KundeStop companyId={company.id} onChanged={() => void load(true)} />
                 <KundeRytmeLinje companyId={company.id} />
                 <Button variant="outline" className="w-full justify-start" onClick={() => { setMoreOpen(false); setOpportunityOpen(true); }}><PlusCircle className="h-4 w-4" />Opret salgsmulighed</Button>
-                <Button variant="outline" className="w-full justify-start" onClick={() => navigate({ to: "/tilbud/ny", search: { companyId: company.id } })}><FileText className="h-4 w-4" />Registrér tilbud</Button>
+                <Button variant="outline" className="w-full justify-start" onClick={() => setQuoteOpen(true)}><FileText className="h-4 w-4" />Registrér tilbud</Button>
                 {isAdmin && <Button variant="destructive" className="w-full justify-start" onClick={() => { setMoreOpen(false); void openDeleteDialog(); }}><Trash2 className="h-4 w-4" />Slet virksomhed</Button>}
               </SheetContent>
             </Sheet>
@@ -850,7 +853,7 @@ function VirksomhedsKort() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() =>
-                    navigate({ to: "/tilbud/ny", search: { companyId: company.id } })
+                    setQuoteOpen(true)
                   }
                 >
                   <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
@@ -1044,6 +1047,7 @@ function VirksomhedsKort() {
                   </div>
                 )}
               </Card>
+              <TilbudSektion companyId={company.id} reloadKey={tilbudReload} />
             </TabsContent>
 
             {/* FANE: Salg */}
@@ -1154,7 +1158,7 @@ function VirksomhedsKort() {
               variant="outline"
               className="w-full justify-start"
               onClick={() =>
-                navigate({ to: "/tilbud/ny", search: { companyId: company.id } })
+                setQuoteOpen(true)
               }
             >
               <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
@@ -1196,7 +1200,8 @@ function VirksomhedsKort() {
         onOpenChange={setQuoteOpen}
         companyId={company.id}
         userId={user?.id ?? ""}
-        onSaved={load}
+        onSaved={() => { load(); setTilbudReload((n) => n + 1); }}
+        onCrmTilbud={() => navigate({ to: "/tilbud/ny", search: { companyId: company.id } })}
       />
       <SkrivMailDialog
         open={mailOpen}
@@ -1739,38 +1744,73 @@ function RegistrerTilbudDialog({
   companyId,
   userId,
   onSaved,
+  onCrmTilbud,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   companyId: string;
   userId: string;
   onSaved: () => void;
+  onCrmTilbud: () => void;
 }) {
+  const [mode, setMode] = useState<"pdf" | "manuel">("pdf");
   const [number, setNumber] = useState("");
   const [value, setValue] = useState("");
   const [sent, setSent] = useState<Date | undefined>(new Date());
   const [expiry, setExpiry] = useState<Date | undefined>();
   const [notes, setNotes] = useState("");
+  const [fil, setFil] = useState<File | null>(null);
+  const [forbrug, setForbrug] = useState("");
+  const [faste, setFaste] = useState("0");
+  const [expiryRoert, setExpiryRoert] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) { setNumber(""); setValue(""); setSent(new Date()); setExpiry(undefined); setNotes(""); }
+    if (open) {
+      setMode("pdf"); setNumber(""); setValue(""); setSent(new Date()); setNotes("");
+      setFil(null); setForbrug(""); setFaste("0"); setExpiryRoert(false);
+      setExpiry(addDays(new Date(), 30));
+    }
   }, [open]);
 
+  useEffect(() => {
+    if (mode === "pdf" && !expiryRoert && sent) setExpiry(addDays(sent, 30));
+  }, [sent, mode, expiryRoert]);
+
+  const aarsvaerdi = beregnAarsvaerdi(Number(forbrug || 0), Number(faste || 0));
+
   async function save() {
+    if (mode === "pdf") {
+      if (!fil) return toast.error("Vælg PDF");
+      if (!number.trim()) return toast.error("Tilbudsnummer mangler");
+      if (!sent) return toast.error("Dato sendt mangler");
+      if (forbrug === "" || Number(forbrug) < 0) return toast.error("Forventet forbrug pr. måned mangler");
+    }
     setSaving(true);
+    let pdfPath: string | null = null;
+    if (mode === "pdf" && fil) {
+      pdfPath = `${companyId}/${crypto.randomUUID()}.pdf`;
+      const up = await supabase.storage.from("quote-documents").upload(pdfPath, fil, { contentType: "application/pdf", upsert: false });
+      if (up.error) { setSaving(false); toast.error("Upload fejlede: " + up.error.message); return; }
+    }
     const { error } = await supabase.from("quotes").insert({
       company_id: companyId,
       created_by: userId,
       quote_number: number.trim() || null,
-      estimated_value: value ? Number(value) : null,
+      estimated_value: mode === "pdf" ? aarsvaerdi : value ? Number(value) : null,
       sent_date: sent ? format(sent, "yyyy-MM-dd") : null,
       expiry_date: expiry ? format(expiry, "yyyy-MM-dd") : null,
       notes: notes.trim() || null,
       status: "sendt",
+      pdf_path: pdfPath,
+      forbrug_pr_maaned: mode === "pdf" ? Number(forbrug) : null,
+      faste_pr_maaned: mode === "pdf" ? Number(faste || 0) : null,
     });
     setSaving(false);
-    if (error) { toast.error("Fejl: " + error.message); return; }
+    if (error) {
+      if (pdfPath) await supabase.storage.from("quote-documents").remove([pdfPath]);
+      toast.error("Fejl: " + error.message); return;
+    }
     toast.success("Tilbud registreret");
     onOpenChange(false);
     onSaved();
@@ -1781,22 +1821,48 @@ function RegistrerTilbudDialog({
       <DialogContent>
         <DialogHeader><DialogTitle>Registrér tilbud</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <div>
-            <Label className="mb-1.5 block">Tilbudsnummer</Label>
-            <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Fx: T-2026-0123" />
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="button" variant={mode === "pdf" ? "default" : "outline"} onClick={() => setMode("pdf")}>Upload sendt tilbud (PDF)</Button>
+            <Button type="button" variant="outline" onClick={() => { onOpenChange(false); onCrmTilbud(); }}>Byg tilbud med varelinjer</Button>
           </div>
+          {mode === "pdf" && (
+            <div>
+              <Label className="mb-1.5 block">PDF *</Label>
+              <Input type="file" accept="application/pdf,.pdf" onChange={(e) => setFil(e.target.files?.[0] ?? null)} />
+            </div>
+          )}
           <div>
-            <Label className="mb-1.5 block">Værdi (kr.)</Label>
-            <Input type="number" value={value} onChange={(e) => setValue(e.target.value)} />
+            <Label className="mb-1.5 block">Tilbudsnummer{mode === "pdf" ? " *" : ""}</Label>
+            <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Fx: 18749" />
           </div>
+          {mode === "pdf" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="mb-1.5 block">Forventet forbrug pr. måned (kr.) *</Label>
+                <Input type="number" min={0} value={forbrug} onChange={(e) => setForbrug(e.target.value)} />
+                <p className="text-xs text-muted-foreground mt-1">Kaffe, kakao, topping m.m. ud fra mødet</p>
+              </div>
+              <div>
+                <Label className="mb-1.5 block">Faste beløb pr. måned (kr.)</Label>
+                <Input type="number" min={0} value={faste} onChange={(e) => setFaste(e.target.value)} />
+                <p className="text-xs text-muted-foreground mt-1">Serviceaftale, leje</p>
+              </div>
+              <p className="col-span-2 text-sm font-semibold">Årsværdi: {aarsvaerdi.toLocaleString("da-DK")} kr.</p>
+            </div>
+          ) : (
+            <div>
+              <Label className="mb-1.5 block">Værdi (kr.)</Label>
+              <Input type="number" value={value} onChange={(e) => setValue(e.target.value)} />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="mb-1.5 block">Sendt</Label>
+              <Label className="mb-1.5 block">Sendt{mode === "pdf" ? " *" : ""}</Label>
               <DatoVælger value={sent} onChange={setSent} />
             </div>
             <div>
               <Label className="mb-1.5 block">Udløber</Label>
-              <DatoVælger value={expiry} onChange={setExpiry} />
+              <DatoVælger value={expiry} onChange={(d) => { setExpiryRoert(true); setExpiry(d); }} />
             </div>
           </div>
           <div>

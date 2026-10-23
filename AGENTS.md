@@ -26,3 +26,4 @@
 - Company mobile reuses desktop master data in More; one Locations callback for machine metrics.
 - Machine bonus reads cached seller/month rows; changes queue keys, imports drain, reviews refresh. Locked bonus_laas snapshots stay separate from live reconciliation.
 - Maskiner & Service reads only precomputed udstyr_*_maaned (trigger-queued, drained on invoice import) via udstyr_grundlag; allocation in src/lib/udstyr.ts — never scans invoices.
+- Uploaded Word-quote PDFs live in private bucket quote-documents at <company_id>/<uuid>.pdf (upload policy checks the folder company; read requires a quotes.pdf_path row) and are opened only via signed URLs.
