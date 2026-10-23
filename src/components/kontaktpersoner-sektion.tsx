@@ -351,7 +351,7 @@ export function KontaktpersonerSektion({
   );
 }
 
-function ContactDialog({
+export function ContactDialog({
   open,
   onOpenChange,
   companyId,
