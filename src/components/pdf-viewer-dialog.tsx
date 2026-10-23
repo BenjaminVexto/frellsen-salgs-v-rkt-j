@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Download, X, FileText } from "lucide-react";
+import { Loader2, Download, FileText } from "lucide-react";
+import { PdfSider } from "@/components/pdf-sider";
 
 type FetchResult = { base64: string; filename: string; content_type: string };
 
@@ -75,7 +76,7 @@ export function PDFViewerDialog({ open, onClose, filename, fetcher }: Props) {
     }
   };
 
-  const dataUrl = pdfBase64 ? `data:application/pdf;base64,${pdfBase64}` : null;
+  const erPdf = pdfContentType === "application/pdf" || (serverFilename || filename).toLowerCase().endsWith(".pdf");
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -87,21 +88,17 @@ export function PDFViewerDialog({ open, onClose, filename, fetcher }: Props) {
         <DialogDescription className="sr-only">
           PDF-visning af dokumentet {serverFilename || filename} med mulighed for download.
         </DialogDescription>
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b">
+        {/* pr-12 giver plads til dialogens eget lukkekryds øverst til højre */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 pr-12 border-b">
           <div className="flex items-center gap-2 min-w-0">
             <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <span className="font-medium text-sm truncate">{serverFilename || filename}</span>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Button size="sm" variant="outline" onClick={handleDownload}>
-              <Download className="h-4 w-4 mr-1.5" /> Download
-            </Button>
-            <Button size="icon" variant="ghost" onClick={onClose} aria-label="Luk">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button size="sm" variant="outline" onClick={handleDownload} className="flex-shrink-0">
+            <Download className="h-4 w-4 mr-1.5" /> Download
+          </Button>
         </div>
-        <div className="flex-1 min-h-0 bg-muted">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-muted p-3 md:p-4">
           {loading ? (
             <div className="h-full flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -115,22 +112,17 @@ export function PDFViewerDialog({ open, onClose, filename, fetcher }: Props) {
                 <Download className="h-4 w-4 mr-1.5" /> Download
               </Button>
             </div>
-          ) : dataUrl ? (
-            <object
-              data={dataUrl}
-              type="application/pdf"
-              aria-label={serverFilename || filename}
-              className="w-full h-full"
-            >
-              <div className="h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Din browser kan ikke vise PDF&apos;en direkte.
-                </p>
-                <Button size="sm" onClick={handleDownload}>
-                  <Download className="h-4 w-4 mr-1.5" /> Download
-                </Button>
-              </div>
-            </object>
+          ) : pdfBase64 && erPdf ? (
+            <PdfSider base64={pdfBase64} />
+          ) : pdfBase64 ? (
+            <div className="h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                Filen kan ikke vises her — brug Download-knappen i stedet.
+              </p>
+              <Button size="sm" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-1.5" /> Download
+              </Button>
+            </div>
           ) : null}
         </div>
       </DialogContent>
