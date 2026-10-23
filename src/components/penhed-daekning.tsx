@@ -36,14 +36,8 @@ import {
 } from "@/components/penhed-forhandler";
 
 export const STADIE_LABEL: Record<string, string> = {
-  emne: "Emne",
-  ny: "Ny",
-  behovsafdækning: "Behovsafdækning",
-  møde_demo: "Møde booket",
-  tilbud_under_udarbejdelse: "Tilbud under udarbejdelse",
+  moede_booket: "Møde booket",
   tilbud_sendt: "Tilbud sendt",
-  opfølgning: "Opfølgning",
-  sat_på_pause: "Sat på pause",
   vundet: "Vundet",
   tabt: "Tabt",
 };
