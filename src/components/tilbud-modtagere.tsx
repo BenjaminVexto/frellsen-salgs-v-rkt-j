@@ -63,10 +63,18 @@ function statusTekst(m: Modtager): string {
 }
 
 /** Modtagerlinks og åbningssporing for et PDF-tilbud. */
+type Kontakt = { id: string; name: string; title: string | null; email: string | null; phone: string | null };
+
 export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; companyId: string }) {
   const qc = useQueryClient();
-  const [navn, setNavn] = useState("");
-  const [email, setEmail] = useState("");
+  const [soeg, setSoeg] = useState("");
+  const [valgt, setValgt] = useState<Kontakt | null>(null);
+  const [manglerEmail, setManglerEmail] = useState("");
+  const [nyOpen, setNyOpen] = useState(false);
+  const [nNavn, setNNavn] = useState("");
+  const [nTitel, setNTitel] = useState("");
+  const [nEmail, setNEmail] = useState("");
+  const [nTelefon, setNTelefon] = useState("");
   const [saving, setSaving] = useState(false);
   const [mailTil, setMailTil] = useState<Modtager | null>(null);
   const [mailTekst, setMailTekst] = useState(MAIL_DEFAULT);
@@ -92,10 +100,11 @@ export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; compa
     queryFn: async () => {
       const { data } = await supabase
         .from("contacts")
-        .select("id, name, email")
+        .select("id, name, title, email, phone")
         .eq("company_id", companyId)
-        .order("is_primary", { ascending: false });
-      return (data ?? []) as { id: string; name: string; email: string | null }[];
+        .order("is_primary", { ascending: false })
+        .order("name");
+      return (data ?? []) as Kontakt[];
     },
   });
 
