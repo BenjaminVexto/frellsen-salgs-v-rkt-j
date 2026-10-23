@@ -104,7 +104,7 @@ export async function berigDirektoerer(
     fundet++;
     navne.forEach((navn, i) => {
       if (har.has(`${c.id}|${navn.toLowerCase()}`)) return;
-      rows.push({ company_id: c.id, name: navn, title: DIREKTOER_TITEL, is_primary: i === 0, phone: null, email: null });
+      rows.push({ company_id: c.id, name: navn, title: DIREKTOER_TITEL, is_primary: i === 0, phone: null, email: null, kilde: "cvr" });
     });
   }
   if (rows.length) {

@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { AARSAGER, UDFALD_LABEL, VALGBARE_UDFALD, ringIgenHurtigvalg, type Udfald } from "@/lib/telemarketing";
 import { formatTelefon, telHref } from "@/lib/telefon";
 
-export type UdfaldKontakt = { id: string; navn: string; titel: string | null };
+export type UdfaldKontakt = { id: string; navn: string; titel: string | null; telefon?: string | null; email?: string | null };
 export type UdfaldVirksomhed = { company_id: string; navn: string; telefon: string | null; kontakter: UdfaldKontakt[] };
 
 /** Gemmer et udfald via den fælles databasefunktion (samme for bureau, sælger og admin). */
