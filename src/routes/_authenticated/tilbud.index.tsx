@@ -10,7 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Plus, Search, Loader2 } from "lucide-react";
+import { FileText, Plus, Search, Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/tilbud/")({
@@ -59,6 +63,8 @@ function TilbudOversigtPage() {
   const [tab, setTab] = useState<Tab>("alle");
   const [q, setQ] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [sletter, setSletter] = useState<QuoteRow | null>(null);
+  const [sletterNu, setSletterNu] = useState(false);
 
   const seesAll = auth.role === "admin" || auth.role === "salgssupport";
 
@@ -240,6 +246,17 @@ function TilbudOversigtPage() {
                 >
                   {st.label}
                 </span>
+                {auth.role === "admin" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Slet tilbud ${r.quote_number ?? ""}`}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSletter(r); }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </Link>
             );
           })}
@@ -250,6 +267,37 @@ function TilbudOversigtPage() {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
       />
+
+      <AlertDialog open={!!sletter} onOpenChange={(o) => !o && setSletter(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slet tilbud {sletter?.quote_number ?? ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tilbuddet til {sletter?.companies?.name ?? "kunden"} og alle dets linjer slettes permanent. Det kan ikke fortrydes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sletterNu}>Annullér</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={sletterNu}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!sletter) return;
+                setSletterNu(true);
+                const { error, count } = await supabase.from("quotes").delete({ count: "exact" }).eq("id", sletter.id);
+                setSletterNu(false);
+                if (error || !count) { toast.error("Kunne ikke slette tilbuddet" + (error ? ": " + error.message : "")); return; }
+                setRows((prev) => (prev ?? []).filter((x) => x.id !== sletter.id));
+                toast.success("Tilbud slettet");
+                setSletter(null);
+              }}
+            >
+              Slet
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
