@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
 import { RingelisteBadge } from "@/components/ringeliste-badge";
-import { hentRingelisteMap, type RingelisteInfo } from "@/lib/ringeliste-maerke";
+import { hentRingelisteMap, udledRingelisteMaerke, type RingelisteInfo } from "@/lib/ringeliste-maerke";
 import { MentionTextarea, NoteWithMentions } from "@/components/mention-textarea";
 import {
   fetchMentionableUsers,
@@ -65,6 +65,7 @@ import {
   ArrowLeft,
   Building2,
   Phone,
+  PhoneCall,
   Mail,
   Globe,
   MapPin,
