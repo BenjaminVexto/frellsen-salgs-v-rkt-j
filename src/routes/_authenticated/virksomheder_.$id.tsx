@@ -1814,6 +1814,7 @@ function RegistrerTilbudDialog({
     const { error } = await supabase.from("quotes").insert({
       company_id: companyId,
       created_by: userId,
+      saelger_id: saelgerId || userId,
       quote_number: number.trim() || null,
       estimated_value: mode === "pdf" ? aarsvaerdi : value ? Number(value) : null,
       sent_date: sent ? format(sent, "yyyy-MM-dd") : null,
