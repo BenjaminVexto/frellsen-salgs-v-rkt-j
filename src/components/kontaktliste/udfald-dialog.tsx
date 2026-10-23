@@ -27,7 +27,7 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
   listId: string;
   virksomhed: UdfaldVirksomhed;
   initial?: Udfald;
-  opretKontakt: (navn: string, titel: string | null) => Promise<string | null>;
+  opretKontakt: (navn: string, titel: string | null, telefon: string | null, email: string | null) => Promise<string | null>;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -37,7 +37,18 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
   const [note, setNote] = useState("");
   const [kontakt, setKontakt] = useState("");
   const [nyKontakt, setNyKontakt] = useState("");
+  const [kTitel, setKTitel] = useState("");
+  const [kTelefon, setKTelefon] = useState("");
+  const [kEmail, setKEmail] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const vaelgKontakt = (id: string) => {
+    setKontakt(id);
+    const k = virksomhed.kontakter.find((x) => x.id === id);
+    setKTitel(k?.titel ?? "");
+    setKTelefon(k?.telefon ?? "");
+    setKEmail(k?.email ?? "");
+  };
   const spoerg = virksomhed.kontakter[0];
 
   const send = async () => {
