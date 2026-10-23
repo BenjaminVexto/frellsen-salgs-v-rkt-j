@@ -77,7 +77,9 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
+import { TilbudSektion } from "@/components/tilbud-sektion";
+import { beregnAarsvaerdi } from "@/lib/tilbud-vaerdi";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
@@ -213,6 +215,7 @@ function VirksomhedsKort() {
   const [mailOpen, setMailOpen] = useState(false);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [tilbudReload, setTilbudReload] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const [extraOpen, setExtraOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>("oversigt");
