@@ -36,8 +36,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, TrendingUp, CalendarDays, Target, Trash2 } from "lucide-react";
+import { Loader2, TrendingUp, CalendarDays, Target, Trash2, FileText } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { tilbudAabningLinje, type ModtagerSporing } from "@/lib/tilbud-aabning";
+import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
+import { hentTilbudPdf } from "@/lib/tilbud-pdf.functions";
 
 export const Route = createFileRoute("/_authenticated/salgsmuligheder")({
   component: PipelinePage,
@@ -101,9 +104,26 @@ interface Opportunity {
   assigned_to: string | null;
   /** Åbningsporing fra quote_recipients (kun tilbud_sendt med quote_id). */
   modtagere?: ModtagerSporing[];
+  /** Det koblede tilbud (når quote_id er sat). */
+  tilbud?: {
+    id: string;
+    quote_number: string | null;
+    sent_date: string | null;
+    status: string;
+    pdf_path: string | null;
+  } | null;
   companies?: { name: string } | null;
   profiles?: { full_name: string } | null;
 }
+
+const TILBUD_STATUS_LABEL: Record<string, string> = {
+  kladde: "Kladde",
+  sendt: "Sendt",
+  under_opfølgning: "Under opfølgning",
+  accepteret: "Accepteret",
+  afvist: "Afvist",
+  udløbet: "Udløbet",
+};
 
 const dkk = (n: number | null | undefined) =>
   new Intl.NumberFormat("da-DK", {
