@@ -1051,6 +1051,13 @@
       "when": 1792754050417,
       "tag": "0149_quote_modtagere_og_sporing",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1792755158160,
+      "tag": "0150_quotes_saelger_id",
+      "breakpoints": true
     }
   ]
 }
