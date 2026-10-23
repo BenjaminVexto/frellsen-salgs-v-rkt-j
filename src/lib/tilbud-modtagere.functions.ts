@@ -23,13 +23,23 @@ function publicClient() {
 
 const tokenSchema = z.object({ token: z.string().min(8).max(200) });
 
+export type OffentligTilbudInfo = {
+  recipient_navn: string;
+  quote_number: string | null;
+  company_name: string | null;
+  expiry_date: string | null;
+  sent_date: string | null;
+  seller_name: string | null;
+  seller_email: string | null;
+};
+
 /** Offentlig: metadata til /t/[token]-siden. Returnerer null ved ugyldigt token. */
 export const hentOffentligtTilbud = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => tokenSchema.parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<OffentligTilbudInfo | null> => {
     const { data: d, error } = await publicClient().rpc("quote_recipient_by_token", { _token: data.token });
     if (error) throw new Error("Opslag fejlede");
-    return d as Record<string, unknown> | null;
+    return (d as unknown as OffentligTilbudInfo | null) ?? null;
   });
 
 /** Offentlig: spor åbning/download. Kaldes kun fra /t/[token] når besøgende IKKE er logget ind i CRM'et. */
@@ -47,7 +57,7 @@ export const sporQuoteEvent = createServerFn({ method: "POST" })
     const { data: ok } = await publicClient().rpc("quote_track_event", {
       _token: data.token,
       _event: data.event,
-      _user_agent: data.user_agent ?? null,
+      _user_agent: data.user_agent ?? undefined,
     });
     return { ok: ok === true };
   });
