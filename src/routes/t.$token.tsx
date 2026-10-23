@@ -64,7 +64,10 @@ function PdfSider({ base64 }: { base64: string }) {
         await page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
       }
       if (!cancelled) setKlar(true);
-    })().catch(() => !cancelled && setFejl(true));
+    })().catch((e) => {
+      console.error("pdfjs render fejl:", e);
+      if (!cancelled) setFejl(true);
+    });
     return () => {
       cancelled = true;
     };
