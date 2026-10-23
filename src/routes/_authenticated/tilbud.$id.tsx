@@ -1,5 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { hentAlle } from "@/lib/hent-alle";
+import { useServerFn } from "@tanstack/react-start";
+import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
+import { hentTilbudPdf } from "@/lib/tilbud-pdf.functions";
+import { beregnAarsvaerdi } from "@/lib/tilbud-vaerdi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +37,7 @@ import {
 } from "@/components/ui/tabs";
 import {
   ArrowLeft,
+  FileText,
   Lock,
   Search,
   Star,
@@ -72,6 +77,9 @@ type Quote = {
   sent_date: string | null;
   public_token: string | null;
   notes: string | null;
+  pdf_path: string | null;
+  forbrug_pr_maaned: number | null;
+  faste_pr_maaned: number | null;
 };
 
 type Company = {
@@ -223,7 +231,7 @@ function TilbudBygger() {
       const { data, error } = await supabase
         .from("quotes")
         .select(
-          "id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at, expiry_date, sent_date, public_token, notes",
+          "id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at, expiry_date, sent_date, public_token, notes, pdf_path, forbrug_pr_maaned, faste_pr_maaned",
         )
         .eq("id", quoteId)
         .single();
@@ -265,7 +273,7 @@ function TilbudBygger() {
   useEffect(() => {
     const q = quoteQuery.data;
     const locs = locationsQuery.data ?? [];
-    if (!q || q.delivery_location_id || locs.length === 0) return;
+    if (!q || q.delivery_location_id || q.pdf_path || locs.length === 0) return;
     const primary = locs.find((l) => l.is_primary) ?? locs[0];
     if (!primary || locs.length > 1) return;
     supabase
@@ -294,6 +302,7 @@ function TilbudBygger() {
   });
 
   const machinesQuery = useQuery({
+    enabled: !!quoteQuery.data && !quoteQuery.data.pdf_path,
     queryKey: ["quote-machines"],
     queryFn: async (): Promise<ProductMachine[]> => {
       const { data, error } = await supabase
@@ -312,6 +321,7 @@ function TilbudBygger() {
 
   // Forbrugsprodukter + tilbehør
   const consumablesQuery = useQuery({
+    enabled: !!quoteQuery.data && !quoteQuery.data.pdf_path,
     queryKey: ["quote-consumables"],
     queryFn: async (): Promise<ProductSimple[]> => {
       const data = await hentAlle((f, t) =>
@@ -331,6 +341,7 @@ function TilbudBygger() {
   });
 
   const linesQuery = useQuery({
+    enabled: !!quoteQuery.data && !quoteQuery.data.pdf_path,
     queryKey: ["quote-lines", quoteId],
     queryFn: async (): Promise<QuoteLine[]> => {
       const { data, error } = await supabase
@@ -362,6 +373,9 @@ function TilbudBygger() {
 
   const quote = quoteQuery.data;
   const company = companyQuery.data;
+  if (quote.pdf_path) {
+    return <TilbudPdfVisning quote={quote} company={company} />;
+  }
   const locations = locationsQuery.data ?? [];
   const machines = machinesQuery.data ?? [];
   const consumables = consumablesQuery.data ?? [];
@@ -1649,6 +1663,88 @@ function CartSection({
         <span>Total</span>
         <span className="tabular-nums">{formatKr(total)}{suffix}</span>
       </div>
+    </div>
+  );
+}
+
+// ---------- Visning af uploadet PDF-tilbud ----------
+
+const PDF_STATUS_LABEL: Record<string, string> = {
+  kladde: "Kladde",
+  sendt: "Sendt",
+  under_opfølgning: "Sendt",
+  accepteret: "Accepteret",
+  afvist: "Afvist",
+  udløbet: "Udløbet",
+};
+
+function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }) {
+  const hentPdf = useServerFn(hentTilbudPdf);
+  const [open, setOpen] = useState(true);
+  const forbrug = Number(quote.forbrug_pr_maaned ?? 0);
+  const faste = Number(quote.faste_pr_maaned ?? 0);
+  const aarsvaerdi = beregnAarsvaerdi(forbrug, faste);
+
+  return (
+    <div className="px-4 md:px-8 py-6 pb-24 max-w-3xl mx-auto space-y-4">
+      <Link
+        to="/virksomheder/$id"
+        params={{ id: company.id }}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> Tilbage til {company.name}
+      </Link>
+
+      <Card className="p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-xl font-semibold flex items-center gap-2">
+              <FileText className="h-5 w-5" /> Tilbud {quote.quote_number ?? "—"}
+            </h1>
+            <div className="text-sm text-muted-foreground mt-1">
+              Kunde:{" "}
+              <Link
+                to="/virksomheder/$id"
+                params={{ id: company.id }}
+                className="text-foreground underline underline-offset-2 hover:text-primary"
+              >
+                {company.name}
+              </Link>
+            </div>
+          </div>
+          <Badge>{PDF_STATUS_LABEL[quote.status] ?? quote.status}</Badge>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">Forbrug pr. måned</div>
+            <div className="font-semibold tabular-nums">{formatKr(forbrug)}</div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">Faste beløb pr. måned</div>
+            <div className="font-semibold tabular-nums">{formatKr(faste)}</div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">Årsværdi</div>
+            <div className="font-semibold tabular-nums">{formatKr(aarsvaerdi)}</div>
+          </div>
+        </div>
+
+        <div className="text-sm text-muted-foreground">
+          Sendt {formatDate(quote.sent_date)} · Gyldig til {formatDate(quote.expiry_date)}
+        </div>
+
+        <Button variant="outline" onClick={() => setOpen(true)} className="gap-2">
+          <FileText className="h-4 w-4" /> Åbn PDF
+        </Button>
+      </Card>
+
+      <PDFViewerDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        filename={`Tilbud ${quote.quote_number ?? ""}.pdf`}
+        fetcher={() => hentPdf({ data: { quote_id: quote.id } })}
+      />
     </div>
   );
 }
