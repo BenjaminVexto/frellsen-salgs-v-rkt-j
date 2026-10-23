@@ -1500,6 +1500,7 @@ function RegistrerAktivitetDialog({
   assignments,
   locations,
   presetLocationId,
+  ringelisteInfo = null,
   onSaved,
 }: {
   open: boolean;
@@ -1612,6 +1613,15 @@ function RegistrerAktivitetDialog({
         <DialogHeader>
           <DialogTitle>Registrér aktivitet</DialogTitle>
         </DialogHeader>
+        {(() => {
+          const m = ringelisteInfo ? udledRingelisteMaerke(ringelisteInfo) : null;
+          return m?.aktiv ? (
+            <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              <PhoneCall className="h-3.5 w-3.5 shrink-0" />
+              Står på en aktiv ringeliste ({ringelisteInfo!.listeNavn ?? "ukendt liste"})
+            </div>
+          ) : null;
+        })()}
         <div className="space-y-4">
           <div>
             <Label className="mb-1.5 block">Aktivitetstype *</Label>
