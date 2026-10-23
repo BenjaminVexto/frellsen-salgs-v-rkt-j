@@ -225,7 +225,15 @@ export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; compa
   }
 
   const modtagere = modtagereQuery.data ?? [];
-  const kontakter = (kontakterQuery.data ?? []).filter((k) => k.email);
+  const alleKontakter = kontakterQuery.data ?? [];
+  const q = soeg.trim().toLowerCase();
+  const kontakter = (q
+    ? alleKontakter.filter((k) =>
+        k.name.toLowerCase().includes(q) ||
+        (k.title ?? "").toLowerCase().includes(q) ||
+        (k.email ?? "").toLowerCase().includes(q))
+    : alleKontakter
+  ).slice(0, 8);
 
   return (
     <div className="space-y-3">
