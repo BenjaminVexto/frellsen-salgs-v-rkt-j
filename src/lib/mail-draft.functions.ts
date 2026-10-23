@@ -51,9 +51,9 @@ export const generateMailDraft = createServerFn({ method: "POST" })
           .limit(3),
         supabaseAdmin
           .from("sales_opportunities")
-          .select("name, status, estimated_value")
+          .select("name, status_v2, estimated_value")
           .eq("company_id", data.company_id)
-          .not("status", "in", "(vundet,tabt)")
+          .not("status_v2", "in", "(vundet,tabt)")
           .limit(5),
         supabaseAdmin
           .from("competitor_assignments")

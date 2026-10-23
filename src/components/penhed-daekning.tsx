@@ -293,7 +293,7 @@ export function PenhedDaekning({
         for (const o of (opp ?? []) as any[]) {
           m.set(o.p_nummer, {
             saelger: o.assigned_to ? navne.get(o.assigned_to) ?? null : null,
-            status: o.status,
+            status: o.status_v2,
           });
         }
         setAabneInfo(m);
