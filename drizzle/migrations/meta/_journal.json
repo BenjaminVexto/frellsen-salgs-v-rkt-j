@@ -1037,6 +1037,13 @@
       "when": 1792749257733,
       "tag": "0147_aktiviteter_flytter_salgsmuligheder",
       "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1792751278996,
+      "tag": "0148_tilbud_pdf_upload",
+      "breakpoints": true
     }
   ]
 }
