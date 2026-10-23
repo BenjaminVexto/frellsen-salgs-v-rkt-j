@@ -1848,7 +1848,7 @@ function RegistrerTilbudDialog({
       const up = await supabase.storage.from("quote-documents").upload(pdfPath, fil, { contentType: "application/pdf", upsert: false });
       if (up.error) { setSaving(false); toast.error("Upload fejlede: " + up.error.message); return; }
     }
-    const { error } = await supabase.from("quotes").insert({
+    const { data: nyt, error } = await supabase.from("quotes").insert({
       company_id: companyId,
       created_by: userId,
       saelger_id: saelgerId || userId,
@@ -1861,21 +1861,31 @@ function RegistrerTilbudDialog({
       pdf_path: pdfPath,
       forbrug_pr_maaned: mode === "pdf" ? Number(forbrug) : null,
       faste_pr_maaned: mode === "pdf" ? Number(faste || 0) : null,
-    });
+    }).select("id").single();
     setSaving(false);
-    if (error) {
+    if (error || !nyt) {
       if (pdfPath) await supabase.storage.from("quote-documents").remove([pdfPath]);
-      toast.error("Fejl: " + error.message); return;
+      toast.error("Fejl: " + (error?.message ?? "ukendt fejl")); return;
     }
     toast.success("Tilbud registreret");
-    onOpenChange(false);
     onSaved();
+    if (mode === "pdf") {
+      // Trin 2: vælg modtagere i samme dialog
+      setNytQuoteId(nyt.id);
+      setTrin(2);
+    } else {
+      onOpenChange(false);
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Registrér tilbud</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{trin === 1 ? "Registrér tilbud" : "Send til"}</DialogTitle></DialogHeader>
+        {trin === 2 && nytQuoteId ? (
+          <TilbudSendTil quoteId={nytQuoteId} companyId={companyId} onLuk={() => onOpenChange(false)} />
+        ) : (
+        <>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" variant={mode === "pdf" ? "default" : "outline"} onClick={() => setMode("pdf")}>Upload sendt tilbud (PDF)</Button>
