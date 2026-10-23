@@ -1,52 +1,11 @@
-# Roadmap
-- [x] Kontaktlister: fri note i fælles dialog; gemning og genindlæsning som admin og Mads Lund verificeret; status Ny og 0 opkald uændret; 10 tests bestået.
-- [x] Maskiner & Service v2: udlån kun type 4/5/6 og dækning pr. virksomhed; nøgletal = tre lister, 5 rækker med udfoldning; admin Datafejl-lister med Tjekket; Mads/admin skærmbilleder, 20 tests.
-- [x] Maskiner & Service: Andet/kundeejede kontrolleret; enkel sælgervisning og lukkede adminsektioner; Claus computer/mobil og maskinliste verificeret, 18 tests bestået og skærmbilleder gemt.
-- [x] Bonuspræsentation: fælles tabel, decimaler/fodnoter, ens mobilkort, separat admin-sammenligning, egne satser og Se som-faner; Mads 360/390/1280 px, admin/Claus, CSV-total 244.068,94, 23 tests og fem skærmbilleder verificeret; ingen data-/beregningsændringer.
-- [x] Maskinbonus-ydeevne: kandidatbegrænset historik og indeks, vedligeholdt maskingrundlag, samlet lazy vurderingskald; september 36,4→3,2 s, samme summer/status/årsag, Anders/vurderinger kontrolleret, rollback-test; september ikke låst.
-- [x] Mobil: start på Virksomheder, bundmenu Firmaer/Aftaler/Mere, søgning først med Filtre-sheet, Senest åbnet, enklere liste; testet som admin ved 360/390 px (sælger ikke testet).
-- [x] Firmaside: enkel mobilheader, Stamdata under Mere, sammenfoldede ekstra oplysninger og maskinklik til Lokationer; kontrolleret på PTF-Arkadens Isbod ved 360/390 px og desktop, 12 tests bestået.
-- [x] Bonus-finish: tæt tabel uden faste understregninger, mobiloverblik, separate DB/maskindetaljer og delt nykunde-rangliste med afstand til toppen; testet som admin og Mads på mobil.
-- [x] Bonus: klik på maskintal pr. sælger/måned viser kunder og maskindetaljer; kontrollér Malene september 2026.
-- [x] Bonus oktober 2026: uændrede SQL-funktioner, fire satsrettelser, Ny kunde i tabel/Total/CSV, korrekt ordningstekst og kontrol.
-- [x] Salgsintelligens P-enheder: ansatte, dækning (location_pnr_link), UI, kundekort — plan med 5 rettelser
-- [x] Min salgsstatistik: stabil sælgervælger, indlæsning/fejl pr. tabel, forudberegnede tabeller, korrekt "Data opdateret til"
-- [ ] Sælger pr. lokation (godkendt plan + tilføjelser):
-  - [x] locations: saelger_no, saelger_user_id, kreditspaerret, i_aktoer; companies.kreditspaerret
-  - [x] Engangsudfyldning fra Aktør 5/10 på (afdeling, Lev. kund) uden triggere + én samlet genberegning
-  - [x] Forudberegnede tabeller pr. (virksomhed, sælger, måned); unik kunde pr. sælger
-  - [x] Kundestatus pr. sælger ud fra egne lokationer
-  - [x] "Nye kunder" = ny for Frellsen; "Nye lokationer" separat i Målepunkter
-  - [ ] Bonus: mulighed for at fastfryse perioder (intet fastfryses nu)
-  - [x] Profil får sælgernummer → lokationer kobles automatisk
-  - [x] Aktør-import: spærrede med, sælger pr. lokation, assigned_to = hovedkonto, fjern "første række"
-  - [x] Visninger pr. lokationssælger; "x af y lokationer"; Spærret-badge; spærrede ud af salgsmuligheder/sælg mere/sovende
-  - [ ] Kontrol: før/efter pr. sælger, total uændret, "Ikke tildelt" kun uden Visma-sælger
-  - [x] Backup af companies (id, assigned_to, kreditspaerret) før udfyldning
-  - [x] aktoer_anvend_saelgere: skm_skip + én genberegning, køres via server
-  - [x] Profil får sælgernr → også assigned_to for hovedkonto-virksomheder
-  - [x] Kontrol: Compass Group = Mads (ansvarlig), Esbjerg = Anders Mohr
-  - [ ] Sig til før fakturaimport må bruges igen
-  - [x] Mål skm_genberegn_alt; del pr. afdeling hvis nær 120 s
-  - [x] Afd. 23 gemmes som 21 i Aktør-staging
-  - [x] Vis lokationer pr. sælgernøgle; ISS 3156300 = Jes
-  - [ ] Maskintal og maskinbonus pr. lokationssælger (følger stadig virksomhedens sælger)
-- [x] CRM-kursus pakke 1: DB for alle, Besøgt-knap, sælgere skriver konkurrenter, udskrivbar maskinliste
-- [ ] CRM-kursus pakke 3:
-  - [ ] 1) Rytmebaseret sovende (24 mdr = alle data), kundekort-tekst, før/efter pr. afdeling
-  - [ ] 2) Status pr. lokation; "min"-lister pr. lokationssælger; fordeling pr. lokation på kundekort
-  - [ ] 3) Søsterkonti samme CVR+adresse+afdeling: markering, admin-liste, antal par
-  - [ ] 4) Konkurrentaftale pr. lokation med historik; migrér eksisterende
-  - [ ] 5) Send digitalt katalog (mail.frellsen.dk, afsender "Frellsen", reply-to sælger); DNS-liste
-  - [ ] Maskinbonus/maskintal: lokationens sælger når maskinen har lokation; rapportér antal uden lokation
-- [x] Telemarketing-rolle (godkendt plan + 3 tilføjelser):
-  - [x] Rolle + er_telemarketing(); RESTRICTIVE policy NOT er_telemarketing() på alle tabeller undtagen bureau-tabeller; regel i AGENTS.md
-  - [x] Alle server functions, views (security_invoker) og storage-buckets afviser telemarketing
-  - [x] tm_virksomheder/tm_book_moede kræver kontaktliste_ringer for listen
-  - [x] Navigation/redirect til /kontaktlister; brugerstyring (opret/deaktivér/sidste login)
-  - [x] Liste-felter (ringes af, møder går til), ringevisning, opkaldslog, ønsker ikke kontakt-flag
-  - [x] Admin-overblik + CSV
-  - [x] Test: testbruger, salgsdata/server function/view/storage afvises; sælger uændret; møde til rigtig sælger; slet testdata
+# Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
-- [x] Lokationer: samlet aktiv tabel, sammenfoldet øvrige, kommune-normalisering og kontrol af BEC/en konto/Region Hovedstaden (kun visning).
-- [x] Nye maskinbonusregler 20/10-2026 (kalerm/espresso 500, brugt 250 via "brugt"-tekst, én gang pr. lokation, ombytning 24 mdr, vurderinger, regelboks) + september før/efter pr. sælger (lås ikke)
+- [ ] 1. Migration: `quote_recipients` + `quote_events` (RLS som quotes, tm_spaerret, grants)
+- [ ] 2. Migration: token-validerings-RPC `quote_recipient_by_token` (security definer, public read)
+- [ ] 3. Migration: sporings-RPC `quote_track_event` (aabnet/downloadet, tællere, status→under_opfølgning, notifikation til sælger)
+- [ ] 4. UI: Modtagere-sektion på PDF-tilbudsvisning + Aftaler & tilbud (tilføj, kopiér link, send-mail grå)
+- [ ] 5. Offentlig side `/t/$token` (noindex, pdf.js, download, uden login)
+- [ ] 6. Sporing: aabnet ved sidebesøg, downloadet ved download, ikke for indloggede CRM-brugere
+- [ ] 7. Salgsmulighedskort: åbningslinje (ikke åbnet 3 dage / 2+ åbninger 48t / åbnet dato)
+- [ ] 8. Server function `sendTilbudMail` (Graph client credentials, deaktiveret uden secrets)
+- [ ] 9. Test: modtager på tilbud 18749, åbn link uden login, verificér logning, slet testdata, nulstil status
