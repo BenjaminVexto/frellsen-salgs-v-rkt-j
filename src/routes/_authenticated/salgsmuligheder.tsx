@@ -642,6 +642,40 @@ function OpportunityDrawer({
                     : "Sættes automatisk fra tilbuddet"}
                 </p>
               </div>
+              {opp.tilbud && (
+                <div className="rounded-md border p-3 space-y-2">
+                  <p className="text-sm">
+                    Tilbud {opp.tilbud.quote_number ?? "—"}
+                    {opp.tilbud.sent_date
+                      ? ` · sendt ${new Date(opp.tilbud.sent_date).toLocaleDateString("da-DK")}`
+                      : ""}
+                    {` · ${TILBUD_STATUS_LABEL[opp.tilbud.status] ?? opp.tilbud.status}`}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {tilbudAabningLinje(opp.modtagere ?? [], null) ?? "Ikke åbnet"}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {opp.tilbud.pdf_path && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setPdfOpen(true)}
+                      >
+                        <FileText className="h-3.5 w-3.5" /> Åbn PDF
+                      </Button>
+                    )}
+                    <Link
+                      to="/tilbud/$id"
+                      params={{ id: opp.tilbud.id }}
+                      className="text-sm text-primary underline underline-offset-2"
+                    >
+                      Gå til tilbud
+                    </Link>
+                  </div>
+                </div>
+              )}
               <div>
                 <Label>Status</Label>
                 <Select
