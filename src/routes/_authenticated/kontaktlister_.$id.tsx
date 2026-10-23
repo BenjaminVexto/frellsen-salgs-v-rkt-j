@@ -235,10 +235,10 @@ function KontaktlisteDetalje() {
       })(),
     ]);
     const kontaktMap = new Map<string, any>();
-    const alleKontakter = new Map<string, { id: string; navn: string; titel: string | null }[]>();
+    const alleKontakter = new Map<string, { id: string; navn: string; titel: string | null; telefon: string | null; email: string | null }[]>();
     for (const k of [...(kontakter ?? [])].sort((a: any, b: any) => Number(!!b.is_primary) - Number(!!a.is_primary))) {
       const arr = alleKontakter.get(k.company_id) ?? [];
-      arr.push({ id: k.id, navn: k.name, titel: k.title });
+      arr.push({ id: k.id, navn: k.name, titel: k.title, telefon: k.phone, email: k.email });
       alleKontakter.set(k.company_id, arr);
       const cur = kontaktMap.get(k.company_id);
       if (!cur || (k.is_primary && !cur.is_primary)) kontaktMap.set(k.company_id, k);
