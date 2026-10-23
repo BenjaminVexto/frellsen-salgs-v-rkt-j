@@ -97,7 +97,7 @@ type Row = {
   status: AssignmentStatus;
   status_aarsag: string | null;
   antal_forsoeg: number;
-  kontakter: { id: string; navn: string; titel: string | null }[];
+  kontakter: { id: string; navn: string; titel: string | null; telefon: string | null; email: string | null }[];
   priority: PriorityLevel;
   next_followup_date: string | null;
   next_action_note: string | null;
@@ -790,8 +790,8 @@ function KontaktlisteDetalje() {
             telefon: telefonNumre(udfaldRow.location_phone, udfaldRow.company.phone)[0] ?? null,
             kontakter: udfaldRow.kontakter,
           }}
-          opretKontakt={async (navn, titel) => {
-            const { data, error } = await supabase.from("contacts").insert({ company_id: udfaldRow.company_id, name: navn, title: titel }).select("id").single();
+          opretKontakt={async (navn, titel, telefon, email) => {
+            const { data, error } = await supabase.from("contacts").insert({ company_id: udfaldRow.company_id, name: navn, title: titel, phone: telefon, email, kilde: "telemarketing" }).select("id").single();
             if (error) { toast.error(error.message); return null; }
             return data.id;
           }}
