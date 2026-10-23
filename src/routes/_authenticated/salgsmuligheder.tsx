@@ -36,8 +36,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, TrendingUp, CalendarDays, Target, Trash2 } from "lucide-react";
+import { Loader2, TrendingUp, CalendarDays, Target, Trash2, FileText } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { tilbudAabningLinje, type ModtagerSporing } from "@/lib/tilbud-aabning";
+import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
+import { hentTilbudPdf } from "@/lib/tilbud-pdf.functions";
 
 export const Route = createFileRoute("/_authenticated/salgsmuligheder")({
   component: PipelinePage,
@@ -101,9 +104,26 @@ interface Opportunity {
   assigned_to: string | null;
   /** Åbningsporing fra quote_recipients (kun tilbud_sendt med quote_id). */
   modtagere?: ModtagerSporing[];
+  /** Det koblede tilbud (når quote_id er sat). */
+  tilbud?: {
+    id: string;
+    quote_number: string | null;
+    sent_date: string | null;
+    status: string;
+    pdf_path: string | null;
+  } | null;
   companies?: { name: string } | null;
   profiles?: { full_name: string } | null;
 }
+
+const TILBUD_STATUS_LABEL: Record<string, string> = {
+  kladde: "Kladde",
+  sendt: "Sendt",
+  under_opfølgning: "Under opfølgning",
+  accepteret: "Accepteret",
+  afvist: "Afvist",
+  udløbet: "Udløbet",
+};
 
 const dkk = (n: number | null | undefined) =>
   new Intl.NumberFormat("da-DK", {
@@ -195,19 +215,27 @@ function PipelinePage() {
       new Set(rows.map((r) => r.quote_id).filter(Boolean) as string[]),
     );
     if (quoteIds.length) {
-      const { data: recs } = await supabase
-        .from("quote_recipients")
-        .select("quote_id,sendt_at,antal_aabninger,foerst_aabnet_at,seneste_aabnet_at")
-        .in("quote_id", quoteIds);
+      const [{ data: recs }, { data: tilbudRows }] = await Promise.all([
+        supabase
+          .from("quote_recipients")
+          .select("quote_id,sendt_at,antal_aabninger,foerst_aabnet_at,seneste_aabnet_at")
+          .in("quote_id", quoteIds),
+        supabase
+          .from("quotes")
+          .select("id,quote_number,sent_date,status,pdf_path")
+          .in("id", quoteIds),
+      ]);
       const perQuote = new Map<string, ModtagerSporing[]>();
       (recs ?? []).forEach((r: any) => {
         const arr = perQuote.get(r.quote_id) ?? [];
         arr.push(r);
         perQuote.set(r.quote_id, arr);
       });
+      const tilbudMap = new Map((tilbudRows ?? []).map((t) => [t.id, t]));
       rows.forEach((r) => {
         if (r.quote_id && perQuote.has(r.quote_id))
           r.modtagere = perQuote.get(r.quote_id);
+        if (r.quote_id) r.tilbud = (tilbudMap.get(r.quote_id) as Opportunity["tilbud"]) ?? null;
       });
     }
     setItems(rows);
@@ -511,6 +539,8 @@ function OpportunityDrawer({
   const [form, setForm] = useState<Partial<Opportunity>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const hentPdf = useServerFn(hentTilbudPdf);
 
   useEffect(() => {
     if (opp) setForm(opp);
@@ -612,6 +642,45 @@ function OpportunityDrawer({
                     : "Sættes automatisk fra tilbuddet"}
                 </p>
               </div>
+              {opp.tilbud && (
+                <div className="rounded-md border p-3 space-y-2">
+                  <p className="text-sm">
+                    Tilbud {opp.tilbud.quote_number ?? "—"}
+                    {opp.tilbud.sent_date
+                      ? ` · sendt ${new Date(opp.tilbud.sent_date).toLocaleDateString("da-DK")}`
+                      : ""}
+                    {` · ${TILBUD_STATUS_LABEL[opp.tilbud.status] ?? opp.tilbud.status}`}
+                  </p>
+                  {(() => {
+                    const linje = tilbudAabningLinje(opp.modtagere ?? [], opp.tilbud.sent_date);
+                    return (
+                      <p className={`text-xs ${linje?.tone === "rod" ? "text-destructive" : "text-muted-foreground"}`}>
+                        {linje?.text ?? "Ikke åbnet"}
+                      </p>
+                    );
+                  })()}
+                  <div className="flex items-center gap-2">
+                    {opp.tilbud.pdf_path && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setPdfOpen(true)}
+                      >
+                        <FileText className="h-3.5 w-3.5" /> Åbn PDF
+                      </Button>
+                    )}
+                    <Link
+                      to="/tilbud/$id"
+                      params={{ id: opp.tilbud.id }}
+                      className="text-sm text-primary underline underline-offset-2"
+                    >
+                      Gå til tilbud
+                    </Link>
+                  </div>
+                </div>
+              )}
               <div>
                 <Label>Status</Label>
                 <Select
@@ -751,6 +820,14 @@ function OpportunityDrawer({
                 </Button>
               </div>
             </SheetFooter>
+            {opp.tilbud?.pdf_path && (
+              <PDFViewerDialog
+                open={pdfOpen}
+                onClose={() => setPdfOpen(false)}
+                filename={`Tilbud ${opp.tilbud.quote_number ?? ""}.pdf`}
+                fetcher={() => hentPdf({ data: { quote_id: opp.tilbud!.id } })}
+              />
+            )}
           </>
         )}
       </SheetContent>

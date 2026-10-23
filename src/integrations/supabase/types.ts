@@ -4143,6 +4143,7 @@ export type Database = {
           pricing_mode: string
           public_token: string | null
           quote_number: string | null
+          saelger_id: string | null
           sent_date: string | null
           status: Database["public"]["Enums"]["quote_status"]
           updated_at: string
@@ -4164,6 +4165,7 @@ export type Database = {
           pricing_mode?: string
           public_token?: string | null
           quote_number?: string | null
+          saelger_id?: string | null
           sent_date?: string | null
           status?: Database["public"]["Enums"]["quote_status"]
           updated_at?: string
@@ -4185,6 +4187,7 @@ export type Database = {
           pricing_mode?: string
           public_token?: string | null
           quote_number?: string | null
+          saelger_id?: string | null
           sent_date?: string | null
           status?: Database["public"]["Enums"]["quote_status"]
           updated_at?: string
@@ -4216,6 +4219,13 @@ export type Database = {
             columns: ["opportunity_id"]
             isOneToOne: false
             referencedRelation: "sales_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_saelger_id_fkey"
+            columns: ["saelger_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

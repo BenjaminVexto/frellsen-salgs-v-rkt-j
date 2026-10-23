@@ -81,6 +81,8 @@ type Quote = {
   pdf_path: string | null;
   forbrug_pr_maaned: number | null;
   faste_pr_maaned: number | null;
+  saelger_id: string | null;
+  created_by: string | null;
 };
 
 type Company = {
@@ -232,7 +234,7 @@ function TilbudBygger() {
       const { data, error } = await supabase
         .from("quotes")
         .select(
-          "id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at, expiry_date, sent_date, public_token, notes, pdf_path, forbrug_pr_maaned, faste_pr_maaned",
+          "id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at, expiry_date, sent_date, public_token, notes, pdf_path, forbrug_pr_maaned, faste_pr_maaned, saelger_id, created_by",
         )
         .eq("id", quoteId)
         .single();
@@ -1682,9 +1684,21 @@ const PDF_STATUS_LABEL: Record<string, string> = {
 function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }) {
   const hentPdf = useServerFn(hentTilbudPdf);
   const [open, setOpen] = useState(true);
+  const [saelgerNavn, setSaelgerNavn] = useState<string | null>(null);
   const forbrug = Number(quote.forbrug_pr_maaned ?? 0);
   const faste = Number(quote.faste_pr_maaned ?? 0);
   const aarsvaerdi = beregnAarsvaerdi(forbrug, faste);
+
+  useEffect(() => {
+    const id = quote.saelger_id ?? quote.created_by;
+    if (!id) return;
+    supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", id)
+      .single()
+      .then(({ data }) => setSaelgerNavn(data?.full_name ?? null));
+  }, [quote.saelger_id, quote.created_by]);
 
   return (
     <div className="px-4 md:px-8 py-6 pb-24 max-w-3xl mx-auto space-y-4">
@@ -1733,6 +1747,7 @@ function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }
 
         <div className="text-sm text-muted-foreground">
           Sendt {formatDate(quote.sent_date)} · Gyldig til {formatDate(quote.expiry_date)}
+          {saelgerNavn ? ` · Sælger: ${saelgerNavn}` : ""}
         </div>
 
         <Button variant="outline" onClick={() => setOpen(true)} className="gap-2">

@@ -1764,14 +1764,32 @@ function RegistrerTilbudDialog({
   const [faste, setFaste] = useState("0");
   const [expiryRoert, setExpiryRoert] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saelgerId, setSaelgerId] = useState<string>(userId);
+  const [saelgere, setSaelgere] = useState<{ id: string; full_name: string }[]>([]);
 
   useEffect(() => {
     if (open) {
       setMode("pdf"); setNumber(""); setValue(""); setSent(new Date()); setNotes("");
       setFil(null); setForbrug(""); setFaste("0"); setExpiryRoert(false);
       setExpiry(addDays(new Date(), 30));
+      // Sælgerliste + default: åben salgsmuligheds assigned_to → virksomhedens sælger → den indloggede.
+      (async () => {
+        const [{ data: roller }, { data: opps }, { data: comp }] = await Promise.all([
+          supabase.from("user_roles").select("user_id").in("role", ["saelger", "admin", "salgssupport"]),
+          supabase.from("sales_opportunities").select("assigned_to").eq("company_id", companyId).in("status_v2", ["moede_booket", "tilbud_sendt"]).order("updated_at", { ascending: false }).limit(1),
+          supabase.from("companies").select("assigned_to").eq("id", companyId).single(),
+        ]);
+        const ids = Array.from(new Set((roller ?? []).map((r) => r.user_id)));
+        const { data: profs } = ids.length
+          ? await supabase.from("profiles").select("id,full_name").in("id", ids)
+          : { data: [] };
+        const liste = (profs ?? []).sort((a, b) => a.full_name.localeCompare(b.full_name));
+        setSaelgere(liste);
+        const def = opps?.[0]?.assigned_to ?? (comp as any)?.assigned_to ?? userId;
+        setSaelgerId(def ?? userId);
+      })();
     }
-  }, [open]);
+  }, [open, companyId, userId]);
 
   useEffect(() => {
     if (mode === "pdf" && !expiryRoert && sent) setExpiry(addDays(sent, 30));
@@ -1796,6 +1814,7 @@ function RegistrerTilbudDialog({
     const { error } = await supabase.from("quotes").insert({
       company_id: companyId,
       created_by: userId,
+      saelger_id: saelgerId || userId,
       quote_number: number.trim() || null,
       estimated_value: mode === "pdf" ? aarsvaerdi : value ? Number(value) : null,
       sent_date: sent ? format(sent, "yyyy-MM-dd") : null,
@@ -1834,6 +1853,19 @@ function RegistrerTilbudDialog({
           <div>
             <Label className="mb-1.5 block">Tilbudsnummer{mode === "pdf" ? " *" : ""}</Label>
             <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Fx: 18749" />
+          </div>
+          <div>
+            <Label className="mb-1.5 block">Ansvarlig sælger</Label>
+            <Select value={saelgerId} onValueChange={setSaelgerId}>
+              <SelectTrigger aria-label="Ansvarlig sælger">
+                <SelectValue placeholder="Vælg sælger" />
+              </SelectTrigger>
+              <SelectContent>
+                {saelgere.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {mode === "pdf" ? (
             <div className="grid grid-cols-2 gap-3">
