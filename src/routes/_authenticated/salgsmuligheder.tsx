@@ -651,9 +651,14 @@ function OpportunityDrawer({
                       : ""}
                     {` · ${TILBUD_STATUS_LABEL[opp.tilbud.status] ?? opp.tilbud.status}`}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {tilbudAabningLinje(opp.modtagere ?? [], null) ?? "Ikke åbnet"}
-                  </p>
+                  {(() => {
+                    const linje = tilbudAabningLinje(opp.modtagere ?? [], opp.tilbud.sent_date);
+                    return (
+                      <p className={`text-xs ${linje?.tone === "rod" ? "text-destructive" : "text-muted-foreground"}`}>
+                        {linje?.text ?? "Ikke åbnet"}
+                      </p>
+                    );
+                  })()}
                   <div className="flex items-center gap-2">
                     {opp.tilbud.pdf_path && (
                       <Button
