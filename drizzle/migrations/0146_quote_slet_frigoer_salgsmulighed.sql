@@ -1,0 +1,2 @@
+ALTER TABLE public.sales_opportunities DROP CONSTRAINT sales_opportunities_quote_id_fkey;
+ALTER TABLE public.sales_opportunities ADD CONSTRAINT sales_opportunities_quote_id_fkey FOREIGN KEY (quote_id) REFERENCES public.quotes(id) ON DELETE SET NULL;
