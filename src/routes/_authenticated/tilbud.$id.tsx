@@ -1,5 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { hentAlle } from "@/lib/hent-alle";
+import { useServerFn } from "@tanstack/react-start";
+import { PDFViewerDialog } from "@/components/pdf-viewer-dialog";
+import { hentTilbudPdf } from "@/lib/tilbud-pdf.functions";
+import { beregnAarsvaerdi } from "@/lib/tilbud-vaerdi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +37,7 @@ import {
 } from "@/components/ui/tabs";
 import {
   ArrowLeft,
+  FileText,
   Lock,
   Search,
   Star,
@@ -72,6 +77,9 @@ type Quote = {
   sent_date: string | null;
   public_token: string | null;
   notes: string | null;
+  pdf_path: string | null;
+  forbrug_pr_maaned: number | null;
+  faste_pr_maaned: number | null;
 };
 
 type Company = {
@@ -223,7 +231,7 @@ function TilbudBygger() {
       const { data, error } = await supabase
         .from("quotes")
         .select(
-          "id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at, expiry_date, sent_date, public_token, notes",
+          "id, company_id, quote_number, status, pricing_mode, delivery_location_id, frozen_at, expiry_date, sent_date, public_token, notes, pdf_path, forbrug_pr_maaned, faste_pr_maaned",
         )
         .eq("id", quoteId)
         .single();
@@ -265,7 +273,7 @@ function TilbudBygger() {
   useEffect(() => {
     const q = quoteQuery.data;
     const locs = locationsQuery.data ?? [];
-    if (!q || q.delivery_location_id || locs.length === 0) return;
+    if (!q || q.delivery_location_id || q.pdf_path || locs.length === 0) return;
     const primary = locs.find((l) => l.is_primary) ?? locs[0];
     if (!primary || locs.length > 1) return;
     supabase
@@ -294,6 +302,7 @@ function TilbudBygger() {
   });
 
   const machinesQuery = useQuery({
+    enabled: !!quoteQuery.data && !quoteQuery.data.pdf_path,
     queryKey: ["quote-machines"],
     queryFn: async (): Promise<ProductMachine[]> => {
       const { data, error } = await supabase
@@ -312,6 +321,7 @@ function TilbudBygger() {
 
   // Forbrugsprodukter + tilbehør
   const consumablesQuery = useQuery({
+    enabled: !!quoteQuery.data && !quoteQuery.data.pdf_path,
     queryKey: ["quote-consumables"],
     queryFn: async (): Promise<ProductSimple[]> => {
       const data = await hentAlle((f, t) =>
@@ -331,6 +341,7 @@ function TilbudBygger() {
   });
 
   const linesQuery = useQuery({
+    enabled: !!quoteQuery.data && !quoteQuery.data.pdf_path,
     queryKey: ["quote-lines", quoteId],
     queryFn: async (): Promise<QuoteLine[]> => {
       const { data, error } = await supabase
@@ -362,6 +373,9 @@ function TilbudBygger() {
 
   const quote = quoteQuery.data;
   const company = companyQuery.data;
+  if (quote.pdf_path) {
+    return <TilbudPdfVisning quote={quote} company={company} />;
+  }
   const locations = locationsQuery.data ?? [];
   const machines = machinesQuery.data ?? [];
   const consumables = consumablesQuery.data ?? [];
