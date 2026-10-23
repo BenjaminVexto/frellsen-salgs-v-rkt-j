@@ -215,19 +215,27 @@ function PipelinePage() {
       new Set(rows.map((r) => r.quote_id).filter(Boolean) as string[]),
     );
     if (quoteIds.length) {
-      const { data: recs } = await supabase
-        .from("quote_recipients")
-        .select("quote_id,sendt_at,antal_aabninger,foerst_aabnet_at,seneste_aabnet_at")
-        .in("quote_id", quoteIds);
+      const [{ data: recs }, { data: tilbudRows }] = await Promise.all([
+        supabase
+          .from("quote_recipients")
+          .select("quote_id,sendt_at,antal_aabninger,foerst_aabnet_at,seneste_aabnet_at")
+          .in("quote_id", quoteIds),
+        supabase
+          .from("quotes")
+          .select("id,quote_number,sent_date,status,pdf_path")
+          .in("id", quoteIds),
+      ]);
       const perQuote = new Map<string, ModtagerSporing[]>();
       (recs ?? []).forEach((r: any) => {
         const arr = perQuote.get(r.quote_id) ?? [];
         arr.push(r);
         perQuote.set(r.quote_id, arr);
       });
+      const tilbudMap = new Map((tilbudRows ?? []).map((t) => [t.id, t]));
       rows.forEach((r) => {
         if (r.quote_id && perQuote.has(r.quote_id))
           r.modtagere = perQuote.get(r.quote_id);
+        if (r.quote_id) r.tilbud = (tilbudMap.get(r.quote_id) as Opportunity["tilbud"]) ?? null;
       });
     }
     setItems(rows);
