@@ -1030,6 +1030,13 @@
       "when": 1792749051603,
       "tag": "0146_quote_slet_frigoer_salgsmulighed",
       "breakpoints": true
+    },
+    {
+      "idx": 147,
+      "version": "7",
+      "when": 1792749257733,
+      "tag": "0147_aktiviteter_flytter_salgsmuligheder",
+      "breakpoints": true
     }
   ]
 }
