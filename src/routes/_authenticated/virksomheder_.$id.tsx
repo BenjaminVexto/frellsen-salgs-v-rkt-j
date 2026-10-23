@@ -82,6 +82,7 @@ import {
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { TilbudSektion } from "@/components/tilbud-sektion";
+import { TilbudSendTil } from "@/components/tilbud-send-til";
 import { beregnAarsvaerdi } from "@/lib/tilbud-vaerdi";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
