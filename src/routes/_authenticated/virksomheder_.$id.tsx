@@ -1869,14 +1869,20 @@ function RegistrerTilbudDialog({
       toast.error("Fejl: " + (error?.message ?? "ukendt fejl")); return;
     }
     toast.success("Tilbud registreret");
-    onSaved();
     if (mode === "pdf") {
-      // Trin 2: vælg modtagere i samme dialog
+      // Trin 2: vælg modtagere i samme dialog. onSaved ventes til dialogen lukkes,
+      // fordi load() ellers genmounter dialogen og nulstiller trin 2.
       setNytQuoteId(nyt.id);
       setTrin(2);
     } else {
       onOpenChange(false);
+      onSaved();
     }
+  }
+
+  function luk(v: boolean) {
+    if (!v && trin === 2) onSaved();
+    onOpenChange(v);
   }
 
   return (
