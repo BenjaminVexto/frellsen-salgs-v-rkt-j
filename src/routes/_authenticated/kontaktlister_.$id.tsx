@@ -51,6 +51,14 @@ import { Ringevisning } from "@/components/telemarketing/ringevisning";
 import { BureauPanel } from "@/components/telemarketing/bureau-panel";
 
 export const Route = createFileRoute("/_authenticated/kontaktlister_/$id")({
+  head: () => ({ meta: [
+    { title: "Kontaktliste | Frellsen CRM" },
+    { name: "description", content: "Kontaktliste med kunder, noter, status og opfølgning i Frellsen CRM." },
+    { property: "og:title", content: "Kontaktliste | Frellsen CRM" },
+    { property: "og:description", content: "Kunder, noter, status og opfølgning på Frellsens kontaktlister." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: KontaktlisteSide,
 });
 
@@ -626,8 +634,8 @@ function KontaktlisteDetalje() {
                         onSort={toggleSort}
                       />
                     )}
-                    <TableHead>Status</TableHead>
-                    <TableHead>Prioritet</TableHead>
+                    <SortableHead label="Status" k="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="Prioritet" k="priority" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableHead
                       label="Opfølgning / note"
                       k="followup"
@@ -717,15 +725,14 @@ function KontaktlisteDetalje() {
                             </TableCell>
                           )}
                           <TableCell className="align-top">
-                            <div className="flex flex-col items-start gap-1">
-                              <Badge
-                                variant={r.status === "møde_booket" || r.status === "tilbud_oensket" ? "default" : "outline"}
-                                className="text-xs max-w-full truncate"
+                            <div className="flex flex-col items-start gap-2">
+                              <span
+                                className="text-sm font-medium max-w-full truncate"
                                 title={statusTekstFull}
                               >
                                 {statusTekstFull}
-                              </Badge>
-                              <Button size="sm" variant="ghost" className="h-6 px-1 text-xs" onClick={() => setUdfaldRow(r)}>
+                              </span>
+                              <Button size="sm" variant="outline" className="h-8 px-3 text-xs" onClick={() => setUdfaldRow(r)}>
                                 Registrér udfald
                               </Button>
                             </div>
@@ -843,17 +850,19 @@ function SortableHead({
 }) {
   const active = sortKey === k;
   return (
-    <TableHead>
-      <button
+    <TableHead aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => onSort(k)}
-        className="flex items-center gap-1 hover:text-foreground"
+        className="h-auto p-0 gap-1 hover:bg-transparent text-inherit font-medium"
       >
         {label}
         <ArrowUpDown
           className={`h-3 w-3 ${active ? "text-primary" : "text-muted-foreground/50"}`}
         />
         {active && <span className="text-xs">{sortDir === "asc" ? "↑" : "↓"}</span>}
-      </button>
+      </Button>
     </TableHead>
   );
 }
