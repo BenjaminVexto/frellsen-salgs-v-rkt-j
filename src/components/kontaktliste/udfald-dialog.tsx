@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { AARSAGER, UDFALD_LABEL, VALGBARE_UDFALD, ringIgenHurtigvalg, type Udfald } from "@/lib/telemarketing";
 import { formatTelefon, telHref } from "@/lib/telefon";
 
-export type UdfaldKontakt = { id: string; navn: string; titel: string | null };
+export type UdfaldKontakt = { id: string; navn: string; titel: string | null; telefon?: string | null; email?: string | null };
 export type UdfaldVirksomhed = { company_id: string; navn: string; telefon: string | null; kontakter: UdfaldKontakt[] };
 
 /** Gemmer et udfald via den fælles databasefunktion (samme for bureau, sælger og admin). */
@@ -27,7 +27,7 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
   listId: string;
   virksomhed: UdfaldVirksomhed;
   initial?: Udfald;
-  opretKontakt: (navn: string, titel: string | null) => Promise<string | null>;
+  opretKontakt: (navn: string, titel: string | null, telefon: string | null, email: string | null) => Promise<string | null>;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -37,7 +37,18 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
   const [note, setNote] = useState("");
   const [kontakt, setKontakt] = useState("");
   const [nyKontakt, setNyKontakt] = useState("");
+  const [kTitel, setKTitel] = useState("");
+  const [kTelefon, setKTelefon] = useState("");
+  const [kEmail, setKEmail] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const vaelgKontakt = (id: string) => {
+    setKontakt(id);
+    const k = virksomhed.kontakter.find((x) => x.id === id);
+    setKTitel(k?.titel ?? "");
+    setKTelefon(k?.telefon ?? "");
+    setKEmail(k?.email ?? "");
+  };
   const spoerg = virksomhed.kontakter[0];
 
   const send = async () => {
@@ -59,11 +70,14 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
       let kid = kontakt;
       if (kid === "ny") {
         if (!nyKontakt.trim()) { setBusy(false); return toast.error("Skriv kontaktpersonens navn"); }
-        kid = (await opretKontakt(nyKontakt.trim(), null)) ?? "";
+        kid = (await opretKontakt(nyKontakt.trim(), kTitel.trim() || null, kTelefon.trim() || null, kEmail.trim() || null)) ?? "";
       }
       if (!tid || !kid || !note.trim()) { setBusy(false); return toast.error("Udfyld dato, tid, kontaktperson og note"); }
       extra._moede_at = new Date(tid).toISOString();
       extra._contact_id = kid;
+      extra._kontakt_titel = kTitel.trim() || null;
+      extra._kontakt_telefon = kTelefon.trim() || null;
+      extra._kontakt_email = kEmail.trim() || null;
     }
     const r = await registrerUdfald(listId, virksomhed.company_id, udfald, extra);
     setBusy(false);
@@ -120,15 +134,22 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
                 </Select></div>
             )}
             {udfald === "moede_booket" && (
-              <div><Label>Kontaktperson</Label>
-                <Select value={kontakt} onValueChange={setKontakt}>
+              <div className="space-y-2"><Label>Kontaktperson (påkrævet)</Label>
+                <Select value={kontakt} onValueChange={vaelgKontakt}>
                   <SelectTrigger aria-label="Kontaktperson"><SelectValue placeholder="Vælg kontaktperson" /></SelectTrigger>
                   <SelectContent>
                     {virksomhed.kontakter.map((k) => <SelectItem key={k.id} value={k.id}>{k.navn}{k.titel ? ` – ${k.titel}` : ""}</SelectItem>)}
                     <SelectItem value="ny">+ Ny kontaktperson</SelectItem>
                   </SelectContent>
                 </Select>
-                {kontakt === "ny" && <Input className="mt-2" placeholder="Navn" value={nyKontakt} onChange={(e) => setNyKontakt(e.target.value)} />}
+                {kontakt === "ny" && <Input placeholder="Navn" value={nyKontakt} onChange={(e) => setNyKontakt(e.target.value)} />}
+                {kontakt && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <Input placeholder="Stilling" value={kTitel} onChange={(e) => setKTitel(e.target.value)} />
+                    <Input placeholder="Telefon" value={kTelefon} onChange={(e) => setKTelefon(e.target.value)} />
+                    <Input placeholder="E-mail" type="email" value={kEmail} onChange={(e) => setKEmail(e.target.value)} />
+                  </div>
+                )}
               </div>
             )}
             <div><Label htmlFor="udfald-note">Note{udfald === "note" || udfald === "moede_booket" || (udfald === "ikke_interesseret" && aarsag === "andet") ? " (påkrævet)" : " (valgfri)"}</Label>

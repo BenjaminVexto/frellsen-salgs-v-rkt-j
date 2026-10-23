@@ -97,7 +97,7 @@ type Row = {
   status: AssignmentStatus;
   status_aarsag: string | null;
   antal_forsoeg: number;
-  kontakter: { id: string; navn: string; titel: string | null }[];
+  kontakter: { id: string; navn: string; titel: string | null; telefon: string | null; email: string | null }[];
   priority: PriorityLevel;
   next_followup_date: string | null;
   next_action_note: string | null;
@@ -235,10 +235,10 @@ function KontaktlisteDetalje() {
       })(),
     ]);
     const kontaktMap = new Map<string, any>();
-    const alleKontakter = new Map<string, { id: string; navn: string; titel: string | null }[]>();
+    const alleKontakter = new Map<string, { id: string; navn: string; titel: string | null; telefon: string | null; email: string | null }[]>();
     for (const k of [...(kontakter ?? [])].sort((a: any, b: any) => Number(!!b.is_primary) - Number(!!a.is_primary))) {
       const arr = alleKontakter.get(k.company_id) ?? [];
-      arr.push({ id: k.id, navn: k.name, titel: k.title });
+      arr.push({ id: k.id, navn: k.name, titel: k.title, telefon: k.phone, email: k.email });
       alleKontakter.set(k.company_id, arr);
       const cur = kontaktMap.get(k.company_id);
       if (!cur || (k.is_primary && !cur.is_primary)) kontaktMap.set(k.company_id, k);
@@ -790,8 +790,8 @@ function KontaktlisteDetalje() {
             telefon: telefonNumre(udfaldRow.location_phone, udfaldRow.company.phone)[0] ?? null,
             kontakter: udfaldRow.kontakter,
           }}
-          opretKontakt={async (navn, titel) => {
-            const { data, error } = await supabase.from("contacts").insert({ company_id: udfaldRow.company_id, name: navn, title: titel }).select("id").single();
+          opretKontakt={async (navn, titel, telefon, email) => {
+            const { data, error } = await supabase.from("contacts").insert({ company_id: udfaldRow.company_id, name: navn, title: titel, phone: telefon, email, kilde: "telemarketing" }).select("id").single();
             if (error) { toast.error(error.message); return null; }
             return data.id;
           }}

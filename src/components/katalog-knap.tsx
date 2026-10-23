@@ -74,7 +74,7 @@ export function KatalogKnap({
       if (eks?.[0]) {
         if (navn.trim()) await supabase.from("contacts").update({ name: navn.trim() }).eq("id", eks[0].id);
       } else {
-        await supabase.from("contacts").insert({ company_id: companyId, location_id: lid, name: navn.trim() || e, email: e });
+        await supabase.from("contacts").insert({ company_id: companyId, location_id: lid, name: navn.trim() || e, email: e, kilde: "crm" });
       }
 
       const { data: akt, error: aErr } = await supabase

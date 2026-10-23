@@ -1655,6 +1655,7 @@ export type Database = {
           email: string | null
           id: string
           is_primary: boolean
+          kilde: Database["public"]["Enums"]["kontakt_kilde"]
           location_id: string | null
           name: string
           notes: string | null
@@ -1667,6 +1668,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_primary?: boolean
+          kilde?: Database["public"]["Enums"]["kontakt_kilde"]
           location_id?: string | null
           name: string
           notes?: string | null
@@ -1679,6 +1681,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_primary?: boolean
+          kilde?: Database["public"]["Enums"]["kontakt_kilde"]
           location_id?: string | null
           name?: string
           notes?: string | null
@@ -4078,6 +4081,7 @@ export type Database = {
       quote_recipients: {
         Row: {
           antal_aabninger: number
+          contact_id: string | null
           created_at: string
           downloadet_at: string | null
           email: string
@@ -4091,6 +4095,7 @@ export type Database = {
         }
         Insert: {
           antal_aabninger?: number
+          contact_id?: string | null
           created_at?: string
           downloadet_at?: string | null
           email: string
@@ -4104,6 +4109,7 @@ export type Database = {
         }
         Update: {
           antal_aabninger?: number
+          contact_id?: string | null
           created_at?: string
           downloadet_at?: string | null
           email?: string
@@ -4116,6 +4122,13 @@ export type Database = {
           token?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "quote_recipients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quote_recipients_quote_id_fkey"
             columns: ["quote_id"]
@@ -6665,6 +6678,9 @@ export type Database = {
           _aarsag?: string
           _company: string
           _contact_id?: string
+          _kontakt_email?: string
+          _kontakt_telefon?: string
+          _kontakt_titel?: string
           _list: string
           _moede_at?: string
           _note?: string
@@ -6860,6 +6876,9 @@ export type Database = {
           _aarsag?: string
           _company: string
           _contact_id?: string
+          _kontakt_email?: string
+          _kontakt_telefon?: string
+          _kontakt_titel?: string
           _list: string
           _moede_at?: string
           _note?: string
@@ -6980,6 +6999,7 @@ export type Database = {
         | "region"
         | "stat"
         | "andet_offentligt"
+      kontakt_kilde: "visma" | "cvr" | "crm" | "telemarketing"
       moede_udfald: "afholdt" | "aflyst" | "no_show" | "flyttet"
       opportunity_status:
         | "emne"
@@ -7236,6 +7256,7 @@ export const Constants = {
         "stat",
         "andet_offentligt",
       ],
+      kontakt_kilde: ["visma", "cvr", "crm", "telemarketing"],
       moede_udfald: ["afholdt", "aflyst", "no_show", "flyttet"],
       opportunity_status: [
         "emne",

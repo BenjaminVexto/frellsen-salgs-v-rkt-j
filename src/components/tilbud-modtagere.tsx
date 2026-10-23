@@ -6,13 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -63,10 +56,18 @@ function statusTekst(m: Modtager): string {
 }
 
 /** Modtagerlinks og åbningssporing for et PDF-tilbud. */
+type Kontakt = { id: string; name: string; title: string | null; email: string | null; phone: string | null };
+
 export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; companyId: string }) {
   const qc = useQueryClient();
-  const [navn, setNavn] = useState("");
-  const [email, setEmail] = useState("");
+  const [soeg, setSoeg] = useState("");
+  const [valgt, setValgt] = useState<Kontakt | null>(null);
+  const [manglerEmail, setManglerEmail] = useState("");
+  const [nyOpen, setNyOpen] = useState(false);
+  const [nNavn, setNNavn] = useState("");
+  const [nTitel, setNTitel] = useState("");
+  const [nEmail, setNEmail] = useState("");
+  const [nTelefon, setNTelefon] = useState("");
   const [saving, setSaving] = useState(false);
   const [mailTil, setMailTil] = useState<Modtager | null>(null);
   const [mailTekst, setMailTekst] = useState(MAIL_DEFAULT);
@@ -92,10 +93,11 @@ export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; compa
     queryFn: async () => {
       const { data } = await supabase
         .from("contacts")
-        .select("id, name, email")
+        .select("id, name, title, email, phone")
         .eq("company_id", companyId)
-        .order("is_primary", { ascending: false });
-      return (data ?? []) as { id: string; name: string; email: string | null }[];
+        .order("is_primary", { ascending: false })
+        .order("name");
+      return (data ?? []) as Kontakt[];
     },
   });
 
@@ -106,24 +108,74 @@ export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; compa
   });
   const mailKlar = mailKlarQuery.data?.klar === true;
 
-  async function tilfoej() {
-    const n = navn.trim();
-    const e = email.trim();
-    if (!n || !e) {
-      toast.error("Udfyld både navn og e-mail");
-      return;
-    }
+  async function tilfoejModtager(kontaktId: string | null, n: string, e: string) {
     setSaving(true);
-    const { error } = await supabase.from("quote_recipients").insert({ quote_id: quoteId, navn: n, email: e });
+    const { error } = await supabase
+      .from("quote_recipients")
+      .insert({ quote_id: quoteId, navn: n, email: e, contact_id: kontaktId });
     setSaving(false);
     if (error) {
       toast.error("Kunne ikke tilføje modtager: " + error.message);
-      return;
+      return false;
     }
-    setNavn("");
-    setEmail("");
     toast.success(`Modtager ${n} tilføjet`);
     qc.invalidateQueries({ queryKey: ["quote-modtagere", quoteId] });
+    return true;
+  }
+
+  async function vaelgKontakt(k: Kontakt) {
+    if (k.email) {
+      if (await tilfoejModtager(k.id, k.name, k.email)) setSoeg("");
+      return;
+    }
+    setValgt(k);
+    setManglerEmail("");
+  }
+
+  async function gemEmailOgTilfoej() {
+    if (!valgt) return;
+    const e = manglerEmail.trim();
+    if (!e) {
+      toast.error("Skriv kontaktpersonens e-mail");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("contacts").update({ email: e }).eq("id", valgt.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Kunne ikke gemme e-mail: " + error.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["quote-modtagere-kontakter", companyId] });
+    if (await tilfoejModtager(valgt.id, valgt.name, e)) {
+      setValgt(null);
+      setSoeg("");
+    }
+  }
+
+  async function opretKontaktOgTilfoej() {
+    const n = nNavn.trim();
+    const e = nEmail.trim();
+    if (!n || !e) {
+      toast.error("Navn og e-mail er påkrævet");
+      return;
+    }
+    setSaving(true);
+    const { data: k, error } = await supabase
+      .from("contacts")
+      .insert({ company_id: companyId, name: n, title: nTitel.trim() || null, email: e, phone: nTelefon.trim() || null, kilde: "crm" })
+      .select("id")
+      .single();
+    setSaving(false);
+    if (error || !k) {
+      toast.error("Kunne ikke oprette kontaktperson: " + (error?.message ?? "ukendt fejl"));
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["quote-modtagere-kontakter", companyId] });
+    if (await tilfoejModtager(k.id, n, e)) {
+      setNyOpen(false);
+      setNNavn(""); setNTitel(""); setNEmail(""); setNTelefon("");
+    }
   }
 
   async function kopier(m: Modtager) {
@@ -166,7 +218,15 @@ export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; compa
   }
 
   const modtagere = modtagereQuery.data ?? [];
-  const kontakter = (kontakterQuery.data ?? []).filter((k) => k.email);
+  const alleKontakter = kontakterQuery.data ?? [];
+  const q = soeg.trim().toLowerCase();
+  const kontakter = (q
+    ? alleKontakter.filter((k) =>
+        k.name.toLowerCase().includes(q) ||
+        (k.title ?? "").toLowerCase().includes(q) ||
+        (k.email ?? "").toLowerCase().includes(q))
+    : alleKontakter
+  ).slice(0, 8);
 
   return (
     <div className="space-y-3">
@@ -216,49 +276,81 @@ export function TilbudModtagere({ quoteId, companyId }: { quoteId: string; compa
       )}
 
       <div className="rounded-md border p-3 space-y-2">
-        {kontakter.length > 0 && (
-          <Select
-            value="__manuelt"
-            onValueChange={(v) => {
-              const k = kontakter.find((x) => x.id === v);
-              if (k) {
-                setNavn(k.name);
-                setEmail(k.email ?? "");
-              }
-            }}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Vælg blandt virksomhedens kontakter…" />
-            </SelectTrigger>
-            <SelectContent>
-              {kontakter.map((k) => (
-                <SelectItem key={k.id} value={k.id}>
-                  {k.name} · {k.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Input
+          value={soeg}
+          onChange={(e) => { setSoeg(e.target.value); setValgt(null); }}
+          placeholder="Søg blandt virksomhedens kontaktpersoner…"
+          className="h-8"
+        />
+        {kontakter.length > 0 && !valgt && (
+          <div className="divide-y rounded-md border max-h-56 overflow-y-auto">
+            {kontakter.map((k) => (
+              <button
+                key={k.id}
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 disabled:opacity-50"
+                onClick={() => vaelgKontakt(k)}
+                disabled={saving}
+              >
+                <span className="font-medium">{k.name}</span>
+                {k.title && <span className="text-muted-foreground"> · {k.title}</span>}
+                <span className={`block text-xs ${k.email ? "text-muted-foreground" : "text-amber-600"}`}>
+                  {k.email ?? "E-mail mangler – kan tilføjes"}
+                </span>
+              </button>
+            ))}
+          </div>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs mb-1 block">Navn</Label>
-            <Input value={navn} onChange={(e) => setNavn(e.target.value)} placeholder="Navn" className="h-8" />
+        {valgt && (
+          <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+            <p className="text-sm">
+              <span className="font-medium">{valgt.name}</span>
+              {valgt.title && <span className="text-muted-foreground"> · {valgt.title}</span>}
+              <span className="block text-xs text-muted-foreground">E-mail mangler på kontaktpersonen — den gemmes på kontakten.</span>
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={manglerEmail}
+                onChange={(e) => setManglerEmail(e.target.value)}
+                placeholder="navn@firma.dk"
+                type="email"
+                className="h-8"
+                autoFocus
+              />
+              <Button size="sm" className="h-8 gap-1.5" onClick={gemEmailOgTilfoej} disabled={saving}>
+                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Gem og tilføj
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => setValgt(null)}>
+                Annullér
+              </Button>
+            </div>
           </div>
-          <div>
-            <Label className="text-xs mb-1 block">E-mail</Label>
-            <Input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="navn@firma.dk"
-              type="email"
-              className="h-8"
-            />
+        )}
+        {!nyOpen ? (
+          <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setNyOpen(true)}>
+            <Plus className="h-3.5 w-3.5" /> Ny kontaktperson
+          </Button>
+        ) : (
+          <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Ny kontaktperson (gemmes på virksomheden)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Input value={nNavn} onChange={(e) => setNNavn(e.target.value)} placeholder="Navn *" className="h-8" />
+              <Input value={nTitel} onChange={(e) => setNTitel(e.target.value)} placeholder="Stilling" className="h-8" />
+              <Input value={nEmail} onChange={(e) => setNEmail(e.target.value)} placeholder="E-mail *" type="email" className="h-8" />
+              <Input value={nTelefon} onChange={(e) => setNTelefon(e.target.value)} placeholder="Telefon" className="h-8" />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" className="h-8 gap-1.5" onClick={opretKontaktOgTilfoej} disabled={saving}>
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Opret og tilføj som modtager
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => setNyOpen(false)}>
+                Annullér
+              </Button>
+            </div>
           </div>
-        </div>
-        <Button size="sm" variant="secondary" className="gap-1.5" onClick={tilfoej} disabled={saving}>
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          Tilføj modtager
-        </Button>
+        )}
       </div>
 
       <Dialog open={!!mailTil} onOpenChange={(o) => !o && setMailTil(null)}>

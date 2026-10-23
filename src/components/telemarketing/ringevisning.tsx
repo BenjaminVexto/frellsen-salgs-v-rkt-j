@@ -325,8 +325,8 @@ export function Ringevisning({ listId }: { listId: string }) {
       {dialogV && dialog && (
         <UdfaldDialog listId={listId} initial={dialog.u}
           virksomhed={{ company_id: dialogV.company_id, navn: dialogV.navn, telefon: dialogV.telefon, kontakter: dialogV.kontakter }}
-          opretKontakt={async (navn, titel) => {
-            const { data: id, error } = await rpc("tm_gem_kontakt", { _list: listId, _company: dialogV.company_id, _id: null, _navn: navn, _titel: titel, _telefon: null, _email: null });
+          opretKontakt={async (navn, titel, telefon, email) => {
+            const { data: id, error } = await rpc("tm_gem_kontakt", { _list: listId, _company: dialogV.company_id, _id: null, _navn: navn, _titel: titel, _telefon: telefon, _email: email });
             if (error) { toast.error(error.message); return null; }
             return id as string;
           }}
