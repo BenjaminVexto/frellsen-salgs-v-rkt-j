@@ -1,5 +1,5 @@
 # Roadmap
-- [ ] Kontaktlister: fri note i fælles dialog; kontrollér gemning som admin og tildelt sælger uden at ændre status eller opkaldstal.
+- [x] Kontaktlister: fri note i fælles dialog; gemning og genindlæsning som admin og Mads Lund verificeret; status Ny og 0 opkald uændret; 10 tests bestået.
 - [x] Maskiner & Service v2: udlån kun type 4/5/6 og dækning pr. virksomhed; nøgletal = tre lister, 5 rækker med udfoldning; admin Datafejl-lister med Tjekket; Mads/admin skærmbilleder, 20 tests.
 - [x] Maskiner & Service: Andet/kundeejede kontrolleret; enkel sælgervisning og lukkede adminsektioner; Claus computer/mobil og maskinliste verificeret, 18 tests bestået og skærmbilleder gemt.
 - [x] Bonuspræsentation: fælles tabel, decimaler/fodnoter, ens mobilkort, separat admin-sammenligning, egne satser og Se som-faner; Mads 360/390/1280 px, admin/Claus, CSV-total 244.068,94, 23 tests og fem skærmbilleder verificeret; ingen data-/beregningsændringer.
