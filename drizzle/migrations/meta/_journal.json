@@ -1009,6 +1009,13 @@
       "when": 1792747586264,
       "tag": "0143_salgsmuligheder_forenklet_pipeline",
       "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1792747604533,
+      "tag": "0144_salgsmuligheder_backfill_moede_booket",
+      "breakpoints": true
     }
   ]
 }
