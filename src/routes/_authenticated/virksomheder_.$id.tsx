@@ -476,10 +476,13 @@ function VirksomhedsKort() {
             <div className="bg-muted rounded-md p-2">
               <Building2 className="h-5 w-5" />
             </div>
-            <CustomerStatusBadge
-              type={company.customer_type}
-              variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
-            />
+            <div className="flex flex-col items-end gap-1">
+              <CustomerStatusBadge
+                type={company.customer_type}
+                variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
+              />
+              <RingelisteBadge info={ringelisteInfo} />
+            </div>
             {(company as any).kreditspaerret && <Badge variant="destructive">Spærret</Badge>}
 
           </div>
@@ -792,7 +795,10 @@ function VirksomhedsKort() {
         <div className="space-y-3">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
             <h1 className="min-w-0 break-words text-lg font-semibold leading-tight">{company.name}</h1>
-            <CustomerStatusBadge type={company.customer_type} variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"} />
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <CustomerStatusBadge type={company.customer_type} variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"} />
+              <RingelisteBadge info={ringelisteInfo} />
+            </div>
           </div>
           <p className="text-xs text-muted-foreground truncate">{company.cvr ? `CVR ${company.cvr}` : "Ingen CVR"}</p>
           {primaryContact && <div className="flex min-w-0 items-center gap-2 text-sm"><User className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="min-w-0 break-words">{primaryContact.name}</span></div>}
@@ -838,6 +844,7 @@ function VirksomhedsKort() {
                 type={company.customer_type}
                 variant={(customerTypeVariant[company.customer_type] as any) ?? "outline"}
               />
+              <RingelisteBadge info={ringelisteInfo} />
               <AfdelingBadge afdelingNr={(company as any).afdeling_nr} />
             </div>
           </div>
