@@ -799,7 +799,7 @@ function VirksomhedsKort() {
                 <KundeStop companyId={company.id} onChanged={() => void load(true)} />
                 <KundeRytmeLinje companyId={company.id} />
                 <Button variant="outline" className="w-full justify-start" onClick={() => { setMoreOpen(false); setOpportunityOpen(true); }}><PlusCircle className="h-4 w-4" />Opret salgsmulighed</Button>
-                <Button variant="outline" className="w-full justify-start" onClick={() => navigate({ to: "/tilbud/ny", search: { companyId: company.id } })}><FileText className="h-4 w-4" />Registrér tilbud</Button>
+                <Button variant="outline" className="w-full justify-start" onClick={() => setQuoteOpen(true)}><FileText className="h-4 w-4" />Registrér tilbud</Button>
                 {isAdmin && <Button variant="destructive" className="w-full justify-start" onClick={() => { setMoreOpen(false); void openDeleteDialog(); }}><Trash2 className="h-4 w-4" />Slet virksomhed</Button>}
               </SheetContent>
             </Sheet>
@@ -853,7 +853,7 @@ function VirksomhedsKort() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() =>
-                    navigate({ to: "/tilbud/ny", search: { companyId: company.id } })
+                    setQuoteOpen(true)
                   }
                 >
                   <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
@@ -1158,7 +1158,7 @@ function VirksomhedsKort() {
               variant="outline"
               className="w-full justify-start"
               onClick={() =>
-                navigate({ to: "/tilbud/ny", search: { companyId: company.id } })
+                setQuoteOpen(true)
               }
             >
               <FileText className="h-4 w-4 mr-2" /> Registrér tilbud
@@ -1201,6 +1201,7 @@ function VirksomhedsKort() {
         companyId={company.id}
         userId={user?.id ?? ""}
         onSaved={() => { load(); setTilbudReload((n) => n + 1); }}
+        onCrmTilbud={() => navigate({ to: "/tilbud/ny", search: { companyId: company.id } })}
       />
       <SkrivMailDialog
         open={mailOpen}
@@ -1743,12 +1744,14 @@ function RegistrerTilbudDialog({
   companyId,
   userId,
   onSaved,
+  onCrmTilbud,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   companyId: string;
   userId: string;
   onSaved: () => void;
+  onCrmTilbud: () => void;
 }) {
   const [mode, setMode] = useState<"pdf" | "manuel">("pdf");
   const [number, setNumber] = useState("");
@@ -1820,7 +1823,7 @@ function RegistrerTilbudDialog({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" variant={mode === "pdf" ? "default" : "outline"} onClick={() => setMode("pdf")}>Upload sendt tilbud (PDF)</Button>
-            <Button type="button" variant={mode === "manuel" ? "default" : "outline"} onClick={() => setMode("manuel")}>Kun værdi</Button>
+            <Button type="button" variant="outline" onClick={() => { onOpenChange(false); onCrmTilbud(); }}>Byg tilbud med varelinjer</Button>
           </div>
           {mode === "pdf" && (
             <div>
