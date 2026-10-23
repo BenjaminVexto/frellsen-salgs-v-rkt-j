@@ -1747,6 +1747,7 @@ function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }
 
         <div className="text-sm text-muted-foreground">
           Sendt {formatDate(quote.sent_date)} · Gyldig til {formatDate(quote.expiry_date)}
+          {saelgerNavn ? ` · Sælger: ${saelgerNavn}` : ""}
         </div>
 
         <Button variant="outline" onClick={() => setOpen(true)} className="gap-2">
