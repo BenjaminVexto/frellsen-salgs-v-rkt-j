@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CustomerStatusBadge } from "@/components/customer-status-info";
+import { RingelisteBadge } from "@/components/ringeliste-badge";
+import { hentRingelisteMap, type RingelisteInfo } from "@/lib/ringeliste-maerke";
 import { MentionTextarea, NoteWithMentions } from "@/components/mention-textarea";
 import {
   fetchMentionableUsers,
@@ -200,6 +202,7 @@ function VirksomhedsKort() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [ringelisteInfo, setRingelisteInfo] = useState<RingelisteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState<Location[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -269,6 +272,17 @@ function VirksomhedsKort() {
       setDeleting(false);
     }
   }
+
+  // Ringeliste-mærkat: nyeste kontaktliste-tildeling for denne virksomhed
+  useEffect(() => {
+    let cancelled = false;
+    hentRingelisteMap(supabase, [id])
+      .then((m) => !cancelled && setRingelisteInfo(m.get(id) ?? null))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const load = useCallback(async (stille?: unknown) => {
     // Stille genindlæsning (fx efter "Besøgt") må ikke skjule siden.
