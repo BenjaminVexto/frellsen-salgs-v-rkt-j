@@ -938,7 +938,7 @@ function VirksomhedsKort() {
                 ...(isAdmin ? [{ v: "udvikling", label: "Udvikling" }] : []),
                 { v: "lokationer", label: "Lokationer" },
                 { v: "relationer", label: "Relationer" },
-                { v: "aftaler", label: "Aftaler & tilbud" },
+                { v: "aftaler", label: "Aftaler & tilbud", kort: "Aftaler" },
               ];
               const mobilePrimary = ["oversigt", "salg", "lokationer", "aftaler"];
               const mobileMore = [...allTabs.filter((t) => !mobilePrimary.includes(t.v)), { v: "stamdata", label: "Stamdata" }];
