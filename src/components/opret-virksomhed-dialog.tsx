@@ -87,6 +87,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
   const [website, setWebsite] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [contactTitle, setContactTitle] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [directPhone, setDirectPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -106,7 +107,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
     setSelectedFromCvr(false); setCvr(""); setAdProtection(false); setFoundName(null);
     setName(""); setAddress(""); setZip(""); setCity(""); setMunicipality("");
     setIndustry(""); setEmployees(""); setCompanyForm(""); setWebsite("");
-    setContactPerson(""); setContactTitle(""); setPhone(""); setDirectPhone("");
+    setContactPerson(""); setContactTitle(""); setContactEmail(""); setPhone(""); setDirectPhone("");
     setEmail(""); setNotes("");
     setActType("telefonopkald"); setActDone(true); setActNextAction(""); setActFollowup("");
     setMode("navn"); setPendingPenhed(null);
