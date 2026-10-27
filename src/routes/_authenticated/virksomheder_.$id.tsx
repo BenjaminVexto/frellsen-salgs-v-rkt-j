@@ -1615,9 +1615,9 @@ function RegistrerAktivitetDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-lg min-w-0 grid-cols-[minmax(0,1fr)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg p-4 sm:p-6 [&>button:last-child]:flex [&>button:last-child]:h-11 [&>button:last-child]:w-11 [&>button:last-child]:items-center [&>button:last-child]:justify-center [&>button:last-child]:right-2 [&>button:last-child]:top-2">
         <DialogHeader>
-          <DialogTitle>Registrér aktivitet</DialogTitle>
+          <DialogTitle className="pr-8 text-left leading-6">Registrér aktivitet</DialogTitle>
         </DialogHeader>
         {(() => {
           const m = ringelisteInfo ? udledRingelisteMaerke(ringelisteInfo) : null;
@@ -1628,11 +1628,11 @@ function RegistrerAktivitetDialog({
             </div>
           ) : null;
         })()}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4 [&>div]:min-w-0 [&_input]:min-w-0 [&_input]:max-w-full [&_input]:h-11 sm:[&_input]:h-9 [&_textarea]:min-w-0 [&_textarea]:max-w-full">
           <div>
             <Label className="mb-1.5 block">Aktivitetstype *</Label>
             <Select value={type} onValueChange={(v) => setType(v as ActivityType)}>
-              <SelectTrigger><SelectValue placeholder="Vælg type" /></SelectTrigger>
+              <SelectTrigger className="h-11 min-w-0 sm:h-9 [&>span]:min-w-0 [&>span]:truncate [&>svg]:shrink-0"><SelectValue placeholder="Vælg type" /></SelectTrigger>
               <SelectContent>
                 {activityTypes.map((t) => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -1644,8 +1644,8 @@ function RegistrerAktivitetDialog({
             <div>
               <Label className="mb-1.5 block">Hvilken lokation gælder dette?</Label>
               <Select value={locationId} onValueChange={setLocationId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger className="h-11 min-w-0 sm:h-9 [&>span]:min-w-0 [&>span]:truncate [&>svg]:shrink-0"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-w-[calc(100vw-2rem)] [&_[role=option]]:whitespace-normal [&_[role=option]]:break-words">
                   <SelectItem value="__general">Hele virksomheden (generelt)</SelectItem>
                   {valg.map((v) => (
                     <SelectItem key={v.key} value={v.kontoId}>
@@ -1702,7 +1702,7 @@ function RegistrerAktivitetDialog({
             </p>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-0 [&_button]:h-11 sm:[&_button]:h-9 [&_button]:min-w-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annullér</Button>
           <Button onClick={save} disabled={saving}>{saving ? "Gemmer…" : "Gem aktivitet"}</Button>
         </DialogFooter>
