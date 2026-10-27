@@ -961,7 +961,7 @@ function VirksomhedsKort() {
                       .map((v) => allTabs.find((t) => t.v === v)!)
                       .map((t) => (
                         <TabsTrigger key={t.v} value={t.v} className={`${triggerCls} flex-1 min-w-0 basis-0 overflow-hidden !px-0.5 text-sm justify-center text-center`}>
-                          <span className="truncate">{t.label}</span>
+                          <span className="truncate">{(t as any).kort ?? t.label}</span>
                         </TabsTrigger>
                       ))}
                     <DropdownMenu>
