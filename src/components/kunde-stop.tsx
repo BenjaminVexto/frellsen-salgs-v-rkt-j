@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Ban, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { MutationGate } from "@/components/mutation-gate";
+import { cn } from "@/lib/utils";
 
 export const STOP_AARSAG_LABEL: Record<string, string> = {
   tabt_til_konkurrent: "Tabt til konkurrent",
@@ -30,7 +31,7 @@ const lokTekst = (l?: Lok) =>
   l ? [l.address, l.city].filter(Boolean).join(", ") + (l.visma_delivery_no ? ` · kundenr. ${l.visma_delivery_no}` : "") : "";
 
 /** Viser aktive "Stoppet"-markeringer og lader alle brugere oprette/fjerne dem. Salgstal ændres ikke. */
-export function KundeStop({ companyId, onChanged }: { companyId: string; onChanged?: () => void }) {
+export function KundeStop({ companyId, onChanged, buttonClassName }: { companyId: string; onChanged?: () => void; buttonClassName?: string }) {
   const [stops, setStops] = useState<Stop[]>([]);
   const [lok, setLok] = useState<Lok[]>([]);
   const [navne, setNavne] = useState<Record<string, string>>({});
@@ -108,7 +109,7 @@ export function KundeStop({ companyId, onChanged }: { companyId: string; onChang
         </div>
       ))}
       <MutationGate>
-        <Button size="sm" variant="outline" className="w-full" onClick={() => setOpen(true)}>
+        <Button size="sm" variant="outline" className={cn("w-full", buttonClassName)} onClick={() => setOpen(true)}>
           <Ban className="h-4 w-4 mr-1.5" /> Markér som stoppet
         </Button>
       </MutationGate>

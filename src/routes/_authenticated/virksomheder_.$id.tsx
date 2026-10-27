@@ -814,15 +814,19 @@ function VirksomhedsKort() {
             <Button variant="outline" className="h-11 min-w-0" onClick={() => { setPresetLocationId(null); setActivityOpen(true); }}><PlusCircle className="h-4 w-4 shrink-0" />Aktivitet</Button>
             <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
               <SheetTrigger asChild><Button variant="outline" className="h-11 min-w-0">Flere <MoreHorizontal className="h-4 w-4 shrink-0" /></Button></SheetTrigger>
-              <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg space-y-3 [&_button]:min-h-11" aria-describedby={undefined}>
-                <SheetHeader><SheetTitle>Flere handlinger</SheetTitle></SheetHeader>
-                <Button variant="outline" className="w-full justify-start" onClick={() => { setMoreOpen(false); setMailOpen(true); }}><Mail className="h-4 w-4" />Mail</Button>
-                <KatalogKnap companyId={company.id} onSaved={() => void load(true)} className="text-sm" />
-                <KundeStop companyId={company.id} onChanged={() => void load(true)} />
-                <KundeRytmeLinje companyId={company.id} />
-                <Button variant="outline" className="w-full justify-start" onClick={() => { setMoreOpen(false); setOpportunityOpen(true); }}><PlusCircle className="h-4 w-4" />Opret salgsmulighed</Button>
-                <Button variant="outline" className="w-full justify-start" onClick={() => setQuoteOpen(true)}><FileText className="h-4 w-4" />Registrér tilbud</Button>
-                {isAdmin && <Button variant="destructive" className="w-full justify-start" onClick={() => { setMoreOpen(false); void openDeleteDialog(); }}><Trash2 className="h-4 w-4" />Slet virksomhed</Button>}
+              <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg px-4 pt-5 pb-[max(1rem,env(safe-area-inset-bottom))] [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:top-2 [&>button]:right-2" aria-describedby={undefined}>
+                <SheetHeader className="min-h-11 justify-center pr-12 text-left mb-4"><SheetTitle>Flere handlinger</SheetTitle></SheetHeader>
+                <div className="space-y-2 [&_svg]:mr-0 [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
+                  <Button variant="outline" className="h-12 w-full justify-start gap-3 px-4 text-sm font-medium shadow-none" onClick={() => { setMoreOpen(false); setMailOpen(true); }}><Mail />Mail</Button>
+                  <KatalogKnap companyId={company.id} onSaved={() => void load(true)} className="h-12 justify-start gap-3 px-4 text-sm font-medium shadow-none" />
+                  <Button variant="outline" className="h-12 w-full justify-start gap-3 px-4 text-sm font-medium shadow-none" onClick={() => { setMoreOpen(false); setOpportunityOpen(true); }}><PlusCircle />Opret salgsmulighed</Button>
+                  <Button variant="outline" className="h-12 w-full justify-start gap-3 px-4 text-sm font-medium shadow-none" onClick={() => setQuoteOpen(true)}><FileText />Registrér tilbud</Button>
+                </div>
+                <div className="mt-4 border-t pt-4 space-y-3 [&_svg]:mr-0 [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
+                  <KundeStop companyId={company.id} onChanged={() => void load(true)} buttonClassName="h-12 justify-start gap-3 px-4 text-sm font-medium shadow-none" />
+                  <KundeRytmeLinje companyId={company.id} className="px-1 leading-relaxed" />
+                </div>
+                {isAdmin && <div className="mt-4 border-t pt-2"><Button variant="ghost" className="h-12 w-full justify-start gap-3 px-4 text-sm font-medium text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => { setMoreOpen(false); void openDeleteDialog(); }}><Trash2 className="h-4 w-4 shrink-0" />Slet virksomhed</Button></div>}
               </SheetContent>
             </Sheet>
           </div>
