@@ -296,6 +296,10 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
   async function handleSave() {
     if (isImpersonating) { toast.error("Read-only — handling ikke tilladt"); return; }
     if (!name.trim()) { toast.error("Navn er påkrævet"); return; }
+    if (contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
+      toast.error("Kontaktpersonens e-mail er ikke gyldig");
+      return;
+    }
     setSaving(true);
     const empNum = (() => {
       if (!employees) return null;
@@ -337,6 +341,21 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
       setSaving(false);
       toast.error("Kunne ikke oprette virksomhed: " + error.message);
       return;
+    }
+    // Kontaktpersonen gemmes som en rigtig relation (kilde crm), så den kan
+    // bruges til tilbudsmodtagere, booking m.m. — ikke kun som tekstfelt.
+    if (contactPerson.trim()) {
+      const { error: cErr } = await supabase.from("contacts").insert({
+        company_id: data.id,
+        name: contactPerson.trim(),
+        title: contactTitle.trim() || null,
+        phone: directPhone.trim() || null,
+        email: contactEmail.trim() || null,
+        kilde: "crm",
+      } as any);
+      if (cErr) {
+        toast.error("Virksomheden blev oprettet, men kontaktpersonen kunne ikke gemmes: " + cErr.message);
+      }
     }
     // Første kontakt gemmes som en rigtig aktivitet på virksomheden — samme
     // struktur som "Registrér aktivitet" bruger andre steder i appen.
