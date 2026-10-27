@@ -1065,6 +1065,13 @@
       "when": 1792756048382,
       "tag": "0151_contacts_kilde_og_booking_felter",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1793127752803,
+      "tag": "0152_kontakter_opret_paa_synlige_virksomheder",
+      "breakpoints": true
     }
   ]
 }
