@@ -957,11 +957,11 @@ function VirksomhedsKort() {
                   </TabsList>
                   {/* Mobil: 3 primære + Mere */}
                   <TabsList className="md:hidden bg-transparent p-0 h-auto border-b w-full justify-start rounded-none flex-nowrap flex">
-                    {mobilePrimary
+                     {mobilePrimary
                       .map((v) => allTabs.find((t) => t.v === v)!)
                       .map((t) => (
-                        <TabsTrigger key={t.v} value={t.v} className={`${triggerCls} flex-1 min-w-0 basis-0 !px-0.5 text-sm justify-center text-center`}>
-                          {t.label}
+                        <TabsTrigger key={t.v} value={t.v} className={`${triggerCls} flex-1 min-w-0 basis-0 overflow-hidden !px-0.5 text-sm justify-center text-center`}>
+                          <span className="truncate">{t.label}</span>
                         </TabsTrigger>
                       ))}
                     <DropdownMenu>
