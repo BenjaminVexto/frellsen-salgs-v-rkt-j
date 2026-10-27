@@ -1,0 +1,2 @@
+CREATE POLICY "Opret kontakter paa synlige virksomheder" ON public.contacts FOR INSERT TO authenticated WITH CHECK (public.can_view_company((SELECT auth.uid()), company_id));
+CREATE POLICY "Ret kontakter paa synlige virksomheder" ON public.contacts FOR UPDATE TO authenticated USING (public.can_view_company((SELECT auth.uid()), company_id)) WITH CHECK (public.can_view_company((SELECT auth.uid()), company_id));
