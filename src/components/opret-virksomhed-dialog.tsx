@@ -664,12 +664,13 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
                 <Field label="Navn" value={contactPerson} onChange={setContactPerson} />
                 <Field label="Titel" value={contactTitle} onChange={setContactTitle} />
               </div>
-              <div className="mt-2">
+              <div className="grid grid-cols-2 gap-2 mt-2">
                 <Field
                   label="Direkte telefon (hvis forskellig fra CVR-telefon)"
                   value={directPhone}
                   onChange={setDirectPhone}
                 />
+                <Field label="Email" value={contactEmail} onChange={setContactEmail} type="email" />
               </div>
             </div>
 
