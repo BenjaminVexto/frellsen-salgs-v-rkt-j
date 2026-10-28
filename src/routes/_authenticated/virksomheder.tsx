@@ -52,9 +52,18 @@ import {
   filterChips,
 } from "@/components/company-filter";
 import { toast } from "sonner";
+import { antalMatchendeKonti, matchendeKonti } from "@/components/company-filter/company-search";
 
 export const Route = createFileRoute("/_authenticated/virksomheder")({
   component: VirksomhederListe,
+  head: () => ({ meta: [
+    { title: "Virksomheder | Frellsen CRM" },
+    { name: "description", content: "Find virksomheder og konti i Frellsen CRM." },
+    { property: "og:title", content: "Virksomheder | Frellsen CRM" },
+    { property: "og:description", content: "Find virksomheder og konti i Frellsen CRM." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
 });
 
 const RECENT_KEY = "recently_imported_ids";
@@ -205,8 +214,8 @@ function VirksomhederListe() {
       g.konti.push(r);
       if (soeg) g.hits.add(r.id);
     }
-    // Ved søgning vises hele gruppen med de ramte konti markeret.
-    if (soeg) for (const g of set.values()) g.konti = [...alleIGruppe.get(g.cvr)!].sort((a, b) => Number(g.hits.has(b.id)) - Number(g.hits.has(a.id)));
+    // Hele gruppen bevares til overskriften og eksplicit "Vis alle".
+    if (soeg) for (const g of set.values()) g.konti = [...(alleIGruppe.get(g.cvr) ?? [])];
     return ud;
   }, [rows, displayed, q]);
 
@@ -244,12 +253,12 @@ function VirksomhederListe() {
       return v * sort.dir;
     });
   }, [grundItems, sort, omsQ.data, grupperQ.data]);
-  const antalKonti = useMemo(() => items.reduce((s, it) => s + (it.kind === "en" ? 1 : it.konti.length), 0), [items]);
+  const antalKonti = useMemo(() => antalMatchendeKonti(items), [items]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   // Mobil: "Vis flere" i stedet for sidetal.
   const pageItems = isMobile ? items.slice(0, mobilAntal) : items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const aktiveChips = filterChips(filters, setFilters, sellers, defaultSaelger);
-  const pageRows = pageItems.flatMap((it) => (it.kind === "en" ? [it.row] : it.konti));
+  const pageRows = pageItems.flatMap(matchendeKonti);
 
   const clearRecent = () => {
     sessionStorage.removeItem(RECENT_KEY);
@@ -265,7 +274,7 @@ function VirksomhederListe() {
   };
 
   const selectAllFiltered = () => {
-    setSelected(new Set(items.flatMap((it) => (it.kind === "en" ? [it.row.id] : it.konti.map((k) => k.id)))));
+    setSelected(new Set(items.flatMap((it) => matchendeKonti(it).map((k) => k.id))));
   };
 
   const allOnPageSelected =
@@ -504,6 +513,7 @@ function VirksomhederListe() {
               </div>
             )}
             <VirksomhedListe
+              key={q.trim()}
               items={pageItems}
               isAdmin={isAdmin && !isMobile}
               selected={selected}

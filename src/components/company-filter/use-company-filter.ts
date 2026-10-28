@@ -6,6 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { cvrGrupperQuery, cvrNorm } from "@/components/cvr-gruppe";
 import { supabase } from "@/integrations/supabase/client";
 import { useAfdeling } from "@/contexts/afdeling-context";
+import { companyMatcher, soegeord } from "./company-search";
+export { lokationMatcher } from "./company-search";
 import {
   AssignmentRow,
   CompanyRow,
@@ -68,23 +70,6 @@ function matchesEmployees(n: number | null, ranges: string[]) {
     if (r === "200+") return n >= 200;
     return false;
   });
-}
-
-/** Rammer søgningen en lokation (adresse, by, postnr., leveringsnr., P-nr., P-enhedsnavn)? */
-export function lokationMatcher(l: LocationLite, rawQuery: string): boolean {
-  const raw = rawQuery.trim();
-  const qq = raw.toLowerCase();
-  if (!qq) return false;
-  const adrBy = `${l.address ?? ""} ${l.zip ?? ""} ${l.city ?? ""}`.toLowerCase();
-  return (
-    (l.city ?? "").toLowerCase().includes(qq) ||
-    (l.address ?? "").toLowerCase().includes(qq) ||
-    adrBy.includes(qq) ||
-    (l.zip ?? "").includes(raw) ||
-    (l.visma_delivery_no ?? "").toLowerCase().includes(qq) ||
-    (l.p_numre ?? []).some((p) => p.includes(raw)) ||
-    (l.penhed_navne ?? []).some((n) => n.toLowerCase().includes(qq))
-  );
 }
 
 export type UseCompanyFilterOptions = {
@@ -339,29 +324,16 @@ export function useCompanyFilter({
   const cvrGrupperQ = useQuery(cvrGrupperQuery);
   const filtered = useMemo(() => {
     const grupper = cvrGrupperQ.data;
+    const words = soegeord(q);
     return rows.filter((r) => {
       // Afløste debitorposter er som standard skjult (kun synlige via "Vis afløste").
       if (!filters.visAfloeste && (r as any).afloest_af_company_id) return false;
       if (q) {
         const rawQuery = q.trim();
         if (rawQuery) {
-          const qq = rawQuery.toLowerCase();
           const locs = locationMap.get(r.id) ?? [];
-          const hit =
-            r.name.toLowerCase().includes(qq) ||
-            (r.cvr ?? "").includes(rawQuery) ||
-            (grupper?.get(cvrNorm(r.cvr) ?? "")?.cvr_navn ?? "").toLowerCase().includes(qq) ||
-            (r.address ?? "").toLowerCase().includes(qq) ||
-            (r.city ?? "").toLowerCase().includes(qq) ||
-            (r.zip ?? "").includes(rawQuery) ||
-            ((r as any).visma_id ?? "").toLowerCase().includes(qq) ||
-            ((r as any).visma_delivery_id ?? "").toLowerCase().includes(qq) ||
-            locs.some((l) => lokationMatcher(l, rawQuery)) ||
-            // Telefon: sammenlign kun cifre, så "40 86 91 01" og "+4540869101" rammer.
-            (() => {
-              const d = rawQuery.replace(/\D/g, "");
-              return d.length >= 4 && ((r as any).phone ?? "").replace(/\D/g, "").includes(d);
-            })();
+          const hit = companyMatcher(r as CompanyRow & { phone?: string | null }, locs,
+            grupper?.get(cvrNorm(r.cvr) ?? "")?.cvr_navn, rawQuery, words);
           if (!hit) return false;
         }
       }

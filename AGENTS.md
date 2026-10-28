@@ -21,6 +21,7 @@
 - Every kontaktliste_opkald row gets an activities row via BEFORE INSERT trigger `_opkald_til_aktivitet`; the company page shows one activity log, and list views read latest activity only via `tm_seneste_aktivitet` — so telemarketing never needs activity table access.
 - Contact-list notes and outcomes use the shared UdfaldDialog and registrer_udfald for all roles; database authorization remains authoritative so offering notes never broadens seller or agency access.
 - CVR groups (accounts sharing cvr_norm) are an overlay only: SQL cvr_grupper/cvr_gruppe_konti/cvr_penhed_oversigt; per-account sales only where _maa_se_kontosalg — so sellers see other sellers' accounts but only group totals.
+- Company free-text matching and matched group-account selection share browser-safe pure helpers in company-filter/company-search.ts — so filtering, counters and bulk selection agree and are regression-tested without loading auth clients.
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
 - Read nested AGENTS.md; bonus competition shows seller totals only.
 - Company mobile reuses desktop master data in More; one Locations callback for machine metrics.

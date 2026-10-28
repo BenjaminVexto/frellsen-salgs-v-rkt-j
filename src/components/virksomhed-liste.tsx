@@ -12,6 +12,7 @@ import { parseSegment3 } from "@/lib/customer-segment-mapping";
 import { RingelisteBadge } from "@/components/ringeliste-badge";
 import type { RingelisteInfo } from "@/lib/ringeliste-maerke";
 import type { CompanyRow } from "@/components/company-filter/types";
+import { matchendeKonti } from "@/components/company-filter/company-search";
 
 /** Kun visning: "ROSKILDE" → "Roskilde", "HØJE-TAASTRUP" → "Høje-Taastrup". Blandet skrivemåde bevares. */
 export function paenBy(s: string | null | undefined): string {
@@ -201,11 +202,15 @@ function GruppeRaekke({
   kontoRaekke: (r: CompanyRow, o?: { under?: boolean; skjulSegment?: boolean; hit?: boolean }) => ReactNode;
 }) {
   const [vis, setVis] = useState(VIS_ANTAL);
+  const [visAlle, setVisAlle] = useState(false);
   const info = p.grupper?.get(it.cvr);
   const konti = [...it.konti].sort(
     (a, b) => statusRang(a.customer_type) - statusRang(b.customer_type) || (kontoOms(b, p.omsMap) ?? -1) - (kontoOms(a, p.omsMap) ?? -1),
   );
-  const bedste = konti[0]!;
+  const bedste = konti[0];
+  if (!bedste) return null;
+  const visteKonti = it.tvungen && !visAlle ? konti.filter((k) => it.hits.has(k.id)) : konti;
+  const valgKonti = matchendeKonti(it);
   const gruppeNavn = info?.cvr_navn || bedste.name;
   // Udbud/Offentlig aftale: vises én gang på gruppen, hvis alle konti har samme mærke.
   const segKode = (s: string | null | undefined) => parseSegment3(s).code;
@@ -217,7 +222,7 @@ function GruppeRaekke({
   const adresser = new Set(konti.map((k) => `${k.zip ?? ""}|${adresseNoegle(k.address) ?? k.id}`)).size;
   const saelgere = new Set(konti.map((k) => p.saelgerNavn(k)).filter(Boolean) as string[]);
   const oms = info?.oms_12m ?? konti.reduce((s, k) => s + (kontoOms(k, p.omsMap) ?? 0), 0);
-  const alleValgt = konti.every((k) => p.selected.has(k.id));
+  const alleValgt = valgKonti.every((k) => p.selected.has(k.id));
   return (
     <div>
       <div
@@ -235,7 +240,7 @@ function GruppeRaekke({
               onCheckedChange={(v) =>
                 p.setSelected((prev) => {
                   const n = new Set(prev);
-                  konti.forEach((k) => (v ? n.add(k.id) : n.delete(k.id)));
+                  valgKonti.forEach((k) => (v ? n.add(k.id) : n.delete(k.id)));
                   return n;
                 })
               }
@@ -269,11 +274,18 @@ function GruppeRaekke({
       </div>
       {udfoldet && (
         <div className="divide-y divide-border/60">
-          {konti.slice(0, vis).map((k) => kontoRaekke(k, { under: true, skjulSegment: !!fællesSeg, hit: it.hits.has(k.id) && it.hits.size < konti.length }))}
-          {konti.length > vis && (
+          {visteKonti.slice(0, vis).map((k) => kontoRaekke(k, { under: true, skjulSegment: !!fællesSeg, hit: it.hits.has(k.id) && it.hits.size < konti.length }))}
+          {visteKonti.length > vis && (
             <div className="pl-10 py-1.5">
               <Button size="sm" variant="ghost" onClick={() => setVis((v) => v + VIS_ANTAL * 2)}>
-                Vis flere ({konti.length - vis} tilbage)
+                Vis flere ({visteKonti.length - vis} tilbage)
+              </Button>
+            </div>
+          )}
+          {it.tvungen && !visAlle && (
+            <div className="pl-10 py-1.5">
+              <Button size="sm" variant="outline" onClick={() => { setVisAlle(true); setVis(Math.max(VIS_ANTAL, konti.length)); }}>
+                Vis alle {konti.length} konti i gruppen
               </Button>
             </div>
           )}
