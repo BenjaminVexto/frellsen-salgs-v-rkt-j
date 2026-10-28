@@ -18,7 +18,7 @@ import { Datafejl } from "./datafejl";
 import { getSellerOptions } from "@/lib/portfolio.functions";
 import { dekomprimerJson } from "@/lib/komprimer-json";
 import {
-  hentUdstyr, hentUdstyrSatser, gemUdstyrSatser, hentUdstyrLinjer, hentLejeUdenBonusklasse,
+  hentUdstyr, hentUdstyrSatser, gemUdstyrSatser, hentUdstyrLinjer, hentLejeUdenBonusklasse, hentMaaSeDb,
 } from "@/lib/udstyr.functions";
 import {
   beregnLokationer, handlinger, maanederIPeriode, periode, TYPER, UDLAAN_LABEL, BRITA, KAFFE_TYPER, BRYG,
@@ -647,12 +647,20 @@ export function UdstyrBoks({ companyId }: { companyId: string }) {
   const hentFn = useServerFn(hentUdstyr);
   const satserFn = useServerFn(hentUdstyrSatser);
   const satserQ = useQuery({ queryKey: ["udstyr-satser"], queryFn: () => satserFn() });
+  // Boksen viser "DB inkl. udstyr" – kun for brugere der må se DB (DB-funktionen maa_se_db).
+  const maaSeDbFn = useServerFn(hentMaaSeDb);
+  const maaSeDbQ = useQuery({
+    queryKey: ["udstyr-maa-se-db", viewAs.effectiveUserId],
+    queryFn: () => maaSeDbFn({ data: { userId: viewAs.effectiveUserId } }),
+  });
+  const maaSeDb = maaSeDbQ.data === true;
   const q = useQuery({
     queryKey: ["udstyr-firma", companyId, erAdmin, viewAs.effectiveUserId],
+    enabled: maaSeDb,
     queryFn: async () => dekomprimerJson<Grundlag>(await hentFn({ data: { companyId, alle: erAdmin, sellerId: viewAs.effectiveUserId, fra: p.fra, til: p.til } })),
   });
   const lok = useMemo(() => (q.data ? beregnLokationer(serviceVisningsGrundlag(q.data), 12, satserQ.data ?? STANDARD_SATSER) : []).filter((l) => l.maskiner.length || l.leje || l.bel || l.si), [q.data, satserQ.data]);
-  if (!lok.length) return null;
+  if (!maaSeDb || !lok.length) return null;
   return (
     <Card className="p-4">
       <div className="mb-2 flex items-center justify-between">
