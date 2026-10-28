@@ -70,3 +70,27 @@ export const hentLejeUdenBonusklasse = createServerFn({ method: "POST" })
     if (error) throw new Error("Kun admin");
     return (rows ?? []) as { varenr: string; varetekst: string; maskintype: string; beloeb_12m: number }[];
   });
+
+/**
+ * Må brugeren se DB? Samme kilde som resten af DB-visningerne: DB-funktionen
+ * maa_se_db (admin eller profiles.maa_se_db). Kun admin må spørge om en anden
+ * bruger end sig selv — fx den, man ser som.
+ */
+export const hentMaaSeDb = createServerFn({ method: "POST" })
+  .middleware([kraevIntern])
+  .inputValidator((d: { userId?: string | null }) => d)
+  .handler(async ({ data, context }): Promise<boolean> => {
+    let malet = context.userId;
+    if (data.userId && data.userId !== context.userId) {
+      const { data: adminRow } = await context.supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", context.userId)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (!adminRow) throw new Error("Ikke adgang");
+      malet = data.userId;
+    }
+    const { data: seDb } = await (context.supabase as any).rpc("maa_se_db", { _user_id: malet });
+    return seDb === true;
+  });

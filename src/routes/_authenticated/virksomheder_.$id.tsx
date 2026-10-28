@@ -1096,11 +1096,11 @@ function VirksomhedsKort() {
                 locationIds={locations.map((l) => l.id)}
                 skjulSignaler={!!afloestAf}
               />
+              <UdstyrBoks companyId={company.id} />
             </TabsContent>}
 
             {/* FANE: Lokationer */}
             <TabsContent value="lokationer" id="company-locations" className="space-y-4 mt-4 scroll-mt-16">
-              <UdstyrBoks companyId={company.id} />
               <LokationerSektion
                 companyId={company.id}
                 isAdmin={isAdmin}
