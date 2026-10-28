@@ -1,9 +1,9 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
 ## Aktuelt: Fritekstsøgning på Virksomheder
-- [ ] Ordmatch på tværs af konto/lokationer med Unicode-ordstart og eksisterende tal-/telefonmatch.
-- [ ] Vis kun matchende gruppekonti ved fritekst; bevar overskrift og tilføj vis-alle-knap; ret tæller.
-- [ ] Målrettede tests og browserkontrol af DSV, DSV hedehusene, hovedgaden 630 og 2640.
+- [x] Ordmatch på tværs af konto/lokationer med Unicode-ordstart og eksisterende tal-/telefonmatch.
+- [x] Vis kun matchende gruppekonti ved fritekst; bevar overskrift og tilføj vis-alle-knap; ret tæller.
+- [x] 9 målrettede tests og browserkontrol: DSV 11 konti, DSV hedehusene 4 konti, hovedgaden 630 og 2640 fungerer; vis-alle ændrer ikke matchtæller.
 
 - [x] 1. Migration: `quote_recipients` + `quote_events` (RLS som quotes, tm_spaerret, grants)
 - [x] 2. Migration: token-validerings-RPC `quote_recipient_by_token` (security definer, public read)

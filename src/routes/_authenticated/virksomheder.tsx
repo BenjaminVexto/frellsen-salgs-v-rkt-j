@@ -477,7 +477,7 @@ function VirksomhederListe() {
       </div>
 
       <div className="md:hidden text-sm text-muted-foreground mb-2">
-        <strong className="text-foreground">{items.length.toLocaleString("da-DK")}</strong> {items.length === 1 ? "kunde" : "kunder"}
+        <strong className="text-foreground">{items.length.toLocaleString("da-DK")}</strong> virksomheder ({antalKonti.toLocaleString("da-DK")} konti)
       </div>
       <div className="hidden md:block text-sm text-muted-foreground mb-2">
         <strong className="text-foreground">{items.length.toLocaleString("da-DK")}</strong> virksomheder ({antalKonti.toLocaleString("da-DK")} konti)
