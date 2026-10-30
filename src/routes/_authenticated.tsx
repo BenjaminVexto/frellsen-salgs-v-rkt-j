@@ -25,6 +25,7 @@ import {
   ShieldAlert,
   Lightbulb,
   FileText,
+  BookOpen,
   FileSignature,
   TrendingUp,
   KeyRound,
