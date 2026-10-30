@@ -1754,15 +1754,17 @@ function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }
           <Button variant="outline" onClick={() => setOpen(true)} className="flex-1 gap-2">
             <FileText className="h-4 w-4" /> Åbn PDF
           </Button>
-          <TilbudModtagerStatus
-            quoteId={quote.id}
-            companyId={company.id}
-            knapper={(aabn) => (
-              <Button variant="outline" onClick={aabn} className="flex-1 gap-2 whitespace-nowrap">
-                <Send className="h-4 w-4" /> Send til flere
-              </Button>
-            )}
-          />
+          <div className="flex-1">
+            <TilbudModtagerStatus
+              quoteId={quote.id}
+              companyId={company.id}
+              knapper={(aabn) => (
+                <Button variant="outline" onClick={aabn} className="w-full gap-2 whitespace-nowrap">
+                  <Send className="h-4 w-4" /> Send til flere
+                </Button>
+              )}
+            />
+          </div>
         </div>
       </Card>
 
