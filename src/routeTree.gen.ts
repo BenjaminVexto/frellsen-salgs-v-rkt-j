@@ -26,6 +26,7 @@ import { Route as AuthenticatedMinPortefoeljeRouteImport } from './routes/_authe
 import { Route as AuthenticatedSalgsmulighederRouteImport } from './routes/_authenticated/salgsmuligheder'
 import { Route as AuthenticatedTeSortimentRouteImport } from './routes/_authenticated/te-sortiment'
 import { Route as AuthenticatedVirksomhederRouteImport } from './routes/_authenticated/virksomheder'
+import { Route as KIdRouteImport } from './routes/k.$id'
 import { Route as TTokenRouteImport } from './routes/t.$token'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
@@ -160,6 +161,11 @@ const AuthenticatedVirksomhederRoute =
     path: '/virksomheder',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const KIdRoute = KIdRouteImport.update({
+  id: '/k/$id',
+  path: '/k/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TTokenRoute = TTokenRouteImport.update({
   id: '/t/$token',
   path: '/t/$token',
@@ -406,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/te-sortiment': typeof AuthenticatedTeSortimentRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/k/$id': typeof KIdRoute
   '/t/$token': typeof TTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -463,6 +470,7 @@ export interface FileRoutesByTo {
   '/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/te-sortiment': typeof AuthenticatedTeSortimentRoute
   '/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/k/$id': typeof KIdRoute
   '/t/$token': typeof TTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -521,6 +529,7 @@ export interface FileRoutesById {
   '/_authenticated/salgsmuligheder': typeof AuthenticatedSalgsmulighederRoute
   '/_authenticated/te-sortiment': typeof AuthenticatedTeSortimentRoute
   '/_authenticated/virksomheder': typeof AuthenticatedVirksomhederRoute
+  '/k/$id': typeof KIdRoute
   '/t/$token': typeof TTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -580,6 +589,7 @@ export interface FileRouteTypes {
     | '/salgsmuligheder'
     | '/te-sortiment'
     | '/virksomheder'
+    | '/k/$id'
     | '/t/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -637,6 +647,7 @@ export interface FileRouteTypes {
     | '/salgsmuligheder'
     | '/te-sortiment'
     | '/virksomheder'
+    | '/k/$id'
     | '/t/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -694,6 +705,7 @@ export interface FileRouteTypes {
     | '/_authenticated/salgsmuligheder'
     | '/_authenticated/te-sortiment'
     | '/_authenticated/virksomheder'
+    | '/k/$id'
     | '/t/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -744,6 +756,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  KIdRoute: typeof KIdRoute
   TTokenRoute: typeof TTokenRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -873,6 +886,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/virksomheder'
       preLoaderRoute: typeof AuthenticatedVirksomhederRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/k/$id': {
+      id: '/k/$id'
+      path: '/k/$id'
+      fullPath: '/k/$id'
+      preLoaderRoute: typeof KIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/t/$token': {
       id: '/t/$token'
@@ -1270,6 +1290,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  KIdRoute: KIdRoute,
   TTokenRoute: TTokenRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
