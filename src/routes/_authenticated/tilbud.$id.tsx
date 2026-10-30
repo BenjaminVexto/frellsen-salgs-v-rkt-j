@@ -1683,7 +1683,7 @@ const PDF_STATUS_LABEL: Record<string, string> = {
 
 function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }) {
   const hentPdf = useServerFn(hentTilbudPdf);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [saelgerNavn, setSaelgerNavn] = useState<string | null>(null);
   const forbrug = Number(quote.forbrug_pr_maaned ?? 0);
   const faste = Number(quote.faste_pr_maaned ?? 0);
@@ -1750,13 +1750,24 @@ function TilbudPdfVisning({ quote, company }: { quote: Quote; company: Company }
           {saelgerNavn ? ` · Sælger: ${saelgerNavn}` : ""}
         </div>
 
-        <Button variant="outline" onClick={() => setOpen(true)} className="gap-2">
-          <FileText className="h-4 w-4" /> Åbn PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setOpen(true)} className="flex-1 gap-2">
+            <FileText className="h-4 w-4" /> Åbn PDF
+          </Button>
+          <TilbudModtagerStatus
+            quoteId={quote.id}
+            companyId={company.id}
+            knapper={
+              <Button variant="outline" className="flex-1 gap-2 whitespace-nowrap">
+                <Send className="h-4 w-4" /> Send til flere
+              </Button>
+            }
+          />
+        </div>
       </Card>
 
       <Card className="p-5">
-        <TilbudModtagerStatus quoteId={quote.id} companyId={company.id} />
+        <TilbudModtagerStatus quoteId={quote.id} companyId={company.id} knapper={null} />
       </Card>
 
       <PDFViewerDialog
