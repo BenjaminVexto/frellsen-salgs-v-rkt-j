@@ -232,7 +232,7 @@ export function TilbudModtagerStatus({
   return (
     <div className="space-y-1.5">
       {modtagerliste}
-      <div>{flereKnap}</div>
+      <div>{knapper ?? flereKnap}</div>
       {dialogene}
     </div>
   );
