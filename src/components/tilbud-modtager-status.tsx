@@ -50,7 +50,16 @@ export function modtagerStatusTekst(m: Modtager): string {
 }
 
 /** Kompakt status pr. modtager + "Send til flere" / "Gensend". Bruges på tilbudsdetaljen og i Aftaler & tilbud. */
-export function TilbudModtagerStatus({ quoteId, companyId }: { quoteId: string; companyId: string }) {
+export function TilbudModtagerStatus({
+  quoteId,
+  companyId,
+  aabnPdf,
+}: {
+  quoteId: string;
+  companyId: string;
+  /** Når sat, vises "Åbn PDF" med "Send til flere" som knap under i højre kolonne (bruges i Aftaler & tilbud). */
+  aabnPdf?: () => void;
+}) {
   const qc = useQueryClient();
   const [sendTilFlere, setSendTilFlere] = useState(false);
   const [mailTil, setMailTil] = useState<Modtager | null>(null);
