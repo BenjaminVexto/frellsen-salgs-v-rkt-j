@@ -54,11 +54,14 @@ export function TilbudModtagerStatus({
   quoteId,
   companyId,
   aabnPdf,
+  knapper,
 }: {
   quoteId: string;
   companyId: string;
   /** Når sat, vises "Åbn PDF" med "Send til flere" som knap under i højre kolonne (bruges i Aftaler & tilbud). */
   aabnPdf?: () => void;
+  /** Når sat, erstatter det "Send til flere"-knappen i listen (knappen placeres fx ved siden af "Åbn PDF" andetsteds). */
+  knapper?: React.ReactNode;
 }) {
   const qc = useQueryClient();
   const [sendTilFlere, setSendTilFlere] = useState(false);
