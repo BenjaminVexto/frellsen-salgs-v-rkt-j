@@ -1,10 +1,10 @@
 /** Kun Microsoft-fejl gør udsendelsen fejlet; efterarbejde må aldrig genudsende mailen. */
-export async function afsendKatalog(flow: {
-  opret: () => Promise<string>;
-  send: (id: string) => Promise<unknown>;
-  fejlet: (id: string) => Promise<void>;
-  sendt: (id: string) => Promise<void>;
-  afslut: (id: string) => Promise<void>;
+export async function afsendKatalog<T = string>(flow: {
+  opret: () => Promise<T>;
+  send: (id: T) => Promise<unknown>;
+  fejlet: (id: T) => Promise<void>;
+  sendt: (id: T) => Promise<void>;
+  afslut: (id: T) => Promise<void>;
 }) {
   const id = await flow.opret();
   try {
@@ -13,7 +13,7 @@ export async function afsendKatalog(flow: {
     try {
       await flow.fejlet(id);
     } catch (statusError) {
-      console.error("Kunne ikke registrere fejlet katalogudsendelse", statusError);
+      console.error("Kunne ikke registrere fejlet udsendelse", statusError);
     }
     return { ok: false as const, error: error instanceof Error ? error.message : String(error) };
   }
