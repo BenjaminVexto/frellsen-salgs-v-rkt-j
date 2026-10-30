@@ -1072,6 +1072,13 @@
       "when": 1793127752803,
       "tag": "0152_kontakter_opret_paa_synlige_virksomheder",
       "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1793352235308,
+      "tag": "0153_katalog_graph_klik",
+      "breakpoints": true
     }
   ]
 }

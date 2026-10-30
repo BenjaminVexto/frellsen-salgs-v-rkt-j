@@ -1,5 +1,11 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Digitalt katalog via Graph
+- [x] Fælles Graph-hjælper til tilbud og katalog; admin-only katalogknap og serverkontrol.
+- [x] Katalogafsendelse med sendt/fejlet, kontakt og aktivitet først efter succes, 7 dages opfølgning.
+- [x] Første klik via /k/[id], redirect og Åbnet-dato på kundekortet.
+- [x] 13 målrettede tests; indlogget katalogdialog og succesregistrering/7 dages opfølgning/302/første klik/Åbnet-dato verificeret. Testdata slettet; ingen rigtig mail sendt.
+
 ## Aktuelt: Fritekstsøgning på Virksomheder
 - [x] Ordmatch på tværs af konto/lokationer med Unicode-ordstart og eksisterende tal-/telefonmatch.
 - [x] Vis kun matchende gruppekonti ved fritekst; bevar overskrift og tilføj vis-alle-knap; ret tæller.

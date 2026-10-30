@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { kraevIntern } from "@/lib/kraev-intern";
+import { escapeMailHtml, mailKnap, mailSignatur } from "@/lib/mail-html";
 import type { Database } from "@/integrations/supabase/types";
 
 /** Publishable-klient til offentlige (uloggede) kald mod token-RPC'erne. */
@@ -93,17 +94,15 @@ export const hentOffentligtTilbudPdf = createServerFn({ method: "POST" })
     };
   });
 
-// ---------- Mailafsendelse via Microsoft Graph (kræver secrets, ikke sat op endnu) ----------
-
-const MS_ENV = ["MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "MS_AFSENDER"] as const;
-function msKlar() {
-  return MS_ENV.every((k) => !!process.env[k]);
-}
+// ---------- Mailafsendelse via fælles Microsoft Graph-hjælper ----------
 
 /** Intern: er Graph-afsendelse konfigureret? Styrer om "Send på mail" er aktiv. */
 export const tilbudMailKlar = createServerFn({ method: "GET" })
   .middleware([kraevIntern])
-  .handler(async () => ({ klar: msKlar() }));
+  .handler(async () => {
+    const { graphMailKlar } = await import("@/lib/graph-mail.server");
+    return { klar: graphMailKlar() };
+  });
 
 /**
  * Intern: send tilbudslink til en modtager via Microsoft Graph (client credentials).
@@ -121,7 +120,8 @@ export const sendTilbudMail = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    if (!msKlar()) return { ok: false as const, reason: "ikke_sat_op" as const };
+    const { graphMailKlar, sendGraphMail } = await import("@/lib/graph-mail.server");
+    if (!graphMailKlar()) return { ok: false as const, reason: "ikke_sat_op" as const };
 
     const { data: rec } = await context.supabase
       .from("quote_recipients")
@@ -143,7 +143,7 @@ export const sendTilbudMail = createServerFn({ method: "POST" })
       .eq("id", context.userId)
       .single();
     const sellerName = prof?.full_name ?? "Frellsen";
-    const sellerEmail = (context.claims as Record<string, unknown> | undefined)?.email as string | undefined;
+    const sellerEmail = z.email().parse(context.claims.email);
 
     const base = (data.origin ?? "https://frellsen.lovable.app").replace(/\/$/, "");
     const link = `${base}/t/${rec.token}`;
@@ -154,52 +154,15 @@ export const sendTilbudMail = createServerFn({ method: "POST" })
       : null;
 
     const html = `
-      <p>${tekst.replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:24px 0"><tr>
-        <td bgcolor="#1a1a1a" style="padding:12px 24px;border-radius:6px"><a href="${link}" style="color:#ffffff;text-decoration:none;font-weight:600;font-family:Arial,sans-serif;display:inline-block">Se tilbud</a></td>
-      </tr></table>
+      <p>${escapeMailHtml(tekst).replace(/\n/g, "<br>")}</p>
+      ${mailKnap(link, "Se tilbud")}
       <p style="color:#666;font-size:13px">
-        Tilbud ${q.quote_number ?? ""}${firma ? ` til ${firma}` : ""}${gyldig ? ` · gyldig til ${gyldig}` : ""}
+        Tilbud ${escapeMailHtml(q.quote_number ?? "")}${firma ? ` til ${escapeMailHtml(firma)}` : ""}${gyldig ? ` · gyldig til ${escapeMailHtml(gyldig)}` : ""}
       </p>
-      <p style="color:#666;font-size:13px">Venlig hilsen<br>${sellerName} · Frellsen Kaffe</p>`;
+      ${mailSignatur(sellerName)}`;
 
-    // Client credentials -> Graph sendMail fra delt postkasse (MS_AFSENDER)
-    const tenant = process.env["MS_TENANT_ID"]!;
-    const tokenRes = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env["MS_CLIENT_ID"]!,
-        client_secret: process.env["MS_CLIENT_SECRET"]!,
-        scope: "https://graph.microsoft.com/.default",
-        grant_type: "client_credentials",
-      }),
-    });
-    if (!tokenRes.ok) {
-      const body = await tokenRes.text();
-      throw new Error(`Microsoft-login fejlede [${tokenRes.status}]: ${body}`);
-    }
-    const { access_token } = (await tokenRes.json()) as { access_token: string };
-
-    const afsender = process.env["MS_AFSENDER"]!;
-    const sendRes = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(afsender)}/sendMail`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: {
-          subject: `Tilbud ${q.quote_number ?? ""} fra Frellsen Kaffe`,
-          body: { contentType: "HTML", content: html },
-          toRecipients: [{ emailAddress: { address: rec.email, name: rec.navn } }],
-          from: { emailAddress: { address: afsender, name: `${sellerName} · Frellsen Kaffe` } },
-          ...(sellerEmail ? { replyTo: [{ emailAddress: { address: sellerEmail, name: sellerName } }] } : {}),
-        },
-        saveToSentItems: true,
-      }),
-    });
-    if (!sendRes.ok) {
-      const body = await sendRes.text();
-      throw new Error(`Mailafsendelse fejlede [${sendRes.status}]: ${body}`);
-    }
+    await sendGraphMail({ email: rec.email, navn: rec.navn, sellerName, sellerEmail,
+      subject: `Tilbud ${q.quote_number ?? ""} fra Frellsen Kaffe`, html });
 
     await context.supabase
       .from("quote_recipients")

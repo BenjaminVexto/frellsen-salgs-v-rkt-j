@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { sendKatalogMail } from "@/lib/katalog.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,17 +12,6 @@ import { useViewAs, useEffektivRolle } from "@/contexts/view-as-context";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { cn } from "@/lib/utils";
 
-function omDage(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
-/**
- * "Send digitalt katalog": gemmer kontakten på lokationen, opretter aktiviteten
- * "Katalog sendt" med opfølgning om 7 dage og lægger mailen i kø.
- * Selve afsendelsen sker, når mail-domænet (mail.frellsen.dk) er verificeret.
- */
 export function KatalogKnap({
   companyId,
   locationId,
@@ -39,6 +29,7 @@ export function KatalogKnap({
   const role = useEffektivRolle();
   const { isImpersonating } = useViewAs();
   const { stampAfdelingNr } = useAfdeling();
+  const sendMail = useServerFn(sendKatalogMail);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [navn, setNavn] = useState("");
@@ -51,62 +42,11 @@ export function KatalogKnap({
     if (isImpersonating) return toast.error("Read-only — du ser som en anden sælger");
     setBusy(true);
     try {
-      let lid = locationId ?? null;
-      if (!lid) {
-        const { data } = await supabase
-          .from("locations")
-          .select("id")
-          .eq("company_id", companyId)
-          .order("is_primary", { ascending: false })
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        lid = data?.id ?? null;
-      }
-      const { data: ind } = await supabase.from("katalog_indstilling").select("katalog_url").maybeSingle();
-      const url = ind?.katalog_url;
-      if (!url) throw new Error("Katalog-link er ikke sat op (Admin → Katalog)");
-
-      // Kontakt: opdatér eksisterende med samme e-mail, ellers opret.
-      let kq = supabase.from("contacts").select("id").eq("company_id", companyId).ilike("email", e).limit(1);
-      kq = lid ? kq.eq("location_id", lid) : kq.is("location_id", null);
-      const { data: eks } = await kq;
-      if (eks?.[0]) {
-        if (navn.trim()) await supabase.from("contacts").update({ name: navn.trim() }).eq("id", eks[0].id);
-      } else {
-        await supabase.from("contacts").insert({ company_id: companyId, location_id: lid, name: navn.trim() || e, email: e, kilde: "crm" });
-      }
-
-      const { data: akt, error: aErr } = await supabase
-        .from("activities")
-        .insert({
-          company_id: companyId,
-          location_id: lid,
-          created_by: user.id,
-          activity_type: "email",
-          note: `Katalog sendt til ${navn.trim() ? `${navn.trim()} <${e}>` : e}`,
-          next_action: "Følg op på tilsendt katalog",
-          next_followup_date: omDage(7),
-          ...(stampAfdelingNr != null ? { afdeling_nr: stampAfdelingNr } : {}),
-        })
-        .select("id")
-        .single();
-      if (aErr) throw aErr;
-
-      const { error: uErr } = await supabase.from("katalog_udsendelser").insert({
-        company_id: companyId,
-        location_id: lid,
-        activity_id: akt.id,
-        modtager_email: e,
-        modtager_navn: navn.trim() || null,
-        katalog_url: url,
-        sendt_af: user.id,
-      });
-      if (uErr) throw uErr;
-
-      toast.success("Katalog registreret – opfølgning lagt om 7 dage", {
-        description: "Mailen sendes, når Frellsens mail-domæne er aktiveret.",
-      });
+      const result = await sendMail({ data: {
+        companyId, locationId: locationId ?? null, email: e, navn: navn.trim(), afdelingNr: stampAfdelingNr,
+      } });
+      if (!result.ok) throw new Error(result.error);
+      toast.success("Katalog sendt – opfølgning lagt om 7 dage");
       setOpen(false);
       setEmail("");
       setNavn("");
@@ -118,7 +58,7 @@ export function KatalogKnap({
     }
   };
 
-  // Parkeret: kun admin ser knappen, indtil mails kan sendes (kundens mail må ikke indsamles uden katalog).
+  // Kun admin indtil katalogafsendelsen er testet.
   if (role !== "admin") return null;
   const stor = size === "lg";
   return (
