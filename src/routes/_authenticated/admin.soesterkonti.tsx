@@ -78,7 +78,6 @@ function Side() {
       </Card>
       {q.data && <p className="text-xs text-muted-foreground">{q.data.length} par</p>}
       <FaldIndstilling />
-      <KatalogIndstilling />
     </div>
   );
 }
@@ -117,29 +116,3 @@ function FaldIndstilling() {
   );
 }
 
-function KatalogIndstilling() {
-  const [url, setUrl] = useState("");
-  const [billede, setBillede] = useState("");
-  useEffect(() => {
-    void supabase.from("katalog_indstilling").select("katalog_url, forside_billede_url").maybeSingle().then(({ data }) => {
-      setUrl(data?.katalog_url ?? "");
-      setBillede(data?.forside_billede_url ?? "");
-    });
-  }, []);
-  const gem = async () => {
-    const { error } = await supabase
-      .from("katalog_indstilling")
-      .upsert({ id: true, katalog_url: url.trim(), forside_billede_url: billede.trim() || null, opdateret_at: new Date().toISOString() });
-    if (error) return toast.error(error.message);
-    toast.success("Katalog-indstilling gemt");
-  };
-  return (
-    <Card className="p-4 space-y-3" id="katalog">
-      <h2 className="font-semibold">Digitalt katalog</h2>
-      <div><Label>Link til katalog</Label><Input value={url} onChange={(e) => setUrl(e.target.value)} /></div>
-      <div><Label>Forsidebillede (link)</Label><Input value={billede} onChange={(e) => setBillede(e.target.value)} /></div>
-      {billede && <img src={billede} alt="Katalogforside" className="h-40 rounded border" />}
-      <Button onClick={gem}>Gem</Button>
-    </Card>
-  );
-}

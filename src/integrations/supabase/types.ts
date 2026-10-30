@@ -2629,42 +2629,51 @@ export type Database = {
           activity_id: string | null
           company_id: string
           created_at: string
+          gruppe_id: string | null
           id: string
           katalog_url: string
           location_id: string | null
+          materiale_id: string | null
           modtager_email: string
           modtager_navn: string | null
           sendt_af: string
           sendt_at: string | null
           status: string
+          titel: string | null
         }
         Insert: {
           aabnet_at?: string | null
           activity_id?: string | null
           company_id: string
           created_at?: string
+          gruppe_id?: string | null
           id?: string
           katalog_url: string
           location_id?: string | null
+          materiale_id?: string | null
           modtager_email: string
           modtager_navn?: string | null
           sendt_af: string
           sendt_at?: string | null
           status?: string
+          titel?: string | null
         }
         Update: {
           aabnet_at?: string | null
           activity_id?: string | null
           company_id?: string
           created_at?: string
+          gruppe_id?: string | null
           id?: string
           katalog_url?: string
           location_id?: string | null
+          materiale_id?: string | null
           modtager_email?: string
           modtager_navn?: string | null
           sendt_af?: string
           sendt_at?: string | null
           status?: string
+          titel?: string | null
         }
         Relationships: [
           {
@@ -2693,6 +2702,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katalog_udsendelser_materiale_id_fkey"
+            columns: ["materiale_id"]
+            isOneToOne: false
+            referencedRelation: "materialer"
             referencedColumns: ["id"]
           },
           {
@@ -3549,6 +3565,48 @@ export type Database = {
           serienr?: string
           udfoert_af?: string | null
           udfoert_at?: string
+        }
+        Relationships: []
+      }
+      materialer: {
+        Row: {
+          aktiv: boolean
+          forside_billede_path: string | null
+          id: string
+          mailtekst: string
+          opdateret_at: string
+          oprettet_at: string
+          pdf_path: string | null
+          sortering: number
+          titel: string
+          type: string
+          url: string | null
+        }
+        Insert: {
+          aktiv?: boolean
+          forside_billede_path?: string | null
+          id?: string
+          mailtekst?: string
+          opdateret_at?: string
+          oprettet_at?: string
+          pdf_path?: string | null
+          sortering?: number
+          titel: string
+          type?: string
+          url?: string | null
+        }
+        Update: {
+          aktiv?: boolean
+          forside_billede_path?: string | null
+          id?: string
+          mailtekst?: string
+          opdateret_at?: string
+          oprettet_at?: string
+          pdf_path?: string | null
+          sortering?: number
+          titel?: string
+          type?: string
+          url?: string | null
         }
         Relationships: []
       }
@@ -6494,6 +6552,11 @@ export type Database = {
           skifter_saelger: boolean
         }[]
       }
+      materiale_afslut: {
+        Args: { _afdeling_nr?: number; _gruppe: string }
+        Returns: string
+      }
+      materiale_foerste_klik: { Args: { _id: string }; Returns: Json }
       monthly_revenue_totals: {
         Args: {
           _afdeling_nr?: number

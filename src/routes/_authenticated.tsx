@@ -25,6 +25,7 @@ import {
   ShieldAlert,
   Lightbulb,
   FileText,
+  BookOpen,
   FileSignature,
   TrendingUp,
   KeyRound,
@@ -188,11 +189,12 @@ function AuthenticatedShell() {
 
   const adminItems = [
     { to: "/admin/tilbudskatalog", label: "Tilbudskatalog", icon: FileText },
+    { to: "/admin/materialer", label: "Materialer", icon: BookOpen },
     { to: "/admin/import", label: "Import", icon: Upload },
     { to: "/admin/importhistorik", label: "Importhistorik", icon: History },
     { to: "/admin/brugere", label: "Brugerstyring", icon: Users },
     { to: "/admin/dubletter", label: "Dubletter", icon: Copy },
-    { to: "/admin/soesterkonti", label: "Søsterkonti & katalog", icon: Copy },
+    { to: "/admin/soesterkonti", label: "Søsterkonti", icon: Copy },
     { to: "/admin/koblingsforslag", label: "P-enheder: koblingsforslag", icon: MapPin },
     { to: "/admin/maskiner-uden-lokation", label: "Maskiner uden lokation", icon: Copy },
     { to: "/admin/maskiner-uden-aftale", label: "Maskiner uden aftale og aflæsning", icon: Copy },

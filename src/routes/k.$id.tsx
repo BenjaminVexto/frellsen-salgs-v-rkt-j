@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { materialeFilUrl } from "@/lib/materiale-url";
 
 export const Route = createFileRoute("/k/$id")({
   head: () => ({ meta: [
-    { title: "Katalog — Frellsen Kaffe" },
-    { name: "description", content: "Åbn Frellsen Kaffes katalog." },
-    { property: "og:title", content: "Katalog — Frellsen Kaffe" },
-    { property: "og:description", content: "Åbn Frellsen Kaffes katalog." },
+    { title: "Materiale — Frellsen Kaffe" },
+    { name: "description", content: "Åbn materiale fra Frellsen Kaffe." },
+    { property: "og:title", content: "Materiale — Frellsen Kaffe" },
+    { property: "og:description", content: "Åbn materiale fra Frellsen Kaffe." },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary" },
     { name: "robots", content: "noindex, nofollow" },
@@ -26,9 +27,11 @@ export const Route = createFileRoute("/k/$id")({
         return fetch(input, { ...init, headers: h });
       },
     } });
-    const { data, error } = await db.rpc("katalog_foerste_klik", { _id: id.data });
-    if (error) return new Response("Kataloget kunne ikke åbnes", { status: 503 });
-    if (typeof data !== "string" || !/^https?:\/\//.test(data)) return new Response("Katalog-linket er ikke gyldigt", { status: 404 });
-    return new Response(null, { status: 302, headers: { Location: data, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+    const { data, error } = await db.rpc("materiale_foerste_klik", { _id: id.data });
+    if (error) return new Response("Materialet kunne ikke åbnes", { status: 503 });
+    const r = (data ?? {}) as { url?: string; pdf_materiale?: string };
+    const maal = r.pdf_materiale ? materialeFilUrl(r.pdf_materiale, "pdf") : r.url;
+    if (typeof maal !== "string" || !/^https?:\/\//.test(maal)) return new Response("Linket er ikke gyldigt", { status: 404 });
+    return new Response(null, { status: 302, headers: { Location: maal, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   } } },
 });

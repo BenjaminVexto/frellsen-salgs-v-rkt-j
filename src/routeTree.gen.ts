@@ -38,6 +38,7 @@ import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_
 import { Route as AuthenticatedAdminKoblingsforslagRouteImport } from './routes/_authenticated/admin.koblingsforslag'
 import { Route as AuthenticatedAdminMaskinerUdenAftaleRouteImport } from './routes/_authenticated/admin.maskiner-uden-aftale'
 import { Route as AuthenticatedAdminMaskinerUdenLokationRouteImport } from './routes/_authenticated/admin.maskiner-uden-lokation'
+import { Route as AuthenticatedAdminMaterialerRouteImport } from './routes/_authenticated/admin.materialer'
 import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
 import { Route as AuthenticatedAdminPostnumreRouteImport } from './routes/_authenticated/admin.postnumre'
 import { Route as AuthenticatedAdminSalgskortRouteImport } from './routes/_authenticated/admin.salgskort'
@@ -51,6 +52,7 @@ import { Route as AuthenticatedTilbudIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedTilbudIdRouteImport } from './routes/_authenticated/tilbud.$id'
 import { Route as AuthenticatedTilbudNyRouteImport } from './routes/_authenticated/tilbud.ny'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
+import { Route as MIdFilRouteImport } from './routes/m.$id.$fil'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
 import { Route as AuthenticatedAdminImportAftaleEmnerRouteImport } from './routes/_authenticated/admin.import.aftale-emner'
 import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
@@ -230,6 +232,12 @@ const AuthenticatedAdminMaskinerUdenLokationRoute =
     path: '/admin/maskiner-uden-lokation',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminMaterialerRoute =
+  AuthenticatedAdminMaterialerRouteImport.update({
+    id: '/admin/materialer',
+    path: '/admin/materialer',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminOverblikRoute =
   AuthenticatedAdminOverblikRouteImport.update({
     id: '/admin/overblik',
@@ -305,6 +313,11 @@ const AuthenticatedVirksomhederIdRoute =
     path: '/virksomheder/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const MIdFilRoute = MIdFilRouteImport.update({
+  id: '/m/$id/$fil',
+  path: '/m/$id/$fil',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminImportIndexRoute =
   AuthenticatedAdminImportIndexRouteImport.update({
     id: '/',
@@ -424,6 +437,7 @@ export interface FileRoutesByFullPath {
   '/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   '/admin/maskiner-uden-lokation': typeof AuthenticatedAdminMaskinerUdenLokationRoute
+  '/admin/materialer': typeof AuthenticatedAdminMaterialerRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/admin/postnumre': typeof AuthenticatedAdminPostnumreRoute
   '/admin/salgskort': typeof AuthenticatedAdminSalgskortRoute
@@ -435,6 +449,7 @@ export interface FileRoutesByFullPath {
   '/tilbud/$id': typeof AuthenticatedTilbudIdRoute
   '/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
+  '/m/$id/$fil': typeof MIdFilRoute
   '/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/tilbud/': typeof AuthenticatedTilbudIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -481,6 +496,7 @@ export interface FileRoutesByTo {
   '/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   '/admin/maskiner-uden-lokation': typeof AuthenticatedAdminMaskinerUdenLokationRoute
+  '/admin/materialer': typeof AuthenticatedAdminMaterialerRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/admin/postnumre': typeof AuthenticatedAdminPostnumreRoute
   '/admin/salgskort': typeof AuthenticatedAdminSalgskortRoute
@@ -492,6 +508,7 @@ export interface FileRoutesByTo {
   '/tilbud/$id': typeof AuthenticatedTilbudIdRoute
   '/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
+  '/m/$id/$fil': typeof MIdFilRoute
   '/aftaler': typeof AuthenticatedAftalerIndexRoute
   '/tilbud': typeof AuthenticatedTilbudIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -541,6 +558,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/_authenticated/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   '/_authenticated/admin/maskiner-uden-lokation': typeof AuthenticatedAdminMaskinerUdenLokationRoute
+  '/_authenticated/admin/materialer': typeof AuthenticatedAdminMaterialerRoute
   '/_authenticated/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/_authenticated/admin/postnumre': typeof AuthenticatedAdminPostnumreRoute
   '/_authenticated/admin/salgskort': typeof AuthenticatedAdminSalgskortRoute
@@ -552,6 +570,7 @@ export interface FileRoutesById {
   '/_authenticated/tilbud/$id': typeof AuthenticatedTilbudIdRoute
   '/_authenticated/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
+  '/m/$id/$fil': typeof MIdFilRoute
   '/_authenticated/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/_authenticated/tilbud/': typeof AuthenticatedTilbudIndexRoute
   '/_authenticated/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -601,6 +620,7 @@ export interface FileRouteTypes {
     | '/admin/koblingsforslag'
     | '/admin/maskiner-uden-aftale'
     | '/admin/maskiner-uden-lokation'
+    | '/admin/materialer'
     | '/admin/overblik'
     | '/admin/postnumre'
     | '/admin/salgskort'
@@ -612,6 +632,7 @@ export interface FileRouteTypes {
     | '/tilbud/$id'
     | '/tilbud/ny'
     | '/virksomheder/$id'
+    | '/m/$id/$fil'
     | '/aftaler/'
     | '/tilbud/'
     | '/admin/import/aftale-emner'
@@ -658,6 +679,7 @@ export interface FileRouteTypes {
     | '/admin/koblingsforslag'
     | '/admin/maskiner-uden-aftale'
     | '/admin/maskiner-uden-lokation'
+    | '/admin/materialer'
     | '/admin/overblik'
     | '/admin/postnumre'
     | '/admin/salgskort'
@@ -669,6 +691,7 @@ export interface FileRouteTypes {
     | '/tilbud/$id'
     | '/tilbud/ny'
     | '/virksomheder/$id'
+    | '/m/$id/$fil'
     | '/aftaler'
     | '/tilbud'
     | '/admin/import/aftale-emner'
@@ -717,6 +740,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/koblingsforslag'
     | '/_authenticated/admin/maskiner-uden-aftale'
     | '/_authenticated/admin/maskiner-uden-lokation'
+    | '/_authenticated/admin/materialer'
     | '/_authenticated/admin/overblik'
     | '/_authenticated/admin/postnumre'
     | '/_authenticated/admin/salgskort'
@@ -728,6 +752,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tilbud/$id'
     | '/_authenticated/tilbud/ny'
     | '/_authenticated/virksomheder_/$id'
+    | '/m/$id/$fil'
     | '/_authenticated/aftaler/'
     | '/_authenticated/tilbud/'
     | '/_authenticated/admin/import/aftale-emner'
@@ -760,6 +785,7 @@ export interface RootRouteChildren {
   TTokenRoute: typeof TTokenRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  MIdFilRoute: typeof MIdFilRoute
   ApiPublicHooksProcessCvrEnrichmentRoute: typeof ApiPublicHooksProcessCvrEnrichmentRoute
   ApiPublicHooksProcessInvoiceImportRoute: typeof ApiPublicHooksProcessInvoiceImportRoute
   ApiPublicHooksProcessPenhedSyncRoute: typeof ApiPublicHooksProcessPenhedSyncRoute
@@ -971,6 +997,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminMaskinerUdenLokationRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/materialer': {
+      id: '/_authenticated/admin/materialer'
+      path: '/admin/materialer'
+      fullPath: '/admin/materialer'
+      preLoaderRoute: typeof AuthenticatedAdminMaterialerRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/overblik': {
       id: '/_authenticated/admin/overblik'
       path: '/admin/overblik'
@@ -1061,6 +1094,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/virksomheder/$id'
       preLoaderRoute: typeof AuthenticatedVirksomhederIdRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/m/$id/$fil': {
+      id: '/m/$id/$fil'
+      path: '/m/$id/$fil'
+      fullPath: '/m/$id/$fil'
+      preLoaderRoute: typeof MIdFilRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/import/': {
       id: '/_authenticated/admin/import/'
@@ -1219,6 +1259,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminKoblingsforslagRoute: typeof AuthenticatedAdminKoblingsforslagRoute
   AuthenticatedAdminMaskinerUdenAftaleRoute: typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   AuthenticatedAdminMaskinerUdenLokationRoute: typeof AuthenticatedAdminMaskinerUdenLokationRoute
+  AuthenticatedAdminMaterialerRoute: typeof AuthenticatedAdminMaterialerRoute
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
   AuthenticatedAdminPostnumreRoute: typeof AuthenticatedAdminPostnumreRoute
   AuthenticatedAdminSalgskortRoute: typeof AuthenticatedAdminSalgskortRoute
@@ -1258,6 +1299,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAdminMaskinerUdenAftaleRoute,
   AuthenticatedAdminMaskinerUdenLokationRoute:
     AuthenticatedAdminMaskinerUdenLokationRoute,
+  AuthenticatedAdminMaterialerRoute: AuthenticatedAdminMaterialerRoute,
   AuthenticatedAdminOverblikRoute: AuthenticatedAdminOverblikRoute,
   AuthenticatedAdminPostnumreRoute: AuthenticatedAdminPostnumreRoute,
   AuthenticatedAdminSalgskortRoute: AuthenticatedAdminSalgskortRoute,
@@ -1294,6 +1336,7 @@ const rootRouteChildren: RootRouteChildren = {
   TTokenRoute: TTokenRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  MIdFilRoute: MIdFilRoute,
   ApiPublicHooksProcessCvrEnrichmentRoute:
     ApiPublicHooksProcessCvrEnrichmentRoute,
   ApiPublicHooksProcessInvoiceImportRoute:

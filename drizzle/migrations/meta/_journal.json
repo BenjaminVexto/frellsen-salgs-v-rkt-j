@@ -1079,6 +1079,20 @@
       "when": 1793352235308,
       "tag": "0153_katalog_graph_klik",
       "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1793358868141,
+      "tag": "0154_materialebibliotek",
+      "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1793358898446,
+      "tag": "0155_materiale_klik_id",
+      "breakpoints": true
     }
   ]
 }

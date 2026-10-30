@@ -300,7 +300,7 @@ function VirksomhedsKort() {
     ] = await Promise.all([
       supabase.from("companies").select("*").eq("id", id).maybeSingle(),
       supabase.from("contacts").select("*").eq("company_id", id).order("is_primary", { ascending: false }),
-      supabase.from("activities").select("*, contact_list_assignments(contact_lists(name)), katalog_udsendelser(aabnet_at)").eq("company_id", id).order("udfoert_at" as any, { ascending: false }),
+      supabase.from("activities").select("*, contact_list_assignments(contact_lists(name)), katalog_udsendelser(titel, aabnet_at, created_at)").eq("company_id", id).order("udfoert_at" as any, { ascending: false }),
       supabase.from("contact_list_assignments").select("*").eq("company_id", id),
       (supabase as any)
         .from("locations")
@@ -1407,8 +1407,10 @@ function ActivityRow({ a, locations, userNames, isAdmin, userId, onDeleted }: { 
         </div>
       </div>
       {a.note && <NoteWithMentions text={a.note} />}
-      {(a as any).katalog_udsendelser?.map((u: { aabnet_at: string | null }, i: number) => u.aabnet_at && (
-        <p key={i} className="text-xs text-muted-foreground mt-1">Åbnet {format(new Date(u.aabnet_at), "d. MMM yyyy HH:mm", { locale: da })}</p>
+      {(a as any).katalog_udsendelser?.map((u: { titel: string | null; aabnet_at: string | null }, i: number) => (
+        <p key={i} className="text-xs text-muted-foreground mt-1">
+          {u.titel ?? "Katalog"}: {u.aabnet_at ? `Åbnet ${format(new Date(u.aabnet_at), "d. MMM yyyy HH:mm", { locale: da })}` : "Ikke åbnet"}
+        </p>
       ))}
       {(a.next_action || a.next_followup_date) && (
         <div className="mt-2 text-xs bg-muted/50 rounded px-2 py-1.5">
