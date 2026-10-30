@@ -10,7 +10,11 @@ export async function afsendKatalog(flow: {
   try {
     await flow.send(id);
   } catch (error) {
-    await flow.fejlet(id);
+    try {
+      await flow.fejlet(id);
+    } catch (statusError) {
+      console.error("Kunne ikke registrere fejlet katalogudsendelse", statusError);
+    }
     return { ok: false as const, error: error instanceof Error ? error.message : String(error) };
   }
   await flow.sendt(id);
