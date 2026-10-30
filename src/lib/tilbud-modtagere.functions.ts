@@ -155,9 +155,9 @@ export const sendTilbudMail = createServerFn({ method: "POST" })
 
     const html = `
       <p>${tekst.replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>
-      <p style="margin:24px 0">
-        <a href="${link}" style="background:#1a1a1a;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">Se tilbud</a>
-      </p>
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:24px 0"><tr>
+        <td bgcolor="#1a1a1a" style="padding:12px 24px;border-radius:6px"><a href="${link}" style="color:#ffffff;text-decoration:none;font-weight:600;font-family:Arial,sans-serif;display:inline-block">Se tilbud</a></td>
+      </tr></table>
       <p style="color:#666;font-size:13px">
         Tilbud ${q.quote_number ?? ""}${firma ? ` til ${firma}` : ""}${gyldig ? ` · gyldig til ${gyldig}` : ""}
       </p>
