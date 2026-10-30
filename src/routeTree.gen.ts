@@ -38,6 +38,7 @@ import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_
 import { Route as AuthenticatedAdminKoblingsforslagRouteImport } from './routes/_authenticated/admin.koblingsforslag'
 import { Route as AuthenticatedAdminMaskinerUdenAftaleRouteImport } from './routes/_authenticated/admin.maskiner-uden-aftale'
 import { Route as AuthenticatedAdminMaskinerUdenLokationRouteImport } from './routes/_authenticated/admin.maskiner-uden-lokation'
+import { Route as AuthenticatedAdminMaterialerRouteImport } from './routes/_authenticated/admin.materialer'
 import { Route as AuthenticatedAdminOverblikRouteImport } from './routes/_authenticated/admin.overblik'
 import { Route as AuthenticatedAdminPostnumreRouteImport } from './routes/_authenticated/admin.postnumre'
 import { Route as AuthenticatedAdminSalgskortRouteImport } from './routes/_authenticated/admin.salgskort'
@@ -229,6 +230,12 @@ const AuthenticatedAdminMaskinerUdenLokationRoute =
   AuthenticatedAdminMaskinerUdenLokationRouteImport.update({
     id: '/admin/maskiner-uden-lokation',
     path: '/admin/maskiner-uden-lokation',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminMaterialerRoute =
+  AuthenticatedAdminMaterialerRouteImport.update({
+    id: '/admin/materialer',
+    path: '/admin/materialer',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminOverblikRoute =
@@ -430,6 +437,7 @@ export interface FileRoutesByFullPath {
   '/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   '/admin/maskiner-uden-lokation': typeof AuthenticatedAdminMaskinerUdenLokationRoute
+  '/admin/materialer': typeof AuthenticatedAdminMaterialerRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/admin/postnumre': typeof AuthenticatedAdminPostnumreRoute
   '/admin/salgskort': typeof AuthenticatedAdminSalgskortRoute
@@ -488,6 +496,7 @@ export interface FileRoutesByTo {
   '/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   '/admin/maskiner-uden-lokation': typeof AuthenticatedAdminMaskinerUdenLokationRoute
+  '/admin/materialer': typeof AuthenticatedAdminMaterialerRoute
   '/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/admin/postnumre': typeof AuthenticatedAdminPostnumreRoute
   '/admin/salgskort': typeof AuthenticatedAdminSalgskortRoute
@@ -549,6 +558,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/_authenticated/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   '/_authenticated/admin/maskiner-uden-lokation': typeof AuthenticatedAdminMaskinerUdenLokationRoute
+  '/_authenticated/admin/materialer': typeof AuthenticatedAdminMaterialerRoute
   '/_authenticated/admin/overblik': typeof AuthenticatedAdminOverblikRoute
   '/_authenticated/admin/postnumre': typeof AuthenticatedAdminPostnumreRoute
   '/_authenticated/admin/salgskort': typeof AuthenticatedAdminSalgskortRoute
@@ -610,6 +620,7 @@ export interface FileRouteTypes {
     | '/admin/koblingsforslag'
     | '/admin/maskiner-uden-aftale'
     | '/admin/maskiner-uden-lokation'
+    | '/admin/materialer'
     | '/admin/overblik'
     | '/admin/postnumre'
     | '/admin/salgskort'
@@ -668,6 +679,7 @@ export interface FileRouteTypes {
     | '/admin/koblingsforslag'
     | '/admin/maskiner-uden-aftale'
     | '/admin/maskiner-uden-lokation'
+    | '/admin/materialer'
     | '/admin/overblik'
     | '/admin/postnumre'
     | '/admin/salgskort'
@@ -728,6 +740,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/koblingsforslag'
     | '/_authenticated/admin/maskiner-uden-aftale'
     | '/_authenticated/admin/maskiner-uden-lokation'
+    | '/_authenticated/admin/materialer'
     | '/_authenticated/admin/overblik'
     | '/_authenticated/admin/postnumre'
     | '/_authenticated/admin/salgskort'
@@ -982,6 +995,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/maskiner-uden-lokation'
       fullPath: '/admin/maskiner-uden-lokation'
       preLoaderRoute: typeof AuthenticatedAdminMaskinerUdenLokationRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/materialer': {
+      id: '/_authenticated/admin/materialer'
+      path: '/admin/materialer'
+      fullPath: '/admin/materialer'
+      preLoaderRoute: typeof AuthenticatedAdminMaterialerRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/overblik': {
@@ -1239,6 +1259,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminKoblingsforslagRoute: typeof AuthenticatedAdminKoblingsforslagRoute
   AuthenticatedAdminMaskinerUdenAftaleRoute: typeof AuthenticatedAdminMaskinerUdenAftaleRoute
   AuthenticatedAdminMaskinerUdenLokationRoute: typeof AuthenticatedAdminMaskinerUdenLokationRoute
+  AuthenticatedAdminMaterialerRoute: typeof AuthenticatedAdminMaterialerRoute
   AuthenticatedAdminOverblikRoute: typeof AuthenticatedAdminOverblikRoute
   AuthenticatedAdminPostnumreRoute: typeof AuthenticatedAdminPostnumreRoute
   AuthenticatedAdminSalgskortRoute: typeof AuthenticatedAdminSalgskortRoute
@@ -1278,6 +1299,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAdminMaskinerUdenAftaleRoute,
   AuthenticatedAdminMaskinerUdenLokationRoute:
     AuthenticatedAdminMaskinerUdenLokationRoute,
+  AuthenticatedAdminMaterialerRoute: AuthenticatedAdminMaterialerRoute,
   AuthenticatedAdminOverblikRoute: AuthenticatedAdminOverblikRoute,
   AuthenticatedAdminPostnumreRoute: AuthenticatedAdminPostnumreRoute,
   AuthenticatedAdminSalgskortRoute: AuthenticatedAdminSalgskortRoute,
