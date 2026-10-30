@@ -55,16 +55,9 @@ export function TilbudSektion({ companyId, reloadKey }: { companyId: string; rel
                 <span className="font-medium">Tilbud {q.quote_number ?? "—"}</span>
                 <span className="text-muted-foreground"> · {STATUS_LABEL[q.status] ?? q.status} · {dato(q.sent_date)} · Årsværdi {dkk(q.estimated_value)}</span>
               </div>
-              {q.pdf_path && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button size="sm" variant="outline" onClick={() => setVis(q)}>Åbn PDF</Button>
-                </div>
-              )}
             </div>
             {q.pdf_path && (
-              <div className="mt-1">
-                <TilbudModtagerStatus quoteId={q.id} companyId={companyId} />
-              </div>
+              <TilbudModtagerStatus quoteId={q.id} companyId={companyId} aabnPdf={() => setVis(q)} />
             )}
           </div>
         ))}

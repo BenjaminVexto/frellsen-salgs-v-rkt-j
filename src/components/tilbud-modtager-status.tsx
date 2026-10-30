@@ -50,7 +50,16 @@ export function modtagerStatusTekst(m: Modtager): string {
 }
 
 /** Kompakt status pr. modtager + "Send til flere" / "Gensend". Bruges på tilbudsdetaljen og i Aftaler & tilbud. */
-export function TilbudModtagerStatus({ quoteId, companyId }: { quoteId: string; companyId: string }) {
+export function TilbudModtagerStatus({
+  quoteId,
+  companyId,
+  aabnPdf,
+}: {
+  quoteId: string;
+  companyId: string;
+  /** Når sat, vises "Åbn PDF" med "Send til flere" som knap under i højre kolonne (bruges i Aftaler & tilbud). */
+  aabnPdf?: () => void;
+}) {
   const qc = useQueryClient();
   const [sendTilFlere, setSendTilFlere] = useState(false);
   const [mailTil, setMailTil] = useState<Modtager | null>(null);
@@ -125,25 +134,31 @@ export function TilbudModtagerStatus({ quoteId, companyId }: { quoteId: string; 
     }
   }
 
-  return (
-    <div className="space-y-1.5">
-      {modtagere.map((m) => (
-        <div key={m.id} className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="min-w-0 flex-1">
-            <span className="font-medium">{m.navn}</span>
-            <span className="text-muted-foreground"> · {modtagerStatusTekst(m)}</span>
-          </span>
-          <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => gensend(m)}>
-            <Mail className="h-3 w-3" /> Gensend
-          </Button>
-        </div>
-      ))}
-      <div>
-        <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setSendTilFlere(true)}>
-          <Send className="h-3 w-3" /> Send til flere
-        </Button>
-      </div>
+  const modtagerliste = modtagere.map((m) => (
+    <div key={m.id} className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="min-w-0 flex-1">
+        <span className="font-medium">{m.navn}</span>
+        <span className="text-muted-foreground"> · {modtagerStatusTekst(m)}</span>
+      </span>
+      <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => gensend(m)}>
+        <Mail className="h-3 w-3" /> Gensend
+      </Button>
+    </div>
+  ));
 
+  const flereKnap = (
+    <Button
+      size="sm"
+      variant="outline"
+      className="gap-1.5 whitespace-nowrap"
+      onClick={() => setSendTilFlere(true)}
+    >
+      <Send className="h-3.5 w-3.5" /> Send til flere
+    </Button>
+  );
+
+  const dialogene = (
+    <>
       <Dialog open={sendTilFlere} onOpenChange={setSendTilFlere}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -191,6 +206,32 @@ export function TilbudModtagerStatus({ quoteId, companyId }: { quoteId: string; 
           </div>
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (aabnPdf) {
+    return (
+      <div className="mt-1 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          {modtagerliste}
+        </div>
+        <div className="flex flex-col items-stretch gap-1.5 shrink-0">
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={aabnPdf}>
+            Åbn PDF
+          </Button>
+          {flereKnap}
+        </div>
+        {dialogene}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {modtagerliste}
+      <div>{flereKnap}</div>
+      {dialogene}
     </div>
   );
+
 }
