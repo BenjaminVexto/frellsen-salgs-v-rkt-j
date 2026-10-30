@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,7 +61,7 @@ export function TilbudModtagerStatus({
   /** Når sat, vises "Åbn PDF" med "Send til flere" som knap under i højre kolonne (bruges i Aftaler & tilbud). */
   aabnPdf?: () => void;
   /** Når sat, erstatter det "Send til flere"-knappen i listen (knappen placeres fx ved siden af "Åbn PDF" andetsteds). */
-  knapper?: React.ReactNode;
+  knapper?: (aabnSendTilFlere: () => void) => ReactNode;
 }) {
   const qc = useQueryClient();
   const [sendTilFlere, setSendTilFlere] = useState(false);
