@@ -2625,6 +2625,7 @@ export type Database = {
       }
       katalog_udsendelser: {
         Row: {
+          aabnet_at: string | null
           activity_id: string | null
           company_id: string
           created_at: string
@@ -2638,6 +2639,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          aabnet_at?: string | null
           activity_id?: string | null
           company_id: string
           created_at?: string
@@ -2651,6 +2653,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          aabnet_at?: string | null
           activity_id?: string | null
           company_id?: string
           created_at?: string
@@ -6079,6 +6082,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      katalog_afslut: {
+        Args: { _afdeling_nr?: number; _id: string }
+        Returns: string
+      }
+      katalog_foerste_klik: { Args: { _id: string }; Returns: string }
       konto_oms_12m: {
         Args: { _ids: string[] }
         Returns: {
