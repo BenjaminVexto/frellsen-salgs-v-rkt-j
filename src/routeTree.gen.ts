@@ -51,6 +51,7 @@ import { Route as AuthenticatedTilbudIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedTilbudIdRouteImport } from './routes/_authenticated/tilbud.$id'
 import { Route as AuthenticatedTilbudNyRouteImport } from './routes/_authenticated/tilbud.ny'
 import { Route as AuthenticatedVirksomhederIdRouteImport } from './routes/_authenticated/virksomheder_.$id'
+import { Route as MIdFilRouteImport } from './routes/m.$id.$fil'
 import { Route as AuthenticatedAdminImportIndexRouteImport } from './routes/_authenticated/admin.import.index'
 import { Route as AuthenticatedAdminImportAftaleEmnerRouteImport } from './routes/_authenticated/admin.import.aftale-emner'
 import { Route as AuthenticatedAdminImportAndenRouteImport } from './routes/_authenticated/admin.import.anden'
@@ -305,6 +306,11 @@ const AuthenticatedVirksomhederIdRoute =
     path: '/virksomheder/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const MIdFilRoute = MIdFilRouteImport.update({
+  id: '/m/$id/$fil',
+  path: '/m/$id/$fil',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminImportIndexRoute =
   AuthenticatedAdminImportIndexRouteImport.update({
     id: '/',
@@ -435,6 +441,7 @@ export interface FileRoutesByFullPath {
   '/tilbud/$id': typeof AuthenticatedTilbudIdRoute
   '/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
+  '/m/$id/$fil': typeof MIdFilRoute
   '/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/tilbud/': typeof AuthenticatedTilbudIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -492,6 +499,7 @@ export interface FileRoutesByTo {
   '/tilbud/$id': typeof AuthenticatedTilbudIdRoute
   '/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/virksomheder/$id': typeof AuthenticatedVirksomhederIdRoute
+  '/m/$id/$fil': typeof MIdFilRoute
   '/aftaler': typeof AuthenticatedAftalerIndexRoute
   '/tilbud': typeof AuthenticatedTilbudIndexRoute
   '/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -552,6 +560,7 @@ export interface FileRoutesById {
   '/_authenticated/tilbud/$id': typeof AuthenticatedTilbudIdRoute
   '/_authenticated/tilbud/ny': typeof AuthenticatedTilbudNyRoute
   '/_authenticated/virksomheder_/$id': typeof AuthenticatedVirksomhederIdRoute
+  '/m/$id/$fil': typeof MIdFilRoute
   '/_authenticated/aftaler/': typeof AuthenticatedAftalerIndexRoute
   '/_authenticated/tilbud/': typeof AuthenticatedTilbudIndexRoute
   '/_authenticated/admin/import/aftale-emner': typeof AuthenticatedAdminImportAftaleEmnerRoute
@@ -612,6 +621,7 @@ export interface FileRouteTypes {
     | '/tilbud/$id'
     | '/tilbud/ny'
     | '/virksomheder/$id'
+    | '/m/$id/$fil'
     | '/aftaler/'
     | '/tilbud/'
     | '/admin/import/aftale-emner'
@@ -669,6 +679,7 @@ export interface FileRouteTypes {
     | '/tilbud/$id'
     | '/tilbud/ny'
     | '/virksomheder/$id'
+    | '/m/$id/$fil'
     | '/aftaler'
     | '/tilbud'
     | '/admin/import/aftale-emner'
@@ -728,6 +739,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tilbud/$id'
     | '/_authenticated/tilbud/ny'
     | '/_authenticated/virksomheder_/$id'
+    | '/m/$id/$fil'
     | '/_authenticated/aftaler/'
     | '/_authenticated/tilbud/'
     | '/_authenticated/admin/import/aftale-emner'
@@ -760,6 +772,7 @@ export interface RootRouteChildren {
   TTokenRoute: typeof TTokenRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  MIdFilRoute: typeof MIdFilRoute
   ApiPublicHooksProcessCvrEnrichmentRoute: typeof ApiPublicHooksProcessCvrEnrichmentRoute
   ApiPublicHooksProcessInvoiceImportRoute: typeof ApiPublicHooksProcessInvoiceImportRoute
   ApiPublicHooksProcessPenhedSyncRoute: typeof ApiPublicHooksProcessPenhedSyncRoute
@@ -1062,6 +1075,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVirksomhederIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/m/$id/$fil': {
+      id: '/m/$id/$fil'
+      path: '/m/$id/$fil'
+      fullPath: '/m/$id/$fil'
+      preLoaderRoute: typeof MIdFilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/import/': {
       id: '/_authenticated/admin/import/'
       path: '/'
@@ -1294,6 +1314,7 @@ const rootRouteChildren: RootRouteChildren = {
   TTokenRoute: TTokenRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  MIdFilRoute: MIdFilRoute,
   ApiPublicHooksProcessCvrEnrichmentRoute:
     ApiPublicHooksProcessCvrEnrichmentRoute,
   ApiPublicHooksProcessInvoiceImportRoute:
