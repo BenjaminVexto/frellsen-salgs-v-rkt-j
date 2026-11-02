@@ -73,8 +73,6 @@ export function Ringevisning({ listId }: { listId: string }) {
   const load = useCallback(async () => {
     const { data: d, error } = await rpc("tm_virksomheder", { _list: listId });
     if (error) { toast.error("Listen kunne ikke hentes"); return; }
-    setData(d);
-    setNu(new Date());
     const [{ data: sa }, { data: so, error: soError }] = await Promise.all([
       rpc("tm_seneste_aktivitet", { _list: listId }),
       rpc("tm_saelger_overblik", { _list: listId }),
@@ -82,6 +80,8 @@ export function Ringevisning({ listId }: { listId: string }) {
     setSeneste((sa ?? {}) as any);
     if (soError) toast.error("Sælgerindsats kunne ikke hentes: " + soError.message);
     setOverblik(so ?? {});
+    setData(d);
+    setNu(new Date());
     setHistorikOffset(0);
     setRefresh(r => r + 1);
   }, [listId]);

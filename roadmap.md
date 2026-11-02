@@ -1,9 +1,9 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
 ## Aktuelt: Sælgerindsats synlig for callere
-- [ ] Sikker læseadgang til konkurrentaftale, seneste sælgeraktivitet og virksomhedshistorik uden statusændringer.
-- [ ] Ringelistekolonne, Sælger aktiv-badge, inkluder/udelad-filter og sidepanel med markeret listehistorik.
-- [ ] Målrettede tests og indlogget kontrol af callerens visning.
+- [x] Sikker læseadgang til konkurrentaftale, seneste sælgeraktivitet og virksomhedshistorik uden statusændringer.
+- [x] Ringelistekolonne, Sælger aktiv-badge, inkluder/udelad-filter og sidepanel med markeret listehistorik.
+- [x] 13 tests bestået; callerens rigtige liste viser 8 aktive og 819 øvrige, sælgerhistorik og liste-markering; uvedkommende virksomheder/lister og direkte datalæsning afvist, status uændret. Ingen testdata oprettet. Ingen aktive konkurrentaftaler på eksisterende kontaktlister til positiv browserkontrol.
 
 ## Aktuelt: Fakturajournal med overskrifter
 - [x] Match overskrifter, afvis manglende/dobbelte felter og bevar 17/20-kolonners fallback.
