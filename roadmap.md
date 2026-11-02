@@ -1,8 +1,8 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
 ## Aktuelt: Isolerede visningsvalg i salgsstatistik
-- [ ] Flyt grafvisning, serievalg og leje/service til lokale, stabilt monterede grafkomponenter uden navigation.
-- [ ] Bevar grafhøjde og genbrug data; test visningsskift tre gange på graf 3 og leje/service på graf 2 som indlogget bruger.
+- [x] Grafvisning og serievalg er lokal state i en stabil grafkomponent; leje/service og beløbsdata er isoleret i hver beløbsgraf uden navigation.
+- [x] To regressionstests bestået; indlogget browserkontrol af tre runder Tabel/Graf/Udvikling og serieklik på graf 3: scroll 1224 uændret, ingen datahentninger/remontering/loading i andre grafer. Graf 2 service til/fra: scroll 717 uændret, kun én DB-hentning, tilbagevalg genbruger cache; build OK. Ingen lagrede data ændret.
 
 ## Aktuelt: Fakturajournalens subtotaler og originalfil
 - [x] Ret subtotal-/totallinjegenkendelse og acceptér tomme talfelter som null uden ændring af eksisterende data.
