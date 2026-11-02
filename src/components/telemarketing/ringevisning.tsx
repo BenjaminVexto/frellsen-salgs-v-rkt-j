@@ -17,6 +17,7 @@ import {
   type StatusGruppe, type Udfald,
 } from "@/lib/telemarketing";
 import { UdfaldDialog, registrerUdfald } from "@/components/kontaktliste/udfald-dialog";
+import { saelgerAktiv, matcherSaelgerFilter, type CallerOverblik, type VirksomhedsHistorik, type SaelgerFilter } from "@/lib/caller-saelger";
 
 type Kontakt = { id: string; navn: string; titel: string | null; telefon: string | null; email: string | null };
 type Opkald = { id: string; at: string; udfald: Udfald; aarsag: string | null; note: string | null; ring_igen_at: string | null; moede_at: string | null; bruger: string | null };
@@ -31,6 +32,8 @@ type Liste = { navn: string; manus: string | null; moede_saelger: string | null;
 const rpc = (fn: string, args: Record<string, unknown>) => (supabase as any).rpc(fn, args);
 const fmt = (s: string) => new Date(s).toLocaleString("da-DK", { dateStyle: "short", timeStyle: "short" });
 const kl = (s: string) => new Date(s).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+const dato = (s: string) => new Date(s).toLocaleDateString("da-DK");
+const aktivitetLabel = (s: string) => s === "konkurrentaftale" ? "Konkurrentaftale" : labelFor(s);
 function ringTekst(t: string, nu: Date) {
   const d = new Date(t);
   const samme = d.toDateString() === nu.toDateString();
@@ -56,6 +59,14 @@ export function Ringevisning({ listId }: { listId: string }) {
   const [nu, setNu] = useState(() => new Date());
   const [friNote, setFriNote] = useState("");
   const [seneste, setSeneste] = useState<Record<string, { at: string; bruger: string | null; note: string | null; type?: string | null }>>({});
+  const [overblik, setOverblik] = useState<Record<string, CallerOverblik>>({});
+  const [saelgerFilter, setSaelgerFilter] = useState<SaelgerFilter>("alle");
+  const [historik, setHistorik] = useState<VirksomhedsHistorik[]>([]);
+  const [historikBusy, setHistorikBusy] = useState(false);
+  const [historikFejl, setHistorikFejl] = useState(false);
+  const [flereHistorik, setFlereHistorik] = useState(false);
+  const [historikOffset, setHistorikOffset] = useState(0);
+  const [refresh, setRefresh] = useState(0);
 
   useEffect(() => { const t = setInterval(() => setNu(new Date()), 60000); return () => clearInterval(t); }, []);
 
@@ -64,10 +75,34 @@ export function Ringevisning({ listId }: { listId: string }) {
     if (error) { toast.error("Listen kunne ikke hentes"); return; }
     setData(d);
     setNu(new Date());
-    const { data: sa } = await rpc("tm_seneste_aktivitet", { _list: listId });
+    const [{ data: sa }, { data: so, error: soError }] = await Promise.all([
+      rpc("tm_seneste_aktivitet", { _list: listId }),
+      rpc("tm_saelger_overblik", { _list: listId }),
+    ]);
     setSeneste((sa ?? {}) as any);
+    if (soError) toast.error("Sælgerindsats kunne ikke hentes: " + soError.message);
+    setOverblik(so ?? {});
+    setHistorikOffset(0);
+    setRefresh(r => r + 1);
   }, [listId]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!valgt) { setHistorik([]); return; }
+    setHistorikBusy(true);
+    setHistorikFejl(false);
+    if (historikOffset === 0) setHistorik([]);
+    void rpc("tm_virksomhed_historik", { _list: listId, _company: valgt, _offset: historikOffset }).then(({ data: h, error }) => {
+      if (cancelled) return;
+      setHistorikBusy(false);
+      if (error) { setHistorikFejl(true); toast.error("Historikken kunne ikke hentes: " + error.message); return; }
+      const rows = (h ?? []) as VirksomhedsHistorik[];
+      setHistorik(prev => historikOffset === 0 ? rows : [...prev, ...rows]);
+      setFlereHistorik(rows.length === 50);
+    });
+    return () => { cancelled = true; };
+  }, [valgt, listId, historikOffset, refresh]);
+  const vaelg = (id: string | null) => { setHistorikOffset(0); setValgt(id); };
 
   const alle = data?.virksomheder ?? [];
   const tal = useMemo(() => {
@@ -76,17 +111,19 @@ export function Ringevisning({ listId }: { listId: string }) {
       i_alt: alle.length,
       ringet: alle.filter((v) => v.opkald.some((o) => o.udfald !== "note")).length,
       idag: ringIdag.length,
-      overskredet: ringIdag.filter((v) => new Date(ringIgenTid(v)!) <= nu).length,
+      overskredet: ringIdag.filter((v) => { const tid = ringIgenTid(v); return tid ? new Date(tid) <= nu : false; }).length,
       moeder: alle.filter((v) => v.status === "møde_booket").length,
       tilbud: alle.filter((v) => v.status === "tilbud_oensket").length,
       ikkeRinget: alle.filter((v) => !v.opkald.some((o) => o.udfald !== "note")).length,
+      saelgerAktive: alle.filter(v => saelgerAktiv(overblik[v.company_id]?.seneste_saelger, nu)).length,
     };
-  }, [alle, nu]);
+  }, [alle, nu, overblik]);
 
   const vist = useMemo(() => {
     const s = q.trim().toLowerCase();
     const sd = s.replace(/\D/g, "");
     let arr = alle.filter((v) => iStatusGruppe(v.status, gruppe));
+    arr = arr.filter(v => matcherSaelgerFilter(saelgerAktiv(overblik[v.company_id]?.seneste_saelger, nu), saelgerFilter));
     if (hurtig === "idag") arr = arr.filter((v) => ringIgenIDag(ringIgenTid(v), nu));
     if (hurtig === "ikke_ringet") arr = arr.filter((v) => !v.opkald.some((o) => o.udfald !== "note"));
     if (s) arr = arr.filter((v) => v.navn.toLowerCase().includes(s) || (v.by ?? "").toLowerCase().includes(s)
@@ -107,13 +144,14 @@ export function Ringevisning({ listId }: { listId: string }) {
       const x = key(a), y = key(b);
       return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
     });
-  }, [alle, gruppe, hurtig, q, sort, nu]);
+  }, [alle, gruppe, hurtig, q, sort, nu, seneste, overblik, saelgerFilter]);
 
   const aktuel = alle.find((v) => v.company_id === valgt) ?? null;
+  const aktuelOverblik = aktuel ? overblik[aktuel.company_id] : undefined;
   const naeste = () => {
     const i = vist.findIndex((v) => v.company_id === valgt);
     const n = vist[i + 1] ?? vist[0];
-    if (n) setValgt(n.company_id);
+    if (n) vaelg(n.company_id);
   };
 
   const registrer = async (udfald: Udfald, extra: Record<string, unknown> = {}) => {
@@ -164,6 +202,8 @@ export function Ringevisning({ listId }: { listId: string }) {
           <AlarmClock className="h-4 w-4 mr-1" />Ring igen i dag ({tal.idag}){tal.overskredet ? <span className="ml-1 text-destructive">· {tal.overskredet} overskredet</span> : null}
         </Button>
         <Button size="sm" variant={hurtig === "ikke_ringet" ? "default" : "outline"} className="h-8" onClick={() => setHurtig(hurtig === "ikke_ringet" ? null : "ikke_ringet")}>Ikke ringet endnu ({tal.ikkeRinget})</Button>
+        <Button size="sm" variant={saelgerFilter === "kun" ? "default" : "outline"} className="h-8" aria-pressed={saelgerFilter === "kun"} onClick={() => setSaelgerFilter(saelgerFilter === "kun" ? "alle" : "kun")}>Sælger aktiv ({tal.saelgerAktive})</Button>
+        <Button size="sm" variant={saelgerFilter === "uden" ? "secondary" : "outline"} className="h-8" aria-pressed={saelgerFilter === "uden"} onClick={() => setSaelgerFilter(saelgerFilter === "uden" ? "alle" : "uden")}>Udelad sælgeraktive</Button>
         <div className="relative ml-auto w-64">
           <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
           <Input className="h-8 pl-8" placeholder="Søg navn, by, telefon" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -181,13 +221,14 @@ export function Ringevisning({ listId }: { listId: string }) {
                 <SH k="ansatte" l="Ansatte" />
                 <SH k="status" l="Status" />
                 <SH k="note" l="Seneste aktivitet" />
+                <TableHead>Konkurrentaftale</TableHead>
                 <SH k="ring" l="Ring igen" className="whitespace-nowrap" />
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {vist.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">Ingen virksomheder matcher.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">Ingen virksomheder matcher.</TableCell></TableRow>
               )}
               {vist.map((v) => {
                 const t = ringIgenTid(v);
@@ -195,7 +236,7 @@ export function Ringevisning({ listId }: { listId: string }) {
                 const n = seneste[v.company_id];
                 const k = v.kontakter[0];
                 return (
-                  <TableRow key={v.company_id} onClick={() => setValgt(v.company_id)}
+                  <TableRow key={v.company_id} onClick={() => vaelg(v.company_id)}
                     className={`cursor-pointer ${valgt === v.company_id ? "bg-muted" : ""}`} data-testid="tm-raekke">
                     <TableCell className="max-w-[220px]">
                       <div className="font-medium truncate" title={v.navn}>
@@ -206,6 +247,7 @@ export function Ringevisning({ listId }: { listId: string }) {
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">{v.by ?? ""}</div>
+                      {saelgerAktiv(overblik[v.company_id]?.seneste_saelger, nu) && <Badge variant="secondary" className="mt-1 text-xs whitespace-nowrap">Sælger aktiv</Badge>}
                     </TableCell>
                     <TableCell className="text-sm max-w-[190px]" onClick={(e) => e.stopPropagation()}>
                       {v.telefon ? <a href={telHref(v.telefon)} className="whitespace-nowrap hover:underline">{formatTelefon(v.telefon)}</a> : <span className="text-xs text-muted-foreground">—</span>}
@@ -226,6 +268,9 @@ export function Ringevisning({ listId }: { listId: string }) {
                           {n.note ? `${fmt(n.at)}${n.bruger ? ` · ${n.bruger}` : ""} · ${n.note}` : `${labelFor(n.type)} · ${fmt(n.at)}${n.bruger ? ` · ${n.bruger}` : ""}`}
                         </div>
                       ) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-xs min-w-[190px]">
+                      {overblik[v.company_id]?.aftaler.length ? overblik[v.company_id].aftaler.map(a => <div key={a.id}>{a.konkurrent} · {a.udloeb ? `udløber ${dato(a.udloeb)}` : "udløb ikke oplyst"}</div>) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className={`text-xs whitespace-nowrap ${over ? "text-destructive font-medium" : ""}`}>
                       {t ? <>{over && <AlarmClock className="inline h-3 w-3 mr-1" />}{ringTekst(t, nu)}</> : <span className="text-muted-foreground">—</span>}
@@ -251,9 +296,15 @@ export function Ringevisning({ listId }: { listId: string }) {
                 </div>
               </div>
               <Button size="sm" variant="outline" onClick={naeste}>Næste<ArrowRight className="h-4 w-4 ml-1" /></Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setValgt(null)} aria-label="Luk"><X className="h-4 w-4" /></Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => vaelg(null)} aria-label="Luk"><X className="h-4 w-4" /></Button>
             </div>
 
+            {aktuelOverblik && (aktuelOverblik.seneste_saelger || aktuelOverblik.aftaler.length > 0) && (
+              <section className="border-b pb-3 space-y-3" data-testid="saelger-overblik">
+                {aktuelOverblik.seneste_saelger && <div className="text-sm"><h3 className="font-medium mb-1">Seneste sælgeraktivitet</h3><div>{aktivitetLabel(aktuelOverblik.seneste_saelger.type)} · {fmt(aktuelOverblik.seneste_saelger.at)}{aktuelOverblik.seneste_saelger.bruger && ` · ${aktuelOverblik.seneste_saelger.bruger}`}</div></div>}
+                {aktuelOverblik.aftaler.length > 0 && <div className="text-sm"><h3 className="font-medium mb-1">Konkurrentaftale</h3>{aktuelOverblik.aftaler.map(a => <div key={a.id} className="mb-2 last:mb-0"><div>{a.konkurrent} · {a.udloeb ? `udløber ${dato(a.udloeb)}` : "udløb ikke oplyst"}</div>{a.note && <div className="text-muted-foreground whitespace-pre-wrap break-words">{a.note}</div>}</div>)}</div>}
+              </section>
+            )}
             <div className="rounded-lg border bg-muted/40 p-3 space-y-2" data-testid="kontaktinfo">
               {aktuel.telefon ? (
                 <a href={telHref(aktuel.telefon)}><Button size="lg" className="h-12 px-6 text-lg font-semibold w-full"><Phone className="h-5 w-5 mr-2" />{formatTelefon(aktuel.telefon)}</Button></a>
@@ -304,19 +355,23 @@ export function Ringevisning({ listId }: { listId: string }) {
             </div>
 
             <div>
-              <h3 className="font-medium text-sm mb-1">Historik på denne liste</h3>
-              {aktuel.opkald.length === 0 && <div className="text-sm text-muted-foreground">Ingen endnu.</div>}
-              {aktuel.opkald.map((o) => (
+              <h3 className="font-medium text-sm mb-1">Historik på virksomheden</h3>
+              {!historikBusy && !historikFejl && historik.length === 0 && <div className="text-sm text-muted-foreground">Ingen endnu.</div>}
+              {historikFejl && <div className="text-sm text-destructive">Historikken kunne ikke hentes.</div>}
+              {historik.map((o) => (
                 <div key={o.id} className="text-sm py-1.5 border-b last:border-0">
                   <div><span className="tabular-nums text-muted-foreground mr-2">{fmt(o.at)}</span>
-                    <span className="font-medium">{UDFALD_LABEL[o.udfald] ?? o.udfald}</span>
+                    <span className="font-medium">{o.udfald ? UDFALD_LABEL[o.udfald as Udfald] ?? o.udfald : aktivitetLabel(o.type)}</span>
                     {o.aarsag && <span> · {AARSAGER.find((a) => a.v === o.aarsag)?.l ?? o.aarsag}</span>}
                     {o.ring_igen_at && <span> · ring {fmt(o.ring_igen_at)}</span>}
                     {o.moede_at && <span> · møde {fmt(o.moede_at)}</span>}
                     {o.bruger && <span className="text-muted-foreground"> · {o.bruger}</span>}</div>
-                  {o.note && <div className="text-muted-foreground whitespace-pre-wrap">{o.note}</div>}
+                  {o.denne_liste && <Badge variant="outline" className="text-xs my-1">Denne liste</Badge>}
+                  {o.note && <div className="text-muted-foreground whitespace-pre-wrap break-words">{o.note}</div>}
                 </div>
               ))}
+              {historikBusy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground my-2" />}
+              {flereHistorik && !historikFejl && <Button size="sm" variant="outline" className="mt-2" disabled={historikBusy} onClick={() => setHistorikOffset(o => o + 50)}>Vis flere</Button>}
             </div>
           </Card>
         )}
