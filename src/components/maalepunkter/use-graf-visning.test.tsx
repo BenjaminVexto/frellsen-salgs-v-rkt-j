@@ -6,6 +6,16 @@ import { useGrafVisning } from "./use-graf-visning";
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
+it("starts every customer graph with Forhandlingskunder, Udbudskunder and Total visible", () => {
+  for (const id of ["omsaetning", "db", "kunder", "nye", "nye-lok"]) {
+    const graf = renderHook(() => useGrafVisning("seller", id));
+    const synlige = ["Forhandlingskunder", "Udbudskunder", "Total"].filter((s) => !graf.result.current.skjultListe.includes(s));
+    expect(synlige).toEqual(["Forhandlingskunder", "Udbudskunder", "Total"]);
+    act(() => graf.result.current.skiftSerie("Forhandlingskunder"));
+    expect(graf.result.current.skjultListe).toEqual(["Forhandlingskunder"]);
+  }
+});
+
 it("keeps three rounds of graph 3 presentation changes local without navigation", () => {
   const graf1 = renderHook(() => useGrafVisning("seller", "omsaetning", ["Privat"]));
   const graf3 = renderHook(() => useGrafVisning("seller", "kunder", ["Privat"]));

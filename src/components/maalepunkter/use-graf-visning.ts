@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 export type Visning = "tabel" | "graf" | "udvikling";
 
 /** Presentation belongs to the mounted graph, never to routing or data keys. */
-export function useGrafVisning(brugerId: string, grafId: string, standardSerier: string[]) {
+export function useGrafVisning(brugerId: string, grafId: string, standardSerier: string[] = []) {
   const [visning, setVisning] = useState<Visning>("tabel");
   const [skjulte, setSkjulte] = useState<string[] | null>(null);
   const noegle = `maalepunkt-visning:${brugerId}`;
