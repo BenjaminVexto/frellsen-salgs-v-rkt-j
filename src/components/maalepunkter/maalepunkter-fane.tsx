@@ -1030,6 +1030,64 @@ function Tabel({
   };
 
 
+type GrafRaekke = { label: string; kategori: string; per: Map<string, number> };
+
+/** Each amount graph owns its service selection and its two cached datasets. */
+function BeloebGraf({ nummer, slags, fra, til, maaneder, qNoegle, args, brugerId, onDrill, onData }: {
+  nummer: number;
+  slags: "omsaetning" | "db";
+  fra: string;
+  til: string;
+  maaneder: string[];
+  qNoegle: string;
+  args: { _saelger: string | null; _fra: string; _til: string; _afdeling_nr: number };
+  brugerId: string;
+  onDrill: (drill: Drill) => void;
+  onData: (rows: GrafRaekke[]) => void;
+}) {
+  const [medtagService, setMedtagService] = useState(false);
+  const q = useQuery({
+    queryKey: [`maalepunkt-${slags}`, qNoegle, fra, til, medtagService],
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (tidligere) => tidligere,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc(`maalepunkt_${slags}`, { ...args, _kun_forbrug: !medtagService });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
+    },
+  });
+  const rows = useMemo<GrafRaekke[]>(() => [
+    { label: "Forhandlingskunder", kategori: "privat", per: new Map<string, number>() },
+    { label: "Udbudskunder", kategori: "offentlig", per: new Map<string, number>() },
+  ].map((row) => {
+    (q.data ?? []).filter((r) => r.kategori === row.kategori).forEach((r) => {
+      const m = String(r.maaned).slice(0, 7);
+      row.per.set(m, (row.per.get(m) ?? 0) + Number(r.vaerdi || 0));
+    });
+    return row;
+  }), [q.data]);
+  useEffect(() => { onData(rows); }, [rows, onData]);
+  const drill = (i: number, maaned: string | null) => {
+    const row = rows[i];
+    if (!row) return;
+    const base = { kategori: row.kategori, label: `${row.label} — ${maaned ? maanedNavn(maaned) : `${maanedNavn(fra)}–${maanedNavn(til)}`}`, maaned };
+    onDrill(slags === "db" ? { ...base, slags: "db" } : { ...base, slags: "oms", kunForbrug: !medtagService });
+  };
+  return <div className="relative">
+    <Tabel nummer={nummer} titel={slags === "db" ? "Dækningsbidrag pr. måned (kr.)" : "Omsætning pr. måned (kr.)"}
+      undertitel={medtagService ? "Alle varegrupper inkl. leje og service" : slags === "db" ? "Forbrugsvarer" : "Kun forbrugsvarer — ekskl. maskiner, leje og service (Portefølje viser alt inkl. maskiner og service)"}
+      visKey={slags} maaneder={maaneder} brugerId={brugerId} rows={rows} dec={0} loading={q.isPending}
+      error={q.error?.message} onRetry={() => q.refetch()} onRow={(i) => drill(i, null)} onCell={drill}
+      hoved={<div className="flex items-center gap-2">
+        <Switch id={`${slags}-alle`} checked={medtagService} onCheckedChange={setMedtagService} />
+        <Label htmlFor={`${slags}-alle`} className="text-sm font-normal">Medtag leje &amp; service</Label>
+      </div>} />
+    {q.isFetching && !q.isPending && <div role="status" className="absolute right-4 bottom-4 flex items-center gap-2 bg-background text-xs text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin" /> Henter…
+    </div>}
+  </div>;
+}
+
 /** Ét panel ad gangen — viser hvilke virksomheder tallet består af. */
 function DetaljePanel({
   drill,
