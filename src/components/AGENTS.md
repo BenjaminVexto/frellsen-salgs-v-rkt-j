@@ -5,3 +5,4 @@
 - Machine-count drilldowns filter existing bonus detail rows by bonus class and exclude omitted rows; the full-month view retains them — so customer lists reconcile with counts without changing calculations.
 - Bonus DB, machines and competition use separate detail views and paged RPC reads; the shared competition RPC returns only eligible seller aggregates with internal-role checks — so competition sharing never widens customer access.
 - Equipment uses a shared action-first seller overview, with accounting rendered only in collapsed admin sections; customer-owned service model normalization is separate from financial allocation so totals remain unchanged.
+- Sales-statistics graphs use module-scope components with local presentation/service state and stable-height bodies; presentation never navigates or enters query keys, so siblings and scroll stay unchanged.
