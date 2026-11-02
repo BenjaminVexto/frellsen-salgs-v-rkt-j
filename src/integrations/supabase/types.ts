@@ -5615,6 +5615,23 @@ export type Database = {
       _remap_omraade: { Args: { m: Json; o: Json }; Returns: Json }
       _skm_refresh_keys: { Args: never; Returns: undefined }
       _status_rang: { Args: { _t: string }; Returns: number }
+      _tm_company_events: {
+        Args: { _company: string }
+        Returns: {
+          aarsag: string
+          at: string
+          bruger: string
+          id: string
+          kilde: string
+          list_id: string
+          moede_at: string
+          note: string
+          ring_igen_at: string
+          type: string
+          udfald: string
+          user_id: string
+        }[]
+      }
       _udfald_tekst: {
         Args: { _aarsag: string; _note: string; _udfald: string }
         Returns: string
@@ -6958,7 +6975,12 @@ export type Database = {
         }
         Returns: Json
       }
+      tm_saelger_overblik: { Args: { _list: string }; Returns: Json }
       tm_seneste_aktivitet: { Args: { _list: string }; Returns: Json }
+      tm_virksomhed_historik: {
+        Args: { _company: string; _list: string; _offset?: number }
+        Returns: Json
+      }
       tm_virksomheder: { Args: { _list: string }; Returns: Json }
       udstyr_er_filter: { Args: { _t: string }; Returns: boolean }
       udstyr_grundlag: {
