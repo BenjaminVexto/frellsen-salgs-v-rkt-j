@@ -83,6 +83,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       dateTo?: string | null;
       afdelinger?: number[];
       filename?: string | null;
+      filePath: string;
       /** (afdeling, måned) som filen indeholder — KUN disse ryddes og genberegnes. */
       berorteMaaneder: Array<{ afdeling_nr: number; maaned: string; fra: string; til: string; linjer: number }>;
       /** Vismas summeringslinjer pr. kunde + afstemningens udfald. */
@@ -93,6 +94,8 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       dbRapport?: Record<string, unknown>;
     }) => {
       if (!input?.jobId) throw new Error("jobId mangler");
+      if (!input.filePath?.startsWith(`${input.jobId}/source.`) || !/^[-0-9a-f]+\/source\.(csv|xlsx|xls)$/i.test(input.filePath))
+        throw new Error("Originalfilens sti er ugyldig");
       if (!Array.isArray(input.berorteMaaneder)) throw new Error("berorteMaaneder mangler");
       const iso = /^\d{4}-\d{2}-\d{2}$/;
       for (const m of input.berorteMaaneder) {
@@ -108,6 +111,12 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const { data: sourceFiles, error: sourceError } = await context.supabase.storage
+      .from("invoice-uploads")
+      .list(data.jobId, { search: data.filePath.split("/")[1] });
+    if (sourceError || !sourceFiles?.some((f) => `${data.jobId}/${f.name}` === data.filePath))
+      throw new Error("Originalfilen skal være gemt, før importen kan starte");
+
     const totalLines = data.totalLines ?? 0;
     // Rålinjer skrives FØRST. Først når alle linjer står i databasen ryddes de
     // gamle (fase "prune") — fejler uploaden undervejs, står de gamle urørt.
@@ -118,7 +127,7 @@ export const enqueueInvoiceImport = createServerFn({ method: "POST" })
       user_id: context.userId,
       status: firstPhase === "done" ? "completed" : "queued",
       phase: firstPhase,
-      file_path: null,
+      file_path: data.filePath,
       aggregated_path: data.jobId, // chunk-prefix i invoice-uploads bucket
       total_monthly: 0,
       total_top: 0,

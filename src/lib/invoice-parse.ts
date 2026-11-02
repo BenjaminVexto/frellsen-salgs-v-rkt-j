@@ -509,15 +509,23 @@ export async function parseInvoiceJournal(
   for (const row of headers ? rows.slice(1) : rows) {
     if (!Array.isArray(row)) continue;
     const firma = String(row[COL.FIRMA] ?? "").trim();
-    // Summerings-/totallinje: firma = afdeling = ordrenr. = dato = "0".
-    // Kundenr. udfyldt = kundens summering; kundenr. "0" = filens totallinje.
-    const z = (i: number) => String(row[i] ?? "").trim() === "0";
-    if (firma === "0" && z(COL.AFDELING) && z(COL.ORDER_NO) && z(COL.DATE)) {
+    // Summeringer har ingen ordre/vare eller firma/afdeling/fakturadato.
+    // Visma bruger både tomme celler og "0" som fravær af disse felter.
+    const emptyOrZero = (i: number) => {
+      const value = String(row[i] ?? "").trim();
+      return value === "" || value === "0";
+    };
+    const kunde = String(row[COL.DELIVERY] ?? "").trim();
+    const hasCustomer = kunde !== "" && kunde !== "0";
+    const summaryShape = [COL.FIRMA, COL.AFDELING, COL.ORDER_NO, COL.DATE, COL.VARENR].every(emptyOrZero);
+    const hasSum = [COL.REVENUE, COL.DB].some((i) => isStrictNumber(row[i]));
+    if (summaryShape && (hasCustomer || hasSum)) {
       stats.subtotalRows++;
-      const kunde = String(row[COL.DELIVERY] ?? "").trim();
       const beloeb = parseDanishNumber(row[COL.REVENUE]);
+      // En manglende DB-summering er ikke et facit på 0 kr.
+      if (!isStrictNumber(row[COL.DB])) continue;
       const sDb = parseDanishNumber(row[COL.DB]);
-      if (!kunde || kunde === "0") {
+      if (!hasCustomer) {
         afst.totallinjeDb = sDb;
         afst.totallinjeBeloeb = beloeb;
         continue;
@@ -600,8 +608,8 @@ export async function parseInvoiceJournal(
     const delivery = String(row[COL.DELIVERY] ?? "").trim();
     const fejl: string[] = [];
     if (!date) fejl.push(`fakturadato "${String(row[COL.DATE] ?? "")}" er ikke en dato`);
-    if (!isStrictNumber(row[COL.REVENUE])) fejl.push(`Beløb "${String(row[COL.REVENUE] ?? "")}" er ikke et tal`);
-    if (!isStrictNumber(row[COL.DB])) fejl.push(`DB "${String(row[COL.DB] ?? "")}" er ikke et tal`);
+    if (String(row[COL.REVENUE] ?? "").trim() && !isStrictNumber(row[COL.REVENUE])) fejl.push(`Beløb "${String(row[COL.REVENUE] ?? "")}" er ikke et tal`);
+    if (String(row[COL.DB] ?? "").trim() && !isStrictNumber(row[COL.DB])) fejl.push(`DB "${String(row[COL.DB] ?? "")}" er ikke et tal`);
     if (!delivery) fejl.push("Lev. kunde mangler");
     if (fejl.length || !date) {
       stats.fejlRaekker++;
