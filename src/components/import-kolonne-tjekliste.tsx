@@ -66,6 +66,8 @@ export function ImportKolonneTjekliste({ kontrakt }: { kontrakt: ImportKontrakt 
         <p>
           {fast
             ? "Rækkefølgen er afgørende — flyttes en kolonne i Visma, bliver alle efterfølgende værdier læst forkert"
+            : kontrakt.id === "faktura"
+            ? "Rækkefølgen er uden betydning — overskrifter matches på kendte aliaser, og ekstra kolonner ignoreres"
             : "Rækkefølgen er uden betydning — kolonnerne kobles på overskriftens navn, som skal staves præcis som ovenfor"}
         </p>
         <p>Skal køres først: {kontrakt.afhaengerAf ?? "ingen"}</p>

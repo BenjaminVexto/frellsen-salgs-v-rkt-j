@@ -1,21 +1,16 @@
 // Client-side parser for Visma invoice journal.
-// Input: raw xlsx/csv file (ISO-8859-1 for CSV, no header, 17 positional cols (20 = old format)).
+// Input: xlsx/csv with matched headers, or legacy 17/20 positional columns.
 // Output: rå detaljelinjer til public.invoice_lines. Aggregaterne beregnes i
 // databasen (rebuild_sales_aggregates) — ikke længere i browseren.
 
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import { matchInvoiceHeaders, type ColMap, type InvoiceHeaderReport } from "./invoice-headers";
 import { readFileSmart } from "./file-encoding";
 import { udledKundeDb, DB_TOLERANCE, type DbKilde, type DbUdfald } from "./invoice-db-udledning";
 
 
 /** Kolonneplacering (0-baseret) pr. format. Kundenavn/KPG1/KPG2 findes kun i det gamle. */
-type ColMap = {
-  FIRMA: number; AFDELING: number; ORDER_NO: number; DATE: number; DELIVERY: number;
-  VARENR: number; DESC: number; QTY: number; GROUP1: number; GROUP2: number;
-  NETTOVAEGT: number; KOSTPRIS: number; ENHEDSPRIS: number; REVENUE: number;
-  DB: number; DG: number; INITIALER: number;
-};
 
 /** Nyt format (17 kolonner): Kundenavn, Kundeprisgruppe 1 og 2 er fjernet. */
 const COL_17: ColMap = {
@@ -31,7 +26,7 @@ const COL_20: ColMap = {
   KOSTPRIS: 14, ENHEDSPRIS: 15, REVENUE: 16, DB: 17, DG: 18, INITIALER: 19,
 };
 
-export type FileFormat = "17" | "20";
+export type FileFormat = "17" | "20" | "headers";
 
 /** Max andel af detaljerækker med ugyldig dato/beløb/DB/Lev. kunde — 0 = én fejl afviser filen. */
 export const MAX_FEJL_ANDEL = 0;
@@ -347,8 +342,9 @@ export type ParseStats = {
   totalRevenue: number;
   /** Antal detaljelinjer pr. afdeling (nøgle = afdeling_nr som streng). */
   rowsByAfdeling: Record<string, number>;
-  /** Filformat genkendt på antal kolonner. */
+  /** Overskriftsmatch eller gammelt positionsformat. */
   format: FileFormat;
+  headerReport: InvoiceHeaderReport | null;
   /** Subtotalrækker uden varenr. (sorteret fra). */
   subtotalRows: number;
   /** Rækker med ugyldig dato / beløb / DB (sprunget over, under tærsklen). */
@@ -462,6 +458,7 @@ export async function parseInvoiceJournal(
     totalRevenue: 0,
     rowsByAfdeling: {},
     format: "17",
+    headerReport: null,
     subtotalRows: 0,
     fejlRaekker: 0,
     fejlEksempler: [],
@@ -501,13 +498,15 @@ export async function parseInvoiceJournal(
   );
   const unknownAfdelinger = new Set<string>();
 
-  const format = detectFileFormat(rows);
-  const COL = format === "17" ? COL_17 : COL_20;
+  const headers = matchInvoiceHeaders(rows[0] ?? []);
+  const format = headers ? "headers" : detectFileFormat(rows);
+  const COL = headers?.columns ?? (format === "17" ? COL_17 : COL_20);
   stats.format = format;
+  stats.headerReport = headers?.report ?? null;
   const width = Number(format);
   let detaljeRaekker = 0;
 
-  for (const row of rows) {
+  for (const row of headers ? rows.slice(1) : rows) {
     if (!Array.isArray(row)) continue;
     const firma = String(row[COL.FIRMA] ?? "").trim();
     // Summerings-/totallinje: firma = afdeling = ordrenr. = dato = "0".
@@ -563,7 +562,7 @@ export async function parseInvoiceJournal(
       if (firmaSampleSet.size < 10) firmaSampleSet.add(firma);
       continue;
     }
-    if (row.length !== width) {
+    if (!headers && row.length !== width) {
       stats.invalidLines++;
       continue;
     }

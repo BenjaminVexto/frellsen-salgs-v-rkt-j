@@ -57,7 +57,7 @@ export const IMPORT_KONTRAKTER: Record<string, ImportKontrakt> = {
     vismaRapport: "Faktura Journal",
     raekkefoelge: 2,
     afhaengerAf: "Aktør (debitorliste)",
-    kolonneRaekkefoelgeBetyder: true,
+    kolonneRaekkefoelgeBetyder: false,
     paakraevede: [
       "Firma",
       "Afdeling",
