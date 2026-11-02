@@ -1,9 +1,9 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
 ## Aktuelt: Fakturajournalens subtotaler og originalfil
-- [ ] Ret subtotal-/totallinjegenkendelse og acceptér tomme talfelter som null uden ændring af eksisterende data.
-- [ ] Gem uændret originalfil på importjobbet og vis download i Importhistorik.
-- [ ] Test de fire ønskede tilfælde og kontrollér indlogget analyse uden import.
+- [x] Ret subtotal-/totallinjegenkendelse og acceptér tomme talfelter som null uden ændring af eksisterende data.
+- [x] Gem uændret originalfil på importjobbet og vis download i Importhistorik.
+- [x] 80 tests bestået; indlogget analyse viser tom DB udledt til 90 kr. og totallinje OK uden import. Originalfilens uændrede bytes, jobsti og historik-download verificeret med simulerede storage/job-svar uden writes; faktisk ny import bevidst ikke udført. Oktobertal urørte.
 
 ## Aktuelt: Sælgerindsats synlig for callere
 - [x] Sikker læseadgang til konkurrentaftale, seneste sælgeraktivitet og virksomhedshistorik uden statusændringer.
