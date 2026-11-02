@@ -49,7 +49,7 @@ const linje = (dato: string, lev = "123") =>
   ["10", "11", "1", dato, lev, "V1", "Kaffe", "1", "2", "2", "1", "100", "90", "90", "30", "33", "AB"].map((v) => `"${v}"`).join(" ");
 const fil = (rows: string[]) => new File([rows.join("\n")], "f.csv", { type: "text/csv" });
 
-const headers = INVOICE_FIELDS.map((f) => f.aliases[0]);
+const headers: string[] = INVOICE_FIELDS.map((f) => f.aliases[0]);
 const values = ["10", "11", "1", "20260901", "123", "V1", "Kaffe", "1", "2", "2", "1", "100", "90", "90", "30", "33", "AB"];
 const csvRow = (cells: string[]) => cells.map((v) => `"${v}"`).join(" ");
 
