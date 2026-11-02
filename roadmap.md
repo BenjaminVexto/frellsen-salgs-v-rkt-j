@@ -1,5 +1,10 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Fakturajournal med overskrifter
+- [ ] Match overskrifter, afvis manglende/dobbelte felter og bevar 17/20-kolonners fallback.
+- [ ] Vis matching og ignorerede kolonner ved analyse; opdatér sidens tekst.
+- [ ] Kør regressionstests og kontrollér analysen uden at importere testdata.
+
 ## Aktuelt: Digitalt katalog via Graph
 - [x] Fælles Graph-hjælper til tilbud og katalog; admin-only katalogknap og serverkontrol.
 - [x] Katalogafsendelse med sendt/fejlet, kontakt og aktivitet først efter succes, 7 dages opfølgning.
