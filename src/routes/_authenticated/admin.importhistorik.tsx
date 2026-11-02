@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import { toast } from "sonner";
@@ -44,6 +44,14 @@ import { IMPORT_TYPE_LABEL, type ImportType } from "@/lib/import-log";
 const IMPORT_TYPER = ["aktoer", "faktura", "maskiner", "prismatrix"] as const;
 
 export const Route = createFileRoute("/_authenticated/admin/importhistorik")({
+  head: () => ({ meta: [
+    { title: "Importhistorik | Frellsen CRM" },
+    { name: "description", content: "Se tidligere importer og hent originale fakturajournaler i Frellsen CRM." },
+    { property: "og:title", content: "Importhistorik | Frellsen CRM" },
+    { property: "og:description", content: "Importhistorik og originale fakturajournaler." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   validateSearch: (s: Record<string, unknown>): { type?: ImportType; vis?: "uden_kunde"; hvad?: "ikke" | "kunde" } => ({
     ...(s.hvad === "ikke" || s.hvad === "kunde" ? { hvad: s.hvad as "ikke" | "kunde" } : {}),
     ...(IMPORT_TYPER.includes(s.type as any) ? { type: s.type as ImportType } : {}),
@@ -150,7 +158,7 @@ function ImporthistorikSide() {
         Oversigt over alle imports — virksomheder, maskindata og aftaler. Klik på en import for at se og slette.
       </p>
       {search.vis === "uden_kunde" && <UdenKundeListe hvad={search.hvad} />}
-      {search.type && <ImportLogListe type={search.type} />}
+      <ImportLogListe type={search.type ?? "faktura"} />
       <div className="mb-6 flex items-center gap-3 flex-wrap">
         <CvrEnrichmentQueueBadge />
         <RescanRelationSuggestionsButton />
@@ -652,25 +660,49 @@ function RescanRelationSuggestionsButton() {
 }
 
 function ImportLogListe({ type }: { type: ImportType }) {
+  const [downloading, setDownloading] = useState<string | null>(null);
+  async function downloadOriginal(row: { id: string; file_path: string; filename: string | null }) {
+    setDownloading(row.id);
+    try {
+      const { data: file, error } = await supabase.storage.from("invoice-uploads").download(row.file_path);
+      if (error || !file) throw new Error(error?.message ?? "Filen blev ikke fundet");
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url; link.download = row.filename ?? "Faktura Journal";
+      document.body.appendChild(link); link.click(); link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Originalfilen kunne ikke hentes");
+    } finally { setDownloading(null); }
+  }
   const { data } = useQuery({
     queryKey: ["import_log", type],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("import_log")
-        .select("id,status,filename,fejl,created_at,afviste,afviste_detaljer,profiles:created_by(full_name)")
+        .select("id,status,filename,fejl,created_at,afviste,afviste_detaljer,kilde_id,profiles:created_by(full_name)")
         .eq("import_type", type)
         .order("created_at", { ascending: false })
         .limit(50);
+      let rows = data ?? [];
       if (error) {
         const r = await (supabase as any)
           .from("import_log")
-          .select("id,status,filename,fejl,created_at,afviste,afviste_detaljer")
+          .select("id,status,filename,fejl,created_at,afviste,afviste_detaljer,kilde_id")
           .eq("import_type", type)
           .order("created_at", { ascending: false })
           .limit(50);
-        return r.data ?? [];
+        if (r.error) throw new Error(r.error.message);
+        rows = r.data ?? [];
       }
-      return data ?? [];
+      if (type !== "faktura") return rows;
+      const ids = rows.map((r: any) => r.kilde_id).filter(Boolean);
+      if (!ids.length) return rows;
+      const { data: jobs, error: jobError } = await supabase.from("invoice_import_jobs")
+        .select("id,file_path").in("id", ids);
+      if (jobError) throw new Error(jobError.message);
+      const paths = new Map((jobs ?? []).map((j) => [j.id, j.file_path]));
+      return rows.map((r: any) => ({ ...r, file_path: paths.get(r.kilde_id) ?? null }));
     },
   });
   return (
@@ -708,7 +740,13 @@ function ImportLogListe({ type }: { type: ImportType }) {
                     <AfvisteRaekker antal={r.afviste} detaljer={r.afviste_detaljer ?? []} />
                   )}
                 </TableCell>
-                <TableCell>{r.filename ?? "–"}</TableCell>
+                <TableCell>
+                  <div>{r.filename ?? "–"}</div>
+                  {r.file_path && <Button variant="outline" size="sm" className="mt-1" disabled={downloading === r.id} onClick={() => downloadOriginal(r)}>
+                    {downloading === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    Hent originalfil
+                  </Button>}
+                </TableCell>
                 <TableCell>{r.profiles?.full_name ?? "–"}</TableCell>
                 <TableCell className="text-xs text-muted-foreground max-w-xs truncate" title={r.fejl ?? ""}>
                   {r.fejl ?? ""}

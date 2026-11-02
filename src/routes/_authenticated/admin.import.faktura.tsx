@@ -184,11 +184,19 @@ function FakturaImportSide() {
       const newJobId = crypto.randomUUID();
       const linesBatchId = crypto.randomUUID();
       const lineChunks = chunked(rawLines, LINES_CHUNK_SIZE);
-      const totalUploads = lineChunks.length;
+      const totalUploads = lineChunks.length + 1;
       let uploadIdx = 0;
 
       setStage("Uploader fakturalinjer til server…");
       setStageProgress({ done: 0, total: totalUploads });
+
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      if (!extension || !["csv", "xlsx", "xls"].includes(extension)) throw new Error("Ukendt filtype");
+      const filePath = `${newJobId}/source.${extension}`;
+      const { error: sourceError } = await supabase.storage.from(BUCKET).upload(filePath, file);
+      if (sourceError) throw new Error("Originalfilen kunne ikke gemmes: " + sourceError.message);
+      uploadIdx++;
+      setStageProgress({ done: uploadIdx, total: totalUploads });
 
       async function uploadChunk(idx: number, rows: unknown[]) {
         const path = `${newJobId}/lines-${idx}.json`;
@@ -209,6 +217,7 @@ function FakturaImportSide() {
       await enqueueFn({
         data: {
           jobId: newJobId,
+          filePath,
           locationsMatched: matched,
           unmatched,
           rowsByAfdeling: stats.rowsByAfdeling,
