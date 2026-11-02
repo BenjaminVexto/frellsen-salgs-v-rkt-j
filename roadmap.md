@@ -1,5 +1,9 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Isolerede visningsvalg i salgsstatistik
+- [ ] Flyt grafvisning, serievalg og leje/service til lokale, stabilt monterede grafkomponenter uden navigation.
+- [ ] Bevar grafhøjde og genbrug data; test visningsskift tre gange på graf 3 og leje/service på graf 2 som indlogget bruger.
+
 ## Aktuelt: Fakturajournalens subtotaler og originalfil
 - [x] Ret subtotal-/totallinjegenkendelse og acceptér tomme talfelter som null uden ændring af eksisterende data.
 - [x] Gem uændret originalfil på importjobbet og vis download i Importhistorik.
