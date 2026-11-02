@@ -1,5 +1,10 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Salgsstatistik-layout
+- [x] Indholdstilpassede højder; midlertidig højdelås kun ved lokal datahentning.
+- [x] Kompakte ens beløbstabeller og korrekt fælles månedsakse med synlige standardserier.
+- [x] Fire tests bestået; graf 1–3 browserkontrolleret ved 1280 px: alle tabeller passer uden overflow, indholdshøjde = tabelhøjde, 12 punkter pr. serie og oktoberpunkter præcist over okt 2026. Tre runder visningsskift og serieklik: scroll 600 uændret, ingen datahentning/remontering/loading i øvrige grafer; service til/fra henter kun DB én gang. Build OK, ingen dataændringer. Browseren begrænser dog scroll til sidens nye bund, hvis kortere indhold gør den tidligere position fysisk umulig; det kræver tom plads på siden at undgå den naturlige grænse.
+
 ## Aktuelt: Isolerede visningsvalg i salgsstatistik
 - [x] Grafvisning og serievalg er lokal state i en stabil grafkomponent; leje/service og beløbsdata er isoleret i hver beløbsgraf uden navigation.
 - [x] To regressionstests bestået; indlogget browserkontrol af tre runder Tabel/Graf/Udvikling og serieklik på graf 3: scroll 1224 uændret, ingen datahentninger/remontering/loading i andre grafer. Graf 2 service til/fra: scroll 717 uændret, kun én DB-hentning, tilbagevalg genbruger cache; build OK. Ingen lagrede data ændret.

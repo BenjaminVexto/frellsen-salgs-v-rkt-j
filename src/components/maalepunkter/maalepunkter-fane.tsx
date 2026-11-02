@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { useGrafVisning } from "./use-graf-visning";
+import { useGrafHoejde } from "./use-graf-hoejde";
 
 /** Samme farver for private/offentlige/total i alle fem grafer. */
 const FARVE_PRIVAT = "hsl(217 91% 50%)";
@@ -558,6 +559,7 @@ export function MaalepunkterFane({
         rows={nyeTabel}
         dec={0}
         loading={nyeQ.isPending}
+        beloeb={nyeMaal === "db"}
         error={nyeQ.error ? (nyeQ.error as Error).message : null}
         onRetry={() => nyeQ.refetch()}
         hoved={
@@ -680,6 +682,8 @@ function Tabel({
     rows,
     dec,
     loading,
+    fetching = false,
+    beloeb = false,
     error,
     onRetry,
     onRow,
@@ -704,6 +708,8 @@ function Tabel({
     rows: { label: string; per: Map<string, number> }[];
     dec: number;
     loading: boolean;
+    fetching?: boolean;
+    beloeb?: boolean;
     error?: string | null;
     onRetry?: () => void;
     onRow?: (i: number) => void;
@@ -724,7 +730,8 @@ function Tabel({
   }) {
     const tot = new Map<string, number>();
     rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
-    const { visning, saetVisning, skjultListe, skiftSerie, nulstilSerier } = useGrafVisning(brugerId, visKey, rows.map((r) => r.label));
+    const { visning, saetVisning, skjultListe, skiftSerie, nulstilSerier } = useGrafVisning(brugerId, visKey);
+    const hoejde = useGrafHoejde(loading || fetching);
     const rowTotal = (per: Map<string, number>) => maaneder.reduce((sum, m) => sum + (per.get(m) ?? 0), 0);
     const serier = [
       ...rows.map((r, i) => ({ navn: r.label, farve: raekkeFarve(r.label, i), per: r.per })),
@@ -750,7 +757,8 @@ function Tabel({
     ) as number[];
     const domaene = indeks ? yDomaene([...alleTal, 100]) : yDomaene(alleTal);
 
-    const erKr = visKey === "omsaetning" || visKey === "db";
+    const erKr = beloeb || visKey === "omsaetning" || visKey === "db";
+    const tabelTal = (v: number) => fmtTal(erKr ? v / 1000 : v, erKr ? 0 : dec);
     const n = maaneder.length;
     const totalSnit = n ? maaneder.reduce((a, m) => a + (tot.get(m) ?? 0), 0) / n : 0;
     const visTrend = n >= 4 && !(visKey === "nye" && totalSnit < 5);
@@ -790,7 +798,7 @@ function Tabel({
     void periodeTotal;
 
     return (
-      <Card data-graf={visKey} className="p-4 space-y-3 border-2 shadow-sm">
+      <Card data-graf={visKey} className="min-w-0 p-4 space-y-3 border-2 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wide">
@@ -819,7 +827,7 @@ function Tabel({
             </ToggleGroup>
           </div>
         </div>
-        <div className="min-h-[390px]" aria-busy={loading}>
+        <div ref={hoejde.ref} style={hoejde.style} aria-busy={loading || fetching}>
         {error ? (
           <div className="flex items-center gap-3 text-sm">
             <span className="text-destructive">Tallene kunne ikke hentes: {error}</span>
@@ -900,7 +908,7 @@ function Tabel({
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={grafData} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="maaned" tick={{ fontSize: 11 }} />
+                  <XAxis dataKey="maaned" type="category" padding={{ left: 28, right: 28 }} interval="preserveStartEnd" minTickGap={0} tick={{ fontSize: 11, textAnchor: "middle" }} />
                   <YAxis
                     domain={[ticks[0], ticks[ticks.length - 1]]}
                     ticks={ticks}
@@ -946,6 +954,7 @@ function Tabel({
                       dot={{ r: 2.5 }}
                       activeDot={{ r: 4 }}
                       connectNulls={false}
+                      isAnimationActive={false}
                     />
                   ))}
                 </LineChart>
@@ -953,25 +962,31 @@ function Tabel({
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm tabular-nums">
+          <div>
+            <table className="w-full table-fixed text-xs tabular-nums">
+              <colgroup>
+                <col className="w-32" />
+                {maaneder.map((m) => <col key={m} />)}
+                {visTotalKolonne && <col />}
+              </colgroup>
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 pr-3 font-medium">Kategori</th>
+                  <th className="text-left py-2 pr-2 font-medium">Kategori</th>
                   {maaneder.map((m) => (
-                    <th key={m} className="text-right py-2 px-2 font-medium whitespace-nowrap">
-                      {maanedNavn(m)}
+                    <th key={m} className="text-right py-2 px-1 font-medium">
+                      <span className="block">{MDR[parseM(m).m0]}</span>
+                      <span className="block text-[10px] text-muted-foreground">{parseM(m).y}{erKr ? " · t.kr." : ""}</span>
                     </th>
                   ))}
                   {visTotalKolonne && (
-                    <th className="text-right py-2 pl-3 font-semibold">Total</th>
+                    <th className="text-right py-2 pl-1 font-semibold">Total{erKr && <span className="block text-[10px] text-muted-foreground">t.kr.</span>}</th>
                   )}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={r.label} className="border-b last:border-0">
-                    <td className="py-1.5 pr-3 whitespace-nowrap">
+                    <td className="py-1.5 pr-2 break-words">
                       <button
                         type="button"
                         className="hover:underline text-left"
@@ -986,35 +1001,35 @@ function Tabel({
                       )}
                     </td>
                     {maaneder.map((m) => (
-                      <td key={m} className="text-right py-1.5 px-2">
+                      <td key={m} className="text-right py-1.5 px-1">
                         <button
                           type="button"
                           className="hover:underline disabled:no-underline disabled:cursor-default"
                           disabled={!(r.per.get(m) ?? 0)}
                           onClick={() => onCell?.(i, m)}
                         >
-                          {fmtTal(r.per.get(m) ?? 0, dec)}
+                          {tabelTal(r.per.get(m) ?? 0)}
                         </button>
                       </td>
                     ))}
                     {visTotalKolonne && (
-                      <td className="text-right py-1.5 pl-3 font-semibold">
-                        {fmtTal(totaler ? (totaler.rows[i] ?? 0) : rowTotal(r.per), dec)}
+                      <td className="text-right py-1.5 pl-1 font-semibold">
+                        {tabelTal(totaler ? (totaler.rows[i] ?? 0) : rowTotal(r.per))}
                       </td>
                     )}
                   </tr>
                 ))}
                 {visTotalRaekke && (
                   <tr className="border-t-2 font-semibold">
-                    <td className="py-1.5 pr-3">Total</td>
+                    <td className="py-1.5 pr-2">Total</td>
                     {maaneder.map((m) => (
-                      <td key={m} className="text-right py-1.5 px-2">
-                        {fmtTal(tot.get(m) ?? 0, dec)}
+                      <td key={m} className="text-right py-1.5 px-1">
+                        {tabelTal(tot.get(m) ?? 0)}
                       </td>
                     ))}
                     {visTotalKolonne && (
-                      <td className="text-right py-1.5 pl-3">
-                        {fmtTal(totaler ? (totaler.total ?? 0) : rowTotal(tot), dec)}
+                      <td className="text-right py-1.5 pl-1">
+                        {tabelTal(totaler ? (totaler.total ?? 0) : rowTotal(tot))}
                       </td>
                     )}
                   </tr>
@@ -1076,7 +1091,7 @@ function BeloebGraf({ nummer, slags, fra, til, maaneder, qNoegle, args, brugerId
   return <div className="relative">
     <Tabel nummer={nummer} titel={slags === "db" ? "Dækningsbidrag pr. måned (kr.)" : "Omsætning pr. måned (kr.)"}
       undertitel={medtagService ? "Alle varegrupper inkl. leje og service" : slags === "db" ? "Forbrugsvarer" : "Kun forbrugsvarer — ekskl. maskiner, leje og service (Portefølje viser alt inkl. maskiner og service)"}
-      visKey={slags} maaneder={maaneder} brugerId={brugerId} rows={rows} dec={0} loading={q.isPending}
+      visKey={slags} maaneder={maaneder} brugerId={brugerId} rows={rows} dec={0} loading={q.isPending} fetching={q.isFetching}
       error={q.error?.message} onRetry={() => q.refetch()} onRow={(i) => drill(i, null)} onCell={drill}
       hoved={<div className="flex items-center gap-2">
         <Switch id={`${slags}-alle`} checked={medtagService} onCheckedChange={setMedtagService} />
