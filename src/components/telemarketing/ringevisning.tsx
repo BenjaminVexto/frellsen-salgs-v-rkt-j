@@ -92,7 +92,7 @@ export function Ringevisning({ listId }: { listId: string }) {
     setHistorikBusy(true);
     setHistorikFejl(false);
     if (historikOffset === 0) setHistorik([]);
-    void rpc("tm_virksomhed_historik", { _list: listId, _company: valgt, _offset: historikOffset }).then(({ data: h, error }) => {
+    void rpc("tm_virksomhed_historik", { _list: listId, _company: valgt, _offset: historikOffset }).then(({ data: h, error }: { data: unknown; error: { message: string } | null }) => {
       if (cancelled) return;
       setHistorikBusy(false);
       if (error) { setHistorikFejl(true); toast.error("Historikken kunne ikke hentes: " + error.message); return; }
