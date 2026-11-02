@@ -134,6 +134,62 @@ describe("overskriftsbaseret fakturajournal", () => {
   });
 });
 
+describe("subtotaler, tomme talfelter og totallinje", () => {
+  const summary = (marker: string, customer = "123", db = "90") => {
+    const cells = Array(17).fill(marker);
+    cells[4] = customer; cells[13] = "90"; cells[14] = db;
+    return cells;
+  };
+  for (const marker of ["", "0"]) {
+    it(`subtotal med ${marker === "" ? "tomme" : "0"}-felter er DB-facit og aldrig en linje`, async () => {
+      const detail = [...values]; detail[14] = "0";
+      const result = await parseInvoiceJournal(fil([csvRow([...headers].reverse()), csvRow(detail.reverse()), csvRow(summary(marker).reverse())]));
+      expect(result.rawLines).toHaveLength(1);
+      expect(result.rawLines[0]).toMatchObject({ db: 90, db_kilde: "udledt_subtotal" });
+      expect(result.stats.subtotalRows).toBe(1);
+      expect(result.stats.dbAfstemning.summeringer[0]).toMatchObject({ db_summering: 90, db_linjer_efter: 90 });
+    });
+  }
+  it("tom DB udledes til 100 % via subtotalen", async () => {
+    const detail = [...values]; detail[14] = "";
+    const result = await parseInvoiceJournal(fil([csvRow(headers), csvRow(detail), csvRow(summary(""))]));
+    expect(result.rawLines[0]).toMatchObject({ db: 90, db_kilde: "udledt_subtotal" });
+    expect(result.stats.dbAfstemning.afvigelser).toHaveLength(0);
+  });
+  it("tom DB uden subtotal forbliver null, aldrig 0", async () => {
+    const detail = [...values]; detail[14] = "";
+    const result = await parseInvoiceJournal(fil([csvRow(headers), csvRow(detail)]));
+    expect(result.rawLines).toHaveLength(1);
+    expect(result.rawLines[0].db).toBeNull();
+  });
+  it("tomme Pris, Pris efter rabat, Beløb, Nettovægt og DG% accepteres som null", async () => {
+    const detail = [...values];
+    for (const index of [10, 11, 12, 13, 15]) detail[index] = "";
+    const result = await parseInvoiceJournal(fil([csvRow(headers), csvRow(detail)]));
+    expect(result.rawLines[0]).toMatchObject({ kostpris: null, enhedspris: null, beloeb: null, nettovaegt: null, dg: null });
+    expect(result.stats.fejlRaekker).toBe(0);
+  });
+  it("totallinje uden kundenr. bruges til hele-filens DB-kontrol og importeres ikke", async () => {
+    const result = await parseInvoiceJournal(fil([csvRow(headers), csvRow(values), csvRow(summary("", "", "30"))]));
+    expect(result.rawLines).toHaveLength(1);
+    expect(result.stats.dbAfstemning.totallinjeDb).toBe(30);
+    expect(result.stats.dbAfstemning.linjeDbEfter).toBe(30);
+    expect(result.stats.dbAfstemning.summeringer).toHaveLength(0);
+  });
+  it("kundens afvigelse på præcis 1 kr. accepteres, over 1 kr. rapporteres", async () => {
+    const accepted = await parseInvoiceJournal(fil([csvRow(headers), csvRow(values), csvRow(summary("", "123", "31"))]));
+    const deviation = await parseInvoiceJournal(fil([csvRow(headers), csvRow(values), csvRow(summary("", "123", "31,01"))]));
+    expect(accepted.stats.dbAfstemning.afvigelser).toHaveLength(0);
+    expect(deviation.stats.dbAfstemning.afvigelser).toHaveLength(1);
+  });
+  it("manglende subtotal-DB må ikke behandles som facit på 0", async () => {
+    const detail = [...values]; detail[14] = "";
+    const result = await parseInvoiceJournal(fil([csvRow(headers), csvRow(detail), csvRow(summary("", "123", ""))]));
+    expect(result.rawLines[0].db).toBeNull();
+    expect(result.stats.dbAfstemning.summeringer).toHaveLength(0);
+  });
+});
+
 describe("ingen fejlrækker tilladt", () => {
   const godeRaekker = Array(999).fill(linje("20260901"));
   it("én ugyldig dato blandt 1000 afviser filen", async () => {
