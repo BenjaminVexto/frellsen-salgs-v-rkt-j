@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { detectFileFormat, summarizeMonths } from "./invoice-parse";
 import { topAfdelinger } from "./invoice-import.server";
+import { INVOICE_FIELDS, matchInvoiceHeaders, normalizeInvoiceHeader } from "./invoice-headers";
+import * as XLSX from "xlsx";
 
 const row = (n: number, firma = "10") => [firma, ...Array(n - 1).fill("x")];
 
@@ -46,6 +48,91 @@ import { parseInvoiceJournal } from "./invoice-parse";
 const linje = (dato: string, lev = "123") =>
   ["10", "11", "1", dato, lev, "V1", "Kaffe", "1", "2", "2", "1", "100", "90", "90", "30", "33", "AB"].map((v) => `"${v}"`).join(" ");
 const fil = (rows: string[]) => new File([rows.join("\n")], "f.csv", { type: "text/csv" });
+
+const headers = INVOICE_FIELDS.map((f) => f.aliases[0]);
+const values = ["10", "11", "1", "20260901", "123", "V1", "Kaffe", "1", "2", "2", "1", "100", "90", "90", "30", "33", "AB"];
+const csvRow = (cells: string[]) => cells.map((v) => `"${v}"`).join(" ");
+
+describe("overskriftsbaseret fakturajournal", () => {
+  it("normaliserer bindestreger, bløde bindestreger, (kr), punktummer og mellemrum", () => {
+    expect(normalizeInvoiceHeader("  PRIS  efter  ra\u00adbat-.(kr) ")).toBe("pris efter rabat");
+  });
+  for (const field of INVOICE_FIELDS) {
+    for (const alias of field.aliases) {
+      it(`matcher ${alias} som ${field.label}`, () => {
+        const alternative = [...headers];
+        const index = INVOICE_FIELDS.findIndex((f) => f.key === field.key);
+        alternative[index] = alias;
+        expect(matchInvoiceHeaders(alternative)?.columns[field.key]).toBe(index);
+      });
+    }
+  }
+  it("11 matchende celler bruger ikke overskriftslogik", () => {
+    expect(matchInvoiceHeaders(headers.slice(0, 11))).toBeNull();
+  });
+  it("12 matchende celler genkendes og afvises for alle manglende felter", () => {
+    expect(() => matchInvoiceHeaders(headers.slice(0, 12))).toThrow(/Pris efter rabat, Beløb, DB, DG%, Initialer/);
+  });
+  it("Produktprisgruppe uden tal matcher kun med Produktprisgruppe 2", () => {
+    const h = [...headers];
+    h[8] = "produktprisgruppe";
+    expect(matchInvoiceHeaders(h)?.columns.GROUP1).toBe(8);
+    h[9] = "ukendt";
+    expect(() => matchInvoiceHeaders(h)).toThrow(/Varegruppe 1, Varegruppe 2/);
+  });
+  for (let index = 0; index < INVOICE_FIELDS.length; index++) {
+    it(`afviser filen hvis ${INVOICE_FIELDS[index].label} mangler`, async () => {
+      const h = [...headers];
+      h[index] = "ukendt";
+      await expect(parseInvoiceJournal(fil([csvRow(h), csvRow(values)])))
+        .rejects.toThrow(`Manglende felter: ${INVOICE_FIELDS[index].label}.`);
+    });
+  }
+  it("afviser to alias-kolonner for samme felt før nogen linjer returneres", async () => {
+    await expect(parseInvoiceJournal(fil([csvRow([...headers, "firm"]), csvRow([...values, "10"])])))
+      .rejects.toThrow(/Dublet for Firma: kolonne 1 "firma" og kolonne 18 "firm"/);
+  });
+  it("tæller matchende celler fremfor unikke felter ved 12-cellereglen", () => {
+    expect(() => matchInvoiceHeaders([...headers.slice(0, 11), "firm"]))
+      .toThrow(/Dublet for Firma/);
+  });
+  it("ignorerer Navn og Kundeprisgruppe 1\/2 og parser omordnede CSV-kolonner identisk", async () => {
+    const order = [13, 4, 0, 16, 1, 15, 2, 14, 3, 12, 5, 11, 6, 10, 7, 9, 8];
+    const result = await parseInvoiceJournal(fil([
+      csvRow(["Navn", ...order.map((i) => headers[i]), "Kundeprisgruppe 1", "Kundeprisgruppe 2"]),
+      csvRow(["Testkonto", ...order.map((i) => values[i]), "KPG1", "KPG2"]),
+    ]));
+    const legacy = await parseInvoiceJournal(fil([csvRow(values)]));
+    expect(result.rawLines).toEqual(legacy.rawLines);
+    expect(result.stats.linesRead).toBe(1);
+    expect(result.stats.format).toBe("headers");
+    expect(result.stats.headerReport?.ignored.map((m) => m.header)).toEqual(["Navn", "Kundeprisgruppe 1", "Kundeprisgruppe 2"]);
+    expect(result.stats.headerReport?.matched[0]).toEqual({ index: 1, header: "beløb", field: "Beløb" });
+  });
+  it("parser omordnede XLSX-kolonner med overskrifter", async () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[...headers].reverse(), [...values].reverse()]), "Journal");
+    const buffer = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const result = await parseInvoiceJournal(new File([buffer], "journal.xlsx"));
+    expect(result.rawLines).toEqual((await parseInvoiceJournal(fil([csvRow(values)]))).rawLines);
+  });
+  it("bevarer gammelt 20-kolonners format uden overskrifter", async () => {
+    const old = [...values.slice(0, 5), "Navn", "KPG1", "KPG2", ...values.slice(5)];
+    const result = await parseInvoiceJournal(fil([csvRow(old)]));
+    expect(result.stats.format).toBe("20");
+    expect(result.stats.headerReport).toBeNull();
+    expect(result.rawLines).toEqual((await parseInvoiceJournal(fil([csvRow(values)]))).rawLines);
+  });
+  it("bruger samme overskriftsmap til summeringslinjer", async () => {
+    const subtotal = values.map(() => "0");
+    subtotal[4] = "123"; subtotal[13] = "90"; subtotal[14] = "30";
+    const result = await parseInvoiceJournal(fil([
+      csvRow([...headers].reverse()), csvRow([...values].reverse()), csvRow(subtotal.reverse()),
+    ]));
+    expect(result.stats.dbAfstemning.summeringer[0]).toMatchObject({ visma_delivery_no: "123", db_summering: 30, beloeb: 90 });
+    expect(result.stats.subtotalRows).toBe(1);
+  });
+});
 
 describe("ingen fejlrækker tilladt", () => {
   const godeRaekker = Array(999).fill(linje("20260901"));
