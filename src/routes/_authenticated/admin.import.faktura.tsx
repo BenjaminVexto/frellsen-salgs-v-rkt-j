@@ -16,8 +16,17 @@ import { enqueueInvoiceImport, resolveDeliveryNos } from "@/lib/invoice-import.f
 import { parseInvoiceJournal, AFVIGENDE_MAANEDER, type InvoiceLineRaw, type ParseStats } from "@/lib/invoice-parse";
 import { ImportKolonneTjekliste } from "@/components/import-kolonne-tjekliste";
 import { IMPORT_KONTRAKTER } from "@/lib/import-kontrakter";
+import { InvoiceHeaderError, type InvoiceHeaderReport } from "@/lib/invoice-headers";
 
 export const Route = createFileRoute("/_authenticated/admin/import/faktura")({
+  head: () => ({ meta: [
+    { title: "Faktura Journal-import | Frellsen CRM" },
+    { name: "description", content: "Analysér og importér Vismas fakturajournal med overskriftsbaseret kolonnematching." },
+    { property: "og:title", content: "Faktura Journal-import | Frellsen CRM" },
+    { property: "og:description", content: "Kontrollér kolonnematching og fakturalinjer før import i Frellsen CRM." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: FakturaImportSide,
 });
 
@@ -74,6 +83,7 @@ function FakturaImportSide() {
   const pollRef = useRef<number | null>(null);
   const [parsed, setParsed] = useState<{ rawLines: InvoiceLineRaw[]; stats: ParseStats } | null>(null);
   const [analyseFejl, setAnalyseFejl] = useState<string | null>(null);
+  const [headerReport, setHeaderReport] = useState<InvoiceHeaderReport | null>(null);
   const [bekraeftAfvigende, setBekraeftAfvigende] = useState(false);
 
   useEffect(() => {
@@ -115,6 +125,7 @@ function FakturaImportSide() {
     setWorking(true);
     setParsed(null);
     setAnalyseFejl(null);
+    setHeaderReport(null);
     setBekraeftAfvigende(false);
     try {
       setStage("Henter afdelinger…");
@@ -133,6 +144,7 @@ function FakturaImportSide() {
       if (!res.rawLines.length) throw new Error("Filen indeholder ingen fakturalinjer.");
       setParsed(res);
     } catch (e: any) {
+      if (e instanceof InvoiceHeaderError) setHeaderReport(e.report);
       setAnalyseFejl(e?.message ?? "Ukendt fejl");
       void logImport("faktura", "fejl", file?.name, e?.message ?? "Ukendt fejl");
     } finally {
@@ -267,8 +279,9 @@ function FakturaImportSide() {
           Vælg filen og tryk "Analysér fil" — du ser antal linjer pr. måned pr. afdeling, før noget
           ændres. Importen rydder og genberegner kun de måneder pr. afdeling, som filen indeholder, og
           inden for hver måned kun fra filens første til sidste dato. Andre måneder røres aldrig.
-          Filen skal have 17 kolonner uden overskrifter; det gamle format med 20 kolonner accepteres
-          midlertidigt (Kundenavn og Kundeprisgruppe 1/2 ignoreres — de hentes fra Aktør). Kør Aktør først.
+          Filen skal have overskrifter; kolonnernes rækkefølge er uden betydning, og ekstra kolonner
+          ignoreres. Gamle filer uden overskrifter med 17 eller 20 kolonner virker fortsat i den
+          oprindelige rækkefølge. Kundenavn og Kundeprisgruppe 1/2 hentes fra Aktør. Kør Aktør først.
         </p>
 
       </div>
@@ -284,6 +297,7 @@ function FakturaImportSide() {
               setFile(e.target.files?.[0] ?? null);
               setParsed(null);
               setAnalyseFejl(null);
+              setHeaderReport(null);
             }}
             disabled={working || !!running}
           />
@@ -316,6 +330,9 @@ function FakturaImportSide() {
           </div>
         )}
 
+        {(parsed?.stats.headerReport ?? headerReport) && (
+          <KolonneMatching report={parsed?.stats.headerReport ?? headerReport} />
+        )}
         {parsed && <FilOpsummering stats={parsed.stats} />}
 
         {parsed && afvigende.length > 0 && (
@@ -445,6 +462,31 @@ function maanedNavn(iso: string) {
   return `${MAANEDER[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
 }
 
+function KolonneMatching({ report }: { report: InvoiceHeaderReport | null }) {
+  if (!report) return null;
+  return (
+    <section className="space-y-3 text-sm" aria-label="Kolonnematching">
+      <h2 className="font-medium">Kolonnematching</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead><tr className="text-left text-muted-foreground border-b">
+            <th className="py-2 pr-4">Visma-overskrift</th><th className="py-2">CRM-felt</th>
+          </tr></thead>
+          <tbody>{report.matched.map((m) => (
+            <tr key={m.index} className="border-b"><td className="py-1.5 pr-4 break-words">{m.header}</td><td className="py-1.5">{m.field}</td></tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <div>
+        <h3 className="font-medium">Ignorerede kolonner</h3>
+        {report.ignored.length ? <ul className="list-disc pl-5 text-xs text-muted-foreground">
+          {report.ignored.map((m) => <li key={m.index}>{m.header || `(tom overskrift, kolonne ${m.index + 1})`}</li>)}
+        </ul> : <p className="text-xs text-muted-foreground">Ingen</p>}
+      </div>
+    </section>
+  );
+}
+
 function FilOpsummering({ stats }: { stats: ParseStats }) {
   const afdelinger = Array.from(new Set(stats.maaneder.map((m) => m.afdeling_nr))).sort((a, b) => a - b);
   const maaneder = Array.from(new Set(stats.maaneder.map((m) => m.maaned))).sort();
@@ -453,7 +495,7 @@ function FilOpsummering({ stats }: { stats: ParseStats }) {
     <div className="rounded-lg border bg-muted/30 p-4 space-y-3 text-sm">
       <div className="font-medium">Filen indeholder</div>
       <p className="text-xs text-muted-foreground">
-        Format: {stats.format} kolonner{stats.format === "20" && " (gammelt format — kolonne 6–8 ignoreres)"} ·{" "}
+        Format: {stats.format === "headers" ? "overskriftsbaseret" : `${stats.format} kolonner uden overskrifter`}{stats.format === "20" && " (gammelt format — kolonne 6–8 ignoreres)"} ·{" "}
         {stats.linesRead.toLocaleString("da-DK")} fakturalinjer · {stats.uniqueDeliveryNos.toLocaleString("da-DK")} leveringsnumre ·{" "}
         {stats.subtotalRows.toLocaleString("da-DK")} subtotalrækker sorteret fra
         {stats.hovedmaaned && <> · hovedperiode omkring {maanedNavn(stats.hovedmaaned)}</>}

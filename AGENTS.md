@@ -9,6 +9,7 @@
 - Activities sort by trigger-validated udfoert_at (≤14 days back).
 - Machine placement lives in maskine_placering per serial no.; import writes only via import_maskine_placering (ignores blanks, never overwrites CRM input) — so user input survives imports.
 - Fakturajournalens DB 0-linjer udledes pr. kunde mod Vismas summeringslinje (src/lib/invoice-db-udledning.ts, invoice_lines.db_kilde, invoice_db_afstemning) — never a general 'DB 0 = 100 %' rule, because real DB-0 sales (machines) exist.
+- Invoice header matching lives in browser-safe invoice-headers.ts and feeds both the existing parser and analysis preview — one validated map keeps preview and imported values aligned without changing accounting rules.
 - Salgskort is an admin-only tab (?fane=salgskort) in Min salgsstatistik; /admin/salgskort only redirects.
 - Distriktsscenarier (distrikt_scenarie, scenarie_distrikt, scenarie_flade, scenarie_saelger) are edited only in Salgskort → Simulering; the current map (distrikter/distrikt_flade) changes only via scenarie_gor_gaeldende, which first archives the old map as a scenario — so the current map can always be restored.
 - Simulation assignment rules (scenarie_regel) are evaluated client-side in src/lib/simulering-regler.ts (Frellsen → KAM → assign → geography → exclude) — so the order is tested in one place.
