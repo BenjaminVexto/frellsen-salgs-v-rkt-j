@@ -1,5 +1,10 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Agent på kontaktlisteudfald
+- [ ] Agent A–H på opkaldsloggen, påkrævet for bureauet med eksisterende adgangskontrol bevaret.
+- [ ] Agentvalg med browserhukommelse, seneste-agentfilter og agent i liste/historik.
+- [ ] Målrettede tests og indlogget browserkontrol; eventuelle testdata slettes.
+
 ## Aktuelt: Salgsstatistik-layout
 - [x] Indholdstilpassede højder; midlertidig højdelås kun ved lokal datahentning.
 - [x] Kompakte ens beløbstabeller og korrekt fælles månedsakse med synlige standardserier.
