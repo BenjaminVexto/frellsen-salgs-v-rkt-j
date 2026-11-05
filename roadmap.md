@@ -1,9 +1,10 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
 ## Aktuelt: Agent på kontaktlisteudfald
-- [ ] Agent A–H på opkaldsloggen, påkrævet for bureauet med eksisterende adgangskontrol bevaret.
-- [ ] Agentvalg med browserhukommelse, seneste-agentfilter og agent i liste/historik.
-- [ ] Målrettede tests og indlogget browserkontrol; eventuelle testdata slettes.
+- [x] Agent A–H på opkaldsloggen, påkrævet for bureauet med eksisterende adgangskontrol bevaret; gamle registreringer er null.
+- [x] Agentvalg med browserhukommelse, seneste-agentfilter og agent i liste/historik; direkte Ingen svar og fri note går også via dialogen.
+- [x] 23 tests bestået og build OK; egen adminkonto verificeret med skjult agentvalg, agentfilter og reel note gemt/genlæst. Testnoter og aktiviteter slettet.
+- [ ] Bureauets indloggede end-to-end-kontrol af Agent C og historik afventer adgang: sessionsoprettelse for bureaukontoen kræver godkendelse, som ikke er tilgængelig her.
 
 ## Aktuelt: Salgsstatistik-layout
 - [x] Indholdstilpassede højder; midlertidig højdelås kun ved lokal datahentning.
