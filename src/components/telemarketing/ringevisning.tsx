@@ -16,11 +16,13 @@ import {
   AARSAGER, STATUS_GRUPPER, UDFALD_LABEL, iStatusGruppe, ringIgenIDag, ringIgenTid, standardRang, statusTekst,
   type StatusGruppe, type Udfald,
 } from "@/lib/telemarketing";
-import { UdfaldDialog, registrerUdfald } from "@/components/kontaktliste/udfald-dialog";
+import { UdfaldDialog } from "@/components/kontaktliste/udfald-dialog";
+import { AgentFilter } from "@/components/kontaktliste/agent-filter";
+import { matcherAgent, senesteAgent, type AgentFilter as AgentValg } from "@/lib/agent-code";
 import { saelgerAktiv, matcherSaelgerFilter, type CallerOverblik, type VirksomhedsHistorik, type SaelgerFilter } from "@/lib/caller-saelger";
 
 type Kontakt = { id: string; navn: string; titel: string | null; telefon: string | null; email: string | null };
-type Opkald = { id: string; at: string; udfald: Udfald; aarsag: string | null; note: string | null; ring_igen_at: string | null; moede_at: string | null; bruger: string | null };
+type Opkald = { id: string; at: string; udfald: Udfald; agent_code: string | null; aarsag: string | null; note: string | null; ring_igen_at: string | null; moede_at: string | null; bruger: string | null };
 type V = {
   assignment_id: string; status: string; status_aarsag: string | null; antal_forsoeg: number | null; company_id: string; navn: string; cvr: string | null;
   adresse: string | null; postnr: string | null; by: string | null; telefon: string | null; email: string | null;
@@ -49,7 +51,8 @@ type SortKey = "standard" | "navn" | "telefon" | "kontakt" | "ansatte" | "status
 export function Ringevisning({ listId }: { listId: string }) {
   const [data, setData] = useState<{ liste: Liste; virksomheder: V[] } | null>(null);
   const [valgt, setValgt] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<null | { cid: string; u?: Udfald }>(null);
+  const [dialog, setDialog] = useState<null | { cid: string; u?: Udfald; note?: string }>(null);
+  const [agentFilter, setAgentFilter] = useState<AgentValg>("alle");
   const [kontaktForm, setKontaktForm] = useState<Partial<Kontakt> | null>(null);
   const [busy, setBusy] = useState(false);
   const [gruppe, setGruppe] = useState<StatusGruppe>("alle");
@@ -123,6 +126,7 @@ export function Ringevisning({ listId }: { listId: string }) {
     const s = q.trim().toLowerCase();
     const sd = s.replace(/\D/g, "");
     let arr = alle.filter((v) => iStatusGruppe(v.status, gruppe));
+    arr = arr.filter(v => matcherAgent(senesteAgent(v.opkald), agentFilter));
     arr = arr.filter(v => matcherSaelgerFilter(saelgerAktiv(overblik[v.company_id]?.seneste_saelger, nu), saelgerFilter));
     if (hurtig === "idag") arr = arr.filter((v) => ringIgenIDag(ringIgenTid(v), nu));
     if (hurtig === "ikke_ringet") arr = arr.filter((v) => !v.opkald.some((o) => o.udfald !== "note"));
@@ -144,7 +148,7 @@ export function Ringevisning({ listId }: { listId: string }) {
       const x = key(a), y = key(b);
       return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
     });
-  }, [alle, gruppe, hurtig, q, sort, nu, seneste, overblik, saelgerFilter]);
+  }, [alle, gruppe, hurtig, q, sort, nu, seneste, overblik, saelgerFilter, agentFilter]);
 
   const aktuel = alle.find((v) => v.company_id === valgt) ?? null;
   const aktuelOverblik = aktuel ? overblik[aktuel.company_id] : undefined;
@@ -154,17 +158,9 @@ export function Ringevisning({ listId }: { listId: string }) {
     if (n) vaelg(n.company_id);
   };
 
-  const registrer = async (udfald: Udfald, extra: Record<string, unknown> = {}) => {
-    if (!aktuel) return;
-    setBusy(true);
-    const r = await registrerUdfald(listId, aktuel.company_id, udfald, extra);
-    setBusy(false);
-    if (r) await load();
-  };
-  const gemNote = async () => {
-    if (!friNote.trim()) return;
-    await registrer("note", { _note: friNote.trim() });
-    setFriNote("");
+  const gemNote = () => {
+    if (!aktuel || !friNote.trim()) return;
+    setDialog({ cid: aktuel.company_id, u: "note", note: friNote.trim() });
   };
 
   if (!data) return <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />;
@@ -194,6 +190,7 @@ export function Ringevisning({ listId }: { listId: string }) {
       {data.liste.manus && <Card className="p-3 text-sm whitespace-pre-wrap bg-muted/40">{data.liste.manus}</Card>}
 
       <div className="flex flex-wrap items-center gap-2">
+        <AgentFilter value={agentFilter} onChange={setAgentFilter} />
         {STATUS_GRUPPER.map((g) => (
           <Button key={g.v} size="sm" variant={gruppe === g.v ? "default" : "outline"} className="h-8" onClick={() => setGruppe(g.v)}>{g.l}</Button>
         ))}
@@ -260,6 +257,7 @@ export function Ringevisning({ listId }: { listId: string }) {
                     <TableCell>
                       <Badge variant={v.status === "møde_booket" || v.status === "tilbud_oensket" ? "default" : "outline"} className="text-xs whitespace-nowrap">
                         {v.status === "forsoegt" ? `Forsøgt ×${v.antal_forsoeg ?? 1}` : v.status === "ring_igen" && t ? `Ring igen · ${ringTekst(t, nu)}` : statusTekst(v.status, v.status_aarsag, v.antal_forsoeg)}
+                        {senesteAgent(v.opkald) && ` · Agent ${senesteAgent(v.opkald)}`}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs max-w-[220px]">
@@ -321,7 +319,7 @@ export function Ringevisning({ listId }: { listId: string }) {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" variant="outline" disabled={busy} onClick={() => registrer("ingen_svar")}>Ingen svar</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ cid: aktuel.company_id, u: "ingen_svar" })}>Ingen svar</Button>
               <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ cid: aktuel.company_id, u: "ring_igen" })}>Optaget / ring igen</Button>
               <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ cid: aktuel.company_id, u: "forkert_nummer" })}>Forkert nummer</Button>
               <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ cid: aktuel.company_id, u: "ikke_interesseret" })}>Ikke interesseret</Button>
@@ -363,6 +361,7 @@ export function Ringevisning({ listId }: { listId: string }) {
                   <div><span className="tabular-nums text-muted-foreground mr-2">{fmt(o.at)}</span>
                     <span className="font-medium">{o.udfald ? UDFALD_LABEL[o.udfald as Udfald] ?? o.udfald : aktivitetLabel(o.type)}</span>
                     {o.aarsag && <span> · {AARSAGER.find((a) => a.v === o.aarsag)?.l ?? o.aarsag}</span>}
+                    {o.agent_code && <span> · Agent {o.agent_code}</span>}
                     {o.ring_igen_at && <span> · ring {fmt(o.ring_igen_at)}</span>}
                     {o.moede_at && <span> · møde {fmt(o.moede_at)}</span>}
                     {o.bruger && <span className="text-muted-foreground"> · {o.bruger}</span>}</div>
@@ -378,7 +377,7 @@ export function Ringevisning({ listId }: { listId: string }) {
       </div>
 
       {dialogV && dialog && (
-        <UdfaldDialog listId={listId} initial={dialog.u}
+        <UdfaldDialog listId={listId} initial={dialog.u} caller initialNote={dialog.note}
           virksomhed={{ company_id: dialogV.company_id, navn: dialogV.navn, telefon: dialogV.telefon, kontakter: dialogV.kontakter }}
           opretKontakt={async (navn, titel, telefon, email) => {
             const { data: id, error } = await rpc("tm_gem_kontakt", { _list: listId, _company: dialogV.company_id, _id: null, _navn: navn, _titel: titel, _telefon: telefon, _email: email });
@@ -386,7 +385,7 @@ export function Ringevisning({ listId }: { listId: string }) {
             return id as string;
           }}
           onClose={() => setDialog(null)}
-          onDone={() => { setDialog(null); void load(); }} />
+          onDone={() => { if (dialog.u === "note") setFriNote(""); setDialog(null); void load(); }} />
       )}
       {aktuel && kontaktForm && (
         <KontaktDialog initial={kontaktForm} onClose={() => setKontaktForm(null)}

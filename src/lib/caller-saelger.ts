@@ -4,6 +4,7 @@ export type CallerOverblik = { seneste_saelger: SaelgerAktivitet | null; aftaler
 export type VirksomhedsHistorik = SaelgerAktivitet & {
   id: string; note: string | null; denne_liste: boolean; kilde: string;
   udfald: string | null; aarsag: string | null; ring_igen_at: string | null; moede_at: string | null;
+  agent_code: string | null;
 };
 export type SaelgerFilter = "alle" | "kun" | "uden";
 
