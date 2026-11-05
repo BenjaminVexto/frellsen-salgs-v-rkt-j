@@ -2724,6 +2724,7 @@ export type Database = {
         Row: {
           aarsag: string | null
           activity_id: string | null
+          agent_code: string | null
           company_id: string
           contact_list_id: string
           created_at: string
@@ -2740,6 +2741,7 @@ export type Database = {
         Insert: {
           aarsag?: string | null
           activity_id?: string | null
+          agent_code?: string | null
           company_id: string
           contact_list_id: string
           created_at?: string
@@ -2756,6 +2758,7 @@ export type Database = {
         Update: {
           aarsag?: string | null
           activity_id?: string | null
+          agent_code?: string | null
           company_id?: string
           contact_list_id?: string
           created_at?: string
@@ -6761,22 +6764,40 @@ export type Database = {
         Returns: number
       }
       region_for_postnr: { Args: { _zip: string }; Returns: string }
-      registrer_udfald: {
-        Args: {
-          _aarsag?: string
-          _company: string
-          _contact_id?: string
-          _kontakt_email?: string
-          _kontakt_telefon?: string
-          _kontakt_titel?: string
-          _list: string
-          _moede_at?: string
-          _note?: string
-          _ring_igen_at?: string
-          _udfald: string
-        }
-        Returns: Json
-      }
+      registrer_udfald:
+        | {
+            Args: {
+              _aarsag?: string
+              _agent_code: string
+              _company: string
+              _contact_id?: string
+              _kontakt_email?: string
+              _kontakt_telefon?: string
+              _kontakt_titel?: string
+              _list: string
+              _moede_at?: string
+              _note?: string
+              _ring_igen_at?: string
+              _udfald: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _aarsag?: string
+              _company: string
+              _contact_id?: string
+              _kontakt_email?: string
+              _kontakt_telefon?: string
+              _kontakt_titel?: string
+              _list: string
+              _moede_at?: string
+              _note?: string
+              _ring_igen_at?: string
+              _udfald: string
+            }
+            Returns: Json
+          }
       relink_sales_locations: { Args: never; Returns: Json }
       reservedele_til_betaling: {
         Args: { _saelger: string }

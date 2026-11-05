@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Loader2, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { AARSAGER, UDFALD_LABEL, VALGBARE_UDFALD, ringIgenHurtigvalg, type Udfald } from "@/lib/telemarketing";
 import { formatTelefon, telHref } from "@/lib/telefon";
+import { AGENT_CODES, agentKravOpfyldt, hentAgent, gemAgent, type AgentCode } from "@/lib/agent-code";
 
 export type UdfaldKontakt = { id: string; navn: string; titel: string | null; telefon?: string | null; email?: string | null };
 export type UdfaldVirksomhed = { company_id: string; navn: string; telefon: string | null; kontakter: UdfaldKontakt[] };
@@ -23,10 +24,12 @@ export async function registrerUdfald(listId: string, companyId: string, udfald:
 }
 
 /** "Registrér udfald" – samme dialog i ringevisningen og i listevisningen. */
-export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClose, onDone }: {
+export function UdfaldDialog({ listId, virksomhed, initial, caller = false, initialNote = "", opretKontakt, onClose, onDone }: {
   listId: string;
   virksomhed: UdfaldVirksomhed;
   initial?: Udfald;
+  caller?: boolean;
+  initialNote?: string;
   opretKontakt: (navn: string, titel: string | null, telefon: string | null, email: string | null) => Promise<string | null>;
   onClose: () => void;
   onDone: () => void;
@@ -34,7 +37,9 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
   const [udfald, setUdfald] = useState<Udfald | null>(initial ?? null);
   const [tid, setTid] = useState("");
   const [aarsag, setAarsag] = useState("");
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(initialNote);
+  const [agent, setAgent] = useState<AgentCode | null>(null);
+  useEffect(() => { if (caller) setAgent(hentAgent()); }, [caller]);
   const [kontakt, setKontakt] = useState("");
   const [nyKontakt, setNyKontakt] = useState("");
   const [kTitel, setKTitel] = useState("");
@@ -52,10 +57,11 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
   const spoerg = virksomhed.kontakter[0];
 
   const send = async () => {
+    if (!agentKravOpfyldt(caller, agent)) return toast.error("Vælg agent A–H, før du gemmer");
     if (!udfald) return toast.error("Vælg et udfald");
     if (udfald === "note" && !note.trim()) return toast.error("Skriv en note");
     if (udfald === "oensker_ikke_kontakt" && !confirm("Virksomheden udelukkes fra alle fremtidige lister. Fortsæt?")) return;
-    const extra: Record<string, unknown> = { _note: note.trim() || null };
+    const extra: Record<string, unknown> = { _note: note.trim() || null, _agent_code: caller ? agent : null };
     if (udfald === "ring_igen") {
       if (!tid) return toast.error("Vælg dato og tid");
       extra._ring_igen_at = new Date(tid).toISOString();
@@ -102,6 +108,14 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
             </div>
           )}
         </div>
+
+        {caller && <div className="space-y-2">
+          <Label>Agent</Label>
+          <div className="grid grid-cols-8 gap-1.5" role="group" aria-label="Agent">
+            {AGENT_CODES.map(code => <Button key={code} type="button" size="sm" variant={agent === code ? "default" : "outline"} className="px-0" aria-pressed={agent === code} onClick={() => { setAgent(code); gemAgent(code); }}>{code}</Button>)}
+          </div>
+          {!agent && <p role="alert" className="text-sm text-destructive">Vælg agent A–H, før du gemmer.</p>}
+        </div>}
 
         <div className="grid grid-cols-2 gap-2">
           {VALGBARE_UDFALD.map((u) => (
@@ -158,7 +172,7 @@ export function UdfaldDialog({ listId, virksomhed, initial, opretKontakt, onClos
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Annullér</Button>
-          <Button disabled={busy || !udfald} onClick={send}>{busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Gem</Button>
+          <Button disabled={busy || !udfald || !agentKravOpfyldt(caller, agent)} onClick={send}>{busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Gem</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

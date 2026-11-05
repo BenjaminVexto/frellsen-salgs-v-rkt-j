@@ -49,6 +49,8 @@ import { hentAlle } from "@/lib/hent-alle";
 import { formatTelefon, telHref, webHref, telefonNumre } from "@/lib/telefon";
 import { Ringevisning } from "@/components/telemarketing/ringevisning";
 import { BureauPanel } from "@/components/telemarketing/bureau-panel";
+import { AgentFilter } from "@/components/kontaktliste/agent-filter";
+import { matcherAgent, type AgentFilter as AgentValg } from "@/lib/agent-code";
 
 export const Route = createFileRoute("/_authenticated/kontaktlister_/$id")({
   head: () => ({ meta: [
@@ -97,6 +99,7 @@ type Row = {
   status: AssignmentStatus;
   status_aarsag: string | null;
   antal_forsoeg: number;
+  agent_code: string | null;
   kontakter: { id: string; navn: string; titel: string | null; telefon: string | null; email: string | null }[];
   priority: PriorityLevel;
   next_followup_date: string | null;
@@ -143,6 +146,7 @@ function KontaktlisteDetalje() {
   const [fStatus, setFStatus] = useState<string>("alle");
   const [fPriority, setFPriority] = useState<string>("alle");
   const [fSeller, setFSeller] = useState<string>("alle");
+  const [fAgent, setFAgent] = useState<AgentValg>("alle");
   const [fOnlyMine, setFOnlyMine] = useState(false);
   const [fOverdue, setFOverdue] = useState(false);
   const [fKunTlf, setFKunTlf] = useState(false);
@@ -178,7 +182,7 @@ function KontaktlisteDetalje() {
     setList(listData as any);
     // Seneste aktivitet pr. virksomhed uanset kilde (samme kilde for alle roller)
     const { data: senesteData } = await (supabase as any).rpc("tm_seneste_aktivitet", { _list: id });
-    const noteMap = new Map<string, { note: string | null; at: string; bruger: string | null }>(
+    const noteMap = new Map<string, { note: string | null; at: string; bruger: string | null; agent_code: string | null }>(
       Object.entries((senesteData ?? {}) as Record<string, any>),
     );
 
@@ -261,6 +265,7 @@ function KontaktlisteDetalje() {
       status: a.status,
       status_aarsag: a.status_aarsag ?? null,
       antal_forsoeg: a.antal_forsoeg ?? 0,
+      agent_code: noteMap.get(a.company_id)?.agent_code ?? null,
       kontakter: alleKontakter.get(a.company_id) ?? [],
       priority: a.priority,
       next_followup_date: a.next_followup_date,
@@ -326,6 +331,7 @@ function KontaktlisteDetalje() {
     let arr = rows;
     if (fStatus !== "alle") arr = arr.filter((r) => r.status === fStatus);
     if (fPriority !== "alle") arr = arr.filter((r) => r.priority === fPriority);
+    arr = arr.filter(r => matcherAgent(r.agent_code, fAgent));
     if (fKunTlf) arr = arr.filter((r) => telefonNumre(r.location_phone, r.company.phone).length > 0);
     if (isAdmin && fSeller !== "alle")
       arr = arr.filter((r) => r.assigned_to === fSeller);
@@ -369,7 +375,7 @@ function KontaktlisteDetalje() {
       return 0;
     });
     return arr;
-  }, [rows, fStatus, fPriority, fSeller, fOnlyMine, fOverdue, fKunTlf, sortKey, sortDir, isAdmin, auth.user?.id, today]);
+  }, [rows, fStatus, fPriority, fSeller, fAgent, fOnlyMine, fOverdue, fKunTlf, sortKey, sortDir, isAdmin, auth.user?.id, today]);
 
   const eksporterCsv = () => {
 
@@ -574,6 +580,7 @@ function KontaktlisteDetalje() {
                   Kun mine
                 </label>
               )}
+              <AgentFilter value={fAgent} onChange={setFAgent} />
               <label className="flex items-center gap-2 text-sm whitespace-nowrap">
                 <Switch checked={fOverdue} onCheckedChange={setFOverdue} />
                 Kun overskredet
@@ -658,7 +665,7 @@ function KontaktlisteDetalje() {
                     filtered.map((r) => {
                       const overdue =
                         r.next_followup_date && r.next_followup_date < today;
-                      const statusTekstFull = statusTekst(r.status, r.status_aarsag, r.antal_forsoeg);
+                      const statusTekstFull = statusTekst(r.status, r.status_aarsag, r.antal_forsoeg) + (r.agent_code ? ` · Agent ${r.agent_code}` : "");
                       return (
                         <TableRow key={r.id}>
                           <TableCell className="font-medium align-top">
@@ -726,7 +733,7 @@ function KontaktlisteDetalje() {
                           <TableCell className="align-top">
                             <div className="flex flex-col items-start gap-2">
                               <span
-                                className="text-sm font-medium max-w-full truncate"
+                                className="text-sm font-medium max-w-full break-words"
                                 title={statusTekstFull}
                               >
                                 {statusTekstFull}
