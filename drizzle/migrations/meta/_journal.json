@@ -1100,6 +1100,13 @@
       "when": 1793616462550,
       "tag": "0156_caller_saelger_synlighed",
       "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1793873265212,
+      "tag": "0157_kontaktliste_agent_code",
+      "breakpoints": true
     }
   ]
 }
