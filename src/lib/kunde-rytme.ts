@@ -1,10 +1,10 @@
 // Tekst til kundekortet for kunder med en etableret købsrytme (>= 3 købsmåneder).
 // Selve statusreglen ligger i databasen (kunde_rytme_genberegn): aktiv indtil
-// tid siden sidste forbrugskøb > max(3 mdr, 1,5 x eget interval).
+// tid siden sidste forbrugskøb > max(6 mdr, 1,5 x eget interval).
 
 export function rytmeGraenseMdr(koebsmaaneder: number | null, intervalMdr: number | null): number {
-  if (koebsmaaneder == null || koebsmaaneder < 3 || intervalMdr == null) return 3;
-  return Math.max(3, 1.5 * intervalMdr);
+  if (koebsmaaneder == null || koebsmaaneder < 3 || intervalMdr == null) return 6;
+  return Math.max(6, 1.5 * intervalMdr);
 }
 
 const MDR = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"];

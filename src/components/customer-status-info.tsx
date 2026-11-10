@@ -34,14 +34,14 @@ export const CUSTOMER_STATUS_DEFS: Record<
   aktiv_kunde: {
     label: "Aktiv kunde",
     emoji: "✅",
-    short: "forbrugsvarer inden for 3 mdr.",
-    long: "Har købt kaffe eller andre forbrugsvarer inden for de seneste 3 måneder.",
+    short: "forbrugsvarer inden for 6 mdr.",
+    long: "Har købt kaffe eller andre forbrugsvarer inden for de seneste 6 måneder. En etableret længere købsrytme kan forlænge perioden.",
   },
   sovende_kunde: {
     label: "Sovende kunde",
     emoji: "💤",
-    short: "forbrugsvarer for 4–12 mdr. siden",
-    long: "Har ikke købt forbrugsvarer i 3 måneder, men har købt inden for det seneste år. Tag kontakt.",
+    short: "ingen forbrugsvarer i over 6 mdr., men køb inden for 12 mdr.",
+    long: "Har ikke købt forbrugsvarer i over 6 måneder, men har købt inden for det seneste år. En etableret længere købsrytme kan forlænge aktivperioden. Tag kontakt.",
   },
   servicekunde: {
     label: "Servicekunde",

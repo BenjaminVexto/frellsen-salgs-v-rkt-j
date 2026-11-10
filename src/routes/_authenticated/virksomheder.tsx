@@ -53,6 +53,7 @@ import {
 } from "@/components/company-filter";
 import { toast } from "sonner";
 import { antalMatchendeKonti, matchendeKonti } from "@/components/company-filter/company-search";
+import { SOEGE_STATUSSER } from "@/components/company-filter/status-oversigt";
 
 export const Route = createFileRoute("/_authenticated/virksomheder")({
   component: VirksomhederListe,
@@ -105,6 +106,7 @@ function VirksomhederListe() {
   const {
     rows,
     filtered,
+    statusCounts,
     loading,
     q,
     setQ,
@@ -120,8 +122,8 @@ function VirksomhederListe() {
 
   // Standard sælgervalg: "Mine kunder" for sælgere, "Alle" for admin/salgssupport.
   const defaultSaelger = isAdmin ? "alle" : "mine";
-  const baseFilters = useMemo(() => ({ ...DEFAULT_FILTERS, saelger: defaultSaelger }), [defaultSaelger]);
-  const storeKey = auth.user?.id ? `virksomheder-filtre:${auth.user.id}` : null;
+  const baseFilters = useMemo(() => ({ ...DEFAULT_FILTERS, saelger: defaultSaelger, customerTypes: ["aktiv_kunde"] }), [defaultSaelger]);
+  const storeKey = auth.user?.id ? `virksomheder-filtre-v2:${auth.user.id}` : null;
   const [restored, setRestored] = useState(false);
   useEffect(() => {
     if (restored || auth.loading || !storeKey) return;
@@ -410,8 +412,7 @@ function VirksomhederListe() {
             <SheetTitle>Filtre</SheetTitle>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3">
-            <FilterLinje filters={filters} setFilters={setFilters} sellers={sellers} defaultSaelger={defaultSaelger} />
-            <Hurtigvalg setFilters={setFilters} base={baseFilters} />
+            <FilterLinje filters={filters} setFilters={setFilters} sellers={sellers} defaultSaelger={defaultSaelger} hideStatus />
             <FlereFiltre filters={filters} setFilters={setFilters} isAdmin={isAdmin} />
           </div>
           <SheetFooter className="flex-row gap-2 border-t px-4 py-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
@@ -448,8 +449,7 @@ function VirksomhederListe() {
           showFilterButton={false}
         />
         <div className="mt-2 space-y-2">
-          <FilterLinje filters={filters} setFilters={setFilters} sellers={sellers} defaultSaelger={defaultSaelger} />
-          <Hurtigvalg setFilters={setFilters} base={baseFilters} />
+          <FilterLinje filters={filters} setFilters={setFilters} sellers={sellers} defaultSaelger={defaultSaelger} hideStatus />
           {templates.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="text-muted-foreground mr-1">Skabeloner:</span>
@@ -476,6 +476,15 @@ function VirksomhederListe() {
         )}
       </div>
 
+      <div className="flex flex-wrap gap-2 mb-4 border-b pb-3" role="group" aria-label="Kundestatus i søgeresultatet">
+        {[...SOEGE_STATUSSER, { value: "alle", label: "Alle" }].map(({ value, label }) => {
+          const valgt = value === "alle" ? filters.customerTypes.length === 0 : filters.customerTypes.length === 1 && filters.customerTypes[0] === value;
+          return <Button key={value} variant={valgt ? "default" : "outline"} size="sm" aria-pressed={valgt}
+            onClick={() => setFilters((f) => ({ ...f, customerTypes: value === "alle" ? [] : [value] }))}>
+            {label} <span className="ml-2 tabular-nums">{loading ? "…" : (statusCounts[value] ?? 0).toLocaleString("da-DK")}</span>
+          </Button>;
+        })}
+      </div>
       <div className="md:hidden text-sm text-muted-foreground mb-2">
         <strong className="text-foreground">{items.length.toLocaleString("da-DK")}</strong> virksomheder ({antalKonti.toLocaleString("da-DK")} konti)
       </div>
@@ -489,7 +498,7 @@ function VirksomhederListe() {
           <p className="p-4 text-sm text-muted-foreground">Indlæser…</p>
         ) : displayed.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">
-            Ingen virksomheder fundet.
+            Ingen virksomheder med den valgte status.
           </p>
         ) : (
           <>

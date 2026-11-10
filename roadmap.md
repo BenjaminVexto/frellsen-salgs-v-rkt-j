@@ -1,5 +1,11 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Afdelinger, seks måneder og virksomhedssøgning
+- [ ] Skift alle brugerrettede lokationsbetegnelser til Afdelinger uden at ændre tekniske nøgler.
+- [ ] Seks måneders aktivgrænse i fælles statusregler, købsrytme og forklaringer; bevar øvrige regler og bonusgrundlag.
+- [ ] Aktive kunder som standard med statusfaner og antal match i øvrige statusser; bevar søgning og gruppevalg.
+- [ ] Regressionstests og indlogget kontrol af søgning, statusvalg og afdelingsfane.
+
 ## Aktuelt: Agent på kontaktlisteudfald
 - [x] Agent A–H på opkaldsloggen, påkrævet for bureauet med eksisterende adgangskontrol bevaret; gamle registreringer er null.
 - [x] Agentvalg med browserhukommelse, seneste-agentfilter og agent i liste/historik; direkte Ingen svar og fri note går også via dialogen.

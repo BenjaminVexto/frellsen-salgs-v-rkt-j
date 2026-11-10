@@ -96,11 +96,13 @@ export function FilterLinje({
   setFilters,
   sellers,
   defaultSaelger,
+  hideStatus = false,
 }: {
   filters: FilterState;
   setFilters: SetF;
   sellers: Seller[];
   defaultSaelger: string;
+  hideStatus?: boolean;
 }) {
   const statusVal =
     filters.customerTypes.length === 0
@@ -136,14 +138,14 @@ export function FilterLinje({
           ))}
         </div>
       </DD>
-      <DD label="Status" value={statusVal} active={filters.customerTypes.length > 0}>
+      {!hideStatus && <DD label="Status" value={statusVal} active={filters.customerTypes.length > 0}>
         {STATUS_OPTS.map((o) => (
           <label key={o.v} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm cursor-pointer hover:bg-muted">
             <Checkbox checked={filters.customerTypes.includes(o.v)} onCheckedChange={() => toggleStatus(o.v)} />
             {o.l}
           </label>
         ))}
-      </DD>
+      </DD>}
       <DD
         label="Segment"
         value={SEGMENT_OPTS.find((o) => o.v === filters.binding)?.l ?? "Alle"}
