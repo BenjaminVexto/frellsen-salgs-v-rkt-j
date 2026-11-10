@@ -1,9 +1,9 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
 ## Aktuelt: Egne opfølgninger og virksomhedslinks
-- [ ] Dagens fokus og Overskredet åbner den konkrete virksomhed.
-- [ ] Boosts ring-igen-opgaver vises ikke som sælgerens egne; egne opfølgninger og møder bevares.
-- [ ] Test med Mads-visning og eksisterende opgaver uden ændring af data eller adgang.
+- [x] Dagens fokus og Overskredet åbner den konkrete virksomhed med typed virksomhedslink.
+- [x] Boosts ring-igen-opgaver og afsluttede listeudfald vises ikke som sælgerens egne; egne aktivitetsopfølgninger medtages, bookede salgsmuligheder bevares.
+- [x] Fem regressionstests bestået; indlogget admin i Mads-visning: SameSystem og AGC er væk fra Overskredet, egen opfølgning Danske Advokater åbner korrekt virksomhed. Build OK, ingen runtimefejl, ingen data- eller adgangsændringer. Separat direkte Mads-session er ikke testet.
 
 ## Aktuelt: Afdelinger, seks måneder og virksomhedssøgning
 - [x] Skift brugerrettede lokationsbetegnelser til Afdelinger; links og tekniske nøgler bevaret.
