@@ -1232,7 +1232,7 @@ export function LokationerSektion({
       {summaryQ.isLoading || (cvr && oversigtQ.isLoading) ? (
         <div role="status" className="flex items-center gap-2 py-3 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Henter afdelinger…</div>
       ) : summaryQ.error || oversigtQ.error ? (
-        <p role="alert" className="text-sm text-destructive">Lokationsoplysninger kunne ikke hentes.</p>
+        <p role="alert" className="text-sm text-destructive">Afdelingsoplysninger kunne ikke hentes.</p>
       ) : aktive.length === 0 ? (
         <p className="text-sm text-muted-foreground">Ingen aktive afdelinger.</p>
       ) : (

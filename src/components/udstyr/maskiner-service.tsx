@@ -123,7 +123,7 @@ export function MaskinerService() {
                 <p className="mt-3 text-xs text-muted-foreground">{FORDELT_TEKST}</p>
               </AdminSektion>
               <AdminSektion titel="Serviceregnskab"><Serviceaftaler lok={lok} setDrill={setDrill} /></AdminSektion>
-              <AdminSektion titel="Lokationsregnskab"><Lokationsregnskab lok={lok} maaneder={maaneder} setDrill={setDrill} /></AdminSektion>
+              <AdminSektion titel="Afdelingsregnskab"><Lokationsregnskab lok={lok} maaneder={maaneder} setDrill={setDrill} /></AdminSektion>
               <AdminSektion titel="Datafejl"><Datafejl lok={lok} satser={satser} /><LejeUdenBonusklasse /></AdminSektion>
             </div>}
           </>
@@ -352,7 +352,7 @@ function Lokationsregnskab({ lok, maaneder, setDrill }: { lok: LokRegnskab[]; ma
     <Card className="p-4">
       <div className="mb-1 flex items-center justify-between">
         <h2 className="font-semibold">Giver det mening? – regnskab pr. virksomhed</h2>
-        <Button size="sm" variant="ghost" onClick={() => setDrill({ slags: "lokationer", titel: "Lokationsregnskab", raekker: alleLok })}>Alle afdelinger ({alleLok.length})</Button>
+        <Button size="sm" variant="ghost" onClick={() => setDrill({ slags: "lokationer", titel: "Afdelingsregnskab", raekker: alleLok })}>Alle afdelinger ({alleLok.length})</Button>
       </div>
       <p className="mb-3 text-xs text-muted-foreground">Sum af virksomhedens afdelinger: Varer-DB + Leje + Service − Belastning − Serviceudgifter = DB inkl. udstyr. Dårligst først. Klik for afdelingerne.</p>
       <div className="overflow-x-auto">
