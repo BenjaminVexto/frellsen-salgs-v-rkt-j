@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { hentAlle } from "@/lib/hent-alle";
+import { egneListeOpfoelgninger, type Opfoelgning, type OpkaldEjer } from "@/lib/dashboard-opfoelgning";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -48,7 +49,14 @@ import {
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
-  head: () => ({ meta: [{ title: "Mit overblik — Frellsen Salgsoversigt" }] }),
+  head: () => ({ meta: [
+    { title: "Mit overblik — Frellsen Salgsoversigt" },
+    { name: "description", content: "Egne opfølgninger, salgsmuligheder og kundesignaler i Frellsen CRM." },
+    { property: "og:title", content: "Mit overblik — Frellsen Salgsoversigt" },
+    { property: "og:description", content: "Egne opfølgninger og kundesignaler i Frellsen CRM." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
 });
 
 
@@ -70,18 +78,43 @@ function DashboardPage() {
     enabled: !!userId,
     queryKey: ["dashboard-followups", userId, isAdmin, afdelingFilter],
     queryFn: async () => {
-      let q = supabase
+      if (!userId) return [];
+      const assignments = await hentAlle((from, to) => {
+        let q = supabase
         .from("contact_list_assignments")
         .select(
-          "id, status, priority, next_followup_date, next_action_note, assigned_to, company:companies!inner(id, name, city, afdeling_nr)"
+          "id, company_id, contact_list_id, status, priority, next_followup_date, next_action_note, assigned_to, company:companies!inner(id, name, city, afdeling_nr)"
         )
         .not("next_followup_date", "is", null)
-        .order("next_followup_date", { ascending: true });
-      if (!isAdmin) q = q.eq("assigned_to", userId!);
+        .order("id");
+      if (!isAdmin) q = q.eq("assigned_to", userId);
       if (afdelingFilter != null) q = q.eq("company.afdeling_nr", afdelingFilter);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data ?? [];
+      return q.range(from, to) as any;
+      });
+      let listRows = assignments as Array<Opfoelgning & { company_id: string; contact_list_id: string; status: string }>;
+      if (!isAdmin && listRows.length) {
+        const logs: OpkaldEjer[] = [];
+        const ids = [...new Set(listRows.map((r) => r.company_id))];
+        for (let i = 0; i < ids.length; i += 150) {
+          logs.push(...await hentAlle<OpkaldEjer>((from, to) => supabase.from("kontaktliste_opkald")
+            .select("company_id,contact_list_id,user_id,rolle,udfald")
+            .in("company_id", ids.slice(i, i + 150)).order("created_at", { ascending: false }).order("id")
+            .range(from, to) as any));
+        }
+        listRows = egneListeOpfoelgninger(listRows, logs, userId);
+      }
+      const ownActivities = await hentAlle<any>((from, to) => {
+        let q = supabase.from("activities").select("id,note,next_followup_date,contact_list_assignment_id,company:companies!inner(id,name,city,afdeling_nr)")
+          .not("next_followup_date", "is", null).order("id");
+        if (!isAdmin) q = q.eq("created_by", userId);
+        if (afdelingFilter != null) q = q.eq("company.afdeling_nr", afdelingFilter);
+        return q.range(from, to) as any;
+      });
+      const assignmentIds = new Set(listRows.map((r) => r.id));
+      const activities: Opfoelgning[] = ownActivities
+        .filter((a) => !a.contact_list_assignment_id || !assignmentIds.has(a.contact_list_assignment_id))
+        .map((a) => ({ id: `activity:${a.id}`, company: a.company, next_followup_date: a.next_followup_date, next_action_note: a.note }));
+      return [...listRows, ...activities].sort((a, b) => (a.next_followup_date ?? "").localeCompare(b.next_followup_date ?? ""));
     },
   });
 
@@ -323,7 +356,7 @@ function DashboardPage() {
               dateLabel="I dag"
               note={item.next_action_note}
               tone="success"
-              to="/virksomheder"
+              companyId={item.company?.id}
             />
           ))}
         </PanelCard>
@@ -344,7 +377,7 @@ function DashboardPage() {
               dateLabel={format(parseISO(item.next_followup_date), "d. MMM", { locale: da })}
               note={item.next_action_note}
               tone="destructive"
-              to="/virksomheder"
+              companyId={item.company?.id}
             />
           ))}
         </PanelCard>
@@ -511,18 +544,20 @@ function FollowupRow({
   dateLabel,
   note,
   tone,
-  to,
+  companyId,
 }: {
   company: string;
   meta?: string | null;
   dateLabel: string;
   note?: string | null;
   tone: "destructive" | "success";
-  to: string;
+  companyId?: string;
 }) {
+  if (!companyId) return null;
   return (
     <Link
-      to={to}
+      to="/virksomheder/$id"
+      params={{ id: companyId }}
       className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 border-b border-border last:border-0 hover:bg-accent/40 -mx-2 px-2 rounded-md transition-colors"
     >
       <div className="min-w-0 flex-1">
