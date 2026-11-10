@@ -1,5 +1,10 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Egne opfølgninger og virksomhedslinks
+- [ ] Dagens fokus og Overskredet åbner den konkrete virksomhed.
+- [ ] Boosts ring-igen-opgaver vises ikke som sælgerens egne; egne opfølgninger og møder bevares.
+- [ ] Test med Mads-visning og eksisterende opgaver uden ændring af data eller adgang.
+
 ## Aktuelt: Afdelinger, seks måneder og virksomhedssøgning
 - [x] Skift brugerrettede lokationsbetegnelser til Afdelinger; links og tekniske nøgler bevaret.
 - [x] Seks kalendermåneders aktivgrænse i centrale statusregler, købsrytme og forklaringer; længere købsrytme og øvrige statusregler bevaret. Eksisterende adminfunktion opdaterede status for 21.793 konti uden ændring af salgs- eller bonusberegninger.
