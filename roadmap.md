@@ -1,5 +1,11 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Afdelinger, seks måneder og virksomhedssøgning
+- [x] Skift brugerrettede lokationsbetegnelser til Afdelinger; links og tekniske nøgler bevaret.
+- [x] Seks kalendermåneders aktivgrænse i centrale statusregler, købsrytme og forklaringer; længere købsrytme og øvrige statusregler bevaret. Eksisterende adminfunktion opdaterede status for 21.793 konti uden ændring af salgs- eller bonusberegninger.
+- [x] Aktive kunder som standard med lokale statusfaner og antal match i øvrige statusser; søgning og gruppevalg bevaret.
+- [x] 26 regressionstests bestået; SQL-grænseprøver OK. Indlogget kontrol ved 1280 px: IBF viser 1 aktiv og 1 tidligere konto, faner viser de korrekte match, Alle viser begge; Afdelinger åbner korrekt uden runtimefejl.
+
 ## Aktuelt: Agent på kontaktlisteudfald
 - [x] Agent A–H på opkaldsloggen, påkrævet for bureauet med eksisterende adgangskontrol bevaret; gamle registreringer er null.
 - [x] Agentvalg med browserhukommelse, seneste-agentfilter og agent i liste/historik; direkte Ingen svar og fri note går også via dialogen.

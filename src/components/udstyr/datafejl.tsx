@@ -42,7 +42,7 @@ export function Datafejl({ lok, satser }: { lok: LokRegnskab[]; satser: Satser }
       return <section key={t.type}>
         <h3 className="mb-2 font-semibold">{t.titel} <span className="font-normal text-muted-foreground">({aabne.length} åbne · {t.rows.length - aabne.length} tjekket)</span></h3>
         {vist.length ? <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm">
-          <thead className="text-xs text-muted-foreground"><tr className="border-b"><th className="py-2 text-left">Kunde</th><th className="text-left">Lokation</th><th className="px-3 text-right">{t.beloebNavn}</th><th className="text-left">Tjek</th></tr></thead>
+          <thead className="text-xs text-muted-foreground"><tr className="border-b"><th className="py-2 text-left">Kunde</th><th className="text-left">Afdeling</th><th className="px-3 text-right">{t.beloebNavn}</th><th className="text-left">Tjek</th></tr></thead>
           <tbody>{vist.slice(0, 100).map(r => <FejlRaekke key={r.noegle} type={t.type} r={r} tjek={tjek.get(`${t.type}|${r.noegle}`)} />)}</tbody>
         </table>{vist.length > 100 && <p className="mt-1 text-xs text-muted-foreground">Viser 100 af {vist.length}.</p>}</div>
           : <p className="text-sm text-muted-foreground">Ingen åbne rækker.</p>}

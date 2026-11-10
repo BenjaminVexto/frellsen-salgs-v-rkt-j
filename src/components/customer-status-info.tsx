@@ -34,14 +34,14 @@ export const CUSTOMER_STATUS_DEFS: Record<
   aktiv_kunde: {
     label: "Aktiv kunde",
     emoji: "✅",
-    short: "forbrugsvarer inden for 3 mdr.",
-    long: "Har købt kaffe eller andre forbrugsvarer inden for de seneste 3 måneder.",
+    short: "forbrugsvarer inden for 6 mdr.",
+    long: "Har købt kaffe eller andre forbrugsvarer inden for de seneste 6 måneder. En etableret længere købsrytme kan forlænge perioden.",
   },
   sovende_kunde: {
     label: "Sovende kunde",
     emoji: "💤",
-    short: "forbrugsvarer for 4–12 mdr. siden",
-    long: "Har ikke købt forbrugsvarer i 3 måneder, men har købt inden for det seneste år. Tag kontakt.",
+    short: "ingen forbrugsvarer i over 6 mdr., men køb inden for 12 mdr.",
+    long: "Har ikke købt forbrugsvarer i over 6 måneder, men har købt inden for det seneste år. En etableret længere købsrytme kan forlænge aktivperioden. Tag kontakt.",
   },
   servicekunde: {
     label: "Servicekunde",
@@ -223,7 +223,7 @@ export function CustomerStatusHelpButton({ label = "Kundestatus" }: { label?: st
               );
             })}
             <p className="text-xs text-muted-foreground pt-2 border-t">
-              Statusserne beregnes automatisk ud fra salgsdata (alle kategorier) + om der står aktivt udstyr hos kunden. En maskine hos kunden ⇒ altid Aktiv. Visma-debitorfeltet "Sidste Varekøb" bruges ikke som styrende kilde — det vises kun til reference.
+              Statusserne beregnes automatisk ud fra køb af forbrugsvarer, købsrytme og aktivt udstyr. Aktivperioden er mindst 6 måneder. Udstyr uden køb af forbrugsvarer kan give status som servicekunde. Visma-debitorfeltet "Sidste Varekøb" bruges ikke som styrende kilde — det vises kun til reference.
             </p>
           </div>
         </DialogContent>

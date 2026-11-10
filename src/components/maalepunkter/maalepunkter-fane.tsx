@@ -410,7 +410,7 @@ export function MaalepunkterFane({
       nyeTabel,
       nyeMaal === "db" ? 2 : 0,
     );
-    if (visNyeLok) block("5 · Nye lokationer pr. måned (antal, første ordre på en ny lokation i en eksisterende kunde)", nyeLokTabel, 0);
+    if (visNyeLok) block("5 · Nye afdelinger pr. måned (antal, første ordre på en ny afdeling i en eksisterende kunde)", nyeLokTabel, 0);
     block(`${maskinNr} · Solgte maskiner pr. måned (stk.)`, maskinTabel, 0);
 
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
@@ -597,7 +597,7 @@ export function MaalepunkterFane({
         maaneder={maaneder}
         brugerId={auth.user?.id ?? "anon"}
         nummer={5}
-        titel="Nye lokationer pr. måned (antal, første ordre på en ny lokation i en eksisterende kunde)"
+        titel="Nye afdelinger pr. måned (antal, første ordre på en ny afdeling i en eksisterende kunde)"
         undertitel="Tæller ikke som ny kunde"
         visKey="nye-lok"
         rows={nyeLokTabel}

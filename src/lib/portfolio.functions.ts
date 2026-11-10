@@ -2,6 +2,7 @@ import { komprimerJson } from "./komprimer-json";
 import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { harGyldigtSammenligningsvindue } from "./kunde-status";
+import { indenForAktivperiode } from "./kundestatus-graense";
 import { erFalder, erVokser } from "./fald";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -633,7 +634,11 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         const slut = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0);
         return Math.floor((evalDate.getTime() - slut) / 86400000);
       };
-      if (lastCons && dageSiden(lastCons) <= 90) return "aktiv_kunde";
+      if (lastCons) {
+        const d = periodToDate(lastCons);
+        const slut = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+        if (indenForAktivperiode(slut, evalDate)) return "aktiv_kunde";
+      }
       if (lastCons && dageSiden(lastCons) <= 365) return "sovende_kunde";
       if (hasEq && lastAny && dageSiden(lastAny) <= 365) return "servicekunde";
       return "tidligere_kunde";

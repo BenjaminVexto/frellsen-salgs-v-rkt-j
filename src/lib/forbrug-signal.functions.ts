@@ -213,7 +213,7 @@ export const getFaldendeKunder = createServerFn({ method: "POST" })
           const n = compMap.get(r.company_id)?.name ?? "";
           const ll = lokLabel.get(r.company_id);
           if (!ll) return n;
-          return `${n}${ll.byer ? ` – ${ll.byer}` : ""} (${ll.egne} af ${ll.total} lokationer)`;
+          return `${n}${ll.byer ? ` – ${ll.byer}` : ""} (${ll.egne} af ${ll.total} afdelinger)`;
         })(),
         by: lokLabel.get(r.company_id)?.byer || compMap.get(r.company_id)?.city || null,
         klasse_primaer: r.klasse_primaer ?? null,

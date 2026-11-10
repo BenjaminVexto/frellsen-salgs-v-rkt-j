@@ -46,7 +46,7 @@ export function SaelgerOverblik({ lok, satser, maaneder }: { lok: LokRegnskab[];
         tal: `${Math.round(x.diffMd).toLocaleString("da-DK")} kr./md.`, negativ: true,
         detaljer: [
           `Køber kaffe for ${kr(x.kaffeDbMd)}/md. (DB) · udlån koster ${kr(x.omkMd)}/md.`,
-          ...x.maskiner.map(({ l, m }) => `${m.b ?? m.t} · ${UDLAAN_LABEL[m.u]} · ${l.adr}${varekoebAndetSted(l, virk.get(l.cid)!) ? " · varekøb på anden lokation" : ""}`),
+          ...x.maskiner.map(({ l, m }) => `${m.b ?? m.t} · ${UDLAAN_LABEL[m.u]} · ${l.adr}${varekoebAndetSted(l, virk.get(l.cid)!) ? " · varekøb på anden afdeling" : ""}`),
         ],
       })) },
     { id: "udskift", titel: "Udskiftning", forklaring: "Maskiner med store reparationsomkostninger – mulighed for en ny maskine",
@@ -87,7 +87,7 @@ export function SaelgerOverblik({ lok, satser, maaneder }: { lok: LokRegnskab[];
       </h2>
       <p className="mb-2 text-sm text-muted-foreground">
         <button type="button" className="hover:underline" onClick={() => setListe({ id: "aftaler", titel: "Serviceaftaler", forklaring: "", raekker: maskinRaekker(aftaler) })}>
-          Serviceaftaler: {antal(aftaler.length)} maskiner · {antal(lokAftaler)} lokationer</button>
+          Serviceaftaler: {antal(aftaler.length)} maskiner · {antal(lokAftaler)} afdelinger</button>
       </p>
       <table className="w-full text-sm">
         <thead><tr className="border-b text-xs text-muted-foreground"><th className="py-2 text-left">Maskintype</th><th className="px-3 text-right">Antal</th><th className="px-3 text-right">Heraf udlån</th><th className="pl-3 text-right">{maaneder === 12 ? "Netto pr. år" : "Netto i perioden"}</th></tr></thead>
@@ -127,7 +127,7 @@ function KundeListe({ liste, onClose }: { liste: Liste; onClose: () => void }) {
   const rows = liste.raekker.filter(r => `${r.kunde} ${r.maskine} ${r.detaljer.join(" ")}`.toLowerCase().includes(s.toLowerCase()));
   return <Dialog open onOpenChange={o => !o && onClose()}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
     <DialogHeader><DialogTitle>{liste.titel}</DialogTitle><DialogDescription>{liste.forklaring || `${antal(rows.length)} resultater`}</DialogDescription></DialogHeader>
-    <Input placeholder="Søg kunde, lokation eller maskine" value={s} onChange={e => { setS(e.target.value); setVis(50); }} />
+    <Input placeholder="Søg kunde, afdeling eller maskine" value={s} onChange={e => { setS(e.target.value); setVis(50); }} />
     <div className="divide-y rounded-md border">{rows.slice(0, vis).map(r => <KundeRaekke key={r.key} r={r} />)}</div>
     {vis < rows.length && <Button variant="outline" onClick={() => setVis(vis + 50)}>Vis flere</Button>}
   </DialogContent></Dialog>;

@@ -52,7 +52,7 @@ export function LocationSalesStrip({ locationId }: { locationId: string; isAdmin
   return (
     <div className="rounded-md border bg-muted/20 p-3 space-y-2">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <TrendingUp className="h-3.5 w-3.5" /> Salg på denne lokation
+        <TrendingUp className="h-3.5 w-3.5" /> Salg på denne afdeling
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
         <div>

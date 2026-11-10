@@ -7,6 +7,7 @@ import { cvrGrupperQuery, cvrNorm } from "@/components/cvr-gruppe";
 import { supabase } from "@/integrations/supabase/client";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { companyMatcher, soegeord } from "./company-search";
+import { matcherKundestatus, statusAntal } from "./status-oversigt";
 export { lokationMatcher } from "./company-search";
 import {
   AssignmentRow,
@@ -322,7 +323,7 @@ export function useCompanyFilter({
 
   // CVR-navne (juridisk navn) for grupper, så fritekst også rammer fx "Region Hovedstaden".
   const cvrGrupperQ = useQuery(cvrGrupperQuery);
-  const filtered = useMemo(() => {
+  const statusCandidates = useMemo(() => {
     const grupper = cvrGrupperQ.data;
     const words = soegeord(q);
     return rows.filter((r) => {
@@ -337,18 +338,6 @@ export function useCompanyFilter({
           if (!hit) return false;
         }
       }
-      if (
-        filters.customerTypes.length &&
-        !filters.customerTypes.includes(r.customer_type)
-      )
-        return false;
-      // Søsterkonto med samme CVR og adresse køber stadig — ikke en reel sovende kunde.
-      if (
-        filters.customerTypes.length &&
-        !filters.customerTypes.includes("tidligere_kunde") &&
-        (r as any).koeber_paa_konto
-      )
-        return false;
       if (filters.sources.length) {
         const src = r.sources ?? [];
         if (!filters.sources.some((s) => src.includes(s))) return false;
@@ -425,11 +414,15 @@ export function useCompanyFilter({
     });
   }, [rows, q, filters, assignmentMap, locationMap, equipmentMap, userId, cvrGrupperQ.data, ringelisteMap]);
 
+  const filtered = useMemo(() => statusCandidates.filter((r) => matcherKundestatus(r, filters.customerTypes)), [statusCandidates, filters.customerTypes]);
+  const statusCounts = useMemo(() => statusAntal(statusCandidates), [statusCandidates]);
+
   const isActive = useMemo(() => computeIsFilterActive(filters), [filters]);
 
   return {
     rows,
     filtered,
+    statusCounts,
     loading,
     q,
     setQ,

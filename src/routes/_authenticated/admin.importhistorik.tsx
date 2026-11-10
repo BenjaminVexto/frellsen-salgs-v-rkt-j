@@ -274,13 +274,13 @@ function GenericBatchDetalje({ batch, onBack }: { batch: Batch; onBack: () => vo
 
       {batch.kind === "maskindata" && (
         <Card className="p-5 mb-4">
-          <h2 className="font-semibold mb-2">Berørte lokationer</h2>
+          <h2 className="font-semibold mb-2">Berørte afdelinger</h2>
           <p className="text-sm text-muted-foreground mb-3">
-            {info.maskindata.updated_count} lokation(er) opdateret,{" "}
+            {info.maskindata.updated_count} afdeling(er) opdateret,{" "}
             {info.maskindata.created_count} ny(e) oprettet.
           </p>
           {info.maskindata.locations.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Ingen lokationer i snapshot.</p>
+            <p className="text-xs text-muted-foreground">Ingen afdelinger i snapshot.</p>
           ) : (
             <div className="max-h-72 overflow-y-auto border rounded-md bg-card divide-y">
               {info.maskindata.locations.map((l: any) => (
@@ -348,7 +348,7 @@ function GenericBatchDetalje({ batch, onBack }: { batch: Batch; onBack: () => vo
         </h2>
         <p className="text-sm text-muted-foreground mb-3">
           {batch.kind === "maskindata"
-            ? "Genskriver alle berørte lokationer til deres tilstand før importen og sletter lokationer der blev oprettet under importen."
+            ? "Genskriver alle berørte afdelinger til deres tilstand før importen og sletter afdelinger der blev oprettet under importen."
             : "Sletter aftalen og dens uploadede dokument permanent. Virksomheder beholder deres customer_segment_1-felt."}
         </p>
         <Button variant="destructive" size="sm" onClick={() => setConfirm(true)} disabled={deleting}>
@@ -365,7 +365,7 @@ function GenericBatchDetalje({ batch, onBack }: { batch: Batch; onBack: () => vo
             </AlertDialogTitle>
             <AlertDialogDescription>
               {batch.kind === "maskindata"
-                ? "Alle equipment-felter på de berørte lokationer genskrives til deres tilstand før importen. Dette kan ikke fortrydes."
+                ? "Alle equipment-felter på de berørte afdelinger genskrives til deres tilstand før importen. Dette kan ikke fortrydes."
                 : "Aftalen og dens uploadede dokument slettes permanent. Dette kan ikke fortrydes."}
             </AlertDialogDescription>
           </AlertDialogHeader>

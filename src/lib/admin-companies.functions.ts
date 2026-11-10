@@ -830,7 +830,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
         if (error) console.error("[locations] flyt til ny virksomhed fejlede:", m.id, error.message);
         else movedToNewCompany++;
       }
-      if (movedToNewCompany) console.log(`[locations] ${movedToNewCompany} lokationer flyttet til ny virksomhed`);
+      if (movedToNewCompany) console.log(`[locations] ${movedToNewCompany} afdelinger flyttet til ny virksomhed`);
     }
 
     for (let i = 0; i < data.rows.length; i += CHUNK) {
@@ -1145,14 +1145,14 @@ Kundesegment 2: ${company.customer_segment_2 ?? ""}
 Kundesegment 3: ${company.customer_segment_3 ?? ""}
 Kontaktperson fra Visma: ${company.contact_person ?? "Ingen registreret"}
 
-LOKATIONER (${locations.length}):
+AFDELINGER (${locations.length}):
 ${
   locations
     .map(
       (l: any) =>
         `- ${l.address ?? ""} ${l.zip ?? ""} ${l.city ?? ""}${l.contact_person ? `\n   Kontakt: ${l.contact_person}` : ""}${l.phone ? `\n   ${l.phone}` : ""}${l.is_primary ? " (Primær)" : ""}`,
     )
-    .join("\n") || "Ingen lokationer"
+    .join("\n") || "Ingen afdelinger"
 }
 
 KONTAKTPERSONER:
@@ -1234,7 +1234,7 @@ MAKS LÆNGDE:
 
 NULREGEL:
 Hellere "ukendt" end forkert. En forkert kontaktperson, et forkert tal eller en usikker antagelse kan ødelægge sælgerens troværdighed.
-Opfind aldrig navne, tal, kontaktpersoner, kantineforhold, lokationer, aftaler, problemer eller citater.
+Opfind aldrig navne, tal, kontaktpersoner, kantineforhold, afdelinger, aftaler, problemer eller citater.
 
 GRUNDPRINCIP:
 Skeln altid mellem:
@@ -1309,12 +1309,12 @@ Brug kun offentlige oplysninger, hvis de er direkte relevante for salget:
 - branche
 - ansatte/størrelse
 - adresse/hovedkontor
-- lokationer eller afdelinger
+- afdelinger eller afdelinger
 - kontor, produktion, lager, værksted, institution, butik, kantine, drift eller udekørende teams
 - vækst, ny afdeling, jobopslag eller nyheder, hvis det påvirker kaffebehovet
 Brug ikke irrelevante pressehistorier.
 Brug ikke usikre oplysninger som fakta.
-Hvis web viser flere lokationer eller afdelinger: prioritér det i Frellsen-vinklen, fordi det kan åbne for samlet aftale.
+Hvis web viser flere afdelinger eller afdelinger: prioritér det i Frellsen-vinklen, fordi det kan åbne for samlet aftale.
 Antal ansatte fra web må gerne bruges som ca.-tal: "ca. X ansatte".
 Hvis kilden er usikker, skriv "ansatte ukendt".
 
@@ -1326,7 +1326,7 @@ Vurder ud fra:
 - gæster/kundebesøg
 - kontor/kantine
 - produktion/lager/drift
-- flere lokationer
+- flere afdelinger
 - eksisterende Frellsen-historik
 Marker antagelser som antagelser.
 
@@ -1338,7 +1338,7 @@ Vælg den mest relevante vinkel:
 - opgradering/mersalg
 - genaktivering
 - konkurrentudfordring
-- løsning til flere lokationer
+- løsning til flere afdelinger
 - enkel kontorløsning
 - kantine/høj kapacitet
 - dansk familieejet leverandør, hvis det passer naturligt
@@ -1688,7 +1688,7 @@ export const deleteImportBatch = createServerFn({ method: "POST" })
           .from("locations")
           .update(snap.before as any)
           .eq("id", snap.id);
-        if (uErr) console.error("Rollback fejl for lokation", snap.id, uErr.message);
+        if (uErr) console.error("Rollback fejl for afdeling", snap.id, uErr.message);
       }
       // Slet lokationer der blev oprettet ved importen — kun hvis de stadig kun har equipment-data
       const created = payload.created_location_ids ?? [];

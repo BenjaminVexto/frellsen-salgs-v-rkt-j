@@ -97,7 +97,7 @@ export const getSalesForLocation = createServerFn({ method: "POST" })
     const isAdmin = await kanSeDbUser(context.supabase, context.userId);
     // Service-klienten bruges kun til at læse DB; adgangen tjekkes først via RLS.
     const { data: synlig } = await context.supabase.from("locations").select("id").eq("id", data.locationId).maybeSingle();
-    if (!synlig) throw new Error("Ingen adgang til lokationen");
+    if (!synlig) throw new Error("Ingen adgang til afdelingen");
     const salesClient = isAdmin ? supabaseAdmin : context.supabase;
     const cols = isAdmin ? SALES_COLS_ADMIN : SALES_COLS_BASE;
     const [monthlyRes, topRes] = await Promise.all([

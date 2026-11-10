@@ -81,7 +81,7 @@ export function SalesFactsStrip({
         onClick={onMachinesClick}
         label="Maskiner i alt"
         value={antalMaskiner == null ? "…" : `${antalMaskiner} stk.`}
-        note={visEgne ? "Opstillet på dine lokationer" : "Opstillet på alle lokationer"}
+        note={visEgne ? "Opstillet på dine afdelinger" : "Opstillet på alle afdelinger"}
       />
       <Fact
         icon={<Calendar className="h-4 w-4" />}
@@ -123,5 +123,5 @@ function Fact({
       {note && <div className="text-xs text-muted-foreground mt-1">{note}</div>}
     </>
   );
-  return onClick ? <Button variant="outline" onClick={onClick} aria-label="Maskiner i alt – vis lokationer" className="p-4 h-auto min-h-11 min-w-0 block relative text-left whitespace-normal cursor-pointer bg-card text-card-foreground font-normal rounded-xl shadow-sm">{content}</Button> : <Card className={`p-4 min-w-0 relative ${admin ? "border-dashed" : ""}`}>{content}</Card>;
+  return onClick ? <Button variant="outline" onClick={onClick} aria-label="Maskiner i alt – vis afdelinger" className="p-4 h-auto min-h-11 min-w-0 block relative text-left whitespace-normal cursor-pointer bg-card text-card-foreground font-normal rounded-xl shadow-sm">{content}</Button> : <Card className={`p-4 min-w-0 relative ${admin ? "border-dashed" : ""}`}>{content}</Card>;
 }

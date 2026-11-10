@@ -23,7 +23,7 @@ export function dbProvisionTekst(o: BonusOrdning | null | undefined): string {
 }
 
 const RESUME: Record<"db" | "maskiner" | "nykunde", string> = {
-  db: "Provision af DB på dine lokationer i Visma. Leje tæller med 100 % DB; maskinbelastning trækkes fra.",
+  db: "Provision af DB på dine afdelinger i Visma. Leje tæller med 100 % DB; maskinbelastning trækkes fra.",
   maskiner: "Bonus når du vinder en ny aftale via en maskine. Samme maskine hos samme kunde giver kun bonus én gang.",
   nykunde: "Største DB på nye kunder i måneden giver 1.000 kr., nummer to 600 kr.",
 };
@@ -70,7 +70,7 @@ export function BonusRegler({ open, afsnit, ordning, onOpenChange }: { open: boo
             <h3 className="font-semibold">DB-provision</h3>
             <p>{dbProvisionTekst(ordning)}</p>
             {!fast && (
-              <p>DB tæller på de lokationer, du står på i Visma. Leje tæller med 100 % DB, og maskinbelastning trækkes fra.</p>
+              <p>DB tæller på de afdelinger, du står på i Visma. Leje tæller med 100 % DB, og maskinbelastning trækkes fra.</p>
             )}
           </section>
           {fast ? (
@@ -105,7 +105,7 @@ export const MASKINBONUS_PUNKTER = [
   "Samme maskine hos samme kunde giver kun bonus én gang — også hvis en lejemaskine bliver solgt.",
   "Ombytning inden for 24 måneder, reklamationer og tekniske ombytninger giver ikke bonus. Det gør tilbagekøb heller ikke, hvor Frellsen betaler for den gamle maskine.",
   "Opgradering efter 24 måneder til en anden/større model på en ny aftale med mindst 2 års binding kan give bonus efter godkendelse.",
-  "Bonus følger lokationen — ikke hvem der forhandlede aftalen.",
+  "Bonus følger afdelingen — ikke hvem der forhandlede aftalen.",
 ];
 
 /** Fast regeltekst for maskinbonus (besluttet 20/10-2026). */

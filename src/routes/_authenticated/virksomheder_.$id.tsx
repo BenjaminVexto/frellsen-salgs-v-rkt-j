@@ -130,9 +130,9 @@ export const Route = createFileRoute("/_authenticated/virksomheder_/$id")({
   component: VirksomhedsKort,
   head: () => ({ meta: [
     { title: "Kundekort | Frellsen CRM" },
-    { name: "description", content: "Kundeoplysninger, lokationer, P-enheder og aktiviteter i Frellsen CRM." },
+    { name: "description", content: "Kundeoplysninger, afdelinger, P-enheder og aktiviteter i Frellsen CRM." },
     { property: "og:title", content: "Kundekort | Frellsen CRM" },
-    { property: "og:description", content: "Kundeoplysninger og lokationer i Frellsen CRM." },
+    { property: "og:description", content: "Kundeoplysninger og afdelinger i Frellsen CRM." },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary" },
   ] }),
@@ -940,7 +940,7 @@ function VirksomhedsKort() {
                 { v: "aktivitet", label: "Aktivitet" },
                 { v: "salg", label: "Salg" },
                 ...(isAdmin ? [{ v: "udvikling", label: "Udvikling" }] : []),
-                { v: "lokationer", label: "Lokationer" },
+                { v: "lokationer", label: "Afdelinger" },
                 { v: "relationer", label: "Relationer" },
                 { v: "aftaler", label: "Aftaler & tilbud", kort: "Aftaler" },
               ];
@@ -1357,7 +1357,7 @@ function ActivityRow({ a, locations, userNames, isAdmin, userId, onDeleted }: { 
           {loc && (
             <Badge variant="secondary" className="text-xs gap-1">
               <MapPin className="h-3 w-3" />
-              {lokAdresse(loc as any) || "Lokation"}
+              {lokAdresse(loc as any) || "Afdeling"}
             </Badge>
           )}
         </div>
@@ -1647,7 +1647,7 @@ function RegistrerAktivitetDialog({
           </div>
           {locations.length > 0 && (
             <div>
-              <Label className="mb-1.5 block">Hvilken lokation gælder dette?</Label>
+              <Label className="mb-1.5 block">Hvilken afdeling gælder dette?</Label>
               <Select value={locationId} onValueChange={setLocationId}>
                 <SelectTrigger className="h-11 min-w-0 sm:h-9 [&>span]:min-w-0 [&>span]:truncate [&>svg]:shrink-0"><SelectValue /></SelectTrigger>
                 <SelectContent className="max-w-[calc(100vw-2rem)] [&_[role=option]]:whitespace-normal [&_[role=option]]:break-words">

@@ -456,8 +456,8 @@ function PortfolioPage() {
                     <span className="text-sm text-muted-foreground font-normal">kunder</span>
                   </div>
                   <div className="space-y-1 text-sm">
-                    <Pill color="success" label="aktive" n={data.statusCounts.aktive} prior={data.statusCountsPrior.aktive} hint="Har købt kaffe eller andre forbrugsvarer inden for de seneste 3 måneder." />
-                    <Pill color="warning" label="sovende" n={data.statusCounts.sovende} prior={data.statusCountsPrior.sovende} hint="Har ikke købt forbrugsvarer i 3 måneder, men har købt inden for det seneste år. Tag kontakt." />
+                    <Pill color="success" label="aktive" n={data.statusCounts.aktive} prior={data.statusCountsPrior.aktive} hint="Har købt kaffe eller andre forbrugsvarer inden for de seneste 6 måneder. En etableret længere købsrytme kan forlænge perioden." />
+                    <Pill color="warning" label="sovende" n={data.statusCounts.sovende} prior={data.statusCountsPrior.sovende} hint="Har ikke købt forbrugsvarer i over 6 måneder, men har købt inden for det seneste år. En etableret længere købsrytme kan forlænge aktivperioden. Tag kontakt." />
                     <Pill color="muted" label="servicekunder" n={data.statusCounts.servicekunder} prior={data.statusCountsPrior.servicekunder} hint="Har vores maskine og betaler for service, men køber ikke kaffe hos os. Mulighed for mersalg." />
                     <Pill color="destructive" label="på vej væk" n={data.statusCounts.paaVejVaek} prior={data.statusCountsPrior.paaVejVaek} hint="Trendsignal, ikke en status: aktiv kunde med udstyr, hvor forventet køb efter kundens egen rytme er overskredet." />
                   </div>
@@ -663,7 +663,7 @@ function PortfolioPage() {
                             </Link>
                             {c.lok_total > 1 && c.lok_antal < c.lok_total && (
                               <span className="ml-1 text-xs text-muted-foreground">
-                                ({c.lok_antal} af {c.lok_total} lokationer)
+                                ({c.lok_antal} af {c.lok_total} afdelinger)
                               </span>
                             )}
                             {c.kreditspaerret && (

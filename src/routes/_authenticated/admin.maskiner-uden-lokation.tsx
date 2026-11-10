@@ -8,10 +8,10 @@ export const Route = createFileRoute("/_authenticated/admin/maskiner-uden-lokati
   component: Side,
   head: () => ({
     meta: [
-      { title: "Maskiner uden lokation | Frellsen CRM" },
-      { name: "description", content: "Aktive maskiner hvis leveringsnummer ikke findes som lokation." },
-      { property: "og:title", content: "Maskiner uden lokation | Frellsen CRM" },
-      { property: "og:description", content: "Aktive maskiner hvis leveringsnummer ikke findes som lokation." },
+      { title: "Maskiner uden afdeling | Frellsen CRM" },
+      { name: "description", content: "Aktive maskiner hvis leveringsnummer ikke findes som afdeling." },
+      { property: "og:title", content: "Maskiner uden afdeling | Frellsen CRM" },
+      { property: "og:description", content: "Aktive maskiner hvis leveringsnummer ikke findes som afdeling." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -35,9 +35,9 @@ function Side() {
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-7xl">
       <div>
-        <h1 className="text-xl font-semibold">Maskiner uden lokation</h1>
+        <h1 className="text-xl font-semibold">Maskiner uden afdeling</h1>
         <p className="text-sm text-muted-foreground">
-          Aktive maskiner, hvor leveringsnummeret ikke findes som lokation i afdelingen. De tælles hos virksomhedens sælger, indtil de kobles. "Foreslået lokation" er en tør kørsel på leveringsnummeret — intet gemmes, før det er godkendt.
+          Aktive maskiner, hvor leveringsnummeret ikke findes som afdeling i afdelingen. De tælles hos virksomhedens sælger, indtil de kobles. "Foreslået afdeling" er en tør kørsel på leveringsnummeret — intet gemmes, før det er godkendt.
         </p>
       </div>
       <Card className="p-0 overflow-x-auto">
@@ -56,7 +56,7 @@ function Side() {
                 <th className="text-left p-2">Serienr.</th>
                 <th className="text-left p-2">Lev. kund / Fakt. kunde</th>
                 <th className="text-left p-2">Navn / adresse på maskinen</th>
-                <th className="text-left p-2">Foreslået lokation</th>
+                <th className="text-left p-2">Foreslået afdeling</th>
               </tr>
             </thead>
             <tbody>

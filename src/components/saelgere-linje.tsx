@@ -61,7 +61,7 @@ export function DineLokationer({
       <div className="mb-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm flex gap-2">
         <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
         <span>
-          <span className="font-medium">Din lokation:</span> {lokAdresse(egne[0]) ?? "uden adresse"}
+          <span className="font-medium">Din afdeling:</span> {lokAdresse(egne[0]) ?? "uden adresse"}
         </span>
       </div>
     );
@@ -70,7 +70,7 @@ export function DineLokationer({
     <div className="mb-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
       <button type="button" className="w-full flex items-center justify-between gap-2 font-medium" onClick={() => setAaben((v) => !v)}>
         <span className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-primary" /> Dine lokationer ({egne.length})
+          <MapPin className="h-4 w-4 text-primary" /> Dine afdelinger ({egne.length})
         </span>
         {aaben ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>

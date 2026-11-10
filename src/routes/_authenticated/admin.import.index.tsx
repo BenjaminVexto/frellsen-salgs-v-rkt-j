@@ -47,7 +47,7 @@ const VISMA_VALG: Valg[] = [
     raekkefoelge: 2,
     description:
       "Importér rå fakturajournal fra Visma. Aggregeres automatisk pr. lev.nr. × måned × produktgruppe. Idempotent: kør samme periode flere gange uden dubletter.",
-    hint: "Brug dette til at opdatere salgstal og top-varer pr. lokation",
+    hint: "Brug dette til at opdatere salgstal og top-varer pr. afdeling",
   },
   {
     to: "/admin/import/maskiner",

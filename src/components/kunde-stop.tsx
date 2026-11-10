@@ -229,7 +229,7 @@ function StopDialog({
                 <SelectContent>
                   <SelectItem value="__alle">Hele virksomheden</SelectItem>
                   {lokationer.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>{lokTekst(l) || "Lokation"}</SelectItem>
+                    <SelectItem key={l.id} value={l.id}>{lokTekst(l) || "Afdeling"}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

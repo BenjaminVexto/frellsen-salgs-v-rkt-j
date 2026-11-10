@@ -134,12 +134,12 @@ const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
   { key: "parent_cvr", label: "Overordnet CVR (kommunens)" },
   { key: "is_public", label: "Er offentlig institution (ja/nej)" },
   // Lokationer
-  { key: "location_address", label: "Lokation: Adresselinje 1" },
-  { key: "location_zip", label: "Lokation: Postnr." },
-  { key: "location_city", label: "Lokation: By" },
-  { key: "location_contact_person", label: "Lokation: Ref person" },
-  { key: "location_phone", label: "Lokation: Telefonnr.1" },
-  { key: "location_email", label: "Lokation: E-mailadresse" },
+  { key: "location_address", label: "Afdeling: Adresselinje 1" },
+  { key: "location_zip", label: "Afdeling: Postnr." },
+  { key: "location_city", label: "Afdeling: By" },
+  { key: "location_contact_person", label: "Afdeling: Ref person" },
+  { key: "location_phone", label: "Afdeling: Telefonnr.1" },
+  { key: "location_email", label: "Afdeling: E-mailadresse" },
 ];
 
 const AUTO_MATCH: Record<SystemField, string[]> = {
@@ -979,16 +979,16 @@ function ImportSide() {
         try {
           await upsertLocations({ data: { rows: locRows } });
         } catch (e) {
-          console.error("Lokationer-upsert fejl", e);
+          console.error("Afdelinger-upsert fejl", e);
         }
       }
       if (companiesWithMultipleLocations > 0) {
         toast.success(
-          `${companiesWithMultipleLocations} virksomheder fik flere lokationer registreret`,
+          `${companiesWithMultipleLocations} virksomheder fik flere afdelinger registreret`,
         );
       }
     } catch (e) {
-      console.error("Kunne ikke oprette lokationer", e);
+      console.error("Kunne ikke oprette afdelinger", e);
     }
 
     // Byg per-række tildelinger (company + lokation + sælger) til Trin 5
@@ -1117,7 +1117,7 @@ function ImportSide() {
       const locCount = hasPerRowLocation ? assignments.filter((a) => a.location_id).length : 0;
       toast.success(
         hasPerRowLocation
-          ? `${assignments.length} tildelinger oprettet (heraf ${locCount} på specifik lokation)`
+          ? `${assignments.length} tildelinger oprettet (heraf ${locCount} på specifik afdeling)`
           : `${assignments.length} virksomheder tildelt`,
       );
     }
@@ -1594,7 +1594,7 @@ function Trin5Tildeling({
           <>
             {" "}
             <span className="text-primary">
-              📍 {locationAssignmentCount} tildelinger oprettes på specifikke lokationer.
+              📍 {locationAssignmentCount} tildelinger oprettes på specifikke afdelinger.
             </span>
           </>
         )}

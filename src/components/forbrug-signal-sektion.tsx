@@ -153,10 +153,10 @@ export function ForbrugSignalSektion({
   const lokationer = data?.lokationer ?? [];
 
   const lokNavn = (id: string | null) => {
-    if (!id) return "Ukendt lokation";
+    if (!id) return "Ukendt afdeling";
     const l = locations.find((x) => x.id === id);
-    if (!l) return "Ukendt lokation";
-    return l.city || l.address || l.visma_delivery_no || "Ukendt lokation";
+    if (!l) return "Ukendt afdeling";
+    return l.city || l.address || l.visma_delivery_no || "Ukendt afdeling";
   };
 
   const distinkteLok = useMemo(
@@ -244,7 +244,7 @@ export function ForbrugSignalSektion({
                 ) : (
                   <ChevronRight className="h-3.5 w-3.5 mr-1" />
                 )}
-                Fordelt på lokationer ({distinkteLok})
+                Fordelt på afdelinger ({distinkteLok})
               </Button>
               {lokOpen && (
                 <div className="mt-1 divide-y">

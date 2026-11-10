@@ -2,14 +2,17 @@ import { describe, expect, it } from "vitest";
 import { rytmeGraenseMdr, rytmeTekst } from "./kunde-rytme";
 
 describe("købsrytme", () => {
-  it("uden etableret rytme (under 3 købsmåneder) er grænsen 3 mdr", () => {
-    expect(rytmeGraenseMdr(2, 5)).toBe(3);
+  it("uden etableret rytme (under 3 købsmåneder) er grænsen 6 mdr", () => {
+    expect(rytmeGraenseMdr(2, 5)).toBe(6);
   });
   it("kunde der køber hver 4. måned er aktiv op til 6 mdr", () => {
     expect(rytmeGraenseMdr(5, 4)).toBe(6);
   });
-  it("hyppig køber falder tilbage til 3 mdr", () => {
-    expect(rytmeGraenseMdr(12, 1)).toBe(3);
+  it("hyppig køber falder tilbage til 6 mdr", () => {
+    expect(rytmeGraenseMdr(12, 1)).toBe(6);
+  });
+  it("bevarer den længere grænse for etableret købsrytme", () => {
+    expect(rytmeGraenseMdr(5, 6)).toBe(9);
   });
   it("viser forventet næste køb", () => {
     expect(

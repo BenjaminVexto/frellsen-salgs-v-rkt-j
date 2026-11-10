@@ -126,7 +126,7 @@ export function KundeSalgstal({
     <Card className="p-4">
       {harEgne && (
         <p className="text-xs text-muted-foreground mb-3">
-          Dine {egneLokIds.length} af {alleLokIds.length} lokationer · alle varer · 12 hele måneder
+          Dine {egneLokIds.length} af {alleLokIds.length} afdelinger · alle varer · 12 hele måneder
         </p>
       )}
       {loading ? (
@@ -194,5 +194,5 @@ function Tal({ label, vaerdi, under, onClick }: { label: string; vaerdi: React.R
     <div className="text-base font-semibold tabular-nums mt-0.5 break-words">{vaerdi}{onClick && <ChevronRight className="inline-block ml-2 h-4 w-4 text-muted-foreground" />}</div>
     {under}
   </>;
-  return onClick ? <Button variant="ghost" onClick={onClick} aria-label="Aktive maskiner – vis lokationer" className="min-w-0 h-auto min-h-11 p-0 block text-left whitespace-normal cursor-pointer font-normal">{content}</Button> : <div className="min-w-0">{content}</div>;
+  return onClick ? <Button variant="ghost" onClick={onClick} aria-label="Aktive maskiner – vis afdelinger" className="min-w-0 h-auto min-h-11 p-0 block text-left whitespace-normal cursor-pointer font-normal">{content}</Button> : <div className="min-w-0">{content}</div>;
 }

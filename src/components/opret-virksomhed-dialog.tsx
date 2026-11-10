@@ -612,7 +612,7 @@ export function OpretVirksomhedDialog({ trigger }: { trigger: ReactNode }) {
 
             {pendingPenhed && (
               <Card className="p-3 border-primary/40 bg-primary/5 text-sm">
-                Virksomheden oprettes med hovedselskabets CVR-data. Lokationen bliver den besøgte adresse:{" "}
+                Virksomheden oprettes med hovedselskabets CVR-data. Afdelingen bliver den besøgte adresse:{" "}
                 <strong>
                   {[pendingPenhed.address, [pendingPenhed.zip, pendingPenhed.city].filter(Boolean).join(" ")]
                     .filter(Boolean)

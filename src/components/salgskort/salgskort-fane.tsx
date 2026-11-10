@@ -394,11 +394,11 @@ export function SalgskortFane() {
             if (d) { color = d.farve; opacity = d.saelger_user_id ? 0.8 : 0.35; ubesat = !d.saelger_user_id; lc = ubesat ? "#333333" : "#ffffff"; lw = ubesat ? 1 : 0.5; }
             tip = d ? `${d.navn} · ${d.saelger_user_id ? pNavn(d.saelger_user_id) : "NY – dækkes af " + (d.daekkes_af_user_id ? pNavn(d.daekkes_af_user_id) : "ingen")}` : "Intet distrikt";
           } else {
-            if (!o || !o.n) { color = "#cccccc"; tip = (d ? d.navn + " · " : "") + "Ingen lokationer"; }
+            if (!o || !o.n) { color = "#cccccc"; tip = (d ? d.navn + " · " : "") + "Ingen afdelinger"; }
             else {
               const pct = o.match / o.n;
               color = pct >= 0.995 ? "#2e9e48" : pct >= 0.7 ? "#e8c330" : "#d62728"; opacity = 0.8;
-              tip = `${o.match} af ${o.n} lokationer (${Math.round(pct * 100)} %) hos ${d ? initialer(pNavn(distriktSaelger(d))) : "—"}${d ? "" : " · intet distrikt"}`;
+              tip = `${o.match} af ${o.n} afdelinger (${Math.round(pct * 100)} %) hos ${d ? initialer(pNavn(distriktSaelger(d))) : "—"}${d ? "" : " · intet distrikt"}`;
             }
           }
         } else if (s && s.size) {
@@ -446,7 +446,7 @@ export function SalgskortFane() {
       {data && data.flader.length === 0 && (
         <Card className="p-10 text-center">
           <div className="text-lg font-medium">Kortdata er ikke indlæst endnu</div>
-          <p className="text-sm text-muted-foreground mt-1">Postnummerfladerne skal indlæses, før kortet kan vises. {rows.length.toLocaleString("da-DK")} lokationer med salg er klar.</p>
+          <p className="text-sm text-muted-foreground mt-1">Postnummerfladerne skal indlæses, før kortet kan vises. {rows.length.toLocaleString("da-DK")} afdelinger med salg er klar.</p>
         </Card>
       )}
 
@@ -737,8 +737,8 @@ function FladePanel({ flade, fordeling, lok, navne, farver, kamTip, onLuk }: {
         {ford.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-medium">Lokationer</span>
-              <span className="text-xs text-muted-foreground tabular-nums">{vis.length} af {lok.length} lokationer</span>
+              <span className="font-medium">Afdelinger</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{vis.length} af {lok.length} afdelinger</span>
             </div>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -753,12 +753,12 @@ function FladePanel({ flade, fordeling, lok, navne, farver, kamTip, onLuk }: {
           </div>
         )}
       </div>
-      {!ford.length ? <div className="p-3 text-muted-foreground">Ingen lokationer under de valgte filtre.</div> : (
+      {!ford.length ? <div className="p-3 text-muted-foreground">Ingen afdelinger under de valgte filtre.</div> : (
         <div className="flex-1 min-h-0 overflow-y-auto">
           <table className="w-full text-xs table-fixed">
             <thead className="sticky top-0 bg-card text-muted-foreground shadow-[0_1px_0_var(--border)]">
               <tr>
-                <SortTh left label="Lokation" aktiv={sort.k === "navn"} asc={sort.asc} onClick={() => s("navn")} />
+                <SortTh left label="Afdeling" aktiv={sort.k === "navn"} asc={sort.asc} onClick={() => s("navn")} />
                 <SortTh left w="w-[32%]" label="Sælger" aktiv={sort.k === "saelger"} asc={sort.asc} onClick={() => s("saelger")} />
                 <SortTh w="w-[110px]" label="Oms. 12 mdr." aktiv={sort.k === "oms"} asc={sort.asc} onClick={() => s("oms")} />
               </tr>
