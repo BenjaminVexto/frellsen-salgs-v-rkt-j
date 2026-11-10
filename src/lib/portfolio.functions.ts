@@ -2,6 +2,7 @@ import { komprimerJson } from "./komprimer-json";
 import { kraevIntern } from "@/lib/kraev-intern";
 import { createServerFn } from "@tanstack/react-start";
 import { harGyldigtSammenligningsvindue } from "./kunde-status";
+import { indenForAktivperiode } from "./kundestatus-graense";
 import { erFalder, erVokser } from "./fald";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -636,7 +637,6 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
       if (lastCons) {
         const d = periodToDate(lastCons);
         const slut = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
-        const { indenForAktivperiode } = await import("./kundestatus-graense");
         if (indenForAktivperiode(slut, evalDate)) return "aktiv_kunde";
       }
       if (lastCons && dageSiden(lastCons) <= 365) return "sovende_kunde";
