@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/admin/maskiner-uden-afdeling")({
+export const Route = createFileRoute("/_authenticated/admin/maskiner-uden-lokation")({
   component: Side,
   head: () => ({
     meta: [
