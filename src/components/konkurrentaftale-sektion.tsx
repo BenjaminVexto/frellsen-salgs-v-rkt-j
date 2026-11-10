@@ -46,7 +46,7 @@ type Assignment = {
 };
 
 function lokNavn(l: Lok | undefined): string {
-  if (!l) return "Ukendt lokation";
+  if (!l) return "Ukendt afdeling";
   const adr = [l.address, l.city].filter(Boolean).join(", ");
   return `${adr || "Uden adresse"}${l.visma_delivery_no ? ` · ${l.visma_delivery_no}` : ""}`;
 }
@@ -142,7 +142,7 @@ export function KonkurrentaftaleSektion({ companyId }: { companyId: string }) {
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold flex items-center gap-2">
-          <Coffee className="h-4 w-4" /> Konkurrentaftale{flereLok ? "r pr. lokation" : ""}
+          <Coffee className="h-4 w-4" /> Konkurrentaftale{flereLok ? "r pr. afdeling" : ""}
         </h2>
         <Button size="sm" variant="outline" onClick={() => åbnNy(null)}>
           <Plus className="h-4 w-4 mr-1" /> Registrér konkurrent
@@ -355,10 +355,10 @@ function AssignmentDialog({
         <div className="space-y-3">
           {lokationer.length > 1 && (
             <div>
-              <Label>Lokation</Label>
+              <Label>Afdeling</Label>
               <Select value={lokId} onValueChange={setLokId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Vælg lokation" />
+                  <SelectValue placeholder="Vælg afdeling" />
                 </SelectTrigger>
                 <SelectContent>
                   {lokationer.map((l) => (

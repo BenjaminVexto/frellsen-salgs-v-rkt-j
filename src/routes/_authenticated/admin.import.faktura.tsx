@@ -419,7 +419,7 @@ function FakturaImportSide() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              {job.locations_matched.toLocaleString("da-DK")} lev.nr. matchet til lokationer
+              {job.locations_matched.toLocaleString("da-DK")} lev.nr. matchet til afdelinger
               {Array.isArray(job.unmatched_delivery_nos) && job.unmatched_delivery_nos.length > 0 && (
                 <> · {job.unmatched_delivery_nos.length} uden match</>
               )}

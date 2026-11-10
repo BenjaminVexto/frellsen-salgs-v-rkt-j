@@ -183,7 +183,7 @@ export function UdskrivMaskinlisteKnap({
         for (const l of locs) {
           const rows = (pr.get(l.id) ?? []).filter((r) => medTomme || !erTom(r));
           if (!rows.length) continue;
-          const adr = lokAdresse(l) ?? "Lokation";
+          const adr = lokAdresse(l) ?? "Afdeling";
           const key = (adresseNoegle(l.address) ?? adr) + "|" + (l.zip ?? "");
           const g = grupper.get(key) ?? { adr, primaer: false, konti: [], rows: [] };
           g.primaer ||= !!l.is_primary;

@@ -113,11 +113,11 @@ export function AdresseSoegning({
         hit: valgt,
         userId: auth.user.id,
       });
-      toast.success(`Lokation tilføjet under ${konto.name}`);
+      toast.success(`Afdeling tilføjet under ${konto.name}`);
       onDone();
       navigate({ to: "/virksomheder/$id", params: { id: konto.id }, hash: `location-${id}` });
     } catch (e: any) {
-      toast.error("Kunne ikke tilføje lokation: " + (e?.message ?? "ukendt"));
+      toast.error("Kunne ikke tilføje afdeling: " + (e?.message ?? "ukendt"));
     } finally {
       setSaving(false);
     }
@@ -158,7 +158,7 @@ export function AdresseSoegning({
                 });
               }}
             >
-              Gå til lokationen
+              Gå til afdelingen
             </Button>
           </Card>
         )}
@@ -175,14 +175,14 @@ export function AdresseSoegning({
                       checked={valgtKonto === k.id}
                       onChange={() => setValgtKonto(k.id)}
                     />
-                    {k.name}{k.city ? `, ${k.city}` : ""} · {k.locations.length} lokation(er)
+                    {k.name}{k.city ? `, ${k.city}` : ""} · {k.locations.length} afdeling(er)
                   </label>
                 ))}
               </div>
             )}
             <Button className="w-full h-12" disabled={saving} onClick={() => konto && tilfoejLokation(konto)}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Tilføj som ny lokation under {konto?.name}
+              Tilføj som ny afdeling under {konto?.name}
             </Button>
             <Button variant="ghost" size="sm" className="w-full" onClick={() => onCreateNew(valgt)}>
               Opret alligevel som ny virksomhed
@@ -190,7 +190,7 @@ export function AdresseSoegning({
           </div>
         ) : (
           <Button className="w-full h-12" onClick={() => onCreateNew(valgt)}>
-            Opret ny virksomhed med denne adresse som lokation
+            Opret ny virksomhed med denne adresse som afdeling
           </Button>
         )}
       </div>

@@ -315,18 +315,18 @@ export function SimuleringPanel({
                             <RaekkeMenu punkter={[["Rediger", () => setEditR(r)], ["Kopiér", () => setEditR({ ...r, id: undefined, aktiv: true })], ["Slet", () => sletRegel(r)]]} />
                           </span>}
                         </div>
-                        <div className="block text-muted-foreground pl-6 tabular-nums">Rammer {s.n.toLocaleString("da-DK")} lokationer · {kr(s.oms)} oms.</div>
+                        <div className="block text-muted-foreground pl-6 tabular-nums">Rammer {s.n.toLocaleString("da-DK")} afdelinger · {kr(s.oms)} oms.</div>
                         {(() => {
                           const o = overlap.get(r.id); if (!o?.size) return null;
                           const tot = [...o.values()].reduce((a, b) => a + b, 0);
                           const tip = [...o.entries()].map(([id, n]) => `${n.toLocaleString("da-DK")} tages af: ${regelNavn.get(id) ?? "?"}`).join("\n");
                           return <div className="pl-6 text-[11px] text-muted-foreground underline decoration-dotted cursor-help w-fit" title={tip}>
-                            {tot.toLocaleString("da-DK")} {tot === 1 ? "lokation tages" : "lokationer tages"} af en regel over denne
+                            {tot.toLocaleString("da-DK")} {tot === 1 ? "afdeling tages" : "afdelinger tages"} af en regel over denne
                           </div>;
                         })()}
                         {r.type === "udeluk" && r.betingelse?.ansatteOver != null && (
                           <div className="text-[11px] text-muted-foreground pl-6">
-                            Ansatte = virksomhedens antal (CVR){penhedAnsatte ? `; P-enhedstal for ${penhedAnsatte.toLocaleString("da-DK")} lok. uden virksomhedstal` : ""}. {ukendteAnsatte.toLocaleString("da-DK")} af {antalLok.toLocaleString("da-DK")} lokationer har ukendt antal – tæller som {r.betingelse.ukendtSomOver ? "over" : "under"} grænsen.
+                            Ansatte = virksomhedens antal (CVR){penhedAnsatte ? `; P-enhedstal for ${penhedAnsatte.toLocaleString("da-DK")} lok. uden virksomhedstal` : ""}. {ukendteAnsatte.toLocaleString("da-DK")} af {antalLok.toLocaleString("da-DK")} afdelinger har ukendt antal – tæller som {r.betingelse.ukendtSomOver ? "over" : "under"} grænsen.
                           </div>
                         )}
                       </li>
@@ -337,7 +337,7 @@ export function SimuleringPanel({
                   <span className="font-medium">KAM-ansvar ({sc.kam.length})</span>
                   {!laast && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditK({ navn: "", kpg1: [], kpg2: [], kpg3: [], omraade: null, kam_ansvarlige: [], kam_fiktive: [], aktiv: true })}>Ny KAM-aftale</Button>}
                 </div>
-                <p className="text-[11px] text-muted-foreground">KAM-ansvar flytter ikke lokationer – distriktssælgeren følger regler og geografi.</p>
+                <p className="text-[11px] text-muted-foreground">KAM-ansvar flytter ikke afdelinger – distriktssælgeren følger regler og geografi.</p>
                 {sc.kam.length === 0 && <div className="text-xs text-muted-foreground">Ingen KAM-aftaler i scenariet.</div>}
                 <ul className="space-y-1">
                   {sc.kam.map((k) => {
@@ -470,7 +470,7 @@ function Flytteliste({ titel, undertekst, rows, navn, aarsag, filter, onFjernFil
     <div className="space-y-2 pt-2">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium">{titel}</span>
-        <span className="text-xs text-muted-foreground tabular-nums">{vis.length} af {rows.length} lokationer</span>
+        <span className="text-xs text-muted-foreground tabular-nums">{vis.length} af {rows.length} afdelinger</span>
         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={eksport} disabled={!vis.length}>Eksportér CSV</Button>
       </div>
       <div className="relative">
@@ -480,7 +480,7 @@ function Flytteliste({ titel, undertekst, rows, navn, aarsag, filter, onFjernFil
       <div className="text-[11px] text-muted-foreground">{undertekst}</div>
       {filter && <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-xs">Fra/til: {filter}<button type="button" aria-label="Fjern" onClick={onFjernFilter}><X className="h-3 w-3" /></button></span>}
       <table className="w-full text-xs">
-        <thead className="text-muted-foreground"><tr>{th("virksomhed", "Lokation")}{th("postnr", "Postnr./by")}{th("fra", "Fra")}{th("til", "Til")}{aarsag && th("aarsag", "Årsag")}{th("oms", "Oms.", true)}{th("db", "DB", true)}</tr></thead>
+        <thead className="text-muted-foreground"><tr>{th("virksomhed", "Afdeling")}{th("postnr", "Postnr./by")}{th("fra", "Fra")}{th("til", "Til")}{aarsag && th("aarsag", "Årsag")}{th("oms", "Oms.", true)}{th("db", "DB", true)}</tr></thead>
         <tbody>
           {vis.map((r) => (
             <tr key={r.location_id} className="border-t border-border cursor-pointer hover:bg-muted/40" onClick={() => window.open(`/virksomheder/${r.company_id}`, "_blank")}>
@@ -493,7 +493,7 @@ function Flytteliste({ titel, undertekst, rows, navn, aarsag, filter, onFjernFil
               <td className="px-1 text-right tabular-nums whitespace-nowrap text-muted-foreground">{kr(r.db)}</td>
             </tr>
           ))}
-          {!vis.length && <tr><td colSpan={7} className="p-3 text-center text-muted-foreground">Ingen lokationer skifter sælger.</td></tr>}
+          {!vis.length && <tr><td colSpan={7} className="p-3 text-center text-muted-foreground">Ingen afdelinger skifter sælger.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -654,10 +654,10 @@ function GoerGaeldendeDialog({ sc, scenarie, dd, flytninger, fladeNavn, onLuk, o
         <div className="space-y-2 text-sm">
           <ul className="list-disc pl-5 space-y-0.5">
             <li>{skifter.toLocaleString("da-DK")} flader skifter distrikt</li>
-            <li>{flytninger.toLocaleString("da-DK")} lokationer skifter sælger (under de aktive filtre)</li>
+            <li>{flytninger.toLocaleString("da-DK")} afdelinger skifter sælger (under de aktive filtre)</li>
             <li>{nye} nye distrikter · {fjernes} distrikter fjernes</li>
           </ul>
-          <p className="text-muted-foreground">Det nuværende distriktskort gemmes som arkiveret scenarie "Gældende før [dato]". Sælgertildelingen på lokationer og i Visma ændres ikke – brug flyttelisten til det.</p>
+          <p className="text-muted-foreground">Det nuværende distriktskort gemmes som arkiveret scenarie "Gældende før [dato]". Sælgertildelingen på afdelinger og i Visma ændres ikke – brug flyttelisten til det.</p>
           {mangler.length > 0 && (
             <div className="rounded border border-border bg-muted/50 p-2">
               <b>Kan ikke gøres gældende endnu.</b> Disse fiktive sælgere skal kobles til en rigtig profil først: {mangler.map((s) => s.navn).join(", ")}.
@@ -729,7 +729,7 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, distrikter
     const bet = byg();
     const tom = !bet.kpg1?.length && !bet.kpg2?.length && !bet.kpg3?.length && bet.ansatteOver == null;
     if (tom) return toast.error("Vælg mindst én betingelse");
-    if (bet.alternativ === "saelger" && !bet.alternativSaelger) return toast.error("Vælg hvem de udelukkede lokationer går til");
+    if (bet.alternativ === "saelger" && !bet.alternativSaelger) return toast.error("Vælg hvem de udelukkede afdelinger går til");
     const row = { scenarie_id: scenarieId, type, betingelse: bet, aktiv: r.aktiv ?? true,
       saelger_user_id: saelger.startsWith("u:") ? saelger.slice(2) : null, saelger_fiktiv_id: saelger.startsWith("f:") ? saelger.slice(2) : null,
       ...(r.id ? {} : { sortering: antal }) };
@@ -747,7 +747,7 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, distrikter
             <Button size="sm" variant={type === "tildel" ? "default" : "outline"} onClick={() => setType("tildel")}>Tildel til sælger</Button>
             <Button size="sm" variant={type === "udeluk" ? "default" : "outline"} onClick={() => setType("udeluk")}>Må ikke have</Button>
           </div>
-          <p className="text-xs text-muted-foreground">{type === "tildel" ? "Lokationer der matcher, går til sælgeren uanset distrikt (inden for det valgte område)." : "Lokationer der matcher, må ikke gå til sælgeren. Flere valgte betingelser = én af dem er nok."}</p>
+          <p className="text-xs text-muted-foreground">{type === "tildel" ? "Afdelinger der matcher, går til sælgeren uanset distrikt (inden for det valgte område)." : "Afdelinger der matcher, må ikke gå til sælgeren. Flere valgte betingelser = én af dem er nok."}</p>
           <label className="block">Sælger<select className={sel} value={saelger} onChange={(e) => setSaelger(e.target.value)}>{saelgerOpt}</select></label>
           <IndsaetKoder valg={valg} typer={type === "tildel" ? ["kpg1", "kpg2", "kpg3"] : ["kpg1", "kpg3"]}
             onTilfoej={(t, k) => setB((x) => ({ ...x, [t]: [...new Set([...(x[t] ?? []), ...k])] }))} />
@@ -760,7 +760,7 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, distrikter
                 <label className="flex items-center gap-2 text-xs cursor-pointer"><Checkbox checked={ansatteTil} onCheckedChange={(v) => setAnsatteTil(!!v)} />Antal ansatte over</label>
                 {ansatteTil && <>
                   <Input type="number" min={0} className="h-8 w-32" value={b.ansatteOver ?? 100} onChange={(e) => setB({ ...b, ansatteOver: Number(e.target.value) })} />
-                  <p className="text-[11px] text-muted-foreground">Bruger virksomhedens samlede antal ansatte (CVR). Findes det ikke, bruges summen af koblede P-enheder. {ukendte.toLocaleString("da-DK")} lokationer (under de aktive filtre) har ukendt antal.</p>
+                  <p className="text-[11px] text-muted-foreground">Bruger virksomhedens samlede antal ansatte (CVR). Findes det ikke, bruges summen af koblede P-enheder. {ukendte.toLocaleString("da-DK")} afdelinger (under de aktive filtre) har ukendt antal.</p>
                   <label className="block text-xs">Ukendt antal ansatte tæller som
                     <select className={sel} value={b.ukendtSomOver ? "over" : "under"} onChange={(e) => setB({ ...b, ukendtSomOver: e.target.value === "over" })}>
                       <option value="under">under grænsen</option><option value="over">over grænsen</option>
@@ -768,7 +768,7 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, distrikter
                   </label>
                 </>}
               </div>
-              <label className="block">Udelukkede lokationer
+              <label className="block">Udelukkede afdelinger
                 <select className={sel} value={b.alternativ ?? "behold"} onChange={(e) => setB({ ...b, alternativ: e.target.value as any })}>
                   <option value="behold">Beholder nuværende sælger</option><option value="saelger">Går til…</option>
                 </select>
@@ -781,7 +781,7 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, distrikter
           )}
           <div className="space-y-1 border-t border-border pt-2">
             <div className="font-medium">Område</div>
-            <p className="text-[11px] text-muted-foreground">Lokationen skal matche betingelserne ovenfor <b>og</b> ligge i området.</p>
+            <p className="text-[11px] text-muted-foreground">Afdelingen skal matche betingelserne ovenfor <b>og</b> ligge i området.</p>
             <div className="flex flex-wrap gap-3 text-xs">
               {([["land", "Hele landet"], ["landsdel", "Landsdel"], ["distrikt", "Distrikter"], ...(regioner.length ? [["region", "Regioner"]] : [])] as [Omraade["type"], string][]).map(([t, l]) => (
                 <label key={t} className="flex items-center gap-1 cursor-pointer">
@@ -795,7 +795,7 @@ function RegelDialog({ r, scenarieId, antal, profiler, fiktive, valg, distrikter
             {omr.type === "region" && <SoegListe titel="Regioner" valg={regioner.map((x) => [x, null] as [string, null])} valgte={omr.vaerdier} setValgte={(v) => setOmr({ ...omr, vaerdier: v })} vis={(x) => x} />}
           </div>
         </div>
-        <div className="text-xs tabular-nums text-muted-foreground" data-testid="regel-live">Rammer {live.n.toLocaleString("da-DK")} lokationer · {kr(live.oms)}</div>
+        <div className="text-xs tabular-nums text-muted-foreground" data-testid="regel-live">Rammer {live.n.toLocaleString("da-DK")} afdelinger · {kr(live.oms)}</div>
         <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button onClick={gem}>Gem</Button></DialogFooter>
       </DialogContent>
     </Dialog>

@@ -61,7 +61,7 @@ export function CvrPenhederSektion({
       toast.error("Kunne ikke tilføje: " + error.message);
       return;
     }
-    toast.success("Lokation tilføjet");
+    toast.success("Afdeling tilføjet");
     onAdded();
   }
 
@@ -85,7 +85,7 @@ export function CvrPenhederSektion({
           ) : (
             <Search className="h-3.5 w-3.5 mr-1.5" />
           )}
-          Søg CVR for flere lokationer
+          Søg CVR for flere afdelinger
         </Button>
       )}
       {units && (

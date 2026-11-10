@@ -173,7 +173,7 @@ export function SoesterselskaberSektion({
       <p className="text-xs text-muted-foreground mb-4">
         Enheder på samme adresse afregnes separat i Visma efter kundens ønske — de er reelt
         samme kunde fordelt på flere konti. Øvrige enheder deler blot CVR og er selvstændige
-        virksomheder med eget kundenr, lokationer og maskiner.
+        virksomheder med eget kundenr, afdelinger og maskiner.
       </p>
 
       {visAdressegruppe && (

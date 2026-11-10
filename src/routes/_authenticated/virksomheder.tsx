@@ -336,7 +336,7 @@ function VirksomhederListe() {
     const penhed = (match.penhed_navne ?? []).find((n) => n.toLowerCase().includes(qq));
     return (
       <div className="text-xs text-primary truncate">
-        Lokation: {penhed ? `${penhed}, ` : ""}
+        Afdeling: {penhed ? `${penhed}, ` : ""}
         {parts || "uden adresse"}
       </div>
     );

@@ -648,7 +648,7 @@ function ExpiringCustomerRow({
                   title: `Aftale udløber: ${companyName}`,
                   date,
                   description: `${count} ${count === 1 ? "maskine udløber" : "maskiner udløber"} hos ${companyName}.`,
-                  url: `${window.location.origin}/virksomheder/${companyId}#lokationer`,
+                  url: `${window.location.origin}/virksomheder/${companyId}#afdelinger`,
                   uid: `expiring-${companyId}`,
                 }),
               );

@@ -229,7 +229,7 @@ export const confirmRelationSuggestion = createServerFn({ method: "POST" })
       if (loc) toCompanyId = loc.company_id;
     }
     if (!toCompanyId) {
-      throw new Error(`Ingen virksomhed eller lokation fundet med kundenr ${sugg.to_visma_id}.`);
+      throw new Error(`Ingen virksomhed eller afdeling fundet med kundenr ${sugg.to_visma_id}.`);
     }
 
     const { error: insErr } = await supabase.from("company_relations").insert({

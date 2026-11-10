@@ -50,7 +50,7 @@ function Side() {
       <div>
         <h1 className="text-xl font-semibold">Maskiner uden aftale og aflæsning</h1>
         <p className="text-sm text-muted-foreground">
-          Aktive maskiner på en lokation, som hverken har en aftale (udlånstype, serviceaftale eller gratis udlån) eller en tælleraflæsning i Visma. Ryd op i maskinregistret, før maskinlisten sendes til kunder.
+          Aktive maskiner på en afdeling, som hverken har en aftale (udlånstype, serviceaftale eller gratis udlån) eller en tælleraflæsning i Visma. Ryd op i maskinregistret, før maskinlisten sendes til kunder.
         </p>
       </div>
       <Input placeholder="Søg på virksomhed, adresse, kundenr., maskine, serienr. eller sælger…" value={soeg} onChange={(e) => setSoeg(e.target.value)} className="max-w-md" />

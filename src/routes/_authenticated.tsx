@@ -196,7 +196,7 @@ function AuthenticatedShell() {
     { to: "/admin/dubletter", label: "Dubletter", icon: Copy },
     { to: "/admin/soesterkonti", label: "Søsterkonti", icon: Copy },
     { to: "/admin/koblingsforslag", label: "P-enheder: koblingsforslag", icon: MapPin },
-    { to: "/admin/maskiner-uden-lokation", label: "Maskiner uden lokation", icon: Copy },
+    { to: "/admin/maskiner-uden-afdeling", label: "Maskiner uden afdeling", icon: Copy },
     { to: "/admin/maskiner-uden-aftale", label: "Maskiner uden aftale og aflæsning", icon: Copy },
     { to: "/admin/overblik", label: "Admin-overblik", icon: BarChart3 },
     { to: "/admin/postnumre", label: "Postnumre og regioner", icon: MapPin },

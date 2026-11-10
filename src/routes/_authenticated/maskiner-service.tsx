@@ -6,7 +6,7 @@ export const Route = createFileRoute("/_authenticated/maskiner-service")({
   head: () => ({
     meta: [
       { title: "Maskiner & Service — Frellsen" },
-      { name: "description", content: "Frellsen-udstyr, leje, maskinbelastning og serviceaftaler pr. lokation." },
+      { name: "description", content: "Frellsen-udstyr, leje, maskinbelastning og serviceaftaler pr. afdeling." },
       { property: "og:title", content: "Maskiner & Service — Frellsen" },
       { property: "og:description", content: "Hvad tjener vi på udstyr og service – og hvor skal der handles." },
       { property: "og:type", content: "website" },

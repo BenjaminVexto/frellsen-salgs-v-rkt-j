@@ -66,7 +66,7 @@ export function KontaktpersonerSektion({
   const normPhone = (v: string | null | undefined) =>
     (v ?? "").replace(/\D/g, "");
   const locLabel = (l: { city: string | null; address: string | null }) =>
-    l.city || l.address || "Lokation";
+    l.city || l.address || "Afdeling";
 
   type UnifiedContact = {
     key: string;
@@ -291,7 +291,7 @@ export function KontaktpersonerSektion({
                       </div>
                       {c.source === "location" && (
                         <div className="text-xs text-muted-foreground pt-1">
-                          Fra Visma-import (lokation)
+                          Fra Visma-import (afdeling)
                         </div>
                       )}
                     </div>
@@ -475,16 +475,16 @@ export function ContactDialog({
             </div>
           </div>
           <div>
-            <Label className="mb-1.5 block">Tilknyt lokation</Label>
+            <Label className="mb-1.5 block">Tilknyt afdeling</Label>
             <Select value={locationId} onValueChange={setLocationId}>
               <SelectTrigger>
                 <SelectValue placeholder="Vælg…" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Ingen lokation</SelectItem>
+                <SelectItem value="none">Ingen afdeling</SelectItem>
                 {locations.map((l) => (
                   <SelectItem key={l.id} value={l.id}>
-                    {l.city || l.address || "Lokation"}
+                    {l.city || l.address || "Afdeling"}
                     {l.visma_delivery_no ? ` (lev.nr. ${l.visma_delivery_no})` : ""}
                   </SelectItem>
                 ))}

@@ -26,7 +26,7 @@ export const sendMaterialeMail = createServerFn({ method: "POST" })
     let lid = data.locationId ?? null;
     if (lid) {
       const { data: loc, error } = await db.from("locations").select("id").eq("id", lid).eq("company_id", data.companyId).single();
-      if (error || !loc) throw new Error("Lokation ikke fundet på virksomheden");
+      if (error || !loc) throw new Error("Afdeling ikke fundet på virksomheden");
     } else {
       const { data: loc, error } = await db.from("locations").select("id").eq("company_id", data.companyId).order("is_primary", { ascending: false }).order("created_at").limit(1).maybeSingle();
       if (error) throw new Error(error.message);

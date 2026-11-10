@@ -563,10 +563,10 @@ export function LokationerSektion({
     return (
       <Card className="p-5">
         <h2 className="font-semibold flex items-center gap-2 mb-4">
-          <MapPin className="h-4 w-4" /> Lokationer
+          <MapPin className="h-4 w-4" /> Afdelinger
         </h2>
         <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-          <Loader2 className="h-4 w-4 animate-spin" /> Henter lokationer…
+          <Loader2 className="h-4 w-4 animate-spin" /> Henter afdelinger…
         </div>
       </Card>
     );
@@ -574,7 +574,7 @@ export function LokationerSektion({
   if (locations.length === 0 && !isAdmin) {
     return (
       <Card className="p-5">
-        <p className="text-sm text-muted-foreground">Ingen lokationer registreret.</p>
+        <p className="text-sm text-muted-foreground">Ingen afdelinger registreret.</p>
       </Card>
     );
   }
@@ -1122,7 +1122,7 @@ export function LokationerSektion({
       <ul className="@container divide-y rounded-md border">
         {header && (
           <li className={`hidden @xl:grid ${KOLS} gap-x-2 px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30`}>
-            <span>Lokation</span><span>Konto</span><span>Sælger</span><span className="text-right">Oms. 12 mdr.</span><span className="text-right">Maskiner</span><span className="text-right">Sidste køb</span><span />
+            <span>Afdeling</span><span>Konto</span><span>Sælger</span><span className="text-right">Oms. 12 mdr.</span><span className="text-right">Maskiner</span><span className="text-right">Sidste køb</span><span />
           </li>
         )}
         {rows.slice(0, vis).map((r) => raekkeEl(r, nedtonet))}
@@ -1142,27 +1142,27 @@ export function LokationerSektion({
   return (
     <section className="py-1">
       <p className="text-xs text-muted-foreground mb-3">
-        {aktive.length} {aktive.length === 1 ? "aktiv lokation" : "aktive lokationer"} · {kroner(samletOms)} / 12 mdr.
+        {aktive.length} {aktive.length === 1 ? "aktiv afdeling" : "aktive afdelinger"} · {kroner(samletOms)} / 12 mdr.
         {heleCvr ? " (hele CVR)" : ""}
         {antalPenheder > 0 ? ` · ${antalPenheder} P-enheder i alt` : ""}
       </p>
       {isMobile ? (
         <div className="flex items-center justify-between mb-1 gap-2">
           <h2 className="font-semibold flex items-center gap-2 min-w-0">
-            <MapPin className="h-4 w-4 shrink-0" /> Aktive lokationer
+            <MapPin className="h-4 w-4 shrink-0" /> Aktive afdelinger
           </h2>
           {(harMaskinerTotal || isAdmin) && (
-            <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" aria-label="Flere handlinger for lokationer" onClick={() => setTopSheet(true)}>
+            <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" aria-label="Flere handlinger for afdelinger" onClick={() => setTopSheet(true)}>
               <MoreHorizontal className="h-5 w-5" />
             </Button>
           )}
           <Sheet open={topSheet} onOpenChange={setTopSheet}>
             <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg space-y-3 [&_button]:min-h-11 [&_button]:w-full [&_button]:justify-start" aria-describedby={undefined}>
-              <SheetHeader><SheetTitle>Lokationer</SheetTitle></SheetHeader>
+              <SheetHeader><SheetTitle>Afdelinger</SheetTitle></SheetHeader>
               {harMaskinerTotal && maskinlisteTop}
               {isAdmin && (
                 <Button variant="outline" onClick={() => { setTopSheet(false); setAddOpen(true); }}>
-                  <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
+                  <Plus className="h-4 w-4 mr-1" /> Tilføj afdeling
                 </Button>
               )}
             </SheetContent>
@@ -1171,13 +1171,13 @@ export function LokationerSektion({
       ) : (
       <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
         <h2 className="font-semibold flex items-center gap-2">
-          <MapPin className="h-4 w-4" /> Aktive lokationer
+          <MapPin className="h-4 w-4" /> Aktive afdelinger
         </h2>
         <div className="flex items-center gap-2">
           {harMaskinerTotal && maskinlisteTop}
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Tilføj lokation
+              <Plus className="h-4 w-4 mr-1" /> Tilføj afdeling
             </Button>
           )}
         </div>
@@ -1207,7 +1207,7 @@ export function LokationerSektion({
                 .filter((l) => (expiringByLoc.get(l.id) ?? 0) > 0)
                 .map((l) => {
                   const n = expiringByLoc.get(l.id) ?? 0;
-                  const label = [l.address, [l.zip, paenBy(l.city)].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "Lokation";
+                  const label = [l.address, [l.zip, paenBy(l.city)].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "Afdeling";
                   return (
                     <li key={l.id}>
                       <button
@@ -1230,11 +1230,11 @@ export function LokationerSektion({
       )}
 
       {summaryQ.isLoading || (cvr && oversigtQ.isLoading) ? (
-        <div role="status" className="flex items-center gap-2 py-3 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Henter lokationer…</div>
+        <div role="status" className="flex items-center gap-2 py-3 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Henter afdelinger…</div>
       ) : summaryQ.error || oversigtQ.error ? (
         <p role="alert" className="text-sm text-destructive">Lokationsoplysninger kunne ikke hentes.</p>
       ) : aktive.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Ingen aktive lokationer.</p>
+        <p className="text-sm text-muted-foreground">Ingen aktive afdelinger.</p>
       ) : (
         tabel(aktive, vis1, setVis1)
       )}
@@ -1248,7 +1248,7 @@ export function LokationerSektion({
             className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
             {aaben2 ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            Øvrige lokationer og P-enheder ({antal2})
+            Øvrige afdelinger og P-enheder ({antal2})
           </button>
           {aaben2 && (
             <div className="mt-1">
@@ -1276,7 +1276,7 @@ export function LokationerSektion({
               )}
               {udenKobling.length > 0 && (
                 <>
-                  {underOverskrift("Lokationer uden P-enhedskobling på denne konto")}
+                  {underOverskrift("Afdelinger uden P-enhedskobling på denne konto")}
                   {tabel(udenKobling, visUden, setVisUden, true)}
                 </>
               )}
@@ -1364,7 +1364,7 @@ function LokationRow({
           ? `Køber på konto ${(location as any).koeber_paa.visma_delivery_no}`
           : null,
       ].filter(Boolean).join(" · ")
-    : [address, cityLine].filter(Boolean).join(", ") || "Lokation";
+    : [address, cityLine].filter(Boolean).join(", ") || "Afdeling";
   const lastPurchaseLabel = lastPurchase
     ? new Date(lastPurchase + "T00:00:00Z").toLocaleDateString("da-DK", {
         day: "numeric",
@@ -1748,7 +1748,7 @@ function EquipmentBox({
       setUdlaan(u);
       setHarLeje(((lejeData ?? []) as any[]).length > 0);
       if (enrError) {
-        console.error("[lokationer-sektion] Kunne ikke hente machine_enrichment:", enrError.message);
+        console.error("[afdelinger-sektion] Kunne ikke hente machine_enrichment:", enrError.message);
       }
       if (cancelled) return;
       const m = new Map<string, EnrichmentInfo>();
@@ -2282,7 +2282,7 @@ function AddLocationDialog({
       toast.error("Kunne ikke gemme: " + error.message);
       return;
     }
-    toast.success("Lokation tilføjet");
+    toast.success("Afdeling tilføjet");
     onSaved();
   }
 
@@ -2290,7 +2290,7 @@ function AddLocationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Tilføj lokation</DialogTitle>
+          <DialogTitle>Tilføj afdeling</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
@@ -2334,7 +2334,7 @@ function AddLocationDialog({
               checked={isPrimary}
               onChange={(e) => setIsPrimary(e.target.checked)}
             />
-            Markér som primær lokation
+            Markér som primær afdeling
           </label>
         </div>
         <DialogFooter>
@@ -2342,7 +2342,7 @@ function AddLocationDialog({
             Annullér
           </Button>
           <Button onClick={save} disabled={saving}>
-            {saving ? "Gemmer…" : "Gem lokation"}
+            {saving ? "Gemmer…" : "Gem afdeling"}
           </Button>
         </DialogFooter>
       </DialogContent>

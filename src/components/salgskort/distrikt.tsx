@@ -97,7 +97,7 @@ export function DistriktPanel({
                 <span>{s.flader} {s.flader === 1 ? "flade" : "flader"}</span>
                 <span>{s.n.toLocaleString("da-DK")} {s.n === 1 ? "lokation" : "lokationer"}</span>
                 <span>{kr(s.oms)} oms.</span>
-                <span className="cursor-help" title="Andel af distriktets lokationer (alle undtagen Frellsen 199), hvor ansvarlig sælger i Visma er distriktets sælger">{pct}{hos}</span>
+                <span className="cursor-help" title="Andel af distriktets afdelinger (alle undtagen Frellsen 199), hvor ansvarlig sælger i Visma er distriktets sælger">{pct}{hos}</span>
               </div>
             </li>
           );
@@ -180,7 +180,7 @@ function KamAftalerDialog({ aftaler, profiler, valg, stat, navn, distrikter, reg
     <Dialog open onOpenChange={(o) => !o && onLuk()}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] [&>*]:min-w-0">
         <DialogHeader><DialogTitle>KAM-aftaler</DialogTitle></DialogHeader>
-        <p className="text-xs text-muted-foreground">KAM går på tværs af distrikterne. Lokationerne beholder deres distriktssælger og tæller stadig i distriktsanalysen.</p>
+        <p className="text-xs text-muted-foreground">KAM går på tværs af distrikterne. Afdelingerne beholder deres distriktssælger og tæller stadig i distriktsanalysen.</p>
         <div className="flex justify-end"><Button size="sm" onClick={() => setEdit({ navn: "", kpg1: [], kpg2: [], kpg3: [], ansvarlige: [], aktiv: true })}>Ny KAM-aftale</Button></div>
         {!aftaler.length && <div className="text-sm text-muted-foreground">Ingen KAM-aftaler endnu.</div>}
         <ul className="space-y-1">
@@ -194,7 +194,7 @@ function KamAftalerDialog({ aftaler, profiler, valg, stat, navn, distrikter, reg
                   <button type="button" className="text-muted-foreground hover:underline" onClick={() => slet(a)}>Slet</button>
                 </div>
                 <div className="text-muted-foreground truncate" title={kodeOversigt(a)}>{kodeOversigt(a)}{omrKort(a.omraade, distrikter)} · {a.ansvarlige.length ? a.ansvarlige.map((x) => navn(x)).join(", ") : "ingen ansvarlig"}</div>
-                <div className="tabular-nums">{st.n.toLocaleString("da-DK")} lokationer · {kr(st.oms)} oms.</div>
+                <div className="tabular-nums">{st.n.toLocaleString("da-DK")} afdelinger · {kr(st.oms)} oms.</div>
               </li>
             );
           })}
@@ -330,17 +330,17 @@ export function KamFormDialog({ start, valg, personer, distrikter, distriktTitel
         <DialogHeader><DialogTitle>{start.id ? "Rediger KAM-aftale" : "Ny KAM-aftale"}</DialogTitle></DialogHeader>
         <div className="space-y-3 text-sm min-w-0">
           <label className="block">Navn<Input value={f.navn} onChange={(e) => setF({ ...f, navn: e.target.value })} /></label>
-          <p className="text-[11px] text-muted-foreground">Lokationen er på aftalen, hvis den har én af de valgte koder (KPG1, KPG2 eller KPG3).</p>
+          <p className="text-[11px] text-muted-foreground">Afdelingen er på aftalen, hvis den har én af de valgte koder (KPG1, KPG2 eller KPG3).</p>
           <IndsaetKoder valg={valg} onTilfoej={(t, k) => setF((x) => ({ ...x, [t]: [...new Set([...x[t], ...k])] }))} />
           <SoegListe titel="Aftale (KPG1)" valg={valg.kpg1} valgte={f.kpg1} setValgte={(v) => setF({ ...f, kpg1: v })} />
           <SoegListe titel="Underaftale (KPG2)" valg={valg.kpg2} valgte={f.kpg2} setValgte={(v) => setF({ ...f, kpg2: v })} vis={kpg2Vis} />
           <SoegListe titel="Segment (KPG3)" valg={valg.kpg3} valgte={f.kpg3} setValgte={(v) => setF({ ...f, kpg3: v })} />
           <OmraadeValg omr={omr} setOmr={(o) => setF({ ...f, omraade: o })} distrikter={distrikter} distriktTitel={distriktTitel} regioner={regioner}
-            hjaelp="Valgfrit: lokationen skal også ligge i området." />
+            hjaelp="Valgfrit: afdelingen skal også ligge i området." />
           <SoegListe titel="KAM-ansvarlige" valg={personer.map(([k]) => [k, null] as [string, null])} valgte={f.ansvarlige} setValgte={(v) => setF({ ...f, ansvarlige: v })} vis={(x) => pn.get(x) ?? "Ukendt"} />
           <label className="flex items-center gap-2 text-xs cursor-pointer"><Checkbox checked={f.aktiv} onCheckedChange={(v) => setF({ ...f, aktiv: !!v })} />Aktiv</label>
         </div>
-        <div className="text-xs tabular-nums text-muted-foreground" data-testid="kam-live">Rammer {live.n.toLocaleString("da-DK")} lokationer · {kr(live.oms)}</div>
+        <div className="text-xs tabular-nums text-muted-foreground" data-testid="kam-live">Rammer {live.n.toLocaleString("da-DK")} afdelinger · {kr(live.oms)}</div>
         <DialogFooter><Button variant="outline" onClick={onLuk}>Annullér</Button><Button disabled={gemmer} onClick={gem}>Gem</Button></DialogFooter>
       </DialogContent>
     </Dialog>
@@ -364,7 +364,7 @@ export function AfvigelsesListe({ rows, onZoom }: { rows: AfvigRow[]; onZoom: (f
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-muted-foreground">{rows.length.toLocaleString("da-DK")} lokationer hos en anden sælger end distriktets</span>
+        <span className="text-sm text-muted-foreground">{rows.length.toLocaleString("da-DK")} afdelinger hos en anden sælger end distriktets</span>
         <Button size="sm" variant="outline" onClick={eksport} disabled={!rows.length}>Eksportér CSV</Button>
       </div>
       <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">

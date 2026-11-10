@@ -63,7 +63,7 @@ export function CompanySalesTab({
   const omskifter = harEgne ? (
     <div className="flex items-center justify-between gap-2 text-xs">
       <span className="text-muted-foreground">
-        {visEgne ? `Dine ${egneLokIds.length} af ${alle.length} lokationer` : "Hele virksomheden"}
+        {visEgne ? `Dine ${egneLokIds.length} af ${alle.length} afdelinger` : "Hele virksomheden"}
       </span>
       <div className="flex items-center gap-2">
         <Switch id="salg-hele-virk" checked={hele} onCheckedChange={setHele} />

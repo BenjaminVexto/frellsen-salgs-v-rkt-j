@@ -31,7 +31,7 @@ const kr = (n: number) => Math.round(n).toLocaleString("da-DK");
 const ALLE = "__alle__";
 
 export const FORDELT_TEKST =
-  "Maskinbelastningen (varenr. 70000) faktureres som én linje pr. lokation og er her fordelt pr. maskine: faste satser pr. måned for Brita-filterhoveder, Bravilor/Bonamat og bryggere samt andet udlån; resten efter kaffemaskinernes og vandkølernes andel af lejen (uden leje: efter antal). Filterhovedernes andel hører til service-regnskabet.";
+  "Maskinbelastningen (varenr. 70000) faktureres som én linje pr. afdeling og er her fordelt pr. maskine: faste satser pr. måned for Brita-filterhoveder, Bravilor/Bonamat og bryggere samt andet udlån; resten efter kaffemaskinernes og vandkølernes andel af lejen (uden leje: efter antal). Filterhovedernes andel hører til service-regnskabet.";
 
 type MaskinRaekke = { l: LokRegnskab; m: FordeltMaskine | GrundMaskine };
 type Drill =
@@ -85,7 +85,7 @@ export function MaskinerService() {
           <div>
             <h1 className="text-2xl font-semibold">Maskiner & Service</h1>
             <p className="text-sm text-muted-foreground">
-              Frellsen-udstyr på {alle ? "alle lokationer" : "lokationerne"} · {p.label} ({p.fra.slice(0, 7)} – {p.til.slice(0, 7)})
+              Frellsen-udstyr på {alle ? "alle afdelinger" : "lokationerne"} · {p.label} ({p.fra.slice(0, 7)} – {p.til.slice(0, 7)})
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -147,9 +147,9 @@ function Handlingsliste({ lok, satser, erAdmin, setDrill }: { lok: LokRegnskab[]
   const punkter: { label: string; hjaelp: string; antal: number; aaben: () => void }[] = [
     { label: "Serviceaftaler i underskud", hjaelp: "Service netto er negativ. Se fornyelsesmåned.", antal: h.underskud.length,
       aaben: () => setDrill({ slags: "lokationer", titel: "Serviceaftaler i underskud", raekker: [...h.underskud].sort((a, b) => a.serviceNetto - b.serviceNetto), visFornyelse: true }) },
-    { label: "Leje uden lejefakturering", hjaelp: "Leje/leasing-udstyr, hvor lokationen ikke er faktureret leje i perioden.", antal: h.udenLeje.length,
+    { label: "Leje uden lejefakturering", hjaelp: "Leje/leasing-udstyr, hvor afdelingen ikke er faktureret leje i perioden.", antal: h.udenLeje.length,
       aaben: () => setDrill({ slags: "maskiner", titel: "Leje/leasing uden lejefakturering", raekker: h.udenLeje }) },
-    ...(erAdmin ? [{ label: "Belastning uden udstyr", hjaelp: "Maskinbelastning på lokationer uden aktivt Frellsen-udstyr i maskinregistret (ufordelt).", antal: h.ufordelt.length,
+    ...(erAdmin ? [{ label: "Belastning uden udstyr", hjaelp: "Maskinbelastning på afdelinger uden aktivt Frellsen-udstyr i maskinregistret (ufordelt).", antal: h.ufordelt.length,
       aaben: () => setDrill({ slags: "lokationer", titel: "Belastning uden registreret udstyr", raekker: [...h.ufordelt].sort((a, b) => b.ufordelt - a.ufordelt) }) }] : []),
   ];
   return (
@@ -180,10 +180,10 @@ function Noegletal({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: Drill)
   const underskud = medUdstyr.filter((l) => l.dbInkl < 0);
   const kort: { label: string; v: ReactNode; aaben: () => void }[] = [
     { label: "Frellsen-maskiner", v: kr(fr.length), aaben: () => setDrill({ slags: "maskiner", titel: "Frellsen-maskiner", raekker: fr }) },
-    { label: "Leje netto", v: <Tal v={lejeNetto} />, aaben: () => setDrill({ slags: "lokationer", titel: "Leje netto pr. lokation", raekker: [...medUdstyr].sort((a, b) => a.lejeNetto - b.lejeNetto) }) },
+    { label: "Leje netto", v: <Tal v={lejeNetto} />, aaben: () => setDrill({ slags: "lokationer", titel: "Leje netto pr. afdeling", raekker: [...medUdstyr].sort((a, b) => a.lejeNetto - b.lejeNetto) }) },
     { label: "Aktive serviceaftaler", v: <span>{kr(aftaler)} <span className="text-xs font-normal text-muted-foreground">maskiner · {kr(lokMedAftale.length)} lok.</span></span>, aaben: () => setDrill({ slags: "maskiner", titel: "Maskiner med aktiv serviceaftale", raekker: lok.flatMap((l) => [...l.maskiner, ...l.kundeejede].filter((m) => harAftale(m) && !erFilter(m)).map((m) => ({ l, m }))) }) },
-    { label: "Service netto (inkl. filtre)", v: <Tal v={serviceNetto} />, aaben: () => setDrill({ slags: "lokationer", titel: "Service netto pr. lokation", raekker: lok.filter((l) => l.antalAftaler > 0 || l.si !== 0).sort((a, b) => a.serviceNetto - b.serviceNetto), visFornyelse: true }) },
-    { label: "Lokationer i underskud", v: kr(underskud.length), aaben: () => setDrill({ slags: "lokationer", titel: "Lokationer i underskud", raekker: [...underskud].sort((a, b) => a.dbInkl - b.dbInkl) }) },
+    { label: "Service netto (inkl. filtre)", v: <Tal v={serviceNetto} />, aaben: () => setDrill({ slags: "lokationer", titel: "Service netto pr. afdeling", raekker: lok.filter((l) => l.antalAftaler > 0 || l.si !== 0).sort((a, b) => a.serviceNetto - b.serviceNetto), visFornyelse: true }) },
+    { label: "Afdelinger i underskud", v: kr(underskud.length), aaben: () => setDrill({ slags: "lokationer", titel: "Afdelinger i underskud", raekker: [...underskud].sort((a, b) => a.dbInkl - b.dbInkl) }) },
   ];
   return (
     <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -292,7 +292,7 @@ function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
   return (
     <Card className="p-4">
       <h2 className="font-semibold">Serviceaftaler</h2>
-      <p className="mb-3 text-xs text-muted-foreground">Fra Vismas serviceregister: {kr(alle.length)} maskiner med aktiv aftale (Frellsen-ejede og kundeejede) på {kr(medAftale.length)} lokationer, plus {kr(filtre.length)} filteraftaler. Fornyelsesmåned = måneden med den årlige aftalefakturering.</p>
+      <p className="mb-3 text-xs text-muted-foreground">Fra Vismas serviceregister: {kr(alle.length)} maskiner med aktiv aftale (Frellsen-ejede og kundeejede) på {kr(medAftale.length)} afdelinger, plus {kr(filtre.length)} filteraftaler. Fornyelsesmåned = måneden med den årlige aftalefakturering.</p>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -333,7 +333,7 @@ function Serviceaftaler({ lok, setDrill }: { lok: LokRegnskab[]; setDrill: (d: D
             </tbody>
           </table>
           <div className="mt-3 flex flex-wrap gap-2 text-sm">
-            <Button size="sm" variant="outline" onClick={lokListe("Aftaler pr. lokation – største underskud øverst", medAftale)}>Aftaler pr. lokation ({medAftale.length})</Button>
+            <Button size="sm" variant="outline" onClick={lokListe("Aftaler pr. afdeling – største underskud øverst", medAftale)}>Aftaler pr. afdeling ({medAftale.length})</Button>
             <Button size="sm" variant="outline" disabled={!udenKoeb.length} onClick={lokListe("Serviceaftale uden varekøb i perioden", udenKoeb)}>Uden varekøb ({udenKoeb.length})</Button>
           </div>
         </div>
@@ -352,13 +352,13 @@ function Lokationsregnskab({ lok, maaneder, setDrill }: { lok: LokRegnskab[]; ma
     <Card className="p-4">
       <div className="mb-1 flex items-center justify-between">
         <h2 className="font-semibold">Giver det mening? – regnskab pr. virksomhed</h2>
-        <Button size="sm" variant="ghost" onClick={() => setDrill({ slags: "lokationer", titel: "Lokationsregnskab", raekker: alleLok })}>Alle lokationer ({alleLok.length})</Button>
+        <Button size="sm" variant="ghost" onClick={() => setDrill({ slags: "lokationer", titel: "Lokationsregnskab", raekker: alleLok })}>Alle afdelinger ({alleLok.length})</Button>
       </div>
-      <p className="mb-3 text-xs text-muted-foreground">Sum af virksomhedens lokationer: Varer-DB + Leje + Service − Belastning − Serviceudgifter = DB inkl. udstyr. Dårligst først. Klik for lokationerne.</p>
+      <p className="mb-3 text-xs text-muted-foreground">Sum af virksomhedens afdelinger: Varer-DB + Leje + Service − Belastning − Serviceudgifter = DB inkl. udstyr. Dårligst først. Klik for afdelingerne.</p>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="text-xs text-muted-foreground"><tr className="border-b text-right">
-            <th className="py-2 text-left">Virksomhed / lokation</th><th>Maskiner</th><th>Varer-DB</th><th>Leje</th><th>Service netto</th><th>Belastning</th><th>DB inkl. udstyr</th>
+            <th className="py-2 text-left">Virksomhed / afdeling</th><th>Maskiner</th><th>Varer-DB</th><th>Leje</th><th>Service netto</th><th>Belastning</th><th>DB inkl. udstyr</th>
           </tr></thead>
           <tbody>
             {virk.slice(0, vis).map((v) => {
@@ -395,7 +395,7 @@ function VirkRaekker({ v, aaben, onSkift }: { v: VirkRegnskab; aaben: boolean; o
       {aaben && v.lok.map((l) => (
         <tr key={l.lev} className="border-b bg-muted/30 text-xs">
           <td className="py-1 pl-6">{l.adr} · {l.lev}
-            {varekoebAndetSted(l, v) && <Badge variant="outline" className="ml-2 text-[10px]">varekøb på anden lokation</Badge>}</td>
+            {varekoebAndetSted(l, v) && <Badge variant="outline" className="ml-2 text-[10px]">varekøb på anden afdeling</Badge>}</td>
           <td className="text-right tabular-nums">{l.maskiner.filter((m) => !erFilter(m)).length}</td>
           <T x={l.vdb} /><T x={l.leje} /><T x={l.serviceNetto} /><T x={-l.belastningIalt} /><T x={l.dbInkl} />
         </tr>
@@ -433,7 +433,7 @@ function LokTabel({ raekker, maaneder, visFornyelse, onLinjer }: { raekker: LokR
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-sm">
           <thead className="text-xs text-muted-foreground"><tr className="border-b">
-            <H k="kunde" left>Kunde / lokation</H><th className="text-right">Udstyr</th><H k="vdb">Varer-DB</H><H k="leje">Leje</H><H k="serviceNetto">Service netto</H>
+            <H k="kunde" left>Kunde / afdeling</H><th className="text-right">Udstyr</th><H k="vdb">Varer-DB</H><H k="leje">Leje</H><H k="serviceNetto">Service netto</H>
             <H k="belastningIalt">Belastning</H><H k="dbInkl">DB inkl. udstyr</H><th className="text-right">Dækning udlån</th>
             {visFornyelse && <th className="text-right">Fornyelse</th>}{onLinjer && <th />}
           </tr></thead>
@@ -507,8 +507,8 @@ function MaskinTabel({ raekker, sorterRep }: { raekker: MaskinRaekke[]; sorterRe
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1000px] text-sm">
           <thead className="text-xs text-muted-foreground"><tr className="border-b">
-            <H k="kunde">Kunde / lokation</H><H k="sn">Serienr.</H><H k="model">Model</H><H k="udl">Udlånstype</H><H k="opsat">Opsat</H>
-            <H k="taeller">Tæller</H><H k="leje">Leje</H><H k="bel">Belastning (fordelt)</H><H k="vdb">Kaffe-DB (lokation)</H><H k="rep">Reparationer (lok.)</H><th className="px-1 text-left">Dækning</th>
+            <H k="kunde">Kunde / afdeling</H><H k="sn">Serienr.</H><H k="model">Model</H><H k="udl">Udlånstype</H><H k="opsat">Opsat</H>
+            <H k="taeller">Tæller</H><H k="leje">Leje</H><H k="bel">Belastning (fordelt)</H><H k="vdb">Kaffe-DB (afdeling)</H><H k="rep">Reparationer (lok.)</H><th className="px-1 text-left">Dækning</th>
           </tr></thead>
           <tbody>
             {rows.map((x) => {

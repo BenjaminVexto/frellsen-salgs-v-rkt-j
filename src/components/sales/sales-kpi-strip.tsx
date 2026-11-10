@@ -136,7 +136,7 @@ export function SalesKpiStrip({
       />
       <KpiCard
         icon={<MapPin className="h-4 w-4" />}
-        label="Aktive lokationer"
+        label="Aktive afdelinger"
         value={
           locationsTotal != null
             ? `${locationsActive ?? 0} af ${locationsTotal}`

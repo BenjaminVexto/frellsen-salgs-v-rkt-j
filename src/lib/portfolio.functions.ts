@@ -633,7 +633,12 @@ export const getMyPortfolio = createServerFn({ method: "POST" })
         const slut = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0);
         return Math.floor((evalDate.getTime() - slut) / 86400000);
       };
-      if (lastCons && dageSiden(lastCons) <= 90) return "aktiv_kunde";
+      if (lastCons) {
+        const d = periodToDate(lastCons);
+        const slut = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+        const { indenForAktivperiode } = await import("./kundestatus-graense");
+        if (indenForAktivperiode(slut, evalDate)) return "aktiv_kunde";
+      }
       if (lastCons && dageSiden(lastCons) <= 365) return "sovende_kunde";
       if (hasEq && lastAny && dageSiden(lastAny) <= 365) return "servicekunde";
       return "tidligere_kunde";

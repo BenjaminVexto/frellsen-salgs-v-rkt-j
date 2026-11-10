@@ -150,12 +150,12 @@ const SYSTEM_FIELDS: { key: SystemField; label: string }[] = [
   { key: "parent_cvr", label: "Overordnet CVR (kommunens)" },
   { key: "is_public", label: "Er offentlig institution (ja/nej)" },
   // Lokationer
-  { key: "location_address", label: "Lokation: Adresselinje 1" },
-  { key: "location_zip", label: "Lokation: Postnr." },
-  { key: "location_city", label: "Lokation: By" },
-  { key: "location_contact_person", label: "Lokation: Ref person" },
-  { key: "location_phone", label: "Lokation: Telefonnr.1" },
-  { key: "location_email", label: "Lokation: E-mailadresse" },
+  { key: "location_address", label: "Afdeling: Adresselinje 1" },
+  { key: "location_zip", label: "Afdeling: Postnr." },
+  { key: "location_city", label: "Afdeling: By" },
+  { key: "location_contact_person", label: "Afdeling: Ref person" },
+  { key: "location_phone", label: "Afdeling: Telefonnr.1" },
+  { key: "location_email", label: "Afdeling: E-mailadresse" },
 ];
 
 const AUTO_MATCH: Record<SystemField, string[]> = {
@@ -1640,12 +1640,12 @@ function ImportSide() {
         })
         .filter((x) => x.lev_kund && Number.isFinite(x.afdeling_nr));
       if (stagingRows.length) {
-        importRunner.setLabel(`Opdaterer sælger på ${stagingRows.length} lokationer…`);
+        importRunner.setLabel(`Opdaterer sælger på ${stagingRows.length} afdelinger…`);
         try {
           await anvendSaelgere({ data: { fuldtUdtraek: vismaFilters.fuldtUdtraek, rows: stagingRows } });
         } catch (e) {
-          console.error("Sælger pr. lokation fejlede", e);
-          toast.error("Opdatering af sælger pr. lokation fejlede: " + (e instanceof Error ? e.message : String(e)));
+          console.error("Sælger pr. afdeling fejlede", e);
+          toast.error("Opdatering af sælger pr. afdeling fejlede: " + (e instanceof Error ? e.message : String(e)));
         }
       }
     }
@@ -1668,7 +1668,7 @@ function ImportSide() {
     // afdeling + leveringsnummer, så historikken følger med nyoprettede kunder.
     let relinkedRows: number | null = null;
     if (!wasAborted && companyIds.length > 0) {
-      importRunner.setLabel("Knytter salgshistorik til lokationer…");
+      importRunner.setLabel("Knytter salgshistorik til afdelinger…");
       try {
         const res = await relinkSales();
         if (res.ok) relinkedRows = (res.monthly ?? 0) + (res.products ?? 0);
@@ -1676,7 +1676,7 @@ function ImportSide() {
       } catch (err: any) {
         const msg = err?.message ?? String(err);
         console.error("[visma-import] relink_sales_locations fejlede:", msg);
-        toast.error(`Salgshistorik blev IKKE knyttet til lokationer: ${msg}`, { duration: 15000 });
+        toast.error(`Salgshistorik blev IKKE knyttet til afdelinger: ${msg}`, { duration: 15000 });
       }
     }
 
@@ -1702,7 +1702,7 @@ function ImportSide() {
 
     const relinkSuffix =
       relinkedRows !== null && relinkedRows > 0
-        ? ` · ${relinkedRows.toLocaleString("da-DK")} salgsrækker knyttet til lokationer`
+        ? ` · ${relinkedRows.toLocaleString("da-DK")} salgsrækker knyttet til afdelinger`
         : "";
     const statusSuffix = recomputeError
       ? " · kundestatus fejlede"
@@ -1734,7 +1734,7 @@ function ImportSide() {
 
     if (companiesWithMultipleLocations > 0) {
       toast.success(
-        `${companiesWithMultipleLocations} virksomheder fik flere lokationer registreret`,
+        `${companiesWithMultipleLocations} virksomheder fik flere afdelinger registreret`,
       );
     }
 
@@ -1744,7 +1744,7 @@ function ImportSide() {
         try {
           // Lokationer: upsert pre-byggede locRows
           if (locRows.length) {
-            importRunner.setLabel("Opretter lokationer i baggrunden…");
+            importRunner.setLabel("Opretter afdelinger i baggrunden…");
             try {
               console.log("[DIAG] upsertLocations kaldes med", locRows.length, "rækker; 2273904 med?",
                 locRows.some((l) => l.visma_delivery_no === "2273904"));
@@ -1752,7 +1752,7 @@ function ImportSide() {
               console.log("[DIAG] upsertLocations OK:", upsertRes);
             } catch (e) {
               console.error("[DIAG] upsertLocations FEJL:", e);
-              console.error("Lokationer-upsert fejl", e);
+              console.error("Afdelinger-upsert fejl", e);
             }
           }
 
@@ -1876,7 +1876,7 @@ function ImportSide() {
       const locCount = hasPerRowLocation ? assignments.filter((a) => a.location_id).length : 0;
       toast.success(
         hasPerRowLocation
-          ? `${assignments.length} tildelinger oprettet (heraf ${locCount} på specifik lokation)`
+          ? `${assignments.length} tildelinger oprettet (heraf ${locCount} på specifik afdeling)`
           : `${assignments.length} virksomheder tildelt`,
       );
     }
@@ -2415,7 +2415,7 @@ function Trin5Tildeling({
           <>
             {" "}
             <span className="text-primary">
-              📍 {locationAssignmentCount} tildelinger oprettes på specifikke lokationer.
+              📍 {locationAssignmentCount} tildelinger oprettes på specifikke afdelinger.
             </span>
           </>
         )}
