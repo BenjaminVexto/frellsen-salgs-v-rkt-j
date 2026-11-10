@@ -26,6 +26,7 @@
 - Agent codes stay on call logs; shared dialog and SQL validate caller writes, and latest-outcome filters ignore notes to match status.
 - CVR groups (accounts sharing cvr_norm) are an overlay only: SQL cvr_grupper/cvr_gruppe_konti/cvr_penhed_oversigt; per-account sales only where _maa_se_kontosalg — so sellers see other sellers' accounts but only group totals.
 - Company free-text matching and matched group-account selection share browser-safe pure helpers in company-filter/company-search.ts — so filtering, counters and bulk selection agree and are regression-tested without loading auth clients.
+- Search status counts use pre-status matches to reconcile tab totals.
 - CVR data lives per CVR in cvr_enhed (src/lib/cvr-enrichment.server.ts, 30-day refresh), copied to companies only by SQL cvr_enhed_til_konti; kommune shows only if account zip = CVR zip — Visma fields are never overwritten.
 - Read nested AGENTS.md; bonus competition shows seller totals only.
 - Company mobile reuses desktop master data in More; one Locations callback for machine metrics.
