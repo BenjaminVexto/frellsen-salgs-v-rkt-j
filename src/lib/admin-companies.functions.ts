@@ -796,6 +796,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
     // så FLYT den eksisterende lokation over på den nye virksomhed i stedet for at
     // oprette en dublet (locations har unik nøgle på (visma_delivery_no, afdeling_nr)).
     let movedToNewCompany = 0;
+    const movementLogs: string[] = [];
     {
       type Wanted = { company_id: string; afdeling_nr: number };
       const wanted = new Map<string, Wanted>(); // key: `${afdeling_nr}|${delivery}`
@@ -815,7 +816,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
           .in("visma_delivery_no", slice);
         if (error) {
           console.error("[locations] opslag før flyt fejlede:", error.message);
-          continue;
+          throw new Error(`Opslag før afdelingsflytning fejlede: ${error.message}`);
         }
         for (const l of (existing ?? []) as Array<Record<string, any>>) {
           const w = wanted.get(`${Number(l.afdeling_nr ?? 11)}|${l.visma_delivery_no}`);
@@ -823,12 +824,15 @@ export const importInsertLocations = createServerFn({ method: "POST" })
         }
       }
       for (const m of moves) {
-        const { error } = await supabaseAdmin
-          .from("locations")
-          .update({ company_id: m.company_id, is_primary: false } as any)
-          .eq("id", m.id);
-        if (error) console.error("[locations] flyt til ny virksomhed fejlede:", m.id, error.message);
-        else movedToNewCompany++;
+        const { data: message, error } = await supabaseAdmin.rpc("import_flyt_lokation", {
+          _location_id: m.id,
+          _company_id: m.company_id,
+        });
+        if (error) throw new Error(`Afdelingsflytning fejlede: ${error.message}`);
+        if (message) {
+          movedToNewCompany++;
+          movementLogs.push(message);
+        }
       }
       if (movedToNewCompany) console.log(`[locations] ${movedToNewCompany} afdelinger flyttet til ny virksomhed`);
     }
@@ -887,7 +891,7 @@ export const importInsertLocations = createServerFn({ method: "POST" })
       }
     }
 
-    return { inserted, failed, errorSamples, primaryFixed, primaryFailed, movedToNewCompany };
+    return { inserted, failed, errorSamples, primaryFixed, primaryFailed, movedToNewCompany, movementLogs };
   });
 
 export const importUpsertContacts = createServerFn({ method: "POST" })

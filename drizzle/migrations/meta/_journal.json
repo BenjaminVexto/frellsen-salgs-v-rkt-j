@@ -1114,6 +1114,13 @@
       "when": 1794295378311,
       "tag": "0158_kundestatus_seks_maaneder",
       "breakpoints": true
+    },
+    {
+      "idx": 159,
+      "version": "7",
+      "when": 1794468679723,
+      "tag": "0159_aktoer_bevar_lokation_ved_ny_fakturakunde",
+      "breakpoints": true
     }
   ]
 }

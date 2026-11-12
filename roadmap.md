@@ -1,5 +1,10 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Aktør-import flytter eksisterende afdelinger
+- [x] Flyt samme leveringsnummer inden for samme afdeling til Fakt. kunde med bevaret ID og gammel virksomhed; ny virksomhed afvises ikke af den automatiske primærafdeling.
+- [x] Afvent flytning før sælgertildeling, salgstilknytning og importresultat; vis flyttelog og fejl. Lokationsbundne aktiviteter, kontakter og månedssalg følger atomisk med.
+- [x] Seks tests med de faktiske flyttefunktioner i isoleret PostgreSQL: 1784602/afd. 11 fra 1784600, 7158101/afd. 21 fra 7158100, bevarede ID/maskiner/historik, gammel konto, gentagelse og adgang. Indlogget importside åbner uden runtimefejl; build OK. Ingen rigtig import udført og de to eksisterende kunders data er urørte; flytning sker ved næste Aktør-import.
+
 ## Aktuelt: Egne opfølgninger og virksomhedslinks
 - [x] Dagens fokus og Overskredet åbner den konkrete virksomhed med typed virksomhedslink.
 - [x] Boosts ring-igen-opgaver og afsluttede listeudfald vises ikke som sælgerens egne; egne aktivitetsopfølgninger medtages, bookede salgsmuligheder bevares.

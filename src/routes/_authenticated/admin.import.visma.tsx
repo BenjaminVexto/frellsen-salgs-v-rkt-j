@@ -72,6 +72,14 @@ import {
 } from "@/lib/customer-segment-mapping";
 
 export const Route = createFileRoute("/_authenticated/admin/import/visma")({
+  head: () => ({ meta: [
+    { title: "Aktør-import | Frellsen CRM" },
+    { name: "description", content: "Importér Visma-kunder og afdelinger i Frellsen CRM." },
+    { property: "og:title", content: "Aktør-import | Frellsen CRM" },
+    { property: "og:description", content: "Importér Visma-kunder og afdelinger i Frellsen CRM." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: ImportSide,
 });
 
@@ -386,6 +394,7 @@ function ImportSide() {
     noCvrCount: number;
     importSource: "visma" | "cvr";
     unmatchedSalespersonNos: string[];
+    movementLogs?: string[];
   } | null>(null);
   const [importedIds, setImportedIds] = useState<string[]>([]);
   const [importedSellerByCompany, setImportedSellerByCompany] = useState<Record<string, string>>({});
@@ -1621,6 +1630,23 @@ function ImportSide() {
       seller_id: sellerByCompany[id] ?? null,
     }));
 
+    // Afvent afdelingerne, før sælgere, historik og importresultat opdateres.
+    const movementLogs: string[] = [];
+    if (locRows.length && !importRunner.isAborted()) {
+      importRunner.setLabel("Opdaterer afdelinger…");
+      try {
+        const res = await upsertLocations({ data: { rows: locRows } });
+        movementLogs.push(...res.movementLogs);
+        failed += res.failed + res.primaryFailed;
+        for (const error of res.errorSamples) afvis(null, error.message);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        failed += locRows.length;
+        afvis(null, message);
+        toast.error(message);
+      }
+    }
+
     // Sælger pr. lokation: hver (afdeling, Lev. kund) får sin egen sælger og spærring;
     // virksomhedens ansvarlige = hovedkontoens sælger (Lev. kund = Fakt. kunde). Køres på serveren.
     if (mapping.visma_delivery_id) {
@@ -1654,6 +1680,7 @@ function ImportSide() {
       created, updated, skipped, failed, enriched, noCvrCount,
       importSource,
       unmatchedSalespersonNos: stats.unmatchedSalespersonNos,
+      movementLogs,
     };
     setImportedIds(companyIds);
     setImportedSellerByCompany(sellerByCompany);
@@ -1722,7 +1749,7 @@ function ImportSide() {
       if (companyIds.length === 0 && failed > 0) {
         void logImport("aktoer", "fejl", file?.name, `Intet indlæst — ${failed.toLocaleString("da-DK")} rækker fejlede`);
       } else {
-        void logImport("aktoer", "ok", file?.name, null, failed, afviste);
+        void logImport("aktoer", "ok", file?.name, movementLogs.length ? movementLogs.join("\n") : null, failed, afviste);
       }
     }
     if (wasAborted) toast.warning(`Import stoppet — ${companyIds.length.toLocaleString("da-DK")} virksomheder importeret før afbrydelse`);
@@ -1738,25 +1765,10 @@ function ImportSide() {
       );
     }
 
-    // Fire-and-forget baggrunds-opgaver: lokationer, kontakter, CVR-berigelse
+    // Baggrunds-opgaver: kontakter og CVR-berigelse; afdelinger er allerede gemt.
     setTimeout(() => {
       (async () => {
         try {
-          // Lokationer: upsert pre-byggede locRows
-          if (locRows.length) {
-            importRunner.setLabel("Opretter afdelinger i baggrunden…");
-            try {
-              console.log("[DIAG] upsertLocations kaldes med", locRows.length, "rækker; 2273904 med?",
-                locRows.some((l) => l.visma_delivery_no === "2273904"));
-              const upsertRes = await upsertLocations({ data: { rows: locRows } });
-              console.log("[DIAG] upsertLocations OK:", upsertRes);
-            } catch (e) {
-              console.error("[DIAG] upsertLocations FEJL:", e);
-              console.error("Afdelinger-upsert fejl", e);
-            }
-          }
-
-
           // Kontakter: hent locIdMap kun for virksomheder med lokationer
           if (
             contactRows.length > 0 &&
@@ -2256,7 +2268,7 @@ function Trin4Import({
   importing: boolean;
   progress: number;
   progressLabel: string;
-  result: { created: number; updated: number; skipped: number; failed: number; enriched: number; noCvrCount: number; importSource: "visma" | "cvr"; unmatchedSalespersonNos: string[] } | null;
+  result: { created: number; updated: number; skipped: number; failed: number; enriched: number; noCvrCount: number; importSource: "visma" | "cvr"; unmatchedSalespersonNos: string[]; movementLogs?: string[] } | null;
   importedCount: number;
   onBack: () => void;
   onRun: () => void;
@@ -2281,6 +2293,11 @@ function Trin4Import({
           <p className="text-sm text-muted-foreground mb-4">
             {result.enriched} virksomheder beriget med CVR-data.
           </p>
+        )}
+        {!!result.movementLogs?.length && (
+          <ul className="text-sm text-left space-y-1 mb-4">
+            {result.movementLogs.map((message, index) => <li key={index}>{message}</li>)}
+          </ul>
         )}
         {result.unmatchedSalespersonNos.length > 0 && (
           <Card className="p-4 border-warning/30 bg-warning/5 flex gap-3 items-start max-w-md mx-auto mb-6 text-left">

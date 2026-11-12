@@ -6130,6 +6130,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_flyt_lokation: {
+        Args: { _company_id: string; _location_id: string }
+        Returns: string
+      }
       import_maskine_placering: {
         Args: { _placering: string; _serienr: string }
         Returns: undefined
