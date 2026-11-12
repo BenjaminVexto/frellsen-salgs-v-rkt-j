@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FORHANDLING_HJAELP } from "@/lib/customer-segment-mapping";
+import { KategoriForklaring } from "@/components/kategori-forklaring";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -965,7 +966,7 @@ function Tabel({
           <div>
             <table className="w-full table-fixed text-xs tabular-nums">
               <colgroup>
-                <col className="w-32" />
+                <col className="w-36" />
                 {maaneder.map((m) => <col key={m} />)}
                 {visTotalKolonne && <col />}
               </colgroup>
@@ -986,7 +987,7 @@ function Tabel({
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={r.label} className="border-b last:border-0">
-                    <td className="py-1.5 pr-2 break-words">
+                    <td className="py-1.5 pr-2 whitespace-nowrap">
                       <button
                         type="button"
                         className="hover:underline text-left"
@@ -994,11 +995,7 @@ function Tabel({
                       >
                         {r.label}
                       </button>
-                      {r.label === "Forhandlingskunder" && (
-                        <div className="text-[10px] text-muted-foreground font-normal whitespace-normal leading-tight">
-                          {FORHANDLING_HJAELP}
-                        </div>
-                      )}
+                      <KategoriForklaring label={r.label} />
                     </td>
                     {maaneder.map((m) => (
                       <td key={m} className="text-right py-1.5 px-1">
