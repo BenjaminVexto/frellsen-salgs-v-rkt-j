@@ -1,4 +1,5 @@
 import { kraevIntern } from "@/lib/kraev-intern";
+import { classifyWittenborg, type UdstyrType } from "./udstyr-type";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import crypto from "node:crypto";
@@ -125,39 +126,8 @@ function isFilterUnit(text: string): boolean {
   return UNIT_FILTER_KEYWORDS.some((k) => s.includes(k));
 }
 
-// ---- Klassifikation af udstyrs-ejerskab ----
-// Fire værdier matcher CHECK-constraint på location_equipment_units.udstyr_type.
-type UdstyrType = "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
-
-// Wittenborg-maskine: klassificér fra egen enrichment-række.
-// Trin 1: lease_leje_dato → Frellsen-ejet → trin 4.
-// Trin 2: kobt_dato → kunde_ejet.
-// Trin 3: G4-fallback på aftale_type.
-// Trin 4 (kun Frellsen-ejet): binding_ophor → leje_binding, ellers leje_ub.
-function classifyWittenborg(r: {
-  kobt_dato?: string | null;
-  lease_leje_dato?: string | null;
-  binding_ophor?: string | null;
-  aftale_type?: string | null;
-}): UdstyrType {
-  const lease = normDate(r.lease_leje_dato);
-  const kobt = normDate(r.kobt_dato);
-  const binding = normDate(r.binding_ophor);
-
-  let frellsenOwned: boolean | null = null;
-  if (lease) frellsenOwned = true;
-  else if (kobt) return "kunde_ejet";
-  else {
-    const at = (r.aftale_type ?? "").trim().toLowerCase();
-    if (at.startsWith("1 [serviceaftale]") || at.startsWith("0")) return "kunde_ejet";
-    // "4 [Lejeaftale]" og "2 [Lejeaftale - betaler filter]" er begge lejeaftaler (Frellsen-ejet).
-    if (at.startsWith("4 [lejeaftale") || at.startsWith("2 [lejeaftale")) frellsenOwned = true;
-    else return "ukendt";
-  }
-  if (!frellsenOwned) return "ukendt";
-  return binding ? "leje_binding" : "leje_ub";
-}
-
+// ---- Klassifikation af udstyrs-ejerskab (se udstyr-type.ts) ----
+// Værdier matcher CHECK-constraint på location_equipment_units.udstyr_type.
 // Wittenborg-aftaletype "1 [Serviceaftale]" → serviceaftale på enheden.
 function isServiceAgreement(aftaleType: string | null | undefined): boolean {
   return (aftaleType ?? "").trim().toLowerCase().startsWith("1 [serviceaftale]");
@@ -560,7 +530,7 @@ export const importMachines = createServerFn({ method: "POST" })
 
       const wittenborgLocIds = new Set<string>();
       const wittenborgTypeCounts: Record<UdstyrType, number> = {
-        leje_ub: 0, leje_binding: 0, kunde_ejet: 0, ukendt: 0,
+        udlaan: 0, leje_ub: 0, leje_binding: 0, kunde_ejet: 0, ukendt: 0,
       };
       if (data.enrichmentRows.length > 0) {
         let withLev = 0;
@@ -579,10 +549,9 @@ export const importMachines = createServerFn({ method: "POST" })
           witTypeByLocSerial.set(`${loc.id}||${serienr}`, cleanG2(t(r.maskin_type)).toLowerCase());
           wittenborgLocIds.add(loc.id);
           const udstyr_type = classifyWittenborg({
-            kobt_dato: (r as any).kobt_dato,
-            lease_leje_dato: (r as any).lease_leje_dato,
             binding_ophor: r.binding_ophor,
             aftale_type: (r as any).aftale_type,
+            reservedele: (r as any).reservedele ?? (r.data as any)?.reservedele,
           });
           wittenborgTypeCounts[udstyr_type]++;
           wittenborgUnits.push({
@@ -607,7 +576,7 @@ export const importMachines = createServerFn({ method: "POST" })
       const wittenborgUdenSnUnits: WittenborgUnit[] = [];
       const wittenborgUdenSnLocIds = new Set<string>();
       const wittenborgUdenSnTypeCounts: Record<UdstyrType, number> = {
-        leje_ub: 0, leje_binding: 0, kunde_ejet: 0, ukendt: 0,
+        udlaan: 0, leje_ub: 0, leje_binding: 0, kunde_ejet: 0, ukendt: 0,
       };
       if (data.enrichmentRowsUdenSn.length > 0) {
         let withLev = 0;
@@ -627,10 +596,9 @@ export const importMachines = createServerFn({ method: "POST" })
           witTypeByLocSerial.set(`${loc.id}||${serienr}`, cleanG2(t(r.maskin_type)).toLowerCase());
           wittenborgUdenSnLocIds.add(loc.id);
           const udstyr_type = classifyWittenborg({
-            kobt_dato: (r as any).kobt_dato,
-            lease_leje_dato: (r as any).lease_leje_dato,
             binding_ophor: r.binding_ophor,
             aftale_type: (r as any).aftale_type,
+            reservedele: (r as any).reservedele ?? (r.data as any)?.reservedele,
           });
           wittenborgUdenSnTypeCounts[udstyr_type]++;
           wittenborgUdenSnUnits.push({

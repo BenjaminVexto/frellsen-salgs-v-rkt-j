@@ -1,0 +1,2 @@
+ALTER TABLE public.location_equipment_units DROP CONSTRAINT location_equipment_units_udstyr_type_check;
+ALTER TABLE public.location_equipment_units ADD CONSTRAINT location_equipment_units_udstyr_type_check CHECK (udstyr_type = ANY (ARRAY['udlaan','leje_ub','leje_binding','kunde_ejet','ukendt']));

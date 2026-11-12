@@ -131,7 +131,6 @@ const FORCE_TEXT = new Set([
   "fak_kundenr",
   "varenr",
   "chf",
-  "kundeprisgruppe1",
 ]);
 const DATE_FIELDS = new Set([
   "reservedele_efter",
@@ -340,7 +339,6 @@ const ENRICHMENT_EXPECTED = [
   "lev_kundenr",
   "fak_kundenr",
   "status",
-  "kundeprisgruppe1",
   "leaset_dato",
   "respons",
   "navn",
@@ -369,6 +367,7 @@ const KILDE_LABEL: Record<string, string> = {
   wittenborg_uden_sn: "Serienr. u/serviceaftale",
 };
 const UDSTYR_LABEL: Record<string, string> = {
+  udlaan: "Udlån",
   leje_ub: "Leje u/binding",
   leje_binding: "Leje m/binding",
   kunde_ejet: "Kundeejet",

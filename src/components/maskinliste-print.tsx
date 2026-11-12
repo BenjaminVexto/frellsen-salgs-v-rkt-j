@@ -144,7 +144,7 @@ export function UdskrivMaskinlisteKnap({
         }
         // Filtre/tilbehør: importens udstyrstype (samme som kundekortet).
         const aftale = u.is_filter
-          ? u.udstyr_type === "leje_binding" ? "Leje" : u.udstyr_type === "kunde_ejet" ? "Kundeejet" : u.is_free_loan || u.udstyr_type === "leje_ub" ? "Udlån" : "Ukendt"
+          ? u.udstyr_type === "leje_binding" ? "Leje" : u.udstyr_type === "kunde_ejet" ? "Kundeejet" : u.udstyr_type === "leje_ub" ? "Leje" : u.is_free_loan || u.udstyr_type === "udlaan" ? "Udlån" : "Ukendt"
           : maskinAftale({ g4: e?.aftale_type, udlaanstype: mask.get(sn)?.udlanstype ?? (u.is_free_loan ? "4 [Udlån]" : null), lejelinjer: leje.has(u.location_id), gratisUdlaan: !!u.is_free_loan });
         if (!sn) {
           // Udstyr uden serienr. samles pr. type på én linje med antal.

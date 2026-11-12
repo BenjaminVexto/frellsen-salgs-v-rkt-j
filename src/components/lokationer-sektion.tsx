@@ -1531,14 +1531,15 @@ type EquipmentUnit = {
   agreement_type: string | null;
   is_free_loan: boolean;
   has_service_contract: boolean;
-  udstyr_type: "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt" | null;
+  udstyr_type: "udlaan" | "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt" | null;
   afdeling_nr?: number | null;
 };
 
-type Ownership = "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
+type Ownership = "udlaan" | "leje_ub" | "leje_binding" | "kunde_ejet" | "ukendt";
 
 const OWNERSHIP_LABEL: Record<Ownership, string> = {
-  leje_ub: "Udlån",
+  udlaan: "Udlån",
+  leje_ub: "Leje u/binding",
   leje_binding: "Leje",
   kunde_ejet: "Kundeejet",
   ukendt: "Ukendt",
