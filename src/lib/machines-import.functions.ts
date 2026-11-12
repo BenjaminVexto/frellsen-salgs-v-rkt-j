@@ -552,6 +552,7 @@ export const importMachines = createServerFn({ method: "POST" })
             binding_ophor: r.binding_ophor,
             aftale_type: (r as any).aftale_type,
             reservedele: (r as any).reservedele ?? (r.data as any)?.reservedele,
+            reservedele_efter_raw: (r as any).reservedele_efter_raw ?? (r.data as any)?.reservedele_efter_raw,
           });
           wittenborgTypeCounts[udstyr_type]++;
           wittenborgUnits.push({
@@ -599,6 +600,7 @@ export const importMachines = createServerFn({ method: "POST" })
             binding_ophor: r.binding_ophor,
             aftale_type: (r as any).aftale_type,
             reservedele: (r as any).reservedele ?? (r.data as any)?.reservedele,
+            reservedele_efter_raw: (r as any).reservedele_efter_raw ?? (r.data as any)?.reservedele_efter_raw,
           });
           wittenborgUdenSnTypeCounts[udstyr_type]++;
           wittenborgUdenSnUnits.push({

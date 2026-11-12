@@ -10,5 +10,11 @@ describe("classifyWittenborg", () => {
   it("lejeaftale uden binding (u/service) = leje u/binding", () =>
     expect(c({ aftale_type: "4 [Lejeaftale]" })).toBe("leje_ub"));
   it("kun lejedato og tom aftaletype = kundeejet", () => expect(c({ aftale_type: "" })).toBe("kunde_ejet"));
-  it("kode 2 er ikke leje", () => expect(c({ aftale_type: "2 [Lejeaftale - betaler filter]" })).toBe("kunde_ejet"));
+  it("kode 2 uden binding = leje u/binding", () => expect(c({ aftale_type: "2 [Lejeaftale - betaler filter]" })).toBe("leje_ub"));
+  it("kode 2 med binding = leje m/binding", () =>
+    expect(c({ aftale_type: "2 [Lejeaftale - betaler filter]", binding_ophor: "2027-01-01" })).toBe("leje_binding"));
+  it("udlån fra Reserved. efter regn.", () =>
+    expect(c({ aftale_type: "4 [Lejeaftale]", reservedele: "1 [Aftale m/Alt u/b]", reservedele_efter_raw: "Midlertidig udlån" })).toBe("udlaan"));
+  it("dato i Reserved. efter regn. er ikke udlån", () =>
+    expect(c({ aftale_type: "4 [Lejeaftale]", reservedele_efter_raw: "2031-12 december" })).toBe("leje_ub"));
 });

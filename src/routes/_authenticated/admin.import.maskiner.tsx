@@ -300,6 +300,8 @@ function mapSheet(
       } else if (FORCE_TEXT.has(canonical)) {
         obj[canonical] = forceText(raw);
       } else if (DATE_FIELDS.has(canonical)) {
+        // Rå tekst bevares (fx "Midlertidig udl…" = udlån), datoen parses som før.
+        if (canonical === "reservedele_efter") obj["reservedele_efter_raw"] = forceText(raw);
         if (dateDetection && ENRICHMENT_DATE_FIELDS.has(canonical)) {
           obj[canonical] = parseDateWithFormat(raw, dateDetection.format);
         } else {

@@ -1,1 +1,1 @@
-- Wittenborg equipment ownership (udstyr_type) is decided only by udstyr-type.ts (udlån via reservedele, lease code 4 ± binding, else customer-owned) — dates alone never imply rental.
+- Wittenborg equipment ownership (udstyr_type) is decided only by udstyr-type.ts (udlån via raw "Reserved. efter regn." or reservedele, lease code 2/4 ± binding, else customer-owned) — dates alone never imply rental.
