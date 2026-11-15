@@ -1,1 +1,2 @@
 - Wittenborg equipment ownership (udstyr_type) is decided only by udstyr-type.ts (udlån via raw "Reserved. efter regn." or reservedele, lease code 2/4 ± binding, else customer-owned) — dates alone never imply rental.
+- Successor accounts are company_relations 'efterfoelger' (from old → to new), resolved only by SQL efterfoelger_kaede/_har_koebende_forgaenger/_har_aktiv_efterfoelger; only new-customer, lost/declining, card history and rhythm read the chain — so monthly totals stay per account.

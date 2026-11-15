@@ -122,7 +122,9 @@ export const getCompanyRelations = createServerFn({ method: "GET" })
         .filter((r) => r.direction === "out")
         .map((r) => `${r.other_company_id}|${r.relation_type}`),
     );
+    // Efterfølger-koblinger vises i EfterfoelgerSektion, ikke her.
     const deduped = confirmed.filter((r) => {
+      if (r.relation_type === "efterfoelger") return false;
       if (r.direction === "out") return true;
       const inverse = INVERSE[r.relation_type];
       if (!inverse) return true;

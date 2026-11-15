@@ -33,6 +33,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as AuthenticatedAdminBrugereRouteImport } from './routes/_authenticated/admin.brugere'
 import { Route as AuthenticatedAdminCvrDebugRouteImport } from './routes/_authenticated/admin.cvr-debug'
 import { Route as AuthenticatedAdminDubletterRouteImport } from './routes/_authenticated/admin.dubletter'
+import { Route as AuthenticatedAdminEfterfoelgereRouteImport } from './routes/_authenticated/admin.efterfoelgere'
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
 import { Route as AuthenticatedAdminImporthistorikRouteImport } from './routes/_authenticated/admin.importhistorik'
 import { Route as AuthenticatedAdminKoblingsforslagRouteImport } from './routes/_authenticated/admin.koblingsforslag'
@@ -200,6 +201,12 @@ const AuthenticatedAdminDubletterRoute =
   AuthenticatedAdminDubletterRouteImport.update({
     id: '/admin/dubletter',
     path: '/admin/dubletter',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminEfterfoelgereRoute =
+  AuthenticatedAdminEfterfoelgereRouteImport.update({
+    id: '/admin/efterfoelgere',
+    path: '/admin/efterfoelgere',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminImportRoute =
@@ -432,6 +439,7 @@ export interface FileRoutesByFullPath {
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/admin/dubletter': typeof AuthenticatedAdminDubletterRoute
+  '/admin/efterfoelgere': typeof AuthenticatedAdminEfterfoelgereRoute
   '/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
@@ -492,6 +500,7 @@ export interface FileRoutesByTo {
   '/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/admin/dubletter': typeof AuthenticatedAdminDubletterRoute
+  '/admin/efterfoelgere': typeof AuthenticatedAdminEfterfoelgereRoute
   '/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
   '/admin/maskiner-uden-aftale': typeof AuthenticatedAdminMaskinerUdenAftaleRoute
@@ -553,6 +562,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/brugere': typeof AuthenticatedAdminBrugereRoute
   '/_authenticated/admin/cvr-debug': typeof AuthenticatedAdminCvrDebugRoute
   '/_authenticated/admin/dubletter': typeof AuthenticatedAdminDubletterRoute
+  '/_authenticated/admin/efterfoelgere': typeof AuthenticatedAdminEfterfoelgereRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRouteWithChildren
   '/_authenticated/admin/importhistorik': typeof AuthenticatedAdminImporthistorikRoute
   '/_authenticated/admin/koblingsforslag': typeof AuthenticatedAdminKoblingsforslagRoute
@@ -615,6 +625,7 @@ export interface FileRouteTypes {
     | '/admin/brugere'
     | '/admin/cvr-debug'
     | '/admin/dubletter'
+    | '/admin/efterfoelgere'
     | '/admin/import'
     | '/admin/importhistorik'
     | '/admin/koblingsforslag'
@@ -675,6 +686,7 @@ export interface FileRouteTypes {
     | '/admin/brugere'
     | '/admin/cvr-debug'
     | '/admin/dubletter'
+    | '/admin/efterfoelgere'
     | '/admin/importhistorik'
     | '/admin/koblingsforslag'
     | '/admin/maskiner-uden-aftale'
@@ -735,6 +747,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/brugere'
     | '/_authenticated/admin/cvr-debug'
     | '/_authenticated/admin/dubletter'
+    | '/_authenticated/admin/efterfoelgere'
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/importhistorik'
     | '/_authenticated/admin/koblingsforslag'
@@ -960,6 +973,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/dubletter'
       fullPath: '/admin/dubletter'
       preLoaderRoute: typeof AuthenticatedAdminDubletterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/efterfoelgere': {
+      id: '/_authenticated/admin/efterfoelgere'
+      path: '/admin/efterfoelgere'
+      fullPath: '/admin/efterfoelgere'
+      preLoaderRoute: typeof AuthenticatedAdminEfterfoelgereRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/import': {
@@ -1254,6 +1274,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminBrugereRoute: typeof AuthenticatedAdminBrugereRoute
   AuthenticatedAdminCvrDebugRoute: typeof AuthenticatedAdminCvrDebugRoute
   AuthenticatedAdminDubletterRoute: typeof AuthenticatedAdminDubletterRoute
+  AuthenticatedAdminEfterfoelgereRoute: typeof AuthenticatedAdminEfterfoelgereRoute
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRouteWithChildren
   AuthenticatedAdminImporthistorikRoute: typeof AuthenticatedAdminImporthistorikRoute
   AuthenticatedAdminKoblingsforslagRoute: typeof AuthenticatedAdminKoblingsforslagRoute
@@ -1291,6 +1312,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminBrugereRoute: AuthenticatedAdminBrugereRoute,
   AuthenticatedAdminCvrDebugRoute: AuthenticatedAdminCvrDebugRoute,
   AuthenticatedAdminDubletterRoute: AuthenticatedAdminDubletterRoute,
+  AuthenticatedAdminEfterfoelgereRoute: AuthenticatedAdminEfterfoelgereRoute,
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRouteWithChildren,
   AuthenticatedAdminImporthistorikRoute: AuthenticatedAdminImporthistorikRoute,
   AuthenticatedAdminKoblingsforslagRoute:

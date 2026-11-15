@@ -2105,6 +2105,56 @@ export type Database = {
         }
         Relationships: []
       }
+      efterfoelger_forslag_afvist: {
+        Row: {
+          afvist_af: string | null
+          afvist_at: string
+          fra_company_id: string
+          til_company_id: string
+        }
+        Insert: {
+          afvist_af?: string | null
+          afvist_at?: string
+          fra_company_id: string
+          til_company_id: string
+        }
+        Update: {
+          afvist_af?: string | null
+          afvist_at?: string
+          fra_company_id?: string
+          til_company_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "efterfoelger_forslag_afvist_fra_company_id_fkey"
+            columns: ["fra_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "efterfoelger_forslag_afvist_fra_company_id_fkey"
+            columns: ["fra_company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "efterfoelger_forslag_afvist_til_company_id_fkey"
+            columns: ["til_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "efterfoelger_forslag_afvist_til_company_id_fkey"
+            columns: ["til_company_id"]
+            isOneToOne: false
+            referencedRelation: "salgsintelligens_mersalg"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       fald_indstilling: {
         Row: {
           id: boolean
@@ -5595,6 +5645,11 @@ export type Database = {
           saelger_user_id: string
         }[]
       }
+      _har_aktiv_efterfoelger: { Args: { _id: string }; Returns: boolean }
+      _har_koebende_forgaenger: {
+        Args: { _foer: string; _id: string }
+        Returns: boolean
+      }
       _import_type_label: { Args: { _t: string }; Returns: string }
       _maa_se_kontosalg: { Args: { _company_id: string }; Returns: boolean }
       _maalepunkt_db_detaljer_raw: {
@@ -6087,6 +6142,56 @@ export type Database = {
         }[]
       }
       dublet_navn_norm: { Args: { _name: string }; Returns: string }
+      efterfoelger_fjern: { Args: { _relation_id: string }; Returns: undefined }
+      efterfoelger_forslag: {
+        Args: { _afdeling_nr?: number }
+        Returns: {
+          cvr: string
+          fra_id: string
+          fra_navn: string
+          fra_sidste: string
+          fra_snit: number
+          fra_visma: string
+          segment: string
+          til_foerste: string
+          til_id: string
+          til_navn: string
+          til_snit: number
+          til_visma: string
+        }[]
+      }
+      efterfoelger_kaede: { Args: { _id: string }; Returns: string[] }
+      efterfoelger_kandidater: {
+        Args: { _id: string; _soeg?: string }
+        Returns: {
+          by: string
+          company_id: string
+          navn: string
+          samme_cvr: boolean
+          visma_id: string
+        }[]
+      }
+      efterfoelger_links: {
+        Args: { _id: string }
+        Returns: {
+          company_id: string
+          navn: string
+          relation_id: string
+          retning: string
+          visma_id: string
+        }[]
+      }
+      efterfoelger_par: {
+        Args: never
+        Returns: {
+          company_id: string
+          medlem_id: string
+        }[]
+      }
+      efterfoelger_saet: {
+        Args: { _fra: string; _til: string }
+        Returns: string
+      }
       er_crm_bruger: { Args: never; Returns: boolean }
       er_telemarketing: { Args: never; Returns: boolean }
       faktura_uden_kunde: {

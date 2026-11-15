@@ -106,6 +106,7 @@ import { KontaktpersonerSektion, type ContactRow } from "@/components/kontaktper
 import { SoesterselskaberSektion } from "@/components/soesterselskaber-sektion";
 import { KoncernSektion } from "@/components/koncern-sektion";
 import { ForsyningsRelationerSektion } from "@/components/forsynings-relationer-sektion";
+import { EfterfoelgerSektion, efterfoelgerQuery } from "@/components/efterfoelger-sektion";
 import { RegistrerAktivitetDialogV2 } from "@/components/registrer-aktivitet-dialog-v2";
 import { AiBriefingSektion, useCompanyBriefing } from "@/components/ai-briefing-sektion";
 import { KundeSalgstal } from "@/components/sales/kunde-salgstal";
@@ -195,12 +196,14 @@ function VirksomhedsKort() {
   const [company, setCompany] = useState<Company | null>(null);
   const cvrEnhedQ = useCvrEnhed(company?.cvr);
   const cvrGrupperQ = useQuery({ ...cvrGrupperQuery, enabled: !!cvrNorm(company?.cvr) });
+  const efterfoelgerQ = useQuery({ ...efterfoelgerQuery(id), enabled: !!id });
   // Afløst debitorpost (Visma-post erstattet af en nyere) → banner + skjulte signaler.
   const [afloestAf, setAfloestAf] = useState<{
     id: string;
     name: string;
     visma_id: string | null;
   } | null>(null);
+  const skjulSignaler = !!afloestAf || !!efterfoelgerQ.data?.harAktivEfterfoelger;
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -793,6 +796,8 @@ function VirksomhedsKort() {
         </Card>
       )}
 
+      <EfterfoelgerSektion companyId={company.id} isAdmin={isAdmin} />
+
       <div className="md:hidden mb-4" data-testid="company-mobile-header">
         <div className="space-y-3">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
@@ -1084,7 +1089,7 @@ function VirksomhedsKort() {
                 totalLocations={locations.length}
                 locationIds={locations.map((l) => l.id)}
                 egneLokIds={locations.filter((l: any) => visUserId && l.saelger_user_id === visUserId).map((l) => l.id)}
-                skjulSignaler={!!afloestAf}
+                skjulSignaler={skjulSignaler}
               />
             </TabsContent>
 
@@ -1094,7 +1099,7 @@ function VirksomhedsKort() {
                 companyId={company.id}
                 locations={locations}
                 locationIds={locations.map((l) => l.id)}
-                skjulSignaler={!!afloestAf}
+                skjulSignaler={skjulSignaler}
               />
               <UdstyrBoks companyId={company.id} />
             </TabsContent>}
