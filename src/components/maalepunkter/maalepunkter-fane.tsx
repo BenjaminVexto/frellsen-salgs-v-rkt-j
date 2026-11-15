@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { useGrafVisning } from "./use-graf-visning";
 import { useGrafHoejde } from "./use-graf-hoejde";
+import { kpg45Raekker, kpg45Noegle, hovedKategori, filtrerUnderkategori } from "./kpg45";
 
 /** Samme farver for private/offentlige/total i alle fem grafer. */
 const FARVE_PRIVAT = "hsl(217 91% 50%)";
@@ -47,6 +48,8 @@ const FARVER_MAERKE = [
 /** Farve pr. rækkelabel — private og offentlige altid ens på tværs af grafer. */
 function raekkeFarve(label: string, i: number): string {
   const l = label.toLowerCase();
+  if (l.startsWith("↳ heraf off")) return "hsl(190 70% 42%)";
+  if (l.startsWith("↳ heraf priv")) return "hsl(217 70% 72%)";
   if (l.startsWith("privat") || l.startsWith("øvrige") || l.startsWith("forhandling")) return FARVE_PRIVAT;
   if (l.startsWith("offentlig")) return FARVE_OFFENTLIG;
   return FARVER_MAERKE[i % FARVER_MAERKE.length];
@@ -224,6 +227,36 @@ export function MaalepunkterFane({
   const qNoegle = `${alleSaelgere ? "alle" : saelgerId}|${valgtAfd}`;
   const harValg = alleSaelgere || !!saelgerId;
   const args = { _saelger: rpcSaelger, _fra: firstDay(fra), _til: firstDay(til), _afdeling_nr: valgtAfd };
+  /** Admin-only KPG3 45-opdeling (ikke i "Se som"). Huskes pr. bruger, standard slået til. */
+  const erAdmin = effRolle === "admin";
+  const brugerNoegle = auth.user?.id ?? "anon";
+  const [kpgValg, setKpgValg] = useState(true);
+  useEffect(() => {
+    const v = typeof window !== "undefined" ? window.localStorage.getItem(kpg45Noegle(brugerNoegle)) : null;
+    setKpgValg(v !== "0");
+  }, [brugerNoegle]);
+  const saetKpg = (v: boolean) => {
+    setKpgValg(v);
+    try { window.localStorage.setItem(kpg45Noegle(brugerNoegle), v ? "1" : "0"); } catch { /* ignore */ }
+  };
+  const visKpg = erAdmin && kpgValg;
+  const kpgQ = (slags: string) => ({
+    queryKey: ["maalepunkt-kpg45", slags, qNoegle, fra, til],
+    enabled: harValg && visKpg,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_kpg45", { ...args, _slags: slags });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { maaned: string | null; kategori: string; vaerdi: number; db: number | null }[];
+    },
+  });
+  const kpgAktiveQ = useQuery(kpgQ("aktive"));
+  const kpgUnikkeQ = useQuery(kpgQ("aktive_unikke"));
+  const kpgNyeQ = useQuery(kpgQ("nye_kunder"));
+  const kpgNyeLokQ = useQuery({ ...kpgQ("nye_lokationer"), enabled: harValg && visKpg && visNyeLok });
+  const medKpg = <T extends { label: string; per: Map<string, number> }>(rows: T[], under: unknown[] | null): T[] =>
+    visKpg && under ? [rows[0], ...(under as T[]), ...rows.slice(1)] : rows;
+
   const kunderQ = useQuery({
     queryKey: ["maalepunkt-aktive-kunder", qNoegle, fra, til],
     enabled: harValg,
@@ -292,11 +325,19 @@ export function MaalepunkterFane({
       const key = mNøgle(r.maaned);
       m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
     });
-    return [
+    return medKpg([
       { label: "Forhandlingskunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
       { label: "Udbudskunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
-    ];
-  }, [kunderQ.data]);
+    ] as { label: string; per: Map<string, number>; kategori: string; under?: boolean }[], kpgAktiveQ.data ? kpg45Raekker(kpgAktiveQ.data) : null);
+  }, [kunderQ.data, kpgAktiveQ.data, visKpg]);
+  const kunderTotaler = useMemo(() => {
+    if (!kunderUnikkeQ.data) return undefined;
+    const u = kunderUnikkeQ.data;
+    const p = u.get("privat") ?? 0, o = u.get("offentlig") ?? 0;
+    const sub = (k: string) => Number(kpgUnikkeQ.data?.find((r) => r.kategori === k)?.vaerdi ?? 0);
+    const rows = kunderTabel.map((r) => r.kategori === "privat" ? p : r.kategori === "offentlig" ? o : sub(r.kategori));
+    return { rows, total: p + o };
+  }, [kunderUnikkeQ.data, kpgUnikkeQ.data, kunderTabel]);
 
   // --- Tabel 2: maskiner ---
   const MAERKER = ["Wittenborg", "Animo", "Rex-Royal", "Andet"];
@@ -335,11 +376,11 @@ export function MaalepunkterFane({
       const v = nyeMaal === "db" ? Number(r.db || 0) : Number(r.antal || 0);
       m.set(key, (m.get(key) ?? 0) + v);
     });
-    return [
+    return medKpg([
       { label: "Forhandlingskunder", per: map.get("privat") ?? new Map(), kategori: "privat" },
       { label: "Udbudskunder", per: map.get("offentlig") ?? new Map(), kategori: "offentlig" },
-    ];
-  }, [nyeQ.data, nyeMaal]);
+    ] as { label: string; per: Map<string, number>; kategori: string; under?: boolean }[], kpgNyeQ.data ? kpg45Raekker(kpgNyeQ.data, nyeMaal === "db" ? "db" : "vaerdi") : null);
+  }, [nyeQ.data, nyeMaal, kpgNyeQ.data, visKpg]);
 
   // Nye lokationer i eksisterende virksomheder (tælles hos lokationens sælger).
   const nyeLokTabel = useMemo(() => {
@@ -350,11 +391,11 @@ export function MaalepunkterFane({
       const key = mNøgle(r.maaned);
       m.set(key, (m.get(key) ?? 0) + Number(r.antal || 0));
     });
-    return [
+    return medKpg([
       { label: "Forhandlingskunder", per: map.get("privat") ?? new Map() },
       { label: "Udbudskunder", per: map.get("offentlig") ?? new Map() },
-    ];
-  }, [nyeLokQ.data]);
+    ] as { label: string; per: Map<string, number>; under?: boolean }[], kpgNyeLokQ.data ? kpg45Raekker(kpgNyeLokQ.data) : null);
+  }, [nyeLokQ.data, kpgNyeLokQ.data, visKpg]);
 
 
   const rowTotal = (per: Map<string, number>) =>
@@ -365,7 +406,7 @@ export function MaalepunkterFane({
     const head = ["Kategori", ...maaneder.map(maanedNavn), "Total"];
     const block = (
       titel: string,
-      rows: { label: string; per: Map<string, number> }[],
+      rows: { label: string; per: Map<string, number>; under?: boolean }[],
       dec: number,
       totaler?: { rows: number[]; total: number },
     ) => {
@@ -380,7 +421,7 @@ export function MaalepunkterFane({
             (totaler ? totaler.rows[i] ?? 0 : rowTotal(r.per)).toFixed(dec).replace(".", ","),
           ].join(";"),
         );
-        maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0)));
+        if (!r.under) maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0)));
       });
       lines.push(
         [
@@ -397,12 +438,7 @@ export function MaalepunkterFane({
       "3 · Antal kunder pr. måned (aktive kunder; Total = unikke kunder i perioden)",
       kunderTabel,
       0,
-      kunderUnikkeQ.data
-        ? {
-            rows: [kunderUnikkeQ.data.get("privat") ?? 0, kunderUnikkeQ.data.get("offentlig") ?? 0],
-            total: (kunderUnikkeQ.data.get("privat") ?? 0) + (kunderUnikkeQ.data.get("offentlig") ?? 0),
-          }
-        : undefined,
+      kunderTotaler,
     );
     block(
       nyeMaal === "db"
@@ -500,13 +536,19 @@ export function MaalepunkterFane({
           </PopoverContent>
         </Popover>
 
-        <Button variant="outline" size="sm" className="ml-auto" onClick={csv}>
+        {erAdmin && (
+          <div className="ml-auto flex items-center gap-2">
+            <Switch id="kpg45" checked={kpgValg} onCheckedChange={saetKpg} />
+            <Label htmlFor="kpg45" className="text-sm font-normal">Vis KPG3 45-opdeling</Label>
+          </div>
+        )}
+        <Button variant="outline" size="sm" className={erAdmin ? "" : "ml-auto"} onClick={csv}>
           <Download className="h-4 w-4 mr-2" /> CSV
         </Button>
       </div>
 
-      <BeloebGraf nummer={1} slags="omsaetning" fra={fra} til={til} maaneder={maaneder} qNoegle={qNoegle} args={args} brugerId={auth.user?.id ?? "anon"} onDrill={setDrill} onData={(rows) => { eksportBeloeb.current.omsaetning = rows; }} />
-      <BeloebGraf nummer={2} slags="db" fra={fra} til={til} maaneder={maaneder} qNoegle={qNoegle} args={args} brugerId={auth.user?.id ?? "anon"} onDrill={setDrill} onData={(rows) => { eksportBeloeb.current.db = rows; }} />
+      <BeloebGraf nummer={1} slags="omsaetning" fra={fra} til={til} maaneder={maaneder} qNoegle={qNoegle} args={args} brugerId={auth.user?.id ?? "anon"} onDrill={setDrill} visKpg={visKpg} onData={(rows) => { eksportBeloeb.current.omsaetning = rows; }} />
+      <BeloebGraf nummer={2} slags="db" fra={fra} til={til} maaneder={maaneder} qNoegle={qNoegle} args={args} brugerId={auth.user?.id ?? "anon"} onDrill={setDrill} visKpg={visKpg} onData={(rows) => { eksportBeloeb.current.db = rows; }} />
 
       <Tabel
         maaneder={maaneder}
@@ -516,14 +558,7 @@ export function MaalepunkterFane({
         visKey="kunder"
         visTotalKolonne={false}
         rows={kunderTabel}
-        totaler={
-          kunderUnikkeQ.data
-            ? {
-                rows: [kunderUnikkeQ.data.get("privat") ?? 0, kunderUnikkeQ.data.get("offentlig") ?? 0],
-                total: (kunderUnikkeQ.data.get("privat") ?? 0) + (kunderUnikkeQ.data.get("offentlig") ?? 0),
-              }
-            : undefined
-        }
+        totaler={kunderTotaler}
         dec={0}
         loading={kunderQ.isPending}
         error={kunderQ.error ? (kunderQ.error as Error).message : null}
@@ -706,7 +741,7 @@ function Tabel({
     undertitel?: string;
     /** Nøgle til at huske TABEL/GRAF pr. tabel pr. bruger. */
     visKey: string;
-    rows: { label: string; per: Map<string, number> }[];
+    rows: { label: string; per: Map<string, number>; under?: boolean }[];
     dec: number;
     loading: boolean;
     fetching?: boolean;
@@ -730,7 +765,7 @@ function Tabel({
     visTotalKolonne?: boolean;
   }) {
     const tot = new Map<string, number>();
-    rows.forEach((r) => maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))));
+    rows.forEach((r) => { if (!r.under) maaneder.forEach((m) => tot.set(m, (tot.get(m) ?? 0) + (r.per.get(m) ?? 0))); });
     const { visning, saetVisning, skjultListe, skiftSerie, nulstilSerier } = useGrafVisning(brugerId, visKey);
     const hoejde = useGrafHoejde(loading || fetching);
     const rowTotal = (per: Map<string, number>) => maaneder.reduce((sum, m) => sum + (per.get(m) ?? 0), 0);
@@ -986,8 +1021,8 @@ function Tabel({
               </thead>
               <tbody>
                 {rows.map((r, i) => (
-                  <tr key={r.label} className="border-b last:border-0">
-                    <td className="py-1.5 pr-2 whitespace-nowrap">
+                  <tr key={r.label} className={r.under ? "text-muted-foreground" : "border-b last:border-0"}>
+                    <td className={`py-1.5 pr-2 whitespace-nowrap ${r.under ? "pl-3 text-[11px]" : ""}`}>
                       <button
                         type="button"
                         className="hover:underline text-left"
@@ -1042,10 +1077,11 @@ function Tabel({
   };
 
 
-type GrafRaekke = { label: string; kategori: string; per: Map<string, number> };
+type GrafRaekke = { label: string; kategori: string; per: Map<string, number>; under?: boolean };
 
 /** Each amount graph owns its service selection and its two cached datasets. */
-function BeloebGraf({ nummer, slags, fra, til, maaneder, qNoegle, args, brugerId, onDrill, onData }: {
+function BeloebGraf({ nummer, slags, fra, til, maaneder, qNoegle, args, brugerId, onDrill, onData, visKpg }: {
+  visKpg: boolean;
   nummer: number;
   slags: "omsaetning" | "db";
   fra: string;
@@ -1068,7 +1104,17 @@ function BeloebGraf({ nummer, slags, fra, til, maaneder, qNoegle, args, brugerId
       return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
     },
   });
-  const rows = useMemo<GrafRaekke[]>(() => [
+  const kq = useQuery({
+    queryKey: ["maalepunkt-kpg45", slags, qNoegle, fra, til, medtagService],
+    enabled: visKpg,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("maalepunkt_kpg45", { ...args, _slags: slags, _kun_forbrug: !medtagService });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
+    },
+  });
+  const rows = useMemo<GrafRaekke[]>(() => { const r: GrafRaekke[] = [
     { label: "Forhandlingskunder", kategori: "privat", per: new Map<string, number>() },
     { label: "Udbudskunder", kategori: "offentlig", per: new Map<string, number>() },
   ].map((row) => {
@@ -1077,7 +1123,8 @@ function BeloebGraf({ nummer, slags, fra, til, maaneder, qNoegle, args, brugerId
       row.per.set(m, (row.per.get(m) ?? 0) + Number(r.vaerdi || 0));
     });
     return row;
-  }), [q.data]);
+  });
+  return visKpg && kq.data ? [r[0], ...kpg45Raekker(kq.data), r[1]] : r; }, [q.data, kq.data, visKpg]);
   useEffect(() => { onData(rows); }, [rows, onData]);
   const drill = (i: number, maaned: string | null) => {
     const row = rows[i];
@@ -1122,7 +1169,19 @@ function DetaljePanel({
     queryKey: ["maalepunkt-detaljer", saelgerId, afdelingNr, fra, til, kundetype, drill],
     enabled: !!drill,
     queryFn: async () => {
-      const d = drill!;
+      const valgt = drill!;
+      const rows = await hentDetaljer(valgt);
+      const k = "kategori" in valgt ? valgt.kategori : "";
+      if (!k.startsWith("privat_")) return rows;
+      const ids = Array.from(new Set(rows.map((r: any) => r.company_id).filter(Boolean)));
+      const { data: ids45, error } = await (supabase as any).rpc("maalepunkt_kpg45_konti", { _ids: ids });
+      if (error) throw new Error(error.message);
+      const s45 = new Set<string>(((ids45 ?? []) as any[]).map((x) => (typeof x === "string" ? x : x.maalepunkt_kpg45_konti)));
+      return filtrerUnderkategori(rows, k, s45, valgt.slags === "nye");
+    },
+  });
+  async function hentDetaljer(valgt: Drill): Promise<any[]> {
+      const d = ("kategori" in valgt ? { ...valgt, kategori: hovedKategori(valgt.kategori) } : valgt) as Drill;
       const base = {
         _saelger: saelgerId,
         _afdeling_nr: afdelingNr,
@@ -1173,8 +1232,7 @@ function DetaljePanel({
       });
       if (error) throw new Error(error.message);
       return (data ?? []) as any[];
-    },
-  });
+  }
 
   const rows = q.data ?? [];
   const [udfoldede, setUdfoldede] = useState<Record<string, boolean>>({});

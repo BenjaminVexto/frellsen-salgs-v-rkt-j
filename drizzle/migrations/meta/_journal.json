@@ -1128,6 +1128,20 @@
       "when": 1794476306259,
       "tag": "0160_udstyr_type_udlaan",
       "breakpoints": true
+    },
+    {
+      "idx": 161,
+      "version": "7",
+      "when": 1794761527849,
+      "tag": "0161_maalepunkt_kpg45_opdeling",
+      "breakpoints": true
+    },
+    {
+      "idx": 162,
+      "version": "7",
+      "when": 1794761577208,
+      "tag": "0162_maalepunkt_kpg45_konti",
+      "breakpoints": true
     }
   ]
 }

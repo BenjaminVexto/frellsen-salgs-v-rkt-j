@@ -66,3 +66,4 @@
 - [x] 7. Salgsmulighedskort: åbningslinje (ikke åbnet 3 dage / 2+ åbninger 48t / åbnet dato)
 - [x] 8. Server function `sendTilbudMail` (Graph client credentials, deaktiveret uden secrets)
 - [x] 9. Test: modtager på tilbud 18749, åbnet link uden login, logning verificeret, testdata slettet, status nulstillet til sendt
+- [x] Målepunkter: admin-only KPG3 45-opdeling af Forhandlingskunder (5 tabeller, toggle, graf, CSV, detaljer)

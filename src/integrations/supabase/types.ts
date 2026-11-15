@@ -6373,6 +6373,23 @@ export type Database = {
         }[]
       }
       maalepunkt_forbrug_grupper: { Args: never; Returns: string[] }
+      maalepunkt_kpg45: {
+        Args: {
+          _afdeling_nr?: number
+          _fra: string
+          _kun_forbrug?: boolean
+          _saelger: string
+          _slags: string
+          _til: string
+        }
+        Returns: {
+          db: number
+          kategori: string
+          maaned: string
+          vaerdi: number
+        }[]
+      }
+      maalepunkt_kpg45_konti: { Args: { _ids: string[] }; Returns: string[] }
       maalepunkt_kundekategori: {
         Args: { _binding: string; _segment3: string }
         Returns: string
