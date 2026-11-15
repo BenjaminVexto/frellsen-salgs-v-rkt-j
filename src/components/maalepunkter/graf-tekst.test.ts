@@ -55,3 +55,20 @@ describe("graf-tekst", () => {
     expect(t?.overskrift).toBe("Indeks: apr 2026 = 100. KPG3 45 står på 54 – næsten halveret siden apr.");
   });
 });
+
+describe("tekstIndeks regler", () => {
+  const m = ["2025-11", "2026-10"];
+  const s = (navn: string, a: number, b: number) => ({ navn, per: new Map([[m[0], a], [m[1], b]]) });
+  it("udelader grupper med udgangsværdi under 10", () => {
+    const t = tekstIndeks([s("Udbudskunder", 4, 10), s("Forhandlingskunder", 20, 15)], m)!;
+    expect(t.overskrift).toContain("Forhandlingskunder står på 75");
+    expect(t.overskrift + t.linjer.join("")).not.toContain("Udbud");
+  });
+  it("skriver fallback når ingen gruppe har udgangsværdi ≥ 10", () => {
+    expect(tekstIndeks([s("Udbudskunder", 4, 10)], m)!.overskrift).toBe("For få til at vise udviklingen som indeks – se tabellen.");
+  });
+  it("nævner ikke Forhandlingskunder når KPG3 45-opdeling er med", () => {
+    const t = tekstIndeks([s("Forhandlingskunder", 100, 50), s("↳ heraf off. aftalekunder (KPG3 45)", 40, 20), s("↳ heraf private", 60, 30)], m)!;
+    expect(t.overskrift + t.linjer.join("")).not.toContain("Forhandlingskunder");
+  });
+});

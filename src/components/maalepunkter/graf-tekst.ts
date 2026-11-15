@@ -173,15 +173,20 @@ export function kortNavn(label: string): string {
   return label;
 }
 
+/** Grupper med udgangsværdi under denne grænse udelades af indeks-teksten. */
+export const INDEKS_MIN_UDGANG = 10;
+
 /** Udviklingsvisning: indeks med første måned = 100. */
 export function tekstIndeks(serier: { navn: string; per: Map<string, number> }[], maaneder: string[]): GrafTekst | null {
   if (maaneder.length < 2) return null;
   const f = maaneder[0], l = maaneder[maaneder.length - 1];
+  const navne = serier.map((s) => kortNavn(s.navn));
+  const harKpg = navne.includes("KPG3 45");
   const idx = serier.map((s) => {
     const b = s.per.get(f) ?? 0;
-    return { navn: kortNavn(s.navn), v: b ? ((s.per.get(l) ?? 0) / b) * 100 : null };
-  }).filter((x): x is { navn: string; v: number } => x.v != null);
-  if (!idx.length) return null;
+    return { navn: kortNavn(s.navn), v: b >= INDEKS_MIN_UDGANG ? ((s.per.get(l) ?? 0) / b) * 100 : null };
+  }).filter((x): x is { navn: string; v: number } => x.v != null && !(harKpg && x.navn === "Forhandlingskunder"));
+  if (!idx.length) return { overskrift: "For få til at vise udviklingen som indeks – se tabellen.", linjer: [] };
   const grp = idx.filter((x) => x.navn !== "Total");
   const b = (grp.length ? grp : idx).reduce((a, x) => (Math.abs(x.v - 100) > Math.abs(a.v - 100) ? x : a));
   const d = b.v - 100;
