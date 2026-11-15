@@ -1142,6 +1142,13 @@
       "when": 1794761577208,
       "tag": "0162_maalepunkt_kpg45_konti",
       "breakpoints": true
+    },
+    {
+      "idx": 163,
+      "version": "7",
+      "when": 1794761962694,
+      "tag": "0163_kraev_crm_rolle_i_laeseregler",
+      "breakpoints": true
     }
   ]
 }

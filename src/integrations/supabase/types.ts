@@ -6087,6 +6087,7 @@ export type Database = {
         }[]
       }
       dublet_navn_norm: { Args: { _name: string }; Returns: string }
+      er_crm_bruger: { Args: never; Returns: boolean }
       er_telemarketing: { Args: never; Returns: boolean }
       faktura_uden_kunde: {
         Args: never
