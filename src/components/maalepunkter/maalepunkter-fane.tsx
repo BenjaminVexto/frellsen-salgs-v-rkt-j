@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAfdeling } from "@/contexts/afdeling-context";
 import { useGrafVisning } from "./use-graf-visning";
 import { useGrafHoejde } from "./use-graf-hoejde";
+import { tekstOmsaetning, tekstDb, tekstAktive, tekstStroem, tekstIndeks, serierFra, type GrafTekst } from "./graf-tekst";
 import { kpg45Raekker, kpg45Noegle, hovedKategori, filtrerUnderkategori } from "./kpg45";
 
 /** Samme farver for private/offentlige/total i alle fem grafer. */
@@ -315,6 +316,39 @@ export function MaalepunkterFane({
 
   const mNøgle = (d: string) => String(d).slice(0, 7);
 
+  // --- Tekster over graferne: eget vindue (14 mdr. før periodens slut) så sidste år altid kan sammenlignes ---
+  const vArgs = { ...args, _fra: firstDay(addM(til, -14)) };
+  const vQ = (navn: string, rpc: string, extra: Record<string, unknown> = {}, on = true) => ({
+    queryKey: ["maalepunkt-tekst", navn, qNoegle, til],
+    enabled: harValg && on,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc(rpc, { ...vArgs, ...extra });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as any[];
+    },
+  });
+  const vKunder = useQuery(vQ("kunder", "maalepunkt_aktive_kunder"));
+  const vKpgKunder = useQuery(vQ("kpg-aktive", "maalepunkt_kpg45", { _slags: "aktive" }, visKpg));
+  const vNye = useQuery(vQ("nye", "maalepunkt_nye_kunder"));
+  const vKpgNye = useQuery(vQ("kpg-nye", "maalepunkt_kpg45", { _slags: "nye_kunder" }, visKpg));
+  const vNyeLok = useQuery(vQ("nye-lok", "maalepunkt_nye_lokationer", {}, visNyeLok));
+  const vKpgNyeLok = useQuery(vQ("kpg-nye-lok", "maalepunkt_kpg45", { _slags: "nye_lokationer" }, visKpg && visNyeLok));
+  const klar = (a: { data?: unknown }, b: { data?: unknown }) => !!a.data && (!visKpg || !!b.data);
+  const tekstKunder = useMemo<GrafTekst | null>(() => klar(vKunder, vKpgKunder)
+    ? tekstAktive(serierFra(vKunder.data, "antal", visKpg ? vKpgKunder.data : null), til, visKpg) : null,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [vKunder.data, vKpgKunder.data, visKpg, til]);
+  const tekstNye = useMemo<GrafTekst | null>(() => klar(vNye, vKpgNye)
+    ? tekstStroem(serierFra(vNye.data, nyeMaal === "db" ? "db" : "antal", visKpg ? vKpgNye.data : null, nyeMaal === "db" ? "db" : "vaerdi"),
+        til, maaneder.length, visKpg, "nye kunder", nyeMaal === "db") : null,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [vNye.data, vKpgNye.data, visKpg, til, nyeMaal, maaneder.length]);
+  const tekstNyeLok = useMemo<GrafTekst | null>(() => klar(vNyeLok, vKpgNyeLok)
+    ? tekstStroem(serierFra(vNyeLok.data, "antal", visKpg ? vKpgNyeLok.data : null), til, maaneder.length, visKpg, "nye afdelinger") : null,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [vNyeLok.data, vKpgNyeLok.data, visKpg, til, maaneder.length]);
+
   // --- Tabel 3: antal aktive kunder ---
   const kunderTabel = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
@@ -556,6 +590,7 @@ export function MaalepunkterFane({
         nummer={3}
         titel="Antal kunder pr. måned (aktive kunder)"
         visKey="kunder"
+        tekst={tekstKunder}
         visTotalKolonne={false}
         rows={kunderTabel}
         totaler={kunderTotaler}
@@ -592,6 +627,7 @@ export function MaalepunkterFane({
             : "Nye kunder pr. måned (antal, kun kunder nye for Frellsen — første ordre nogensinde)"
         }
         visKey="nye"
+        tekst={tekstNye}
         rows={nyeTabel}
         dec={0}
         loading={nyeQ.isPending}
@@ -636,6 +672,7 @@ export function MaalepunkterFane({
         titel="Nye afdelinger pr. måned (antal, første ordre på en ny afdeling i en eksisterende kunde)"
         undertitel="Tæller ikke som ny kunde"
         visKey="nye-lok"
+        tekst={tekstNyeLok}
         rows={nyeLokTabel}
         dec={0}
         loading={nyeLokQ.isPending}
@@ -732,7 +769,10 @@ function Tabel({
     visTotalKolonne = true,
     maaneder,
     brugerId,
+    tekst,
   }: {
+    /** Ny tekst over grafen (tabel 1–5). undefined = gammel snit/tendens-tekst (maskiner). null = henter. */
+    tekst?: GrafTekst | null;
     maaneder: string[];
     brugerId: string;
     nummer: number;
@@ -881,6 +921,19 @@ function Tabel({
           <p className="text-sm text-muted-foreground">Ingen data i den valgte periode.</p>
         ) : visning !== "tabel" ? (
           <div className="space-y-2">
+            {tekst !== undefined ? (() => {
+              const t = indeks ? tekstIndeks(serier, maaneder) : tekst;
+              if (!t) return <p className="text-xs text-muted-foreground">Beregner tekst…</p>;
+              return (
+                <div className="space-y-0.5" data-testid={`graf-tekst-${visKey}`}>
+                  <p className="text-sm font-semibold">
+                    {t.overskrift}
+                    {t.periode && <span className="ml-2 text-xs font-normal text-muted-foreground">({t.periode})</span>}
+                  </p>
+                  {t.linjer.filter(Boolean).map((l) => <p key={l} className="text-xs text-muted-foreground">{l}</p>)}
+                </div>
+              );
+            })() : (
             <div className="flex flex-col gap-0.5 text-xs font-medium">
               {aendringer.map((a) => (
                 <span key={a.navn} style={{ color: a.farve }}>
@@ -894,6 +947,7 @@ function Tabel({
                 </span>
               ))}
             </div>
+            )}
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {serier.map((s) => {
                 const skjult = skjultListe.includes(s.navn);
@@ -1114,6 +1168,28 @@ function BeloebGraf({ nummer, slags, fra, til, maaneder, qNoegle, args, brugerId
       return (data ?? []) as { maaned: string; kategori: string; vaerdi: number }[];
     },
   });
+  const vArgs = { ...args, _fra: firstDay(addM(til, -14)), _kun_forbrug: !medtagService };
+  const vq = (navn: string, extra: Record<string, unknown>, on = true) => ({
+    queryKey: ["maalepunkt-tekst", navn, qNoegle, til, medtagService],
+    enabled: on,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc(extra.rpc as string, { ...vArgs, ...extra, rpc: undefined });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as any[];
+    },
+  });
+  const vHoved = useQuery(vq(slags, { rpc: `maalepunkt_${slags}` }));
+  const vKpg = useQuery(vq(`kpg-${slags}`, { rpc: "maalepunkt_kpg45", _slags: slags }, visKpg));
+  const vOms = useQuery(vq("omsaetning", { rpc: "maalepunkt_omsaetning" }, slags === "db"));
+  const vKpgOms = useQuery(vq("kpg-omsaetning", { rpc: "maalepunkt_kpg45", _slags: "omsaetning" }, slags === "db" && visKpg));
+  const tekst = useMemo<GrafTekst | null>(() => {
+    if (!vHoved.data || (visKpg && !vKpg.data)) return null;
+    const s = serierFra(vHoved.data, "vaerdi", visKpg ? vKpg.data : null);
+    if (slags === "omsaetning") return tekstOmsaetning(s, til, maaneder.length, visKpg);
+    if (!vOms.data || (visKpg && !vKpgOms.data)) return null;
+    return tekstDb(s, serierFra(vOms.data, "vaerdi", visKpg ? vKpgOms.data : null), til, maaneder.length, visKpg);
+  }, [vHoved.data, vKpg.data, vOms.data, vKpgOms.data, visKpg, slags, til, maaneder.length]);
   const rows = useMemo<GrafRaekke[]>(() => { const r: GrafRaekke[] = [
     { label: "Forhandlingskunder", kategori: "privat", per: new Map<string, number>() },
     { label: "Udbudskunder", kategori: "offentlig", per: new Map<string, number>() },
@@ -1135,7 +1211,7 @@ function BeloebGraf({ nummer, slags, fra, til, maaneder, qNoegle, args, brugerId
   return <div className="relative">
     <Tabel nummer={nummer} titel={slags === "db" ? "Dækningsbidrag pr. måned (kr.)" : "Omsætning pr. måned (kr.)"}
       undertitel={medtagService ? "Alle varegrupper inkl. leje og service" : slags === "db" ? "Forbrugsvarer" : "Kun forbrugsvarer — ekskl. maskiner, leje og service (Portefølje viser alt inkl. maskiner og service)"}
-      visKey={slags} maaneder={maaneder} brugerId={brugerId} rows={rows} dec={0} loading={q.isPending} fetching={q.isFetching}
+      visKey={slags} tekst={tekst} maaneder={maaneder} brugerId={brugerId} rows={rows} dec={0} loading={q.isPending} fetching={q.isFetching}
       error={q.error?.message} onRetry={() => q.refetch()} onRow={(i) => drill(i, null)} onCell={drill}
       hoved={<div className="flex items-center gap-2">
         <Switch id={`${slags}-alle`} checked={medtagService} onCheckedChange={setMedtagService} />
