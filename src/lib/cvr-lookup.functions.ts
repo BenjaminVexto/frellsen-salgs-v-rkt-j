@@ -84,7 +84,7 @@ function pickLatest<T extends { periode?: { gyldigFra?: string | null; gyldigTil
   })[0];
 }
 
-function mapVirksomhed(v: any): CvrCompany {
+export function mapVirksomhed(v: any): CvrCompany {
   const meta = v?.virksomhedMetadata ?? {};
   const addr = meta?.nyesteBeliggenhedsadresse ?? null;
 
@@ -343,42 +343,12 @@ async function searchPenheder(
   return out;
 }
 
-const InputSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("single"),
-    cvr: z.string().regex(/^\d{8}$/, "CVR skal være 8 cifre"),
-  }),
-  z.object({
-    type: z.literal("search"),
-    name: z.string().min(2).max(100),
-    location: z.string().max(20).optional(),
-    size: z.number().int().min(1).max(50).optional(),
-  }),
-  z.object({
-    type: z.literal("bulk"),
-    filters: z.object({
-      municipality: z.string().min(1).max(60).optional(),
-      municipality_code: z.string().regex(/^\d{3,4}$/).optional(),
-      municipality_codes: z.array(z.string().regex(/^\d{3,4}$/)).max(110).optional(),
-      include_ceased: z.boolean().optional(),
-      branch_codes: z.array(z.string().min(2).max(10)).max(50).optional(),
-      company_forms: z.array(z.string().min(1).max(40)).max(20).optional(),
-    }),
-    from: z.number().int().min(0).optional(),
-  }),
-]);
 
-export const cvrLookup = createServerFn({ method: "POST" })
-  .middleware([kraevIntern])
-  .inputValidator((input: unknown) => InputSchema.parse(input))
-  .handler(async ({ data }): Promise<CvrResponse> => {
-    try {
-
-      // --- SINGLE ---
-      if (data.type === "single") {
+/** Server-only helper: ét CVR-opslag. Kaldes fra serverfunktioner. */
+export async function cvrHentEnkelt(cvr: string): Promise<CvrResponse> {
         const payload = {
           _source: SOURCE_FIELDS,
-          query: { term: { "Vrvirksomhed.cvrNummer": data.cvr } },
+          query: { term: { "Vrvirksomhed.cvrNummer": cvr } },
           size: 1,
         };
         const json = await callCvr(payload);
@@ -387,10 +357,10 @@ export const cvrLookup = createServerFn({ method: "POST" })
         return { success: true, data: mapVirksomhed(hit) };
       }
 
-      // --- SEARCH ---
-      if (data.type === "search") {
-        const nameQuery = data.name;
-        const location = data.location ?? "";
+/** Server-only helper: navnesøgning (inkl. P-enheder når by/postnr er angivet). */
+export async function cvrSoegNavn(name: string, locationArg?: string, size?: number): Promise<CvrResponse> {
+        const nameQuery = name;
+        const location = locationArg ?? "";
         const isPostalCode = /^\d+$/.test(location);
         const locationFilter: any[] = [];
         if (location) {
@@ -438,7 +408,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
             },
           },
           sort: [{ _score: { order: "desc" } }],
-          size: data.size ?? 10,
+          size: size ?? 10,
         };
         const json = await callCvr(payload);
         const hits = json?.hits?.hits ?? [];
@@ -451,7 +421,7 @@ export const cvrLookup = createServerFn({ method: "POST" })
         // en afdeling kan ligge på den søgte adresse, selvom hovedsædet ikke gør.
         if (location) {
           try {
-            const penhedHits = await searchPenheder(nameQuery, location, isPostalCode, data.size ?? 10);
+            const penhedHits = await searchPenheder(nameQuery, location, isPostalCode, size ?? 10);
             if (penhedHits.length) {
               const cvrs = Array.from(new Set(penhedHits.map((p) => p.cvr)));
               const vJson = await callCvr({
@@ -488,8 +458,42 @@ export const cvrLookup = createServerFn({ method: "POST" })
         }
 
         if (!companies.length) return { success: false, error: "NOT_FOUND" };
-        return { success: true, data: companies.slice(0, data.size ?? 10) };
+        return { success: true, data: companies.slice(0, size ?? 10) };
       }
+
+const InputSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("single"),
+    cvr: z.string().regex(/^\d{8}$/, "CVR skal være 8 cifre"),
+  }),
+  z.object({
+    type: z.literal("search"),
+    name: z.string().min(2).max(100),
+    location: z.string().max(20).optional(),
+    size: z.number().int().min(1).max(50).optional(),
+  }),
+  z.object({
+    type: z.literal("bulk"),
+    filters: z.object({
+      municipality: z.string().min(1).max(60).optional(),
+      municipality_code: z.string().regex(/^\d{3,4}$/).optional(),
+      municipality_codes: z.array(z.string().regex(/^\d{3,4}$/)).max(110).optional(),
+      include_ceased: z.boolean().optional(),
+      branch_codes: z.array(z.string().min(2).max(10)).max(50).optional(),
+      company_forms: z.array(z.string().min(1).max(40)).max(20).optional(),
+    }),
+    from: z.number().int().min(0).optional(),
+  }),
+]);
+
+export const cvrLookup = createServerFn({ method: "POST" })
+  .middleware([kraevIntern])
+  .inputValidator((input: unknown) => InputSchema.parse(input))
+  .handler(async ({ data }): Promise<CvrResponse> => {
+    try {
+
+      if (data.type === "single") return await cvrHentEnkelt(data.cvr);
+      if (data.type === "search") return await cvrSoegNavn(data.name, data.location, data.size);
 
       // --- BULK ---
       // Ansatte filtreres IKKE her — det gøres client-side
@@ -668,3 +672,17 @@ export const cvrSearchTwins = createServerFn({ method: "POST" })
       return { success: false, error: code };
     }
   });
+
+/** Server-only helper: henter op til 100 CVR-numre ad gangen. */
+export async function cvrHentMange(cvrs: string[]): Promise<CvrCompany[]> {
+  const ud: CvrCompany[] = [];
+  for (let i = 0; i < cvrs.length; i += 100) {
+    const del = cvrs.slice(i, i + 100);
+    const json = await callCvr({ _source: SOURCE_FIELDS, query: { terms: { "Vrvirksomhed.cvrNummer": del } }, size: del.length });
+    for (const h of json?.hits?.hits ?? []) {
+      const v = h?._source?.Vrvirksomhed;
+      if (v) ud.push(mapVirksomhed(v));
+    }
+  }
+  return ud;
+}

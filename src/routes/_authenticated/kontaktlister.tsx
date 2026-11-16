@@ -685,7 +685,7 @@ function OpretListeDialog({
         const slice = rows.slice(i, i + 500);
         const { error: aErr } = await supabase
           .from("contact_list_assignments")
-          .insert(slice);
+          .upsert(slice, { onConflict: "contact_list_id,company_id", ignoreDuplicates: true });
         if (aErr) {
           toast.error(
             "Liste oprettet, men kunne ikke tildele alle: " + aErr.message,

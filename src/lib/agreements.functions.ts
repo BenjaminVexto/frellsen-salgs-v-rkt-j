@@ -556,7 +556,7 @@ export const importAgreementProspects = createServerFn({ method: "POST" })
       const slice = assignments.slice(i, i + 500);
       const { error, count } = await supabaseAdmin
         .from("contact_list_assignments")
-        .insert(slice as any, { count: "exact" });
+        .upsert(slice as any, { onConflict: "contact_list_id,company_id", ignoreDuplicates: true, count: "exact" });
       if (error) throw new Error(error.message);
       assigned += count ?? slice.length;
     }

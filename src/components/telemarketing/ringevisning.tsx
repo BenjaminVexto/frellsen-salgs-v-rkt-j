@@ -18,6 +18,7 @@ import {
 } from "@/lib/telemarketing";
 import { UdfaldDialog } from "@/components/kontaktliste/udfald-dialog";
 import { AgentFilter } from "@/components/kontaktliste/agent-filter";
+import { KundetjekDialog } from "@/components/telemarketing/kundetjek-dialog";
 import { matcherAgent, senesteAgent, type AgentFilter as AgentValg } from "@/lib/agent-code";
 import { saelgerAktiv, matcherSaelgerFilter, type CallerOverblik, type VirksomhedsHistorik, type SaelgerFilter } from "@/lib/caller-saelger";
 
@@ -70,6 +71,8 @@ export function Ringevisning({ listId }: { listId: string }) {
   const [flereHistorik, setFlereHistorik] = useState(false);
   const [historikOffset, setHistorikOffset] = useState(0);
   const [refresh, setRefresh] = useState(0);
+  const [kundetjekOpen, setKundetjekOpen] = useState(false);
+  const [fremhaev, setFremhaev] = useState<string | null>(null);
 
   useEffect(() => { const t = setInterval(() => setNu(new Date()), 60000); return () => clearInterval(t); }, []);
 
@@ -144,11 +147,17 @@ export function Ringevisning({ listId }: { listId: string }) {
         default: { const [r, t] = standardRang(v, nu); return `${r}|${t}`; }
       }
     };
-    return [...arr].sort((a, b) => {
+    const sorteret = [...arr].sort((a, b) => {
       const x = key(a), y = key(b);
       return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
     });
-  }, [alle, gruppe, hurtig, q, sort, nu, seneste, overblik, saelgerFilter, agentFilter]);
+    // Nyligt tilføjet via kundetjek står øverst
+    if (fremhaev) {
+      const i = sorteret.findIndex(v => v.navn === fremhaev);
+      if (i > 0) sorteret.unshift(...sorteret.splice(i, 1));
+    }
+    return sorteret;
+  }, [alle, gruppe, hurtig, q, sort, nu, seneste, overblik, saelgerFilter, agentFilter, fremhaev]);
 
   const aktuel = alle.find((v) => v.company_id === valgt) ?? null;
   const aktuelOverblik = aktuel ? overblik[aktuel.company_id] : undefined;
@@ -183,6 +192,8 @@ export function Ringevisning({ listId }: { listId: string }) {
             {tal.i_alt} i alt · {tal.ringet} ringet · {tal.idag} ring igen i dag{tal.overskredet ? ` (${tal.overskredet} overskredet)` : ""} · {tal.moeder} {tal.moeder === 1 ? "møde" : "møder"} · {tal.tilbud} tilbud
           </div>
         </div>
+        <Button variant="outline" onClick={() => setKundetjekOpen(true)} data-testid="kundetjek-knap">Kundetjek</Button>
+        <KundetjekDialog listId={listId} open={kundetjekOpen} onOpenChange={setKundetjekOpen} onAdded={(navn) => { setFremhaev(navn); setGruppe("alle"); setHurtig(null); void load(); }} />
         {data.liste.moede_saelger || data.liste.moede_modtager === "distrikt" ? (
           <div className="text-sm text-muted-foreground">Møder går til: <span className="text-foreground font-medium">{data.liste.moede_modtager === "fast" ? data.liste.moede_saelger : "distriktssælgeren"}</span></div>
         ) : null}

@@ -50,6 +50,8 @@ import { formatTelefon, telHref, webHref, telefonNumre } from "@/lib/telefon";
 import { Ringevisning } from "@/components/telemarketing/ringevisning";
 import { BureauPanel } from "@/components/telemarketing/bureau-panel";
 import { AgentFilter } from "@/components/kontaktliste/agent-filter";
+import { TilfoejEmner } from "@/components/kontaktliste/tilfoej-emner";
+import { KundetjekStatistik } from "@/components/kontaktliste/kundetjek-statistik";
 import { matcherAgent, type AgentFilter as AgentValg } from "@/lib/agent-code";
 
 export const Route = createFileRoute("/_authenticated/kontaktlister_/$id")({
@@ -100,6 +102,8 @@ type Row = {
   status_aarsag: string | null;
   antal_forsoeg: number;
   agent_code: string | null;
+  tilfoejet_af_ringer: boolean;
+  tilfoejet_agent_code: string | null;
   kontakter: { id: string; navn: string; titel: string | null; telefon: string | null; email: string | null }[];
   priority: PriorityLevel;
   next_followup_date: string | null;
@@ -150,6 +154,7 @@ function KontaktlisteDetalje() {
   const [fOnlyMine, setFOnlyMine] = useState(false);
   const [fOverdue, setFOverdue] = useState(false);
   const [fKunTlf, setFKunTlf] = useState(false);
+  const [fRinger, setFRinger] = useState(false);
 
   // sort
   const [sortKey, setSortKey] = useState<string>("company");
@@ -172,7 +177,7 @@ function KontaktlisteDetalje() {
         supabase
           .from("contact_list_assignments")
           .select(
-            "id, company_id, status, status_aarsag, antal_forsoeg, priority, next_followup_date, next_action_note, assigned_to, location_id, companies(name, city, employees, customer_type, phone, email, website, address, zip)",
+            "id, company_id, status, status_aarsag, antal_forsoeg, priority, next_followup_date, next_action_note, assigned_to, location_id, tilfoejet_af_ringer, tilfoejet_agent_code, companies(name, city, employees, customer_type, phone, email, website, address, zip)",
           )
           .eq("contact_list_id", id)
           .order("id")
@@ -266,6 +271,8 @@ function KontaktlisteDetalje() {
       status_aarsag: a.status_aarsag ?? null,
       antal_forsoeg: a.antal_forsoeg ?? 0,
       agent_code: noteMap.get(a.company_id)?.agent_code ?? null,
+      tilfoejet_af_ringer: !!a.tilfoejet_af_ringer,
+      tilfoejet_agent_code: a.tilfoejet_agent_code ?? null,
       kontakter: alleKontakter.get(a.company_id) ?? [],
       priority: a.priority,
       next_followup_date: a.next_followup_date,
@@ -322,6 +329,11 @@ function KontaktlisteDetalje() {
     const first = rows[0].assigned_to ?? null;
     return rows.every((r) => (r.assigned_to ?? null) === first) ? first : undefined;
   }, [rows]);
+  const listeSaelgerId = useMemo(() => {
+    const t = new Map<string, number>();
+    for (const r of rows) if (r.assigned_to) t.set(r.assigned_to, (t.get(r.assigned_to) ?? 0) + 1);
+    return [...t.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  }, [rows]);
   const skjulSaelgerKolonne = ensSaelgerId !== undefined;
   const ensSaelgerNavn = skjulSaelgerKolonne && ensSaelgerId ? rows[0].seller_name : null;
 
@@ -332,6 +344,7 @@ function KontaktlisteDetalje() {
     if (fStatus !== "alle") arr = arr.filter((r) => r.status === fStatus);
     if (fPriority !== "alle") arr = arr.filter((r) => r.priority === fPriority);
     arr = arr.filter(r => matcherAgent(r.agent_code, fAgent));
+    if (fRinger) arr = arr.filter((r) => r.tilfoejet_af_ringer);
     if (fKunTlf) arr = arr.filter((r) => telefonNumre(r.location_phone, r.company.phone).length > 0);
     if (isAdmin && fSeller !== "alle")
       arr = arr.filter((r) => r.assigned_to === fSeller);
@@ -375,7 +388,7 @@ function KontaktlisteDetalje() {
       return 0;
     });
     return arr;
-  }, [rows, fStatus, fPriority, fSeller, fAgent, fOnlyMine, fOverdue, fKunTlf, sortKey, sortDir, isAdmin, auth.user?.id, today]);
+  }, [rows, fStatus, fPriority, fSeller, fAgent, fOnlyMine, fOverdue, fKunTlf, fRinger, sortKey, sortDir, isAdmin, auth.user?.id, today]);
 
   const eksporterCsv = () => {
 
@@ -509,6 +522,7 @@ function KontaktlisteDetalje() {
                   Sælger: {ensSaelgerNavn}
                 </span>
               )}
+              {isAdmin && <TilfoejEmner listId={id} saelgerId={listeSaelgerId} onDone={() => void load()} />}
               {isAdmin && (
                 <Button
                   variant="ghost"
@@ -522,6 +536,7 @@ function KontaktlisteDetalje() {
             </div>
           </Card>
 
+          {isAdmin && <KundetjekStatistik listId={id} />}
           <Card className="p-4 mb-4">
             <div className="flex flex-wrap items-end gap-3">
               <div>
@@ -585,6 +600,12 @@ function KontaktlisteDetalje() {
                 <Switch checked={fOverdue} onCheckedChange={setFOverdue} />
                 Kun overskredet
               </label>
+              {isAdmin && rows.some((r) => r.tilfoejet_af_ringer) && (
+                <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+                  <Switch checked={fRinger} onCheckedChange={setFRinger} />
+                  Tilføjet af ringer
+                </label>
+              )}
               <label className="flex items-center gap-2 text-sm whitespace-nowrap">
                 <Switch checked={fKunTlf} onCheckedChange={setFKunTlf} />
                 Kun med telefon
@@ -677,6 +698,9 @@ function KontaktlisteDetalje() {
                               >
                                 {r.company.name}
                               </Link>
+                              {isAdmin && r.tilfoejet_af_ringer && (
+                                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 align-middle">Tilføjet af ringer{r.tilfoejet_agent_code ? ` · ${r.tilfoejet_agent_code}` : ""}</Badge>
+                              )}
                               {r.company.website && (
                                 <a
                                   href={webHref(r.company.website)}

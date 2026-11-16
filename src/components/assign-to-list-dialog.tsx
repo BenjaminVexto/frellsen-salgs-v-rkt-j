@@ -170,11 +170,14 @@ export function AssignToListDialog({
 
     // Insert in chunks to avoid payload limits
     const chunkSize = 500;
+    let tilfoejet = 0;
     for (let i = 0; i < rows.length; i += chunkSize) {
       const chunk = rows.slice(i, i + chunkSize);
-      const { error } = await supabase
+      const { data: ins, error } = await supabase
         .from("contact_list_assignments")
-        .insert(chunk);
+        .upsert(chunk, { onConflict: "contact_list_id,company_id", ignoreDuplicates: true })
+        .select("id");
+      tilfoejet += ins?.length ?? 0;
       if (error) {
         toast.error("Fejl ved tildeling: " + error.message);
         setSaving(false);
@@ -184,7 +187,7 @@ export function AssignToListDialog({
 
     setSaving(false);
     toast.success(
-      `${rows.length} virksomheder tilføjet til listen "${listName}"`,
+      `${tilfoejet} tilføjet, ${rows.length - tilfoejet} lå allerede på listen "${listName}"`,
       {
         action: {
           label: "Gå til listen",

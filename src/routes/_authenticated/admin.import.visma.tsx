@@ -1878,7 +1878,7 @@ function ImportSide() {
     for (let i = 0; i < assignments.length; i += 200) {
       const { error } = await (supabase as any)
         .from("contact_list_assignments")
-        .insert(assignments.slice(i, i + 200));
+        .upsert(assignments.slice(i, i + 200), { onConflict: "contact_list_id,company_id", ignoreDuplicates: true });
       if (error) failed++;
     }
     setAssigning(false);

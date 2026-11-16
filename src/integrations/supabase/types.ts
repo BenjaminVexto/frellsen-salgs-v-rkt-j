@@ -1549,6 +1549,8 @@ export type Database = {
           priority: Database["public"]["Enums"]["priority_level"]
           status: Database["public"]["Enums"]["assignment_status"]
           status_aarsag: string | null
+          tilfoejet_af_ringer: boolean
+          tilfoejet_agent_code: string | null
           updated_at: string
         }
         Insert: {
@@ -1564,6 +1566,8 @@ export type Database = {
           priority?: Database["public"]["Enums"]["priority_level"]
           status?: Database["public"]["Enums"]["assignment_status"]
           status_aarsag?: string | null
+          tilfoejet_af_ringer?: boolean
+          tilfoejet_agent_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -1579,6 +1583,8 @@ export type Database = {
           priority?: Database["public"]["Enums"]["priority_level"]
           status?: Database["public"]["Enums"]["assignment_status"]
           status_aarsag?: string | null
+          tilfoejet_af_ringer?: boolean
+          tilfoejet_agent_code?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2941,6 +2947,39 @@ export type Database = {
         Update: {
           kode?: string
           sektor?: string
+        }
+        Relationships: []
+      }
+      kundetjek_log: {
+        Row: {
+          agent_code: string | null
+          contact_list_id: string | null
+          created_at: string
+          cvr: string | null
+          id: string
+          p_nummer: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          agent_code?: string | null
+          contact_list_id?: string | null
+          created_at?: string
+          cvr?: string | null
+          id?: string
+          p_nummer?: string | null
+          status: string
+          user_id: string
+        }
+        Update: {
+          agent_code?: string | null
+          contact_list_id?: string | null
+          created_at?: string
+          cvr?: string | null
+          id?: string
+          p_nummer?: string | null
+          status?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -5637,6 +5676,19 @@ export type Database = {
         Args: { _maaned: string; _saelger: string }
         Returns: undefined
       }
+      _cvr_match_crm_intern: {
+        Args: { cvr_rows: Json }
+        Returns: {
+          company_id: string
+          company_name: string
+          cvr: string
+          ikke_kontakt: boolean
+          kundenr: string
+          match_type: string
+          score: number
+          sikker: boolean
+        }[]
+      }
       _distrikt_saelger: {
         Args: { _postnr: string }
         Returns: {
@@ -5651,6 +5703,23 @@ export type Database = {
         Returns: boolean
       }
       _import_type_label: { Args: { _t: string }; Returns: string }
+      _kundetjek_adgang: {
+        Args: { _list: string; _user: string }
+        Returns: boolean
+      }
+      _kundetjek_vurder: {
+        Args: { cvr_rows: Json }
+        Returns: {
+          company_id: string
+          cvr: string
+          er_nyt_emne: boolean
+          liste_navn: string
+          p_nummer: string
+          saelger_navn: string
+          sikker: boolean
+          status: string
+        }[]
+      }
       _maa_se_kontosalg: { Args: { _company_id: string }; Returns: boolean }
       _maalepunkt_db_detaljer_raw: {
         Args: {
@@ -6349,6 +6418,21 @@ export type Database = {
       kundestatus_rang: {
         Args: { _t: Database["public"]["Enums"]["customer_type"] }
         Returns: number
+      }
+      kundetjek_status: {
+        Args: {
+          _agent_code?: string
+          _list: string
+          _user: string
+          cvr_rows: Json
+        }
+        Returns: {
+          cvr: string
+          liste_navn: string
+          p_nummer: string
+          saelger_navn: string
+          status: string
+        }[]
       }
       kundetype: { Args: { _segment_3: string }; Returns: string }
       location_sales_summary: {
@@ -7125,6 +7209,10 @@ export type Database = {
       }
       tm_saelger_overblik: { Args: { _list: string }; Returns: Json }
       tm_seneste_aktivitet: { Args: { _list: string }; Returns: Json }
+      tm_tilfoej_emne: {
+        Args: { _agent_code: string; _list: string; _row: Json; _user: string }
+        Returns: Json
+      }
       tm_virksomhed_historik: {
         Args: { _company: string; _list: string; _offset?: number }
         Returns: Json
