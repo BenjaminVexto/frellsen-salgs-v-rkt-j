@@ -1,5 +1,8 @@
 # Roadmap — Tilbud del 1: modtagerlinks, offentlig side, åbningssporing
 
+## Aktuelt: Kundetjek og tilføj emner på ringelister
+- [x] Unik liste/virksomhed, ringer-tilføjet mærke, kundetjek-log, service-role-funktioner, ringerdialog, admin-knapper og statistik. Adgang testet i databasen som ringerkonto; ringerdialogen er ikke klikket igennem som ringer.
+
 ## Aktuelt: Aktør-import flytter eksisterende afdelinger
 - [x] Flyt samme leveringsnummer inden for samme afdeling til Fakt. kunde med bevaret ID og gammel virksomhed; ny virksomhed afvises ikke af den automatiske primærafdeling.
 - [x] Afvent flytning før sælgertildeling, salgstilknytning og importresultat; vis flyttelog og fejl. Lokationsbundne aktiviteter, kontakter og månedssalg følger atomisk med.
