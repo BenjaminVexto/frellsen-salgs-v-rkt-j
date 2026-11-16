@@ -2,19 +2,18 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Loader2, Plus, ClipboardPaste } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CvrBulkSoegningDialog } from "@/components/cvr-bulk-soegning-dialog";
-import { adminIndsaetCvr } from "@/lib/kundetjek.functions";
+import { adminIndsaetCvr, adminTilfoejFirmaer } from "@/lib/kundetjek.functions";
 import { parseCvrListe } from "@/lib/kundetjek";
 
 const RESULTAT: Record<string, string> = {
-  tilfoejet: "Tilføjet", kunde: "Eksisterende kunde", paa_liste: "Lå allerede på listen", ikke_fundet: "Ikke fundet", afvist: "Reklamebeskyttet, ophørt eller ønsker ikke kontakt",
+  tilfoejet: "Tilføjet", kunde: "Eksisterende kunde", paa_liste: "Lå allerede på listen", anden_liste: "Ligger på anden liste", ikke_fundet: "Ikke fundet", afvist: "Reklamebeskyttet, ophørt eller ønsker ikke kontakt",
 };
 
-export function TilfoejEmner({ listId, saelgerId, onDone }: { listId: string; saelgerId: string | null; onDone: () => void }) {
+export function TilfoejEmner({ listId, onDone }: { listId: string; onDone: () => void }) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [cvrOpen, setCvrOpen] = useState(false);
   const [tekst, setTekst] = useState("");
@@ -22,18 +21,14 @@ export function TilfoejEmner({ listId, saelgerId, onDone }: { listId: string; sa
   const [res, setRes] = useState<Awaited<ReturnType<typeof adminIndsaetCvr>> | null>(null);
   const indsaet = useServerFn(adminIndsaetCvr);
 
+  const tilfoejFirmaer = useServerFn(adminTilfoejFirmaer);
   const tilfoejIds = async (ids: string[]) => {
-    let tilf = 0;
-    for (let i = 0; i < ids.length; i += 500) {
-      const { data, error } = await supabase.from("contact_list_assignments").upsert(
-        ids.slice(i, i + 500).map(company_id => ({ contact_list_id: listId, company_id, assigned_to: saelgerId, status: "ny" as const })),
-        { onConflict: "contact_list_id,company_id", ignoreDuplicates: true },
-      ).select("id");
-      if (error) { toast.error("Fejl ved tilføjelse: " + error.message); return; }
-      tilf += data?.length ?? 0;
-    }
-    toast.success(`${tilf} tilføjet, ${ids.length - tilf} lå allerede på listen`);
-    onDone();
+    if (!ids.length) return;
+    try {
+      const r = await tilfoejFirmaer({ data: { list_id: listId, company_ids: ids } });
+      toast.success(`${r.tilfoejet} tilføjet, ${r.paa_liste} lå allerede på listen, ${r.anden_liste} ligger på anden liste, ${r.kunde + r.afvist} fravalgt (kunde/ønsker ikke kontakt)`, { duration: 10000 });
+      onDone();
+    } catch (e: any) { toast.error("Fejl ved tilføjelse: " + (e?.message ?? e)); }
   };
 
   const koerCvr = async () => {
@@ -67,6 +62,7 @@ export function TilfoejEmner({ listId, saelgerId, onDone }: { listId: string; sa
                 <span>Tilføjet: <b>{res.tilfoejet}</b></span>
                 <span>Eksisterende kunde: <b>{res.kunde}</b></span>
                 <span>Lå allerede på liste: <b>{res.paa_liste}</b></span>
+                <span>Ligger på anden liste: <b>{res.anden_liste}</b></span>
                 <span>Ikke fundet: <b>{res.ikke_fundet}</b></span>
                 {res.afvist > 0 && <span>Afvist: <b>{res.afvist}</b></span>}
               </div>

@@ -1,4 +1,4 @@
-export type KundetjekStatus = "ikke_kunde" | "kunde" | "mulig_kunde" | "paa_ringeliste" | "ikke_kontakt";
+export type KundetjekStatus = "ikke_kunde" | "kunde" | "mulig_kunde" | "paa_ringeliste" | "ikke_kontakt" | "saelger_arbejder";
 
 export type KundetjekHit = {
   cvr: string;
@@ -51,4 +51,5 @@ export const KUNDETJEK_TEKST: Record<KundetjekStatus, (h: { saelger_navn: string
   mulig_kunde: (h) => `Muligvis eksisterende kunde (samme adresse/telefon) – aftal med ${h.saelger_navn ?? "sælgeren"} før opkald`,
   paa_ringeliste: (h) => `Ligger allerede på ringelisten ${h.liste_navn ?? ""}`.trim(),
   ikke_kontakt: () => "Ønsker ikke kontakt",
+  saelger_arbejder: (h) => `En sælger arbejder allerede med virksomheden – kontakt ${h.saelger_navn ?? "sælgeren"}`,
 };

@@ -5707,6 +5707,16 @@ export type Database = {
         Args: { _list: string; _user: string }
         Returns: boolean
       }
+      _kundetjek_firmaer: {
+        Args: { _ids: string[] }
+        Returns: {
+          company_id: string
+          liste_ids: string[]
+          liste_navn: string
+          saelger_navn: string
+          status: string
+        }[]
+      }
       _kundetjek_vurder: {
         Args: { cvr_rows: Json }
         Returns: {

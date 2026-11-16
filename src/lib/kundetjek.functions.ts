@@ -135,6 +135,61 @@ export const kundetjekTilfoej = createServerFn({ method: "POST" })
     return { ok: true as const, navn: (r as any)?.navn as string };
   });
 
+type Resultat = "tilfoejet" | "kunde" | "paa_liste" | "anden_liste" | "ikke_fundet" | "afvist";
+type FirmaStatus = { company_id: string; status: string; liste_ids: string[] };
+
+async function firmaStatus(sb: any, ids: string[]) {
+  const m = new Map<string, FirmaStatus>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await sb.rpc("_kundetjek_firmaer", { _ids: ids.slice(i, i + 200) });
+    if (error) throw new Error(error.message);
+    for (const r of (data ?? []) as FirmaStatus[]) m.set(r.company_id, r);
+  }
+  return m;
+}
+
+/** Fælles admin-regel: kunder/sælger arbejder → kunde, ikke kontakt → afvist, anden aktiv liste → anden_liste. */
+function afgoer(f: FirmaStatus, listId: string): Exclude<Resultat, "tilfoejet" | "ikke_fundet"> | "ok" {
+  if (f.status === "ikke_kontakt") return "afvist";
+  if (f.status === "kunde" || f.status === "saelger_arbejder") return "kunde";
+  if ((f.liste_ids ?? []).includes(listId)) return "paa_liste";
+  if ((f.liste_ids ?? []).length) return "anden_liste";
+  return "ok";
+}
+
+/** Admin: tilføj allerede importerede virksomheder (fra CVR-søgningen) til listen med samme regler. */
+export const adminTilfoejFirmaer = createServerFn({ method: "POST" })
+  .middleware([kraevIntern])
+  .inputValidator((i: unknown) => z.object({ list_id: z.string().uuid(), company_ids: z.array(z.string().uuid()).min(1).max(25000) }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: erAdmin } = await context.supabase.rpc("is_admin", { _user_id: context.userId });
+    if (!erAdmin) throw new Error("Kun administratorer");
+    const sb = await admin();
+    const ids = Array.from(new Set(data.company_ids));
+    const fst = await firmaStatus(sb, ids);
+    const saelger = await listeSaelger(sb, data.list_id);
+    const ud = { tilfoejet: 0, kunde: 0, paa_liste: 0, anden_liste: 0, afvist: 0 };
+    const ok: string[] = [];
+    for (const id of ids) {
+      const f = fst.get(id);
+      const r = f ? afgoer(f, data.list_id) : "ok";
+      if (r === "ok") ok.push(id); else ud[r]++;
+    }
+    // Nye emner uden sælger får listens sælger, som ved CVR-importen
+    for (let i = 0; i < ok.length && saelger; i += 200)
+      await sb.from("companies").update({ assigned_to: saelger }).in("id", ok.slice(i, i + 200)).eq("customer_type", "nyt_emne").is("assigned_to", null);
+    for (let i = 0; i < ok.length; i += 500) {
+      const { data: ins, error } = await sb.from("contact_list_assignments").upsert(
+        ok.slice(i, i + 500).map(company_id => ({ contact_list_id: data.list_id, company_id, assigned_to: saelger, status: "ny" })),
+        { onConflict: "contact_list_id,company_id", ignoreDuplicates: true },
+      ).select("id");
+      if (error) throw new Error(error.message);
+      ud.tilfoejet += ins?.length ?? 0;
+    }
+    ud.paa_liste += ok.length - ud.tilfoejet;
+    return ud;
+  });
+
 /** Admin: indsæt CVR-numre direkte på en liste. Kun nye/ikke-kunder tilføjes. */
 export const adminIndsaetCvr = createServerFn({ method: "POST" })
   .middleware([kraevIntern])
@@ -145,8 +200,8 @@ export const adminIndsaetCvr = createServerFn({ method: "POST" })
     const cvrs = Array.from(new Set(data.cvrs));
     const firmaer = await cvrHentMange(cvrs);
     const fundet = new Map(firmaer.map(c => [c.cvr, c]));
-    const ud = { tilfoejet: 0, kunde: 0, paa_liste: 0, ikke_fundet: 0, afvist: 0 };
-    const detaljer: { cvr: string; navn: string | null; resultat: "tilfoejet" | "kunde" | "paa_liste" | "ikke_fundet" | "afvist" }[] = [];
+    const ud = { tilfoejet: 0, kunde: 0, paa_liste: 0, anden_liste: 0, ikke_fundet: 0, afvist: 0 };
+    const detaljer: { cvr: string; navn: string | null; resultat: Resultat }[] = [];
     const brugbare = firmaer.filter(c => {
       if (c.ad_protection || !erAktivCvr(c.status)) { ud.afvist++; detaljer.push({ cvr: c.cvr, navn: c.name, resultat: "afvist" }); return false; }
       return true;
@@ -160,21 +215,17 @@ export const adminIndsaetCvr = createServerFn({ method: "POST" })
     }
     const sb = await admin();
     const ids = Array.from(new Set(Array.from(match.values()).map(m => m.company_id)));
-    const typer = new Map<string, string>();
-    for (let i = 0; i < ids.length; i += 200) {
-      const { data: cs } = await sb.from("companies").select("id, customer_type").in("id", ids.slice(i, i + 200));
-      for (const c of cs ?? []) typer.set(c.id, c.customer_type);
-    }
+    const fst = await firmaStatus(sb, ids);
     const saelger = await listeSaelger(sb, data.list_id);
     const nye: CvrCompany[] = []; const genbrug: { cvr: string; id: string; navn: string | null }[] = [];
     for (const c of brugbare) {
       const m = match.get(c.cvr);
-      if (m && (m.ikke_kontakt || typer.get(m.company_id) !== "nyt_emne")) {
-        if (m.ikke_kontakt) { ud.afvist++; detaljer.push({ cvr: c.cvr, navn: c.name, resultat: "afvist" }); }
-        else { ud.kunde++; detaljer.push({ cvr: c.cvr, navn: c.name, resultat: "kunde" }); }
-        continue;
+      const f = m ? fst.get(m.company_id) : undefined;
+      if (m && f) {
+        const r = afgoer(f, data.list_id);
+        if (r !== "ok") { ud[r]++; detaljer.push({ cvr: c.cvr, navn: c.name, resultat: r }); continue; }
       }
-      if (m && m.sikker) genbrug.push({ cvr: c.cvr, id: m.company_id, navn: c.name });
+      if (m && m.sikker && f) genbrug.push({ cvr: c.cvr, id: m.company_id, navn: c.name });
       else nye.push(c);
     }
     const idPrCvr = new Map(genbrug.map(g => [g.cvr, g.id]));
@@ -182,7 +233,7 @@ export const adminIndsaetCvr = createServerFn({ method: "POST" })
       const rows = nye.slice(i, i + 200).map(c => ({
         cvr: c.cvr, name: c.name ?? c.cvr, address: c.address, zip: c.zip, city: c.city, municipality: c.municipality,
         phone: c.phone, email: c.email, website: c.website, industry: c.main_branch_text, main_branch_text: c.main_branch_text,
-        employees: intervalTilAntal(c.employees_interval), customer_type: "nyt_emne", sources: ["cvr"],
+        employees: intervalTilAntal(c.employees_interval), customer_type: "nyt_emne", sources: ["cvr"], assigned_to: saelger,
         source_created_by: context.userId, source_updated_at: new Date().toISOString(),
       }));
       const { data: ins, error } = await sb.from("companies").insert(rows).select("id, cvr");
@@ -199,7 +250,7 @@ export const adminIndsaetCvr = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       const tilf = new Set((ins ?? []).map((r: any) => r.company_id));
       for (const k of del) {
-        const r = tilf.has(idPrCvr.get(k.cvr)) ? "tilfoejet" : "paa_liste";
+        const r: Resultat = tilf.has(idPrCvr.get(k.cvr)) ? "tilfoejet" : "paa_liste";
         ud[r]++; detaljer.push({ cvr: k.cvr, navn: k.navn, resultat: r });
       }
     }

@@ -329,11 +329,6 @@ function KontaktlisteDetalje() {
     const first = rows[0].assigned_to ?? null;
     return rows.every((r) => (r.assigned_to ?? null) === first) ? first : undefined;
   }, [rows]);
-  const listeSaelgerId = useMemo(() => {
-    const t = new Map<string, number>();
-    for (const r of rows) if (r.assigned_to) t.set(r.assigned_to, (t.get(r.assigned_to) ?? 0) + 1);
-    return [...t.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  }, [rows]);
   const skjulSaelgerKolonne = ensSaelgerId !== undefined;
   const ensSaelgerNavn = skjulSaelgerKolonne && ensSaelgerId ? rows[0].seller_name : null;
 
@@ -522,7 +517,7 @@ function KontaktlisteDetalje() {
                   Sælger: {ensSaelgerNavn}
                 </span>
               )}
-              {isAdmin && <TilfoejEmner listId={id} saelgerId={listeSaelgerId} onDone={() => void load()} />}
+              {isAdmin && <TilfoejEmner listId={id} onDone={() => void load()} />}
               {isAdmin && (
                 <Button
                   variant="ghost"
