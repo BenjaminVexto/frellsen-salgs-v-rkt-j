@@ -37,6 +37,11 @@ describe("Virksomheders fritekstsøgning", () => {
     for (const word of ["8912", "3040"]) expect(lokationMatcher(location, word)).toBe(true);
     expect(lokationMatcher(location, "dsv 3040")).toBe(true);
   });
+  it("kundenr. 1423001 finder Danish Crown via afdelingens leveringsnummer", () => {
+    const danishCrown = { ...account, name: "Danish Crown A/S", visma_id: "2325200", visma_delivery_id: "2325200" };
+    expect(companyMatcher(danishCrown, [{ ...location, visma_delivery_no: "1423001" }], null, "1423001")).toBe(true);
+    expect(companyMatcher(danishCrown, [], null, "1423001")).toBe(false);
+  });
   it("telefon beholder hele søgningens cifre og kræver mindst fire", () => {
     const phoneAccount = { ...account, phone: "+45 40 86 91 01" };
     expect(companyMatcher(phoneAccount, [], null, "40 86 91 01")).toBe(true);

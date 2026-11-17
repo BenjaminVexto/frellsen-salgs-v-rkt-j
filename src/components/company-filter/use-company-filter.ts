@@ -203,10 +203,12 @@ export function useCompanyFilter({
       const byLocId = new Map<string, LocationLite>();
       for (let i = 0; i < ids.length; i += 200) {
         const slice = ids.slice(i, i + 200);
-        const { data } = await (supabase as any)
+        const data = await hentAlle<any>((fra, til) => (supabase as any)
           .from("locations")
           .select("id, company_id, city, address, zip, visma_delivery_no, saelger_user_id")
-          .in("company_id", slice);
+          .in("company_id", slice)
+          .order("id")
+          .range(fra, til));
         (data ?? []).forEach((l: any) => {
           const arr = m.get(l.company_id) ?? [];
           const lite: LocationLite = {
