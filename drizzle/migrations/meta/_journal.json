@@ -1177,6 +1177,13 @@
       "when": 1794829029970,
       "tag": "0167_kundetjek_saelger_arbejder",
       "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1795093347787,
+      "tag": "0168_penhed_regler_kraev_crm_rolle",
+      "breakpoints": true
     }
   ]
 }
